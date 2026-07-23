@@ -9,11 +9,15 @@ npm run dev       # start dev server at http://localhost:3000
 npm run build     # production build
 npm run generate  # static site generation
 npm run preview   # preview a production build locally
+npm run format       # format all files with Prettier
+npm run format:check # check formatting without writing
 ```
 
 There is no test suite configured in this repository yet.
 
 Linting is provided by `@nuxt/eslint` via `eslint.config.mjs`, which imports the generated config from `.nuxt/eslint.config.mjs` (created by `nuxt prepare`/`postinstall`). Run `npx eslint .` to lint.
+
+Formatting is handled by **Prettier** (`.prettierrc`): no semicolons, single quotes, 2-space indent, `printWidth` 100 — matching the existing Nuxt code style. ESLint handles code quality only; `eslint-config-prettier` is appended in `eslint.config.mjs` to disable ESLint rules that would conflict with Prettier. Prettier formats `.vue`, `.ts`, `.js`, `.scss`, `.json`, and `.md` (SCSS and `<style lang="scss">` blocks natively — no extra plugin). Build/generated output is excluded via `.prettierignore`.
 
 ## Architecture
 
@@ -56,3 +60,14 @@ Rules:
   }
 }
 ```
+
+## After making changes
+
+At the end of any task where code has been changed, run the formatter and then the build to verify everything works:
+
+```bash
+npm run format   # format all changed code with Prettier
+npm run build     # production build — confirm it succeeds
+```
+
+Also, at the end of any task, update this `CLAUDE.md` if necessary — whenever the changes introduce new commands, conventions, architecture, or workflows, keep this file in sync so it stays an accurate guide for future work.

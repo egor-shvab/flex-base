@@ -5,11 +5,5 @@ export default defineNuxtConfig({
 
   css: ['~/assets/scss/main.scss'],
 
-  modules: [
-    '@nuxt/eslint',
-    '@nuxt/fonts',
-    '@nuxt/icon',
-    '@nuxt/image',
-    '@pinia/nuxt'
-  ]
+  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxt/icon', '@nuxt/image', '@pinia/nuxt'],
 })
