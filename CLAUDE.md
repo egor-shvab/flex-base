@@ -4,28 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This project is a full-stack **low-code platform** built with **Nuxt 4, Vue 3, TypeScript, Nitro, Prisma, and PostgreSQL**.
+This project is a full-stack **low-code platform** built with **Nuxt 4, Vue 3, TypeScript, Nitro, Prisma, and PostgreSQL**. Users build simple business applications **without writing code**: instead of a fixed CRM structure, they create their own tables, define custom fields, and manage records through dynamically generated interfaces.
 
-The goal is a flexible system where users build simple business applications **without writing code**. Instead of a fixed CRM structure, users create their own tables, define custom fields, and manage records through dynamically generated interfaces.
-
-The architecture is **metadata-driven**: the application generates forms and tables from stored configuration rather than from hardcoded components. Avoid hardcoded business entities — every table, field, form, and record is driven by metadata stored in the database.
-
-Every resource belongs to a single authenticated user, and users cannot access data created by other users. Authentication and data ownership must be enforced on the server for every request.
+Two rules are non-negotiable: the architecture is **metadata-driven** — forms, tables, and APIs are generated from configuration stored in the database, never from hardcoded business entities — and every resource belongs to a single authenticated user, with **ownership enforced on the server for every request**.
 
 ### Core Principles
 
-- **Metadata-driven architecture** — behavior described by data, not hardcoded.
-- **Dynamic UI generation** — forms and tables built from field/column definitions.
-- **Generic, reusable components** — no business-specific pages or components.
+- **Metadata-driven architecture** — behavior described by data; no hardcoded business entities, pages, or components.
+- **Dynamic UI generation** — forms and tables are generated from field/column definitions, input components are selected automatically by field type, and validation rules are derived from metadata.
+- **Generic, reusable code** — components and APIs work with configurable entities; adding a new table type requires no new frontend or backend code.
 - **Extensible field system** — new field types plug in without rewrites.
-- **API-first design** — generic APIs over configurable entities, not predefined models.
-- **Full TypeScript coverage.**
+- **Server-enforced security** — authentication and per-user data ownership are checked on every request.
+- **Full TypeScript coverage** — with zod schemas shared between client and server.
+- **Keep the MVP simple** — design for extensibility, but do not implement future features prematurely; favor clean architecture and maintainability over short-term optimizations.
 
 ### MVP Scope
 
-The first version focuses only on the core functionality needed to validate the concept. Anything outside this scope is **future functionality** and must not influence the initial architecture.
-
-The MVP supports:
+The first version focuses only on the core functionality needed to validate the concept:
 
 - User registration and authentication.
 - Per-user data isolation.
@@ -38,42 +33,40 @@ The MVP supports:
 - Basic filtering and sorting.
 - Relationships between tables.
 
-### Frontend Philosophy
-
-Frontend components should be generic wherever possible — forms generated from field definitions, tables generated from column definitions, input components selected automatically by field type, and validation rules generated from metadata. Avoid business-specific pages or components.
-
-### Backend Philosophy
-
-The backend exposes generic APIs that work with configurable entities rather than predefined business models. Business logic stays generic and reusable, so adding a new table type never requires backend code changes. Authentication and data ownership are enforced on the server for every request.
-
-### Long-Term Vision
-
-Although the MVP is intentionally small, design for future extensibility. Later versions may add teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, and third-party integrations — but **do not implement these until the MVP is complete**.
-
-### Development Guidelines
-
-- Prefer generic, configurable solutions over business-specific implementations.
-- Build reusable components instead of one-off features.
-- Avoid hardcoded business logic whenever metadata can describe the behavior.
-- Keep the MVP simple; do not implement future features prematurely.
-- Favor clean architecture, maintainability, and extensibility over short-term optimizations.
+Everything else — teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, third-party integrations — is **future functionality**: do not implement it, and do not let it influence the MVP architecture.
 
 ## Commands
 
 ```bash
-npm run dev       # start dev server at http://localhost:3000
-npm run build     # production build
-npm run generate  # static site generation
-npm run preview   # preview a production build locally
+npm run dev          # start dev server at http://localhost:3000
+npm run build        # production build
+npm run generate     # static site generation
+npm run preview      # preview a production build locally
 npm run format       # format all files with Prettier
 npm run format:check # check formatting without writing
+npx eslint .         # lint
+```
+
+Database workflow (applies once `prisma/schema.prisma` exists):
+
+```bash
+npx prisma migrate dev --name <name>  # create & apply a migration
+npx prisma generate                   # regenerate the Prisma client
+npx prisma studio                     # browse data in a GUI
 ```
 
 There is no test suite configured in this repository yet.
 
-Linting is provided by `@nuxt/eslint` via `eslint.config.mjs`, which imports the generated config from `.nuxt/eslint.config.mjs` (created by `nuxt prepare`/`postinstall`). Run `npx eslint .` to lint.
+Tooling: Prettier (`.prettierrc`: no semicolons, single quotes, 2-space indent, `printWidth` 100) formats `.vue`, `.ts`, `.js`, `.scss`, `.json`, and `.md` — including SCSS and `<style lang="scss">` blocks natively; build/generated output is excluded via `.prettierignore`. ESLint handles code quality only: `eslint.config.mjs` imports the config generated into `.nuxt/` by `nuxt prepare`/postinstall, with `eslint-config-prettier` appended to disable rules that would conflict with Prettier.
 
-Formatting is handled by **Prettier** (`.prettierrc`): no semicolons, single quotes, 2-space indent, `printWidth` 100 — matching the existing Nuxt code style. ESLint handles code quality only; `eslint-config-prettier` is appended in `eslint.config.mjs` to disable ESLint rules that would conflict with Prettier. Prettier formats `.vue`, `.ts`, `.js`, `.scss`, `.json`, and `.md` (SCSS and `<style lang="scss">` blocks natively — no extra plugin). Build/generated output is excluded via `.prettierignore`.
+## Environment
+
+Configuration lives in a gitignored `.env` at the repo root (there is no `.env.example` yet):
+
+- `DATABASE_URL` — PostgreSQL connection string used by Prisma.
+- `JWT_SECRET` — secret for signing JWTs (planned convention; auth code is not written yet).
+
+`npm install` runs `nuxt prepare` via postinstall, regenerating the `.nuxt/` configs.
 
 ## Architecture
 
@@ -121,14 +114,20 @@ prisma/
 public/                      # static assets
 ```
 
+### API conventions
+
+- Route files are named by HTTP method suffix under `server/api/`: `index.get.ts`, `index.post.ts`, `[tableId].patch.ts`, `[tableId].delete.ts`, …
+- Handlers stay thin: validate input with the shared zod schema from `shared/validation/` → assert ownership via the `server/utils/` helpers → delegate all business logic to `server/services/`.
+- Throw errors with Nitro's `createError({ statusCode, statusMessage })`; never return password hashes or another user's data.
+- Server middleware authenticates the request and attaches the user to `event.context`.
+
 ### Conventions & notes
 
 - Modules enabled in `nuxt.config.ts`: `@nuxt/eslint`, `@nuxt/fonts`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt`.
 - `compatibilityDate` is pinned to `2025-07-15` in `nuxt.config.ts`.
 - TypeScript config (`tsconfig.json`) references the project-reference configs generated into `.nuxt/` (`tsconfig.app.json`, `tsconfig.server.json`, `tsconfig.shared.json`, `tsconfig.node.json`) — these are regenerated by `nuxt prepare`, do not edit them directly.
-- Follow Nuxt 4 conventions: `app/pages/` for file-based routing, `app/components/` auto-imported, `app/composables/` auto-imported, `app/stores/` for Pinia; `server/api/` for Nitro route handlers; `shared/` auto-scoped to both client and server.
-- **Keep API route handlers thin** — request handlers under `server/api/` should parse input, assert ownership, and delegate to `server/services/`. Generic business logic belongs in services so adding a new table type never requires new backend code (per the metadata-driven philosophy above).
-- **Enforce data ownership on every request** through the helpers in `server/utils/` — every table/field/record query is scoped to the authenticated user.
+- Follow Nuxt 4 conventions: `app/pages/` for file-based routing, `app/components/` and `app/composables/` auto-imported, `app/stores/` for Pinia; `server/api/` for Nitro route handlers; `shared/` auto-scoped to both client and server.
+- **Enforce data ownership through the `server/utils/` helpers** — every table/field/record query (in handlers and services alike) is scoped to the authenticated user.
 
 ## Styling
 
@@ -168,8 +167,8 @@ Rules:
 At the end of any task where code has been changed, run the formatter and then the build to verify everything works:
 
 ```bash
-npm run format   # format all changed code with Prettier
-npm run build     # production build — confirm it succeeds
+npm run format  # format all changed code with Prettier
+npm run build   # production build — confirm it succeeds
 ```
 
 Also, at the end of any task, update this `CLAUDE.md` if necessary — whenever the changes introduce new commands, conventions, architecture, or workflows, keep this file in sync so it stays an accurate guide for future work.
