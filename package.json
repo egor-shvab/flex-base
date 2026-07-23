@@ -17,15 +17,22 @@
     "@nuxt/icon": "^2.3.1",
     "@nuxt/image": "^2.0.0",
     "@pinia/nuxt": "^1.0.1",
+    "@prisma/client": "^7.9.0",
+    "bcrypt": "^6.0.0",
     "eslint": "^10.7.0",
+    "jsonwebtoken": "^9.0.3",
     "nuxt": "^4.5.0",
     "pinia": "^4.0.2",
     "vue": "^3.5.40",
-    "vue-router": "^5.2.0"
+    "vue-router": "^5.2.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.6",
+    "prisma": "^7.9.0",
     "sass-embedded": "^1.100.0"
   }
 }

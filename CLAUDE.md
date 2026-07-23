@@ -2,6 +2,62 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
+This project is a full-stack **low-code platform** built with **Nuxt 4, Vue 3, TypeScript, Nitro, Prisma, and PostgreSQL**.
+
+The goal is a flexible system where users build simple business applications **without writing code**. Instead of a fixed CRM structure, users create their own tables, define custom fields, and manage records through dynamically generated interfaces.
+
+The architecture is **metadata-driven**: the application generates forms and tables from stored configuration rather than from hardcoded components. Avoid hardcoded business entities — every table, field, form, and record is driven by metadata stored in the database.
+
+Every resource belongs to a single authenticated user, and users cannot access data created by other users. Authentication and data ownership must be enforced on the server for every request.
+
+### Core Principles
+
+- **Metadata-driven architecture** — behavior described by data, not hardcoded.
+- **Dynamic UI generation** — forms and tables built from field/column definitions.
+- **Generic, reusable components** — no business-specific pages or components.
+- **Extensible field system** — new field types plug in without rewrites.
+- **API-first design** — generic APIs over configurable entities, not predefined models.
+- **Full TypeScript coverage.**
+
+### MVP Scope
+
+The first version focuses only on the core functionality needed to validate the concept. Anything outside this scope is **future functionality** and must not influence the initial architecture.
+
+The MVP supports:
+
+- User registration and authentication.
+- Per-user data isolation.
+- Creating custom tables.
+- Creating custom fields for each table.
+- Creating, editing, and deleting records (full CRUD).
+- Automatically generated forms based on field definitions.
+- Automatically generated tables based on field definitions.
+- Basic field validation.
+- Basic filtering and sorting.
+- Relationships between tables.
+
+### Frontend Philosophy
+
+Frontend components should be generic wherever possible — forms generated from field definitions, tables generated from column definitions, input components selected automatically by field type, and validation rules generated from metadata. Avoid business-specific pages or components.
+
+### Backend Philosophy
+
+The backend exposes generic APIs that work with configurable entities rather than predefined business models. Business logic stays generic and reusable, so adding a new table type never requires backend code changes. Authentication and data ownership are enforced on the server for every request.
+
+### Long-Term Vision
+
+Although the MVP is intentionally small, design for future extensibility. Later versions may add teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, and third-party integrations — but **do not implement these until the MVP is complete**.
+
+### Development Guidelines
+
+- Prefer generic, configurable solutions over business-specific implementations.
+- Build reusable components instead of one-off features.
+- Avoid hardcoded business logic whenever metadata can describe the behavior.
+- Keep the MVP simple; do not implement future features prematurely.
+- Favor clean architecture, maintainability, and extensibility over short-term optimizations.
+
 ## Commands
 
 ```bash
@@ -21,12 +77,58 @@ Formatting is handled by **Prettier** (`.prettierrc`): no semicolons, single quo
 
 ## Architecture
 
-This is a Nuxt 4 application using the `app/` source directory convention (Nuxt 4 default), currently at the minimal-starter stage — only `app/app.vue` exists, with no pages, components, or stores yet.
+This is a full-stack Nuxt 4 application using the `app/` source directory convention (Nuxt 4 default), with the Nitro server layer under `server/`, shared client/server code under `shared/`, and the database layer under `prisma/`. The folder skeleton is scaffolded (empty directories carry `.gitkeep` stubs); most feature files are not written yet.
 
-- Modules enabled in `nuxt.config.ts`: `@nuxt/eslint`, `@nuxt/fonts`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt` — Pinia is available for state management once stores are added.
+### Stack
+
+- **Frontend:** Nuxt 4, Vue 3, TypeScript, Pinia (state), SCSS (`sass-embedded`).
+- **Backend:** Nitro (Nuxt's server engine) via `server/api` routes.
+- **Database:** PostgreSQL through **Prisma** (`@prisma/client` runtime, `prisma` CLI). Schema will live in `prisma/schema.prisma` (not created yet).
+- **Auth:** manual — **bcrypt** for password hashing, **jsonwebtoken** (JWT) for tokens. No auth library.
+- **Validation:** **zod**, used for shared client + server validation schemas.
+
+### Directory structure
+
+```
+app/                         # Nuxt 4 frontend (client)
+  assets/scss/               # global SCSS (main.scss + partials)
+  components/
+    common/                  # generic UI atoms (buttons, modals, …)
+    fields/                  # ONE component per field type + a type→component registry
+    form/                    # DynamicForm — renders a form from field definitions
+    table/                   # DynamicTable + toolbar — renders a table from column definitions
+  composables/               # auto-imported composables (useApi, useTables, useRecords, …)
+  layouts/                   # default + auth layouts
+  middleware/                # route guards (auth)
+  pages/                     # file-based routing
+    auth/                    # login / register
+    tables/[tableId]/records/  # dynamic table & record views
+  stores/                    # Pinia stores (auth, tables, records)
+server/                      # Nitro backend
+  api/                       # HTTP route handlers (thin: parse → check ownership → call service)
+    auth/                    # register / login / logout
+    tables/[tableId]/fields/    # field-definition CRUD
+    tables/[tableId]/records/   # generic record CRUD (filter/sort)
+  middleware/                # server middleware (attach authenticated user to event.context)
+  services/                  # generic, framework-agnostic business logic (record/query/validation)
+  utils/                     # prisma singleton, auth helpers, ownership assertions
+  plugins/                   # Nitro plugins
+shared/                      # types/constants/schemas used by BOTH client & server
+  types/                     # field / table / record TypeScript types
+  validation/                # shared zod schemas
+prisma/
+  migrations/                # Prisma migration history
+public/                      # static assets
+```
+
+### Conventions & notes
+
+- Modules enabled in `nuxt.config.ts`: `@nuxt/eslint`, `@nuxt/fonts`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt`.
 - `compatibilityDate` is pinned to `2025-07-15` in `nuxt.config.ts`.
 - TypeScript config (`tsconfig.json`) references the project-reference configs generated into `.nuxt/` (`tsconfig.app.json`, `tsconfig.server.json`, `tsconfig.shared.json`, `tsconfig.node.json`) — these are regenerated by `nuxt prepare`, do not edit them directly.
-- As the app grows, follow Nuxt 4 conventions for the `app/` directory: `app/pages/` for file-based routing, `app/components/` for auto-imported components, `app/composables/` for auto-imported composables, `app/stores/` for Pinia stores — none of these directories exist yet.
+- Follow Nuxt 4 conventions: `app/pages/` for file-based routing, `app/components/` auto-imported, `app/composables/` auto-imported, `app/stores/` for Pinia; `server/api/` for Nitro route handlers; `shared/` auto-scoped to both client and server.
+- **Keep API route handlers thin** — request handlers under `server/api/` should parse input, assert ownership, and delegate to `server/services/`. Generic business logic belongs in services so adding a new table type never requires new backend code (per the metadata-driven philosophy above).
+- **Enforce data ownership on every request** through the helpers in `server/utils/` — every table/field/record query is scoped to the authenticated user.
 
 ## Styling
 
