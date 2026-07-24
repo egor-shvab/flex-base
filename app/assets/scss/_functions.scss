@@ -1,0 +1,7 @@
+@use 'sass:math';
+
+/// Converts a pixel value to rem against the 16px browser default,
+/// so sizes scale with the user's font-size settings. Usage: rem(24) → 1.5rem
+@function rem($px) {
+  @return math.div($px, 16) * 1rem;
+}

@@ -5,5 +5,21 @@ export default defineNuxtConfig({
 
   css: ['~/assets/scss/main.scss'],
 
+  components: [{ path: '~/components', pathPrefix: false }],
+
+  vite: {
+    css: {
+      preprocessorOptions: {
+        scss: {
+          additionalData: '@use "~/assets/scss/functions" as *;',
+        },
+      },
+    },
+  },
+
+  runtimeConfig: {
+    jwtSecret: process.env.JWT_SECRET || '',
+  },
+
   modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxt/icon', '@nuxt/image', '@pinia/nuxt'],
 })

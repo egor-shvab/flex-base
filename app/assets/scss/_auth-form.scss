@@ -1,0 +1,55 @@
+@use 'functions' as *;
+
+// Form-level styles for the login/register pages (field styles live in BaseInput.vue)
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: rem(16);
+
+  &__title {
+    margin: 0;
+    font-size: rem(24);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  &__server-error {
+    margin: 0;
+    padding: rem(10) rem(12);
+    border-radius: rem(6);
+    background: rgb(220 38 38 / 8%);
+    font-size: rem(14);
+    color: var(--color-danger);
+  }
+
+  &__submit {
+    padding: rem(10);
+    border: none;
+    border-radius: rem(6);
+    background: var(--color-primary);
+    font-size: rem(15);
+    font-weight: 500;
+    color: #fff;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-primary-hover);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &__footer {
+    margin: 0;
+    font-size: rem(14);
+    text-align: center;
+    color: var(--color-text-muted);
+  }
+
+  &__link {
+    color: var(--color-primary);
+  }
+}

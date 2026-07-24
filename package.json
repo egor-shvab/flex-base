@@ -7,7 +7,7 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
+    "postinstall": "prisma generate && nuxt prepare",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -17,6 +17,7 @@
     "@nuxt/icon": "^2.3.1",
     "@nuxt/image": "^2.0.0",
     "@pinia/nuxt": "^1.0.1",
+    "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.9.0",
     "bcrypt": "^6.0.0",
     "eslint": "^10.7.0",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "dotenv": "^17.4.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.6",
     "prisma": "^7.9.0",
