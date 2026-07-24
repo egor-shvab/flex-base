@@ -9,10 +9,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const isAuthRoute = to.path.startsWith('/auth')
 
   if (!auth.isAuthenticated && !isAuthRoute) {
-    return navigateTo('/auth/login')
+    return navigateTo({
+      path: '/auth/login',
+      query: to.fullPath === '/' ? {} : { redirect: to.fullPath },
+    })
   }
 
   if (auth.isAuthenticated && isAuthRoute) {
-    return navigateTo('/')
+    return navigateTo(resolveSafeRedirect(to.query.redirect))
   }
 })

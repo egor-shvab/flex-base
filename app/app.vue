@@ -6,3 +6,9 @@
     </NuxtLayout>
   </div>
 </template>
+
+<script setup lang="ts">
+useHead({
+  titleTemplate: (pageTitle) => (pageTitle ? `${pageTitle} — FlexBase` : 'FlexBase'),
+})
+</script>

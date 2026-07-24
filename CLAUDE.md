@@ -284,7 +284,9 @@ npx prisma studio                     # browse data in a GUI
   - `app/stores/auth.ts` — Pinia auth store (user, initialized, fetchUser/register/login/logout)
   - `app/middleware/auth.global.ts` — global route guard: session restore + redirects (both directions)
   - `app/layouts/default.vue` (header: brand, user email, logout) + `app/layouts/auth.vue` (centered card)
-  - `app/components/common/BaseInput.vue` — labeled input atom (v-model with `.trim` support, error display); component auto-import uses `pathPrefix: false` in `nuxt.config.ts`, so `common/BaseInput.vue` registers as `<BaseInput>`
+  - `app/components/common/BaseInput.vue` — labeled input atom (v-model with `.trim` support, placeholder, autofocus, error display with `aria-invalid`/`aria-describedby`); `app/components/common/BaseButton.vue` — button atom (type/disabled props, slot content). Component auto-import uses `pathPrefix: false` in `nuxt.config.ts`, so `common/BaseInput.vue` registers as `<BaseInput>`
+  - `app/utils/safe-redirect.ts` — `resolveSafeRedirect` restricts `?redirect` to internal paths (used by the auth guard and auth pages to return users to their intended destination after login)
+  - Page titles via `useSeoMeta` + titleTemplate in `app/app.vue` ("… — FlexBase"); `lang="en"` set in `nuxt.config.ts` `app.head`; auth-page field errors clear live as the user edits a field
   - `app/pages/auth/login.vue` + `app/pages/auth/register.vue` — validate with the shared zod schemas, fields rendered via `BaseInput`
   - `app/pages/index.vue` — stub dashboard ("your tables will appear here")
   - `app/assets/scss/` — `main.scss` entry `@use`s `_variables.scss` (CSS custom props), `_reset.scss`, `_auth-form.scss`; `_functions.scss` provides `rem()` (auto-injected into SFC styles via Vite `additionalData`)

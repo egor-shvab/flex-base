@@ -5,7 +5,9 @@
   </section>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+useSeoMeta({ title: 'Your tables' })
+</script>
 
 <style lang="scss" scoped>
 .dashboard {

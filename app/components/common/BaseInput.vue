@@ -8,8 +8,12 @@
       :class="{ 'base-input__input--invalid': error }"
       :type="type"
       :autocomplete="autocomplete"
+      :placeholder="placeholder"
+      :autofocus="autofocus"
+      :aria-invalid="error ? true : undefined"
+      :aria-describedby="error ? `${id}-error` : undefined"
     />
-    <span v-if="error" class="base-input__error">{{ error }}</span>
+    <span v-if="error" :id="`${id}-error`" class="base-input__error">{{ error }}</span>
   </div>
 </template>
 
@@ -20,9 +24,17 @@ withDefaults(
     label: string
     type?: 'text' | 'email' | 'password'
     autocomplete?: string
+    placeholder?: string
     error?: string
+    autofocus?: boolean
   }>(),
-  { type: 'text', autocomplete: undefined, error: undefined },
+  {
+    type: 'text',
+    autocomplete: undefined,
+    placeholder: undefined,
+    error: undefined,
+    autofocus: false,
+  },
 )
 
 const [model, modifiers] = defineModel<string>({
@@ -46,6 +58,11 @@ const [model, modifiers] = defineModel<string>({
     border: 1px solid var(--color-border);
     border-radius: rem(6);
     font-size: rem(15);
+
+    &::placeholder {
+      color: var(--color-text-muted);
+      opacity: 0.6;
+    }
 
     &:focus {
       outline: none;
