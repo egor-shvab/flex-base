@@ -11,22 +11,15 @@
       />
 
       <BaseSelect
-        v-if="mode === 'create'"
         :id="typeId"
         v-model="form.type"
         label="Type"
         :options="typeOptions"
         :error="errors.type"
+        :disabled="mode === 'edit'"
       />
-      <div v-else class="field-form__row">
-        <span class="field-form__label">Type</span>
-        <p class="field-form__readonly">{{ FIELD_TYPE_LABELS[form.type] }}</p>
-      </div>
 
-      <label class="field-form__checkbox">
-        <input v-model="form.required" type="checkbox" />
-        Required
-      </label>
+      <BaseCheckbox v-model="form.required" label="Required" />
 
       <div v-if="form.type === 'SELECT'" class="field-form__choices">
         <span class="field-form__label">Choices</span>
@@ -100,29 +93,9 @@ const { form, errors, serverError, pending, submit } = useForm({
   flex-direction: column;
   gap: rem(16);
 
-  &__row {
-    display: flex;
-    flex-direction: column;
-    gap: rem(4);
-  }
-
   &__label {
     font-size: rem(14);
     color: var(--color-text-muted);
-  }
-
-  &__readonly {
-    margin: 0;
-    font-size: rem(15);
-    font-weight: 500;
-  }
-
-  &__checkbox {
-    display: flex;
-    align-items: center;
-    gap: rem(8);
-    font-size: rem(15);
-    cursor: pointer;
   }
 
   &__choices {

@@ -6,6 +6,7 @@
       v-model="model"
       class="base-select__control"
       :class="{ 'base-select__control--invalid': error }"
+      :disabled="disabled"
       :aria-invalid="error ? true : undefined"
       :aria-describedby="error ? `${id}-error` : undefined"
     >
@@ -18,12 +19,19 @@
 </template>
 
 <script setup lang="ts" generic="TValue extends string">
-defineProps<{
-  id: string
-  label: string
-  options: { value: TValue; label: string }[]
-  error?: string
-}>()
+withDefaults(
+  defineProps<{
+    id: string
+    label: string
+    options: { value: TValue; label: string }[]
+    error?: string
+    disabled?: boolean
+  }>(),
+  {
+    error: undefined,
+    disabled: false,
+  },
+)
 
 const model = defineModel<TValue>({ required: true })
 </script>
@@ -53,6 +61,12 @@ const model = defineModel<TValue>({ required: true })
 
     &--invalid {
       border-color: var(--color-danger);
+    }
+
+    &:disabled {
+      background: var(--color-bg);
+      color: var(--color-text-muted);
+      cursor: not-allowed;
     }
   }
 
