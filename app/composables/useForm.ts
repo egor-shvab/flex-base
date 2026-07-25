@@ -1,6 +1,6 @@
 import type { ZodType } from 'zod'
 
-interface IUseFormOptions<TValues extends Record<string, string>, TOutput> {
+interface IUseFormOptions<TValues extends Record<string, unknown>, TOutput> {
   schema: ZodType<TOutput>
   initial: TValues
   onSubmit: (values: TOutput) => Promise<void> | void
@@ -11,11 +11,13 @@ interface IUseFormOptions<TValues extends Record<string, string>, TOutput> {
  * as the user edits, a form-level server error, a pending flag, submit, and reset.
  * Removes the hand-rolled reactive + watch + safeParse boilerplate from every form.
  */
-export function useForm<TValues extends Record<string, string>, TOutput>(
+export function useForm<TValues extends Record<string, unknown>, TOutput>(
   options: IUseFormOptions<TValues, TOutput>,
 ) {
-  const form = reactive({ ...options.initial })
-  const errors = reactive<Partial<Record<keyof TValues, string>>>({})
+  // Cast the reactive proxies to plain types so they can be indexed by `keyof TValues`
+  // (Vue's Reactive<T> wrapper cannot be generically indexed). Reactivity is runtime.
+  const form = reactive({ ...options.initial }) as unknown as TValues
+  const errors = reactive({}) as Partial<Record<keyof TValues, string>>
   const serverError = ref('')
   const pending = ref(false)
 

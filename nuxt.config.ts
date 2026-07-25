@@ -27,5 +27,10 @@ export default defineNuxtConfig({
     jwtSecret: process.env.JWT_SECRET || '',
   },
 
+  // Run vue-tsc during `nuxt build` so a type error fails the build ('build' = build only, not dev)
+  typescript: {
+    typeCheck: 'build',
+  },
+
   modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxt/icon', '@nuxt/image', '@pinia/nuxt'],
 })
