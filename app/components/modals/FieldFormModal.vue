@@ -24,19 +24,23 @@
       <div v-if="form.type === 'SELECT'" class="field-form__choices">
         <span class="field-form__label">Choices</span>
         <div v-for="(_, index) in form.choices" :key="index" class="field-form__choice">
-          <input v-model.trim="form.choices[index]" class="field-form__choice-input" type="text" />
-          <button
-            type="button"
-            class="field-form__choice-remove"
-            aria-label="Remove choice"
+          <BaseInput :id="`${choicesId}-${index}`" v-model.trim="form.choices[index]" />
+          <BaseButton
+            variant="icon"
+            icon="mdi:trash-can-outline"
+            label="Remove choice"
+            hover-color="var(--color-danger)"
             @click="form.choices.splice(index, 1)"
-          >
-            ×
-          </button>
+          />
         </div>
-        <button type="button" class="field-form__add-choice" @click="form.choices.push('')">
-          + Add choice
-        </button>
+        <BaseButton
+          variant="ghost"
+          icon="mdi:plus"
+          class="field-form__add-choice"
+          @click="form.choices.push('')"
+        >
+          Add choice
+        </BaseButton>
         <span v-if="errors.choices" class="field-form__error">{{ errors.choices }}</span>
       </div>
 
@@ -66,6 +70,7 @@ const emit = defineEmits<{ saved: []; close: [] }>()
 
 const nameId = useId()
 const typeId = useId()
+const choicesId = useId()
 
 const typeOptions: { value: TFieldType; label: string }[] = CREATABLE_FIELD_TYPES.map((type) => ({
   value: type,
@@ -107,45 +112,14 @@ const { form, errors, serverError, pending, submit } = useForm({
   &__choice {
     display: flex;
     gap: rem(8);
-  }
 
-  &__choice-input {
-    flex: 1;
-    padding: rem(8) rem(12);
-    border: 1px solid var(--color-border);
-    border-radius: rem(6);
-    font-size: rem(15);
-
-    &:focus {
-      outline: none;
-      border-color: var(--color-primary);
-    }
-  }
-
-  &__choice-remove {
-    padding: 0 rem(10);
-    border: 1px solid var(--color-border);
-    border-radius: rem(6);
-    background: none;
-    font-size: rem(18);
-    line-height: 1;
-    color: var(--color-text-muted);
-    cursor: pointer;
-
-    &:hover {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
+    :deep(.base-input) {
+      flex: 1;
     }
   }
 
   &__add-choice {
     align-self: flex-start;
-    padding: 0;
-    border: none;
-    background: none;
-    font-size: rem(14);
-    color: var(--color-primary);
-    cursor: pointer;
   }
 
   &__error {

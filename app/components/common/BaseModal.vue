@@ -4,9 +4,7 @@
       <div class="base-modal__dialog" role="dialog" aria-modal="true" :aria-label="title">
         <header class="base-modal__header">
           <h2 class="base-modal__title">{{ title }}</h2>
-          <button type="button" class="base-modal__close" aria-label="Close" @click="emit('close')">
-            ×
-          </button>
+          <BaseButton variant="icon" icon="mdi:close" label="Close" @click="emit('close')" />
         </header>
         <div class="base-modal__body">
           <slot />
@@ -60,20 +58,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     margin: 0;
     font-size: rem(18);
     font-weight: 600;
-  }
-
-  &__close {
-    padding: 0 rem(6);
-    border: none;
-    background: none;
-    font-size: rem(22);
-    line-height: 1;
-    color: var(--color-text-muted);
-    cursor: pointer;
-
-    &:hover {
-      color: var(--color-text);
-    }
   }
 
   &__body {

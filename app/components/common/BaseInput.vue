@@ -1,6 +1,6 @@
 <template>
   <div class="base-input">
-    <label class="base-input__label" :for="id">{{ label }}</label>
+    <label v-if="label" class="base-input__label" :for="id">{{ label }}</label>
     <input
       :id="id"
       v-model="model"
@@ -21,7 +21,7 @@
 withDefaults(
   defineProps<{
     id: string
-    label: string
+    label?: string
     type?: 'text' | 'email' | 'password'
     autocomplete?: string
     placeholder?: string
@@ -29,6 +29,7 @@ withDefaults(
     autofocus?: boolean
   }>(),
   {
+    label: undefined,
     type: 'text',
     autocomplete: undefined,
     placeholder: undefined,

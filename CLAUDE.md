@@ -224,7 +224,7 @@ Rules:
   - `_functions.scss` — the `rem()` helper (NOT `@use`d by `main.scss` — it reaches SFC styles via Vite `additionalData`; standalone partials `@use` it themselves)
   - `_auth-form.scss` — shared `.auth-form` BEM block used by the login/register pages
   - `main.scss` — entry point that `@use`s `variables` / `reset` / `auth-form` (imported in `nuxt.config.ts` via `css: []`)
-- **Icons:** Use the `@nuxt/icon` module. Prefer SVG sprites over icon fonts.
+- **Icons:** Use the `@nuxt/icon` module (`<Icon name="collection:icon" />`, e.g. `mdi:close`) for all iconography — **never text glyphs/symbols** (`×`, `+`, `✓`, `→`, `…`) as icons; a text character is not an icon. For icon buttons use `BaseButton`'s `icon` prop rather than hand-rolling. Prefer SVG sprites over icon fonts.
 
 ---
 
@@ -275,41 +275,65 @@ npx prisma studio                     # browse data in a GUI
 - **Type checking:** `nuxt.config.ts` sets `typescript.typeCheck: 'build'`, so `nuxt build` runs **`vue-tsc`** (deps: `vue-tsc`, `typescript`) and fails on any type error — `.vue` templates included. Dev (`nuxt dev`) does **not** type-check (kept fast); rely on `npm run build` as the type gate. `nuxt build` without this option only strips types (esbuild), so it would not catch type errors.
 - **Current State:**
   - Nuxt 4.5.0 + Vue 3.5.40 + TypeScript + Pinia + SCSS (`sass-embedded`); ESLint (`@nuxt/eslint` flat config) + Prettier configured; build-time type checking via `vue-tsc` (`typescript.typeCheck: 'build'`)
-  - Prisma schema with 4 models (User, Table, Field, Record) — `init` migration applied; client generated into `server/generated/prisma` (gitignored)
-  - `docker-compose.yml` — PostgreSQL 17 Alpine, container `flexbase-postgres`, persistent volume + healthcheck
-  - `.env` (gitignored) + committed `.env.example` — `DATABASE_URL`, `JWT_SECRET`
-  - `shared/types/auth.ts` — `IAuthUser` interface
-  - `shared/validation/auth.ts` — zod `credentialsSchema` / `loginSchema` / `registerSchema`
-  - `server/utils/prisma.ts` — PrismaClient singleton with `PrismaPg` adapter (globalThis-cached in dev)
-  - `server/utils/auth.ts` — bcrypt hash/verify, JWT sign/verify, `auth_token` cookie helpers, `requireUser`
-  - `server/middleware/auth.ts` — resolves the auth cookie to `event.context.user` on every request (never rejects)
-  - `server/api/auth/` — 4 endpoints: `register.post`, `login.post`, `logout.post`, `me.get`
-  - `app/composables/useApi.ts` — `useRequestFetch` wrapper + `getApiErrorMessage`
-  - `app/composables/useForm.ts` — reusable form state (fields keyed `Record<string, unknown>`, per-field errors, server error, pending, submit, reset); used by the auth pages, `TableFormModal`, `FieldFormModal`
-  - `app/stores/auth.ts` — Pinia auth store (user, initialized, fetchUser/register/login/logout)
-  - `app/middleware/auth.global.ts` — global route guard: session restore + redirects (both directions)
-  - `app/layouts/default.vue` (header: brand, user email, logout) + `app/layouts/auth.vue` (centered card)
-  - `app/components/common/BaseInput.vue` — labeled input atom (v-model with `.trim` support, placeholder, autofocus, error display with `aria-invalid`/`aria-describedby`); `app/components/common/BaseButton.vue` — button atom (type/disabled props, slot content). `app/components/common/BaseSelect.vue` — generic labeled select atom (`generic="TValue extends string"`, typed `options`, error display), used by `FieldFormModal`. `app/components/common/BaseCheckbox.vue` — labeled checkbox atom (`defineModel<boolean>`, wrapping `<label>` + `label` prop), used by `FieldFormModal`. Component auto-import uses `pathPrefix: false` in `nuxt.config.ts`, so `common/BaseInput.vue` registers as `<BaseInput>`
-  - `app/utils/safe-redirect.ts` — `resolveSafeRedirect` restricts `?redirect` to internal paths (used by the auth guard and auth pages to return users to their intended destination after login)
-  - Page titles via `useSeoMeta` + titleTemplate in `app/app.vue` ("… — FlexBase"); `lang="en"` set in `nuxt.config.ts` `app.head`; auth-page field errors clear live as the user edits a field
-  - `app/pages/auth/login.vue` + `app/pages/auth/register.vue` — validate with the shared zod schemas, fields rendered via `BaseInput`
-  - `shared/types/table.ts` — `ITable` / `ITableListItem` (with `_count`); `shared/validation/table.ts` — zod `tableSchema` (name, 1–100 chars)
-  - `server/utils/ownership.ts` — `requireOwnedTable(userId, tableId)`: single scoped query, 404 when missing/foreign
-  - `server/services/tables.ts` — list/create/rename/delete scoped by `userId`; maps Prisma `P2002` → 409, `P2025` → 404
-  - `server/api/tables/` — `index.get`, `index.post`, `[tableId].get`, `[tableId].patch`, `[tableId].delete`
-  - `app/stores/tables.ts` — Pinia store (`shallowRef` table list, fetch/create/rename/delete)
-  - `app/components/common/BaseModal.vue` — dialog atom (teleport, backdrop/Esc close, `role="dialog"`); `BaseButton` has a `danger` variant
-  - `app/components/modals/` — `ConfirmModal.vue` (universal confirmation dialog: message/slot, danger + pending props) and `TableFormModal.vue` (self-contained create/rename form built on `useForm`; takes an async `submitHandler` prop, emits `saved`)
-  - `app/pages/index.vue` — tables dashboard: card grid with field/record counts, create/rename via `LazyTableFormModal`, delete via `LazyConfirmModal`, empty state
-  - `shared/types/field.ts` — `TFieldType`, `FIELD_TYPES` / `CREATABLE_FIELD_TYPES` / `FIELD_TYPE_LABELS`, `IField`; `shared/validation/field.ts` — flat `fieldSchema` (name/type/required/choices, per-type `superRefine`; one schema for client + server)
-  - `server/services/fields.ts` — list/create/update/delete scoped by `tableId`; auto-derives immutable `key` (slugify + dedupe), `order`, and DB `options` from `type`+`choices`; rejects type changes (400)
-  - `server/api/tables/[tableId]/fields/` — `index.get`, `index.post`, `[fieldId].patch`, `[fieldId].delete` (each gated by `requireOwnedTable`)
-  - `app/stores/fields.ts` — Pinia store (`shallowRef` field list, fetch/create/update/delete)
-  - `app/components/modals/FieldFormModal.vue` — self-contained typed-field editor (name, type select [immutable on edit], required, SELECT choices editor) built on `useForm`
-  - `app/pages/tables/[tableId]/index.vue` — field manager: typed-field list, add/edit via `LazyFieldFormModal`, delete via `LazyConfirmModal`, empty state
-  - `app/assets/scss/` — `main.scss` entry `@use`s `_variables.scss` (CSS custom props), `_reset.scss`, `_auth-form.scss`; `_functions.scss` provides `rem()` (auto-injected into SFC styles via Vite `additionalData`)
-  - `.claude/launch.json` — "dev" preview server config
-  - `README.md` — still the default Nuxt starter readme (not yet project-specific)
+  - **app/app.vue** — page titles via `useSeoMeta` + `titleTemplate` ("… — FlexBase"); `lang="en"` set in `nuxt.config.ts` `app.head`; auth-page field errors clear live as the user edits a field
+  - **app/assets/scss/** — `main.scss` entry `@use`s `_variables.scss` (CSS custom props), `_reset.scss`, `_auth-form.scss`; `_functions.scss` provides `rem()` (auto-injected into SFC styles via Vite `additionalData`)
+  - **app/components/common/**
+    - `BaseInput.vue` — labeled input atom (v-model with `.trim` support, optional `label` [hidden when omitted], placeholder, autofocus, error display with `aria-invalid`/`aria-describedby`); used by the auth pages and the `FieldFormModal` choices editor
+    - `BaseButton.vue` — button atom (type/disabled props, slot content); `primary` (default) / `danger` / `icon` / `ghost` variants. The `icon` variant is a borderless icon-only button taking `icon` (iconify name) + `label` (aria-label/title) + configurable `color` / `hoverColor` props (CSS colors via `v-bind`) — used for the `BaseModal` close (default muted→text) and the SELECT choice-remove in `FieldFormModal` (`hoverColor` = danger). The `ghost` variant is a transparent text+icon button with a faint indigo hover background — used for the "Add choice" button in `FieldFormModal`. First `@nuxt/icon` `<Icon>` usage in the app.
+    - `BaseSelect.vue` — generic labeled select atom (`generic="TValue extends string"`, typed `options`, `disabled` prop, error display), used by `FieldFormModal`
+    - `BaseCheckbox.vue` — labeled checkbox atom (`defineModel<boolean>`, wrapping `<label>` + `label` prop), used by `FieldFormModal`
+    - `BaseModal.vue` — dialog atom (teleport, backdrop/Esc close, `role="dialog"`)
+    - Component auto-import uses `pathPrefix: false` in `nuxt.config.ts`, so `common/BaseInput.vue` registers as `<BaseInput>`
+  - **app/components/modals/**
+    - `ConfirmModal.vue` — universal confirmation dialog: message/slot, danger + pending props
+    - `TableFormModal.vue` — self-contained create/rename form built on `useForm`; takes an async `submitHandler` prop, emits `saved`
+    - `FieldFormModal.vue` — self-contained typed-field editor (name, type select [immutable on edit], required, SELECT choices editor) built on `useForm`
+  - **app/composables/**
+    - `useApi.ts` — `useRequestFetch` wrapper + `getApiErrorMessage`
+    - `useForm.ts` — reusable form state (fields keyed `Record<string, unknown>`, per-field errors, server error, pending, submit, reset); used by the auth pages, `TableFormModal`, `FieldFormModal`
+  - **app/layouts/**
+    - `default.vue` — header: brand, user email, logout
+    - `auth.vue` — centered card
+  - **app/middleware/**
+    - `auth.global.ts` — global route guard: session restore + redirects (both directions)
+  - **app/pages/**
+    - `auth/login.vue` — validates with the shared zod schema, fields rendered via `BaseInput`
+    - `auth/register.vue` — validates with the shared zod schema, fields rendered via `BaseInput`
+    - `index.vue` — tables dashboard: card grid with field/record counts, create/rename via `LazyTableFormModal`, delete via `LazyConfirmModal`, empty state
+    - `tables/[tableId]/index.vue` — field manager: typed-field list, add/edit via `LazyFieldFormModal`, delete via `LazyConfirmModal`, empty state
+  - **app/stores/**
+    - `auth.ts` — Pinia auth store (user, initialized, fetchUser/register/login/logout)
+    - `tables.ts` — Pinia store (`shallowRef` table list, fetch/create/rename/delete)
+    - `fields.ts` — Pinia store (`shallowRef` field list, fetch/create/update/delete)
+  - **app/utils/**
+    - `safe-redirect.ts` — `resolveSafeRedirect` restricts `?redirect` to internal paths (used by the auth guard and auth pages to return users to their intended destination after login)
+  - **server/api/**
+    - `auth/` — 4 endpoints: `register.post`, `login.post`, `logout.post`, `me.get`
+    - `tables/` — `index.get`, `index.post`, `[tableId].get`, `[tableId].patch`, `[tableId].delete`
+    - `tables/[tableId]/fields/` — `index.get`, `index.post`, `[fieldId].patch`, `[fieldId].delete` (each gated by `requireOwnedTable`)
+  - **server/middleware/**
+    - `auth.ts` — resolves the auth cookie to `event.context.user` on every request (never rejects)
+  - **server/services/**
+    - `tables.ts` — list/create/rename/delete scoped by `userId`; maps Prisma `P2002` → 409, `P2025` → 404
+    - `fields.ts` — list/create/update/delete scoped by `tableId`; auto-derives immutable `key` (slugify + dedupe), `order`, and DB `options` from `type`+`choices`; rejects type changes (400)
+  - **server/utils/**
+    - `prisma.ts` — PrismaClient singleton with `PrismaPg` adapter (globalThis-cached in dev)
+    - `auth.ts` — bcrypt hash/verify, JWT sign/verify, `auth_token` cookie helpers, `requireUser`
+    - `ownership.ts` — `requireOwnedTable(userId, tableId)`: single scoped query, 404 when missing/foreign
+  - **shared/types/**
+    - `auth.ts` — `IAuthUser` interface
+    - `table.ts` — `ITable` / `ITableListItem` (with `_count`)
+    - `field.ts` — `TFieldType`, `FIELD_TYPES` / `CREATABLE_FIELD_TYPES` / `FIELD_TYPE_LABELS`, `IField`
+  - **shared/validation/**
+    - `auth.ts` — zod `credentialsSchema` / `loginSchema` / `registerSchema`
+    - `table.ts` — zod `tableSchema` (name, 1–100 chars)
+    - `field.ts` — flat `fieldSchema` (name/type/required/choices, per-type `superRefine`; one schema for client + server)
+  - **prisma/** — schema with 4 models (User, Table, Field, Record) — `init` migration applied; client generated into `server/generated/prisma` (gitignored)
+  - **Root & config**
+    - `docker-compose.yml` — PostgreSQL 17 Alpine, container `flexbase-postgres`, persistent volume + healthcheck
+    - `.env` (gitignored) + committed `.env.example` — `DATABASE_URL`, `JWT_SECRET`
+    - `.claude/launch.json` — "dev" preview server config
+    - `README.md` — still the default Nuxt starter readme (not yet project-specific)
   - Not yet implemented: table/field/record CRUD, `server/services/`, dynamic form/table components, filtering/sorting, relations; no tests
 
 ---
