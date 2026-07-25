@@ -1,5 +1,5 @@
 <template>
-  <form class="auth-form" novalidate @submit.prevent="onSubmit">
+  <form class="auth-form" novalidate @submit.prevent="submit">
     <h1 class="auth-form__title">Create an account</h1>
 
     <p v-if="serverError" role="alert" class="auth-form__server-error">{{ serverError }}</p>
@@ -12,7 +12,7 @@
       autocomplete="email"
       placeholder="you@example.com"
       autofocus
-      :error="fieldErrors.email"
+      :error="errors.email"
     />
 
     <BaseInput
@@ -22,7 +22,7 @@
       type="password"
       autocomplete="new-password"
       placeholder="At least 8 characters"
-      :error="fieldErrors.password"
+      :error="errors.password"
     />
 
     <BaseInput
@@ -32,7 +32,7 @@
       type="password"
       autocomplete="new-password"
       placeholder="Repeat your password"
-      :error="fieldErrors.passwordConfirm"
+      :error="errors.passwordConfirm"
     />
 
     <BaseButton type="submit" :disabled="pending">
@@ -52,47 +52,15 @@ import { registerSchema } from '#shared/validation/auth'
 definePageMeta({ layout: 'auth' })
 useSeoMeta({ title: 'Register', description: 'Create your FlexBase account.' })
 
-type TFieldKey = 'email' | 'password' | 'passwordConfirm'
-
 const auth = useAuthStore()
 const route = useRoute()
 
-const form = reactive({ email: '', password: '', passwordConfirm: '' })
-const fieldErrors = reactive<Partial<Record<TFieldKey, string>>>({})
-const serverError = ref('')
-const pending = ref(false)
-
-const formFieldKeys = Object.keys(form) as TFieldKey[]
-
-// A field's error disappears as soon as the user edits that field
-formFieldKeys.forEach((key) =>
-  watch(
-    () => form[key],
-    () => (fieldErrors[key] = undefined),
-  ),
-)
-
-async function onSubmit() {
-  serverError.value = ''
-  formFieldKeys.forEach((key) => (fieldErrors[key] = undefined))
-
-  const result = registerSchema.safeParse(form)
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      const key = issue.path[0] as TFieldKey
-      fieldErrors[key] ??= issue.message
-    }
-    return
-  }
-
-  pending.value = true
-  try {
-    await auth.register({ email: result.data.email, password: result.data.password })
+const { form, errors, serverError, pending, submit } = useForm({
+  schema: registerSchema,
+  initial: { email: '', password: '', passwordConfirm: '' },
+  onSubmit: async (values) => {
+    await auth.register({ email: values.email, password: values.password })
     await navigateTo(resolveSafeRedirect(route.query.redirect))
-  } catch (error) {
-    serverError.value = getApiErrorMessage(error)
-  } finally {
-    pending.value = false
-  }
-}
+  },
+})
 </script>

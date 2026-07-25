@@ -47,7 +47,7 @@ Everything else — teams, workspaces, permissions, dashboards, activity history
 
 ## 2. Architecture
 
-This is a full-stack Nuxt 4 application using the `app/` source directory convention (Nuxt 4 default), with the Nitro server layer under `server/`, shared client/server code under `shared/`, and the database layer under `prisma/`. Implemented so far: the full Prisma schema and authentication (register/login/logout, session restore, route guards). Not yet implemented: table/field/record CRUD, dynamic form/table components, filtering/sorting, relations — the corresponding directories still carry `.gitkeep` stubs.
+This is a full-stack Nuxt 4 application using the `app/` source directory convention (Nuxt 4 default), with the Nitro server layer under `server/`, shared client/server code under `shared/`, and the database layer under `prisma/`. Implemented so far: the full Prisma schema, authentication (register/login/logout, session restore, route guards), and table metadata CRUD (dashboard + ownership-scoped API). Not yet implemented: field/record CRUD, dynamic form/table components, filtering/sorting, relations — the corresponding directories still carry `.gitkeep` stubs.
 
 ### Stack
 
@@ -64,6 +64,7 @@ app/                         # Nuxt 4 frontend (client)
   assets/scss/               # global SCSS (main.scss + partials)
   components/
     common/                  # generic UI atoms (buttons, modals, …)
+    modals/                  # dialogs built on BaseModal — ConfirmModal (universal), TableFormModal
     fields/                  # ONE component per field type + a type→component registry
     form/                    # DynamicForm — renders a form from field definitions
     table/                   # DynamicTable + toolbar — renders a table from column definitions
@@ -123,6 +124,7 @@ A new field type touches exactly these places — and nothing else:
 - Props and emits are typed via generics — `defineProps<{ … }>()` / `defineEmits<{ … }>()`; no runtime prop declarations.
 - DTO/request types are derived with `z.infer` from the shared zod schemas (see `shared/validation/auth.ts`) — never hand-write a parallel interface that can drift.
 - Data fetching chain: page/component → `useAsyncData`/store action → `useApi()` (`app/composables/useApi.ts`). Never bare `$fetch` — it drops cookies during SSR. Surface request errors with `getApiErrorMessage`.
+- Forms use the `useForm` composable (`app/composables/useForm.ts`) — reactive fields, per-field zod errors that clear on edit, a form-level server error, `pending`, `submit`, `reset` — instead of hand-rolled `reactive` + `watch` + `safeParse` boilerplate.
 
 ### Performance rules
 
@@ -168,6 +170,7 @@ You must strictly adhere to the following software engineering principles:
 
 - **DRY (Don't Repeat Yourself) & KISS (Keep It Simple, Stupid):**
   - Extract reusable business logic into strictly typed Nuxt composables (`composables/`) or utility functions (`utils/`).
+  - When the same logic (a validation block, an error-mapping, a `watch`, a fetch pattern, a Prisma constraint→HTTP mapping) appears in two or more places, immediately extract it into the appropriate shared module before continuing — a composable (`app/composables/`, e.g. `useForm`, `useApi`), a util (`app/utils/` or `server/utils/`, e.g. `resolveSafeRedirect`, `requireOwnedTable`), or a server service (`server/services/`). Never leave duplicated logic in place "for now"; the second occurrence is the trigger to refactor.
   - Do not over-engineer. Write readable, straightforward code over "clever" or overly cryptic micro-optimizations.
 
 - **Readability & Clean Code:**
@@ -281,6 +284,7 @@ npx prisma studio                     # browse data in a GUI
   - `server/middleware/auth.ts` — resolves the auth cookie to `event.context.user` on every request (never rejects)
   - `server/api/auth/` — 4 endpoints: `register.post`, `login.post`, `logout.post`, `me.get`
   - `app/composables/useApi.ts` — `useRequestFetch` wrapper + `getApiErrorMessage`
+  - `app/composables/useForm.ts` — reusable form state (fields, per-field errors, server error, pending, submit, reset); used by the auth pages and `TableFormModal`
   - `app/stores/auth.ts` — Pinia auth store (user, initialized, fetchUser/register/login/logout)
   - `app/middleware/auth.global.ts` — global route guard: session restore + redirects (both directions)
   - `app/layouts/default.vue` (header: brand, user email, logout) + `app/layouts/auth.vue` (centered card)
@@ -288,7 +292,15 @@ npx prisma studio                     # browse data in a GUI
   - `app/utils/safe-redirect.ts` — `resolveSafeRedirect` restricts `?redirect` to internal paths (used by the auth guard and auth pages to return users to their intended destination after login)
   - Page titles via `useSeoMeta` + titleTemplate in `app/app.vue` ("… — FlexBase"); `lang="en"` set in `nuxt.config.ts` `app.head`; auth-page field errors clear live as the user edits a field
   - `app/pages/auth/login.vue` + `app/pages/auth/register.vue` — validate with the shared zod schemas, fields rendered via `BaseInput`
-  - `app/pages/index.vue` — stub dashboard ("your tables will appear here")
+  - `shared/types/table.ts` — `ITable` / `ITableListItem` (with `_count`); `shared/validation/table.ts` — zod `tableSchema` (name, 1–100 chars)
+  - `server/utils/ownership.ts` — `requireOwnedTable(userId, tableId)`: single scoped query, 404 when missing/foreign
+  - `server/services/tables.ts` — list/create/rename/delete scoped by `userId`; maps Prisma `P2002` → 409, `P2025` → 404
+  - `server/api/tables/` — `index.get`, `index.post`, `[tableId].get`, `[tableId].patch`, `[tableId].delete`
+  - `app/stores/tables.ts` — Pinia store (`shallowRef` table list, fetch/create/rename/delete)
+  - `app/components/common/BaseModal.vue` — dialog atom (teleport, backdrop/Esc close, `role="dialog"`); `BaseButton` has a `danger` variant
+  - `app/components/modals/` — `ConfirmModal.vue` (universal confirmation dialog: message/slot, danger + pending props) and `TableFormModal.vue` (self-contained create/rename form built on `useForm`; takes an async `submitHandler` prop, emits `saved`)
+  - `app/pages/index.vue` — tables dashboard: card grid with field/record counts, create/rename via `LazyTableFormModal`, delete via `LazyConfirmModal`, empty state
+  - `app/pages/tables/[tableId]/index.vue` — table detail stub (name + placeholder, 404 via error page)
   - `app/assets/scss/` — `main.scss` entry `@use`s `_variables.scss` (CSS custom props), `_reset.scss`, `_auth-form.scss`; `_functions.scss` provides `rem()` (auto-injected into SFC styles via Vite `additionalData`)
   - `.claude/launch.json` — "dev" preview server config
   - `README.md` — still the default Nuxt starter readme (not yet project-specific)

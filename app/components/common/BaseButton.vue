@@ -1,5 +1,10 @@
 <template>
-  <button class="base-button" :type="type" :disabled="disabled">
+  <button
+    class="base-button"
+    :class="{ 'base-button--danger': variant === 'danger' }"
+    :type="type"
+    :disabled="disabled"
+  >
     <slot />
   </button>
 </template>
@@ -8,9 +13,10 @@
 withDefaults(
   defineProps<{
     type?: 'button' | 'submit'
+    variant?: 'primary' | 'danger'
     disabled?: boolean
   }>(),
-  { type: 'button', disabled: false },
+  { type: 'button', variant: 'primary', disabled: false },
 )
 </script>
 
@@ -32,6 +38,14 @@ withDefaults(
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  &--danger {
+    background: var(--color-danger);
+
+    &:hover {
+      background: var(--color-danger-hover);
+    }
   }
 }
 </style>
