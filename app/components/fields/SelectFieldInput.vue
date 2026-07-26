@@ -1,5 +1,11 @@
 <template>
-  <BaseSelect :id="id" v-model="selected" :label="field.name" :options="options" :error="error" />
+  <BaseSelect
+    :id="id"
+    v-model="selected"
+    :label="label ?? field.name"
+    :options="options"
+    :error="error"
+  />
 </template>
 
 <script setup lang="ts">

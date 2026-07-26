@@ -5,12 +5,13 @@
       :id="id"
       v-model="model"
       class="base-input__input"
-      :class="{ 'base-input__input--invalid': error }"
+      :class="{ 'base-input__input--invalid': error || invalid }"
       :type="type"
       :autocomplete="autocomplete"
       :placeholder="placeholder"
       :autofocus="autofocus"
-      :aria-invalid="error ? true : undefined"
+      :aria-label="ariaLabel"
+      :aria-invalid="error || invalid ? true : undefined"
       :aria-describedby="error ? `${id}-error` : undefined"
     />
     <span v-if="error" :id="`${id}-error`" class="base-input__error">{{ error }}</span>
@@ -27,6 +28,10 @@ withDefaults(
     placeholder?: string
     error?: string
     autofocus?: boolean
+    /** Names the input when its visible label lives on a wrapping group (see BaseNumberRange). */
+    ariaLabel?: string
+    /** Invalid styling without an inline message, for when the group owns the error line. */
+    invalid?: boolean
   }>(),
   {
     label: undefined,
@@ -35,6 +40,8 @@ withDefaults(
     placeholder: undefined,
     error: undefined,
     autofocus: false,
+    ariaLabel: undefined,
+    invalid: false,
   },
 )
 

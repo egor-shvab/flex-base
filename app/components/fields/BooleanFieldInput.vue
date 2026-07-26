@@ -1,5 +1,5 @@
 <template>
-  <BaseCheckbox v-model="checked" :label="field.name" />
+  <BaseCheckbox v-model="checked" :label="label ?? field.name" />
 </template>
 
 <script setup lang="ts">

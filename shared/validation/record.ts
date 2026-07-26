@@ -1,6 +1,18 @@
 import { z } from 'zod'
 import type { IField, TFieldType } from '#shared/types/field'
-import type { TRecordData, TRecordValue } from '#shared/types/record'
+import {
+  DEFAULT_SORT_KEY,
+  FILTER_OPERATORS_BY_TYPE,
+  filterParamName,
+  RESERVED_QUERY_PARAMS,
+} from '#shared/types/filter'
+import type { IRecordFilter, TFilterOperator } from '#shared/types/filter'
+import type {
+  IRecordQuery,
+  IRecordQueryState,
+  TRecordData,
+  TRecordValue,
+} from '#shared/types/record'
 
 const TEXT_MAX_LENGTH = 1000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -13,6 +25,8 @@ interface IValueSchemaSpec {
   base: (field: IField) => z.ZodType<TRecordValue>
   /** What a blank input produces — also the seed value for a new record. */
   blank: TRecordValue
+  /** Decodes a raw query-string value before `base` validates it — a URL carries only strings. */
+  fromQuery: (raw: string) => unknown
 }
 
 /**
@@ -24,29 +38,35 @@ const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaSpec> = {
     base: () =>
       z.string().trim().max(TEXT_MAX_LENGTH, `Must be at most ${TEXT_MAX_LENGTH} characters`),
     blank: null,
+    fromQuery: (raw) => raw,
   },
   NUMBER: {
     base: () => z.number('Enter a number').finite('Enter a number'),
     blank: null,
+    fromQuery: (raw) => Number(raw),
   },
   // `false` is a real value, so a checkbox is never "missing" and `required` is a no-op
   BOOLEAN: {
     base: () => z.boolean(),
     blank: false,
+    fromQuery: (raw) => raw === 'true',
   },
   DATE: {
     base: () => z.string().regex(ISO_DATE, 'Enter a valid date'),
     blank: null,
+    fromQuery: (raw) => raw,
   },
   SELECT: {
     base: (field) =>
       z.enum((field.options?.choices ?? []) as [string, ...string[]], 'Choose a value'),
     blank: null,
+    fromQuery: (raw) => raw,
   },
   // Placeholder until the RELATION milestone — RELATION is not creatable yet
   RELATION: {
     base: () => z.string().min(1),
     blank: null,
+    fromQuery: (raw) => raw,
   },
 }
 
@@ -80,9 +100,137 @@ export function buildRecordSchema(fields: IField[]): z.ZodType<TRecordData> {
   return z.object(Object.fromEntries(fields.map((field) => [field.key, buildValueSchema(field)])))
 }
 
-export const recordQuerySchema = z.object({
+/** Pagination and sorting; the per-field filter params are added by the builder below. */
+const baseQueryParamsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(RECORD_PAGE_SIZE_MAX).default(RECORD_PAGE_SIZE),
+  sort: z.string().optional(),
+  dir: z.enum(['asc', 'desc']).default('asc'),
 })
 
-export type TRecordQuery = z.infer<typeof recordQuerySchema>
+/** A filter value arrives as a query string, so it is decoded before its value schema runs. */
+function buildFilterValueSchema(field: IField): z.ZodType<TRecordValue> {
+  const spec = VALUE_SCHEMA_BY_TYPE[field.type]
+
+  return z.preprocess(
+    (value) => (typeof value === 'string' ? spec.fromQuery(value) : value),
+    spec.base(field),
+  )
+}
+
+/** An empty param (`?company=`) means "not filtered", never a match-everything condition. */
+function filterParamValue(query: Record<string, unknown>, name: string): string | null {
+  const raw = query[name]
+  return typeof raw === 'string' && raw !== '' ? raw : null
+}
+
+/**
+ * Maps a table's fields to the query params they own, skipping any name already claimed —
+ * reserved params first, then fields in order. Field keys created since the param format
+ * landed cannot collide (see `createField`); this keeps older keys deterministic.
+ */
+function claimFilterParams(
+  fields: IField[],
+): { field: IField; op: TFilterOperator; name: string }[] {
+  const claimed = new Set<string>(RESERVED_QUERY_PARAMS)
+  const slots = []
+
+  for (const field of fields) {
+    for (const op of FILTER_OPERATORS_BY_TYPE[field.type]) {
+      const name = filterParamName(field.key, op)
+      if (claimed.has(name)) continue
+      claimed.add(name)
+      slots.push({ field, op, name })
+    }
+  }
+
+  return slots
+}
+
+/**
+ * Decodes the filter params into the conditions they describe, in field order. Shared so
+ * the client's panel and the server's query read a URL identically. Values that do not
+ * decode are dropped — the query schema rejects them as a 400 first.
+ */
+export function parseRecordFilters(
+  fields: IField[],
+  query: Record<string, unknown>,
+): IRecordFilter[] {
+  const filters: IRecordFilter[] = []
+
+  for (const { field, op, name } of claimFilterParams(fields)) {
+    const raw = filterParamValue(query, name)
+    if (raw === null) continue
+
+    const parsed = buildFilterValueSchema(field).safeParse(raw)
+    if (parsed.success) filters.push({ key: field.key, op, value: parsed.data })
+  }
+
+  return filters
+}
+
+/** The inverse, for building a URL: `{ company: 'acme', contract_value_from: '100' }`. */
+export function toFilterParams(filters: IRecordFilter[]): Record<string, string> {
+  return Object.fromEntries(
+    filters.map((filter) => [filterParamName(filter.key, filter.op), String(filter.value)]),
+  )
+}
+
+/**
+ * Serializes the client's query state to flat params — the same shape for the page URL
+ * and the API request, so a shared link and the fetch behind it can never diverge.
+ * Defaults are omitted, keeping an unfiltered view a clean link.
+ */
+export function toRecordQueryParams(state: IRecordQueryState): Record<string, string> {
+  const params: Record<string, string> = { ...toFilterParams(state.filters) }
+
+  if (state.page !== undefined && state.page > 1) params.page = String(state.page)
+  if (state.sort !== undefined) params.sort = state.sort
+  if (state.dir === 'desc') params.dir = state.dir
+
+  return params
+}
+
+/**
+ * Builds the list-query schema from one table's field metadata — the same contract as
+ * `buildRecordSchema`. An unknown sort key or a malformed filter value fails here as a
+ * 400, before any SQL is composed. Params the table does not own are simply stripped:
+ * filter names are plain field names now, so a stray `utm_source` is indistinguishable
+ * from a typo and must not break the page.
+ */
+export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQuery> {
+  const fieldByKey = new Map(fields.map((field) => [field.key, field]))
+  const slots = claimFilterParams(fields)
+
+  // Loose, so the refinement sees the filter params without widening the base ones
+  return baseQueryParamsSchema
+    .loose()
+    .superRefine((params, ctx) => {
+      if (params.sort !== undefined && params.sort !== DEFAULT_SORT_KEY) {
+        if (!fieldByKey.has(params.sort)) {
+          ctx.addIssue({ code: 'custom', path: ['sort'], message: 'Unknown sort field' })
+        }
+      }
+
+      for (const { field, name } of slots) {
+        const raw = params[name]
+        if (raw === undefined) continue
+
+        // A repeated param arrives as an array — one value per filter, so that is malformed
+        if (typeof raw !== 'string') {
+          ctx.addIssue({ code: 'custom', path: [name], message: 'Filter takes a single value' })
+          continue
+        }
+
+        if (raw !== '' && !buildFilterValueSchema(field).safeParse(raw).success) {
+          ctx.addIssue({ code: 'custom', path: [name], message: 'Invalid filter value' })
+        }
+      }
+    })
+    .transform((params) => ({
+      page: params.page,
+      pageSize: params.pageSize,
+      sort: { key: params.sort ?? DEFAULT_SORT_KEY, dir: params.dir },
+      filters: parseRecordFilters(fields, params),
+    }))
+}

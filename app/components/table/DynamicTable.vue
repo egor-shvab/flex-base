@@ -3,7 +3,17 @@
     <table class="dynamic-table__table">
       <thead>
         <tr>
-          <th v-for="field in fields" :key="field.key" scope="col">{{ field.name }}</th>
+          <th v-for="field in fields" :key="field.key" scope="col" :aria-sort="ariaSort(field)">
+            <button type="button" class="dynamic-table__sort" @click="emit('sort', field.key)">
+              {{ field.name }}
+              <Icon
+                :name="sortIcon(field)"
+                class="dynamic-table__sort-icon"
+                :class="{ 'dynamic-table__sort-icon--active': sort?.key === field.key }"
+                aria-hidden="true"
+              />
+            </button>
+          </th>
           <th scope="col" class="dynamic-table__actions-head">Actions</th>
         </tr>
       </thead>
@@ -42,18 +52,34 @@
 
 <script setup lang="ts">
 import type { IField } from '#shared/types/field'
+import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord, TRecordValue } from '#shared/types/record'
 import { FIELD_COMPONENTS } from '~/components/fields/registry'
 
-defineProps<{
+const props = defineProps<{
   fields: IField[]
   records: IRecord[]
+  sort?: IRecordSort | null
 }>()
 
-const emit = defineEmits<{ edit: [record: IRecord]; delete: [record: IRecord] }>()
+const emit = defineEmits<{
+  edit: [record: IRecord]
+  delete: [record: IRecord]
+  sort: [key: string]
+}>()
 
 function isBlank(value: TRecordValue | undefined): boolean {
   return value === null || value === undefined
+}
+
+function ariaSort(field: IField): 'ascending' | 'descending' | 'none' {
+  if (props.sort?.key !== field.key) return 'none'
+  return props.sort.dir === 'asc' ? 'ascending' : 'descending'
+}
+
+function sortIcon(field: IField): string {
+  if (props.sort?.key !== field.key) return 'mdi:unfold-more-horizontal'
+  return props.sort.dir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
 }
 </script>
 
@@ -82,6 +108,36 @@ function isBlank(value: TRecordValue | undefined): boolean {
     font-size: rem(13);
     font-weight: 600;
     color: var(--color-text-muted);
+  }
+
+  &__sort {
+    display: inline-flex;
+    align-items: center;
+    gap: rem(4);
+    padding: 0;
+    border: none;
+    font: inherit;
+    color: inherit;
+    background: none;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+
+    &:hover .dynamic-table__sort-icon {
+      opacity: 1;
+    }
+  }
+
+  &__sort-icon {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    &--active {
+      opacity: 1;
+      color: var(--color-primary);
+    }
   }
 
   tbody tr:last-child {

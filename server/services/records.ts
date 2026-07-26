@@ -1,8 +1,9 @@
 import type { Prisma } from '#server/generated/prisma/client'
+import { buildRecordOrderBy, buildRecordWhere } from '#server/services/record-query'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
-import type { IRecord, IRecordPage, TRecordData } from '#shared/types/record'
-import type { TRecordQuery } from '#shared/validation/record'
+import type { IField } from '#shared/types/field'
+import type { IRecord, IRecordPage, IRecordQuery, TRecordData } from '#shared/types/record'
 
 const recordSelect = {
   id: true,
@@ -30,22 +31,32 @@ function toJsonData(data: TRecordData): Prisma.InputJsonObject {
   return data as Prisma.InputJsonObject
 }
 
-/** Always paginated — a table's record set grows with user data and is never returned whole. */
-export async function listRecords(tableId: string, query: TRecordQuery): Promise<IRecordPage> {
-  const { page, pageSize } = query
+/**
+ * Always paginated — a table's record set grows with user data and is never returned whole.
+ * Raw SQL because Prisma cannot order by a JSON path; the WHERE fragment is shared with the
+ * count so both legs of the transaction see the same rows.
+ */
+export async function listRecords(
+  tableId: string,
+  fields: IField[],
+  query: IRecordQuery,
+): Promise<IRecordPage> {
+  const { page, pageSize, sort, filters } = query
+  const where = buildRecordWhere(tableId, fields, filters)
+  const orderBy = buildRecordOrderBy(fields, sort)
 
-  const [records, total] = await prisma.$transaction([
-    prisma.record.findMany({
-      where: { tableId },
-      orderBy: { createdAt: 'asc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: recordSelect,
-    }),
-    prisma.record.count({ where: { tableId } }),
+  const [rows, counts] = await prisma.$transaction([
+    prisma.$queryRaw<TRecordRow[]>`
+      SELECT id, data, "createdAt", "updatedAt" FROM "Record"
+      ${where}
+      ORDER BY ${orderBy}
+      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+    `,
+    // COUNT(*) is a bigint, which would arrive as a string without the cast
+    prisma.$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int AS count FROM "Record" ${where}`,
   ])
 
-  return { records: records.map(toRecordDto), total, page, pageSize }
+  return { records: rows.map(toRecordDto), total: counts[0]?.count ?? 0, page, pageSize }
 }
 
 export async function createRecord(tableId: string, data: TRecordData): Promise<IRecord> {

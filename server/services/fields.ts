@@ -2,7 +2,8 @@ import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
-import type { IField, IFieldOptions } from '#shared/types/field'
+import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
+import { filterParamNames, RESERVED_QUERY_PARAMS } from '#shared/types/filter'
 import type { TFieldInput } from '#shared/validation/field'
 
 export const fieldSelect = {
@@ -40,10 +41,18 @@ function slugify(name: string): string {
   )
 }
 
-function uniqueKey(base: string, taken: Set<string>): string {
-  if (!taken.has(base)) return base
+/**
+ * A key must be free for every query param it would claim, not just for itself: filters
+ * are named after the field (`price`, `price_from`, `price_to`), so a key may collide
+ * with a reserved param or with another field's range bound.
+ */
+function uniqueKey(base: string, type: TFieldType, taken: Set<string>): string {
+  const isFree = (key: string) =>
+    !taken.has(key) && filterParamNames(key, type).every((name) => !taken.has(name))
+
+  if (isFree(base)) return base
   let suffix = 2
-  while (taken.has(`${base}_${suffix}`)) suffix++
+  while (!isFree(`${base}_${suffix}`)) suffix++
   return `${base}_${suffix}`
 }
 
@@ -65,9 +74,12 @@ export async function listFields(tableId: string): Promise<IField[]> {
 export async function createField(tableId: string, input: TFieldInput): Promise<IField> {
   const existing = await prisma.field.findMany({
     where: { tableId },
-    select: { key: true, order: true },
+    select: { key: true, type: true, order: true },
   })
-  const takenKeys = new Set(existing.map((field) => field.key))
+  const takenKeys = new Set<string>([
+    ...RESERVED_QUERY_PARAMS,
+    ...existing.flatMap((field) => [field.key, ...filterParamNames(field.key, field.type)]),
+  ])
   const maxOrder = existing.reduce((max, field) => Math.max(max, field.order), -1)
 
   try {
@@ -75,7 +87,7 @@ export async function createField(tableId: string, input: TFieldInput): Promise<
       data: {
         tableId,
         name: input.name,
-        key: uniqueKey(slugify(input.name), takenKeys),
+        key: uniqueKey(slugify(input.name), input.type, takenKeys),
         type: input.type,
         required: input.required,
         options: buildOptions(input),
