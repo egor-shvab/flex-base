@@ -1,8 +1,11 @@
-import { Prisma } from '../generated/prisma/client'
-import { prisma } from '../utils/prisma'
+import { createError } from 'h3'
+import { Prisma } from '#server/generated/prisma/client'
+import { prisma } from '#server/utils/prisma'
+import { toHttpError } from '#server/utils/prisma-errors'
+import type { IField, IFieldOptions } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
 
-const fieldSelect = {
+export const fieldSelect = {
   id: true,
   name: true,
   key: true,
@@ -12,20 +15,19 @@ const fieldSelect = {
   order: true,
 } satisfies Prisma.FieldSelect
 
-/** Maps Prisma constraint errors to HTTP errors; rethrows anything else. */
-function toHttpError(error: unknown): Error {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === 'P2002') {
-      return createError({
-        statusCode: 409,
-        statusMessage: 'A field with this name already exists',
-      })
-    }
-    if (error.code === 'P2025') {
-      return createError({ statusCode: 404, statusMessage: 'Field not found' })
-    }
-  }
-  return error instanceof Error ? error : new Error(String(error))
+type TFieldRow = Prisma.FieldGetPayload<{ select: typeof fieldSelect }>
+
+const fieldErrors = {
+  conflict: 'A field with this name already exists',
+  notFound: 'Field not found',
+}
+
+/**
+ * Narrows Prisma's untyped `options` JSON onto the shared `IField` shape — the single
+ * place that cast is allowed, so no call site has to trust the raw row.
+ */
+export function toFieldMetadata(field: TFieldRow): IField {
+  return { ...field, options: (field.options as IFieldOptions | null) ?? null }
 }
 
 /** Machine key from a display name: lowercase, non-alphanumerics → `_`. */
@@ -51,15 +53,16 @@ function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma
   return Prisma.JsonNull
 }
 
-export function listFields(tableId: string) {
-  return prisma.field.findMany({
+export async function listFields(tableId: string): Promise<IField[]> {
+  const fields = await prisma.field.findMany({
     where: { tableId },
     orderBy: { order: 'asc' },
     select: fieldSelect,
   })
+  return fields.map(toFieldMetadata)
 }
 
-export async function createField(tableId: string, input: TFieldInput) {
+export async function createField(tableId: string, input: TFieldInput): Promise<IField> {
   const existing = await prisma.field.findMany({
     where: { tableId },
     select: { key: true, order: true },
@@ -68,7 +71,7 @@ export async function createField(tableId: string, input: TFieldInput) {
   const maxOrder = existing.reduce((max, field) => Math.max(max, field.order), -1)
 
   try {
-    return await prisma.field.create({
+    const field = await prisma.field.create({
       data: {
         tableId,
         name: input.name,
@@ -80,12 +83,17 @@ export async function createField(tableId: string, input: TFieldInput) {
       },
       select: fieldSelect,
     })
+    return toFieldMetadata(field)
   } catch (error) {
-    throw toHttpError(error)
+    throw toHttpError(error, fieldErrors)
   }
 }
 
-export async function updateField(tableId: string, fieldId: string, input: TFieldInput) {
+export async function updateField(
+  tableId: string,
+  fieldId: string,
+  input: TFieldInput,
+): Promise<IField> {
   const field = await prisma.field.findFirst({
     where: { id: fieldId, tableId },
     select: { type: true },
@@ -99,7 +107,7 @@ export async function updateField(tableId: string, fieldId: string, input: TFiel
 
   try {
     // key is immutable — only name/required/options are updated
-    return await prisma.field.update({
+    const updated = await prisma.field.update({
       where: { id: fieldId, tableId },
       data: {
         name: input.name,
@@ -108,8 +116,9 @@ export async function updateField(tableId: string, fieldId: string, input: TFiel
       },
       select: fieldSelect,
     })
+    return toFieldMetadata(updated)
   } catch (error) {
-    throw toHttpError(error)
+    throw toHttpError(error, fieldErrors)
   }
 }
 
@@ -117,6 +126,6 @@ export async function deleteField(tableId: string, fieldId: string) {
   try {
     await prisma.field.delete({ where: { id: fieldId, tableId } })
   } catch (error) {
-    throw toHttpError(error)
+    throw toHttpError(error, fieldErrors)
   }
 }

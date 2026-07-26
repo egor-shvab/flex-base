@@ -1,3 +1,7 @@
+import { defineNuxtRouteMiddleware, navigateTo } from '#imports'
+import { useAuthStore } from '~/stores/auth'
+import { resolveSafeRedirect } from '~/utils/safe-redirect'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
 

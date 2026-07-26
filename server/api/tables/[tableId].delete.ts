@@ -1,4 +1,6 @@
-import { deleteTable } from '../../services/tables'
+import { defineEventHandler, getRouterParam } from 'h3'
+import { requireUser } from '#server/utils/auth'
+import { deleteTable } from '#server/services/tables'
 
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)

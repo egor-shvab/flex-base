@@ -1,4 +1,6 @@
-import { listTables } from '../../services/tables'
+import { defineEventHandler } from 'h3'
+import { requireUser } from '#server/utils/auth'
+import { listTables } from '#server/services/tables'
 
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)

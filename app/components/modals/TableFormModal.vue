@@ -17,6 +17,8 @@
 </template>
 
 <script setup lang="ts">
+import { useId } from 'vue'
+import { useForm } from '~/composables/useForm'
 import { tableSchema } from '#shared/validation/table'
 
 const props = withDefaults(

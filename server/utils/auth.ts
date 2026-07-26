@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
+import { createError, deleteCookie, setCookie } from 'h3'
 import type { H3Event } from 'h3'
 import type { IAuthUser } from '#shared/types/auth'
 

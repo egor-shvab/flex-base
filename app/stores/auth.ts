@@ -1,3 +1,7 @@
+import { computed, ref } from 'vue'
+import { defineStore } from 'pinia'
+import { navigateTo } from '#imports'
+import { useApi } from '~/composables/useApi'
 import type { IAuthUser } from '#shared/types/auth'
 import type { TLoginInput } from '#shared/validation/auth'
 

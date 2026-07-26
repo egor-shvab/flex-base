@@ -54,6 +54,9 @@
 </template>
 
 <script setup lang="ts">
+import { useId } from 'vue'
+import { useForm } from '~/composables/useForm'
+import { CREATABLE_FIELD_TYPES, FIELD_TYPE_LABELS } from '#shared/types/field'
 import { fieldSchema, type TFieldInput } from '#shared/validation/field'
 import type { IField, TFieldType } from '#shared/types/field'
 

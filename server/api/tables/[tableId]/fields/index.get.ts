@@ -1,4 +1,7 @@
-import { listFields } from '../../../../services/fields'
+import { defineEventHandler, getRouterParam } from 'h3'
+import { requireUser } from '#server/utils/auth'
+import { requireOwnedTable } from '#server/utils/ownership'
+import { listFields } from '#server/services/fields'
 
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)

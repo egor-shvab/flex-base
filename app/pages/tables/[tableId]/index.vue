@@ -1,10 +1,16 @@
 <template>
   <section class="table-page">
-    <NuxtLink to="/" class="table-page__back">← Your tables</NuxtLink>
+    <NuxtLink to="/" class="table-page__back">
+      <Icon name="mdi:arrow-left" aria-hidden="true" />
+      Your tables
+    </NuxtLink>
 
     <header class="table-page__header">
       <h1 class="table-page__title">{{ table?.name }}</h1>
-      <BaseButton @click="openCreateField">Add field</BaseButton>
+      <div class="table-page__header-actions">
+        <NuxtLink :to="`/tables/${tableId}/records`" class="table-page__link">Records</NuxtLink>
+        <BaseButton @click="openCreateField">Add field</BaseButton>
+      </div>
     </header>
 
     <p v-if="fieldsStore.fields.length === 0" class="table-page__empty">
@@ -15,7 +21,7 @@
       <li v-for="field in fieldsStore.fields" :key="field.id" class="field-row">
         <div class="field-row__main">
           <span class="field-row__name">{{ field.name }}</span>
-          <span v-if="field.required" class="field-row__badge">required</span>
+          <BaseBadge v-if="field.required" variant="label">required</BaseBadge>
           <code class="field-row__key">{{ field.key }}</code>
         </div>
         <span class="field-row__type">{{ FIELD_TYPE_LABELS[field.type] }}</span>
@@ -59,6 +65,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+import { createError, useAsyncData, useRoute, useSeoMeta } from '#imports'
+import { useApi } from '~/composables/useApi'
+import { useFieldsStore } from '~/stores/fields'
+import { FIELD_TYPE_LABELS } from '#shared/types/field'
 import type { ITable } from '#shared/types/table'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
@@ -122,7 +133,9 @@ async function confirmDeleteField() {
 <style lang="scss" scoped>
 .table-page {
   &__back {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: rem(4);
     margin-bottom: rem(12);
     font-size: rem(14);
     color: var(--color-text-muted);
@@ -130,6 +143,22 @@ async function confirmDeleteField() {
 
     &:hover {
       color: var(--color-primary);
+    }
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: rem(16);
+  }
+
+  &__link {
+    font-size: rem(14);
+    color: var(--color-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
     }
   }
 
@@ -181,15 +210,6 @@ async function confirmDeleteField() {
   &__name {
     font-size: rem(15);
     font-weight: 500;
-  }
-
-  &__badge {
-    padding: rem(2) rem(6);
-    border-radius: rem(4);
-    background: var(--color-bg);
-    font-size: rem(11);
-    text-transform: uppercase;
-    color: var(--color-text-muted);
   }
 
   &__key {

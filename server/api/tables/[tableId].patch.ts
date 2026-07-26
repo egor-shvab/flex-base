@@ -1,4 +1,6 @@
-import { renameTable } from '../../services/tables'
+import { defineEventHandler, getRouterParam, readValidatedBody } from 'h3'
+import { requireUser } from '#server/utils/auth'
+import { renameTable } from '#server/services/tables'
 import { tableSchema } from '#shared/validation/table'
 
 export default defineEventHandler(async (event) => {

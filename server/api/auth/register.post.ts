@@ -1,3 +1,7 @@
+import { createError, defineEventHandler, readValidatedBody } from 'h3'
+import { useRuntimeConfig } from 'nitropack/runtime'
+import { prisma } from '#server/utils/prisma'
+import { hashPassword, setAuthCookie, signAuthToken } from '#server/utils/auth'
 import { credentialsSchema } from '#shared/validation/auth'
 
 export default defineEventHandler(async (event) => {

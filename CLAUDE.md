@@ -47,7 +47,7 @@ Everything else — teams, workspaces, permissions, dashboards, activity history
 
 ## 2. Architecture
 
-This is a full-stack Nuxt 4 application using the `app/` source directory convention (Nuxt 4 default), with the Nitro server layer under `server/`, shared client/server code under `shared/`, and the database layer under `prisma/`. Implemented so far: the full Prisma schema, authentication (register/login/logout, session restore, route guards), table metadata CRUD (dashboard + ownership-scoped API), and field metadata CRUD (typed fields per table with per-type options validation). Not yet implemented: record CRUD, dynamic form/table components, filtering/sorting, relations — the corresponding directories still carry `.gitkeep` stubs.
+This is a full-stack Nuxt 4 application using the `app/` source directory convention (Nuxt 4 default), with the Nitro server layer under `server/`, shared client/server code under `shared/`, and the database layer under `prisma/`. Implemented so far: the full Prisma schema, authentication (register/login/logout, session restore, route guards), table metadata CRUD (dashboard + ownership-scoped API), field metadata CRUD (typed fields per table with per-type options validation), and record CRUD (paginated API, metadata-driven validation, field-type component registry, `DynamicForm`/`DynamicTable`). Not yet implemented: filtering/sorting, relations.
 
 ### Stack
 
@@ -65,10 +65,10 @@ app/                         # Nuxt 4 frontend (client)
   components/
     common/                  # generic UI atoms (buttons, modals, …)
     modals/                  # dialogs built on BaseModal — ConfirmModal (universal), TableFormModal
-    fields/                  # ONE component per field type + a type→component registry
+    fields/                  # ONE input + ONE cell component per field type + the type→component registry
     form/                    # DynamicForm — renders a form from field definitions
     table/                   # DynamicTable + toolbar — renders a table from column definitions
-  composables/               # auto-imported composables (useApi, useTables, useRecords, …)
+  composables/               # useApi, useForm, … (imported explicitly — see "Imports")
   layouts/                   # default + auth layouts
   middleware/                # route guards (auth)
   pages/                     # file-based routing
@@ -93,6 +93,27 @@ prisma/
 public/                      # static assets
 ```
 
+### Imports
+
+**Components are auto-imported; everything else is imported explicitly.** `nuxt.config.ts` sets `imports: { autoImport: false }` and `nitro: { imports: { autoImport: false } }`, which also stops Nuxt generating the global `.d.ts` declarations — so a missing import is a `vue-tsc` error at build time rather than a silently resolved global. The component scan (`components: [{ path: '~/components', pathPrefix: false }]`) is deliberately kept: it is what makes `<LazyRecordFormModal>` code-split for free, and framework components (`<NuxtLink>`, `<NuxtPage>`, `<Icon>`) keep working.
+
+Import each symbol from:
+
+| Symbol                                                                                                                                             | Import from                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `ref`, `shallowRef`, `computed`, `reactive`, `watch`, `markRaw`, `useId`, lifecycle hooks                                                          | `vue`                                                 |
+| `useRoute`, `useAsyncData`, `useSeoMeta`, `useHead`, `navigateTo`, `createError`, `useRequestFetch`, `definePageMeta`, `defineNuxtRouteMiddleware` | `#imports`                                            |
+| `defineStore`                                                                                                                                      | `pinia`                                               |
+| `defineEventHandler`, `getRouterParam`, `readValidatedBody`, `getValidatedQuery`, `createError`, cookie helpers                                    | `h3`                                                  |
+| `useRuntimeConfig` (server)                                                                                                                        | `nitropack/runtime`                                   |
+| project code                                                                                                                                       | `~/*` (app), `#server/*` (server), `#shared/*` (both) |
+
+**Imports are always aliased — never relative.** `./`, `../` and `../../` are a lint error under `app/`, `server/` and `shared/` (`no-restricted-imports` in `eslint.config.mjs`, scoped to those three directories so the root config files can keep their own relative paths). Use `~/components/fields/types`, not `./types`; `#server/utils/auth`, not `../../../../utils/auth`. `#server` is a Nuxt built-in alias (registered in `@nuxt/schema`'s alias defaults alongside `#shared`), so it resolves for `vue-tsc` and the Nitro bundler alike.
+
+**`#server` is server-only.** Nuxt's import protection rejects it in app and shared code — the Vue layer reaches the server through `$fetch`/`useApi()`, never by importing it. Put anything both layers need in `shared/`.
+
+**Server code must not import from `#imports`.** `.nuxt/types/nitro-routes.d.ts` pulls every `server/api/**` handler into the _app_ TypeScript project (to type `$fetch` route responses), and `#imports` resolves to the app's module there — so `defineEventHandler` would not be found. `h3` and `nitropack` are therefore declared as direct dependencies in `package.json`; they resolve identically in both projects.
+
 ### API conventions
 
 - Route files are named by HTTP method suffix under `server/api/`: `index.get.ts`, `index.post.ts`, `[tableId].patch.ts`, `[tableId].delete.ts`, …
@@ -112,8 +133,10 @@ A new field type touches exactly these places — and nothing else:
 
 1. The `FieldType` enum in `prisma/schema.prisma` (+ migration).
 2. The shared field-type constant/type in `shared/types/`.
-3. One zod branch for its `options`/value validation in `shared/validation/`.
-4. One input component in `app/components/fields/` + one entry in the type→component registry.
+3. One zod branch for its `options` validation in `shared/validation/field.ts`, plus one entry in `VALUE_SCHEMA_BY_TYPE` (`shared/validation/record.ts`) describing its record value (`base` schema + `blank` value).
+4. One input component **and one cell component** in `app/components/fields/`, plus one entry in `FIELD_COMPONENTS` (`app/components/fields/registry.ts`).
+
+Both registries are typed as a total `Record<TFieldType, …>`, so adding an enum member is a compile error until its schema branch and components exist.
 
 **No scattered `switch`/`if` chains on field type** in pages, services, or generic components — per-type behavior lives in the registry and the zod branches. If adding a type would require editing `DynamicForm`, `DynamicTable`, or a service, the abstraction is broken: fix the abstraction instead of special-casing.
 
@@ -151,8 +174,9 @@ These rules target collections that grow with user data (records, fields, tables
 
 - Modules enabled in `nuxt.config.ts`: `@nuxt/eslint`, `@nuxt/fonts`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt`.
 - `compatibilityDate` is pinned to `2025-07-15` in `nuxt.config.ts`.
+- `h3` and `nitropack` are declared as direct dependencies because server code imports them by name (see "Imports"); keep their versions in step with the one Nuxt resolves.
 - TypeScript config (`tsconfig.json`) references the project-reference configs generated into `.nuxt/` (`tsconfig.app.json`, `tsconfig.server.json`, `tsconfig.shared.json`, `tsconfig.node.json`) — these are regenerated by `nuxt prepare`, do not edit them directly.
-- Follow Nuxt 4 conventions: `app/pages/` for file-based routing, `app/components/` and `app/composables/` auto-imported, `app/stores/` for Pinia; `server/api/` for Nitro route handlers. In `shared/`, only `shared/types/` and `shared/utils/` are auto-imported — everything else (e.g. `shared/validation/`) must be imported explicitly via the `#shared` alias: `import { loginSchema } from '#shared/validation/auth'`.
+- Follow Nuxt 4 conventions: `app/pages/` for file-based routing, `app/components/` for components, `app/stores/` for Pinia; `server/api/` for Nitro route handlers.
 - **Enforce data ownership through the `server/utils/` helpers** — every table/field/record query (in handlers and services alike) is scoped to the authenticated user.
 
 ---
@@ -271,26 +295,38 @@ npx prisma studio                     # browse data in a GUI
 
 - **Package Manager:** This project uses **npm** (`package-lock.json` present).
 - **Prisma 7 notes:** CLI configuration lives in `prisma.config.ts` (which loads `.env` via `dotenv/config` — Prisma 7 no longer reads `.env` itself); the client is generated by the `prisma-client` provider into `server/generated/prisma` (entry `client.ts`) and requires the `@prisma/adapter-pg` driver adapter at runtime (see `server/utils/prisma.ts`). `postinstall` runs `prisma generate && nuxt prepare`.
-- **Tooling:** Prettier (`.prettierrc`: no semicolons, single quotes, 2-space indent, `printWidth` 100) formats `.vue`, `.ts`, `.js`, `.scss`, `.json`, and `.md` — including SCSS and `<style lang="scss">` blocks natively; build/generated output is excluded via `.prettierignore`. ESLint handles code quality only: `eslint.config.mjs` imports the config generated into `.nuxt/` by `nuxt prepare`/postinstall, with `eslint-config-prettier` appended to disable rules that would conflict with Prettier.
+- **Tooling:** Prettier (`.prettierrc`: no semicolons, single quotes, 2-space indent, `printWidth` 100) formats `.vue`, `.ts`, `.js`, `.scss`, `.json`, and `.md` — including SCSS and `<style lang="scss">` blocks natively; build/generated output is excluded via `.prettierignore`. ESLint handles code quality only: `eslint.config.mjs` imports the config generated into `.nuxt/` by `nuxt prepare`/postinstall, with `eslint-config-prettier` appended to disable rules that would conflict with Prettier. It adds one project rule — `no-restricted-imports` banning relative paths under `app/`, `server/` and `shared/` (see "Imports").
 - **Type checking:** `nuxt.config.ts` sets `typescript.typeCheck: 'build'`, so `nuxt build` runs **`vue-tsc`** (deps: `vue-tsc`, `typescript`) and fails on any type error — `.vue` templates included. Dev (`nuxt dev`) does **not** type-check (kept fast); rely on `npm run build` as the type gate. `nuxt build` without this option only strips types (esbuild), so it would not catch type errors.
 - **Current State:**
   - Nuxt 4.5.0 + Vue 3.5.40 + TypeScript + Pinia + SCSS (`sass-embedded`); ESLint (`@nuxt/eslint` flat config) + Prettier configured; build-time type checking via `vue-tsc` (`typescript.typeCheck: 'build'`)
   - **app/app.vue** — page titles via `useSeoMeta` + `titleTemplate` ("… — FlexBase"); `lang="en"` set in `nuxt.config.ts` `app.head`; auth-page field errors clear live as the user edits a field
   - **app/assets/scss/** — `main.scss` entry `@use`s `_variables.scss` (CSS custom props), `_reset.scss`, `_auth-form.scss`; `_functions.scss` provides `rem()` (auto-injected into SFC styles via Vite `additionalData`)
   - **app/components/common/**
-    - `BaseInput.vue` — labeled input atom (v-model with `.trim` support, optional `label` [hidden when omitted], placeholder, autofocus, error display with `aria-invalid`/`aria-describedby`); used by the auth pages and the `FieldFormModal` choices editor
+    - `BaseInput.vue` — labeled input atom (`type` is `text`/`email`/`password`/`number`/`date`; v-model with `.trim` support, optional `label` [hidden when omitted], placeholder, autofocus, error display with `aria-invalid`/`aria-describedby`); used by the auth pages, the `FieldFormModal` choices editor and the TEXT/NUMBER/DATE field inputs. Its model setter coerces to string because Vue's `v-model` casts a `type="number"` input's value to a number
     - `BaseButton.vue` — button atom (type/disabled props, slot content); `primary` (default) / `danger` / `icon` / `ghost` variants. The `icon` variant is a borderless icon-only button taking `icon` (iconify name) + `label` (aria-label/title) + configurable `color` / `hoverColor` props (CSS colors via `v-bind`) — used for the `BaseModal` close (default muted→text) and the SELECT choice-remove in `FieldFormModal` (`hoverColor` = danger). The `ghost` variant is a transparent text+icon button with a faint indigo hover background — used for the "Add choice" button in `FieldFormModal`. First `@nuxt/icon` `<Icon>` usage in the app.
-    - `BaseSelect.vue` — generic labeled select atom (`generic="TValue extends string"`, typed `options`, `disabled` prop, error display), used by `FieldFormModal`
-    - `BaseCheckbox.vue` — labeled checkbox atom (`defineModel<boolean>`, wrapping `<label>` + `label` prop), used by `FieldFormModal`
+    - `BaseSelect.vue` — generic labeled select atom (`generic="TValue extends string"`, typed `options`, `disabled` prop, error display), used by `FieldFormModal` and `SelectFieldInput`
+    - `BaseCheckbox.vue` — labeled checkbox atom (`defineModel<boolean>`, wrapping `<label>` + `label` prop), used by `FieldFormModal` and `BooleanFieldInput`
     - `BaseModal.vue` — dialog atom (teleport, backdrop/Esc close, `role="dialog"`)
-    - Component auto-import uses `pathPrefix: false` in `nuxt.config.ts`, so `common/BaseInput.vue` registers as `<BaseInput>`
+    - `BaseBadge.vue` — slot-content badge atom; `chip` (default: pill, `rem(13)`, normal case, inherits colour — displays a _value_, used by `SelectFieldCell`) / `label` (`rem(11)`, uppercase, muted — a _meta marker_, used for `required` on the field manager rows). Never uppercase the `chip` variant: SELECT values are user data
+    - `BasePagination.vue` — prev/next pager with an "x–y of n" range label; props `page` / `pageCount` / `pageSize` / `total`, emits `update:page` (so callers can use a plain listener or `v-model:page`). `pageCount` is passed in rather than derived so the `ceil` formula lives only in the store. Owns its internal layout only — the consumer positions it (the records page applies `margin-top` via a class on the component root)
+    - Component auto-import uses `pathPrefix: false` in `nuxt.config.ts`, so `common/BaseInput.vue` registers as `<BaseInput>` — components are the **only** thing still auto-imported (see "Imports")
+  - **app/components/fields/** — the field-type→component registry (see "Adding a new field type")
+    - `registry.ts` — `FIELD_COMPONENTS: Record<TFieldType, { input, cell }>`, components `markRaw`ped; the only place `DynamicForm`/`DynamicTable` learn about field types
+    - `types.ts` — `IFieldInputProps` (`id`/`field`/`error` + `v-model` of `TRecordValue`) and `IFieldCellProps` (`field`/`value`) — the contract every entry honours
+    - `{Text,Number,Boolean,Date,Select}FieldInput.vue` — one input per type, each wrapping a `Base*` atom and converting between the DOM string and `TRecordValue`
+    - `{Text,Number,Boolean,Date,Select}FieldCell.vue` — one read-only cell per type (BOOLEAN → `mdi:check`/`mdi:minus` icon, SELECT → chip, NUMBER/DATE → fixed `en-GB` `Intl` formats so SSR and client output match). Blank values never reach a cell — `DynamicTable` renders the placeholder itself
+  - **app/components/form/**
+    - `DynamicForm.vue` — renders a form from `IField[]`; values flow down as props and changes back up via `update: [key, value]`, so the parent's `useForm` object is never mutated
+  - **app/components/table/**
+    - `DynamicTable.vue` — renders a table from `IField[]` + `IRecord[]`; emits `edit`/`delete`, horizontal scroll wrapper, `—` placeholder for blank values
   - **app/components/modals/**
     - `ConfirmModal.vue` — universal confirmation dialog: message/slot, danger + pending props
     - `TableFormModal.vue` — self-contained create/rename form built on `useForm`; takes an async `submitHandler` prop, emits `saved`
     - `FieldFormModal.vue` — self-contained typed-field editor (name, type select [immutable on edit], required, SELECT choices editor) built on `useForm`
+    - `RecordFormModal.vue` — self-contained record editor; derives both its initial values (`blankValueFor`) and its schema (`buildRecordSchema`) from field metadata and renders `DynamicForm`
   - **app/composables/**
     - `useApi.ts` — `useRequestFetch` wrapper + `getApiErrorMessage`
-    - `useForm.ts` — reusable form state (fields keyed `Record<string, unknown>`, per-field errors, server error, pending, submit, reset); used by the auth pages, `TableFormModal`, `FieldFormModal`
+    - `useForm.ts` — reusable form state (fields keyed `Record<string, unknown>`, per-field errors, server error, pending, submit, reset); used by the auth pages, `TableFormModal`, `FieldFormModal`, `RecordFormModal` (its dynamic key handling is what lets one composable drive metadata-generated forms)
   - **app/layouts/**
     - `default.vue` — header: brand, user email, logout
     - `auth.vue` — centered card
@@ -299,42 +335,49 @@ npx prisma studio                     # browse data in a GUI
   - **app/pages/**
     - `auth/login.vue` — validates with the shared zod schema, fields rendered via `BaseInput`
     - `auth/register.vue` — validates with the shared zod schema, fields rendered via `BaseInput`
-    - `index.vue` — tables dashboard: card grid with field/record counts, create/rename via `LazyTableFormModal`, delete via `LazyConfirmModal`, empty state
-    - `tables/[tableId]/index.vue` — field manager: typed-field list, add/edit via `LazyFieldFormModal`, delete via `LazyConfirmModal`, empty state
+    - `index.vue` — tables dashboard: card grid with field/record counts, create/rename via `LazyTableFormModal`, delete via `LazyConfirmModal`, empty state. A card opens the table's **records** page
+    - `tables/[tableId]/index.vue` — field manager: typed-field list, add/edit via `LazyFieldFormModal`, delete via `LazyConfirmModal`, empty state, link through to records
+    - `tables/[tableId]/records/index.vue` — record view: `DynamicTable`, create/edit via `LazyRecordFormModal`, delete via `LazyConfirmModal`, paging via `BasePagination`, and two empty states (no fields → link to the field manager, "New record" disabled; no records)
   - **app/stores/**
     - `auth.ts` — Pinia auth store (user, initialized, fetchUser/register/login/logout)
     - `tables.ts` — Pinia store (`shallowRef` table list, fetch/create/rename/delete)
     - `fields.ts` — Pinia store (`shallowRef` field list, fetch/create/update/delete)
+    - `records.ts` — Pinia store (`shallowRef` record page + `total`/`page`/`pageSize`/`pageCount`, fetch/create/update/delete). Create jumps to the last page (records are ordered oldest first); create and delete refetch rather than splice, since the page shifts under server-side pagination
   - **app/utils/**
     - `safe-redirect.ts` — `resolveSafeRedirect` restricts `?redirect` to internal paths (used by the auth guard and auth pages to return users to their intended destination after login)
   - **server/api/**
     - `auth/` — 4 endpoints: `register.post`, `login.post`, `logout.post`, `me.get`
     - `tables/` — `index.get`, `index.post`, `[tableId].get`, `[tableId].patch`, `[tableId].delete`
     - `tables/[tableId]/fields/` — `index.get`, `index.post`, `[fieldId].patch`, `[fieldId].delete` (each gated by `requireOwnedTable`)
+    - `tables/[tableId]/records/` — `index.get` (paginated via `recordQuerySchema`), `index.post`, `[recordId].patch`, `[recordId].delete`. Writes are gated by `requireRecordFields` and validated with `buildRecordSchema(fields)`, so the payload contract is the table's own metadata
   - **server/middleware/**
     - `auth.ts` — resolves the auth cookie to `event.context.user` on every request (never rejects)
   - **server/services/**
-    - `tables.ts` — list/create/rename/delete scoped by `userId`; maps Prisma `P2002` → 409, `P2025` → 404
-    - `fields.ts` — list/create/update/delete scoped by `tableId`; auto-derives immutable `key` (slugify + dedupe), `order`, and DB `options` from `type`+`choices`; rejects type changes (400)
+    - `tables.ts` — list/create/rename/delete scoped by `userId`
+    - `fields.ts` — list/create/update/delete scoped by `tableId`; auto-derives immutable `key` (slugify + dedupe), `order`, and DB `options` from `type`+`choices`; rejects type changes (400). Exports `fieldSelect` + `toFieldMetadata` (the one place Prisma's untyped `options` JSON is narrowed to `IField`)
+    - `records.ts` — paginated list (`$transaction` findMany + count, `take`/`skip`, oldest first), create/update/delete scoped by `tableId`; `data` is replaced wholesale on update
   - **server/utils/**
     - `prisma.ts` — PrismaClient singleton with `PrismaPg` adapter (globalThis-cached in dev)
     - `auth.ts` — bcrypt hash/verify, JWT sign/verify, `auth_token` cookie helpers, `requireUser`
-    - `ownership.ts` — `requireOwnedTable(userId, tableId)`: single scoped query, 404 when missing/foreign
+    - `ownership.ts` — `requireOwnedTable(userId, tableId)`: single scoped query, 404 when missing/foreign; `requireRecordFields(userId, tableId)`: same check plus the table's field metadata in one round trip, 400 when the table has no fields
+    - `prisma-errors.ts` — `toHttpError(error, { conflict?, notFound })`: shared Prisma `P2002` → 409 / `P2025` → 404 mapping used by all three services
   - **shared/types/**
     - `auth.ts` — `IAuthUser` interface
     - `table.ts` — `ITable` / `ITableListItem` (with `_count`)
     - `field.ts` — `TFieldType`, `FIELD_TYPES` / `CREATABLE_FIELD_TYPES` / `FIELD_TYPE_LABELS`, `IField`
+    - `record.ts` — `TRecordValue` / `TRecordData`, `IRecord`, `IRecordPage`
   - **shared/validation/**
     - `auth.ts` — zod `credentialsSchema` / `loginSchema` / `registerSchema`
     - `table.ts` — zod `tableSchema` (name, 1–100 chars)
     - `field.ts` — flat `fieldSchema` (name/type/required/choices, per-type `superRefine`; one schema for client + server)
+    - `record.ts` — `VALUE_SCHEMA_BY_TYPE` (per-type `base` schema + `blank` value), `buildRecordSchema(fields)` (builds a table's schema from its metadata; strips unknown keys), `blankValueFor(field)`, `recordQuerySchema` (page + pageSize, default 50, hard cap 100). Required is enforced only where `blank` is `null`, so a BOOLEAN's `false` counts as a value
   - **prisma/** — schema with 4 models (User, Table, Field, Record) — `init` migration applied; client generated into `server/generated/prisma` (gitignored)
   - **Root & config**
     - `docker-compose.yml` — PostgreSQL 17 Alpine, container `flexbase-postgres`, persistent volume + healthcheck
     - `.env` (gitignored) + committed `.env.example` — `DATABASE_URL`, `JWT_SECRET`
     - `.claude/launch.json` — "dev" preview server config
     - `README.md` — still the default Nuxt starter readme (not yet project-specific)
-  - Not yet implemented: table/field/record CRUD, `server/services/`, dynamic form/table components, filtering/sorting, relations; no tests
+  - Not yet implemented: filtering/sorting (including the `DynamicTable` toolbar) and RELATION fields; no tests
 
 ---
 

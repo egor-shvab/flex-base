@@ -47,6 +47,10 @@
 </template>
 
 <script setup lang="ts">
+import { definePageMeta, navigateTo, useRoute, useSeoMeta } from '#imports'
+import { useForm } from '~/composables/useForm'
+import { useAuthStore } from '~/stores/auth'
+import { resolveSafeRedirect } from '~/utils/safe-redirect'
 import { registerSchema } from '#shared/validation/auth'
 
 definePageMeta({ layout: 'auth' })

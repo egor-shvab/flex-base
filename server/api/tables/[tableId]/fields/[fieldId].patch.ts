@@ -1,4 +1,7 @@
-import { updateField } from '../../../../services/fields'
+import { defineEventHandler, getRouterParam, readValidatedBody } from 'h3'
+import { requireUser } from '#server/utils/auth'
+import { requireOwnedTable } from '#server/utils/ownership'
+import { updateField } from '#server/services/fields'
 import { fieldSchema } from '#shared/validation/field'
 
 export default defineEventHandler(async (event) => {

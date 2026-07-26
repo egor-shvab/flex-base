@@ -22,7 +22,7 @@ withDefaults(
   defineProps<{
     id: string
     label?: string
-    type?: 'text' | 'email' | 'password'
+    type?: 'text' | 'email' | 'password' | 'number' | 'date'
     autocomplete?: string
     placeholder?: string
     error?: string
@@ -39,7 +39,12 @@ withDefaults(
 )
 
 const [model, modifiers] = defineModel<string>({
-  set: (value) => (modifiers.trim ? value.trim() : value),
+  // Vue casts the value of a `type="number"` input to a number, so normalise back
+  // to the string this model promises before applying the `.trim` modifier.
+  set: (value) => {
+    const text = typeof value === 'string' ? value : String(value)
+    return modifiers.trim ? text.trim() : text
+  },
 })
 </script>
 

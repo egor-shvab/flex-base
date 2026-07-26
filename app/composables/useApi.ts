@@ -1,3 +1,4 @@
+import { useRequestFetch } from '#imports'
 import type { FetchError } from 'ofetch'
 
 // useRequestFetch forwards the incoming request's cookies during SSR,

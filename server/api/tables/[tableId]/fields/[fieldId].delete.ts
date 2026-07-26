@@ -1,4 +1,7 @@
-import { deleteField } from '../../../../services/fields'
+import { defineEventHandler, getRouterParam } from 'h3'
+import { requireUser } from '#server/utils/auth'
+import { requireOwnedTable } from '#server/utils/ownership'
+import { deleteField } from '#server/services/fields'
 
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)

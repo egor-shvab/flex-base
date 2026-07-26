@@ -1,3 +1,6 @@
+import { ref, shallowRef } from 'vue'
+import { defineStore } from 'pinia'
+import { useApi } from '~/composables/useApi'
 import type { ITableListItem } from '#shared/types/table'
 import type { TTableInput } from '#shared/validation/table'
 

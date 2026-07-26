@@ -1,3 +1,8 @@
+import { defineEventHandler, getCookie } from 'h3'
+import { useRuntimeConfig } from 'nitropack/runtime'
+import { prisma } from '#server/utils/prisma'
+import { AUTH_COOKIE, verifyAuthToken } from '#server/utils/auth'
+
 // Attaches the authenticated user to event.context.user on every request.
 // Never rejects: unauthenticated requests pass through as anonymous and
 // individual handlers decide via requireUser().
