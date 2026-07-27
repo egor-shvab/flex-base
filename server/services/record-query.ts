@@ -101,6 +101,7 @@ export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): Prisma.
     return Prisma.sql`"createdAt" ${direction}`
   }
 
-  // Blanks always sort last, and creation order breaks ties so paging stays stable
-  return Prisma.sql`${valueExpr(field)} ${direction} NULLS LAST, "createdAt" ASC`
+  // Blanks always sort last; ties break newest-first, matching the default order, and the
+  // tie-break is what keeps paging stable
+  return Prisma.sql`${valueExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`
 }

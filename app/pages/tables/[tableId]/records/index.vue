@@ -184,8 +184,14 @@ function openEditRecord(record: IRecord) {
 async function submitRecord(data: TRecordData) {
   if (recordModal.value?.mode === 'edit') {
     await recordsStore.updateRecord(tableId, recordModal.value.record.id, data, queryParams.value)
-  } else {
-    await recordsStore.createRecord(tableId, data, queryParams.value)
+    return
+  }
+
+  // A new record lands on page 1 of the default view; keep the URL in step rather than
+  // letting the store show a page the address bar disagrees with
+  const nextPage = await recordsStore.createRecord(tableId, data, queryParams.value)
+  if (nextPage !== queryParams.value.page) {
+    await applyQuery({ ...queryParams.value, page: nextPage }, true)
   }
 }
 

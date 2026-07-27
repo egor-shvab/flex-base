@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { IRecordQueryParams, TRecordData, TRecordValue } from '#shared/types/record'
@@ -107,7 +107,7 @@ const baseQueryParamsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(RECORD_PAGE_SIZE_MAX).default(RECORD_PAGE_SIZE),
   sort: z.string().optional(),
-  dir: z.enum(['asc', 'desc']).default('asc'),
+  dir: z.enum(['asc', 'desc']).default(DEFAULT_SORT_DIR),
 })
 
 /**

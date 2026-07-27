@@ -268,7 +268,9 @@ Rules:
 
 ## 5. Testing Strategy
 
-There is no test suite configured in this repository yet.
+There is no test suite configured in this repository yet — no unit runner and no E2E suite. Until one exists, the safety net is **CI + the type system**: `.github/workflows/ci.yml` runs `format:check` → `lint` → `typecheck` → `build` on every push to `main`/`develop` and on every PR, and the metadata registries are total `Record<TFieldType, …>` maps, so an unhandled field type is a compile error rather than a runtime surprise.
+
+Behavioural changes are verified by driving the running app (dev server + browser) and, for pure logic, by throwaway scripts — which is exactly the gap a real suite would close. Vitest (unit: the URL codec, the SQL builder, the zod schemas) and Playwright (E2E over the auth-gated pages) are the intended additions once the MVP settles.
 
 ---
 
@@ -287,16 +289,21 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 
 ```bash
 npm run dev          # start dev server at http://localhost:3000
-npm run build        # production build — runs vue-tsc type-check; a TS error fails the build
+npm run typecheck    # vue-tsc only (~7s) — the fast inner-loop type gate
+npm run build        # production build — also runs vue-tsc; a TS error fails the build (~30s)
 npm run preview      # preview a production build locally
+npm run lint         # eslint
 npm run format       # format all files with Prettier
 npm run format:check # check formatting without writing
-npx eslint .         # lint
 ```
+
+`typecheck` is the one to reach for while iterating: same `vue-tsc` errors as the build, a quarter of the time, and it never rewrites `.output`. Keep `build` as the pre-commit gate — it is the only step that exercises Vite/Nitro bundling.
 
 Database workflow (PostgreSQL runs in Docker — never use OSPanel's bundled modules):
 
 ```bash
+npm run db:up                         # docker compose up -d --wait
+npm run db:studio                     # browse data in a GUI
 docker compose up -d --wait           # start PostgreSQL (postgres:17, container flexbase-postgres)
 npx prisma migrate dev --name <name>  # create & apply a migration
 npx prisma generate                   # regenerate the Prisma client (into server/generated/prisma, gitignored)
@@ -360,7 +367,7 @@ npx prisma studio                     # browse data in a GUI
     - `auth.ts` — Pinia auth store (user, initialized, fetchUser/register/login/logout)
     - `tables.ts` — Pinia store (`shallowRef` table list, fetch/create/rename/delete)
     - `fields.ts` — Pinia store (`shallowRef` field list, fetch/create/update/delete)
-    - `records.ts` — Pinia store (`shallowRef` record page + `total`/`page`/`pageSize`/`pageCount`/`pending`, fetch/create/update/delete). **Every action takes the query params from the caller** — the store never mirrors them, because a mirrored copy would have to survive SSR hydration to stay correct. Create jumps to the last page only in the default view (no filters, oldest first); outside it, and for an edit that may move a record out of view, the current page is refetched rather than spliced. State is cleared when `fetchRecords` is called for a different table, since the store is a singleton
+    - `records.ts` — Pinia store (`shallowRef` record page + `total`/`page`/`pageSize`/`pageCount`/`pending`, fetch/create/update/delete). **Every action takes the query params from the caller** — the store never mirrors them, because a mirrored copy would have to survive SSR hydration to stay correct. `createRecord` **returns the page the new record landed on** (1 in the default view — no filters, newest first — otherwise the current one) and only refetches when that equals the current page; the records page navigates when it differs, so the URL never shows one page while the table shows another, and the refetch still happens exactly once. For an edit that may move a record out of a filtered or sorted view, the current page is refetched rather than spliced. State is cleared when `fetchRecords` is called for a different table, since the store is a singleton
   - **app/utils/**
     - `debounce.ts` — `debounce(callback, delay = 300)`, the timer behind `useDebouncedModel`
     - `safe-redirect.ts` — `resolveSafeRedirect` restricts `?redirect` to internal paths (used by the auth guard and auth pages to return users to their intended destination after login)
@@ -375,7 +382,7 @@ npx prisma studio                     # browse data in a GUI
     - `tables.ts` — list/create/rename/delete scoped by `userId`
     - `fields.ts` — list/create/update/delete scoped by `tableId`; auto-derives immutable `key` (slugify + dedupe), `order`, and DB `options` from `type`+`choices`; rejects type changes (400). A new key must be free for **every query param it would claim**, not just for itself, since filters are named after the field: a field called "Page" becomes `page_2`, and "Budget from" becomes `budget_from_2` next to a NUMBER `budget`. Exports `fieldSelect` + `toFieldMetadata` (the one place Prisma's untyped `options` JSON is narrowed to `IField`)
     - `records.ts` — paginated list (`$transaction` of two `$queryRaw`s sharing one WHERE fragment, `LIMIT`/`OFFSET`), create/update/delete scoped by `tableId`; `data` is replaced wholesale on update
-    - `record-query.ts` — the only SQL in the project: `buildRecordWhere(tableId, fields, filters)` + `buildRecordOrderBy(fields, sort)`. Raw because Prisma cannot `orderBy` a JSON path. **There are no operators:** one total map, `FIELD_SQL_BY_TYPE`, gives each field type an `expr` (the JSONB projection — `::numeric`/`::boolean` casts, plain text for TEXT/DATE/SELECT) and a `filter` (how its value compares: `matchesPartially` = `ILIKE` with escaped wildcards, `matchesExactly` = `=`, `withinRange` = inclusive `>=`/`<=` for whichever bounds are set). `buildRecordWhere` walks the table's **fields** and looks each one up in the filter map, so a key the table does not own has nothing to compare against; everything is ANDed. Keys and values are bound as parameters, never interpolated, and the key is `::text`-cast to disambiguate Postgres' `->>` overloads
+    - `record-query.ts` — the only SQL in the project: `buildRecordWhere(tableId, fields, filters)` + `buildRecordOrderBy(fields, sort)`. Raw because Prisma cannot `orderBy` a JSON path. **There are no operators:** one total map, `FIELD_SQL_BY_TYPE`, gives each field type an `expr` (the JSONB projection — `::numeric`/`::boolean` casts, plain text for TEXT/DATE/SELECT) and a `filter` (how its value compares: `matchesPartially` = `ILIKE` with escaped wildcards, `matchesExactly` = `=`, `withinRange` = inclusive `>=`/`<=` for whichever bounds are set). `buildRecordWhere` walks the table's **fields** and looks each one up in the filter map, so a key the table does not own has nothing to compare against; everything is ANDed. Keys and values are bound as parameters, never interpolated, and the key is `::text`-cast to disambiguate Postgres' `->>` overloads. `buildRecordOrderBy` falls back to `"createdAt" DESC` (newest first, per `DEFAULT_SORT_DIR`); under an explicit field sort, blanks go `NULLS LAST` and ties break on `"createdAt" DESC` — newest first there too, which also keeps paging stable
   - **server/utils/**
     - `prisma.ts` — PrismaClient singleton with `PrismaPg` adapter (globalThis-cached in dev)
     - `auth.ts` — bcrypt hash/verify, JWT sign/verify, `auth_token` cookie helpers, `requireUser`
@@ -390,7 +397,7 @@ npx prisma studio                     # browse data in a GUI
     - `filter.ts` — **there are no operators anywhere in the project.** `TFilterValue` / `IFilterValueByType` (the value shape per field type — extending the total `Record` makes a missing type a compile error) / `TRecordFilterValues` (**the filter model of every layer:** typed values keyed by `Field.key`, sparse, so an absent key is unfiltered and the count of filtered fields is `Object.keys(…).length`) / `TFilterShape` (`scalar` | `range`) / `IFilterValueSpec` (what the registry declares per type) / `TFilterParamRole` (`value` | `from` | `to`) / `IRecordSort` / `TSortDirection`
   - **shared/constants/** — the runtime registries, values only
     - `field.ts` — `FIELD_TYPES` (which `TFieldType` is derived from) / `CREATABLE_FIELD_TYPES` / `FIELD_TYPE_LABELS`
-    - `filter.ts` — `FILTER_VALUE_BY_TYPE` (per type: its `shape` and its `empty` value; the shape is the single fact that names its params _and_ tells the server how many bounds to compare), `DEFAULT_SORT_KEY` (`createdAt`), `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir` — filter params share their namespace)
+    - `filter.ts` — `FILTER_VALUE_BY_TYPE` (per type: its `shape` and its `empty` value; the shape is the single fact that names its params _and_ tells the server how many bounds to compare), `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIR` (`desc` — **newest first**, so a record added now is at the top of page 1; the same `@@index([tableId, createdAt])` serves it, since Postgres scans a btree backwards), `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir` — filter params share their namespace)
     - `record.ts` — `RECORD_PAGE_SIZE` (50, the store's seed) / `RECORD_PAGE_SIZE_MAX` (100, the schema's hard cap)
   - **shared/utils/**
     - `filter.ts` — pure leaf: `filterParamSlots(key, type)` (the params a field claims, each tagged `value`/`from`/`to`) / `filterParamNames(key, type)` (the names alone, for the field-key guard) / `rangeParamName(key, bound)`, all over one private `RANGE_PARAM_SUFFIX`; `claimFilterParams(fields)` resolves each param name to at most one field — reserved names first, then fields in order — so a legacy key that shadows another field's range bound stays deterministic (the query schema and the codec both read it); `isRangeFilterValue` / `isFilterValueEmpty` are shape-based, so they need no field metadata
@@ -401,12 +408,18 @@ npx prisma studio                     # browse data in a GUI
     - `field.ts` — flat `fieldSchema` (name/type/required/choices, per-type `superRefine`; one schema for client + server)
     - `record.ts` — `VALUE_SCHEMA_BY_TYPE` (per-type `base` schema + `blank` value + `fromQuery` decoder, since a URL carries only strings), `buildRecordSchema(fields)` (builds a table's schema from its metadata; strips unknown keys), `blankValueFor(field)`, `buildFilterValueSchema(field)` (exported for the codec), `buildRecordQuerySchema(fields)` (page + pageSize + sort/dir + the filter params the table's fields claim, validated against those fields; a **loose** object so the refinement can read the filter params without widening the base ones). It **validates only** — no `.transform()`: decoding the validated params into an `IRecordQuery` is the codec's job, which is what keeps `utils → validation` acyclic. Required is enforced only where `blank` is `null`, so a BOOLEAN's `false` counts as a value
 
-  **Filter wire format:** plain query params named after the field, the name following from the value's shape — `?company=acme&stage=Won&active=true&contract_value_from=1000&contract_value_to=5000&signed_on_from=2026-01-01`. A **scalar** value (TEXT, SELECT, BOOLEAN) takes the field's bare key; a **range** (NUMBER, DATE) spreads to the `_from` / `_to` suffixes. How each is compared is the field type's business on the server (TEXT matches partially, the rest exactly, ranges inclusively) and never travels in the URL. Every filter is ANDed. One value per param — a repeated param is a 400. An empty value (`?company=`) means "not filtered", never `ILIKE '%%'`. Params the table does not own are **ignored, not rejected**: with bare names a typo is indistinguishable from `utm_source`, so a stray param must not break the page (a malformed _known_ param — `?contract_value_from=abc` — is still a 400)
-  - **prisma/** — schema with 4 models (User, Table, Field, Record) — `init` + `record_table_created_index` (`@@index([tableId, createdAt])`, covering the default record ordering) migrations applied; client generated into `server/generated/prisma` (gitignored)
+  - **Filter wire format:** plain query params named after the field, the name following from the value's shape — `?company=acme&stage=Won&active=true&contract_value_from=1000&contract_value_to=5000&signed_on_from=2026-01-01`. A **scalar** value (TEXT, SELECT, BOOLEAN) takes the field's bare key; a **range** (NUMBER, DATE) spreads to the `_from` / `_to` suffixes. How each is compared is the field type's business on the server (TEXT matches partially, the rest exactly, ranges inclusively) and never travels in the URL. Every filter is ANDed. One value per param — a repeated param is a 400. An empty value (`?company=`) means "not filtered", never `ILIKE '%%'`. Params the table does not own are **ignored, not rejected**: with bare names a typo is indistinguishable from `utm_source`, so a stray param must not break the page (a malformed _known_ param — `?contract_value_from=abc` — is still a 400)
+  - **prisma/** — PostgreSQL schema: the `FieldType` enum (`TEXT`/`NUMBER`/`BOOLEAN`/`DATE`/`SELECT`/`RELATION`) and 4 models. Every id is a `cuid()`, `createdAt` defaults to `now()` and `updatedAt` is `@updatedAt` wherever it exists; the `datasource` block carries **no inline `url`** — Prisma 7 resolves `DATABASE_URL` through `prisma.config.ts`. **Ownership lives only on `Table.userId`**: fields and records reach the user through their table, which is why every scoped query filters via the `table` relation rather than a denormalized `userId`. Every relation is `onDelete: Cascade`, so deleting a user removes their tables and deleting a table removes its fields and records in one statement
+    - `User` — `id`, `email` (`@unique`), `passwordHash`, `createdAt`; has many `tables`. Always read with an explicit `select`, so `passwordHash` cannot reach a response
+    - `Table` — `id`, `name`, `userId` → `User`, `createdAt`/`updatedAt`; has many `fields` and `records`. `@@unique([userId, name])` makes a name unique **per user** (the duplicate is the 409 out of `server/services/tables.ts`), `@@index([userId])` covers the dashboard list
+    - `Field` — `id`, `tableId` → `Table`, `name` (display label, editable), `key` (machine key, **immutable after creation**), `type` (`FieldType`), `required`, `options` (`Json?` — SELECT stores `{ choices }`, RELATION will store `{ targetTableId }`), `order`, `createdAt`. `@@unique([tableId, key])` is the constraint `createField`'s slugify-and-dedupe upholds before insert; `@@index([tableId])` covers the per-table list
+    - `Record` — `id`, `tableId` → `Table`, `data` (`Json`, default `{}`, **keyed by `Field.key`** — never by field id, so renaming a field never rewrites a single row), `createdAt`/`updatedAt`. `@@index([tableId])` plus `@@index([tableId, createdAt])`, the latter covering the default oldest-first ordering. **Sorting or filtering by a JSONB key is deliberately unindexed** — keys are user-defined per table, so no general index applies; that is the first scaling limit this schema will hit
+    - Migrations applied: `20260723124643_init`, `20260726084538_record_table_created_index`. Client generated into `server/generated/prisma` (gitignored)
   - **Root & config**
     - `docker-compose.yml` — PostgreSQL 17 Alpine, container `flexbase-postgres`, persistent volume + healthcheck
     - `.env` (gitignored) + committed `.env.example` — `DATABASE_URL`, `JWT_SECRET`
-    - `.claude/launch.json` — "dev" preview server config
+    - `.claude/launch.json` — "dev" preview server config; `.claude/settings.json` — permission allowlist for the read-only commands and browser reads used constantly (builds, lint, typecheck, `docker compose ps`), deliberately excluding anything that commits, pushes, deletes or `docker compose exec`s
+    - `.github/workflows/ci.yml` — CI: `format:check` → `lint` → `typecheck` → `build` on push to `main`/`develop` and on PRs. No database service: nothing in the build connects to Postgres, and the dummy `DATABASE_URL` exists only so `prisma generate` can resolve the datasource variable
     - `README.md` — still the default Nuxt starter readme (not yet project-specific)
   - Not yet implemented: RELATION fields; no tests
 

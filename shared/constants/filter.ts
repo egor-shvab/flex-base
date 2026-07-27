@@ -1,8 +1,11 @@
 import type { TFieldType } from '#shared/types/field'
-import type { IFilterValueByType, IFilterValueSpec } from '#shared/types/filter'
+import type { IFilterValueByType, IFilterValueSpec, TSortDirection } from '#shared/types/filter'
 
 /** Sorting falls back to the record's own creation order, which every table has. */
 export const DEFAULT_SORT_KEY = 'createdAt'
+
+/** Newest first: a record added now belongs at the top of page 1, not the end of the last. */
+export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
 
 /**
  * Query params the list endpoint owns. A field key must never shadow one, or its filter

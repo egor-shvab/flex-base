@@ -1,17 +1,17 @@
 import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
-import { DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordPage, IRecordQueryState, TRecordData } from '#shared/types/record'
 import { toRecordQueryParams } from '#shared/utils/record-query'
 
-/** Only the unfiltered, oldest-first view has a predictable place for a new record. */
+/** Only the unfiltered, newest-first view has a predictable place for a new record. */
 function isDefaultView(query: IRecordQueryState): boolean {
   return (
     Object.keys(query.filters).length === 0 &&
     query.sort.key === DEFAULT_SORT_KEY &&
-    query.sort.dir === 'asc'
+    query.sort.dir === DEFAULT_SORT_DIR
   )
 }
 
@@ -51,13 +51,23 @@ export const useRecordsStore = defineStore('records', () => {
     }
   }
 
-  /** Records are ordered oldest first, so a new one lands on the last page — unless a
-   * filter or a custom sort is active, where it may not belong to the current view. */
-  async function createRecord(tableId: string, data: TRecordData, query: IRecordQueryState) {
+  /**
+   * Records are ordered newest first, so a new one sits at the top of the first page —
+   * unless a filter or a custom sort is active, where it may not belong to the current view.
+   * Returns the page the new record is on: the URL is the source of truth, so when that
+   * differs from the current one the caller navigates and its watcher does the refetch.
+   */
+  async function createRecord(
+    tableId: string,
+    data: TRecordData,
+    query: IRecordQueryState,
+  ): Promise<number> {
     await api<{ record: IRecord }>(`/api/tables/${tableId}/records`, { method: 'POST', body: data })
-    const lastPage = Math.max(1, Math.ceil((total.value + 1) / pageSize.value))
-    const nextPage = isDefaultView(query) ? lastPage : page.value
-    await fetchRecords(tableId, { ...query, page: nextPage })
+
+    const nextPage = isDefaultView(query) ? 1 : query.page
+    if (nextPage === query.page) await fetchRecords(tableId, query)
+
+    return nextPage
   }
 
   async function updateRecord(
