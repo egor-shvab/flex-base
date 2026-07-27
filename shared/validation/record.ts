@@ -1,24 +1,12 @@
 import { z } from 'zod'
+import { DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
-import {
-  DEFAULT_SORT_KEY,
-  FILTER_OPERATORS_BY_TYPE,
-  filterParamName,
-  RESERVED_QUERY_PARAMS,
-} from '#shared/types/filter'
-import type { IRecordFilter, TFilterOperator } from '#shared/types/filter'
-import type {
-  IRecordQuery,
-  IRecordQueryState,
-  TRecordData,
-  TRecordValue,
-} from '#shared/types/record'
+import type { IRecordQueryParams, TRecordData, TRecordValue } from '#shared/types/record'
+import { claimFilterParams } from '#shared/utils/filter'
 
 const TEXT_MAX_LENGTH = 1000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-
-export const RECORD_PAGE_SIZE = 50
-export const RECORD_PAGE_SIZE_MAX = 100
 
 interface IValueSchemaSpec {
   /** Schema for a filled-in value of this type; nullability is layered on top. */
@@ -100,16 +88,12 @@ export function buildRecordSchema(fields: IField[]): z.ZodType<TRecordData> {
   return z.object(Object.fromEntries(fields.map((field) => [field.key, buildValueSchema(field)])))
 }
 
-/** Pagination and sorting; the per-field filter params are added by the builder below. */
-const baseQueryParamsSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(RECORD_PAGE_SIZE_MAX).default(RECORD_PAGE_SIZE),
-  sort: z.string().optional(),
-  dir: z.enum(['asc', 'desc']).default('asc'),
-})
-
-/** A filter value arrives as a query string, so it is decoded before its value schema runs. */
-function buildFilterValueSchema(field: IField): z.ZodType<TRecordValue> {
+/**
+ * A filter value arrives as a query string, so it is decoded before its value schema runs.
+ * Exported for the URL codec (`#shared/utils/record-query`), which decodes with the very
+ * same schema the query validation uses.
+ */
+export function buildFilterValueSchema(field: IField): z.ZodType<TRecordValue> {
   const spec = VALUE_SCHEMA_BY_TYPE[field.type]
 
   return z.preprocess(
@@ -118,78 +102,13 @@ function buildFilterValueSchema(field: IField): z.ZodType<TRecordValue> {
   )
 }
 
-/** An empty param (`?company=`) means "not filtered", never a match-everything condition. */
-function filterParamValue(query: Record<string, unknown>, name: string): string | null {
-  const raw = query[name]
-  return typeof raw === 'string' && raw !== '' ? raw : null
-}
-
-/**
- * Maps a table's fields to the query params they own, skipping any name already claimed —
- * reserved params first, then fields in order. Field keys created since the param format
- * landed cannot collide (see `createField`); this keeps older keys deterministic.
- */
-function claimFilterParams(
-  fields: IField[],
-): { field: IField; op: TFilterOperator; name: string }[] {
-  const claimed = new Set<string>(RESERVED_QUERY_PARAMS)
-  const slots = []
-
-  for (const field of fields) {
-    for (const op of FILTER_OPERATORS_BY_TYPE[field.type]) {
-      const name = filterParamName(field.key, op)
-      if (claimed.has(name)) continue
-      claimed.add(name)
-      slots.push({ field, op, name })
-    }
-  }
-
-  return slots
-}
-
-/**
- * Decodes the filter params into the conditions they describe, in field order. Shared so
- * the client's panel and the server's query read a URL identically. Values that do not
- * decode are dropped — the query schema rejects them as a 400 first.
- */
-export function parseRecordFilters(
-  fields: IField[],
-  query: Record<string, unknown>,
-): IRecordFilter[] {
-  const filters: IRecordFilter[] = []
-
-  for (const { field, op, name } of claimFilterParams(fields)) {
-    const raw = filterParamValue(query, name)
-    if (raw === null) continue
-
-    const parsed = buildFilterValueSchema(field).safeParse(raw)
-    if (parsed.success) filters.push({ key: field.key, op, value: parsed.data })
-  }
-
-  return filters
-}
-
-/** The inverse, for building a URL: `{ company: 'acme', contract_value_from: '100' }`. */
-export function toFilterParams(filters: IRecordFilter[]): Record<string, string> {
-  return Object.fromEntries(
-    filters.map((filter) => [filterParamName(filter.key, filter.op), String(filter.value)]),
-  )
-}
-
-/**
- * Serializes the client's query state to flat params — the same shape for the page URL
- * and the API request, so a shared link and the fetch behind it can never diverge.
- * Defaults are omitted, keeping an unfiltered view a clean link.
- */
-export function toRecordQueryParams(state: IRecordQueryState): Record<string, string> {
-  const params: Record<string, string> = { ...toFilterParams(state.filters) }
-
-  if (state.page !== undefined && state.page > 1) params.page = String(state.page)
-  if (state.sort !== undefined) params.sort = state.sort
-  if (state.dir === 'desc') params.dir = state.dir
-
-  return params
-}
+/** Pagination and sorting; the per-field filter params are validated by the builder below. */
+const baseQueryParamsSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(RECORD_PAGE_SIZE_MAX).default(RECORD_PAGE_SIZE),
+  sort: z.string().optional(),
+  dir: z.enum(['asc', 'desc']).default('asc'),
+})
 
 /**
  * Builds the list-query schema from one table's field metadata — the same contract as
@@ -197,40 +116,35 @@ export function toRecordQueryParams(state: IRecordQueryState): Record<string, st
  * 400, before any SQL is composed. Params the table does not own are simply stripped:
  * filter names are plain field names now, so a stray `utm_source` is indistinguishable
  * from a typo and must not break the page.
+ *
+ * Validation only — decoding the validated params into an `IRecordQuery` is the codec's
+ * job (`parseRecordQueryState`), so a link is read by one reader on both sides of the wire.
  */
-export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQuery> {
+export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQueryParams> {
   const fieldByKey = new Map(fields.map((field) => [field.key, field]))
   const slots = claimFilterParams(fields)
 
   // Loose, so the refinement sees the filter params without widening the base ones
-  return baseQueryParamsSchema
-    .loose()
-    .superRefine((params, ctx) => {
-      if (params.sort !== undefined && params.sort !== DEFAULT_SORT_KEY) {
-        if (!fieldByKey.has(params.sort)) {
-          ctx.addIssue({ code: 'custom', path: ['sort'], message: 'Unknown sort field' })
-        }
+  return baseQueryParamsSchema.loose().superRefine((params, ctx) => {
+    if (params.sort !== undefined && params.sort !== DEFAULT_SORT_KEY) {
+      if (!fieldByKey.has(params.sort)) {
+        ctx.addIssue({ code: 'custom', path: ['sort'], message: 'Unknown sort field' })
+      }
+    }
+
+    for (const { field, name } of slots) {
+      const raw = params[name]
+      if (raw === undefined) continue
+
+      // A repeated param arrives as an array — one value per filter, so that is malformed
+      if (typeof raw !== 'string') {
+        ctx.addIssue({ code: 'custom', path: [name], message: 'Filter takes a single value' })
+        continue
       }
 
-      for (const { field, name } of slots) {
-        const raw = params[name]
-        if (raw === undefined) continue
-
-        // A repeated param arrives as an array — one value per filter, so that is malformed
-        if (typeof raw !== 'string') {
-          ctx.addIssue({ code: 'custom', path: [name], message: 'Filter takes a single value' })
-          continue
-        }
-
-        if (raw !== '' && !buildFilterValueSchema(field).safeParse(raw).success) {
-          ctx.addIssue({ code: 'custom', path: [name], message: 'Invalid filter value' })
-        }
+      if (raw !== '' && !buildFilterValueSchema(field).safeParse(raw).success) {
+        ctx.addIssue({ code: 'custom', path: [name], message: 'Invalid filter value' })
       }
-    })
-    .transform((params) => ({
-      page: params.page,
-      pageSize: params.pageSize,
-      sort: { key: params.sort ?? DEFAULT_SORT_KEY, dir: params.dir },
-      filters: parseRecordFilters(fields, params),
-    }))
+    }
+  })
 }

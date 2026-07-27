@@ -16,7 +16,9 @@
           @click="filterPanelOpen = true"
         >
           Filters
-          <BaseBadge v-if="filters.length > 0" variant="label">{{ filters.length }}</BaseBadge>
+          <BaseBadge v-if="activeFilterCount > 0" variant="label">
+            {{ activeFilterCount }}
+          </BaseBadge>
         </BaseButton>
         <BaseButton :disabled="!hasFields" @click="openCreateRecord">New record</BaseButton>
       </div>
@@ -30,9 +32,9 @@
 
     <template v-else>
       <div v-if="recordsStore.records.length === 0" class="records-page__empty">
-        <template v-if="filters.length > 0">
+        <template v-if="activeFilterCount > 0">
           <p>No records match these filters.</p>
-          <BaseButton variant="ghost" icon="mdi:filter-remove-outline" @click="applyFilters([])">
+          <BaseButton variant="ghost" icon="mdi:filter-remove-outline" @click="applyFilters({})">
             Clear all filters
           </BaseButton>
         </template>
@@ -43,7 +45,7 @@
         <DynamicTable
           :fields="fieldsStore.fields"
           :records="recordsStore.records"
-          :sort="sort"
+          :sort="queryParams.sort"
           @edit="openEditRecord"
           @delete="deleteTarget = $event"
           @sort="applySort"
@@ -101,10 +103,9 @@ import { useApi } from '~/composables/useApi'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import type { ITable } from '#shared/types/table'
-import { DEFAULT_SORT_KEY } from '#shared/types/filter'
-import type { IRecordFilter, IRecordSort } from '#shared/types/filter'
+import type { TRecordFilterValues } from '#shared/types/filter'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
-import { parseRecordFilters, toRecordQueryParams } from '#shared/validation/record'
+import { parseRecordQueryState, toRecordQueryParams } from '#shared/utils/record-query'
 
 type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
 
@@ -114,30 +115,15 @@ const fieldsStore = useFieldsStore()
 const recordsStore = useRecordsStore()
 const tableId = route.params.tableId as string
 
-/** A URL param is `string | null | array` — only a non-empty single string is meaningful. */
-function firstParam(value: unknown): string | undefined {
-  const raw = Array.isArray(value) ? value[0] : value
-  return typeof raw === 'string' && raw !== '' ? raw : undefined
-}
-
 /** The URL is the source of truth for the list query, so a filtered view is shareable. */
-const queryParams = computed<IRecordQueryState>(() => {
-  const page = Number(firstParam(route.query.page) ?? 1)
-
-  return {
-    page: Number.isInteger(page) && page > 0 ? page : 1,
-    sort: firstParam(route.query.sort),
-    dir: firstParam(route.query.dir) === 'desc' ? 'desc' : 'asc',
-    filters: parseRecordFilters(fieldsStore.fields, route.query),
-  }
-})
-
-const sort = computed<IRecordSort>(() => ({
-  key: queryParams.value.sort ?? DEFAULT_SORT_KEY,
-  dir: queryParams.value.dir ?? 'asc',
-}))
+const queryParams = computed<IRecordQueryState>(() =>
+  parseRecordQueryState(fieldsStore.fields, route.query),
+)
 
 const filters = computed(() => queryParams.value.filters)
+
+/** One filtered field counts once, however many conditions its control implies. */
+const activeFilterCount = computed(() => Object.keys(filters.value).length)
 
 const { data, error } = await useAsyncData(`table-records-${tableId}`, async () => {
   const [tableResponse] = await Promise.all([
@@ -173,11 +159,12 @@ function goToPage(nextPage: number) {
 
 /** Re-clicking the sorted column flips it; a new column starts ascending. */
 function applySort(key: string) {
-  const dir = sort.value.key === key && sort.value.dir === 'asc' ? 'desc' : 'asc'
-  return applyQuery({ ...queryParams.value, page: 1, sort: key, dir })
+  const { sort } = queryParams.value
+  const dir = sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc'
+  return applyQuery({ ...queryParams.value, page: 1, sort: { key, dir } })
 }
 
-function applyFilters(next: IRecordFilter[]) {
+function applyFilters(next: TRecordFilterValues) {
   return applyQuery({ ...queryParams.value, page: 1, filters: next }, true)
 }
 

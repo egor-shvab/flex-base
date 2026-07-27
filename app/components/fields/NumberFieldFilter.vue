@@ -1,18 +1,15 @@
 <template>
-  <RangeFieldFilter
-    :id="id"
-    :field="field"
-    :conditions="conditions"
-    input-type="number"
-    @update:conditions="emit('update:conditions', $event)"
-  />
+  <BaseNumberRange :id="id" :model-value="draft" :label="field.name" @update:model-value="update" />
 </template>
 
 <script setup lang="ts">
-import type { IRecordFilter } from '#shared/types/filter'
+import { useDebouncedModel } from '~/composables/useDebouncedModel'
+import type { INumberRange } from '#shared/types/range'
 import type { IFieldFilterProps } from '~/components/fields/types'
 
 defineProps<IFieldFilterProps>()
 
-const emit = defineEmits<{ 'update:conditions': [conditions: IRecordFilter[]] }>()
+const model = defineModel<INumberRange>({ required: true })
+
+const { draft, update } = useDebouncedModel(model)
 </script>

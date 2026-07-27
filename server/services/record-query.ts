@@ -1,8 +1,8 @@
 import { Prisma } from '#server/generated/prisma/client'
 import type { IField, TFieldType } from '#shared/types/field'
-import { DEFAULT_SORT_KEY } from '#shared/types/filter'
-import type { IRecordFilter, IRecordSort, TFilterOperator } from '#shared/types/filter'
-import type { TRecordValue } from '#shared/types/record'
+import { DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import type { IRecordSort, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import { isRangeFilterValue } from '#shared/utils/filter'
 
 /**
  * Prisma cannot order by a JSON path, so the record list is composed as SQL. Field keys
@@ -14,54 +14,80 @@ function jsonText(key: string): Prisma.Sql {
   return Prisma.sql`data ->> ${key}::text`
 }
 
-/**
- * The single per-field-type branch point for SQL: how a stored value is projected to a
- * comparable expression. Total, so a new field type must declare its projection.
- */
-const VALUE_EXPR_BY_TYPE: Record<TFieldType, (key: string) => Prisma.Sql> = {
-  TEXT: (key) => jsonText(key),
-  // Without the cast, `"10" < "9"` would compare as text
-  NUMBER: (key) => Prisma.sql`(${jsonText(key)})::numeric`,
-  BOOLEAN: (key) => Prisma.sql`(${jsonText(key)})::boolean`,
-  // Stored as `YYYY-MM-DD`, so text comparison is already chronological
-  DATE: (key) => jsonText(key),
-  SELECT: (key) => jsonText(key),
-  RELATION: (key) => jsonText(key),
-}
-
-/** Escapes the wildcards a user may legitimately type into a "contains" box. */
-function toContainsPattern(value: TRecordValue): string {
+/** Escapes the wildcards a user may legitimately type into a search box. */
+function toContainsPattern(value: TFilterValue): string {
   return `%${String(value ?? '').replace(/[\\%_]/g, (character) => `\\${character}`)}%`
 }
 
-const OPERATOR_SQL: Record<TFilterOperator, (expr: Prisma.Sql, value: TRecordValue) => Prisma.Sql> =
-  {
-    eq: (expr, value) => Prisma.sql`${expr} = ${value}`,
-    contains: (expr, value) => Prisma.sql`${expr} ILIKE ${toContainsPattern(value)}`,
-    // Range bounds are inclusive — the UI presents them as "From" / "To"
-    gte: (expr, value) => Prisma.sql`${expr} >= ${value}`,
-    lte: (expr, value) => Prisma.sql`${expr} <= ${value}`,
-  }
+/**
+ * How a filter value compares against a field's projected expression. Each builder narrows
+ * the value by shape and yields no condition when it does not match — validation guarantees
+ * the shape, so that branch is a guard rather than behaviour.
+ */
+type TFilterSql = (expr: Prisma.Sql, value: TFilterValue) => Prisma.Sql | null
+
+const matchesPartially: TFilterSql = (expr, value) =>
+  isRangeFilterValue(value) ? null : Prisma.sql`${expr} ILIKE ${toContainsPattern(value)}`
+
+const matchesExactly: TFilterSql = (expr, value) =>
+  isRangeFilterValue(value) ? null : Prisma.sql`${expr} = ${value}`
+
+const withinRange: TFilterSql = (expr, value) => {
+  if (!isRangeFilterValue(value)) return null
+
+  // Bounds are inclusive — the UI presents them as "From" / "To" — and either may be absent
+  const bounds: Prisma.Sql[] = []
+  if (value.from !== null) bounds.push(Prisma.sql`${expr} >= ${value.from}`)
+  if (value.to !== null) bounds.push(Prisma.sql`${expr} <= ${value.to}`)
+
+  return bounds.length > 0 ? Prisma.join(bounds, ' AND ') : null
+}
+
+interface IFieldSqlSpec {
+  /** Projects the stored JSONB value to a comparable expression. */
+  expr: (key: string) => Prisma.Sql
+  /** Compares this type's filter value against that expression. */
+  filter: TFilterSql
+}
+
+/**
+ * The single per-field-type branch point for SQL. Total, so a new field type must declare
+ * both halves. There is no operator to look up: the field type says how it compares, and
+ * the value's shape says with how many bounds.
+ */
+const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
+  TEXT: { expr: jsonText, filter: matchesPartially },
+  // Without the cast, `"10" < "9"` would compare as text
+  NUMBER: { expr: (key) => Prisma.sql`(${jsonText(key)})::numeric`, filter: withinRange },
+  BOOLEAN: { expr: (key) => Prisma.sql`(${jsonText(key)})::boolean`, filter: matchesExactly },
+  // Stored as `YYYY-MM-DD`, so text comparison is already chronological
+  DATE: { expr: jsonText, filter: withinRange },
+  SELECT: { expr: jsonText, filter: matchesExactly },
+  RELATION: { expr: jsonText, filter: matchesExactly },
+}
 
 function valueExpr(field: IField): Prisma.Sql {
-  return VALUE_EXPR_BY_TYPE[field.type](field.key)
+  return FIELD_SQL_BY_TYPE[field.type].expr(field.key)
 }
 
 /**
  * The one WHERE fragment, shared by the rows query and the count so they cannot disagree.
- * Every condition is ANDed, so a field contributing two of them (a `gte`/`lte` range)
- * needs no special handling here.
+ * Walks the table's fields rather than the filter map, so a key the table does not own has
+ * nothing to compare against; every filter is ANDed.
  */
 export function buildRecordWhere(
   tableId: string,
   fields: IField[],
-  filters: IRecordFilter[],
+  filters: TRecordFilterValues,
 ): Prisma.Sql {
   const conditions = [Prisma.sql`"tableId" = ${tableId}`]
 
-  for (const filter of filters) {
-    const field = fields.find((candidate) => candidate.key === filter.key)
-    if (field) conditions.push(OPERATOR_SQL[filter.op](valueExpr(field), filter.value))
+  for (const field of fields) {
+    const value = filters[field.key]
+    if (value === undefined) continue
+
+    const condition = FIELD_SQL_BY_TYPE[field.type].filter(valueExpr(field), value)
+    if (condition) conditions.push(condition)
   }
 
   return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`

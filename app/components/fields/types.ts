@@ -1,5 +1,4 @@
 import type { IField } from '#shared/types/field'
-import type { IRecordFilter } from '#shared/types/filter'
 import type { TRecordValue } from '#shared/types/record'
 
 /** Uniform contract every field input component honours (plus `v-model` of TRecordValue). */
@@ -18,13 +17,11 @@ export interface IFieldCellProps {
 }
 
 /**
- * Uniform contract every field filter component honours (plus an
- * `update:conditions` emit). The component owns the translation between its own
- * controls and its field's conditions — a range simply emits two of them.
+ * Uniform contract every field filter component honours, plus a `v-model` of its type's
+ * value in `IFilterValueByType` — a string, a boolean, a range. Operators belong to the
+ * serialization layer, so a filter control never sees one.
  */
 export interface IFieldFilterProps {
   id: string
   field: IField
-  /** This field's slice of the active conditions; empty means "not filtered". */
-  conditions: IRecordFilter[]
 }

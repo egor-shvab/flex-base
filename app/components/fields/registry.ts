@@ -21,7 +21,7 @@ export interface IFieldComponents {
   input: Component
   /** Table cell, following IFieldCellProps. */
   cell: Component
-  /** Filter control, following IFieldFilterProps + an update:conditions emit. */
+  /** Filter control, following IFieldFilterProps + v-model of the type's filter value. */
   filter: Component
 }
 

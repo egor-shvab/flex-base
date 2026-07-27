@@ -10,14 +10,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { IRecordFilter } from '#shared/types/filter'
 import type { IFieldFilterProps } from '~/components/fields/types'
 
 type TBooleanChoice = '' | 'true' | 'false'
 
-const props = defineProps<IFieldFilterProps>()
+defineProps<IFieldFilterProps>()
 
-const emit = defineEmits<{ 'update:conditions': [conditions: IRecordFilter[]] }>()
+// `null` is "All" — a two-state control cannot express "either"
+const model = defineModel<boolean | null>({ required: true })
 
 const options: { value: TBooleanChoice; label: string }[] = [
   { value: '', label: 'All' },
@@ -26,17 +26,12 @@ const options: { value: TBooleanChoice; label: string }[] = [
 ]
 
 const selected = computed<TBooleanChoice>(() => {
-  const condition = props.conditions[0]
-  if (condition?.value === true) return 'true'
-  if (condition?.value === false) return 'false'
+  if (model.value === true) return 'true'
+  if (model.value === false) return 'false'
   return ''
 })
 
 function onChange(choice: TBooleanChoice) {
-  // "All" is the absence of a condition, not a third value
-  emit(
-    'update:conditions',
-    choice === '' ? [] : [{ key: props.field.key, op: 'eq', value: choice === 'true' }],
-  )
+  model.value = choice === '' ? null : choice === 'true'
 }
 </script>

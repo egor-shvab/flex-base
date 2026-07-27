@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CREATABLE_FIELD_TYPES } from '#shared/types/field'
+import { CREATABLE_FIELD_TYPES } from '#shared/constants/field'
 
 /**
  * Flat wire format for creating/updating a field. The server derives the DB

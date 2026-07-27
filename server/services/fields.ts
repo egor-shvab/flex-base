@@ -3,7 +3,8 @@ import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
-import { filterParamNames, RESERVED_QUERY_PARAMS } from '#shared/types/filter'
+import { RESERVED_QUERY_PARAMS } from '#shared/constants/filter'
+import { filterParamNames } from '#shared/utils/filter'
 import type { TFieldInput } from '#shared/validation/field'
 
 export const fieldSelect = {

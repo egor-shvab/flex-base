@@ -1,4 +1,4 @@
-import type { IRecordFilter, IRecordSort, TSortDirection } from '#shared/types/filter'
+import type { IRecordSort, TRecordFilterValues, TSortDirection } from '#shared/types/filter'
 
 /** Every value a record cell can hold. Records are stored as JSONB keyed by `Field.key`. */
 export type TRecordValue = string | number | boolean | null
@@ -20,23 +20,29 @@ export interface IRecordPage {
   pageSize: number
 }
 
-/** A resolved list query: what the API validated the request down to. */
-export interface IRecordQuery {
+/**
+ * A resolved list query — what the client holds and passes around, and what the API
+ * validated a request down to. Serialized to flat params only at the URL/fetch boundary.
+ */
+export interface IRecordQueryState {
   page: number
-  pageSize: number
   sort: IRecordSort
-  /** Every active condition, ANDed together. */
-  filters: IRecordFilter[]
+  /** Every active filter, ANDed together. */
+  filters: TRecordFilterValues
+}
+
+/** The server additionally resolves the page size it enforces. */
+export interface IRecordQuery extends IRecordQueryState {
+  pageSize: number
 }
 
 /**
- * What the client holds and passes around — the same information as `IRecordQuery`,
- * minus the server-only page size. Serialized to flat params only at the fetch boundary,
- * since a URL carries strings rather than decoded field values.
+ * What the list-query schema guarantees: validated pagination and sorting, with the
+ * table's filter params riding along as raw strings for the codec to decode.
  */
-export interface IRecordQueryState {
-  page?: number
+export interface IRecordQueryParams extends Record<string, unknown> {
+  page: number
+  pageSize: number
   sort?: string
-  dir?: TSortDirection
-  filters: IRecordFilter[]
+  dir: TSortDirection
 }

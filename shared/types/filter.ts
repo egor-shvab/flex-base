@@ -1,41 +1,7 @@
 import type { TFieldType } from '#shared/types/field'
-import type { TRecordValue } from '#shared/types/record'
-
-export const FILTER_OPERATORS = ['eq', 'contains', 'gte', 'lte'] as const
-
-export type TFilterOperator = (typeof FILTER_OPERATORS)[number]
-
-/**
- * The single per-field-type branch point for filtering: which operators a type may be
- * filtered with. Typed as a total `Record`, so adding a `TFieldType` fails to compile
- * until its operators are declared. Each filter control implies its own operator, so
- * nothing in the UI reads this to build a picker — it drives server validation and,
- * through `PARAM_SUFFIX_BY_OPERATOR`, the query params a field claims.
- *
- * Invariant: no two operators of one type may share a param suffix, or the field would
- * claim the same param name twice.
- */
-export const FILTER_OPERATORS_BY_TYPE: Record<TFieldType, readonly TFilterOperator[]> = {
-  TEXT: ['contains'],
-  NUMBER: ['gte', 'lte'],
-  BOOLEAN: ['eq'],
-  DATE: ['gte', 'lte'],
-  SELECT: ['eq'],
-  // Placeholder until the RELATION milestone — RELATION is not creatable yet
-  RELATION: ['eq'],
-}
-
-/** One condition. A field may contribute several (a range is `gte` + `lte`); all are ANDed. */
-export interface IRecordFilter {
-  key: string
-  op: TFilterOperator
-  value: TRecordValue
-}
+import type { IDateRange, INumberRange } from '#shared/types/range'
 
 export type TSortDirection = 'asc' | 'desc'
-
-/** Sorting falls back to the record's own creation order, which every table has. */
-export const DEFAULT_SORT_KEY = 'createdAt'
 
 export interface IRecordSort {
   /** A `Field.key`, or `DEFAULT_SORT_KEY` for the record's own creation order. */
@@ -43,28 +9,40 @@ export interface IRecordSort {
   dir: TSortDirection
 }
 
+/** Every value a filter control can hold — one per field, whatever its type. */
+export type TFilterValue = string | number | boolean | null | INumberRange | IDateRange
+
 /**
- * Filters travel as plain query params named after the field, with the operator implied
- * by the name: `?company=acme&contract_value_from=100&contract_value_to=500`.
+ * The value shape each field type's control speaks. Extending the total `Record` makes a
+ * missing field type a compile error, so a new type cannot ship without declaring one.
  */
-const PARAM_SUFFIX_BY_OPERATOR: Record<TFilterOperator, string> = {
-  contains: '',
-  eq: '',
-  gte: '_from',
-  lte: '_to',
-}
-
-export function filterParamName(fieldKey: string, op: TFilterOperator): string {
-  return `${fieldKey}${PARAM_SUFFIX_BY_OPERATOR[op]}`
-}
-
-/** Every param name a field of this type claims — used by the codec and the key guard. */
-export function filterParamNames(fieldKey: string, type: TFieldType): string[] {
-  return FILTER_OPERATORS_BY_TYPE[type].map((op) => filterParamName(fieldKey, op))
+export interface IFilterValueByType extends Record<TFieldType, TFilterValue> {
+  TEXT: string
+  NUMBER: INumberRange
+  /** `null` is "All" — a two-state control cannot express "either". */
+  BOOLEAN: boolean | null
+  DATE: IDateRange
+  SELECT: string
+  RELATION: string
 }
 
 /**
- * Query params the list endpoint owns. A field key must never shadow one, or its filter
- * would fight pagination or sorting for the same name.
+ * The filter model of every layer: active filters keyed by `Field.key`. A key that is
+ * absent — or whose value `isFilterValueEmpty` — is not filtered. The UI holds this, the
+ * URL carries it, and the SQL is derived from it; nothing translates it into anything else.
  */
-export const RESERVED_QUERY_PARAMS = ['page', 'pageSize', 'sort', 'dir'] as const
+export type TRecordFilterValues = Record<string, TFilterValue>
+
+/** One param named after the field, or a `_from` / `_to` pair. */
+export type TFilterShape = 'scalar' | 'range'
+
+/** What `FILTER_VALUE_BY_TYPE` declares for one field type. */
+export interface IFilterValueSpec<TValue extends TFilterValue> {
+  /** Drives both the params the field claims and how its value compares in SQL. */
+  shape: TFilterShape
+  /** What a control shows when its field is not filtered. */
+  empty: TValue
+}
+
+/** Which part of a field's value a claimed query param carries. */
+export type TFilterParamRole = 'value' | 'from' | 'to'

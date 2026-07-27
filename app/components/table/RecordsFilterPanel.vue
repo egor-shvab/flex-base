@@ -7,8 +7,8 @@
         :id="`${panelId}-${field.key}`"
         :key="field.key"
         :field="field"
-        :conditions="conditionsFor(field)"
-        @update:conditions="applyFieldConditions(field, $event)"
+        :model-value="valueFor(field)"
+        @update:model-value="applyFieldValue(field, $event)"
       />
     </div>
 
@@ -18,10 +18,10 @@
           {{ pending ? 'Filtering…' : `${total} matching ${total === 1 ? 'record' : 'records'}` }}
         </span>
         <BaseButton
-          v-if="filters.length > 0"
+          v-if="activeFilterCount > 0"
           variant="ghost"
           icon="mdi:filter-remove-outline"
-          @click="emit('update:filters', [])"
+          @click="emit('update:filters', {})"
         >
           Clear all
         </BaseButton>
@@ -31,37 +31,47 @@
 </template>
 
 <script setup lang="ts">
-import { useId } from 'vue'
+import { computed, useId } from 'vue'
 import { FIELD_COMPONENTS } from '~/components/fields/registry'
+import { FILTER_VALUE_BY_TYPE } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
-import type { IRecordFilter } from '#shared/types/filter'
+import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import { isFilterValueEmpty } from '#shared/utils/filter'
 
 const props = defineProps<{
   fields: IField[]
-  filters: IRecordFilter[]
+  filters: TRecordFilterValues
   total: number
   pending?: boolean
 }>()
 
 const emit = defineEmits<{
-  'update:filters': [filters: IRecordFilter[]]
+  'update:filters': [filters: TRecordFilterValues]
   close: []
 }>()
 
 const panelId = useId()
 
-function conditionsFor(field: IField): IRecordFilter[] {
-  return props.filters.filter((filter) => filter.key === field.key)
+const activeFilterCount = computed(() => Object.keys(props.filters).length)
+
+/** Every control is always rendered, so an unfiltered field shows its type's empty value. */
+function valueFor(field: IField): TFilterValue {
+  return props.filters[field.key] ?? FILTER_VALUE_BY_TYPE[field.type].empty
 }
 
 /**
- * Replaces one field's slice of the conditions, rebuilding the list in field order so the
- * URL stays stable no matter which control the user touched.
+ * Replaces one field's value, rebuilding the map in field order so the URL stays stable no
+ * matter which control the user touched. A value that means "not filtered" is dropped, so
+ * the map only ever holds active filters.
  */
-function applyFieldConditions(changed: IField, conditions: IRecordFilter[]) {
-  const next = props.fields.flatMap((field) =>
-    field.key === changed.key ? conditions : conditionsFor(field),
-  )
+function applyFieldValue(changed: IField, value: TFilterValue) {
+  const next: TRecordFilterValues = {}
+
+  for (const field of props.fields) {
+    const candidate = field.key === changed.key ? value : props.filters[field.key]
+    if (candidate !== undefined && !isFilterValueEmpty(candidate)) next[field.key] = candidate
+  }
+
   emit('update:filters', next)
 }
 </script>

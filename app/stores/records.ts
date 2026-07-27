@@ -1,16 +1,17 @@
 import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
-import { DEFAULT_SORT_KEY } from '#shared/types/filter'
+import { DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordPage, IRecordQueryState, TRecordData } from '#shared/types/record'
-import { RECORD_PAGE_SIZE, toRecordQueryParams } from '#shared/validation/record'
+import { toRecordQueryParams } from '#shared/utils/record-query'
 
 /** Only the unfiltered, oldest-first view has a predictable place for a new record. */
 function isDefaultView(query: IRecordQueryState): boolean {
   return (
-    query.filters.length === 0 &&
-    (query.sort ?? DEFAULT_SORT_KEY) === DEFAULT_SORT_KEY &&
-    (query.dir ?? 'asc') === 'asc'
+    Object.keys(query.filters).length === 0 &&
+    query.sort.key === DEFAULT_SORT_KEY &&
+    query.sort.dir === 'asc'
   )
 }
 

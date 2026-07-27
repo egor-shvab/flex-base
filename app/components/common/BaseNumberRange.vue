@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { INumberRange } from '~/components/common/types'
+import type { INumberRange } from '#shared/types/range'
 
 withDefaults(
   defineProps<{

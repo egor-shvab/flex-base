@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import type { IDateRange } from '~/components/common/types'
+import type { IDateRange } from '#shared/types/range'
 
 withDefaults(
   defineProps<{
