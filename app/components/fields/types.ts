@@ -15,13 +15,3 @@ export interface IFieldCellProps {
   field: IField
   value: TRecordValue
 }
-
-/**
- * Uniform contract every field filter component honours, plus a `v-model` of its type's
- * value in `IFilterValueByType` — a string, a boolean, a range. Operators belong to the
- * serialization layer, so a filter control never sees one.
- */
-export interface IFieldFilterProps {
-  id: string
-  field: IField
-}

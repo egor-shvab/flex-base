@@ -14,6 +14,7 @@
         type="date"
         :aria-label="fromLabel"
         :invalid="Boolean(error)"
+        :debounce="debounce"
         @update:model-value="onBoundInput('from', $event)"
       />
       <BaseInput
@@ -22,6 +23,7 @@
         type="date"
         :aria-label="toLabel"
         :invalid="Boolean(error)"
+        :debounce="debounce"
         @update:model-value="onBoundInput('to', $event)"
       />
     </div>
@@ -39,12 +41,15 @@ withDefaults(
     error?: string
     fromLabel?: string
     toLabel?: string
+    /** Forwarded to both bounds — a range filter costs a request per edit. */
+    debounce?: number
   }>(),
   {
     label: undefined,
     error: undefined,
     fromLabel: 'From',
     toLabel: 'To',
+    debounce: 0,
   },
 )
 
@@ -52,8 +57,8 @@ const model = defineModel<IDateRange>({ required: true })
 
 // A date input already speaks YYYY-MM-DD, so the bound needs no parsing — unlike
 // BaseNumberRange, the displayed value can be derived straight from the model.
-function onBoundInput(bound: keyof IDateRange, raw: string | undefined) {
-  model.value = { ...model.value, [bound]: raw === undefined || raw === '' ? null : raw }
+function onBoundInput(bound: keyof IDateRange, raw: string) {
+  model.value = { ...model.value, [bound]: raw === '' ? null : raw }
 }
 </script>
 

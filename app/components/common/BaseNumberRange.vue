@@ -15,6 +15,7 @@
         :aria-label="fromLabel"
         :placeholder="fromLabel"
         :invalid="Boolean(error)"
+        :debounce="debounce"
         @update:model-value="onBoundInput('from', $event)"
       />
       <BaseInput
@@ -24,6 +25,7 @@
         :aria-label="toLabel"
         :placeholder="toLabel"
         :invalid="Boolean(error)"
+        :debounce="debounce"
         @update:model-value="onBoundInput('to', $event)"
       />
     </div>
@@ -42,12 +44,15 @@ withDefaults(
     error?: string
     fromLabel?: string
     toLabel?: string
+    /** Forwarded to both bounds — a range filter costs a request per edit. */
+    debounce?: number
   }>(),
   {
     label: undefined,
     error: undefined,
     fromLabel: 'From',
     toLabel: 'To',
+    debounce: 0,
   },
 )
 
@@ -58,15 +63,6 @@ const model = defineModel<INumberRange>({ required: true })
 const fromText = ref('')
 const toText = ref('')
 
-watch(
-  model,
-  (range) => {
-    fromText.value = range.from === null ? '' : String(range.from)
-    toText.value = range.to === null ? '' : String(range.to)
-  },
-  { immediate: true },
-)
-
 /** A blank or unparseable bound is no bound at all. */
 function toBound(raw: string): number | null {
   if (raw.trim() === '') return null
@@ -74,14 +70,26 @@ function toBound(raw: string): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-// BaseInput's model is optional, so a cleared input arrives as undefined
-function onBoundInput(bound: keyof INumberRange, raw: string | undefined) {
-  const text = raw ?? ''
+watch(
+  model,
+  (range) => {
+    // Only a bound that disagrees with what is on screen came from outside (clear all, a
+    // shared URL, the back button); resyncing the rest would undo the text being typed.
+    if (range.from !== toBound(fromText.value)) {
+      fromText.value = range.from === null ? '' : String(range.from)
+    }
+    if (range.to !== toBound(toText.value)) {
+      toText.value = range.to === null ? '' : String(range.to)
+    }
+  },
+  { immediate: true },
+)
 
-  if (bound === 'from') fromText.value = text
-  else toText.value = text
+function onBoundInput(bound: keyof INumberRange, raw: string) {
+  if (bound === 'from') fromText.value = raw
+  else toText.value = raw
 
-  model.value = { ...model.value, [bound]: toBound(text) }
+  model.value = { ...model.value, [bound]: toBound(raw) }
 }
 </script>
 

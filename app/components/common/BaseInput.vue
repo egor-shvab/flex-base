@@ -3,7 +3,7 @@
     <label v-if="label" class="base-input__label" :for="id">{{ label }}</label>
     <input
       :id="id"
-      v-model="model"
+      :value="draft"
       class="base-input__input"
       :class="{ 'base-input__input--invalid': error || invalid }"
       :type="type"
@@ -13,13 +13,19 @@
       :aria-label="ariaLabel"
       :aria-invalid="error || invalid ? true : undefined"
       :aria-describedby="error ? `${id}-error` : undefined"
+      @input="onInput"
+      @compositionstart="composing = true"
+      @compositionend="onCompositionEnd"
     />
     <span v-if="error" :id="`${id}-error`" class="base-input__error">{{ error }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { ref } from 'vue'
+import { useDebouncedModel } from '~/composables/useDebouncedModel'
+
+const props = withDefaults(
   defineProps<{
     id: string
     label?: string
@@ -32,6 +38,10 @@ withDefaults(
     ariaLabel?: string
     /** Invalid styling without an inline message, for when the group owns the error line. */
     invalid?: boolean
+    /** Milliseconds to hold a keystroke before writing out — for inputs that cost a request. */
+    debounce?: number
+    /** The `.trim` modifier as a prop, for callers that bind props rather than `v-model`. */
+    trim?: boolean
   }>(),
   {
     label: undefined,
@@ -42,17 +52,33 @@ withDefaults(
     autofocus: false,
     ariaLabel: undefined,
     invalid: false,
+    debounce: 0,
+    trim: false,
   },
 )
 
-const [model, modifiers] = defineModel<string>({
-  // Vue casts the value of a `type="number"` input to a number, so normalise back
-  // to the string this model promises before applying the `.trim` modifier.
-  set: (value) => {
-    const text = typeof value === 'string' ? value : String(value)
-    return modifiers.trim ? text.trim() : text
-  },
+const [model, modifiers] = defineModel<string>({ default: '' })
+
+const draft = useDebouncedModel(model, {
+  delay: props.debounce,
+  normalize: (value) => (props.trim || modifiers.trim ? value.trim() : value),
 })
+
+// `v-model` would cast a `type="number"` input's value to a number and write it back as
+// `1.5` while the user is still typing `1.50`, so the raw `el.value` is read instead —
+// which costs us `v-model`'s composition guard, kept by hand below.
+const composing = ref(false)
+
+function onInput(event: Event) {
+  if (composing.value) return
+  draft.value = (event.target as HTMLInputElement).value
+}
+
+// An IME's intermediate text is not input until the composition is committed
+function onCompositionEnd(event: CompositionEvent) {
+  composing.value = false
+  onInput(event)
+}
 </script>
 
 <style lang="scss" scoped>
