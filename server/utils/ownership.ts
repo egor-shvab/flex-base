@@ -1,9 +1,8 @@
 import { createError } from 'h3'
 import { fieldSelect, toFieldMetadata } from '#server/services/fields'
+import { tableSelect } from '#server/services/tables'
 import { prisma } from '#server/utils/prisma'
 import type { IField } from '#shared/types/field'
-
-const tableSelect = { id: true, name: true, createdAt: true, updatedAt: true }
 
 /** Another user's table must be indistinguishable from a missing one — never 403. */
 function tableNotFound() {

@@ -1,5 +1,5 @@
 import { reactive, ref, watch } from 'vue'
-import { getApiErrorMessage } from '~/composables/useApi'
+import { getApiErrorMessage } from '~/utils/api-error'
 import type { ZodType } from 'zod'
 
 interface IUseFormOptions<TValues extends Record<string, unknown>, TOutput> {
@@ -10,7 +10,7 @@ interface IUseFormOptions<TValues extends Record<string, unknown>, TOutput> {
 
 /**
  * Reusable form state: reactive fields, per-field validation errors that clear
- * as the user edits, a form-level server error, a pending flag, submit, and reset.
+ * as the user edits, a form-level server error, a pending flag, and submit.
  * Removes the hand-rolled reactive + watch + safeParse boilerplate from every form.
  */
 export function useForm<TValues extends Record<string, unknown>, TOutput>(
@@ -63,10 +63,5 @@ export function useForm<TValues extends Record<string, unknown>, TOutput>(
     }
   }
 
-  function reset() {
-    Object.assign(form, options.initial)
-    clearErrors()
-  }
-
-  return { form, errors, serverError, pending, submit, reset }
+  return { form, errors, serverError, pending, submit }
 }

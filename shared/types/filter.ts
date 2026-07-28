@@ -33,13 +33,13 @@ export interface IFilterValueByType extends Record<TFieldType, TFilterValue> {
  */
 export type TRecordFilterValues = Record<string, TFilterValue>
 
-/** One param named after the field, or a `_from` / `_to` pair. */
-export type TFilterShape = 'scalar' | 'range'
-
 /** What `FILTER_VALUE_BY_TYPE` declares for one field type. */
 export interface IFilterValueSpec<TValue extends TFilterValue> {
-  /** Drives both the params the field claims and how its value compares in SQL. */
-  shape: TFilterShape
+  /**
+   * One param named after the field (`scalar`) or a `_from` / `_to` pair (`range`).
+   * Drives both the params the field claims and how its value compares in SQL.
+   */
+  shape: 'scalar' | 'range'
   /** What a control shows when its field is not filtered. */
   empty: TValue
 }

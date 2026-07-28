@@ -25,7 +25,7 @@ export default defineNuxtConfig({
     css: {
       preprocessorOptions: {
         scss: {
-          additionalData: '@use "~/assets/scss/functions" as *;',
+          additionalData: '@use "~/assets/scss/functions" as *; @use "~/assets/scss/mixins" as *;',
         },
       },
     },
@@ -40,5 +40,5 @@ export default defineNuxtConfig({
     typeCheck: 'build',
   },
 
-  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxt/icon', '@nuxt/image', '@pinia/nuxt'],
+  modules: ['@nuxt/eslint', '@nuxt/icon', '@nuxt/image', '@pinia/nuxt'],
 })

@@ -26,16 +26,14 @@
         </div>
         <span class="field-row__type">{{ FIELD_TYPE_LABELS[field.type] }}</span>
         <div class="field-row__actions">
-          <button type="button" class="field-row__action" @click="openEditField(field)">
-            Edit
-          </button>
-          <button
-            type="button"
-            class="field-row__action field-row__action--danger"
+          <BaseButton variant="link" @click="openEditField(field)">Edit</BaseButton>
+          <BaseButton
+            variant="link"
+            hover-color="var(--color-danger)"
             @click="deleteTarget = field"
           >
             Delete
-          </button>
+          </BaseButton>
         </div>
       </li>
     </ul>
@@ -54,9 +52,9 @@
       title="Delete field"
       danger
       :pending="deletePending"
-      :confirm-label="deletePending ? 'Deleting…' : 'Delete'"
+      :confirm-label="deleteLabel"
       @confirm="confirmDeleteField"
-      @close="deleteTarget = null"
+      @close="cancelDelete"
     >
       Delete <strong>{{ deleteTarget.name }}</strong
       >? This removes the field from the table.
@@ -68,6 +66,7 @@
 import { computed, ref } from 'vue'
 import { createError, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useApi } from '~/composables/useApi'
+import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
 import { FIELD_TYPE_LABELS } from '#shared/constants/field'
 import type { ITable } from '#shared/types/table'
@@ -115,35 +114,27 @@ async function submitField(input: TFieldInput) {
   }
 }
 
-const deleteTarget = ref<IField | null>(null)
-const deletePending = ref(false)
-
-async function confirmDeleteField() {
-  if (!deleteTarget.value) return
-  deletePending.value = true
-  try {
-    await fieldsStore.deleteField(tableId, deleteTarget.value.id)
-    deleteTarget.value = null
-  } finally {
-    deletePending.value = false
-  }
-}
+const {
+  target: deleteTarget,
+  pending: deletePending,
+  confirmLabel: deleteLabel,
+  confirm: confirmDeleteField,
+  cancel: cancelDelete,
+} = useDeleteConfirm((field: IField) => fieldsStore.deleteField(tableId, field.id))
 </script>
 
 <style lang="scss" scoped>
 .table-page {
   &__back {
-    display: inline-flex;
-    align-items: center;
-    gap: rem(4);
-    margin-bottom: rem(12);
-    font-size: rem(14);
-    color: var(--color-text-muted);
-    text-decoration: none;
+    @include back-link;
+  }
 
-    &:hover {
-      color: var(--color-primary);
-    }
+  &__header {
+    @include page-header;
+  }
+
+  &__title {
+    @include page-title;
   }
 
   &__header-actions {
@@ -153,38 +144,17 @@ async function confirmDeleteField() {
   }
 
   &__link {
-    font-size: rem(14);
-    color: var(--color-primary);
-    text-decoration: none;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: rem(20);
-  }
-
-  &__title {
-    margin: 0;
-    font-size: rem(24);
+    @include text-link;
   }
 
   &__empty {
-    margin: rem(40) 0;
-    text-align: center;
-    color: var(--color-text-muted);
+    @include page-empty;
   }
 }
 
 .field-list {
-  display: flex;
-  flex-direction: column;
-  gap: rem(8);
+  @include stack(8);
+
   margin: 0;
   padding: 0;
   list-style: none;
@@ -225,23 +195,6 @@ async function confirmDeleteField() {
   &__actions {
     display: flex;
     gap: rem(12);
-  }
-
-  &__action {
-    padding: 0;
-    border: none;
-    background: none;
-    font-size: rem(13);
-    color: var(--color-text-muted);
-    cursor: pointer;
-
-    &:hover {
-      color: var(--color-primary);
-    }
-
-    &--danger:hover {
-      color: var(--color-danger);
-    }
   }
 }
 </style>

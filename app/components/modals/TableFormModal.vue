@@ -46,8 +46,6 @@ const { form, errors, serverError, pending, submit } = useForm({
 
 <style lang="scss" scoped>
 .table-form {
-  display: flex;
-  flex-direction: column;
-  gap: rem(16);
+  @include stack;
 }
 </style>

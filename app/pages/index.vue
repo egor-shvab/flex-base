@@ -18,16 +18,14 @@
           </p>
         </NuxtLink>
         <div class="table-card__actions">
-          <button type="button" class="table-card__action" @click="openRenameModal(table)">
-            Rename
-          </button>
-          <button
-            type="button"
-            class="table-card__action table-card__action--danger"
+          <BaseButton variant="link" @click="openRenameModal(table)">Rename</BaseButton>
+          <BaseButton
+            variant="link"
+            hover-color="var(--color-danger)"
             @click="deleteTarget = table"
           >
             Delete
-          </button>
+          </BaseButton>
         </div>
       </li>
     </ul>
@@ -46,9 +44,9 @@
       title="Delete table"
       danger
       :pending="deletePending"
-      :confirm-label="deletePending ? 'Deleting…' : 'Delete'"
+      :confirm-label="deleteLabel"
       @confirm="confirmDelete"
-      @close="deleteTarget = null"
+      @close="cancelDelete"
     >
       Delete <strong>{{ deleteTarget.name }}</strong
       >? All of its fields and records will be permanently removed.
@@ -59,6 +57,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAsyncData, useSeoMeta } from '#imports'
+import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useTablesStore } from '~/stores/tables'
 import type { ITableListItem } from '#shared/types/table'
 
@@ -93,40 +92,27 @@ async function submitTable(name: string) {
   }
 }
 
-const deleteTarget = ref<ITableListItem | null>(null)
-const deletePending = ref(false)
-
-async function confirmDelete() {
-  if (!deleteTarget.value) return
-
-  deletePending.value = true
-  try {
-    await tablesStore.deleteTable(deleteTarget.value.id)
-    deleteTarget.value = null
-  } finally {
-    deletePending.value = false
-  }
-}
+const {
+  target: deleteTarget,
+  pending: deletePending,
+  confirmLabel: deleteLabel,
+  confirm: confirmDelete,
+  cancel: cancelDelete,
+} = useDeleteConfirm((table: ITableListItem) => tablesStore.deleteTable(table.id))
 </script>
 
 <style lang="scss" scoped>
 .dashboard {
   &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: rem(20);
+    @include page-header;
   }
 
   &__title {
-    margin: 0;
-    font-size: rem(24);
+    @include page-title;
   }
 
   &__empty {
-    margin: rem(40) 0;
-    text-align: center;
-    color: var(--color-text-muted);
+    @include page-empty;
   }
 
   &__grid {
@@ -173,23 +159,6 @@ async function confirmDelete() {
     gap: rem(8);
     padding: rem(8) rem(16);
     border-top: 1px solid var(--color-border);
-  }
-
-  &__action {
-    padding: 0;
-    border: none;
-    background: none;
-    font-size: rem(13);
-    color: var(--color-text-muted);
-    cursor: pointer;
-
-    &:hover {
-      color: var(--color-primary);
-    }
-
-    &--danger:hover {
-      color: var(--color-danger);
-    }
   }
 }
 </style>

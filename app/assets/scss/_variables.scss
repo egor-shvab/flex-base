@@ -4,6 +4,11 @@
   --color-primary-hover: #4338ca;
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
+
+  // Faint washes of the two accents, for hover fills and error banners. Spelled out
+  // rather than derived: a custom property's alpha cannot be modified in CSS.
+  --color-primary-tint: rgb(79 70 229 / 8%);
+  --color-danger-tint: rgb(220 38 38 / 8%);
   --color-text: #1f2937;
   --color-text-muted: #6b7280;
   --color-border: #d1d5db;

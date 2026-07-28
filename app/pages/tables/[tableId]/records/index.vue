@@ -87,9 +87,9 @@
       title="Delete record"
       danger
       :pending="deletePending"
-      :confirm-label="deletePending ? 'Deleting…' : 'Delete'"
+      :confirm-label="deleteLabel"
       @confirm="confirmDeleteRecord"
-      @close="deleteTarget = null"
+      @close="cancelDelete"
     >
       Delete this record? This cannot be undone.
     </LazyConfirmModal>
@@ -100,6 +100,7 @@
 import { computed, ref, watch } from 'vue'
 import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useApi } from '~/composables/useApi'
+import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import type { ITable } from '#shared/types/table'
@@ -195,47 +196,29 @@ async function submitRecord(data: TRecordData) {
   }
 }
 
-const deleteTarget = ref<IRecord | null>(null)
-const deletePending = ref(false)
-
-async function confirmDeleteRecord() {
-  if (!deleteTarget.value) return
-  deletePending.value = true
-  try {
-    await recordsStore.deleteRecord(tableId, deleteTarget.value.id, queryParams.value)
-    deleteTarget.value = null
-  } finally {
-    deletePending.value = false
-  }
-}
+const {
+  target: deleteTarget,
+  pending: deletePending,
+  confirmLabel: deleteLabel,
+  confirm: confirmDeleteRecord,
+  cancel: cancelDelete,
+} = useDeleteConfirm((record: IRecord) =>
+  recordsStore.deleteRecord(tableId, record.id, queryParams.value),
+)
 </script>
 
 <style lang="scss" scoped>
 .records-page {
   &__back {
-    display: inline-flex;
-    align-items: center;
-    gap: rem(4);
-    margin-bottom: rem(12);
-    font-size: rem(14);
-    color: var(--color-text-muted);
-    text-decoration: none;
-
-    &:hover {
-      color: var(--color-primary);
-    }
+    @include back-link;
   }
 
   &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: rem(20);
+    @include page-header;
   }
 
   &__title {
-    margin: 0;
-    font-size: rem(24);
+    @include page-title;
   }
 
   &__header-actions {
@@ -245,23 +228,15 @@ async function confirmDeleteRecord() {
   }
 
   &__link {
-    font-size: rem(14);
-    color: var(--color-primary);
-    text-decoration: none;
-
-    &:hover {
-      text-decoration: underline;
-    }
+    @include text-link;
   }
 
+  // The only empty state with actions in it, so it stacks rather than being plain text
   &__empty {
-    display: flex;
-    flex-direction: column;
+    @include page-empty;
+    @include stack(8);
+
     align-items: center;
-    gap: rem(8);
-    margin: rem(40) 0;
-    text-align: center;
-    color: var(--color-text-muted);
 
     p {
       margin: 0;

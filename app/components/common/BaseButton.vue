@@ -1,11 +1,8 @@
 <template>
   <button
     class="base-button"
-    :class="{
-      'base-button--danger': variant === 'danger',
-      'base-button--icon': variant === 'icon',
-      'base-button--ghost': variant === 'ghost',
-    }"
+    :class="`base-button--${variant}`"
+    :style="hoverColor ? { '--hover-color': hoverColor } : undefined"
     :type="type"
     :disabled="disabled"
     :aria-label="label"
@@ -20,15 +17,16 @@
 withDefaults(
   defineProps<{
     type?: 'button' | 'submit'
-    variant?: 'primary' | 'danger' | 'icon' | 'ghost'
+    variant?: 'primary' | 'danger' | 'icon' | 'ghost' | 'link'
     disabled?: boolean
     /** Iconify name (e.g. `mdi:trash-can-outline`); renders an `<Icon>` before the slot. */
     icon?: string
     /** Accessible name — required for icon-only buttons (sets `aria-label` + `title`). */
     label?: string
-    /** `icon` variant only: resting icon color (any CSS color). */
-    color?: string
-    /** `icon` variant only: hover icon color (any CSS color). */
+    /**
+     * `icon` / `link` variants: overrides the variant's own hover color (any CSS color).
+     * Each variant declares a sensible `--hover-color` default, so this is opt-in.
+     */
     hoverColor?: string
   }>(),
   {
@@ -37,8 +35,7 @@ withDefaults(
     disabled: false,
     icon: undefined,
     label: undefined,
-    color: 'var(--color-text-muted)',
-    hoverColor: 'var(--color-text)',
+    hoverColor: undefined,
   },
 )
 </script>
@@ -72,6 +69,8 @@ withDefaults(
   }
 
   &--icon {
+    --hover-color: var(--color-text);
+
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -80,11 +79,28 @@ withDefaults(
     background: none;
     font-size: rem(20);
     line-height: 1;
-    color: v-bind(color);
+    color: var(--color-text-muted);
 
     &:hover {
       background: none;
-      color: v-bind(hoverColor);
+      color: var(--hover-color);
+    }
+  }
+
+  // A bare text button for row actions — the chrome of a link, the semantics of a button
+  &--link {
+    --hover-color: var(--color-primary);
+
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: rem(13);
+    font-weight: 400;
+    color: var(--color-text-muted);
+
+    &:hover {
+      background: none;
+      color: var(--hover-color);
     }
   }
 
@@ -97,7 +113,7 @@ withDefaults(
     color: var(--color-primary);
 
     &:hover {
-      background: rgb(79 70 229 / 8%);
+      background: var(--color-primary-tint);
     }
   }
 

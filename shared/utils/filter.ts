@@ -19,7 +19,7 @@ export function rangeParamName(fieldKey: string, bound: keyof INumberRange): str
  * The one definition of that mapping — the field-key collision guard, the query schema and
  * the URL codec all read it, so they cannot disagree about which name belongs to whom.
  */
-export function filterParamSlots(
+function filterParamSlots(
   fieldKey: string,
   type: TFieldType,
 ): { role: TFilterParamRole; name: string }[] {

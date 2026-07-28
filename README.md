@@ -1,75 +1,86 @@
-# Nuxt Minimal Starter
+# FlexBase
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+A low-code platform for building simple business applications without writing code. Instead of a
+fixed CRM structure, users create their own tables, define custom fields, and manage records through
+interfaces generated from that configuration.
+
+The architecture is **metadata-driven**: forms, tables, validation and API contracts are all derived
+from field definitions stored in the database — there are no hardcoded business entities. Every
+resource belongs to a single authenticated user, and ownership is enforced on the server for every
+request.
+
+**Stack:** Nuxt 4 · Vue 3 · TypeScript · Nitro · Prisma 7 · PostgreSQL · Pinia · zod · SCSS
+
+See [CLAUDE.md](CLAUDE.md) for the full architecture reference.
+
+## Requirements
+
+- Node.js 20+
+- Docker (for PostgreSQL)
+- npm — this project uses `package-lock.json`; other package managers are not supported
 
 ## Setup
 
-Make sure to install dependencies:
-
 ```bash
-# npm
 npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+Copy the environment template and fill it in:
 
 ```bash
-# npm
+cp .env.example .env
+```
+
+| Variable       | Purpose                                                                 |
+| -------------- | ----------------------------------------------------------------------- |
+| `DATABASE_URL` | PostgreSQL connection string — matches the `docker-compose.yml` service |
+| `JWT_SECRET`   | Secret for signing auth tokens; use a long random string                |
+
+Start PostgreSQL and apply the migrations:
+
+```bash
+npm run db:up
+```
+
+```bash
+npx prisma migrate dev
+```
+
+Then run the dev server at http://localhost:3000:
+
+```bash
 npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-## Production
+## Commands
 
-Build the application for production:
+| Command                | Does                                                       |
+| ---------------------- | ---------------------------------------------------------- |
+| `npm run dev`          | Dev server (no type checking — kept fast)                  |
+| `npm run typecheck`    | `vue-tsc` only — the fast inner-loop type gate             |
+| `npm run build`        | Production build; runs `vue-tsc`, so a type error fails it |
+| `npm run preview`      | Preview a production build                                 |
+| `npm run lint`         | ESLint                                                     |
+| `npm run format`       | Format everything with Prettier                            |
+| `npm run format:check` | Check formatting without writing                           |
+| `npm run db:up`        | Start PostgreSQL via Docker Compose                        |
+| `npm run db:studio`    | Browse the database in Prisma Studio                       |
+
+Database changes go through Prisma:
 
 ```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+npx prisma migrate dev --name <name>
 ```
 
-Locally preview production build:
+`npm install` runs `prisma generate && nuxt prepare` via `postinstall`, so a fresh clone is ready
+once `.env` exists.
 
-```bash
-# npm
-npm run preview
+## CI
 
-# pnpm
-pnpm preview
+`.github/workflows/ci.yml` runs `format:check` → `lint` → `typecheck` → `build` on pushes to `main`
+and `develop`, and on every pull request. There is no database service in CI: nothing in the build
+connects to Postgres, and the dummy `DATABASE_URL` exists only so `prisma generate` can resolve its
+datasource variable.
 
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+There is no test suite yet. Vitest (for the URL codec, the SQL builder and the zod schemas) and
+Playwright (for the auth-gated pages) are the intended additions once the MVP settles.

@@ -34,8 +34,9 @@ model Table {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // No separate @@index([userId]): the unique above is a btree on (userId, name), and a
+  // left prefix of it already serves every lookup by userId alone.
   @@unique([userId, name])
-  @@index([userId])
 }
 
 model Field {
@@ -50,12 +51,14 @@ model Field {
   order     Int       @default(0)
   createdAt DateTime  @default(now())
 
+  // Likewise: (tableId, key) covers the per-table list by its left prefix.
   @@unique([tableId, key])
-  @@index([tableId])
 }
 
-// (tableId, createdAt) covers the default record ordering; sorting by a JSONB key stays
-// unindexed on purpose — keys are user-defined per table, so no general index applies.
+// (tableId, createdAt) covers both the per-table lookup (by its left prefix) and the
+// default ordering, which Postgres scans backwards for newest-first. Sorting by a JSONB
+// key stays unindexed on purpose — keys are user-defined per table, so no general index
+// applies; that is the first scaling limit this schema will hit.
 model Record {
   id        String   @id @default(cuid())
   tableId   String
@@ -64,6 +67,5 @@ model Record {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([tableId])
   @@index([tableId, createdAt])
 }

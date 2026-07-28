@@ -1,11 +1,20 @@
 import { ref, watch, type Ref } from 'vue'
-import { debounce } from '~/utils/debounce'
 
 interface IDebouncedModelOptions<TValue> {
   /** Milliseconds to wait before writing to the model; `0` writes through synchronously. */
   delay?: number
   /** Applied on the way to the model only, so the draft the user is typing stays untouched. */
   normalize?: (value: TValue) => TValue
+}
+
+/** Restarts the timer on every call, so only the last call in a burst runs. */
+function debounce(callback: () => void, delay: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  return () => {
+    clearTimeout(timer)
+    timer = setTimeout(callback, delay)
+  }
 }
 
 /**

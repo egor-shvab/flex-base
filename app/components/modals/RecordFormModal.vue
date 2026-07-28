@@ -51,17 +51,10 @@ function setValue(key: string, value: TRecordValue) {
 
 <style lang="scss" scoped>
 .record-form {
-  display: flex;
-  flex-direction: column;
-  gap: rem(16);
+  @include stack;
 
   &__server-error {
-    margin: 0;
-    padding: rem(10) rem(12);
-    border-radius: rem(6);
-    background: rgb(220 38 38 / 8%);
-    font-size: rem(14);
-    color: var(--color-danger);
+    @include error-banner;
   }
 }
 </style>

@@ -1,11 +1,8 @@
 import { z } from 'zod'
+import { nameSchema } from '#shared/validation/name'
 
 export const tableSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'Name is required')
-    .max(100, 'Name must be at most 100 characters'),
+  name: nameSchema,
 })
 
 export type TTableInput = z.infer<typeof tableSchema>

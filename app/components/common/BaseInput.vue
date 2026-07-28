@@ -34,7 +34,7 @@ const props = withDefaults(
     placeholder?: string
     error?: string
     autofocus?: boolean
-    /** Names the input when its visible label lives on a wrapping group (see BaseNumberRange). */
+    /** Names the input when its visible label lives on a wrapping group (see BaseRange). */
     ariaLabel?: string
     /** Invalid styling without an inline message, for when the group owns the error line. */
     invalid?: boolean
@@ -83,39 +83,23 @@ function onCompositionEnd(event: CompositionEvent) {
 
 <style lang="scss" scoped>
 .base-input {
-  display: flex;
-  flex-direction: column;
-  gap: rem(4);
+  @include stack(4);
 
   &__label {
-    font-size: rem(14);
-    color: var(--color-text-muted);
+    @include field-label;
   }
 
   &__input {
-    padding: rem(10) rem(12);
-    border: 1px solid var(--color-border);
-    border-radius: rem(6);
-    font-size: rem(15);
+    @include form-control;
 
     &::placeholder {
       color: var(--color-text-muted);
       opacity: 0.6;
     }
-
-    &:focus {
-      outline: none;
-      border-color: var(--color-primary);
-    }
-
-    &--invalid {
-      border-color: var(--color-danger);
-    }
   }
 
   &__error {
-    font-size: rem(13);
-    color: var(--color-danger);
+    @include field-error;
   }
 }
 </style>

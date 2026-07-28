@@ -38,30 +38,16 @@ const model = defineModel<TValue>({ required: true })
 
 <style lang="scss" scoped>
 .base-select {
-  display: flex;
-  flex-direction: column;
-  gap: rem(4);
+  @include stack(4);
 
   &__label {
-    font-size: rem(14);
-    color: var(--color-text-muted);
+    @include field-label;
   }
 
   &__control {
-    padding: rem(10) rem(12);
-    border: 1px solid var(--color-border);
-    border-radius: rem(6);
-    font-size: rem(15);
+    @include form-control;
+
     background: var(--color-surface);
-
-    &:focus {
-      outline: none;
-      border-color: var(--color-primary);
-    }
-
-    &--invalid {
-      border-color: var(--color-danger);
-    }
 
     &:disabled {
       background: var(--color-bg);
@@ -71,8 +57,7 @@ const model = defineModel<TValue>({ required: true })
   }
 
   &__error {
-    font-size: rem(13);
-    color: var(--color-danger);
+    @include field-error;
   }
 }
 </style>

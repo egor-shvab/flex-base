@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { IFieldCellProps } from '~/components/fields/types'
+import type { IFieldCellProps } from '~/field-types/types'
 
 const props = defineProps<IFieldCellProps>()
 

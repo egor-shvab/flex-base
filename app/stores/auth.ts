@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { navigateTo } from '#imports'
 import { useApi } from '~/composables/useApi'
 import type { IAuthUser } from '#shared/types/auth'
-import type { TLoginInput } from '#shared/validation/auth'
+import type { TCredentialsInput } from '#shared/validation/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const api = useApi()
@@ -24,7 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(credentials: TLoginInput) {
+  async function register(credentials: TCredentialsInput) {
     const response = await api<{ user: IAuthUser }>('/api/auth/register', {
       method: 'POST',
       body: credentials,
@@ -32,7 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = response.user
   }
 
-  async function login(credentials: TLoginInput) {
+  async function login(credentials: TCredentialsInput) {
     const response = await api<{ user: IAuthUser }>('/api/auth/login', {
       method: 'POST',
       body: credentials,

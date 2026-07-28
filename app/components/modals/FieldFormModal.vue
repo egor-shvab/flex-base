@@ -97,19 +97,14 @@ const { form, errors, serverError, pending, submit } = useForm({
 
 <style lang="scss" scoped>
 .field-form {
-  display: flex;
-  flex-direction: column;
-  gap: rem(16);
+  @include stack;
 
   &__label {
-    font-size: rem(14);
-    color: var(--color-text-muted);
+    @include field-label;
   }
 
   &__choices {
-    display: flex;
-    flex-direction: column;
-    gap: rem(8);
+    @include stack(8);
   }
 
   &__choice {
@@ -126,17 +121,11 @@ const { form, errors, serverError, pending, submit } = useForm({
   }
 
   &__error {
-    font-size: rem(13);
-    color: var(--color-danger);
+    @include field-error;
   }
 
   &__server-error {
-    margin: 0;
-    padding: rem(10) rem(12);
-    border-radius: rem(6);
-    background: rgb(220 38 38 / 8%);
-    font-size: rem(14);
-    color: var(--color-danger);
+    @include error-banner;
   }
 }
 </style>

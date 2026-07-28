@@ -1,4 +1,4 @@
-import { ref, shallowRef } from 'vue'
+import { shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
 import type { ITableListItem } from '#shared/types/table'
@@ -9,12 +9,10 @@ export const useTablesStore = defineStore('tables', () => {
 
   // shallowRef: the collection is replaced wholesale, never mutated item-by-item
   const tables = shallowRef<ITableListItem[]>([])
-  const loaded = ref(false)
 
   async function fetchTables() {
     const response = await api<{ tables: ITableListItem[] }>('/api/tables')
     tables.value = response.tables
-    loaded.value = true
   }
 
   async function createTable(input: TTableInput) {
@@ -39,5 +37,5 @@ export const useTablesStore = defineStore('tables', () => {
     tables.value = tables.value.filter((table) => table.id !== tableId)
   }
 
-  return { tables, loaded, fetchTables, createTable, renameTable, deleteTable }
+  return { tables, fetchTables, createTable, renameTable, deleteTable }
 })

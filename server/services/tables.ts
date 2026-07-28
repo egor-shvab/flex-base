@@ -2,11 +2,16 @@ import type { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
 
-const tableSelect = {
+/** The table itself, without the counts only the dashboard needs. Shared with `requireOwnedTable`. */
+export const tableSelect = {
   id: true,
   name: true,
   createdAt: true,
   updatedAt: true,
+} satisfies Prisma.TableSelect
+
+const tableListSelect = {
+  ...tableSelect,
   _count: { select: { fields: true, records: true } },
 } satisfies Prisma.TableSelect
 
@@ -19,13 +24,13 @@ export function listTables(userId: string) {
   return prisma.table.findMany({
     where: { userId },
     orderBy: { createdAt: 'asc' },
-    select: tableSelect,
+    select: tableListSelect,
   })
 }
 
 export async function createTable(userId: string, name: string) {
   try {
-    return await prisma.table.create({ data: { userId, name }, select: tableSelect })
+    return await prisma.table.create({ data: { userId, name }, select: tableListSelect })
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }
@@ -36,7 +41,7 @@ export async function renameTable(userId: string, tableId: string, name: string)
     return await prisma.table.update({
       where: { id: tableId, userId },
       data: { name },
-      select: tableSelect,
+      select: tableListSelect,
     })
   } catch (error) {
     throw toHttpError(error, tableErrors)

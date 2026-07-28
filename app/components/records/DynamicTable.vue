@@ -22,12 +22,7 @@
           <td v-for="field in fields" :key="field.key">
             <!-- Blank values are rendered here so no cell component has to handle null -->
             <span v-if="isBlank(record.data[field.key])" class="dynamic-table__blank">—</span>
-            <component
-              :is="FIELD_COMPONENTS[field.type].cell"
-              v-else
-              :field="field"
-              :value="record.data[field.key]"
-            />
+            <component :is="FIELD_CELLS[field.type]" v-else :value="record.data[field.key]" />
           </td>
           <td class="dynamic-table__actions">
             <BaseButton
@@ -54,7 +49,7 @@
 import type { IField } from '#shared/types/field'
 import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord, TRecordValue } from '#shared/types/record'
-import { FIELD_COMPONENTS } from '~/components/fields/registry'
+import { FIELD_CELLS } from '~/field-types/cells'
 
 const props = defineProps<{
   fields: IField[]

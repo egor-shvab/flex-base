@@ -36,10 +36,7 @@ function toRange(from: TRecordValue, to: TRecordValue): INumberRange | IDateRang
  * server's query read a link identically. Values that do not decode are dropped; the query
  * schema rejects them as a 400 first.
  */
-export function parseFilterValues(
-  fields: IField[],
-  query: Record<string, unknown>,
-): TRecordFilterValues {
+function parseFilterValues(fields: IField[], query: Record<string, unknown>): TRecordFilterValues {
   const partsByKey = new Map<string, Partial<Record<TFilterParamRole, TRecordValue>>>()
 
   for (const { field, role, name } of claimFilterParams(fields)) {
@@ -106,7 +103,7 @@ export function parseRecordQueryState(
  * A param's name follows from the value's shape — a range spreads to its two bounds,
  * a scalar takes the field's bare key.
  */
-export function toFilterParams(values: TRecordFilterValues): Record<string, string> {
+function toFilterParams(values: TRecordFilterValues): Record<string, string> {
   const params: Record<string, string> = {}
 
   for (const [key, value] of Object.entries(values)) {

@@ -112,7 +112,7 @@ export async function updateField(
     select: { type: true },
   })
   if (!field) {
-    throw createError({ statusCode: 404, statusMessage: 'Field not found' })
+    throw createError({ statusCode: 404, statusMessage: fieldErrors.notFound })
   }
   if (field.type !== input.type) {
     throw createError({ statusCode: 400, statusMessage: 'Field type cannot be changed' })

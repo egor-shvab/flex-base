@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { CREATABLE_FIELD_TYPES } from '#shared/constants/field'
+import { nameSchema } from '#shared/validation/name'
 
 /**
  * Flat wire format for creating/updating a field. The server derives the DB
@@ -8,11 +9,7 @@ import { CREATABLE_FIELD_TYPES } from '#shared/constants/field'
  */
 export const fieldSchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, 'Name is required')
-      .max(100, 'Name must be at most 100 characters'),
+    name: nameSchema,
     type: z.enum(CREATABLE_FIELD_TYPES),
     required: z.boolean().default(false),
     choices: z.array(z.string().trim().min(1, 'Choice cannot be empty')).default([]),

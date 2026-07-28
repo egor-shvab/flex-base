@@ -1,71 +1,68 @@
 <template>
-  <div class="base-number-range">
-    <label v-if="label" :id="`${id}-label`" class="base-number-range__label" :for="`${id}-from`">
+  <div class="base-range">
+    <label v-if="label" :id="`${id}-label`" class="base-range__label" :for="`${id}-from`">
       {{ label }}
     </label>
     <div
-      class="base-number-range__bounds"
+      class="base-range__bounds"
       role="group"
       :aria-labelledby="label ? `${id}-label` : undefined"
     >
       <BaseInput
         :id="`${id}-from`"
         :model-value="fromText"
-        type="number"
-        :aria-label="fromLabel"
-        :placeholder="fromLabel"
-        :invalid="Boolean(error)"
+        :type="type"
+        aria-label="From"
+        placeholder="From"
         :debounce="debounce"
         @update:model-value="onBoundInput('from', $event)"
       />
       <BaseInput
         :id="`${id}-to`"
         :model-value="toText"
-        type="number"
-        :aria-label="toLabel"
-        :placeholder="toLabel"
-        :invalid="Boolean(error)"
+        :type="type"
+        aria-label="To"
+        placeholder="To"
         :debounce="debounce"
         @update:model-value="onBoundInput('to', $event)"
       />
     </div>
-    <span v-if="error" :id="`${id}-error`" class="base-number-range__error">{{ error }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { INumberRange } from '#shared/types/range'
+import type { IDateRange, INumberRange } from '#shared/types/range'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     id: string
+    /** Which bound the range speaks — a finite number, or an ISO `YYYY-MM-DD` string. */
+    type: 'number' | 'date'
     label?: string
-    error?: string
-    fromLabel?: string
-    toLabel?: string
     /** Forwarded to both bounds — a range filter costs a request per edit. */
     debounce?: number
   }>(),
   {
     label: undefined,
-    error: undefined,
-    fromLabel: 'From',
-    toLabel: 'To',
     debounce: 0,
   },
 )
 
-const model = defineModel<INumberRange>({ required: true })
+const model = defineModel<INumberRange | IDateRange>({ required: true })
 
-// The displayed text is kept rather than derived from the number: re-deriving it would
+// The displayed text is kept rather than derived from the bound: re-deriving it would
 // rewrite the field mid-typing, so `1.50` would collapse to `1.5` before the user finishes.
+// A date input already speaks `YYYY-MM-DD`, so its round trip is lossless — but it runs
+// through the same drafts, which is what lets one component serve both.
 const fromText = ref('')
 const toText = ref('')
 
-/** A blank or unparseable bound is no bound at all. */
-function toBound(raw: string): number | null {
+/** A blank or unparseable bound is no bound at all — never zero, never an empty string. */
+function toBound(raw: string): number | string | null {
   if (raw.trim() === '') return null
+  if (props.type === 'date') return raw
+
   const parsed = Number(raw)
   return Number.isFinite(parsed) ? parsed : null
 }
@@ -85,34 +82,30 @@ watch(
   { immediate: true },
 )
 
-function onBoundInput(bound: keyof INumberRange, raw: string) {
+function onBoundInput(bound: 'from' | 'to', raw: string) {
   if (bound === 'from') fromText.value = raw
   else toText.value = raw
 
-  model.value = { ...model.value, [bound]: toBound(raw) }
+  // Both bounds are re-read from the drafts, which are the source of truth for what is on
+  // screen. `type` is what decides which arm of the union `toBound` produces, so the cast
+  // states what the prop already guarantees.
+  model.value = { from: toBound(fromText.value), to: toBound(toText.value) } as
+    INumberRange | IDateRange
 }
 </script>
 
 <style lang="scss" scoped>
-.base-number-range {
-  display: flex;
-  flex-direction: column;
-  gap: rem(4);
+.base-range {
+  @include stack(4);
 
   &__label {
-    font-size: rem(14);
-    color: var(--color-text-muted);
+    @include field-label;
   }
 
   &__bounds {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: rem(8);
-  }
-
-  &__error {
-    font-size: rem(13);
-    color: var(--color-danger);
   }
 }
 </style>

@@ -1,0 +1,100 @@
+@use 'functions' as *;
+
+// Shared style fragments. Injected into every SFC `<style>` block alongside `rem()`
+// (see `vite.css.preprocessorOptions.scss.additionalData` in nuxt.config.ts), so a
+// component uses these without importing anything; standalone partials must
+// `@use 'mixins' as *` themselves, since additionalData does not reach them.
+
+/// A vertical stack — the layout every form and labelled control uses.
+@mixin stack($gap: 16) {
+  display: flex;
+  flex-direction: column;
+  gap: rem($gap);
+}
+
+/// The caption above a form control.
+@mixin field-label {
+  font-size: rem(14);
+  color: var(--color-text-muted);
+}
+
+/// The validation message below a form control.
+@mixin field-error {
+  font-size: rem(13);
+  color: var(--color-danger);
+}
+
+/// The chrome shared by every text-like control (`<input>`, `<select>`).
+/// Callers add their own background, placeholder and disabled rules.
+@mixin form-control {
+  padding: rem(10) rem(12);
+  border: 1px solid var(--color-border);
+  border-radius: rem(6);
+  font-size: rem(15);
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+
+  &--invalid {
+    border-color: var(--color-danger);
+  }
+}
+
+/// The form-level server error banner.
+@mixin error-banner {
+  margin: 0;
+  padding: rem(10) rem(12);
+  border-radius: rem(6);
+  background: var(--color-danger-tint);
+  font-size: rem(14);
+  color: var(--color-danger);
+}
+
+/// A page's title row: heading on the left, actions on the right.
+@mixin page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: rem(20);
+}
+
+/// A page's `<h1>`.
+@mixin page-title {
+  margin: 0;
+  font-size: rem(24);
+}
+
+/// The muted centered message a page shows when it has nothing to list.
+@mixin page-empty {
+  margin: rem(40) 0;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/// The muted "← back" link above a page header.
+@mixin back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(4);
+  margin-bottom: rem(12);
+  font-size: rem(14);
+  color: var(--color-text-muted);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+/// An inline navigation link in a page header.
+@mixin text-link {
+  font-size: rem(14);
+  color: var(--color-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

@@ -2,10 +2,10 @@
   <BaseModal :title="title" @close="emit('close')">
     <div class="confirm-modal">
       <p class="confirm-modal__text">
-        <slot>{{ message }}</slot>
+        <slot />
       </p>
       <div class="confirm-modal__actions">
-        <BaseButton :disabled="pending" @click="emit('close')">{{ cancelLabel }}</BaseButton>
+        <BaseButton :disabled="pending" @click="emit('close')">Cancel</BaseButton>
         <BaseButton
           :variant="danger ? 'danger' : 'primary'"
           :disabled="pending"
@@ -22,16 +22,12 @@
 withDefaults(
   defineProps<{
     title: string
-    message?: string
     confirmLabel?: string
-    cancelLabel?: string
     danger?: boolean
     pending?: boolean
   }>(),
   {
-    message: undefined,
     confirmLabel: 'Confirm',
-    cancelLabel: 'Cancel',
     danger: false,
     pending: false,
   },
