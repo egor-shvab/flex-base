@@ -1,13 +1,23 @@
 import { defineEventHandler, getRouterParam, getValidatedQuery } from 'h3'
 import { requireUser } from '#server/utils/auth'
-import { requireOwnedTable } from '#server/utils/ownership'
+import { requireOwnedTableFields } from '#server/utils/ownership'
 import { listRecords } from '#server/services/records'
-import { recordQuerySchema } from '#shared/validation/record'
+import type { IRecordQuery } from '#shared/types/record'
+import { parseRecordQueryState } from '#shared/utils/record-query'
+import { buildRecordQuerySchema } from '#shared/validation/record'
 
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)
   const tableId = getRouterParam(event, 'tableId') ?? ''
-  await requireOwnedTable(user.id, tableId)
-  const query = await getValidatedQuery(event, recordQuerySchema.parse)
-  return listRecords(tableId, query)
+  // Field metadata resolves the sort/filter params, so it comes with the ownership check
+  const fields = await requireOwnedTableFields(user.id, tableId)
+
+  // The schema validates; the codec decodes — the same reader the client uses on the URL
+  const params = await getValidatedQuery(event, buildRecordQuerySchema(fields).parse)
+  const query: IRecordQuery = {
+    ...parseRecordQueryState(fields, params),
+    pageSize: params.pageSize,
+  }
+
+  return listRecords(tableId, fields, query)
 })

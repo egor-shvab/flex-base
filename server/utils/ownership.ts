@@ -27,11 +27,10 @@ export async function requireOwnedTable(userId: string, tableId: string) {
 }
 
 /**
- * Ownership check plus the table's field metadata in the same round trip — record
- * writes need it to build their validation schema. A table without fields has no
- * record shape to validate against, so writing to it is rejected up front.
+ * Ownership check plus the table's field metadata in the same round trip — reads need
+ * it to resolve sort/filter params, writes to build their validation schema.
  */
-export async function requireRecordFields(userId: string, tableId: string): Promise<IField[]> {
+export async function requireOwnedTableFields(userId: string, tableId: string): Promise<IField[]> {
   const table = await prisma.table.findUnique({
     where: { id: tableId, userId },
     select: { id: true, fields: { orderBy: { order: 'asc' }, select: fieldSelect } },
@@ -41,9 +40,19 @@ export async function requireRecordFields(userId: string, tableId: string): Prom
     throw tableNotFound()
   }
 
-  if (table.fields.length === 0) {
+  return table.fields.map(toFieldMetadata)
+}
+
+/**
+ * The same metadata, for writes: a table without fields has no record shape to
+ * validate against, so writing to it is rejected up front.
+ */
+export async function requireRecordFields(userId: string, tableId: string): Promise<IField[]> {
+  const fields = await requireOwnedTableFields(userId, tableId)
+
+  if (fields.length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'This table has no fields yet' })
   }
 
-  return table.fields.map(toFieldMetadata)
+  return fields
 }

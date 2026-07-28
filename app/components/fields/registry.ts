@@ -19,18 +19,38 @@ export interface IFieldComponents {
 }
 
 /**
- * The single per-field-type branch point for the UI. Typed as a total `Record`, so
- * adding a `FieldType` fails to compile until its components exist — `DynamicForm`
- * and `DynamicTable` never need to know which types there are.
+ * The per-field-type branch point for reading and writing a record. Typed as a total
+ * `Record`, so adding a `FieldType` fails to compile until its components exist — neither
+ * `DynamicForm` nor `DynamicTable` needs to know which types there are. Filtering has its
+ * own map (`FILTER_CONTROLS` in `RecordsFilterPanel.vue`), since it drives the `Base*`
+ * atoms directly rather than components of its own.
  *
  * `markRaw` keeps Vue from deep-proxying the component objects.
  */
 export const FIELD_COMPONENTS: Record<TFieldType, IFieldComponents> = {
-  TEXT: { input: markRaw(TextFieldInput), cell: markRaw(TextFieldCell) },
-  NUMBER: { input: markRaw(NumberFieldInput), cell: markRaw(NumberFieldCell) },
-  BOOLEAN: { input: markRaw(BooleanFieldInput), cell: markRaw(BooleanFieldCell) },
-  DATE: { input: markRaw(DateFieldInput), cell: markRaw(DateFieldCell) },
-  SELECT: { input: markRaw(SelectFieldInput), cell: markRaw(SelectFieldCell) },
+  TEXT: {
+    input: markRaw(TextFieldInput),
+    cell: markRaw(TextFieldCell),
+  },
+  NUMBER: {
+    input: markRaw(NumberFieldInput),
+    cell: markRaw(NumberFieldCell),
+  },
+  BOOLEAN: {
+    input: markRaw(BooleanFieldInput),
+    cell: markRaw(BooleanFieldCell),
+  },
+  DATE: {
+    input: markRaw(DateFieldInput),
+    cell: markRaw(DateFieldCell),
+  },
+  SELECT: {
+    input: markRaw(SelectFieldInput),
+    cell: markRaw(SelectFieldCell),
+  },
   // RELATION is not creatable yet — the text pair is a placeholder until that milestone
-  RELATION: { input: markRaw(TextFieldInput), cell: markRaw(TextFieldCell) },
+  RELATION: {
+    input: markRaw(TextFieldInput),
+    cell: markRaw(TextFieldCell),
+  },
 }

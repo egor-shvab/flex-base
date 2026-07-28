@@ -1,18 +1,20 @@
 import { z } from 'zod'
+import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
-import type { TRecordData, TRecordValue } from '#shared/types/record'
+import type { IRecordQueryParams, TRecordData, TRecordValue } from '#shared/types/record'
+import { claimFilterParams } from '#shared/utils/filter'
 
 const TEXT_MAX_LENGTH = 1000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-
-export const RECORD_PAGE_SIZE = 50
-export const RECORD_PAGE_SIZE_MAX = 100
 
 interface IValueSchemaSpec {
   /** Schema for a filled-in value of this type; nullability is layered on top. */
   base: (field: IField) => z.ZodType<TRecordValue>
   /** What a blank input produces — also the seed value for a new record. */
   blank: TRecordValue
+  /** Decodes a raw query-string value before `base` validates it — a URL carries only strings. */
+  fromQuery: (raw: string) => unknown
 }
 
 /**
@@ -24,29 +26,35 @@ const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaSpec> = {
     base: () =>
       z.string().trim().max(TEXT_MAX_LENGTH, `Must be at most ${TEXT_MAX_LENGTH} characters`),
     blank: null,
+    fromQuery: (raw) => raw,
   },
   NUMBER: {
     base: () => z.number('Enter a number').finite('Enter a number'),
     blank: null,
+    fromQuery: (raw) => Number(raw),
   },
   // `false` is a real value, so a checkbox is never "missing" and `required` is a no-op
   BOOLEAN: {
     base: () => z.boolean(),
     blank: false,
+    fromQuery: (raw) => raw === 'true',
   },
   DATE: {
     base: () => z.string().regex(ISO_DATE, 'Enter a valid date'),
     blank: null,
+    fromQuery: (raw) => raw,
   },
   SELECT: {
     base: (field) =>
       z.enum((field.options?.choices ?? []) as [string, ...string[]], 'Choose a value'),
     blank: null,
+    fromQuery: (raw) => raw,
   },
   // Placeholder until the RELATION milestone — RELATION is not creatable yet
   RELATION: {
     base: () => z.string().min(1),
     blank: null,
+    fromQuery: (raw) => raw,
   },
 }
 
@@ -80,9 +88,63 @@ export function buildRecordSchema(fields: IField[]): z.ZodType<TRecordData> {
   return z.object(Object.fromEntries(fields.map((field) => [field.key, buildValueSchema(field)])))
 }
 
-export const recordQuerySchema = z.object({
+/**
+ * A filter value arrives as a query string, so it is decoded before its value schema runs.
+ * Exported for the URL codec (`#shared/utils/record-query`), which decodes with the very
+ * same schema the query validation uses.
+ */
+export function buildFilterValueSchema(field: IField): z.ZodType<TRecordValue> {
+  const spec = VALUE_SCHEMA_BY_TYPE[field.type]
+
+  return z.preprocess(
+    (value) => (typeof value === 'string' ? spec.fromQuery(value) : value),
+    spec.base(field),
+  )
+}
+
+/** Pagination and sorting; the per-field filter params are validated by the builder below. */
+const baseQueryParamsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(RECORD_PAGE_SIZE_MAX).default(RECORD_PAGE_SIZE),
+  sort: z.string().optional(),
+  dir: z.enum(['asc', 'desc']).default(DEFAULT_SORT_DIR),
 })
 
-export type TRecordQuery = z.infer<typeof recordQuerySchema>
+/**
+ * Builds the list-query schema from one table's field metadata — the same contract as
+ * `buildRecordSchema`. An unknown sort key or a malformed filter value fails here as a
+ * 400, before any SQL is composed. Params the table does not own are simply stripped:
+ * filter names are plain field names now, so a stray `utm_source` is indistinguishable
+ * from a typo and must not break the page.
+ *
+ * Validation only — decoding the validated params into an `IRecordQuery` is the codec's
+ * job (`parseRecordQueryState`), so a link is read by one reader on both sides of the wire.
+ */
+export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQueryParams> {
+  const fieldByKey = new Map(fields.map((field) => [field.key, field]))
+  const slots = claimFilterParams(fields)
+
+  // Loose, so the refinement sees the filter params without widening the base ones
+  return baseQueryParamsSchema.loose().superRefine((params, ctx) => {
+    if (params.sort !== undefined && params.sort !== DEFAULT_SORT_KEY) {
+      if (!fieldByKey.has(params.sort)) {
+        ctx.addIssue({ code: 'custom', path: ['sort'], message: 'Unknown sort field' })
+      }
+    }
+
+    for (const { field, name } of slots) {
+      const raw = params[name]
+      if (raw === undefined) continue
+
+      // A repeated param arrives as an array — one value per filter, so that is malformed
+      if (typeof raw !== 'string') {
+        ctx.addIssue({ code: 'custom', path: [name], message: 'Filter takes a single value' })
+        continue
+      }
+
+      if (raw !== '' && !buildFilterValueSchema(field).safeParse(raw).success) {
+        ctx.addIssue({ code: 'custom', path: [name], message: 'Invalid filter value' })
+      }
+    }
+  })
+}

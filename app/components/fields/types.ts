@@ -6,6 +6,8 @@ export interface IFieldInputProps {
   id: string
   field: IField
   error?: string
+  /** Overrides the field name as the control's label — the filter toolbar labels it "Value". */
+  label?: string
 }
 
 /** Uniform contract every field cell component honours. Null values never reach a cell. */

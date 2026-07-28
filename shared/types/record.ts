@@ -1,3 +1,5 @@
+import type { IRecordSort, TRecordFilterValues, TSortDirection } from '#shared/types/filter'
+
 /** Every value a record cell can hold. Records are stored as JSONB keyed by `Field.key`. */
 export type TRecordValue = string | number | boolean | null
 
@@ -16,4 +18,31 @@ export interface IRecordPage {
   total: number
   page: number
   pageSize: number
+}
+
+/**
+ * A resolved list query — what the client holds and passes around, and what the API
+ * validated a request down to. Serialized to flat params only at the URL/fetch boundary.
+ */
+export interface IRecordQueryState {
+  page: number
+  sort: IRecordSort
+  /** Every active filter, ANDed together. */
+  filters: TRecordFilterValues
+}
+
+/** The server additionally resolves the page size it enforces. */
+export interface IRecordQuery extends IRecordQueryState {
+  pageSize: number
+}
+
+/**
+ * What the list-query schema guarantees: validated pagination and sorting, with the
+ * table's filter params riding along as raw strings for the codec to decode.
+ */
+export interface IRecordQueryParams extends Record<string, unknown> {
+  page: number
+  pageSize: number
+  sort?: string
+  dir: TSortDirection
 }

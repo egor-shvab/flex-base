@@ -1,5 +1,5 @@
 <template>
-  <BaseInput :id="id" v-model="date" type="date" :label="field.name" :error="error" />
+  <BaseInput :id="id" v-model="date" type="date" :label="label ?? field.name" :error="error" />
 </template>
 
 <script setup lang="ts">

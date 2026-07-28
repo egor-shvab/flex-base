@@ -54,6 +54,8 @@ model Field {
   @@index([tableId])
 }
 
+// (tableId, createdAt) covers the default record ordering; sorting by a JSONB key stays
+// unindexed on purpose — keys are user-defined per table, so no general index applies.
 model Record {
   id        String   @id @default(cuid())
   tableId   String
@@ -63,4 +65,5 @@ model Record {
   updatedAt DateTime @updatedAt
 
   @@index([tableId])
+  @@index([tableId, createdAt])
 }
