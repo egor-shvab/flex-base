@@ -91,7 +91,7 @@
       @confirm="confirmDeleteRecord"
       @close="cancelDelete"
     >
-      Delete this record? This cannot be undone.
+      Delete record #{{ deleteTarget.number }}? This cannot be undone.
     </LazyConfirmModal>
   </section>
 </template>

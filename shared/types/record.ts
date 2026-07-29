@@ -7,6 +7,11 @@ export type TRecordData = Record<string, TRecordValue>
 
 export interface IRecord {
   id: string
+  /**
+   * The id a user reads — sequential within its own table, unlike `id`, which is a cuid
+   * because it is what relations reference and what the API addresses.
+   */
+  number: number
   data: TRecordData
   createdAt: string
   updatedAt: string

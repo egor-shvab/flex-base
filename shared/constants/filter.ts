@@ -4,6 +4,9 @@ import type { IFilterValueByType, IFilterValueSpec, TSortDirection } from '#shar
 /** Sorting falls back to the record's own creation order, which every table has. */
 export const DEFAULT_SORT_KEY = 'createdAt'
 
+/** The record's own display number, which sorts and filters alongside a table's fields. */
+export const RECORD_NUMBER_KEY = 'recordNumber'
+
 /** Newest first: a record added now belongs at the top of page 1, not the end of the last. */
 export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
 
@@ -12,6 +15,13 @@ export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
  * would fight pagination or sorting for the same name.
  */
 export const RESERVED_QUERY_PARAMS = ['page', 'pageSize', 'sort', 'dir'] as const
+
+/**
+ * Keys that name a record's own columns rather than one of its table's fields. `slugify`
+ * only ever emits `^[a-z0-9_]+$`, so a camelCase key here is already unreachable — stating
+ * the reservation keeps that true if the slug rules ever change.
+ */
+export const RESERVED_FIELD_KEYS = [DEFAULT_SORT_KEY, RECORD_NUMBER_KEY] as const
 
 /**
  * The single per-field-type branch point for filtering. Typed as a total `Record`, so

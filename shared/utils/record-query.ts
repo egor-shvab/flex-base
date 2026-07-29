@@ -7,6 +7,7 @@ import {
   claimFilterParams,
   isFilterValueEmpty,
   isRangeFilterValue,
+  queryFields,
   rangeParamName,
 } from '#shared/utils/filter'
 import { buildFilterValueSchema } from '#shared/validation/record'
@@ -38,8 +39,11 @@ function toRange(from: TRecordValue, to: TRecordValue): INumberRange | IDateRang
  */
 function parseFilterValues(fields: IField[], query: Record<string, unknown>): TRecordFilterValues {
   const partsByKey = new Map<string, Partial<Record<TFilterParamRole, TRecordValue>>>()
+  // The record's own columns filter alongside its table's fields, so the seam is applied
+  // here rather than by each caller — the page and the endpoint decode a link identically
+  const columns = queryFields(fields)
 
-  for (const { field, role, name } of claimFilterParams(fields)) {
+  for (const { field, role, name } of claimFilterParams(columns)) {
     const raw = filterParamValue(query, name)
     if (raw === null) continue
 
@@ -53,7 +57,7 @@ function parseFilterValues(fields: IField[], query: Record<string, unknown>): TR
 
   const values: TRecordFilterValues = {}
 
-  for (const field of fields) {
+  for (const field of columns) {
     const parts = partsByKey.get(field.key)
     if (parts === undefined) continue
 

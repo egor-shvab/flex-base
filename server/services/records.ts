@@ -8,6 +8,7 @@ import type { IRecord, IRecordPage, IRecordQuery, TRecordData } from '#shared/ty
 
 const recordSelect = {
   id: true,
+  number: true,
   data: true,
   createdAt: true,
   updatedAt: true,
@@ -21,6 +22,7 @@ const recordErrors = { notFound: 'Record not found' }
 function toRecordDto(record: TRecordRow): IRecord {
   return {
     id: record.id,
+    number: record.number,
     data: (record.data as TRecordData | null) ?? {},
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
@@ -48,7 +50,7 @@ export async function listRecords(
 
   const [rows, counts] = await prisma.$transaction([
     prisma.$queryRaw<TRecordRow[]>`
-      SELECT id, data, "createdAt", "updatedAt" FROM "Record"
+      SELECT id, "number", data, "createdAt", "updatedAt" FROM "Record"
       ${where}
       ORDER BY ${orderBy}
       LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
@@ -69,6 +71,12 @@ export async function listRecords(
   }
 }
 
+/**
+ * The record's number is allocated from its table's counter in the same transaction as the
+ * insert: the atomic increment takes the row lock, so two concurrent creates queue rather
+ * than racing for the same number, and no retry loop is needed. Because the counter is a
+ * high-water mark rather than a count, deleting a record never frees its number for reuse.
+ */
 export async function createRecord(
   tableId: string,
   fields: IField[],
@@ -77,10 +85,19 @@ export async function createRecord(
   await assertRelationTargets(fields, data)
 
   try {
-    const record = await prisma.record.create({
-      data: { tableId, data: toJsonData(data) },
-      select: recordSelect,
+    const record = await prisma.$transaction(async (tx) => {
+      const { recordCounter } = await tx.table.update({
+        where: { id: tableId },
+        data: { recordCounter: { increment: 1 } },
+        select: { recordCounter: true },
+      })
+
+      return tx.record.create({
+        data: { tableId, number: recordCounter, data: toJsonData(data) },
+        select: recordSelect,
+      })
     })
+
     return toRecordDto(record)
   } catch (error) {
     throw toHttpError(error, recordErrors)

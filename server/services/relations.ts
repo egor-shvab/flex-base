@@ -18,14 +18,16 @@ interface IRelationTarget {
   ids: Set<string>
 }
 
+/** Just enough of a target record to label it — its number is the fallback when it is blank. */
 interface ITargetRow {
   id: string
+  number: number
   data: unknown
 }
 
 /** Prisma's JSON column is untyped; every row was written through the record schema. */
-function toRecordData(data: unknown): TRecordData {
-  return (data as TRecordData | null) ?? {}
+function toLabelSource(row: ITargetRow): Pick<IRecord, 'number' | 'data'> {
+  return { number: row.number, data: (row.data as TRecordData | null) ?? {} }
 }
 
 function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
@@ -53,7 +55,7 @@ function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelatio
  */
 async function fetchTargetRecords(
   targets: IRelationTarget[],
-): Promise<Map<string, Map<string, TRecordData>>> {
+): Promise<Map<string, Map<string, Pick<IRecord, 'number' | 'data'>>>> {
   const idsByTable = new Map<string, Set<string>>()
 
   for (const { targetTableId, ids } of targets) {
@@ -67,7 +69,7 @@ async function fetchTargetRecords(
       tableId,
       await prisma.record.findMany({
         where: { tableId, id: { in: [...ids] } },
-        select: { id: true, data: true },
+        select: { id: true, number: true, data: true },
       }),
     ]),
   )
@@ -75,7 +77,7 @@ async function fetchTargetRecords(
   return new Map(
     lookups.map(([tableId, rows]) => [
       tableId,
-      new Map(rows.map((row) => [row.id, toRecordData(row.data)])),
+      new Map(rows.map((row) => [row.id, toLabelSource(row)])),
     ]),
   )
 }
@@ -103,8 +105,8 @@ export async function resolveRelationLabels(
     const fieldLabels: Record<string, string> = {}
 
     for (const id of ids) {
-      const data = found?.get(id)
-      if (data) fieldLabels[id] = buildRecordLabel(data, field.options?.labelFieldKey)
+      const target = found?.get(id)
+      if (target) fieldLabels[id] = buildRecordLabel(target, field.options?.labelFieldKey)
     }
 
     labels[field.id] = fieldLabels
@@ -146,7 +148,7 @@ export async function listRelationOptions(field: IField): Promise<IRecordOption[
   if (targetTableId === undefined) return []
 
   const rows = await prisma.$queryRaw<ITargetRow[]>`
-    SELECT id, data FROM "Record"
+    SELECT id, "number", data FROM "Record"
     WHERE "tableId" = ${targetTableId}
     ORDER BY ${buildRecordLabelOrderBy(field.options?.labelFieldKey)}
     LIMIT ${RELATION_OPTIONS_LIMIT}
@@ -154,6 +156,6 @@ export async function listRelationOptions(field: IField): Promise<IRecordOption[
 
   return rows.map((row) => ({
     id: row.id,
-    label: buildRecordLabel(toRecordData(row.data), field.options?.labelFieldKey),
+    label: buildRecordLabel(toLabelSource(row), field.options?.labelFieldKey),
   }))
 }

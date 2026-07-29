@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
 import { FILTER_VALUE_BY_TYPE } from '#shared/constants/filter'
-import { isFilterValueEmpty } from '#shared/utils/filter'
+import { isFilterValueEmpty, queryFields } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import { FIELD_FILTERS } from '~/field-types/filters'
@@ -54,9 +54,12 @@ const panelId = useId()
 
 const activeFilterCount = computed(() => Object.keys(props.filters).length)
 
+/** The record's own columns filter alongside the table's fields (see `queryFields`). */
+const columns = computed(() => queryFields(props.fields))
+
 /** Resolved once per field rather than per render, since `props` is a factory. */
 const controls = computed(() =>
-  props.fields.map((field) => ({
+  columns.value.map((field) => ({
     field,
     component: FIELD_FILTERS[field.type].component,
     props: FIELD_FILTERS[field.type].props(field),
@@ -91,7 +94,7 @@ function filterValue(field: IField, model: TFilterValue): TFilterValue {
 function applyFieldValue(changed: IField, value: TFilterValue) {
   const next: TRecordFilterValues = {}
 
-  for (const field of props.fields) {
+  for (const field of columns.value) {
     const candidate = field.key === changed.key ? value : props.filters[field.key]
     if (candidate !== undefined && !isFilterValueEmpty(candidate)) next[field.key] = candidate
   }

@@ -1,7 +1,38 @@
-import { FILTER_VALUE_BY_TYPE, RESERVED_QUERY_PARAMS } from '#shared/constants/filter'
+import {
+  FILTER_VALUE_BY_TYPE,
+  RECORD_NUMBER_KEY,
+  RESERVED_QUERY_PARAMS,
+} from '#shared/constants/filter'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TFilterParamRole, TFilterValue } from '#shared/types/filter'
+
+/**
+ * The record number as the query layer sees it: a read-only field over a column of `Record`
+ * itself rather than a key of its `data`. Declaring it as an ordinary `IField` is what lets
+ * the filter control, the URL codec, the query schema and the match count treat it like any
+ * other column — only the SQL projection knows it is not JSONB. `TEXT` is deliberate: its
+ * filter is a partial match, so typing `4` finds `#4`, `#14` and `#42` alike.
+ */
+export const RECORD_NUMBER_FIELD: IField = {
+  id: RECORD_NUMBER_KEY,
+  name: 'Record #',
+  key: RECORD_NUMBER_KEY,
+  type: 'TEXT',
+  required: false,
+  options: null,
+  // Ahead of every real field, which start at 0
+  order: -1,
+}
+
+/**
+ * A table's own fields plus the record's own columns that filter and sort alongside them.
+ * Applied wherever a *query* is built — never where a record's data is read or written, since
+ * nothing here is part of that data.
+ */
+export function queryFields(fields: IField[]): IField[] {
+  return [RECORD_NUMBER_FIELD, ...fields]
+}
 
 /**
  * Filters travel as plain query params named after the field: a scalar takes the field's

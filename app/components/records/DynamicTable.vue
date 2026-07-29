@@ -3,13 +3,19 @@
     <table class="dynamic-table__table">
       <thead>
         <tr>
-          <th v-for="field in fields" :key="field.key" scope="col" :aria-sort="ariaSort(field)">
-            <button type="button" class="dynamic-table__sort" @click="emit('sort', field.key)">
-              {{ field.name }}
+          <th
+            v-for="column in columns"
+            :key="column.key"
+            scope="col"
+            :aria-sort="ariaSort(column)"
+            :class="{ 'dynamic-table__number-head': column.key === RECORD_NUMBER_KEY }"
+          >
+            <button type="button" class="dynamic-table__sort" @click="emit('sort', column.key)">
+              {{ column.name }}
               <Icon
-                :name="sortIcon(field)"
+                :name="sortIcon(column)"
                 class="dynamic-table__sort-icon"
-                :class="{ 'dynamic-table__sort-icon--active': sort?.key === field.key }"
+                :class="{ 'dynamic-table__sort-icon--active': sort?.key === column.key }"
                 aria-hidden="true"
               />
             </button>
@@ -19,14 +25,18 @@
       </thead>
       <tbody>
         <tr v-for="record in records" :key="record.id">
-          <td v-for="field in fields" :key="field.key">
+          <td v-for="column in columns" :key="column.key">
+            <!-- The number is the record's own, not one of its values, so no cell renders it -->
+            <span v-if="column.key === RECORD_NUMBER_KEY" class="dynamic-table__number">
+              #{{ record.number }}
+            </span>
             <!-- Blank values are rendered here so no cell component has to handle null -->
-            <span v-if="isBlank(record.data[field.key])" class="dynamic-table__blank">—</span>
+            <span v-else-if="isBlank(record.data[column.key])" class="dynamic-table__blank">—</span>
             <component
-              :is="FIELD_CELLS[field.type]"
+              :is="FIELD_CELLS[column.type]"
               v-else
-              :field="field"
-              :value="record.data[field.key]"
+              :field="column"
+              :value="record.data[column.key]"
             />
           </td>
           <td class="dynamic-table__actions">
@@ -51,9 +61,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord, TRecordValue } from '#shared/types/record'
+import { queryFields } from '#shared/utils/filter'
 import { FIELD_CELLS } from '~/field-types/cells'
 
 const props = defineProps<{
@@ -61,6 +74,12 @@ const props = defineProps<{
   records: IRecord[]
   sort?: IRecordSort | null
 }>()
+
+/**
+ * The record's own number leads the table's fields, and one list drives both the header and
+ * the body so the two cannot drift. It sorts through the same helpers as any other column.
+ */
+const columns = computed(() => queryFields(props.fields))
 
 const emit = defineEmits<{
   edit: [record: IRecord]
@@ -155,6 +174,13 @@ function sortIcon(field: IField): string {
     color: var(--color-border);
   }
 
+  // Tabular figures so the numbers line up down the column, as in NumberFieldCell
+  &__number {
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__number-head,
   &__actions-head {
     width: rem(1);
   }

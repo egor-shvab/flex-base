@@ -3,7 +3,7 @@ import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { IRecordQueryParams, TRecordData, TRecordValue } from '#shared/types/record'
-import { claimFilterParams } from '#shared/utils/filter'
+import { claimFilterParams, queryFields } from '#shared/utils/filter'
 
 const TEXT_MAX_LENGTH = 1000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -122,8 +122,10 @@ const baseQueryParamsSchema = z.object({
  * job (`parseRecordQueryState`), so a link is read by one reader on both sides of the wire.
  */
 export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQueryParams> {
-  const fieldByKey = new Map(fields.map((field) => [field.key, field]))
-  const slots = claimFilterParams(fields)
+  // The record's own columns sort and filter like fields, so they judge the params too
+  const columns = queryFields(fields)
+  const fieldByKey = new Map(columns.map((field) => [field.key, field]))
+  const slots = claimFilterParams(columns)
 
   // Loose, so the refinement sees the filter params without widening the base ones
   return baseQueryParamsSchema.loose().superRefine((params, ctx) => {

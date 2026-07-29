@@ -1,8 +1,8 @@
 import { Prisma } from '#server/generated/prisma/client'
 import type { IField, TFieldType } from '#shared/types/field'
-import { DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_KEY, RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IRecordSort, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
-import { isRangeFilterValue } from '#shared/utils/filter'
+import { isRangeFilterValue, queryFields } from '#shared/utils/filter'
 
 /**
  * Prisma cannot order by a JSON path, so the record list is composed as SQL. Field keys
@@ -87,11 +87,24 @@ const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
   RELATION: { expr: jsonText, sortExpr: targetLabel, filter: matchesExactly },
 }
 
+/**
+ * The columns of `Record` itself that a query treats as fields. Consulted before the type
+ * registry, because these live outside `data` and no JSON path can reach them. The record
+ * number declares both halves for the same reason RELATION does: it **filters as text**, so
+ * `4` matches `#4`, `#14` and `#42`, but **orders as an integer**, so `#9` precedes `#10`.
+ */
+const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql }> = {
+  [RECORD_NUMBER_KEY]: { expr: Prisma.sql`"number"::text`, sortExpr: Prisma.sql`"number"` },
+}
+
 function valueExpr(field: IField): Prisma.Sql {
-  return FIELD_SQL_BY_TYPE[field.type].expr(field.key)
+  return RECORD_COLUMN_SQL[field.key]?.expr ?? FIELD_SQL_BY_TYPE[field.type].expr(field.key)
 }
 
 function sortExpr(field: IField): Prisma.Sql {
+  const column = RECORD_COLUMN_SQL[field.key]
+  if (column) return column.sortExpr
+
   const spec = FIELD_SQL_BY_TYPE[field.type]
 
   return spec.sortExpr ? spec.sortExpr(field) : spec.expr(field.key)
@@ -109,7 +122,7 @@ export function buildRecordWhere(
 ): Prisma.Sql {
   const conditions = [Prisma.sql`"tableId" = ${tableId}`]
 
-  for (const field of fields) {
+  for (const field of queryFields(fields)) {
     const value = filters[field.key]
     if (value === undefined) continue
 
@@ -122,7 +135,8 @@ export function buildRecordWhere(
 
 export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): Prisma.Sql {
   const direction = sort.dir === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
-  const field = sort.key === DEFAULT_SORT_KEY ? undefined : fields.find((f) => f.key === sort.key)
+  const field =
+    sort.key === DEFAULT_SORT_KEY ? undefined : queryFields(fields).find((f) => f.key === sort.key)
 
   if (!field) {
     return Prisma.sql`"createdAt" ${direction}`
