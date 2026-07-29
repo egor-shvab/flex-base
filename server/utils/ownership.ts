@@ -3,6 +3,7 @@ import { fieldSelect, toFieldMetadata } from '#server/services/fields'
 import { tableSelect } from '#server/services/tables'
 import { prisma } from '#server/utils/prisma'
 import type { IField } from '#shared/types/field'
+import type { TFieldInput } from '#shared/validation/field'
 
 /** Another user's table must be indistinguishable from a missing one — never 403. */
 function tableNotFound() {
@@ -40,6 +41,21 @@ export async function requireOwnedTableFields(userId: string, tableId: string): 
   }
 
   return table.fields.map(toFieldMetadata)
+}
+
+/**
+ * A RELATION may only point at a table the same user owns, labelled by a field that table
+ * actually has — neither is knowable to the shared schema, which has no database. Lives
+ * here rather than in `services/fields`, which this module already imports.
+ */
+export async function requireFieldTarget(userId: string, input: TFieldInput): Promise<void> {
+  if (input.type !== 'RELATION') return
+
+  const targetFields = await requireOwnedTableFields(userId, input.targetTableId)
+
+  if (!targetFields.some((field) => field.key === input.labelFieldKey)) {
+    throw createError({ statusCode: 400, statusMessage: 'Unknown field to show for the link' })
+  }
 }
 
 /**

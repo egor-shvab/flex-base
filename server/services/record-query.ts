@@ -43,17 +43,37 @@ const withinRange: TFilterSql = (expr, value) => {
   return bounds.length > 0 ? Prisma.join(bounds, ' AND ') : null
 }
 
+/**
+ * A relation stores an id, which is meaningless to sort by, so its column orders on the
+ * target record's label instead — the key of that label field travels in the relation's own
+ * options, so no extra metadata has to be fetched. A missing key (its field was deleted)
+ * yields NULL for every row, which the `NULLS LAST` suffix already handles.
+ */
+function targetLabel(field: IField): Prisma.Sql {
+  const labelFieldKey = field.options?.labelFieldKey
+
+  if (labelFieldKey === undefined) return jsonText(field.key)
+
+  // The outer `data` is qualified because the subquery's own alias would otherwise shadow it
+  return Prisma.sql`(
+    SELECT target.data ->> ${labelFieldKey}::text FROM "Record" AS target
+    WHERE target.id = "Record".data ->> ${field.key}::text
+  )`
+}
+
 interface IFieldSqlSpec {
-  /** Projects the stored JSONB value to a comparable expression. */
+  /** Projects the stored JSONB value to a comparable expression — what a filter compares against. */
   expr: (key: string) => Prisma.Sql
+  /** How the column orders, for a type that reads as something other than the value it stores. */
+  sortExpr?: (field: IField) => Prisma.Sql
   /** Compares this type's filter value against that expression. */
   filter: TFilterSql
 }
 
 /**
- * The single per-field-type branch point for SQL. Total, so a new field type must declare
- * both halves. There is no operator to look up: the field type says how it compares, and
- * the value's shape says with how many bounds.
+ * The single per-field-type branch point for SQL. Total, so a new field type must declare how
+ * it projects and how it compares. There is no operator to look up: the field type says how it
+ * compares, and the value's shape says with how many bounds.
  */
 const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
   TEXT: { expr: jsonText, filter: matchesPartially },
@@ -63,11 +83,18 @@ const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
   // Stored as `YYYY-MM-DD`, so text comparison is already chronological
   DATE: { expr: jsonText, filter: withinRange },
   SELECT: { expr: jsonText, filter: matchesExactly },
-  RELATION: { expr: jsonText, filter: matchesExactly },
+  // Filters on the stored id — the picker's own value — but reads and orders by its label
+  RELATION: { expr: jsonText, sortExpr: targetLabel, filter: matchesExactly },
 }
 
 function valueExpr(field: IField): Prisma.Sql {
   return FIELD_SQL_BY_TYPE[field.type].expr(field.key)
+}
+
+function sortExpr(field: IField): Prisma.Sql {
+  const spec = FIELD_SQL_BY_TYPE[field.type]
+
+  return spec.sortExpr ? spec.sortExpr(field) : spec.expr(field.key)
 }
 
 /**
@@ -103,5 +130,15 @@ export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): Prisma.
 
   // Blanks always sort last; ties break newest-first, matching the default order, and the
   // tie-break is what keeps paging stable
-  return Prisma.sql`${valueExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`
+  return Prisma.sql`${sortExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`
+}
+
+/**
+ * How a relation picker's candidates are ordered — alphabetically by the label the user will
+ * read, with the same blanks-last, newest-first tie-break as every other list.
+ */
+export function buildRecordLabelOrderBy(labelFieldKey?: string): Prisma.Sql {
+  if (labelFieldKey === undefined) return Prisma.sql`"createdAt" DESC`
+
+  return Prisma.sql`${jsonText(labelFieldKey)} ASC NULLS LAST, "createdAt" DESC`
 }

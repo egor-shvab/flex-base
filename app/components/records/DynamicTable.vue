@@ -22,7 +22,12 @@
           <td v-for="field in fields" :key="field.key">
             <!-- Blank values are rendered here so no cell component has to handle null -->
             <span v-if="isBlank(record.data[field.key])" class="dynamic-table__blank">—</span>
-            <component :is="FIELD_CELLS[field.type]" v-else :value="record.data[field.key]" />
+            <component
+              :is="FIELD_CELLS[field.type]"
+              v-else
+              :field="field"
+              :value="record.data[field.key]"
+            />
           </td>
           <td class="dynamic-table__actions">
             <BaseButton

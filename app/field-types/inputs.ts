@@ -2,6 +2,7 @@ import { markRaw } from 'vue'
 import BaseCheckbox from '~/components/common/BaseCheckbox.vue'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
+import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import type { TFieldType } from '#shared/types/field'
 import type { TRecordFieldControl } from '~/field-types/types'
 
@@ -69,10 +70,11 @@ export const FIELD_INPUTS: Record<TFieldType, TRecordFieldControl> = {
     }),
     ...blankIsNull,
   },
-  // RELATION is not creatable yet — a text input is a placeholder until that milestone
+  // The candidates come from the target table, so this one control fetches rather than
+  // reading the field's metadata — the only entry whose component is not a `Base*` atom
   RELATION: {
-    component: markRaw(BaseInput),
-    props: (field) => ({ label: field.name, trim: true }),
+    component: markRaw(RelationFieldSelect),
+    props: (field) => ({ label: field.name, fieldId: field.id, blankLabel: '— Select —' }),
     ...blankIsNull,
   },
 }

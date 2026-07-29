@@ -103,6 +103,7 @@ import { useApi } from '~/composables/useApi'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
+import { useRelationsStore } from '~/stores/relations'
 import type { ITable } from '#shared/types/table'
 import type { TRecordFilterValues } from '#shared/types/filter'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
@@ -114,6 +115,7 @@ const route = useRoute()
 const api = useApi()
 const fieldsStore = useFieldsStore()
 const recordsStore = useRecordsStore()
+const relationsStore = useRelationsStore()
 const tableId = route.params.tableId as string
 
 /** The URL is the source of truth for the list query, so a filtered view is shareable. */
@@ -131,9 +133,14 @@ const { data, error } = await useAsyncData(`table-records-${tableId}`, async () 
     api<{ table: ITable }>(`/api/tables/${tableId}`),
     fieldsStore.fetchFields(tableId),
   ])
-  // Filters decode against field metadata, so this waits rather than running in parallel —
+  // Filters decode against field metadata, so these wait rather than running in parallel —
   // otherwise a shared filter URL would render unfiltered on first load.
-  await recordsStore.fetchRecords(tableId, queryParams.value)
+  await Promise.all([
+    recordsStore.fetchRecords(tableId, queryParams.value),
+    // A relation filter is a picker over the target's records, so its candidates have to be
+    // there on first paint for a shared link to show what it is filtered by
+    relationsStore.loadOptions(tableId, fieldsStore.fields),
+  ])
   return tableResponse
 })
 

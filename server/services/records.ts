@@ -1,5 +1,6 @@
 import type { Prisma } from '#server/generated/prisma/client'
 import { buildRecordOrderBy, buildRecordWhere } from '#server/services/record-query'
+import { assertRelationTargets, resolveRelationLabels } from '#server/services/relations'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
 import type { IField } from '#shared/types/field'
@@ -56,10 +57,25 @@ export async function listRecords(
     prisma.$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int AS count FROM "Record" ${where}`,
   ])
 
-  return { records: rows.map(toRecordDto), total: counts[0]?.count ?? 0, page, pageSize }
+  const records = rows.map(toRecordDto)
+
+  return {
+    records,
+    total: counts[0]?.count ?? 0,
+    page,
+    pageSize,
+    // Resolved for the ids on this page alone, in one query per target table
+    relationLabels: await resolveRelationLabels(fields, records),
+  }
 }
 
-export async function createRecord(tableId: string, data: TRecordData): Promise<IRecord> {
+export async function createRecord(
+  tableId: string,
+  fields: IField[],
+  data: TRecordData,
+): Promise<IRecord> {
+  await assertRelationTargets(fields, data)
+
   try {
     const record = await prisma.record.create({
       data: { tableId, data: toJsonData(data) },
@@ -74,9 +90,12 @@ export async function createRecord(tableId: string, data: TRecordData): Promise<
 /** The form always submits every field, so `data` is replaced wholesale rather than merged. */
 export async function updateRecord(
   tableId: string,
+  fields: IField[],
   recordId: string,
   data: TRecordData,
 ): Promise<IRecord> {
+  await assertRelationTargets(fields, data)
+
   try {
     const record = await prisma.record.update({
       where: { id: recordId, tableId },

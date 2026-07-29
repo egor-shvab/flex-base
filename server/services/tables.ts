@@ -1,3 +1,4 @@
+import { createError } from 'h3'
 import type { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
@@ -48,7 +49,32 @@ export async function renameTable(userId: string, tableId: string, name: string)
   }
 }
 
+/**
+ * A relation's target lives in opaque `options` JSON, so no foreign key protects it — the
+ * cascade would silently break every link. Deleting a referenced table is refused instead,
+ * naming the field to remove first.
+ */
+async function assertNotRelationTarget(userId: string, tableId: string) {
+  const reference = await prisma.field.findFirst({
+    where: {
+      type: 'RELATION',
+      table: { userId },
+      options: { path: ['targetTableId'], equals: tableId },
+    },
+    select: { name: true, table: { select: { name: true } } },
+  })
+
+  if (reference) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `"${reference.name}" in "${reference.table.name}" links to this table`,
+    })
+  }
+}
+
 export async function deleteTable(userId: string, tableId: string) {
+  await assertNotRelationTarget(userId, tableId)
+
   try {
     await prisma.table.delete({ where: { id: tableId, userId } })
   } catch (error) {

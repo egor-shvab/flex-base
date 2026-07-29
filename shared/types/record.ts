@@ -18,6 +18,19 @@ export interface IRecordPage {
   total: number
   page: number
   pageSize: number
+  /**
+   * Display labels for every relation value on this page, keyed by the relation field's id
+   * and then by the target record's id. Resolved server-side, so a cell reads correctly
+   * however large the target table is; keyed per field, because two relation fields may
+   * point at one table through different label fields.
+   */
+  relationLabels: Record<string, Record<string, string>>
+}
+
+/** A target record as a relation picker offers it — the id it stores, and what it reads as. */
+export interface IRecordOption {
+  id: string
+  label: string
 }
 
 /**

@@ -26,7 +26,12 @@ export interface IFieldControl<TValue extends TFilterValue> {
  */
 export type TRecordFieldControl = Required<IFieldControl<TRecordValue>>
 
-/** Uniform contract every field cell component honours. Blank values never reach a cell. */
+/**
+ * Uniform contract every field cell component honours — the same `(field, value)` pair the
+ * control tables get. Blank values never reach a cell. Most cells read the value alone; a
+ * relation needs the field to know which link it is resolving.
+ */
 export interface IFieldCellProps {
+  field: IField
   value: TRecordValue
 }

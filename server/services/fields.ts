@@ -25,11 +25,16 @@ const fieldErrors = {
 }
 
 /**
- * Narrows Prisma's untyped `options` JSON onto the shared `IField` shape — the single
- * place that cast is allowed, so no call site has to trust the raw row.
+ * Narrows Prisma's untyped `options` JSON — the single place that cast is allowed, so no
+ * call site has to trust the raw column.
  */
+function toFieldOptions(options: TFieldRow['options']): IFieldOptions | null {
+  return (options as IFieldOptions | null) ?? null
+}
+
+/** The same, for a whole row: the shape every layer above the database speaks. */
 export function toFieldMetadata(field: TFieldRow): IField {
-  return { ...field, options: (field.options as IFieldOptions | null) ?? null }
+  return { ...field, options: toFieldOptions(field.options) }
 }
 
 /** Machine key from a display name: lowercase, non-alphanumerics → `_`. */
@@ -57,9 +62,12 @@ function uniqueKey(base: string, type: TFieldType, taken: Set<string>): string {
   return `${base}_${suffix}`
 }
 
-/** SELECT stores its choices; other types have no options. */
+/** SELECT stores its choices, RELATION its target and label field; other types have none. */
 function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   if (input.type === 'SELECT') return { choices: input.choices }
+  if (input.type === 'RELATION') {
+    return { targetTableId: input.targetTableId, labelFieldKey: input.labelFieldKey }
+  }
   return Prisma.JsonNull
 }
 
@@ -109,13 +117,20 @@ export async function updateField(
 ): Promise<IField> {
   const field = await prisma.field.findFirst({
     where: { id: fieldId, tableId },
-    select: { type: true },
+    select: { type: true, options: true },
   })
   if (!field) {
     throw createError({ statusCode: 404, statusMessage: fieldErrors.notFound })
   }
   if (field.type !== input.type) {
     throw createError({ statusCode: 400, statusMessage: 'Field type cannot be changed' })
+  }
+
+  // Retargeting would orphan every id already stored, so the target is immutable like the
+  // key and the type. The label field is pure display and stays editable.
+  const currentTarget = toFieldOptions(field.options)?.targetTableId
+  if (currentTarget !== undefined && currentTarget !== input.targetTableId) {
+    throw createError({ statusCode: 400, statusMessage: 'Relation target cannot be changed' })
   }
 
   try {

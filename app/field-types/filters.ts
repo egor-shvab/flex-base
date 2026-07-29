@@ -2,6 +2,7 @@ import { markRaw } from 'vue'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseRange from '~/components/common/BaseRange.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
+import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import type { TFieldType } from '#shared/types/field'
 import type { IFilterValueByType } from '#shared/types/filter'
 import type { IFieldControl } from '~/field-types/types'
@@ -61,9 +62,10 @@ export const FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByTyp
       ],
     }),
   },
-  // RELATION is not creatable yet — a text filter is a placeholder until that milestone
+  // The same picker the form uses, so a filter offers exactly what a record can link to.
+  // Its model is already the filter value — the target record's id — so no adapters.
   RELATION: {
-    component: markRaw(BaseInput),
-    props: (field) => ({ label: field.name, debounce: FILTER_DEBOUNCE_MS, trim: true }),
+    component: markRaw(RelationFieldSelect),
+    props: (field) => ({ label: field.name, fieldId: field.id, blankLabel: 'All' }),
   },
 }

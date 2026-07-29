@@ -10,6 +10,6 @@ export default defineEventHandler(async (event) => {
   const recordId = getRouterParam(event, 'recordId') ?? ''
   const fields = await requireRecordFields(user.id, tableId)
   const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
-  const record = await updateRecord(tableId, recordId, data)
+  const record = await updateRecord(tableId, fields, recordId, data)
   return { record }
 })

@@ -3,6 +3,7 @@ import type { TFieldType } from '#shared/types/field'
 import BooleanFieldCell from '~/field-types/cells/BooleanFieldCell.vue'
 import DateFieldCell from '~/field-types/cells/DateFieldCell.vue'
 import NumberFieldCell from '~/field-types/cells/NumberFieldCell.vue'
+import RelationFieldCell from '~/field-types/cells/RelationFieldCell.vue'
 import SelectFieldCell from '~/field-types/cells/SelectFieldCell.vue'
 import TextFieldCell from '~/field-types/cells/TextFieldCell.vue'
 
@@ -21,6 +22,5 @@ export const FIELD_CELLS: Record<TFieldType, Component> = {
   BOOLEAN: markRaw(BooleanFieldCell),
   DATE: markRaw(DateFieldCell),
   SELECT: markRaw(SelectFieldCell),
-  // RELATION is not creatable yet — the text cell is a placeholder until that milestone
-  RELATION: markRaw(TextFieldCell),
+  RELATION: markRaw(RelationFieldCell),
 }

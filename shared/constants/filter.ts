@@ -27,6 +27,6 @@ export const FILTER_VALUE_BY_TYPE: {
   BOOLEAN: { shape: 'scalar', empty: null },
   DATE: { shape: 'range', empty: { from: null, to: null } },
   SELECT: { shape: 'scalar', empty: '' },
-  // Placeholder until the RELATION milestone — RELATION is not creatable yet
+  // The target record's id — a picker offers the candidates, so it compares exactly
   RELATION: { shape: 'scalar', empty: '' },
 }

@@ -1,6 +1,7 @@
 import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
+import { useRelationsStore } from '~/stores/relations'
 import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordPage, IRecordQueryState, TRecordData } from '#shared/types/record'
@@ -17,6 +18,7 @@ function isDefaultView(query: IRecordQueryState): boolean {
 
 export const useRecordsStore = defineStore('records', () => {
   const api = useApi()
+  const relations = useRelationsStore()
 
   // shallowRef: the collection is replaced wholesale, never mutated item-by-item
   const records = shallowRef<IRecord[]>([])
@@ -46,6 +48,8 @@ export const useRecordsStore = defineStore('records', () => {
       page.value = response.page
       pageSize.value = response.pageSize
       loadedTableId.value = tableId
+      // Relation cells read their label from there, not from the record's own data
+      relations.cacheLabels(response.relationLabels)
     } finally {
       pending.value = false
     }

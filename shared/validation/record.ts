@@ -50,9 +50,10 @@ const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaSpec> = {
     blank: null,
     fromQuery: (raw) => raw,
   },
-  // Placeholder until the RELATION milestone — RELATION is not creatable yet
+  // A target record's id. That the record exists is a database question, so the server
+  // layers `assertRelationTargets` on top of what is knowable here.
   RELATION: {
-    base: () => z.string().min(1),
+    base: () => z.string().min(1, 'Choose a record'),
     blank: null,
     fromQuery: (raw) => raw,
   },
