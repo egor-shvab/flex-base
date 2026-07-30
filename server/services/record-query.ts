@@ -1,6 +1,11 @@
 import { Prisma } from '#server/generated/prisma/client'
 import type { IField, TFieldType } from '#shared/types/field'
-import { DEFAULT_SORT_KEY, RECORD_NUMBER_KEY } from '#shared/constants/filter'
+import {
+  CREATED_AT_KEY,
+  DEFAULT_SORT_KEY,
+  RECORD_NUMBER_KEY,
+  UPDATED_AT_KEY,
+} from '#shared/constants/filter'
 import type { IRecordSort, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import { isRangeFilterValue, queryFields } from '#shared/utils/filter'
 
@@ -89,12 +94,20 @@ const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
 
 /**
  * The columns of `Record` itself that a query treats as fields. Consulted before the type
- * registry, because these live outside `data` and no JSON path can reach them. The record
- * number declares both halves for the same reason RELATION does: it **filters as text**, so
- * `4` matches `#4`, `#14` and `#42`, but **orders as an integer**, so `#9` precedes `#10`.
+ * registry, because these live outside `data` and no JSON path can reach them. Every one
+ * declares both halves for the same reason RELATION does — how a column compares is not how
+ * it orders:
+ *
+ * - the number **filters as text** (`4` matches `#4`, `#14`, `#42`) but **orders as an integer**
+ *   (`#9` before `#10`);
+ * - a timestamp **filters as a date**, so an inclusive `to` bound covers that whole day rather
+ *   than stopping at its midnight, but **orders as a timestamp**, so two records made on one
+ *   day still order by time.
  */
 const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql }> = {
   [RECORD_NUMBER_KEY]: { expr: Prisma.sql`"number"::text`, sortExpr: Prisma.sql`"number"` },
+  [CREATED_AT_KEY]: { expr: Prisma.sql`"createdAt"::date`, sortExpr: Prisma.sql`"createdAt"` },
+  [UPDATED_AT_KEY]: { expr: Prisma.sql`"updatedAt"::date`, sortExpr: Prisma.sql`"updatedAt"` },
 }
 
 function valueExpr(field: IField): Prisma.Sql {

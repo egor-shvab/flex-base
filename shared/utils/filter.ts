@@ -1,37 +1,42 @@
 import {
+  CREATED_AT_KEY,
   FILTER_VALUE_BY_TYPE,
   RECORD_NUMBER_KEY,
   RESERVED_QUERY_PARAMS,
+  UPDATED_AT_KEY,
 } from '#shared/constants/filter'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TFilterParamRole, TFilterValue } from '#shared/types/filter'
 
 /**
- * The record number as the query layer sees it: a read-only field over a column of `Record`
- * itself rather than a key of its `data`. Declaring it as an ordinary `IField` is what lets
- * the filter control, the URL codec, the query schema and the match count treat it like any
- * other column — only the SQL projection knows it is not JSONB. `TEXT` is deliberate: its
- * filter is a partial match, so typing `4` finds `#4`, `#14` and `#42` alike.
+ * One column of `Record` itself, as the query layer sees it: a read-only field over a real
+ * column rather than a key of `data`. Declaring these as ordinary `IField`s is what lets the
+ * filter control, the URL codec, the query schema and the match count treat them like any
+ * other column — only the SQL projection knows they are not JSONB. `order` is inert here,
+ * since `queryFields` fixes where each one sits.
  */
-export const RECORD_NUMBER_FIELD: IField = {
-  id: RECORD_NUMBER_KEY,
-  name: 'Record #',
-  key: RECORD_NUMBER_KEY,
-  type: 'TEXT',
-  required: false,
-  options: null,
-  // Ahead of every real field, which start at 0
-  order: -1,
+function recordColumn(key: string, name: string, type: TFieldType): IField {
+  return { id: key, key, name, type, required: false, options: null, order: 0 }
 }
 
+/** A partial match, so typing `4` finds `#4`, `#14` and `#42` alike. */
+export const RECORD_NUMBER_FIELD = recordColumn(RECORD_NUMBER_KEY, 'Record #', 'TEXT')
+
+/** Timestamps filter as `DATE`, which gives each one an inclusive from/to range of days. */
+const CREATED_AT_FIELD = recordColumn(CREATED_AT_KEY, 'Created at', 'DATE')
+const UPDATED_AT_FIELD = recordColumn(UPDATED_AT_KEY, 'Updated at', 'DATE')
+
 /**
- * A table's own fields plus the record's own columns that filter and sort alongside them.
+ * A table's own fields plus the record's own columns that filter and sort alongside them, in
+ * the order they are presented — the table and the filter drawer both render from this, so the
+ * number leads and the timestamps trail rather than pushing a table's own data to the right.
+ *
  * Applied wherever a *query* is built — never where a record's data is read or written, since
  * nothing here is part of that data.
  */
 export function queryFields(fields: IField[]): IField[] {
-  return [RECORD_NUMBER_FIELD, ...fields]
+  return [RECORD_NUMBER_FIELD, ...fields, CREATED_AT_FIELD, UPDATED_AT_FIELD]
 }
 
 /**

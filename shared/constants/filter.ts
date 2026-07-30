@@ -1,11 +1,16 @@
 import type { TFieldType } from '#shared/types/field'
 import type { IFilterValueByType, IFilterValueSpec, TSortDirection } from '#shared/types/filter'
 
-/** Sorting falls back to the record's own creation order, which every table has. */
-export const DEFAULT_SORT_KEY = 'createdAt'
-
-/** The record's own display number, which sorts and filters alongside a table's fields. */
+/**
+ * The record's own columns, which sort and filter alongside a table's fields. Their keys are
+ * camelCase, which `slugify` can never emit, so a field key can never shadow one.
+ */
 export const RECORD_NUMBER_KEY = 'recordNumber'
+export const CREATED_AT_KEY = 'createdAt'
+export const UPDATED_AT_KEY = 'updatedAt'
+
+/** Sorting falls back to the record's own creation order, which every table has. */
+export const DEFAULT_SORT_KEY = CREATED_AT_KEY
 
 /** Newest first: a record added now belongs at the top of page 1, not the end of the last. */
 export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
@@ -17,11 +22,11 @@ export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
 export const RESERVED_QUERY_PARAMS = ['page', 'pageSize', 'sort', 'dir'] as const
 
 /**
- * Keys that name a record's own columns rather than one of its table's fields. `slugify`
- * only ever emits `^[a-z0-9_]+$`, so a camelCase key here is already unreachable — stating
- * the reservation keeps that true if the slug rules ever change.
+ * The same keys, as the field-key guard reads them: `slugify` only ever emits `^[a-z0-9_]+$`,
+ * so these are already unreachable — stating the reservation keeps that true if the slug rules
+ * ever change.
  */
-export const RESERVED_FIELD_KEYS = [DEFAULT_SORT_KEY, RECORD_NUMBER_KEY] as const
+export const RESERVED_FIELD_KEYS = [RECORD_NUMBER_KEY, CREATED_AT_KEY, UPDATED_AT_KEY] as const
 
 /**
  * The single per-field-type branch point for filtering. Typed as a total `Record`, so

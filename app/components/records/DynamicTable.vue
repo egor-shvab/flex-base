@@ -26,17 +26,13 @@
       <tbody>
         <tr v-for="record in records" :key="record.id">
           <td v-for="column in columns" :key="column.key">
-            <!-- The number is the record's own, not one of its values, so no cell renders it -->
-            <span v-if="column.key === RECORD_NUMBER_KEY" class="dynamic-table__number">
-              #{{ record.number }}
-            </span>
             <!-- Blank values are rendered here so no cell component has to handle null -->
-            <span v-else-if="isBlank(record.data[column.key])" class="dynamic-table__blank">—</span>
+            <span v-if="isBlank(cellValue(record, column))" class="dynamic-table__blank">—</span>
             <component
-              :is="FIELD_CELLS[column.type]"
+              :is="cellComponent(column)"
               v-else
               :field="column"
-              :value="record.data[column.key]"
+              :value="cellValue(record, column)"
             />
           </td>
           <td class="dynamic-table__actions">
@@ -68,6 +64,7 @@ import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord, TRecordValue } from '#shared/types/record'
 import { queryFields } from '#shared/utils/filter'
 import { FIELD_CELLS } from '~/field-types/cells'
+import { RECORD_COLUMNS } from '~/field-types/record-columns'
 
 const props = defineProps<{
   fields: IField[]
@@ -76,8 +73,8 @@ const props = defineProps<{
 }>()
 
 /**
- * The record's own number leads the table's fields, and one list drives both the header and
- * the body so the two cannot drift. It sorts through the same helpers as any other column.
+ * The record's own columns bracket the table's fields, and one list drives both the header and
+ * the body so the two cannot drift. Each sorts through the same helpers as any other column.
  */
 const columns = computed(() => queryFields(props.fields))
 
@@ -86,6 +83,15 @@ const emit = defineEmits<{
   delete: [record: IRecord]
   sort: [key: string]
 }>()
+
+/** A record's own column reads from the record; everything else from its data. */
+function cellValue(record: IRecord, column: IField): TRecordValue {
+  return RECORD_COLUMNS[column.key]?.value(record) ?? record.data[column.key] ?? null
+}
+
+function cellComponent(column: IField) {
+  return RECORD_COLUMNS[column.key]?.cell ?? FIELD_CELLS[column.type]
+}
 
 function isBlank(value: TRecordValue | undefined): boolean {
   return value === null || value === undefined
@@ -172,12 +178,6 @@ function sortIcon(field: IField): string {
 
   &__blank {
     color: var(--color-border);
-  }
-
-  // Tabular figures so the numbers line up down the column, as in NumberFieldCell
-  &__number {
-    color: var(--color-text-muted);
-    font-variant-numeric: tabular-nums;
   }
 
   &__number-head,
