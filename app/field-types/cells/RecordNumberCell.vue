@@ -10,7 +10,7 @@ defineProps<IFieldCellProps>()
 
 <style lang="scss" scoped>
 .record-number-cell {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   // Tabular figures so the numbers line up down the column, as in NumberFieldCell
   font-variant-numeric: tabular-nums;
 }

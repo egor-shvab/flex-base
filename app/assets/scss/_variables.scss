@@ -1,17 +1,76 @@
-// Global design tokens, exposed as CSS custom properties
-:root {
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-danger: #dc2626;
-  --color-danger-hover: #b91c1c;
+// Both, because `additionalData` only reaches entry files and SFC style blocks —
+// never a partial like this one. `palette` supplies the primitives, `functions`
+// the `rem()` used by the geometry tokens below.
+@use 'palette' as *;
+@use 'functions' as *;
 
-  // Faint washes of the two accents, for hover fills and error banners. Spelled out
-  // rather than derived: a custom property's alpha cannot be modified in CSS.
-  --color-primary-tint: rgb(79 70 229 / 8%);
-  --color-danger-tint: rgb(220 38 38 / 8%);
-  --color-text: #1f2937;
-  --color-text-muted: #6b7280;
-  --color-border: #d1d5db;
-  --color-bg: #f9fafb;
-  --color-surface: #fff;
+// The public token surface. Components consume these and nothing else.
+//
+// Custom property values are parsed literally by Sass — SassScript is not evaluated
+// inside them — so every `rem()` call here must be interpolated with `#{}`.
+:root {
+  // ── Surfaces ──────────────────────────────────────────────────────────────
+  // Three of these share one value today, deliberately: a disabled field, a chip
+  // and a hovered row are different jobs and will diverge. Collapsing them is what
+  // made the previous `--color-bg` mean four unrelated things at once.
+  --color-canvas: #{$gray-50};
+  --color-surface: #{$white};
+  --color-surface-hover: #{$gray-100};
+  --color-surface-disabled: #{$gray-100};
+  --color-surface-muted: #{$gray-100};
+
+  // ── Text ──────────────────────────────────────────────────────────────────
+  --color-text: #{$gray-900};
+  --color-text-secondary: #{$gray-600};
+  --color-text-subtle: #{$gray-500};
+  --color-text-on-accent: #{$white};
+
+  // ── Borders ───────────────────────────────────────────────────────────────
+  --color-border: #{$gray-200};
+  --color-border-strong: #{$gray-300};
+
+  // ── Accent & danger ───────────────────────────────────────────────────────
+  // The tints are spelled out rather than derived: a custom property's alpha
+  // cannot be modified in CSS.
+  --color-accent: #{$blue-600};
+  --color-accent-hover: #{$blue-700};
+  --color-accent-active: #{$blue-800};
+  --color-accent-tint: rgb(28 100 216 / 8%);
+  --color-danger: #{$red-600};
+  --color-danger-hover: #{$red-700};
+  --color-danger-active: #{$red-800};
+  --color-danger-tint: rgb(198 40 40 / 8%);
+
+  // ── Focus ─────────────────────────────────────────────────────────────────
+  // Exposed as custom properties so `_reset.scss` can carry the global focus rule
+  // without needing its own `@use 'functions'`.
+  --color-focus: #{$blue-600};
+  --focus-ring-width: #{rem(3)};
+  --focus-ring-offset: #{rem(2)};
+
+  // ── Overlay & elevation ───────────────────────────────────────────────────
+  // Keyed off the text neutral rather than pure black, and only two of them.
+  --color-scrim: rgb(31 33 38 / 45%);
+  --shadow-sm: 0 1px 2px rgb(31 33 38 / 8%);
+  --shadow-md: 0 8px 24px rgb(31 33 38 / 14%);
+
+  // ── Geometry ──────────────────────────────────────────────────────────────
+  --radius-sm: #{rem(4)};
+  --radius-md: #{rem(8)};
+  --radius-lg: #{rem(12)};
+  --radius-pill: 999px;
+  --control-height: #{rem(44)};
+  --control-padding-x: #{rem(16)};
+
+  // ── Type ──────────────────────────────────────────────────────────────────
+  // The full scale ships now because a ramp is only reviewable as a whole; only
+  // `md` is applied in this phase (every interactive control), the rest land with
+  // the pages that consume them.
+  --font-size-xs: #{rem(12)};
+  --font-size-sm: #{rem(14)};
+  --font-size-md: #{rem(16)};
+  --font-size-lg: #{rem(18)};
+  --font-size-xl: #{rem(24)};
+  --line-height-tight: 1.25;
+  --line-height-base: 1.5;
 }

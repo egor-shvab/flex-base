@@ -112,7 +112,7 @@ function sortIcon(field: IField): string {
 .dynamic-table {
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: rem(8);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 
   &__table {
@@ -132,7 +132,7 @@ function sortIcon(field: IField): string {
   th {
     font-size: rem(13);
     font-weight: 600;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
 
   &__sort {
@@ -146,11 +146,15 @@ function sortIcon(field: IField): string {
     background: none;
     cursor: pointer;
 
-    &:hover {
-      color: var(--color-primary);
+    &:hover,
+    &:focus-visible {
+      color: var(--color-accent);
     }
 
-    &:hover .dynamic-table__sort-icon {
+    // Keyboard focus reveals the affordance too — on hover alone it is invisible
+    // to anyone who is not using a pointer
+    &:hover .dynamic-table__sort-icon,
+    &:focus-visible .dynamic-table__sort-icon {
       opacity: 1;
     }
   }
@@ -161,7 +165,7 @@ function sortIcon(field: IField): string {
 
     &--active {
       opacity: 1;
-      color: var(--color-primary);
+      color: var(--color-accent);
     }
   }
 
@@ -173,11 +177,12 @@ function sortIcon(field: IField): string {
   }
 
   tbody tr:hover {
-    background: var(--color-bg);
+    background: var(--color-surface-hover);
   }
 
+  // A text role, not a border one — the border token here was ~1.5:1
   &__blank {
-    color: var(--color-border);
+    color: var(--color-text-subtle);
   }
 
   &__number-head,

@@ -166,7 +166,7 @@ const {
   gap: rem(16);
   padding: rem(12) rem(16);
   border: 1px solid var(--color-border);
-  border-radius: rem(8);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 
   &__main {
@@ -183,13 +183,13 @@ const {
   }
 
   &__key {
-    font-size: rem(12);
-    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
   }
 
   &__type {
     font-size: rem(13);
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
 
   &__actions {

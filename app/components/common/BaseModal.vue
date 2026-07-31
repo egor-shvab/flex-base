@@ -48,14 +48,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   align-items: center;
   justify-content: center;
   padding: rem(16);
-  background: rgb(0 0 0 / 40%);
+  background: var(--color-scrim);
 
   &__dialog {
     width: 100%;
     max-width: rem(420);
-    border-radius: rem(12);
+    border-radius: var(--radius-lg);
     background: var(--color-surface);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+    box-shadow: var(--shadow-md);
   }
 
   &__header {
@@ -68,7 +68,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
   &__title {
     margin: 0;
-    font-size: rem(18);
+    font-size: var(--font-size-lg);
     font-weight: 600;
   }
 

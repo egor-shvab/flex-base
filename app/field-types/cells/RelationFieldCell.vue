@@ -23,7 +23,7 @@ const label = computed(() =>
 
 <style lang="scss" scoped>
 .relation-cell--unknown {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 </style>

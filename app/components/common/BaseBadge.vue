@@ -18,16 +18,16 @@ withDefaults(
 .base-badge {
   display: inline-block;
   padding: rem(2) rem(8);
-  border-radius: rem(10);
-  background: var(--color-bg);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
   font-size: rem(13);
 
   &--label {
     padding: rem(2) rem(6);
-    border-radius: rem(4);
+    border-radius: var(--radius-sm);
     font-size: rem(11);
     text-transform: uppercase;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
 }
 </style>

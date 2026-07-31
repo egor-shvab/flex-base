@@ -9,7 +9,7 @@
 
   &__title {
     margin: 0;
-    font-size: rem(24);
+    font-size: var(--font-size-xl);
     font-weight: 600;
     text-align: center;
   }
@@ -20,12 +20,17 @@
 
   &__footer {
     margin: 0;
-    font-size: rem(14);
+    font-size: var(--font-size-sm);
     text-align: center;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
 
   &__link {
-    color: var(--color-primary);
+    color: var(--color-accent);
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
   }
 }

@@ -41,23 +41,52 @@ withDefaults(
 </script>
 
 <style lang="scss" scoped>
+// The chassis carries only what every variant shares. The filled look lives in
+// `--primary`, which the template always emits (`variant` defaults to 'primary'),
+// so the small variants can be sized independently of it.
+//
+// `font-size` and `font-weight` stay here on purpose: `--ghost` declares neither,
+// so moving them onto `--primary` would drop it to the UA button default.
 .base-button {
-  padding: rem(10);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: rem(8);
+  padding: 0;
   border: none;
-  border-radius: rem(6);
-  background: var(--color-primary);
-  font-size: rem(15);
+  border-radius: var(--radius-md);
+  background: none;
+  font-size: var(--font-size-md);
   font-weight: 500;
-  color: #fff;
+  line-height: var(--line-height-tight);
+  color: inherit;
   cursor: pointer;
 
-  &:hover {
-    background: var(--color-primary-hover);
-  }
+  @include focus-ring;
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  // `min-height` rather than `height`, so a long label wraps instead of overflowing
+  &--primary,
+  &--danger {
+    min-height: var(--control-height);
+    padding: 0 var(--control-padding-x);
+    color: var(--color-text-on-accent);
+  }
+
+  &--primary {
+    background: var(--color-accent);
+
+    &:hover {
+      background: var(--color-accent-hover);
+    }
+
+    &:active {
+      background: var(--color-accent-active);
+    }
   }
 
   &--danger {
@@ -66,54 +95,52 @@ withDefaults(
     &:hover {
       background: var(--color-danger-hover);
     }
+
+    &:active {
+      background: var(--color-danger-active);
+    }
   }
 
   &--icon {
     --hover-color: var(--color-text);
 
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     padding: rem(4);
-    border: none;
-    background: none;
+    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
     font-size: rem(20);
     line-height: 1;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
 
-    &:hover {
-      background: none;
+    &:hover,
+    &:active {
       color: var(--hover-color);
     }
   }
 
   // A bare text button for row actions — the chrome of a link, the semantics of a button
   &--link {
-    --hover-color: var(--color-primary);
+    --hover-color: var(--color-accent);
 
-    padding: 0;
-    border: none;
-    background: none;
     font-size: rem(13);
     font-weight: 400;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
 
-    &:hover {
-      background: none;
+    &:hover,
+    &:active {
       color: var(--hover-color);
     }
   }
 
   &--ghost {
-    display: inline-flex;
-    align-items: center;
-    gap: rem(6);
-    padding: rem(6) rem(8);
-    background: none;
-    color: var(--color-primary);
+    min-height: var(--control-height);
+    padding: 0 rem(12);
+    color: var(--color-accent);
 
     &:hover {
-      background: var(--color-primary-tint);
+      background: var(--color-accent-tint);
+    }
+
+    &:active {
+      background: var(--color-surface-hover);
     }
   }
 

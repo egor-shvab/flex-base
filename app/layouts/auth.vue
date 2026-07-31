@@ -13,15 +13,15 @@
   justify-content: center;
   min-height: 100vh;
   padding: rem(16);
-  background: var(--color-bg);
+  background: var(--color-canvas);
 
   &__card {
     width: 100%;
     max-width: rem(400);
     padding: rem(32);
-    border-radius: rem(12);
+    border-radius: var(--radius-lg);
     background: var(--color-surface);
-    box-shadow: 0 4px 12px rgb(0 0 0 / 8%);
+    box-shadow: var(--shadow-sm);
   }
 }
 </style>

@@ -5,6 +5,21 @@
 // component uses these without importing anything; standalone partials must
 // `@use 'mixins' as *` themselves, since additionalData does not reach them.
 
+/// The keyboard focus ring. `:focus-visible` only, so clicking a control never draws
+/// one — pass a negative `$offset` for a ring that must sit inside its own box.
+/// `outline` rather than `box-shadow`: an outline is not clipped by an ancestor's
+/// `overflow`, and it survives forced-colors mode.
+@mixin focus-ring($offset: var(--focus-ring-offset)) {
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: $offset;
+  }
+}
+
 /// A vertical stack — the layout every form and labelled control uses.
 @mixin stack($gap: 16) {
   display: flex;
@@ -14,8 +29,8 @@
 
 /// The caption above a form control.
 @mixin field-label {
-  font-size: rem(14);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 /// The validation message below a form control.
@@ -27,15 +42,22 @@
 /// The chrome shared by every text-like control (`<input>`, `<select>`).
 /// Callers add their own background, placeholder and disabled rules.
 @mixin form-control {
+  min-height: var(--control-height);
   padding: rem(10) rem(12);
   border: 1px solid var(--color-border);
-  border-radius: rem(6);
-  font-size: rem(15);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  // Explicit, because `<select>` and `<input>` resolve `normal` differently — without
+  // it a select sits 1px taller than the input beside it
+  line-height: var(--line-height-tight);
 
+  // Two separate signals: the border says "this field is active" on any focus,
+  // including programmatic autofocus; the ring says "you are on the keyboard".
   &:focus {
-    outline: none;
-    border-color: var(--color-primary);
+    border-color: var(--color-accent);
   }
+
+  @include focus-ring;
 
   &--invalid {
     border-color: var(--color-danger);
@@ -46,9 +68,9 @@
 @mixin error-banner {
   margin: 0;
   padding: rem(10) rem(12);
-  border-radius: rem(6);
+  border-radius: var(--radius-md);
   background: var(--color-danger-tint);
-  font-size: rem(14);
+  font-size: var(--font-size-sm);
   color: var(--color-danger);
 }
 
@@ -63,14 +85,14 @@
 /// A page's `<h1>`.
 @mixin page-title {
   margin: 0;
-  font-size: rem(24);
+  font-size: var(--font-size-xl);
 }
 
 /// The muted centered message a page shows when it has nothing to list.
 @mixin page-empty {
   margin: rem(40) 0;
   text-align: center;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
 /// The muted "← back" link above a page header.
@@ -79,22 +101,24 @@
   align-items: center;
   gap: rem(4);
   margin-bottom: rem(12);
-  font-size: rem(14);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   text-decoration: none;
 
-  &:hover {
-    color: var(--color-primary);
+  &:hover,
+  &:focus-visible {
+    color: var(--color-accent);
   }
 }
 
 /// An inline navigation link in a page header.
 @mixin text-link {
-  font-size: rem(14);
-  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
   text-decoration: none;
 
-  &:hover {
+  &:hover,
+  &:focus-visible {
     text-decoration: underline;
   }
 }

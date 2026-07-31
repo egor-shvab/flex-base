@@ -15,11 +15,11 @@ defineProps<IFieldCellProps>()
 
 <style lang="scss" scoped>
 .boolean-cell {
-  font-size: rem(18);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
 
   &--on {
-    color: var(--color-primary);
+    color: var(--color-accent);
   }
 }
 </style>

@@ -35,11 +35,14 @@ const model = defineModel<boolean>({ required: true })
 .base-checkbox {
   @include stack(4);
 
+  // The label wraps the input, so giving the row the control height makes the whole
+  // line a 44px target rather than just the native checkbox
   &__control {
     display: flex;
     align-items: center;
+    min-height: var(--control-height);
     gap: rem(8);
-    font-size: rem(15);
+    font-size: var(--font-size-md);
     cursor: pointer;
   }
 

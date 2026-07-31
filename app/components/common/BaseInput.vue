@@ -92,9 +92,9 @@ function onCompositionEnd(event: CompositionEvent) {
   &__input {
     @include form-control;
 
+    // No `opacity` — muted text at 0.6 was ~2.4:1; the subtle token is 4.58:1
     &::placeholder {
-      color: var(--color-text-muted);
-      opacity: 0.6;
+      color: var(--color-text-subtle);
     }
   }
 

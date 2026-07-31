@@ -53,7 +53,7 @@ const rangeLabel = computed(() => {
   &__count,
   &__page {
     font-size: rem(13);
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
 
   &__pager {

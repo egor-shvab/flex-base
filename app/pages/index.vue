@@ -129,11 +129,21 @@ const {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border);
-  border-radius: rem(10);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 
-  &:hover {
-    box-shadow: 0 4px 12px rgb(0 0 0 / 8%);
+  &:hover,
+  &:has(:focus-visible) {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-sm);
+  }
+
+  // The link fills the card, so the card wears the ring — a ring on the link itself
+  // would draw a square rect straddling the rounded corner and the actions divider.
+  // `:has(:focus-visible)` rather than `:focus-within`, which also fires on a click.
+  &:has(:focus-visible) {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: var(--focus-ring-offset);
   }
 
   &__link {
@@ -141,6 +151,10 @@ const {
     padding: rem(16);
     text-decoration: none;
     color: inherit;
+
+    &:focus-visible {
+      outline: none;
+    }
   }
 
   &__name {
@@ -151,7 +165,7 @@ const {
   &__meta {
     margin: 0;
     font-size: rem(13);
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
 
   &__actions {

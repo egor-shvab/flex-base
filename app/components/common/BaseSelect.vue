@@ -47,11 +47,15 @@ const model = defineModel<TValue>({ required: true })
   &__control {
     @include form-control;
 
+    // Chrome ignores `line-height` on `<select>`, so `min-height` alone leaves it a
+    // pixel taller than the inputs beside it — pin the height instead. A select never
+    // wraps, so nothing is lost.
+    height: var(--control-height);
     background: var(--color-surface);
 
     &:disabled {
-      background: var(--color-bg);
-      color: var(--color-text-muted);
+      background: var(--color-surface-disabled);
+      color: var(--color-text-secondary);
       cursor: not-allowed;
     }
   }

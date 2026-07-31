@@ -117,7 +117,7 @@ function applyFieldValue(changed: IField, value: TFilterValue) {
 
   &__count {
     font-size: rem(13);
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
   }
 }
 </style>
