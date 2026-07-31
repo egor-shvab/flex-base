@@ -5,6 +5,19 @@
 // component uses these without importing anything; standalone partials must
 // `@use 'mixins' as *` themselves, since additionalData does not reach them.
 
+/// The one breakpoint in the project: below it the sidebar stops being persistent.
+/// It lives here rather than in `_variables.scss` because a media query cannot read
+/// a custom property, and `additionalData` injects this file into every SFC.
+/// `em` rather than `px` so it honours the browser's font-size setting.
+$breakpoint-shell: 56.25em; // 900px at the 16px default
+
+/// Applies its content only below the shell breakpoint.
+@mixin below-shell {
+  @media (max-width: $breakpoint-shell) {
+    @content;
+  }
+}
+
 /// The keyboard focus ring. `:focus-visible` only, so clicking a control never draws
 /// one — pass a negative `$offset` for a ring that must sit inside its own box.
 /// `outline` rather than `box-shadow`: an outline is not clipped by an ancestor's
@@ -74,18 +87,26 @@
   color: var(--color-danger);
 }
 
-/// A page's title row: heading on the left, actions on the right.
+/// A page's title row: heading on the left, actions on the right. Wraps rather than
+/// collides — the title is a user-supplied table name and the actions can be three
+/// controls wide, in a column narrowed by the sidebar.
 @mixin page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: rem(12) rem(16);
   margin-bottom: rem(20);
 }
 
-/// A page's `<h1>`.
+/// A page's `<h1>`. Truncates instead of pushing the actions off the row.
 @mixin page-title {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font-size: var(--font-size-xl);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /// The muted centered message a page shows when it has nothing to list.
@@ -93,22 +114,6 @@
   margin: rem(40) 0;
   text-align: center;
   color: var(--color-text-secondary);
-}
-
-/// The muted "← back" link above a page header.
-@mixin back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: rem(4);
-  margin-bottom: rem(12);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  text-decoration: none;
-
-  &:hover,
-  &:focus-visible {
-    color: var(--color-accent);
-  }
 }
 
 /// An inline navigation link in a page header.

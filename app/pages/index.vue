@@ -67,8 +67,12 @@ type TFormModal = { mode: 'create' } | { mode: 'rename'; table: ITableListItem }
 
 const tablesStore = useTablesStore()
 
-await useAsyncData('tables', async () => {
-  await tablesStore.fetchTables()
+// The layout already loaded the list for SSR, so this only refreshes on client-side
+// entry — Home is the one screen where the record counts *are* the content, and they
+// drift as records are added elsewhere. Its own key, so it never collides with the
+// layout's (`useAsyncData` does not dedupe a layout against a page).
+await useAsyncData('dashboard-tables', async () => {
+  if (import.meta.client) await tablesStore.fetchTables()
   return true
 })
 

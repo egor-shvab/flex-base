@@ -1,9 +1,6 @@
 <template>
   <section class="records-page">
-    <NuxtLink to="/" class="records-page__back">
-      <Icon name="mdi:arrow-left" aria-hidden="true" />
-      Your tables
-    </NuxtLink>
+    <AppBreadcrumbs :items="breadcrumbs" />
 
     <header class="records-page__header">
       <h1 class="records-page__title">{{ table?.name }}</h1>
@@ -104,6 +101,7 @@ import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
+import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
 import type { TRecordFilterValues } from '#shared/types/filter'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
@@ -153,6 +151,11 @@ if (error.value) {
 
 const table = computed(() => data.value?.table)
 useSeoMeta({ title: () => table.value?.name ?? 'Records' })
+
+const breadcrumbs = computed<IBreadcrumb[]>(() => [
+  { label: 'Home', to: '/' },
+  { label: table.value?.name ?? 'Table' },
+])
 
 const hasFields = computed(() => fieldsStore.fields.length > 0)
 
@@ -216,10 +219,6 @@ const {
 
 <style lang="scss" scoped>
 .records-page {
-  &__back {
-    @include back-link;
-  }
-
   &__header {
     @include page-header;
   }

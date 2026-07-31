@@ -62,6 +62,12 @@
   --control-height: #{rem(44)};
   --control-padding-x: #{rem(16)};
 
+  // ── Shell ─────────────────────────────────────────────────────────────────
+  // The breakpoint that pairs with these is an SCSS variable in `_mixins.scss`,
+  // because a media query cannot read a custom property.
+  --header-height: #{rem(64)};
+  --sidebar-width: #{rem(260)};
+
   // ── Type ──────────────────────────────────────────────────────────────────
   // The full scale ships now because a ramp is only reviewable as a whole; only
   // `md` is applied in this phase (every interactive control), the rest land with

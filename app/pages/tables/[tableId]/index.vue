@@ -1,9 +1,6 @@
 <template>
   <section class="table-page">
-    <NuxtLink to="/" class="table-page__back">
-      <Icon name="mdi:arrow-left" aria-hidden="true" />
-      Your tables
-    </NuxtLink>
+    <AppBreadcrumbs :items="breadcrumbs" />
 
     <header class="table-page__header">
       <h1 class="table-page__title">{{ table?.name }}</h1>
@@ -69,6 +66,7 @@ import { useApi } from '~/composables/useApi'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
 import { FIELD_TYPE_LABELS } from '#shared/constants/field'
+import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
@@ -94,6 +92,12 @@ if (error.value) {
 
 const table = computed(() => data.value?.table)
 useSeoMeta({ title: () => table.value?.name ?? 'Table' })
+
+const breadcrumbs = computed<IBreadcrumb[]>(() => [
+  { label: 'Home', to: '/' },
+  { label: table.value?.name ?? 'Table', to: `/tables/${tableId}/records` },
+  { label: 'Fields' },
+])
 
 const fieldModal = ref<TFieldModal | null>(null)
 
@@ -125,10 +129,6 @@ const {
 
 <style lang="scss" scoped>
 .table-page {
-  &__back {
-    @include back-link;
-  }
-
   &__header {
     @include page-header;
   }
