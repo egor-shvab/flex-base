@@ -5,9 +5,12 @@
       <BaseButton @click="openCreateModal">New table</BaseButton>
     </header>
 
-    <p v-if="tablesStore.tables.length === 0" class="dashboard__empty">
-      No tables yet — create your first table to get started.
-    </p>
+    <BaseEmptyState v-if="tablesStore.tables.length === 0" title="No tables yet">
+      A table is a list of things you want to keep track of — customers, deals, invoices.
+      <template #action>
+        <BaseButton @click="openCreateModal">New table</BaseButton>
+      </template>
+    </BaseEmptyState>
 
     <ul v-else class="dashboard__grid">
       <li v-for="table in tablesStore.tables" :key="table.id" class="table-card">
@@ -113,10 +116,6 @@ const {
 
   &__title {
     @include page-title;
-  }
-
-  &__empty {
-    @include page-empty;
   }
 
   &__grid {

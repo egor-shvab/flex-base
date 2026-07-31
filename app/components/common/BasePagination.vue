@@ -2,21 +2,23 @@
   <nav class="pagination" aria-label="Pagination">
     <span class="pagination__count" aria-live="polite">{{ rangeLabel }}</span>
     <div class="pagination__pager">
+      <span class="pagination__page">Page {{ page }} of {{ pageCount }}</span>
       <BaseButton
-        variant="icon"
+        variant="ghost"
         icon="mdi:chevron-left"
-        label="Previous page"
         :disabled="page <= 1"
         @click="emit('update:page', page - 1)"
-      />
-      <span class="pagination__page">{{ page }} / {{ pageCount }}</span>
+      >
+        Previous
+      </BaseButton>
       <BaseButton
-        variant="icon"
-        icon="mdi:chevron-right"
-        label="Next page"
+        variant="ghost"
         :disabled="page >= pageCount"
         @click="emit('update:page', page + 1)"
-      />
+      >
+        Next
+        <Icon name="mdi:chevron-right" aria-hidden="true" />
+      </BaseButton>
     </div>
   </nav>
 </template>

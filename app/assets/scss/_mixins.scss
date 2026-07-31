@@ -109,13 +109,6 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   white-space: nowrap;
 }
 
-/// The muted centered message a page shows when it has nothing to list.
-@mixin page-empty {
-  margin: rem(40) 0;
-  text-align: center;
-  color: var(--color-text-secondary);
-}
-
 /// An inline navigation link in a page header.
 @mixin text-link {
   font-size: var(--font-size-sm);

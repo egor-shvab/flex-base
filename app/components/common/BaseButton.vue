@@ -104,6 +104,9 @@ withDefaults(
   &--icon {
     --hover-color: var(--color-text);
 
+    // Both axes, or the button ends up 44 tall and ~28 wide — it is content-sized
+    min-width: var(--control-height);
+    min-height: var(--control-height);
     padding: rem(4);
     // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
     font-size: rem(20);

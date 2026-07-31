@@ -93,10 +93,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     @include focus-ring;
   }
 
+  // Hand-rolled rather than a BaseButton, so it does not inherit the icon variant's
+  // sizing and has to match `--control-height` explicitly
   &__toggle {
     display: none;
     align-items: center;
     justify-content: center;
+    width: var(--control-height);
+    height: var(--control-height);
     padding: rem(4);
     border: none;
     border-radius: var(--radius-md);

@@ -1,0 +1,125 @@
+<template>
+  <div class="filter-summary">
+    <span class="filter-summary__count">
+      {{ pending ? 'Filtering…' : `Showing ${countLabel}:` }}
+    </span>
+
+    <span v-for="entry in entries" :key="entry.field.key" class="filter-summary__chip">
+      <span class="filter-summary__field">{{ entry.field.name }}</span>
+      {{ entry.phrase }}
+      <button
+        type="button"
+        class="filter-summary__remove"
+        :aria-label="`Remove the ${entry.field.name} filter`"
+        @click="remove(entry.field)"
+      >
+        <Icon name="mdi:close" aria-hidden="true" />
+      </button>
+    </span>
+
+    <BaseButton variant="link" @click="emit('update:filters', {})">Show all records</BaseButton>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { FILTER_VALUE_BY_TYPE } from '#shared/constants/filter'
+import type { IField } from '#shared/types/field'
+import type { TRecordFilterValues } from '#shared/types/filter'
+import { isFilterValueEmpty, queryFields } from '#shared/utils/filter'
+import { FILTER_SUMMARIES } from '~/field-types/filter-summaries'
+import { useRelationsStore } from '~/stores/relations'
+
+const props = defineProps<{
+  fields: IField[]
+  filters: TRecordFilterValues
+  total: number
+  pending?: boolean
+}>()
+
+const emit = defineEmits<{ 'update:filters': [filters: TRecordFilterValues] }>()
+
+const relations = useRelationsStore()
+
+const columns = computed(() => queryFields(props.fields))
+
+/**
+ * Walks the table's columns and looks each one up in the filter map — never
+ * `Object.entries(filters)`, which would surface a key with no field to pair it with.
+ * Field order also keeps the chips matching both the drawer and the URL.
+ */
+const entries = computed(() =>
+  columns.value.flatMap((field) => {
+    const value = props.filters[field.key]
+    if (value === undefined) return []
+
+    const phrase = FILTER_SUMMARIES[field.type](value, field, { labelFor: relations.labelFor })
+    return [{ field, phrase }]
+  }),
+)
+
+const countLabel = computed(() =>
+  props.total === 1 ? '1 matching record' : `${props.total} matching records`,
+)
+
+/** Clearing one filter is the same rebuild the drawer does: blank it, then drop the empties. */
+function remove(field: IField) {
+  const next: TRecordFilterValues = {}
+
+  for (const column of columns.value) {
+    const value =
+      column.key === field.key ? FILTER_VALUE_BY_TYPE[column.type].empty : props.filters[column.key]
+    if (value !== undefined && !isFilterValueEmpty(value)) next[column.key] = value
+  }
+
+  emit('update:filters', next)
+}
+</script>
+
+<style lang="scss" scoped>
+.filter-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: rem(8);
+  margin-bottom: rem(16);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: rem(6);
+    min-height: rem(32);
+    padding: 0 rem(4) 0 rem(12);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-tint);
+    color: var(--color-text);
+  }
+
+  &__field {
+    font-weight: 600;
+  }
+
+  &__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: rem(24);
+    height: rem(24);
+    border: none;
+    border-radius: 50%;
+    background: none;
+    font-size: rem(16);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+
+    @include focus-ring;
+
+    &:hover {
+      background: var(--color-surface-hover);
+      color: var(--color-text);
+    }
+  }
+}
+</style>

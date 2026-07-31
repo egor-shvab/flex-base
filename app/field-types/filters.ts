@@ -3,6 +3,7 @@ import BaseInput from '~/components/common/BaseInput.vue'
 import BaseRange from '~/components/common/BaseRange.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
+import { BOOLEAN_LABELS } from '#shared/constants/field'
 import type { TFieldType } from '#shared/types/field'
 import type { IFilterValueByType } from '#shared/types/filter'
 import type { IFieldControl } from '~/field-types/types'
@@ -12,8 +13,8 @@ const FILTER_DEBOUNCE_MS = 300
 
 const BOOLEAN_FILTER_OPTIONS = [
   { value: '', label: 'All' },
-  { value: 'true', label: 'Yes' },
-  { value: 'false', label: 'No' },
+  { value: 'true', label: BOOLEAN_LABELS.true },
+  { value: 'false', label: BOOLEAN_LABELS.false },
 ]
 
 /**

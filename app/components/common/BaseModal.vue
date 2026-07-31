@@ -58,11 +58,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     box-shadow: var(--shadow-md);
   }
 
+  // The 44px close button sets this header's height, so the vertical padding is
+  // trimmed to keep the header at ~64px rather than letting every dialog gain a band
+  // of empty space.
   &__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: rem(16) rem(20);
+    padding: rem(10) rem(20);
     border-bottom: 1px solid var(--color-border);
   }
 

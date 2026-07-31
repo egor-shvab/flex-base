@@ -13,30 +13,38 @@
           @click="filterPanelOpen = true"
         >
           Filters
-          <BaseBadge v-if="activeFilterCount > 0" variant="label">
-            {{ activeFilterCount }}
-          </BaseBadge>
         </BaseButton>
         <BaseButton :disabled="!hasFields" @click="openCreateRecord">New record</BaseButton>
       </div>
     </header>
 
-    <p v-if="!hasFields" class="records-page__empty">
+    <!-- The active filters are stated above the data rather than hidden behind the
+         drawer that covers it -->
+    <RecordsFilterSummary
+      v-if="hasFields && activeFilterCount > 0"
+      :fields="fieldsStore.fields"
+      :filters="filters"
+      :total="recordsStore.total"
+      :pending="recordsStore.pending"
+      @update:filters="applyFilters"
+    />
+
+    <BaseEmptyState v-if="!hasFields">
       This table has no fields yet —
       <NuxtLink :to="`/tables/${tableId}`" class="records-page__link">define its fields</NuxtLink>
       before adding records.
-    </p>
+    </BaseEmptyState>
 
     <template v-else>
-      <div v-if="recordsStore.records.length === 0" class="records-page__empty">
-        <template v-if="activeFilterCount > 0">
-          <p>No records match these filters.</p>
-          <BaseButton variant="ghost" icon="mdi:filter-remove-outline" @click="applyFilters({})">
-            Clear all filters
+      <BaseEmptyState v-if="recordsStore.records.length === 0" :title="emptyTitle">
+        {{ emptyMessage }}
+        <template #action>
+          <BaseButton v-if="activeFilterCount > 0" @click="applyFilters({})">
+            Show all records
           </BaseButton>
+          <BaseButton v-else @click="openCreateRecord">New record</BaseButton>
         </template>
-        <p v-else>No records yet — add your first record.</p>
-      </div>
+      </BaseEmptyState>
 
       <template v-else>
         <DynamicTable
@@ -159,6 +167,20 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 
 const hasFields = computed(() => fieldsStore.fields.length > 0)
 
+const emptyTitle = computed(() => {
+  if (activeFilterCount.value === 0) return 'No records yet'
+  return activeFilterCount.value === 1
+    ? 'No records match this filter'
+    : 'No records match these filters'
+})
+
+const emptyMessage = computed(() => {
+  if (activeFilterCount.value === 0) return 'Add your first record to see it here.'
+  return activeFilterCount.value === 1
+    ? 'This table has records, but none match that filter.'
+    : 'This table has records, but none match all of these filters at once.'
+})
+
 function applyQuery(params: IRecordQueryState, replace = false) {
   // Sort and page steps are worth a history entry; live filter edits would flood it
   return navigateTo({ query: toRecordQueryParams(params) }, { replace })
@@ -235,18 +257,6 @@ const {
 
   &__link {
     @include text-link;
-  }
-
-  // The only empty state with actions in it, so it stacks rather than being plain text
-  &__empty {
-    @include page-empty;
-    @include stack(8);
-
-    align-items: center;
-
-    p {
-      margin: 0;
-    }
   }
 
   // Placement only — BasePagination owns its internal layout

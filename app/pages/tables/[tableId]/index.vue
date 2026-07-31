@@ -10,9 +10,13 @@
       </div>
     </header>
 
-    <p v-if="fieldsStore.fields.length === 0" class="table-page__empty">
-      No fields yet — add a field to define this table's structure.
-    </p>
+    <BaseEmptyState v-if="fieldsStore.fields.length === 0" title="No fields yet">
+      Fields decide what each record stores. Add one and it becomes a column here and a question on
+      the form.
+      <template #action>
+        <BaseButton @click="openCreateField">Add field</BaseButton>
+      </template>
+    </BaseEmptyState>
 
     <ul v-else class="field-list">
       <li v-for="field in fieldsStore.fields" :key="field.id" class="field-row">
@@ -145,10 +149,6 @@ const {
 
   &__link {
     @include text-link;
-  }
-
-  &__empty {
-    @include page-empty;
   }
 }
 

@@ -27,7 +27,9 @@
         <tr v-for="record in records" :key="record.id">
           <td v-for="column in columns" :key="column.key">
             <!-- Blank values are rendered here so no cell component has to handle null -->
-            <span v-if="isBlank(cellValue(record, column))" class="dynamic-table__blank">—</span>
+            <span v-if="isBlank(cellValue(record, column))" class="dynamic-table__blank">
+              Not set
+            </span>
             <component
               :is="cellComponent(column)"
               v-else
@@ -123,27 +125,40 @@ function sortIcon(field: IField): string {
 
   th,
   td {
-    padding: rem(10) rem(16);
     border-bottom: 1px solid var(--color-border);
     text-align: left;
+    // Load-bearing: `&__number-head` / `&__actions-head` shrink to fit via `width: rem(1)`
     white-space: nowrap;
   }
 
+  // An explicit height, so no single cell defines the row — before this the action cell's
+  // buttons did, which is why a 44px button would otherwise push rows to 64px
+  tbody td {
+    height: rem(52);
+    padding: rem(6) rem(16);
+    vertical-align: middle;
+  }
+
   th {
+    // Padding moves onto the sort button so the whole header cell is the target
+    padding: 0;
     font-size: rem(13);
     font-weight: 600;
     color: var(--color-text-secondary);
   }
 
   &__sort {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: rem(4);
-    padding: 0;
+    width: 100%;
+    min-height: var(--control-height);
+    padding: rem(10) rem(16);
     border: none;
     font: inherit;
     color: inherit;
     background: none;
+    text-align: left;
     cursor: pointer;
 
     &:hover,
@@ -190,9 +205,13 @@ function sortIcon(field: IField): string {
     width: rem(1);
   }
 
+  // `display: flex` takes this cell out of table layout, so it needs to centre its own
+  // content and give the 44px buttons room inside the 52px row
   &__actions {
     display: flex;
+    align-items: center;
     gap: rem(4);
+    padding-block: rem(4);
   }
 }
 </style>

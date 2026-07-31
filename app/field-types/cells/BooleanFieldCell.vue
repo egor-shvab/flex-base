@@ -1,25 +1,15 @@
 <template>
-  <Icon
-    :name="value === true ? 'mdi:check' : 'mdi:minus'"
-    :aria-label="value === true ? 'Yes' : 'No'"
-    class="boolean-cell"
-    :class="{ 'boolean-cell--on': value === true }"
-  />
+  <span>{{ value === true ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false }}</span>
 </template>
 
 <script setup lang="ts">
+import { BOOLEAN_LABELS } from '#shared/constants/field'
 import type { IFieldCellProps } from '~/field-types/types'
 
+/**
+ * Words rather than a tick, because a checkmark next to nothing is ambiguous — and a
+ * `false` is not blank, so it reaches this cell and must read "No" while a *missing*
+ * value renders the table's own "Not set" placeholder.
+ */
 defineProps<IFieldCellProps>()
 </script>
-
-<style lang="scss" scoped>
-.boolean-cell {
-  font-size: var(--font-size-lg);
-  color: var(--color-text-secondary);
-
-  &--on {
-    color: var(--color-accent);
-  }
-}
-</style>
