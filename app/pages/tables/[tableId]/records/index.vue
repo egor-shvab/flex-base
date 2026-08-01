@@ -6,6 +6,18 @@
       <h1 class="records-page__title">{{ table?.name }}</h1>
       <div class="records-page__header-actions">
         <NuxtLink :to="`/tables/${tableId}`" class="records-page__link">Fields</NuxtLink>
+        <BaseInput
+          v-if="hasFields"
+          id="records-search"
+          class="records-page__search"
+          :model-value="queryParams.search"
+          type="text"
+          aria-label="Search this table"
+          placeholder="Search…"
+          trim
+          :debounce="SEARCH_DEBOUNCE_MS"
+          @update:model-value="applySearch"
+        />
         <BaseButton
           v-if="hasFields"
           variant="ghost"
@@ -21,12 +33,15 @@
     <!-- The active filters are stated above the data rather than hidden behind the
          drawer that covers it -->
     <RecordsFilterSummary
-      v-if="hasFields && activeFilterCount > 0"
+      v-if="hasFields && isNarrowed"
       :fields="fieldsStore.fields"
       :filters="filters"
+      :search="queryParams.search"
       :total="recordsStore.total"
       :pending="recordsStore.pending"
       @update:filters="applyFilters"
+      @update:search="applySearch"
+      @clear="clearNarrowing"
     />
 
     <BaseEmptyState v-if="!hasFields">
@@ -39,9 +54,7 @@
       <BaseEmptyState v-if="recordsStore.records.length === 0" :title="emptyTitle">
         {{ emptyMessage }}
         <template #action>
-          <BaseButton v-if="activeFilterCount > 0" @click="applyFilters({})">
-            Show all records
-          </BaseButton>
+          <BaseButton v-if="isNarrowed" @click="clearNarrowing">Show all records</BaseButton>
           <BaseButton v-else @click="openCreateRecord">New record</BaseButton>
         </template>
       </BaseEmptyState>
@@ -109,6 +122,7 @@ import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
+import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
 import type { TRecordFilterValues } from '#shared/types/filter'
@@ -116,6 +130,9 @@ import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/reco
 import { parseRecordQueryState, toRecordQueryParams } from '#shared/utils/record-query'
 
 type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
+
+/** The same hold the filter controls use — a keystroke must not hit the API. */
+const SEARCH_DEBOUNCE_MS = 300
 
 const route = useRoute()
 const api = useApi()
@@ -133,6 +150,9 @@ const filters = computed(() => queryParams.value.filters)
 
 /** One filtered field counts once, however many conditions its control implies. */
 const activeFilterCount = computed(() => Object.keys(filters.value).length)
+
+/** Whether the list is showing less than the whole table, by filter or by search. */
+const isNarrowed = computed(() => activeFilterCount.value > 0 || queryParams.value.search !== '')
 
 const { data, error } = await useAsyncData(`table-records-${tableId}`, async () => {
   const [tableResponse] = await Promise.all([
@@ -168,16 +188,22 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 const hasFields = computed(() => fieldsStore.fields.length > 0)
 
 const emptyTitle = computed(() => {
-  if (activeFilterCount.value === 0) return 'No records yet'
-  return activeFilterCount.value === 1
+  if (!isNarrowed.value) return 'No records yet'
+  if (queryParams.value.search && activeFilterCount.value === 0) {
+    return `Nothing matches “${queryParams.value.search}”`
+  }
+  return activeFilterCount.value === 1 && !queryParams.value.search
     ? 'No records match this filter'
-    : 'No records match these filters'
+    : 'No records match what you are looking for'
 })
 
 const emptyMessage = computed(() => {
-  if (activeFilterCount.value === 0) return 'Add your first record to see it here.'
-  return activeFilterCount.value === 1
-    ? 'This table has records, but none match that filter.'
+  if (!isNarrowed.value) return 'Add your first record to see it here.'
+  if (queryParams.value.search && activeFilterCount.value === 0) {
+    return 'Check the spelling, or try a shorter word.'
+  }
+  return queryParams.value.search
+    ? 'This table has records, but none match both your search and your filters.'
     : 'This table has records, but none match all of these filters at once.'
 })
 
@@ -199,6 +225,21 @@ function applySort(key: string) {
 
 function applyFilters(next: TRecordFilterValues) {
   return applyQuery({ ...queryParams.value, page: 1, filters: next }, true)
+}
+
+/**
+ * Below the minimum the term is dropped rather than sent: the schema rejects it anyway, and
+ * an unanchored match across every field is not worth running for one character.
+ */
+function applySearch(next: string) {
+  const search = next.trim().length >= SEARCH_MIN_LENGTH ? next.trim() : ''
+  if (search === queryParams.value.search) return
+
+  return applyQuery({ ...queryParams.value, page: 1, search }, true)
+}
+
+function clearNarrowing() {
+  return applyQuery({ ...queryParams.value, page: 1, filters: {}, search: '' }, true)
 }
 
 const filterPanelOpen = ref(false)
@@ -257,6 +298,10 @@ const {
 
   &__link {
     @include text-link;
+  }
+
+  &__search {
+    width: rem(220);
   }
 
   // Placement only — BasePagination owns its internal layout

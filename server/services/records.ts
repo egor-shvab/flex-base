@@ -44,8 +44,8 @@ export async function listRecords(
   fields: IField[],
   query: IRecordQuery,
 ): Promise<IRecordPage> {
-  const { page, pageSize, sort, filters } = query
-  const where = buildRecordWhere(tableId, fields, filters)
+  const { page, pageSize, sort, filters, search } = query
+  const where = buildRecordWhere(tableId, fields, filters, search)
   const orderBy = buildRecordOrderBy(fields, sort)
 
   const [rows, counts] = await prisma.$transaction([

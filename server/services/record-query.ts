@@ -71,25 +71,51 @@ interface IFieldSqlSpec {
   expr: (key: string) => Prisma.Sql
   /** How the column orders, for a type that reads as something other than the value it stores. */
   sortExpr?: (field: IField) => Prisma.Sql
+  /**
+   * How free-text search matches this type, or `null` to exclude it. Separate from `expr`
+   * because two types cannot be searched the way they are filtered: NUMBER and BOOLEAN cast,
+   * and neither `numeric` nor `boolean` has an `ILIKE` operator.
+   */
+  searchExpr: (key: string) => Prisma.Sql | null
   /** Compares this type's filter value against that expression. */
   filter: TFilterSql
 }
 
 /**
  * The single per-field-type branch point for SQL. Total, so a new field type must declare how
- * it projects and how it compares. There is no operator to look up: the field type says how it
- * compares, and the value's shape says with how many bounds.
+ * it projects, how it compares and whether it is searchable. There is no operator to look up:
+ * the field type says how it compares, and the value's shape says with how many bounds.
  */
 const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
-  TEXT: { expr: jsonText, filter: matchesPartially },
-  // Without the cast, `"10" < "9"` would compare as text
-  NUMBER: { expr: (key) => Prisma.sql`(${jsonText(key)})::numeric`, filter: withinRange },
-  BOOLEAN: { expr: (key) => Prisma.sql`(${jsonText(key)})::boolean`, filter: matchesExactly },
-  // Stored as `YYYY-MM-DD`, so text comparison is already chronological
-  DATE: { expr: jsonText, filter: withinRange },
-  SELECT: { expr: jsonText, filter: matchesExactly },
-  // Filters on the stored id — the picker's own value — but reads and orders by its label
-  RELATION: { expr: jsonText, sortExpr: targetLabel, filter: matchesExactly },
+  TEXT: { expr: jsonText, searchExpr: jsonText, filter: matchesPartially },
+  // Without the cast, `"10" < "9"` would compare as text — but search matches the un-cast
+  // text, so typing `100` also finds `1000`, which is what a substring search should do
+  NUMBER: {
+    expr: (key) => Prisma.sql`(${jsonText(key)})::numeric`,
+    searchExpr: jsonText,
+    filter: withinRange,
+  },
+  // Not searchable: the stored text is `true`/`false`, so searching `e` would match every
+  // record that has the value `false`
+  BOOLEAN: {
+    expr: (key) => Prisma.sql`(${jsonText(key)})::boolean`,
+    searchExpr: () => null,
+    filter: matchesExactly,
+  },
+  // Stored as `YYYY-MM-DD`, so text comparison is already chronological — and searching
+  // `2026-07` naturally matches a month
+  DATE: { expr: jsonText, searchExpr: jsonText, filter: withinRange },
+  SELECT: { expr: jsonText, searchExpr: jsonText, filter: matchesExactly },
+  // Filters on the stored id — the picker's own value — but reads and orders by its label.
+  // Not searchable: the stored value is a cuid, and matching the label instead would mean
+  // `targetLabel`'s correlated subquery per row — two detoasts, a PK descent and a random
+  // heap read — against every row, since the count query has no LIMIT.
+  RELATION: {
+    expr: jsonText,
+    searchExpr: () => null,
+    sortExpr: targetLabel,
+    filter: matchesExactly,
+  },
 }
 
 /**
@@ -124,14 +150,55 @@ function sortExpr(field: IField): Prisma.Sql {
 }
 
 /**
+ * How a column takes part in free-text search, or `null` to sit it out. Follows the same
+ * key-before-type precedence as `valueExpr`, since these columns live outside `data`:
+ *
+ * - `recordNumber` already projects to `"number"::text`, which is exactly what a text match
+ *   wants — typing `4` finds `#4`, `#14`, `#42`, as its filter already does;
+ * - the timestamps project to `::date`, and `date ILIKE text` has no operator. Rather than
+ *   add a cast that would let `2026` match every record made this year, they stay
+ *   filter-only — the two range controls are the precise tool for a date.
+ */
+function searchExpr(field: IField): Prisma.Sql | null {
+  const column = RECORD_COLUMN_SQL[field.key]
+  if (column) return field.key === RECORD_NUMBER_KEY ? column.expr : null
+
+  return FIELD_SQL_BY_TYPE[field.type].searchExpr(field.key)
+}
+
+/**
+ * One parenthesised OR group matching `search` across every searchable column.
+ *
+ * **The parentheses are load-bearing.** `buildRecordWhere` joins its conditions with `AND`,
+ * and `withinRange` returns a bare two-bound `a >= x AND a <= y` with none of its own — safe
+ * only while every sibling is also `AND`. An unparenthesised OR here would bind to the last
+ * bound of a range filter and silently widen it.
+ */
+function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null {
+  if (search === '') return null
+
+  const pattern = toContainsPattern(search)
+  const arms: Prisma.Sql[] = []
+
+  for (const field of queryFields(fields)) {
+    const expr = searchExpr(field)
+    if (expr) arms.push(Prisma.sql`${expr} ILIKE ${pattern}`)
+  }
+
+  return arms.length > 0 ? Prisma.sql`(${Prisma.join(arms, ' OR ')})` : null
+}
+
+/**
  * The one WHERE fragment, shared by the rows query and the count so they cannot disagree.
  * Walks the table's fields rather than the filter map, so a key the table does not own has
- * nothing to compare against; every filter is ANDed.
+ * nothing to compare against; every filter is ANDed, and a search is ANDed with them as one
+ * parenthesised OR group.
  */
 export function buildRecordWhere(
   tableId: string,
   fields: IField[],
   filters: TRecordFilterValues,
+  search = '',
 ): Prisma.Sql {
   const conditions = [Prisma.sql`"tableId" = ${tableId}`]
 
@@ -142,6 +209,9 @@ export function buildRecordWhere(
     const condition = FIELD_SQL_BY_TYPE[field.type].filter(valueExpr(field), value)
     if (condition) conditions.push(condition)
   }
+
+  const searchGroup = buildRecordSearch(fields, search)
+  if (searchGroup) conditions.push(searchGroup)
 
   return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
 }

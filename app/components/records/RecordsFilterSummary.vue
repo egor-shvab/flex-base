@@ -4,6 +4,22 @@
       {{ pending ? 'Filtering…' : `Showing ${countLabel}:` }}
     </span>
 
+    <!-- Search is not a filter, but it narrows the same list, so it is stated in the same
+         place. The one deliberate special case in a component otherwise driven purely by
+         the filter registry. -->
+    <span v-if="search" class="filter-summary__chip">
+      <span class="filter-summary__field">Search</span>
+      {{ search }}
+      <button
+        type="button"
+        class="filter-summary__remove"
+        aria-label="Clear the search"
+        @click="emit('update:search', '')"
+      >
+        <Icon name="mdi:close" aria-hidden="true" />
+      </button>
+    </span>
+
     <span v-for="entry in entries" :key="entry.field.key" class="filter-summary__chip">
       <span class="filter-summary__field">{{ entry.field.name }}</span>
       {{ entry.phrase }}
@@ -17,7 +33,7 @@
       </button>
     </span>
 
-    <BaseButton variant="link" @click="emit('update:filters', {})">Show all records</BaseButton>
+    <BaseButton variant="link" @click="emit('clear')">Show all records</BaseButton>
   </div>
 </template>
 
@@ -33,11 +49,17 @@ import { useRelationsStore } from '~/stores/relations'
 const props = defineProps<{
   fields: IField[]
   filters: TRecordFilterValues
+  search: string
   total: number
   pending?: boolean
 }>()
 
-const emit = defineEmits<{ 'update:filters': [filters: TRecordFilterValues] }>()
+const emit = defineEmits<{
+  'update:filters': [filters: TRecordFilterValues]
+  'update:search': [search: string]
+  /** Filters and search at once, so clearing both costs one navigation rather than two. */
+  clear: []
+}>()
 
 const relations = useRelationsStore()
 

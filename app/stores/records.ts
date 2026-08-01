@@ -7,10 +7,11 @@ import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordPage, IRecordQueryState, TRecordData } from '#shared/types/record'
 import { toRecordQueryParams } from '#shared/utils/record-query'
 
-/** Only the unfiltered, newest-first view has a predictable place for a new record. */
+/** Only the unfiltered, unsearched, newest-first view has a predictable place for a new record. */
 function isDefaultView(query: IRecordQueryState): boolean {
   return (
     Object.keys(query.filters).length === 0 &&
+    query.search === '' &&
     query.sort.key === DEFAULT_SORT_KEY &&
     query.sort.dir === DEFAULT_SORT_DIR
   )

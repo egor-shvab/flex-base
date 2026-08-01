@@ -99,6 +99,9 @@ export function parseRecordQueryState(
       dir: dir === 'asc' || dir === 'desc' ? dir : DEFAULT_SORT_DIR,
     },
     filters: parseFilterValues(fields, query),
+    // `singleParam` already collapses an empty param, a repeat and an absence to `undefined`,
+    // so `?search=` reads as "not searching" exactly like an absent one
+    search: singleParam(query.search) ?? '',
   }
 }
 
@@ -133,6 +136,9 @@ function toFilterParams(values: TRecordFilterValues): Record<string, string> {
 export function toRecordQueryParams(state: IRecordQueryState): Record<string, string> {
   const params: Record<string, string> = { ...toFilterParams(state.filters) }
 
+  // After the filter spread, like the three below: a legacy field keyed `search` must not
+  // overwrite the reserved param (`claimFilterParams` already stops it being read back)
+  if (state.search) params.search = state.search
   if (state.page > 1) params.page = String(state.page)
   if (state.sort.key !== DEFAULT_SORT_KEY) params.sort = state.sort.key
   if (state.sort.dir !== DEFAULT_SORT_DIR) params.dir = state.sort.dir

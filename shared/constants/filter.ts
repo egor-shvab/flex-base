@@ -19,7 +19,14 @@ export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
  * Query params the list endpoint owns. A field key must never shadow one, or its filter
  * would fight pagination or sorting for the same name.
  */
-export const RESERVED_QUERY_PARAMS = ['page', 'pageSize', 'sort', 'dir'] as const
+export const RESERVED_QUERY_PARAMS = ['page', 'pageSize', 'sort', 'dir', 'search'] as const
+
+/**
+ * Below this, a search is not run at all — an unanchored `ILIKE` across every field of every
+ * row is unindexable, and one character would scan the table to narrow almost nothing. The
+ * floor lives in the query schema, not only in the input, so it holds for any caller.
+ */
+export const SEARCH_MIN_LENGTH = 2
 
 /**
  * The same keys, as the field-key guard reads them: `slugify` only ever emits `^[a-z0-9_]+$`,

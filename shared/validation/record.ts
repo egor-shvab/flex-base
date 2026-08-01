@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { IRecordQueryParams, TRecordData, TRecordValue } from '#shared/types/record'
@@ -103,12 +103,16 @@ export function buildFilterValueSchema(field: IField): z.ZodType<TRecordValue> {
   )
 }
 
-/** Pagination and sorting; the per-field filter params are validated by the builder below. */
+/** Pagination, sorting and search; the per-field filter params are validated by the builder below. */
 const baseQueryParamsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(RECORD_PAGE_SIZE_MAX).default(RECORD_PAGE_SIZE),
   sort: z.string().optional(),
   dir: z.enum(['asc', 'desc']).default(DEFAULT_SORT_DIR),
+  // Declared on the base rather than left to the loose object: this is what caps the length
+  // and enforces the floor, so an unanchored scan can never be triggered by one character.
+  // The `superRefine` below cannot serve it — that loop is driven by the filter param slots.
+  search: z.string().trim().min(SEARCH_MIN_LENGTH).max(TEXT_MAX_LENGTH).optional(),
 })
 
 /**

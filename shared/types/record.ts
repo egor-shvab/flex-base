@@ -47,6 +47,11 @@ export interface IRecordQueryState {
   sort: IRecordSort
   /** Every active filter, ANDed together. */
   filters: TRecordFilterValues
+  /**
+   * Free text matched across the table's searchable fields, ORed together and ANDed with
+   * the filters. Empty means "not searching".
+   */
+  search: string
 }
 
 /** The server additionally resolves the page size it enforces. */
@@ -63,4 +68,5 @@ export interface IRecordQueryParams extends Record<string, unknown> {
   pageSize: number
   sort?: string
   dir: TSortDirection
+  search?: string
 }
