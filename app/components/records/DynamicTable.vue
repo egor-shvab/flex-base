@@ -48,7 +48,7 @@
               variant="icon"
               icon="mdi:trash-can-outline"
               label="Delete record"
-              hover-color="var(--color-danger)"
+              tone="danger"
               @click="emit('delete', record)"
             />
           </td>
@@ -120,7 +120,7 @@ function sortIcon(field: IField): string {
   &__table {
     width: 100%;
     border-collapse: collapse;
-    font-size: rem(14);
+    font-size: var(--font-size-sm);
   }
 
   th,
@@ -142,7 +142,7 @@ function sortIcon(field: IField): string {
   th {
     // Padding moves onto the sort button so the whole header cell is the target
     padding: 0;
-    font-size: rem(13);
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--color-text-secondary);
   }

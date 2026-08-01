@@ -27,6 +27,8 @@ export const useRecordsStore = defineStore('records', () => {
   const page = ref(1)
   const pageSize = ref(RECORD_PAGE_SIZE)
   const pending = ref(false)
+  /** Set when the last fetch rejected, so a failed refetch is visible rather than silent. */
+  const failed = ref(false)
   // The store is a singleton reused across tables — state must not leak between them
   const loadedTableId = ref('')
 
@@ -39,6 +41,7 @@ export const useRecordsStore = defineStore('records', () => {
   async function fetchRecords(tableId: string, query: IRecordQueryState) {
     if (tableId !== loadedTableId.value) clearState()
     pending.value = true
+    failed.value = false
 
     try {
       const response = await api<IRecordPage>(`/api/tables/${tableId}/records`, {
@@ -51,6 +54,12 @@ export const useRecordsStore = defineStore('records', () => {
       loadedTableId.value = tableId
       // Relation cells read their label from there, not from the record's own data
       relations.cacheLabels(response.relationLabels)
+    } catch (error) {
+      // A refetch runs from a watcher, where a rejection would be unhandled and the table
+      // would silently keep showing rows that no longer match the URL. Surfacing it is the
+      // page's job; the initial load still throws, so `useAsyncData` can produce the 404.
+      failed.value = true
+      throw error
     } finally {
       pending.value = false
     }
@@ -118,6 +127,7 @@ export const useRecordsStore = defineStore('records', () => {
     pageSize,
     pageCount,
     pending,
+    failed,
     fetchRecords,
     createRecord,
     updateRecord,

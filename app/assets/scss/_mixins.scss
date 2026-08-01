@@ -48,7 +48,7 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 
 /// The validation message below a form control.
 @mixin field-error {
-  font-size: rem(13);
+  font-size: var(--font-size-sm);
   color: var(--color-danger);
 }
 

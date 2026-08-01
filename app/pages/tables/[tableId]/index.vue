@@ -28,11 +28,7 @@
         <span class="field-row__type">{{ FIELD_TYPE_LABELS[field.type] }}</span>
         <div class="field-row__actions">
           <BaseButton variant="link" @click="openEditField(field)">Edit</BaseButton>
-          <BaseButton
-            variant="link"
-            hover-color="var(--color-danger)"
-            @click="deleteTarget = field"
-          >
+          <BaseButton variant="link" tone="danger" @click="deleteTarget = field">
             Delete
           </BaseButton>
         </div>
@@ -58,7 +54,8 @@
       @close="cancelDelete"
     >
       Delete <strong>{{ deleteTarget.name }}</strong
-      >? This removes the field from the table.
+      >? Everything stored in this field will be permanently removed from every record. This cannot
+      be undone.
     </LazyConfirmModal>
   </section>
 </template>
@@ -69,6 +66,7 @@ import { createError, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useApi } from '~/composables/useApi'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
+import { toPageError } from '~/utils/api-error'
 import { FIELD_TYPE_LABELS } from '#shared/constants/field'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
@@ -91,7 +89,7 @@ const { data, error } = await useAsyncData(`table-${tableId}`, async () => {
 })
 
 if (error.value) {
-  throw createError({ statusCode: error.value.statusCode ?? 404, statusMessage: 'Table not found' })
+  throw createError(toPageError(error.value))
 }
 
 const table = computed(() => data.value?.table)
@@ -178,7 +176,7 @@ const {
   }
 
   &__name {
-    font-size: rem(15);
+    font-size: var(--font-size-md);
     font-weight: 500;
   }
 
@@ -188,7 +186,7 @@ const {
   }
 
   &__type {
-    font-size: rem(13);
+    font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
   }
 

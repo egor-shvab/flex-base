@@ -26,11 +26,6 @@
   }
 
   &__link {
-    color: var(--color-accent);
-
-    &:hover,
-    &:focus-visible {
-      text-decoration: underline;
-    }
+    @include text-link;
   }
 }

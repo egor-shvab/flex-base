@@ -5,7 +5,9 @@
         <slot />
       </p>
       <div class="confirm-modal__actions">
-        <BaseButton :disabled="pending" @click="emit('close')">Cancel</BaseButton>
+        <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">
+          Cancel
+        </BaseButton>
         <BaseButton
           :variant="danger ? 'danger' : 'primary'"
           :disabled="pending"

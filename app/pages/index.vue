@@ -22,11 +22,7 @@
         </NuxtLink>
         <div class="table-card__actions">
           <BaseButton variant="link" @click="openRenameModal(table)">Rename</BaseButton>
-          <BaseButton
-            variant="link"
-            hover-color="var(--color-danger)"
-            @click="deleteTarget = table"
-          >
+          <BaseButton variant="link" tone="danger" @click="deleteTarget = table">
             Delete
           </BaseButton>
         </div>
@@ -52,7 +48,7 @@
       @close="cancelDelete"
     >
       Delete <strong>{{ deleteTarget.name }}</strong
-      >? All of its fields and records will be permanently removed.
+      >? All of its fields and records will be permanently removed. This cannot be undone.
     </LazyConfirmModal>
   </section>
 </template>
@@ -162,12 +158,12 @@ const {
 
   &__name {
     margin: 0 0 rem(4);
-    font-size: rem(17);
+    font-size: var(--font-size-lg);
   }
 
   &__meta {
     margin: 0;
-    font-size: rem(13);
+    font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
   }
 

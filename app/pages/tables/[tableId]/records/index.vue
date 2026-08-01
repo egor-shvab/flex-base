@@ -44,6 +44,13 @@
       @clear="clearNarrowing"
     />
 
+    <p v-if="recordsStore.failed" class="records-page__failed" role="alert">
+      That view couldn’t be loaded. Check the web address, or
+      <NuxtLink :to="`/tables/${tableId}/records`" class="records-page__link">
+        start again with all records</NuxtLink
+      >.
+    </p>
+
     <BaseEmptyState v-if="!hasFields">
       This table has no fields yet —
       <NuxtLink :to="`/tables/${tableId}`" class="records-page__link">define its fields</NuxtLink>
@@ -51,7 +58,12 @@
     </BaseEmptyState>
 
     <template v-else>
-      <BaseEmptyState v-if="recordsStore.records.length === 0" :title="emptyTitle">
+      <!-- Not when the load failed: an empty result and an unknown result look the same in
+           the store, and claiming the table is empty would be a guess -->
+      <BaseEmptyState
+        v-if="recordsStore.records.length === 0 && !recordsStore.failed"
+        :title="emptyTitle"
+      >
         {{ emptyMessage }}
         <template #action>
           <BaseButton v-if="isNarrowed" @click="clearNarrowing">Show all records</BaseButton>
@@ -122,6 +134,7 @@ import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
+import { toPageError } from '~/utils/api-error'
 import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
@@ -170,11 +183,20 @@ const { data, error } = await useAsyncData(`table-records-${tableId}`, async () 
   return tableResponse
 })
 
-// Every list change goes through the URL, so one watcher covers filtering, sorting and paging
-watch(queryParams, (params) => recordsStore.fetchRecords(tableId, params))
+// Every list change goes through the URL, so one watcher covers filtering, sorting and paging.
+// The rejection is swallowed deliberately: the store sets `failed`, which the template shows —
+// letting it escape a watcher would be an unhandled rejection and the table would silently keep
+// rows that no longer match the URL.
+watch(queryParams, async (params) => {
+  try {
+    await recordsStore.fetchRecords(tableId, params)
+  } catch {
+    // surfaced through `recordsStore.failed`
+  }
+})
 
 if (error.value) {
-  throw createError({ statusCode: error.value.statusCode ?? 404, statusMessage: 'Table not found' })
+  throw createError(toPageError(error.value))
 }
 
 const table = computed(() => data.value?.table)
@@ -302,6 +324,12 @@ const {
 
   &__search {
     width: rem(220);
+  }
+
+  &__failed {
+    @include error-banner;
+
+    margin-bottom: rem(16);
   }
 
   // Placement only — BasePagination owns its internal layout

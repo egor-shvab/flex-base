@@ -16,7 +16,7 @@
 
       <div v-if="auth.isAuthenticated" class="app-layout__user">
         <span class="app-layout__email">{{ auth.user?.email }}</span>
-        <button type="button" class="app-layout__logout" @click="auth.logout()">Log out</button>
+        <BaseButton variant="secondary" @click="auth.logout()">Log out</BaseButton>
       </div>
     </header>
 
@@ -44,7 +44,12 @@ const route = useRoute()
 // error boundary above this layout, so a rejection would replace every authenticated
 // page with Nuxt's full-page error instead of an inline message in the sidebar.
 // Its own key, because `useAsyncData` does not dedupe a layout against a page.
-await useAsyncData('app-tables', () => tablesStore.ensureTables())
+// Returns a value rather than `void`: an `undefined` result makes Nuxt warn (NUXT_E3006) and
+// re-run the handler on the client. The list itself lives in the store, not in `data`.
+await useAsyncData('app-tables', async () => {
+  await tablesStore.ensureTables()
+  return true
+})
 
 const navOpen = ref(false)
 
@@ -128,23 +133,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     color: var(--color-text-secondary);
   }
 
-  &__logout {
-    padding: rem(6) rem(12);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: transparent;
-    font-size: var(--font-size-sm);
-    color: var(--color-text);
-    cursor: pointer;
-
-    @include focus-ring;
-
-    &:hover {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
-    }
-  }
-
   &__sidebar {
     position: sticky;
     top: var(--header-height);
@@ -173,25 +161,32 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
     // Both sit above the page but below BaseModal's z-index: 100, so a dialog still
     // covers the shell
+    // `visibility: hidden` as well as the transform: translating alone leaves the panel
+    // off-screen but still focusable, so a keyboard user would Tab into an invisible menu on
+    // every page. `visibility` is animatable, so the slide still works.
     &__sidebar {
       position: fixed;
       top: var(--header-height);
       left: 0;
-      z-index: 50;
+      z-index: var(--z-sidebar);
       width: var(--sidebar-width);
+      visibility: hidden;
       transform: translateX(-100%);
-      transition: transform 0.2s ease;
+      transition:
+        transform 0.2s ease,
+        visibility 0.2s;
     }
 
     &__scrim {
       position: fixed;
       inset: 0;
-      z-index: 40;
+      z-index: var(--z-scrim);
       background: var(--color-scrim);
     }
 
     &--nav-open {
       .app-layout__sidebar {
+        visibility: visible;
         transform: none;
       }
 

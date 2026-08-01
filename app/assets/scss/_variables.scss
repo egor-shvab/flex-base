@@ -28,6 +28,9 @@
   // ── Borders ───────────────────────────────────────────────────────────────
   --color-border: #{$gray-200};
   --color-border-strong: #{$gray-300};
+  // Separate from `-strong`: a divider only has to be visible, but a control's outline is
+  // what identifies the control, so it carries the 3:1 non-text contrast floor
+  --color-border-control: #{$gray-400};
 
   // ── Accent & danger ───────────────────────────────────────────────────────
   // The tints are spelled out rather than derived: a custom property's alpha
@@ -67,6 +70,13 @@
   // because a media query cannot read a custom property.
   --header-height: #{rem(64)};
   --sidebar-width: #{rem(260)};
+
+  // ── Layering ──────────────────────────────────────────────────────────────
+  // The whole stack, in one place: the off-canvas sidebar must sit above the page and below
+  // a dialog, and that ordering used to be held only by a comment in another file.
+  --z-scrim: 40;
+  --z-sidebar: 50;
+  --z-modal: 100;
 
   // ── Type ──────────────────────────────────────────────────────────────────
   // The full scale ships now because a ramp is only reviewable as a whole; only

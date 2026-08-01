@@ -29,7 +29,7 @@
             variant="icon"
             icon="mdi:trash-can-outline"
             label="Remove choice"
-            hover-color="var(--color-danger)"
+            tone="danger"
             @click="form.choices.splice(index, 1)"
           />
         </div>

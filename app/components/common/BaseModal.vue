@@ -35,15 +35,35 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
 }
 
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
+/**
+ * `aria-modal="true"` claims the rest of the page is unavailable, so the rest of the page has
+ * to actually be unavailable. The dialog teleports to `<body>`, which makes the app root a
+ * sibling and therefore a single clean target. Without this the attribute is a false signal:
+ * every control behind the scrim stays focusable and in the accessibility tree.
+ *
+ * This is not a focus trap — focus is still neither moved in nor restored on close. That
+ * remains a known gap (see CLAUDE.md §4).
+ */
+function setBackgroundInert(inert: boolean) {
+  document.getElementById('__nuxt')?.toggleAttribute('inert', inert)
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown)
+  setBackgroundInert(true)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown)
+  setBackgroundInert(false)
+})
 </script>
 
 <style lang="scss" scoped>
 .base-modal {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;

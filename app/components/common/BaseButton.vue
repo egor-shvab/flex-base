@@ -1,8 +1,7 @@
 <template>
   <button
     class="base-button"
-    :class="`base-button--${variant}`"
-    :style="hoverColor ? { '--hover-color': hoverColor } : undefined"
+    :class="[`base-button--${variant}`, { 'base-button--danger-tone': tone === 'danger' }]"
     :type="type"
     :disabled="disabled"
     :aria-label="label"
@@ -17,17 +16,19 @@
 withDefaults(
   defineProps<{
     type?: 'button' | 'submit'
-    variant?: 'primary' | 'danger' | 'icon' | 'ghost' | 'link'
+    variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'ghost' | 'link'
     disabled?: boolean
     /** Iconify name (e.g. `mdi:trash-can-outline`); renders an `<Icon>` before the slot. */
     icon?: string
     /** Accessible name — required for icon-only buttons (sets `aria-label` + `title`). */
     label?: string
     /**
-     * `icon` / `link` variants: overrides the variant's own hover color (any CSS color).
-     * Each variant declares a sensible `--hover-color` default, so this is opt-in.
+     * Recolours the `icon` / `link` variants on hover to mark a destructive action. Replaces
+     * an earlier free-form `hoverColor` string: every call site passed the same danger token,
+     * so a closed set says the same thing and cannot smuggle an arbitrary colour into the
+     * design system. Inert on the filled variants, which carry their own intent.
      */
-    hoverColor?: string
+    tone?: 'default' | 'danger'
   }>(),
   {
     type: 'button',
@@ -35,7 +36,7 @@ withDefaults(
     disabled: false,
     icon: undefined,
     label: undefined,
-    hoverColor: undefined,
+    tone: 'default',
   },
 )
 </script>
@@ -101,6 +102,27 @@ withDefaults(
     }
   }
 
+  // The neutral peer of `--primary`: same geometry so a dialog's footer pair aligns, but
+  // bordered rather than filled, so the safe choice beside a destructive one is not the
+  // heaviest thing on screen. The button is surface-on-surface, so its border is the only
+  // thing identifying it as a control — hence `--color-border-control` and its 3:1 floor,
+  // not the divider tokens, neither of which clears 2:1.
+  &--secondary {
+    min-height: var(--control-height);
+    padding: 0 var(--control-padding-x);
+    border: 1px solid var(--color-border-control);
+    background: var(--color-surface);
+    color: var(--color-text);
+
+    &:hover {
+      background: var(--color-surface-hover);
+    }
+
+    &:active {
+      background: var(--color-surface-muted);
+    }
+  }
+
   &--icon {
     --hover-color: var(--color-text);
 
@@ -123,7 +145,7 @@ withDefaults(
   &--link {
     --hover-color: var(--color-accent);
 
-    font-size: rem(13);
+    font-size: var(--font-size-sm);
     font-weight: 400;
     color: var(--color-text-secondary);
 
@@ -145,6 +167,12 @@ withDefaults(
     &:active {
       background: var(--color-surface-hover);
     }
+  }
+
+  // Applied alongside `--icon` / `--link`, whose hover colour is the `--hover-color` they
+  // each default for themselves
+  &--danger-tone {
+    --hover-color: var(--color-danger);
   }
 
   &__icon {

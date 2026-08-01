@@ -20,12 +20,12 @@ withDefaults(
   padding: rem(2) rem(8);
   border-radius: var(--radius-pill);
   background: var(--color-surface-muted);
-  font-size: rem(13);
+  font-size: var(--font-size-sm);
 
   &--label {
     padding: rem(2) rem(6);
     border-radius: var(--radius-sm);
-    font-size: rem(11);
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
     color: var(--color-text-secondary);
   }
