@@ -11,7 +11,9 @@ request.
 
 **Stack:** Nuxt 4 · Vue 3 · TypeScript · Nitro · Prisma 7 · PostgreSQL · Pinia · zod · SCSS
 
-See [CLAUDE.md](CLAUDE.md) for the full architecture reference.
+Further reading: [CLAUDE.md](CLAUDE.md) for the project's working rules and conventions,
+[docs/architecture.md](docs/architecture.md) for how the metadata layer works, and
+[docs/decisions.md](docs/decisions.md) for why it works that way.
 
 ## Requirements
 
