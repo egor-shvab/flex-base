@@ -51,46 +51,51 @@
       >.
     </p>
 
-    <BaseEmptyState v-if="!hasFields">
-      This table has no fields yet —
-      <NuxtLink :to="`/tables/${tableId}`" class="records-page__link">define its fields</NuxtLink>
-      before adding records.
-    </BaseEmptyState>
-
-    <template v-else>
-      <!-- Not when the load failed: an empty result and an unknown result look the same in
-           the store, and claiming the table is empty would be a guess -->
-      <BaseEmptyState
-        v-if="recordsStore.records.length === 0 && !recordsStore.failed"
-        :title="emptyTitle"
-      >
-        {{ emptyMessage }}
-        <template #action>
-          <BaseButton v-if="isNarrowed" @click="clearNarrowing">Show all records</BaseButton>
-          <BaseButton v-else @click="openCreateRecord">New record</BaseButton>
-        </template>
+    <!-- Everything above this is the fixed band; the rows below are the only thing that scrolls -->
+    <div class="records-page__body">
+      <BaseEmptyState v-if="!hasFields" class="records-page__empty">
+        This table has no fields yet —
+        <NuxtLink :to="`/tables/${tableId}`" class="records-page__link">define its fields</NuxtLink>
+        before adding records.
       </BaseEmptyState>
 
       <template v-else>
-        <DynamicTable
-          :fields="fieldsStore.fields"
-          :records="recordsStore.records"
-          :sort="queryParams.sort"
-          @edit="openEditRecord"
-          @delete="deleteTarget = $event"
-          @sort="applySort"
-        />
+        <!-- Not when the load failed: an empty result and an unknown result look the same in
+             the store, and claiming the table is empty would be a guess -->
+        <BaseEmptyState
+          v-if="recordsStore.records.length === 0 && !recordsStore.failed"
+          class="records-page__empty"
+          :title="emptyTitle"
+        >
+          {{ emptyMessage }}
+          <template #action>
+            <BaseButton v-if="isNarrowed" @click="clearNarrowing">Show all records</BaseButton>
+            <BaseButton v-else @click="openCreateRecord">New record</BaseButton>
+          </template>
+        </BaseEmptyState>
 
-        <BasePagination
-          class="records-page__pagination"
-          :page="recordsStore.page"
-          :page-count="recordsStore.pageCount"
-          :page-size="recordsStore.pageSize"
-          :total="recordsStore.total"
-          @update:page="goToPage"
-        />
+        <template v-else>
+          <DynamicTable
+            class="records-page__table"
+            :fields="fieldsStore.fields"
+            :records="recordsStore.records"
+            :sort="queryParams.sort"
+            @edit="openEditRecord"
+            @delete="deleteTarget = $event"
+            @sort="applySort"
+          />
+
+          <BasePagination
+            class="records-page__pagination"
+            :page="recordsStore.page"
+            :page-count="recordsStore.pageCount"
+            :page-size="recordsStore.pageSize"
+            :total="recordsStore.total"
+            @update:page="goToPage"
+          />
+        </template>
       </template>
-    </template>
+    </div>
 
     <LazyRecordsFilterPanel
       v-if="filterPanelOpen"
@@ -304,6 +309,12 @@ const {
 
 <style lang="scss" scoped>
 .records-page {
+  // Fills the shell's main pane exactly, so the header, the active filters and the pager
+  // stay in place while the rows move
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
   &__header {
     @include page-header;
   }
@@ -332,8 +343,40 @@ const {
     margin-bottom: rem(16);
   }
 
+  &__body {
+    display: flex;
+    flex-direction: column;
+    // `min-height: 0` — without it the item's automatic minimum is the whole table, so it
+    // would never shrink and the table's own `overflow` would stay inert
+    flex: 1;
+    min-height: 0;
+  }
+
+  // Sizes to its rows and stops there; past the pane it shrinks and scrolls inside itself.
+  // `flex-basis: auto` is what makes the base size the content height, `flex-grow: 0` what
+  // keeps a short result from stretching to the bottom edge. Intrinsic throughout, so it
+  // re-resolves on resize — and when the summary or the error banner appears — with no
+  // height stated anywhere.
+  //
+  // `min-height: 0` is belt and braces: a scroll container's automatic minimum is already
+  // zero, which is what lets this shrink at all. It would stop the day `overflow` moved off
+  // this element.
+  &__table {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  // An empty state has no natural place in the flow, so it takes the middle of the pane.
+  // `margin` rather than the parent's `justify-content`, which cannot centre this one child
+  // without lifting a short grid off the top too. Nested so it outranks `BaseEmptyState`'s
+  // own `margin` — flat, the two would tie and stylesheet order would decide.
+  &__body &__empty {
+    margin-block: auto;
+  }
+
   // Placement only — BasePagination owns its internal layout
   &__pagination {
+    flex: none;
     margin-top: rem(12);
   }
 }

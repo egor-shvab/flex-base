@@ -76,7 +76,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   // engages, and the whole document scrolls sideways instead of the table.
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-rows: var(--header-height) 1fr;
-  min-height: 100vh;
+  // The shell is the viewport, not a document that grows: scrolling belongs to the panes
+  // below, so the header stays put and a page can size itself to what is left. `dvh`, so a
+  // mobile URL bar collapsing does not leave the shell overhanging.
+  height: 100dvh;
+  overflow: hidden;
   background: var(--color-canvas);
 
   &__header {
@@ -134,9 +138,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   }
 
   &__sidebar {
-    position: sticky;
-    top: var(--header-height);
-    height: calc(100vh - var(--header-height));
+    // A grid item's automatic minimum is its content, so a long table list would push the
+    // row taller than the shell and `overflow-y` would never engage
+    min-height: 0;
     overflow-y: auto;
     background: var(--color-surface);
     border-right: 1px solid var(--color-border);
@@ -149,6 +153,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   &__main {
     // Belt and braces with `minmax(0, 1fr)` above — see the grid comment
     min-width: 0;
+    // The vertical counterpart: the pane scrolls its own content, and a page that sizes
+    // itself to the pane (the records list) leaves nothing here to scroll
+    min-height: 0;
+    overflow-y: auto;
     padding: rem(24);
   }
 
@@ -166,7 +174,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     // every page. `visibility` is animatable, so the slide still works.
     &__sidebar {
       position: fixed;
+      // `bottom`, because out of the grid it no longer inherits the row's height
       top: var(--header-height);
+      bottom: 0;
       left: 0;
       z-index: var(--z-sidebar);
       width: var(--sidebar-width);

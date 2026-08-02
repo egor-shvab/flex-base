@@ -37,20 +37,24 @@
               :value="cellValue(record, column)"
             />
           </td>
+          <!-- The flex row is a wrapper, not the cell: a `display: flex` td is no longer a
+               table cell, and a sticky box cannot move outside its containing block -->
           <td class="dynamic-table__actions">
-            <BaseButton
-              variant="icon"
-              icon="mdi:pencil-outline"
-              label="Edit record"
-              @click="emit('edit', record)"
-            />
-            <BaseButton
-              variant="icon"
-              icon="mdi:trash-can-outline"
-              label="Delete record"
-              tone="danger"
-              @click="emit('delete', record)"
-            />
+            <div class="dynamic-table__actions-group">
+              <BaseButton
+                variant="icon"
+                icon="mdi:pencil-outline"
+                label="Edit record"
+                @click="emit('edit', record)"
+              />
+              <BaseButton
+                variant="icon"
+                icon="mdi:trash-can-outline"
+                label="Delete record"
+                tone="danger"
+                @click="emit('delete', record)"
+              />
+            </div>
           </td>
         </tr>
       </tbody>
@@ -111,8 +115,15 @@ function sortIcon(field: IField): string {
 </script>
 
 <style lang="scss" scoped>
+// A little wider than the `rem(16)` the scrolling columns use: the pinned column sits
+// against a divider on one side and the scrollbar on the other, and needs the air.
+// Local rather than a `--*` token — it is one component's measure, not a design decision
+// the rest of the app reads.
+$pinned-gutter: rem(20);
+
 .dynamic-table {
-  overflow-x: auto;
+  // Both axes: given a bounded height, long tables scroll here instead of growing the page
+  overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -125,10 +136,13 @@ function sortIcon(field: IField): string {
 
   th,
   td {
-    border-bottom: 1px solid var(--color-border);
     text-align: left;
     // Load-bearing: `&__number-head` / `&__actions-head` shrink to fit via `width: rem(1)`
     white-space: nowrap;
+  }
+
+  td {
+    border-bottom: 1px solid var(--color-border);
   }
 
   // An explicit height, so no single cell defines the row — before this the action cell's
@@ -137,6 +151,14 @@ function sortIcon(field: IField): string {
     height: rem(52);
     padding: rem(6) rem(16);
     vertical-align: middle;
+
+    // A table cell treats `height` as a minimum, so the 44px buttons need the tighter block
+    // padding to land exactly on 52 — at `rem(6)` they push every row to 56. Spelled out
+    // rather than `&__…` so it outranks the `tbody td` padding above; `&` is that selector
+    // here.
+    &.dynamic-table__actions {
+      padding: rem(4) $pinned-gutter;
+    }
   }
 
   th {
@@ -145,6 +167,38 @@ function sortIcon(field: IField): string {
     font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--color-text-secondary);
+  }
+
+  // Column names and their sort controls stay reachable while the rows scroll under them.
+  // The background has to sit on the cell (the padding lives on the button inside it), or
+  // the rows show through; `z-index` is local — this is `thead` against its own `tbody`,
+  // not the cross-component ordering the `--z-*` ramp exists for.
+  //
+  // The rule below the header is a shadow rather than a border because `border-collapse:
+  // collapse` paints the collapsed edge with the table, not with the sticky cell, so a
+  // `border-bottom` here would scroll away with the rows.
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-surface);
+    box-shadow: inset 0 -1px 0 var(--color-border);
+
+    // The corner of both pinned axes: it has to sit above the sticky header row *and* the
+    // pinned column, and carry both of their edges. Spelled out rather than `&__…`, because
+    // `&` is `.dynamic-table thead th` here.
+    //
+    // It is the one header with no sort button to carry the gutter, so `th { padding: 0 }`
+    // would leave the label flat against the divider while the buttons below it sit a full
+    // gutter in.
+    &.dynamic-table__actions-head {
+      right: 0;
+      z-index: 2;
+      padding: rem(10) $pinned-gutter;
+      box-shadow:
+        inset 0 -1px 0 var(--color-border),
+        inset 1px 0 0 var(--color-border-strong);
+    }
   }
 
   &__sort {
@@ -184,15 +238,18 @@ function sortIcon(field: IField): string {
     }
   }
 
-  tbody tr:last-child {
-    th,
-    td {
-      border-bottom: none;
-    }
+  tbody tr:last-child td {
+    border-bottom: none;
   }
 
   tbody tr:hover {
     background: var(--color-surface-hover);
+
+    // The pinned cell paints its own background, so it has to follow the row — otherwise
+    // the hovered row has a white notch at its right edge
+    .dynamic-table__actions {
+      background: var(--color-surface-hover);
+    }
   }
 
   // A text role, not a border one — the border token here was ~1.5:1
@@ -205,13 +262,28 @@ function sortIcon(field: IField): string {
     width: rem(1);
   }
 
-  // `display: flex` takes this cell out of table layout, so it needs to centre its own
-  // content and give the 44px buttons room inside the 52px row
+  // Pinned to the right edge, so a row's controls survive a horizontal scroll. Opaque, or
+  // the field columns show through it; the left edge is an inset shadow rather than a
+  // `border-left` for the same reason the header's rule is — `border-collapse: collapse`
+  // paints a real border with the table, so it would scroll away instead of riding with
+  // the cell.
+  // The divider is `-strong`, not the `--color-border` used between rows: it separates a
+  // frozen column from columns sliding underneath it, which is a heavier job than a row
+  // rule. A tinted fill was the alternative and was rejected — `--color-surface-muted` is
+  // the same value as `--color-surface-hover`, so it would have swallowed the row hover,
+  // and `--color-accent-tint` already means "selected" everywhere else.
   &__actions {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: var(--color-surface);
+    box-shadow: inset 1px 0 0 var(--color-border-strong);
+  }
+
+  &__actions-group {
     display: flex;
     align-items: center;
     gap: rem(4);
-    padding-block: rem(4);
   }
 }
 </style>

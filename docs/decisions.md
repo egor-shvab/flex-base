@@ -206,7 +206,43 @@ A media query cannot read a custom property, and `additionalData` injects that f
 
 They set row heights in `DynamicTable`, `BasePagination`, modal headers, `.table-card__actions` and `.field-row`. Growing them grows those surfaces, so they change when those surfaces are re-laid-out, not before. Every **icon-only button that is a standalone target** already meets 44px.
 
-Raising the icon button to 44px forced three absorbed consequences worth knowing before touching it again: `BaseModal`'s header padding dropped to `rem(10)` (otherwise every dialog header went 60px → 76px); `DynamicTable`'s action cell took `padding-block: rem(4)` + `align-items: center` (it is `display: flex`, which removes it from table layout, so it must centre its own content); and the layout's hand-rolled sidebar toggle had to be sized explicitly, since it is not a `BaseButton`.
+Raising the icon button to 44px forced three absorbed consequences worth knowing before touching it again: `BaseModal`'s header padding dropped to `rem(10)` (otherwise every dialog header went 60px → 76px); `DynamicTable`'s action cell took `padding-block: rem(4)`, which is what leaves a 44px button room inside a 52px row; and the layout's hand-rolled sidebar toggle had to be sized explicitly, since it is not a `BaseButton`.
+
+### The viewport lock lives in the shell, not in the records page
+
+`app/layouts/default.vue` is `height: 100dvh; overflow: hidden`, and the sidebar and main region scroll their own content. The alternative — leaving the shell in document flow and giving the records page a `height: calc(100vh - var(--header-height) - …)` — was rejected on two counts: the page would have to restate the shell's own padding and header height and stay in step with them by hand, and it would still let the brand bar scroll away above the table, which is half of what makes a long list tiring to use. Putting it in the shell also deleted the sidebar's `position: sticky` + `calc(100vh - var(--header-height))`, which existed only to fake the height the fixed shell now supplies.
+
+`dvh`, not `vh`: on mobile a collapsing URL bar leaves a `100vh` shell overhanging the visible area, which is exactly where the pager lives.
+
+The consequence to know: **`min-height: 0` on the two panes is load-bearing.** A grid or flex item's automatic minimum is its content, so an item holding a 50-row table grows past its row and the `overflow-y: auto` beside it never fires. It reads like a redundant line and is not.
+
+### The records grid sizes to its rows, not to the pane
+
+`DynamicTable` takes `flex: 0 1 auto` from the records page, so its height is the height of its content, capped by the space left in the pane: a few rows end at the last row with the pager directly beneath, and a full page shrinks to the pane and scrolls inside itself.
+
+It was `flex: 1` first, on the reasoning that a pager welded to the bottom edge gives the page a stable frame. That was wrong, and visibly so — with seven records the grid was a mostly-empty box with a void between the last row and the pager. **Do not restore it.** The frame is not worth the void.
+
+`flex-basis: auto` is the load-bearing third of the shorthand: it makes the flex base size the grid's own content height, which is what a `max-height` or a measured height would have had to approximate. Nothing here states a height, so the behaviour re-resolves for free on resize, at any breakpoint, and when the filter summary or the error banner takes a slice of the pane.
+
+The empty states are centred with `margin-block: auto` on the child rather than `justify-content: center` on `&__body`, because the parent cannot centre one child without lifting a short grid off the top as well. That rule is nested (`&__body &__empty`) so it outranks `BaseEmptyState`'s own `margin` — flat, the two selectors tie and the winner falls to stylesheet order across components.
+
+### The sticky table header's rule is a shadow, not a border
+
+`thead th` in `DynamicTable` carries `box-shadow: inset 0 -1px 0 var(--color-border)` where every other cell edge is a `border-bottom`. Under `border-collapse: collapse` the collapsed edge between the header row and the first body row is painted by the **table**, not by the cell, so a sticky `th`'s `border-bottom` scrolls away with the rows and the pinned header ends up floating. `border-collapse: separate` would fix the border and cost the single-hairline grid the table is built on, so the shadow stays. For the same reason the `th` carries its own opaque `background`: its padding lives on the inner `&__sort` button, so only the cell can paint the full width the rows scroll under.
+
+### The pinned Actions column needs a wrapper inside the cell
+
+The action buttons' flex row lives on a `div.dynamic-table__actions-group` **inside** the `<td>`, not on the `<td>` itself, and that is load-bearing rather than tidiness. A `<td>` with `display: flex` is not a table-cell box, so CSS generates an anonymous table-cell around it; the sticky box's containing block becomes that anonymous cell, which shrink-wraps it, and a sticky box cannot move outside its containing block. `position: sticky; right: 0` would clamp to zero movement and the column simply would not pin. Putting the flex on a wrapper keeps the `<td>` a real table cell — which the column's `width: rem(1)` + `white-space: nowrap` shrink-to-fit also assumes.
+
+Its left edge is `box-shadow: inset 1px 0 0` for the same reason the sticky header's rule is a shadow: under `border-collapse: collapse` a real border is painted by the table, not the cell, so it would scroll away instead of riding with the pinned column. The hairline is permanent rather than appearing on scroll — a scroll-aware shadow would put a scroll listener and reactive state into a component that is otherwise pure CSS, and in this design borders already do the structural work.
+
+It is the one divider drawn in `--color-border-strong` rather than `--color-border`: separating a frozen column from columns sliding underneath it is a heavier job than ruling off a row. **A tinted fill was considered and rejected** — `--color-surface-muted` is the same value as `--color-surface-hover`, so filling the column would have swallowed the row hover exactly where the buttons are, and `--color-accent-tint` reads as "selected" everywhere else in the app (active sidebar item, filter chips), which a permanently pinned column is not. The column earns its emphasis from the divider and a wider gutter (`$pinned-gutter`, a component-local `rem(20)` — one component's measure, not a design token the rest of the app reads) instead.
+
+That gutter is also what the `&.dynamic-table__actions-head` rule exists for: it is the only header with no sort button to carry the inset, so `th { padding: 0 }` would otherwise leave its label flat against the divider while the buttons a row below sit a full gutter in.
+
+The pinned cells paint opaque backgrounds, so `tbody tr:hover` has to repaint the actions cell explicitly; without it the hovered row shows a white notch at its right edge.
+
+Two rules are nested inside the generic ones they override — `&.dynamic-table__actions` inside `tbody td`, and `&.dynamic-table__actions-head` inside `thead th` — spelling the class out instead of using `&__…`, which would resolve against the wrong parent. That is specificity, not style: `.dynamic-table tbody td` outranks a bare `.dynamic-table__actions`, so the same declarations written as a sibling block are silently dead. The actions cell's `padding-block: rem(4)` is exactly that case, and it is load-bearing: as a real table cell `height: rem(52)` is only a _minimum_, so at the generic `rem(6)` a 44px button pushes every row to 57px. Moving either rule back out of its parent will grow the rows again.
 
 ### `DynamicTable` rows have an explicit height
 
