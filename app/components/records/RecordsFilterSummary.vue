@@ -109,14 +109,17 @@ function remove(field: IField) {
   color: var(--color-text-secondary);
 
   &__chip {
-    display: inline-flex;
-    align-items: center;
+    position: relative;
     gap: rem(6);
-    min-height: rem(32);
-    padding: 0 rem(4) 0 rem(12);
+    height: rem(32);
+    line-height: rem(32);
+    padding: 0 rem(32) 0 rem(12);
     border-radius: var(--radius-pill);
     background: var(--color-accent-tint);
     color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__field {
@@ -124,6 +127,9 @@ function remove(field: IField) {
   }
 
   &__remove {
+    position: absolute;
+    right: rem(4);
+    top: rem(4);
     display: inline-flex;
     align-items: center;
     justify-content: center;
