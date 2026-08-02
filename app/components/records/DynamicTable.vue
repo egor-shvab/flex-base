@@ -146,16 +146,19 @@ $pinned-gutter: rem(20);
   }
 
   // An explicit height, so no single cell defines the row — before this the action cell's
-  // buttons did, which is why a 44px button would otherwise push rows to 64px
+  // buttons did, which is why the row would otherwise be however tall a button plus the
+  // generic padding happens to be. Derived from the control height rather than restated as
+  // a literal: the `rem(8)` is the action cell's own `2 × rem(4)`, so the row is exactly a
+  // button plus its inset and follows `--control-height` on its own.
   tbody td {
-    height: rem(52);
+    height: calc(var(--control-height) + #{rem(8)});
     padding: rem(6) rem(16);
     vertical-align: middle;
 
-    // A table cell treats `height` as a minimum, so the 44px buttons need the tighter block
-    // padding to land exactly on 52 — at `rem(6)` they push every row to 56. Spelled out
-    // rather than `&__…` so it outranks the `tbody td` padding above; `&` is that selector
-    // here.
+    // A table cell treats `height` as a minimum, so the buttons need the tighter block
+    // padding to land on the row height rather than exceed it — at the generic `rem(6)`
+    // they push every row 5px taller. Spelled out rather than `&__…` so it outranks the
+    // `tbody td` padding above; `&` is that selector here.
     &.dynamic-table__actions {
       padding: rem(4) $pinned-gutter;
     }
@@ -190,11 +193,13 @@ $pinned-gutter: rem(20);
     //
     // It is the one header with no sort button to carry the gutter, so `th { padding: 0 }`
     // would leave the label flat against the divider while the buttons below it sit a full
-    // gutter in.
+    // gutter in. Its block padding has to match `&__sort`'s: with no button inside, this
+    // cell is sized by its own text, and any surplus makes it the tallest cell in the row
+    // and drags the whole header past the control height.
     &.dynamic-table__actions-head {
       right: 0;
       z-index: 2;
-      padding: rem(10) $pinned-gutter;
+      padding: rem(6) $pinned-gutter;
       box-shadow:
         inset 0 -1px 0 var(--color-border),
         inset 1px 0 0 var(--color-border-strong);
@@ -207,7 +212,7 @@ $pinned-gutter: rem(20);
     gap: rem(4);
     width: 100%;
     min-height: var(--control-height);
-    padding: rem(10) rem(16);
+    padding: rem(6) rem(16);
     border: none;
     font: inherit;
     color: inherit;

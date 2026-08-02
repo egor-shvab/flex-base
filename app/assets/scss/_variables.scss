@@ -62,13 +62,13 @@
   --radius-md: #{rem(8)};
   --radius-lg: #{rem(12)};
   --radius-pill: 999px;
-  --control-height: #{rem(44)};
+  --control-height: #{rem(36)};
   --control-padding-x: #{rem(16)};
 
   // ── Shell ─────────────────────────────────────────────────────────────────
   // The breakpoint that pairs with these is an SCSS variable in `_mixins.scss`,
   // because a media query cannot read a custom property.
-  --header-height: #{rem(64)};
+  --header-height: #{rem(56)};
   --sidebar-width: #{rem(260)};
 
   // ── Layering ──────────────────────────────────────────────────────────────

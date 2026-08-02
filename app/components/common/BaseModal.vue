@@ -78,9 +78,9 @@ onBeforeUnmount(() => {
     box-shadow: var(--shadow-md);
   }
 
-  // The 44px close button sets this header's height, so the vertical padding is
-  // trimmed to keep the header at ~64px rather than letting every dialog gain a band
-  // of empty space.
+  // The close button sets this header's height, so the vertical padding is trimmed to
+  // keep the header a control plus its inset rather than letting every dialog gain a
+  // band of empty space. It tracks `--control-height` for free.
   &__header {
     display: flex;
     align-items: center;

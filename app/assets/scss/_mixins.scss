@@ -56,7 +56,10 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 /// Callers add their own background, placeholder and disabled rules.
 @mixin form-control {
   min-height: var(--control-height);
-  padding: rem(10) rem(12);
+  // The block padding is what `--control-height` is spent on: 6 + 20 (16px text at
+  // `tight`) + 6 + 2 border = 34, so the height binds with 2px to spare. It moves with
+  // the token — trimming the height without trimming this clips the text instead.
+  padding: rem(6) rem(12);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--font-size-md);

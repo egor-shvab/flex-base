@@ -69,7 +69,7 @@ A change is finished only when, in order:
 2. `npx eslint .` passes;
 3. `npm run build` passes;
 4. tests covering the changed logic are added or updated (once a runner exists — see §10);
-5. for any interactive or visual change: the keyboard path works, the focus ring is visible, and targets are ≥44px;
+5. for any interactive or visual change: the keyboard path works, the focus ring is visible, and every target is at least `--control-height` (never below the 24×24 WCAG floor);
 6. the change has been verified working in the running app (dev server);
 7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
 8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files here — the codebase is the source of truth for what exists.
@@ -202,12 +202,12 @@ All styles are **SCSS**, never plain CSS. Global styles live in `app/assets/scss
 
 ### Design principles
 
-A deliberately plain, familiar office-app look for a largely non-technical audience: **16px base, 44px minimum target, 8px control radius, a single accent blue (`#1C64D8`), two shadows, borders doing the structural work.** New UI matches that register; it is not a blank canvas.
+A deliberately plain, familiar office-app look for a largely non-technical audience: **16px base, 36px control height, 8px control radius, a single accent blue (`#1C64D8`), two shadows, borders doing the structural work.** New UI matches that register; it is not a blank canvas.
 
 ### Accessibility target: WCAG 2.2 AA
 
 - Every interactive element is keyboard-operable and has a visible `:focus-visible` ring. **Focus is never removed, only restyled** — `_reset.scss` carries a zero-specificity baseline so nothing can end up with no ring; components override it with the `focus-ring` mixin (`outline`, not `box-shadow`, so an ancestor's `overflow` cannot clip it).
-- Minimum target size **44×44** (`--control-height`), icon-only buttons included.
+- Minimum target size **24×24** — SC 2.5.8, the AA requirement. The house floor is `--control-height` (**36px**), which every sized control including icon-only buttons meets; nothing may go below 24 (the filter-summary chip's remove button sits exactly on it). 44×44 is SC 2.5.5, which is **AAA** — do not quote it as the AA bar.
 - Text contrast ≥ 4.5:1; control outlines and other non-text UI ≥ 3:1 (this is why `--color-border-control` is a separate token from `--color-border-strong`).
 - Dialogs and off-canvas surfaces are `inert`-guarded and must never leave focusable content off-screen — `visibility: hidden`, not translation alone.
 

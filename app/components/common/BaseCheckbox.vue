@@ -45,7 +45,7 @@ const inputId = computed(() => props.id ?? fallbackId)
   @include stack(4);
 
   // The label wraps the input, so giving the row the control height makes the whole
-  // line a 44px target rather than just the native checkbox
+  // line the target rather than just the native checkbox
   &__control {
     display: flex;
     align-items: center;

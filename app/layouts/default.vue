@@ -108,13 +108,17 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     display: none;
     align-items: center;
     justify-content: center;
+    // `flex: none`, or the header's flex layout shrinks the square to its glyph on a narrow
+    // viewport — which is the only viewport this button is shown on
+    flex: none;
     width: var(--control-height);
     height: var(--control-height);
     padding: rem(4);
     border: none;
     border-radius: var(--radius-md);
     background: none;
-    font-size: rem(24);
+    // Matches `BaseButton --icon`'s glyph, so the app has one icon size
+    font-size: rem(20);
     color: var(--color-text-secondary);
     cursor: pointer;
 

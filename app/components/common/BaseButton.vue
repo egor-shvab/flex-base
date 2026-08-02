@@ -126,7 +126,8 @@ withDefaults(
   &--icon {
     --hover-color: var(--color-text);
 
-    // Both axes, or the button ends up 44 tall and ~28 wide — it is content-sized
+    // Both axes, or the button takes the control height but stays glyph-wide — it is
+    // content-sized
     min-width: var(--control-height);
     min-height: var(--control-height);
     padding: rem(4);
