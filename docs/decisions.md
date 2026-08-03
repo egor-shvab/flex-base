@@ -312,6 +312,32 @@ It displays a **value** — SELECT choices are user data. `--label` is the upper
 
 The header deliberately has no global "Search everything" box: cross-table search is not built, and a dead input is worse than a gap. The principle outlives the instance — if cross-table search is built, the box arrives with it.
 
+### A SELECT choice is coloured from a closed palette, not a free colour picker
+
+A custom hex picker was the alternative, and it loses on all three axes the codebase already cares about.
+
+It breaks the token boundary `_palette.scss` exists to enforce: components consume `var(--color-*)` and the build makes a primitive unreachable, so an arbitrary colour would have to arrive as a literal. `BaseButton`'s `tone` prop is the precedent — it **replaced** a free-form `hoverColor` string for exactly this reason.
+
+It breaks the contrast guarantee. A badge needs 4.5:1 text on its fill; with a closed set every pairing is authored and verified once, while a free picker needs runtime luminance maths and still lets a user choose a pairing that fails.
+
+And it stores the wrong thing. What is persisted is a **name** (`"blue"`), not a value, so the colour survives a re-theme, and dark mode remains reachable. The upgrade path is preserved either way: widening the enum to accept a hex later needs no data migration, because the stored names stay valid members of whatever union replaces it.
+
+### A choice's identity is its own text
+
+`Record.data` stores the choice string, not an option id. That keeps the whole SQL layer, the filter constants and the URL codec out of this change — SELECT still filters, sorts and searches on the stored text.
+
+The cost is that renaming a choice orphans the records holding the old one. That was already true before colours existed; it is now also true of the colour, and it is recorded below rather than fixed, because a stable option id buys nothing for colour and rewrites `record-query.ts` to get there.
+
+### The badge palette is selected in JavaScript, by token name
+
+`badgeTint()` builds `var(--color-badge-<name>-bg)` from the colour prop and returns inline custom properties. A Sass `@each` emitting one modifier class per hue would keep the selection in CSS, but it needs the palette list to exist in both SCSS and TypeScript — and the failure mode of that duplication is silent: add a colour to the enum, forget the stylesheet, and the badge renders unstyled with no error anywhere. Composing the name keeps `_variables.scss` the single definition, and a literal colour still never reaches a component.
+
+### `BaseColorPicker` handles Escape on its panel, never on `document`
+
+It opens inside `BaseModal`, whose Escape listener is on `document`. Two document-level listeners cannot be ordered reliably — `stopPropagation` between listeners on the _same_ node does nothing, and registration order is an accident of mount order. Handling the key on the panel with `.stop` means the event never reaches `document` at all, so one Escape closes the popover and leaves the dialog open. The precondition is that focus is inside the panel while it is open, which the roving tabindex requires regardless.
+
+No `useDismissable` was extracted and `BaseModal` was not refactored, though an earlier plan called for both. The justification had been that a popover would be the third hand-rolled document-Escape listener — but because the popover deliberately does _not_ register one, the count stays at two and the extraction would have had a single consumer. Extracting on the first occurrence is the speculative build `CLAUDE.md` §1 rules out; the trigger still fires the day a second popover appears.
+
 ---
 
 ## Accepted limitations
@@ -331,3 +357,6 @@ The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for th
 | **Free-text search is unindexable and its cost is paid twice** (page query + count)                                               | Unanchored `ILIKE` over user-defined JSON keys. `SEARCH_MIN_LENGTH` bounds the worst case                                                                                                                                                                                                      | **Accepted** — same ceiling                                |
 | **A disabled `BaseButton` with `to` renders `<button disabled>`**, so it announces as _button, dimmed_ rather than _link, dimmed_ | Every alternative rebuilds native `disabled` out of `aria-disabled` + `tabindex="-1"` + `pointer-events: none`, taking the control out of the tab order by hand for a state the rest of the app expresses natively                                                                             | **Accepted**                                               |
 | **No error reporting or observability**                                                                                           | Nothing beyond `createError` responses; no client or server error sink exists                                                                                                                                                                                                                  | **Accepted** — revisit before any real deployment          |
+| **Renaming a SELECT choice orphans the records holding the old text**, which then render as a neutral badge                       | A choice's identity is its own text, so the whole SQL layer stays out of it. The stale value keeps its text rather than blanking, and nothing errors                                                                                                                                           | **Accepted** — an option id buys nothing for colour        |
+| **Choice colours do not show in the record form or the filter dropdown**, only in table cells                                     | Both are a native `<select>`, and `<option>` fills are not styleable across browsers. Showing colour there means a full ARIA listbox — and inside `DynamicTable`, whose scroll container would clip it                                                                                         | **Open** — UX, wants a custom listbox                      |
+| **The colour popover always opens below its trigger and never flips**                                                             | It is 254×110 inside a centred dialog, so the case needs a viewport short enough to matter. Flipping means measuring, which is the anchor-positioning machinery the app has so far not needed                                                                                                  | **Open** — small                                           |

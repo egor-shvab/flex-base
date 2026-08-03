@@ -53,7 +53,7 @@ model Field {
   key       String // machine key, immutable after creation
   type      FieldType
   required  Boolean   @default(false)
-  options   Json? // SELECT: { choices } ; RELATION: { targetTableId, labelFieldKey }
+  options   Json? // SELECT: { choices: [{ value, color }] } ; RELATION: { targetTableId, labelFieldKey }
   order     Int       @default(0)
   createdAt DateTime  @default(now())
 

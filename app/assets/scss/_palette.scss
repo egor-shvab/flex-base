@@ -30,3 +30,46 @@ $blue-800: #123f8c;
 $red-600: #c62828;
 $red-700: #a51f1f;
 $red-800: #8c1a1a;
+
+// Categorical hues — the badge palette a SELECT choice is coloured from. A separate ramp
+// from the accent and danger steps above on purpose: those are interaction colours, and
+// retuning the accent must never silently retint a user's data.
+//
+// Three steps per hue. `bg` is the badge fill, `fg` the text on it, `border` its edge —
+// and the edge is load-bearing rather than decorative: every `bg` sits within 1.05:1 of
+// `--color-surface-hover`, so on a hovered table row the fill alone is invisible.
+//
+// Verified: every `fg` on its own `bg` clears 4.5:1 (5.65 lowest, green), and every
+// `border` clears the 3:1 non-text floor against *both* the white surface (3.47 lowest)
+// and the hovered row (3.04 lowest) — the second is what the edge is tuned to, since the
+// hovered row is the darker background and the one the fill vanishes into.
+$badge-gray-bg: #e9ebef;
+$badge-gray-border: #848a94;
+$badge-gray-fg: #41474f;
+$badge-red-bg: #fdeaea;
+$badge-red-border: #c96b6d;
+$badge-red-fg: #a02020;
+$badge-orange-bg: #fbeddf;
+$badge-orange-border: #b17140;
+$badge-orange-fg: #8a4a11;
+$badge-yellow-bg: #f9f0d5;
+$badge-yellow-border: #997f22;
+$badge-yellow-fg: #725602;
+$badge-green-bg: #e4f2e8;
+$badge-green-border: #548f64;
+$badge-green-fg: #1e6b39;
+$badge-teal-bg: #ddf0ee;
+$badge-teal-border: #438a82;
+$badge-teal-fg: #0f645c;
+$badge-blue-bg: #e5eefb;
+$badge-blue-border: #5883c2;
+$badge-blue-fg: #18509e;
+$badge-indigo-bg: #e9e9fa;
+$badge-indigo-border: #7a7cc6;
+$badge-indigo-fg: #3b3f9c;
+$badge-purple-bg: #f1e9fa;
+$badge-purple-border: #9b78c1;
+$badge-purple-fg: #68339a;
+$badge-pink-bg: #fce8f0;
+$badge-pink-border: #c0648c;
+$badge-pink-fg: #9a2b5e;

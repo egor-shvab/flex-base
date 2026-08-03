@@ -6,6 +6,7 @@ import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { BOOLEAN_LABELS } from '#shared/constants/field'
 import type { TFieldType } from '#shared/types/field'
 import type { IFilterValueByType } from '#shared/types/filter'
+import { choiceValues } from '#shared/utils/field'
 import type { IFieldControl } from '~/field-types/types'
 
 /** A typed query input must not hit the API on every keystroke. */
@@ -59,7 +60,7 @@ export const FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByTyp
       // The choices come from the field's own metadata, so the list needs no extra request
       options: [
         { value: '', label: 'All' },
-        ...(field.options?.choices ?? []).map((choice) => ({ value: choice, label: choice })),
+        ...choiceValues(field).map((choice) => ({ value: choice, label: choice })),
       ],
     }),
   },

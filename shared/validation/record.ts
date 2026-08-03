@@ -3,6 +3,7 @@ import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, SEARCH_MIN_LENGTH } from '#shared/c
 import { RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { IRecordQueryParams, TRecordData, TRecordValue } from '#shared/types/record'
+import { choiceValues } from '#shared/utils/field'
 import { claimFilterParams, queryFields } from '#shared/utils/filter'
 
 const TEXT_MAX_LENGTH = 1000
@@ -45,8 +46,7 @@ const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaSpec> = {
     fromQuery: (raw) => raw,
   },
   SELECT: {
-    base: (field) =>
-      z.enum((field.options?.choices ?? []) as [string, ...string[]], 'Choose a value'),
+    base: (field) => z.enum(choiceValues(field) as [string, ...string[]], 'Choose a value'),
     blank: null,
     fromQuery: (raw) => raw,
   },

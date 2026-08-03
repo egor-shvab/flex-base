@@ -4,6 +4,7 @@ import BaseInput from '~/components/common/BaseInput.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import type { TFieldType } from '#shared/types/field'
+import { choiceValues } from '#shared/utils/field'
 import type { TRecordFieldControl } from '~/field-types/types'
 
 /**
@@ -63,9 +64,11 @@ export const FIELD_INPUTS: Record<TFieldType, TRecordFieldControl> = {
       label: field.name,
       // The blank option is always offered so a null value is never displayed as a real
       // choice — a required field relies on the schema to reject it.
+      // A native `<option>` cannot carry the choice's colour — `option` fills are not
+      // styleable across browsers — so colour is a table-cell affordance for now.
       options: [
         { value: '', label: '— Select —' },
-        ...(field.options?.choices ?? []).map((choice) => ({ value: choice, label: choice })),
+        ...choiceValues(field).map((choice) => ({ value: choice, label: choice })),
       ],
     }),
     ...blankIsNull,

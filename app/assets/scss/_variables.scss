@@ -44,6 +44,42 @@
   --color-danger-active: #{$red-800};
   --color-danger-tint: rgb(198 40 40 / 8%);
 
+  // ── Badge hues ────────────────────────────────────────────────────────────
+  // The closed set a SELECT choice is coloured from. Stored as a name (`blue`), never as
+  // a value, so the choice survives a re-theme — and so a user can never pick a pairing
+  // that fails contrast. `BaseBadge` composes these names into `var()` references; the
+  // set is defined here and nowhere else.
+  --color-badge-gray-bg: #{$badge-gray-bg};
+  --color-badge-gray-border: #{$badge-gray-border};
+  --color-badge-gray-fg: #{$badge-gray-fg};
+  --color-badge-red-bg: #{$badge-red-bg};
+  --color-badge-red-border: #{$badge-red-border};
+  --color-badge-red-fg: #{$badge-red-fg};
+  --color-badge-orange-bg: #{$badge-orange-bg};
+  --color-badge-orange-border: #{$badge-orange-border};
+  --color-badge-orange-fg: #{$badge-orange-fg};
+  --color-badge-yellow-bg: #{$badge-yellow-bg};
+  --color-badge-yellow-border: #{$badge-yellow-border};
+  --color-badge-yellow-fg: #{$badge-yellow-fg};
+  --color-badge-green-bg: #{$badge-green-bg};
+  --color-badge-green-border: #{$badge-green-border};
+  --color-badge-green-fg: #{$badge-green-fg};
+  --color-badge-teal-bg: #{$badge-teal-bg};
+  --color-badge-teal-border: #{$badge-teal-border};
+  --color-badge-teal-fg: #{$badge-teal-fg};
+  --color-badge-blue-bg: #{$badge-blue-bg};
+  --color-badge-blue-border: #{$badge-blue-border};
+  --color-badge-blue-fg: #{$badge-blue-fg};
+  --color-badge-indigo-bg: #{$badge-indigo-bg};
+  --color-badge-indigo-border: #{$badge-indigo-border};
+  --color-badge-indigo-fg: #{$badge-indigo-fg};
+  --color-badge-purple-bg: #{$badge-purple-bg};
+  --color-badge-purple-border: #{$badge-purple-border};
+  --color-badge-purple-fg: #{$badge-purple-fg};
+  --color-badge-pink-bg: #{$badge-pink-bg};
+  --color-badge-pink-border: #{$badge-pink-border};
+  --color-badge-pink-fg: #{$badge-pink-fg};
+
   // ── Focus ─────────────────────────────────────────────────────────────────
   // Exposed as custom properties so `_reset.scss` can carry the global focus rule
   // without needing its own `@use 'functions'`.
@@ -77,6 +113,9 @@
   --z-scrim: 40;
   --z-sidebar: 50;
   --z-modal: 100;
+  // Above the dialog, but scoped inside it: `.base-modal` is positioned and carries
+  // `--z-modal`, so it forms a stacking context a popover within it can never escape.
+  --z-popover: 110;
 
   // ── Type ──────────────────────────────────────────────────────────────────
   // The full scale ships now because a ramp is only reviewable as a whole; only

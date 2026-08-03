@@ -23,21 +23,26 @@
 
       <div v-if="form.type === 'SELECT'" class="field-form__choices">
         <span class="field-form__label">Choices</span>
-        <div v-for="(_, index) in form.choices" :key="index" class="field-form__choice">
-          <BaseInput :id="`${choicesId}-${index}`" v-model.trim="form.choices[index]" />
+        <div
+          v-for="(choice, index) in form.choices"
+          :key="rowIds[index]"
+          class="field-form__choice"
+        >
+          <BaseColorPicker v-model="choice.color" :label="`Colour for choice ${index + 1}`" />
+          <BaseInput :id="`${choicesId}-${index}`" v-model.trim="choice.value" />
           <BaseButton
             variant="icon"
             icon="mdi:trash-can-outline"
             label="Remove choice"
             tone="danger"
-            @click="form.choices.splice(index, 1)"
+            @click="removeChoice(index)"
           />
         </div>
         <BaseButton
           variant="ghost"
           icon="mdi:plus"
           class="field-form__add-choice"
-          @click="form.choices.push('')"
+          @click="addChoice"
         >
           Add choice
         </BaseButton>
@@ -72,10 +77,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, shallowRef, useId, watch } from 'vue'
+import { computed, onMounted, ref, shallowRef, useId, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
+import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import { FIELD_TYPES, FIELD_TYPE_LABELS } from '#shared/constants/field'
 import { fieldSchema, type TFieldInput } from '#shared/validation/field'
 import type { IField, TFieldType } from '#shared/types/field'
@@ -102,13 +108,18 @@ const typeOptions: { value: TFieldType; label: string }[] = FIELD_TYPES.map((typ
   label: FIELD_TYPE_LABELS[type],
 }))
 
+// Copied one level deeper than the spread it replaces: a choice is an object now, and
+// sharing those references would let an edit here mutate the store's field metadata —
+// repainting the page behind the modal before anything is saved.
+const initialChoices = (props.field?.options?.choices ?? []).map((choice) => ({ ...choice }))
+
 const { form, errors, serverError, pending, submit } = useForm({
   schema: fieldSchema,
   initial: {
     name: props.field?.name ?? '',
     type: (props.field?.type ?? 'TEXT') as TFieldType,
     required: props.field?.required ?? false,
-    choices: [...(props.field?.options?.choices ?? [])],
+    choices: initialChoices,
     targetTableId: props.field?.options?.targetTableId ?? '',
     labelFieldKey: props.field?.options?.labelFieldKey ?? '',
   },
@@ -117,6 +128,24 @@ const { form, errors, serverError, pending, submit } = useForm({
     emit('saved')
   },
 })
+
+/**
+ * Identity for the choice rows, since a choice has none of its own — its `value` is still
+ * being typed and is not unique until it validates. Keying by index instead would let a
+ * removal shift every row below it onto the wrong state, which now includes a colour.
+ */
+let nextRowId = 0
+const rowIds = ref(initialChoices.map(() => nextRowId++))
+
+function addChoice() {
+  form.choices.push({ value: '', color: DEFAULT_BADGE_COLOR })
+  rowIds.value.push(nextRowId++)
+}
+
+function removeChoice(index: number) {
+  form.choices.splice(index, 1)
+  rowIds.value.splice(index, 1)
+}
 
 const api = useApi()
 const tablesStore = useTablesStore()
@@ -179,6 +208,7 @@ watch(
 
   &__choice {
     display: flex;
+    align-items: center;
     gap: rem(8);
 
     :deep(.base-input) {

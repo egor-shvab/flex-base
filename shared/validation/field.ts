@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BADGE_COLORS, DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import { FIELD_TYPES } from '#shared/constants/field'
 import { nameSchema } from '#shared/validation/name'
 
@@ -6,6 +7,10 @@ import { nameSchema } from '#shared/validation/name'
  * Flat wire format for creating/updating a field. The server derives the DB `options` JSON
  * from `type` + these per-type keys, so this one schema validates both sides. Per-type rules
  * live in the superRefine branch (SELECT and RELATION today; extend for new types).
+ *
+ * Flat at the top level, not all the way down: a SELECT choice carries its own colour, so
+ * `choices` is a list of objects. Uniqueness is judged on `value` alone — two choices
+ * differing only by colour are still the same choice.
  *
  * A RELATION's target can only be checked against the database, so the server layers
  * `requireFieldTarget` on top of what is knowable here.
@@ -15,7 +20,14 @@ export const fieldSchema = z
     name: nameSchema,
     type: z.enum(FIELD_TYPES),
     required: z.boolean().default(false),
-    choices: z.array(z.string().trim().min(1, 'Choice cannot be empty')).default([]),
+    choices: z
+      .array(
+        z.object({
+          value: z.string().trim().min(1, 'Choice cannot be empty'),
+          color: z.enum(BADGE_COLORS).default(DEFAULT_BADGE_COLOR),
+        }),
+      )
+      .default([]),
     targetTableId: z.string().trim().default(''),
     labelFieldKey: z.string().trim().default(''),
   })
@@ -24,7 +36,8 @@ export const fieldSchema = z
       if (value.choices.length < 1) {
         ctx.addIssue({ code: 'custom', path: ['choices'], message: 'Add at least one choice' })
       }
-      if (new Set(value.choices).size !== value.choices.length) {
+      const values = value.choices.map((choice) => choice.value)
+      if (new Set(values).size !== values.length) {
         ctx.addIssue({ code: 'custom', path: ['choices'], message: 'Choices must be unique' })
       }
     }
