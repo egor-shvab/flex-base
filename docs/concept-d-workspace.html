@@ -656,6 +656,12 @@
   .rel:hover {
     border-bottom-color: var(--accent);
   }
+  /* A relation opens the record it points at, so it is reachable by keyboard and says so.
+     Stated here rather than left to the global ring: the underline is not a focus signal. */
+  .rel:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
   .rel--dead {
     color: var(--tx-2);
     border-bottom: 1px dashed #8b929d;
@@ -1479,6 +1485,127 @@
       </div>
 
       <div class="demo">
+        <div class="cap">Record details — where a relation goes</div>
+        <div class="demobody" style="padding: 0">
+          <!-- Clicking a link never leaves the table you were reading: the record it points at
+               opens over it, and closing puts you back on the row you left. The heading names
+               the dialog, not the record — the record names itself on the line below, which is
+               the only form that survives being opened from a shared link. -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 10px 20px;
+              border-bottom: 1px solid var(--line);
+            "
+          >
+            <strong style="font-size: 20px">Record details</strong>
+            <button class="btn btn--plain" aria-label="Close">
+              <svg><use href="#i-x" /></svg>
+            </button>
+          </div>
+          <div style="padding: 20px">
+            <div style="font-size: 14px; color: var(--tx-2); margin-bottom: 12px">
+              Companies · #14
+            </div>
+            <dl style="margin: 0; font-size: 16px">
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: max-content 1fr;
+                  gap: 16px;
+                  padding: 8px 0;
+                "
+              >
+                <dt style="font-size: 14px; color: var(--tx-2)">Company name</dt>
+                <dd style="margin: 0">Nordwind Logistics</dd>
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: max-content 1fr;
+                  gap: 16px;
+                  padding: 8px 0;
+                  border-top: 1px solid var(--line-soft);
+                "
+              >
+                <dt style="font-size: 14px; color: var(--tx-2)">Industry</dt>
+                <dd style="margin: 0">
+                  <span class="pill pill--prop"><i></i>Logistics</span>
+                </dd>
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: max-content 1fr;
+                  gap: 16px;
+                  padding: 8px 0;
+                  border-top: 1px solid var(--line-soft);
+                "
+              >
+                <!-- A relation inside the dialog is the same link it is in the table, so it
+                     opens the next record over this one and Back returns here -->
+                <dt style="font-size: 14px; color: var(--tx-2)">Account owner</dt>
+                <dd style="margin: 0"><a href="#" class="rel">Marta Kovač</a></dd>
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: max-content 1fr;
+                  gap: 16px;
+                  padding: 8px 0;
+                  border-top: 1px solid var(--line-soft);
+                "
+              >
+                <dt style="font-size: 14px; color: var(--tx-2)">Parent company</dt>
+                <dd style="margin: 0"><span class="notset">Not set</span></dd>
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: max-content 1fr;
+                  gap: 16px;
+                  padding: 8px 0;
+                  border-top: 1px solid var(--line-soft);
+                "
+              >
+                <dt style="font-size: 14px; color: var(--tx-2)">Created at</dt>
+                <dd style="margin: 0">03 Aug 2026, 12:39</dd>
+              </div>
+            </dl>
+          </div>
+          <div style="padding: 12px 20px; border-top: 1px solid var(--line)">
+            <button class="btn btn--link">Open in Companies</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <div class="cap">Record details — deeper in, and the two states it can fail into</div>
+        <div class="demobody" style="display: flex; flex-direction: column; gap: 20px">
+          <!-- One record reached through another: Back is a place you came from, so it is a
+               link, and it names nothing it cannot know — the trail is the address bar's. -->
+          <div>
+            <a href="#" class="rel" style="font-size: 14px">&larr; Back</a>
+            <div style="font-size: 14px; color: var(--tx-2); margin-top: 12px">People · #7</div>
+          </div>
+          <div style="font-size: 14px; color: var(--tx-2)">Loading record…</div>
+          <div
+            style="
+              padding: 10px 12px;
+              border-radius: 8px;
+              background: var(--badge-red-tint);
+              color: var(--badge-red);
+              font-size: 14px;
+            "
+          >
+            This record no longer exists.
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
         <div class="cap">Loading</div>
         <div style="background: #fff">
           <div class="skrow">
@@ -1580,6 +1707,25 @@
             <a href="#" class="rel">Marta Kovač</a>
             <span class="rel rel--dead">Company was deleted</span>
             <span class="notset">Not set</span>
+          </div>
+          <!-- What ships in the Actions column today. The row above draws one ⋯ opening a menu
+               of full sentences, which is still where this goes once the actions outgrow the
+               row; three 36×36 targets do not need it yet, and the app has no menu to build it
+               on. View is first because it is the one that changes nothing. -->
+          <div class="invrow">
+            <span class="invlabel">Row actions</span>
+            <button class="rowmenu" style="margin-left: 0" aria-label="View record">
+              <svg><use href="#i-eye" /></svg>
+            </button>
+            <button class="rowmenu" style="margin-left: 0" aria-label="Edit record">
+              <svg><use href="#i-pencil" /></svg>
+            </button>
+            <button class="rowmenu" style="margin-left: 0" aria-label="Delete record">
+              <svg><use href="#i-trash" /></svg>
+            </button>
+            <button class="rowmenu" style="margin-left: 0" aria-label="More actions">
+              <svg><use href="#i-dots" /></svg>
+            </button>
           </div>
           <div class="invrow">
             <span class="invlabel">Filters</span>

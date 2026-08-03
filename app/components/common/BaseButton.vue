@@ -16,6 +16,7 @@
 import { computed } from 'vue'
 import type { Component } from 'vue'
 import { NuxtLink } from '#components'
+import type { TUrlQuery } from '#shared/types/query'
 
 const props = withDefaults(
   defineProps<{
@@ -24,12 +25,19 @@ const props = withDefaults(
      * Navigation target. Present — and not `disabled` — the control renders as a `<NuxtLink>`,
      * i.e. a real `<a href>`, so middle-click, "copy link address" and the SSR'd markup all work.
      * `variant` still decides the look: `variant="link"` is a *button* styled as a link, `to` is
-     * what makes it an actual one. Typed `string` rather than vue-router's `RouteLocationRaw` —
-     * that package is deliberately undeclared, and every link here is a path. An absolute URL
-     * needs no flag: `NuxtLink` renders one as a plain `<a rel="noopener noreferrer">` itself,
-     * and its own `target` / `rel` / `external` / `prefetch` arrive by attribute fallthrough.
+     * what makes it an actual one.
+     *
+     * A path, or **the current route with a different query** — the second form since the record
+     * dialog moved into the URL: a row's View action changes one param and must not disturb the
+     * page, sort and filters around it, which serializing to a path by hand would drop. Still not
+     * vue-router's `RouteLocationRaw`: that package is deliberately undeclared, and `TUrlQuery`
+     * is our own shape, which `NuxtLink` accepts.
+     *
+     * An absolute URL needs no flag: `NuxtLink` renders one as a plain
+     * `<a rel="noopener noreferrer">` itself, and its own `target` / `rel` / `external` /
+     * `prefetch` arrive by attribute fallthrough.
      */
-    to?: string
+    to?: string | { query: TUrlQuery }
     variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'ghost' | 'link'
     disabled?: boolean
     /** Iconify name (e.g. `mdi:trash-can-outline`); renders an `<Icon>` before the slot. */

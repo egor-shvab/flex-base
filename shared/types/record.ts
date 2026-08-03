@@ -1,4 +1,6 @@
+import type { IField } from '#shared/types/field'
 import type { IRecordSort, TRecordFilterValues, TSortDirection } from '#shared/types/filter'
+import type { ITable } from '#shared/types/table'
 
 /** Every value a record cell can hold. Records are stored as JSONB keyed by `Field.key`. */
 export type TRecordValue = string | number | boolean | null
@@ -36,6 +38,29 @@ export interface IRecordPage {
 export interface IRecordOption {
   id: string
   label: string
+}
+
+/**
+ * One record addressed from anywhere: a relation only stores the target's id, so the table it
+ * belongs to has to travel with it. This is what the `detail` URL param encodes.
+ */
+export interface IRecordDetailRef {
+  tableId: string
+  recordId: string
+}
+
+/**
+ * Everything the detail dialog renders, in one response. The fields come along because the
+ * dialog draws a record of a table the page is not about, and the server needs them to resolve
+ * the relation labels regardless — so they are already in hand, and fetching them separately
+ * would cost a second round trip and a second loading state for one dialog.
+ */
+export interface IRecordDetail {
+  table: Pick<ITable, 'id' | 'name'>
+  fields: IField[]
+  record: IRecord
+  /** Keyed exactly like `IRecordPage`'s, so the same client cache ingests both. */
+  relationLabels: Record<string, Record<string, string>>
 }
 
 /**

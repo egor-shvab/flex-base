@@ -85,6 +85,7 @@
         <template v-else>
           <DynamicTable
             class="records-page__table"
+            :table-id="tableId"
             :fields="fieldsStore.fields"
             :records="recordsStore.records"
             :sort="queryParams.sort"
@@ -125,6 +126,18 @@
       @close="recordModal = null"
     />
 
+    <LazyRecordDetailModal
+      v-if="detailChain.length > 0"
+      :detail="detail"
+      :pending="detailPending"
+      :error-message="detailError"
+      :can-retry="detailCanRetry"
+      :current-table-id="tableId"
+      :back-to="detailBackTo"
+      @retry="refreshDetail"
+      @close="closeDetail"
+    />
+
     <LazyConfirmModal
       v-if="deleteTarget"
       title="Delete record"
@@ -144,6 +157,7 @@ import { computed, ref, watch } from 'vue'
 import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useApi } from '~/composables/useApi'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
+import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
@@ -153,7 +167,11 @@ import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
 import type { TRecordFilterValues } from '#shared/types/filter'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
-import { parseRecordQueryState, toRecordQueryParams } from '#shared/utils/record-query'
+import {
+  parseRecordQueryState,
+  recordQueryKey,
+  toRecordQueryParams,
+} from '#shared/utils/record-query'
 
 type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
 
@@ -197,16 +215,22 @@ const { data, error } = await useAsyncData(`table-records-${tableId}`, async () 
 })
 
 // Every list change goes through the URL, so one watcher covers filtering, sorting and paging.
+// Keyed on the serialized query rather than on `queryParams` itself: that computed returns a
+// fresh object whenever *any* param moves, including the record dialog's, and the list must not
+// refetch because a dialog opened.
 // The rejection is swallowed deliberately: the store sets `failed`, which the template shows —
 // letting it escape a watcher would be an unhandled rejection and the table would silently keep
 // rows that no longer match the URL.
-watch(queryParams, async (params) => {
-  try {
-    await recordsStore.fetchRecords(tableId, params)
-  } catch {
-    // surfaced through `recordsStore.failed`
-  }
-})
+watch(
+  () => recordQueryKey(queryParams.value),
+  async () => {
+    try {
+      await recordsStore.fetchRecords(tableId, queryParams.value)
+    } catch {
+      // surfaced through `recordsStore.failed`
+    }
+  },
+)
 
 if (error.value) {
   throw createError(toPageError(error.value))
@@ -302,6 +326,25 @@ async function submitRecord(data: TRecordData) {
   if (nextPage !== queryParams.value.page) {
     await applyQuery({ ...queryParams.value, page: nextPage }, true)
   }
+}
+
+/**
+ * The linked-record dialog is URL state exactly as the list query is, so it is read back from
+ * the route rather than held here — and closing it is a navigation, not a state change.
+ */
+const {
+  chain: detailChain,
+  detail,
+  pending: detailPending,
+  errorMessage: detailError,
+  canRetry: detailCanRetry,
+  backTo: detailBackTo,
+  refresh: refreshDetail,
+  closeTo: detailCloseTo,
+} = useRecordDetail()
+
+function closeDetail() {
+  return navigateTo(detailCloseTo.value)
 }
 
 const {

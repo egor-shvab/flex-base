@@ -33,6 +33,10 @@ $blue-800: #123f8c;
 // alpha: a translucent tint composites to a different colour on every surface under it,
 // and this one lands on both `--color-surface` and `--color-canvas`.
 $blue-tint: #e7eefc;
+// The resting underline under an accent-coloured link — the accent at 25% over white,
+// resolved to a flat step for the same reason $blue-tint is: the rule under a relation
+// sits on `--color-surface` and on the row-hover wash, and must not shift between them.
+$blue-underline: #c6d8f5;
 
 // Danger
 $red-600: #c62828;

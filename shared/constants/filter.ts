@@ -16,10 +16,24 @@ export const DEFAULT_SORT_KEY = CREATED_AT_KEY
 export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
 
 /**
- * Query params the list endpoint owns. A field key must never shadow one, or its filter
- * would fight pagination or sorting for the same name.
+ * The record open in the detail dialog, and the trail of records it was reached through.
+ * Owned by the page rather than the list endpoint — the list request never carries it.
  */
-export const RESERVED_QUERY_PARAMS = ['page', 'pageSize', 'sort', 'dir', 'search'] as const
+export const DETAIL_PARAM = 'detail'
+
+/**
+ * Query params the records URL owns — the list endpoint's, plus the page's own dialog state.
+ * A field key must never shadow one, or its filter would fight pagination, sorting or the
+ * open dialog for the same name.
+ */
+export const RESERVED_QUERY_PARAMS = [
+  'page',
+  'pageSize',
+  'sort',
+  'dir',
+  'search',
+  DETAIL_PARAM,
+] as const
 
 /**
  * Below this, a search is not run at all — an unanchored `ILIKE` across every field of every

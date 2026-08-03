@@ -44,6 +44,24 @@ export async function requireOwnedTableFields(userId: string, tableId: string): 
 }
 
 /**
+ * The table itself alongside its field metadata, from the same scoped query. The detail
+ * dialog draws a record of a table the page it opened from is not about, so it has to name
+ * that table as well as read its fields.
+ */
+export async function requireOwnedTableWithFields(userId: string, tableId: string) {
+  const table = await prisma.table.findUnique({
+    where: { id: tableId, userId },
+    select: { ...tableSelect, fields: { orderBy: { order: 'asc' }, select: fieldSelect } },
+  })
+
+  if (!table) {
+    throw tableNotFound()
+  }
+
+  return { table, fields: table.fields.map(toFieldMetadata) }
+}
+
+/**
  * A RELATION may only point at a table the same user owns, labelled by a field that table
  * actually has — neither is knowable to the shared schema, which has no database. Lives
  * here rather than in `services/fields`, which this module already imports.

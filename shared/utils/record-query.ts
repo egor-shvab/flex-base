@@ -10,6 +10,7 @@ import {
   queryFields,
   rangeParamName,
 } from '#shared/utils/filter'
+import { singleParam } from '#shared/utils/query-param'
 import { buildFilterValueSchema } from '#shared/validation/record'
 
 /** An empty param (`?company=`) means "not filtered", never a match-everything condition. */
@@ -70,13 +71,6 @@ function parseFilterValues(fields: IField[], query: Record<string, unknown>): TR
   }
 
   return values
-}
-
-/** A query param is `string | string[] | number | undefined` — only a single value counts. */
-function singleParam(value: unknown): string | undefined {
-  const raw = Array.isArray(value) ? value[0] : value
-  if (typeof raw === 'number') return String(raw)
-  return typeof raw === 'string' && raw !== '' ? raw : undefined
 }
 
 /**
@@ -144,4 +138,20 @@ export function toRecordQueryParams(state: IRecordQueryState): Record<string, st
   if (state.sort.dir !== DEFAULT_SORT_DIR) params.dir = state.sort.dir
 
   return params
+}
+
+/**
+ * A stable string identifying a list query, for watchers that must fire on a *changed* query
+ * rather than on a changed object. `parseRecordQueryState` returns a fresh object on every
+ * `route.query` change, so a watcher on it would refetch the whole list when a param the list
+ * does not own — the open detail dialog — moves. Keys are sorted, so param order cannot
+ * fabricate a change either.
+ */
+export function recordQueryKey(state: IRecordQueryState): string {
+  const params = toRecordQueryParams(state)
+
+  return Object.keys(params)
+    .sort()
+    .map((name) => `${name}=${params[name]}`)
+    .join('&')
 }

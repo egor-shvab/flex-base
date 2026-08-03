@@ -1,10 +1,18 @@
+import { createError } from 'h3'
 import type { Prisma } from '#server/generated/prisma/client'
 import { buildRecordOrderBy, buildRecordWhere } from '#server/services/record-query'
 import { assertRelationTargets, resolveRelationLabels } from '#server/services/relations'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
 import type { IField } from '#shared/types/field'
-import type { IRecord, IRecordPage, IRecordQuery, TRecordData } from '#shared/types/record'
+import type {
+  IRecord,
+  IRecordDetail,
+  IRecordPage,
+  IRecordQuery,
+  TRecordData,
+} from '#shared/types/record'
+import type { ITable } from '#shared/types/table'
 
 const recordSelect = {
   id: true,
@@ -68,6 +76,38 @@ export async function listRecords(
     pageSize,
     // Resolved for the ids on this page alone, in one query per target table
     relationLabels: await resolveRelationLabels(fields, records),
+  }
+}
+
+/**
+ * One record with everything needed to render it away from its own table: the relation that
+ * points at it knows only an id, so the table and its fields travel with the row. The labels
+ * come from the same resolver the list uses, which is what lets a relation inside the dialog
+ * read as a label and link on again.
+ */
+export async function getRecordDetail(
+  table: Pick<ITable, 'id' | 'name'>,
+  fields: IField[],
+  recordId: string,
+): Promise<IRecordDetail> {
+  const row = await prisma.record.findUnique({
+    where: { id: recordId, tableId: table.id },
+    select: recordSelect,
+  })
+
+  // A record of another user's table is already unreachable — the table was scoped by owner —
+  // so this is the ordinary "deleted since the link was rendered" case
+  if (!row) {
+    throw createError({ statusCode: 404, statusMessage: recordErrors.notFound })
+  }
+
+  const record = toRecordDto(row)
+
+  return {
+    table,
+    fields,
+    record,
+    relationLabels: await resolveRelationLabels(fields, [record]),
   }
 }
 

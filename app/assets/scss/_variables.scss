@@ -54,6 +54,10 @@
   --color-accent-hover: #{$blue-700};
   --color-accent-active: #{$blue-800};
   --color-accent-tint: #{$blue-tint};
+  // A link's underline at rest, which goes to the full accent on hover. Quieter than the
+  // word it sits under on purpose: the accent text is what identifies the link (5.43:1),
+  // and the rule is the reinforcement that keeps it from reading as coloured text.
+  --color-accent-underline: #{$blue-underline};
   --color-danger: #{$red-600};
   --color-danger-hover: #{$red-700};
   --color-danger-active: #{$red-800};

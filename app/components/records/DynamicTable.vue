@@ -29,22 +29,21 @@
             <!-- The wrapper is what caps the column: a `max-width` on the `td` itself would
                  not (see the style block) -->
             <div class="dynamic-table__cell">
-              <!-- Blank values are rendered here so no cell component has to handle null -->
-              <span v-if="isBlank(cellValue(record, column))" class="dynamic-table__blank">
-                Not set
-              </span>
-              <component
-                :is="cellComponent(column)"
-                v-else
-                :field="column"
-                :value="cellValue(record, column)"
-              />
+              <RecordFieldValue :record="record" :column="column" />
             </div>
           </td>
           <!-- The flex row is a wrapper, not the cell: a `display: flex` td is no longer a
                table cell, and a sticky box cannot move outside its containing block -->
           <td class="dynamic-table__actions">
             <div class="dynamic-table__actions-group">
+              <!-- A link, not a button, like every other way into the record dialog: reading a
+                   record is a place, and the row must not have to mediate a navigation -->
+              <BaseButton
+                variant="icon"
+                icon="mdi:eye-outline"
+                label="View record"
+                :to="detailLinkTo({ tableId, recordId: record.id })"
+              />
               <BaseButton
                 variant="icon"
                 icon="mdi:pencil-outline"
@@ -71,16 +70,19 @@ import { computed } from 'vue'
 import { RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecordSort } from '#shared/types/filter'
-import type { IRecord, TRecordValue } from '#shared/types/record'
+import type { IRecord } from '#shared/types/record'
 import { queryFields } from '#shared/utils/filter'
-import { FIELD_CELLS } from '~/field-types/cells'
-import { RECORD_COLUMNS } from '~/field-types/record-columns'
+import { useDetailLink } from '~/composables/useDetailLink'
 
 const props = defineProps<{
+  /** The table these records belong to — a row's View action has to *address* its record. */
+  tableId: string
   fields: IField[]
   records: IRecord[]
   sort?: IRecordSort | null
 }>()
+
+const detailLinkTo = useDetailLink()
 
 /**
  * The record's own columns bracket the table's fields, and one list drives both the header and
@@ -93,19 +95,6 @@ const emit = defineEmits<{
   delete: [record: IRecord]
   sort: [key: string]
 }>()
-
-/** A record's own column reads from the record; everything else from its data. */
-function cellValue(record: IRecord, column: IField): TRecordValue {
-  return RECORD_COLUMNS[column.key]?.value(record) ?? record.data[column.key] ?? null
-}
-
-function cellComponent(column: IField) {
-  return RECORD_COLUMNS[column.key]?.cell ?? FIELD_CELLS[column.type]
-}
-
-function isBlank(value: TRecordValue | undefined): boolean {
-  return value === null || value === undefined
-}
 
 function ariaSort(field: IField): 'ascending' | 'descending' | 'none' {
   if (props.sort?.key !== field.key) return 'none'
@@ -187,6 +176,17 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     max-width: $content-max-width;
 
     @include truncate;
+
+    // `truncate` clips with `overflow: hidden`, which clips a *descendant's* focus ring too —
+    // and a relation cell puts a link inside this box, the first focusable thing to live in
+    // one. `clip` truncates identically (the ellipsis is still computed at the content edge,
+    // so no more text shows) but honours a margin, so the ring paints and the text does not.
+    // The margin is the ring's width plus its offset (3 + 2). Written as a literal because
+    // `overflow-clip-margin` takes a bare length — Chrome drops the declaration to 0 for any
+    // `calc()`, `var()` included — so this is the one place the ring's geometry is restated
+    // rather than referenced, and it has to move when `--focus-ring-*` does.
+    overflow: clip;
+    overflow-clip-margin: rem(5);
   }
 
   th {
@@ -300,13 +300,6 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     .dynamic-table__actions {
       background: var(--color-surface-row-hover);
     }
-  }
-
-  // A text role, not a border one — the border token here was ~1.5:1. `-secondary` rather
-  // than `-subtle`: this is real content, and `-subtle` is 3.9:1 on a hovered row, under
-  // the 4.5:1 body-text floor.
-  &__blank {
-    color: var(--color-text-secondary);
   }
 
   &__number-head,

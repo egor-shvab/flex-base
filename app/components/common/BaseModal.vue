@@ -1,7 +1,14 @@
 <template>
   <Teleport to="body">
     <div class="base-modal" :class="`base-modal--${variant}`" @click.self="emit('close')">
-      <div class="base-modal__dialog" role="dialog" aria-modal="true" :aria-label="title">
+      <div
+        ref="dialog"
+        class="base-modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="title"
+        tabindex="-1"
+      >
         <header class="base-modal__header">
           <h2 class="base-modal__title">{{ title }}</h2>
           <BaseButton variant="icon" icon="mdi:close" label="Close" @click="emit('close')" />
@@ -18,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
 
 withDefaults(
   defineProps<{
@@ -35,14 +42,40 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
 }
 
+const dialog = useTemplateRef<HTMLElement>('dialog')
+
+/**
+ * Where focus was when the dialog opened, so it can be put back. A dialog opened from a cell
+ * deep in a scrolled table is the case that makes this matter: without it, closing drops the
+ * keyboard user at the top of the document and their place in the table is gone.
+ */
+let previouslyFocused: HTMLElement | null = null
+
+/**
+ * Focus goes to the dialog itself rather than to its first control: the first control is a
+ * destructive Delete in one dialog and a text input in another, and landing on either is a
+ * decision the dialog gets to make for itself through `autofocus`. `tabindex="-1"` is what
+ * makes the container focusable without adding it to the tab order.
+ *
+ * This is not a focus trap and does not need to be — `inert` below takes the rest of the page
+ * out of the tab order, so Tab already cannot leave.
+ */
+function moveFocusIn() {
+  const autofocus = dialog.value?.querySelector<HTMLElement>('[autofocus]')
+  ;(autofocus ?? dialog.value)?.focus()
+}
+
+function restoreFocus() {
+  // The trigger can have gone with the dialog — a row's Edit button on a record just deleted
+  if (previouslyFocused?.isConnected) previouslyFocused.focus()
+}
+
 /**
  * `aria-modal="true"` claims the rest of the page is unavailable, so the rest of the page has
  * to actually be unavailable. The dialog teleports to `<body>`, which makes the app root a
  * sibling and therefore a single clean target. Without this the attribute is a false signal:
  * every control behind the scrim stays focusable and in the accessibility tree.
  *
- * This is not a focus trap — focus is still neither moved in nor restored on close. That
- * remains a known gap (see CLAUDE.md §4).
  */
 function setBackgroundInert(inert: boolean) {
   document.getElementById('__nuxt')?.toggleAttribute('inert', inert)
@@ -50,12 +83,18 @@ function setBackgroundInert(inert: boolean) {
 
 onMounted(() => {
   document.addEventListener('keydown', onKeydown)
+  // Before `inert`: an inert ancestor blurs whatever is inside it, so the trigger has to be
+  // read while it is still the active element
+  previouslyFocused = document.activeElement as HTMLElement | null
   setBackgroundInert(true)
+  moveFocusIn()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
   setBackgroundInert(false)
+  // After `inert` is lifted, or the element being focused is still unfocusable
+  restoreFocus()
 })
 </script>
 
@@ -76,6 +115,17 @@ onBeforeUnmount(() => {
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     box-shadow: var(--shadow-md);
+
+    // The one place a focus ring is suppressed rather than restyled, and the exception is
+    // narrow: this container takes focus on open so the keyboard starts inside the dialog, but
+    // it carries `tabindex="-1"`, so it is not in the tab order and nothing on it is operable.
+    // A ring here would circle the whole surface to mark a position rather than a control —
+    // the dialog's own appearance over an inert page is that signal. Every control inside keeps
+    // its ring, and reaching this state at all needs a keyboard-then-pointer sequence for
+    // `:focus-visible` to match a programmatic focus.
+    &:focus-visible {
+      outline: none;
+    }
   }
 
   // The close button sets this header's height, so the vertical padding is trimmed to
