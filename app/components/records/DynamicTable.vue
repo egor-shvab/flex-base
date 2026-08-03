@@ -11,7 +11,7 @@
             :class="{ 'dynamic-table__number-head': column.key === RECORD_NUMBER_KEY }"
           >
             <button type="button" class="dynamic-table__sort" @click="emit('sort', column.key)">
-              {{ column.name }}
+              <span class="dynamic-table__sort-label">{{ column.name }}</span>
               <Icon
                 :name="sortIcon(column)"
                 class="dynamic-table__sort-icon"
@@ -26,16 +26,20 @@
       <tbody>
         <tr v-for="record in records" :key="record.id">
           <td v-for="column in columns" :key="column.key">
-            <!-- Blank values are rendered here so no cell component has to handle null -->
-            <span v-if="isBlank(cellValue(record, column))" class="dynamic-table__blank">
-              Not set
-            </span>
-            <component
-              :is="cellComponent(column)"
-              v-else
-              :field="column"
-              :value="cellValue(record, column)"
-            />
+            <!-- The wrapper is what caps the column: a `max-width` on the `td` itself would
+                 not (see the style block) -->
+            <div class="dynamic-table__cell">
+              <!-- Blank values are rendered here so no cell component has to handle null -->
+              <span v-if="isBlank(cellValue(record, column))" class="dynamic-table__blank">
+                Not set
+              </span>
+              <component
+                :is="cellComponent(column)"
+                v-else
+                :field="column"
+                :value="cellValue(record, column)"
+              />
+            </div>
           </td>
           <!-- The flex row is a wrapper, not the cell: a `display: flex` td is no longer a
                table cell, and a sticky box cannot move outside its containing block -->
@@ -115,11 +119,24 @@ function sortIcon(field: IField): string {
 </script>
 
 <style lang="scss" scoped>
-// A little wider than the `rem(16)` the scrolling columns use: the pinned column sits
-// against a divider on one side and the scrollbar on the other, and needs the air.
-// Local rather than a `--*` token — it is one component's measure, not a design decision
-// the rest of the app reads.
-$pinned-gutter: rem(20);
+// The widest a data column may get. A column is sized by its content, and a table's columns
+// are user-defined, so nothing bounds a value on its own — one long TEXT record otherwise
+// stretches its column to the width of that value and pushes the rest of the grid off-screen.
+// The one knob: change this and both the header and the body cap follow.
+// Local rather than a `--*` token — it is one component's measure, not a design decision the
+// rest of the app reads.
+$column-max-width: rem(320);
+
+// Every cell's inset, header and body, scrolling and pinned. One pair of values with no
+// exceptions: the pinned column used to take a wider `rem(20)` gutter for air against the
+// divider and the scrollbar, and the difference read as a misalignment rather than as breathing
+// room. The block figure is also what the row height is built from, below.
+$cell-padding-y: rem(4);
+$cell-padding-x: rem(16);
+
+// What is left for content once a cell has paid its padding — so a column bounded by a value
+// and a column bounded by its header name both land on `$column-max-width`.
+$content-max-width: $column-max-width - $cell-padding-x * 2;
 
 .dynamic-table {
   // Both axes: given a bounded height, long tables scroll here instead of growing the page
@@ -150,21 +167,26 @@ $pinned-gutter: rem(20);
 
   // An explicit height, so no single cell defines the row — before this the action cell's
   // buttons did, which is why the row would otherwise be however tall a button plus the
-  // generic padding happens to be. Derived from the control height rather than restated as
-  // a literal: the `rem(8)` is the action cell's own `2 × rem(4)`, so the row is exactly a
-  // button plus its inset and follows `--control-height` on its own.
+  // generic padding happens to be. Derived rather than restated as a literal: a row is one
+  // control tall plus the cell inset on both sides, so it follows `--control-height` and
+  // `$cell-padding-y` on its own. A table cell treats `height` as a minimum, so the action
+  // cell's buttons land *on* that figure rather than pushing past it — which is why the
+  // padding has to be the same one the height is built from, and why this pair moves together.
   tbody td {
-    height: calc(var(--control-height) + #{rem(8)});
-    padding: rem(6) rem(16);
+    height: calc(var(--control-height) + #{$cell-padding-y * 2});
+    padding: $cell-padding-y $cell-padding-x;
     vertical-align: middle;
+  }
 
-    // A table cell treats `height` as a minimum, so the buttons need the tighter block
-    // padding to land on the row height rather than exceed it — at the generic `rem(6)`
-    // they push every row 5px taller. Spelled out rather than `&__…` so it outranks the
-    // `tbody td` padding above; `&` is that selector here.
-    &.dynamic-table__actions {
-      padding: rem(4) $pinned-gutter;
-    }
+  // Where a value's width is actually bounded. The cap cannot go on the `td`: `max-width` on
+  // a table cell is undefined in CSS 2.2 §17.5.2 and browsers ignore it under the default
+  // `table-layout: auto`. A block child's `max-width` *does* bound the cell's max-content
+  // contribution, which is what sizes the column — so the wrapper is load-bearing, not markup
+  // for its own sake.
+  &__cell {
+    max-width: $content-max-width;
+
+    @include truncate;
   }
 
   th {
@@ -194,15 +216,13 @@ $pinned-gutter: rem(20);
     // pinned column, and carry both of their edges. Spelled out rather than `&__…`, because
     // `&` is `.dynamic-table thead th` here.
     //
-    // It is the one header with no sort button to carry the gutter, so `th { padding: 0 }`
-    // would leave the label flat against the divider while the buttons below it sit a full
-    // gutter in. Its block padding has to match `&__sort`'s: with no button inside, this
-    // cell is sized by its own text, and any surplus makes it the tallest cell in the row
-    // and drags the whole header past the control height.
+    // It is the one header with no sort button to carry the inset, so `th { padding: 0 }`
+    // would leave the label flat against the divider while every label beside it sits a full
+    // `$cell-padding-x` in. It takes the same pair directly instead.
     &.dynamic-table__actions-head {
       right: 0;
       z-index: 2;
-      padding: rem(6) $pinned-gutter;
+      padding: $cell-padding-y $cell-padding-x;
       box-shadow:
         inset 0 -1px 0 var(--color-border),
         inset 1px 0 0 var(--color-border-strong);
@@ -214,8 +234,11 @@ $pinned-gutter: rem(20);
     align-items: center;
     gap: rem(4);
     width: 100%;
+    // The cell's own inset, carried by the button so the whole header cell is the sort
+    // target. `min-height` is what sizes the header row, so the block figure only has to
+    // stay under it — it is here to match the body, not to set the height.
     min-height: var(--control-height);
-    padding: rem(6) rem(16);
+    padding: $cell-padding-y $cell-padding-x;
     border: none;
     font: inherit;
     color: inherit;
@@ -236,7 +259,24 @@ $pinned-gutter: rem(20);
     }
   }
 
+  // A long field *name* stretches a column exactly as a long value does, so the header takes
+  // the same cap. It sits on the label rather than on `&__sort`, because that button is
+  // deliberately `width: 100%` — capping the button would stop it short of the cell edge on a
+  // column the table has widened, and the whole header cell is meant to be the sort target.
+  //
+  // The gap and the icon ride outside this box, so a column bounded by its header name can run
+  // ~rem(18) over `$column-max-width`. Closing that would mean encoding the icon's rendered
+  // size here, which is not this component's to know.
+  &__sort-label {
+    min-width: 0;
+    max-width: $content-max-width;
+
+    @include truncate;
+  }
+
   &__sort-icon {
+    // Never squeezed out by a label sitting at its cap
+    flex: none;
     opacity: 0;
     transition: opacity 0.15s ease;
 

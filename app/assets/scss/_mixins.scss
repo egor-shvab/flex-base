@@ -50,6 +50,15 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   gap: rem($gap);
 }
 
+/// Keeps text on one line and ends it with an ellipsis instead of overflowing.
+/// The box must be bounded for this to engage: give it a `max-width`, or `min-width: 0`
+/// when it is a flex item that would otherwise refuse to shrink below its content.
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /// The caption above a form control.
 @mixin field-label {
   font-size: var(--font-size-sm);
@@ -119,8 +128,7 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 @mixin page-title {
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   font-size: var(--font-size-xl);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+
+  @include truncate;
 }

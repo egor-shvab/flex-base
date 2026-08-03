@@ -4,7 +4,10 @@
     :class="{ 'base-badge--label': variant === 'label', 'base-badge--dot': hasDot }"
     :style="tint"
   >
-    <slot />
+    <!-- The text is wrapped so the badge can truncate itself. A caller that bounds its width
+         cannot do it from outside: this is a flex container, so an overflowing badge would be
+         clipped mid-pill rather than ellipsised. -->
+    <span class="base-badge__text"><slot /></span>
   </span>
 </template>
 
@@ -45,6 +48,9 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
 
   display: inline-flex;
   align-items: center;
+  // Never wider than whatever bounds it — `DynamicTable`'s capped cell is the case that
+  // matters. Inert everywhere the badge already fits.
+  max-width: 100%;
   // 2/8 rather than 1/7 plus a 1px border: the border is gone and the padding absorbs the
   // pixel it used to give up, so the box keeps the size every table row is built around.
   padding: rem(2) rem(8);
@@ -52,6 +58,13 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
   background: var(--badge-bg);
   font-size: var(--font-size-sm);
   color: var(--badge-fg);
+
+  &__text {
+    // A flex item will not shrink below its content without this, so the ellipsis never engages
+    min-width: 0;
+
+    @include truncate;
+  }
 
   // The dot is what let the border go. The fill is within 1.13:1 of a hovered row and so
   // carries no edge, but the dot is `--badge-fg`, which clears 4.5:1 on its own fill and

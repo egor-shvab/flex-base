@@ -119,9 +119,8 @@ function remove(field: IField) {
     // The tint's own text step, not `--color-text`: at 8.5:1 the chip reads as one
     // accent-coloured object rather than neutral text sitting on a blue patch.
     color: var(--color-text-on-accent-tint);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+
+    @include truncate;
   }
 
   &__field {
