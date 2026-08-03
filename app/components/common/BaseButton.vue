@@ -1,21 +1,35 @@
 <template>
-  <button
+  <component
+    :is="root"
     class="base-button"
     :class="[`base-button--${variant}`, { 'base-button--danger-tone': tone === 'danger' }]"
-    :type="type"
-    :disabled="disabled"
+    v-bind="rootProps"
     :aria-label="label"
     :title="label"
   >
     <Icon v-if="icon" :name="icon" class="base-button__icon" aria-hidden="true" />
     <slot />
-  </button>
+  </component>
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { computed } from 'vue'
+import type { Component } from 'vue'
+import { NuxtLink } from '#components'
+
+const props = withDefaults(
   defineProps<{
     type?: 'button' | 'submit'
+    /**
+     * Navigation target. Present — and not `disabled` — the control renders as a `<NuxtLink>`,
+     * i.e. a real `<a href>`, so middle-click, "copy link address" and the SSR'd markup all work.
+     * `variant` still decides the look: `variant="link"` is a *button* styled as a link, `to` is
+     * what makes it an actual one. Typed `string` rather than vue-router's `RouteLocationRaw` —
+     * that package is deliberately undeclared, and every link here is a path. An absolute URL
+     * needs no flag: `NuxtLink` renders one as a plain `<a rel="noopener noreferrer">` itself,
+     * and its own `target` / `rel` / `external` / `prefetch` arrive by attribute fallthrough.
+     */
+    to?: string
     variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'ghost' | 'link'
     disabled?: boolean
     /** Iconify name (e.g. `mdi:trash-can-outline`); renders an `<Icon>` before the slot. */
@@ -32,12 +46,33 @@ withDefaults(
   }>(),
   {
     type: 'button',
+    to: undefined,
     variant: 'primary',
     disabled: false,
     icon: undefined,
     label: undefined,
     tone: 'default',
   },
+)
+
+/**
+ * `disabled` wins over `to`, because a disabled link is not a link: an anchor has no `disabled`,
+ * and faking it (`aria-disabled` + `tabindex="-1"` + `pointer-events: none`) rebuilds by hand what
+ * the native attribute already does — including the `&:disabled` rule below.
+ */
+const isLink = computed(() => Boolean(props.to) && !props.disabled)
+
+// Widened to `Component | string` deliberately: an inline union in `:is` is the form that trips
+// `vue-tsc`, and nothing here needs the concrete component type.
+const root = computed<Component | string>(() => (isLink.value ? NuxtLink : 'button'))
+
+/**
+ * The two modes bind disjoint sets rather than one element emitting both: `type` is a MIME hint on
+ * an anchor, and `disabled` does not exist on one. Everything else — the class list, listeners, and
+ * `NuxtLink`'s own props — arrives by attribute fallthrough, forwarded by hand nowhere.
+ */
+const rootProps = computed(() =>
+  isLink.value ? { to: props.to } : { type: props.type, disabled: props.disabled },
 )
 </script>
 
@@ -61,6 +96,10 @@ withDefaults(
   font-weight: 500;
   line-height: var(--line-height-tight);
   color: inherit;
+  // A UA underlines an anchor, and no variant is underlined. Colour needs no counterpart:
+  // `color: inherit` above is an author declaration, so it outranks the UA's link and
+  // `:visited` colours by cascade origin — every variant then declares its own anyway.
+  text-decoration: none;
   cursor: pointer;
 
   @include focus-ring;

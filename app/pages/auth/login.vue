@@ -31,7 +31,7 @@
 
     <p class="auth-form__footer">
       No account yet?
-      <NuxtLink class="auth-form__link" to="/auth/register">Register</NuxtLink>
+      <NuxtLink class="text-link" to="/auth/register">Register</NuxtLink>
     </p>
   </form>
 </template>

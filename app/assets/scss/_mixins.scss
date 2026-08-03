@@ -40,6 +40,16 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   gap: rem($gap);
 }
 
+/// A horizontal cluster — the row counterpart to `stack`, for controls sharing a centre
+/// line. No `flex-wrap`: every cluster in the app keeps its controls on one line, and the
+/// row that must wrap is `page-header`, which bakes it in. Add it after the include if a
+/// caller ever needs it.
+@mixin cluster($gap: 16) {
+  display: flex;
+  align-items: center;
+  gap: rem($gap);
+}
+
 /// The caption above a form control.
 @mixin field-label {
   font-size: var(--font-size-sm);
@@ -90,9 +100,12 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   color: var(--color-danger);
 }
 
-/// A page's title row: heading on the left, actions on the right. Wraps rather than
-/// collides — the title is a user-supplied table name and the actions can be three
-/// controls wide, in a column narrowed by the sidebar.
+/// A page's title row: heading on the left, the remaining actions on the right. Either
+/// side may be one control or a `cluster` of them — the two table pages group the title
+/// with its primary action, the dashboard passes a bare button. A group on the left must
+/// carry `min-width: 0` itself, or `page-title`'s ellipsis cannot engage. Wraps rather
+/// than collides — the title is a user-supplied table name and the right side can be
+/// three controls wide, in a column narrowed by the sidebar.
 @mixin page-header {
   display: flex;
   align-items: center;
@@ -110,16 +123,4 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   font-size: var(--font-size-xl);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/// An inline navigation link in a page header.
-@mixin text-link {
-  font-size: var(--font-size-sm);
-  color: var(--color-accent);
-  text-decoration: none;
-
-  &:hover,
-  &:focus-visible {
-    text-decoration: underline;
-  }
 }

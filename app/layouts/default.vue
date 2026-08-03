@@ -84,10 +84,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   background: var(--color-canvas);
 
   &__header {
+    @include cluster;
+
     grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    gap: rem(16);
     padding: 0 rem(24);
     background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);

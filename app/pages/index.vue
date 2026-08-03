@@ -2,13 +2,13 @@
   <section class="dashboard">
     <header class="dashboard__header">
       <h1 class="dashboard__title">Your tables</h1>
-      <BaseButton @click="openCreateModal">New table</BaseButton>
+      <BaseButton @click="openCreateModal">Add table</BaseButton>
     </header>
 
     <BaseEmptyState v-if="tablesStore.tables.length === 0" title="No tables yet">
       A table is a list of things you want to keep track of — customers, deals, invoices.
       <template #action>
-        <BaseButton @click="openCreateModal">New table</BaseButton>
+        <BaseButton @click="openCreateModal">Add table</BaseButton>
       </template>
     </BaseEmptyState>
 

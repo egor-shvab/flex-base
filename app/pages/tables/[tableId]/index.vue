@@ -3,10 +3,14 @@
     <AppBreadcrumbs :items="breadcrumbs" />
 
     <header class="table-page__header">
-      <h1 class="table-page__title">{{ table?.name }}</h1>
+      <div class="table-page__header-main">
+        <h1 class="table-page__title">{{ table?.name }}</h1>
+        <BaseButton class="table-page__create" @click="openCreateField">Add field</BaseButton>
+      </div>
       <div class="table-page__header-actions">
-        <NuxtLink :to="`/tables/${tableId}/records`" class="table-page__link">Records</NuxtLink>
-        <BaseButton @click="openCreateField">Add field</BaseButton>
+        <BaseButton variant="ghost" icon="mdi:table" :to="`/tables/${tableId}/records`">
+          Records
+        </BaseButton>
       </div>
     </header>
 
@@ -98,7 +102,7 @@ useSeoMeta({ title: () => table.value?.name ?? 'Table' })
 const breadcrumbs = computed<IBreadcrumb[]>(() => [
   { label: 'Home', to: '/' },
   { label: table.value?.name ?? 'Table', to: `/tables/${tableId}/records` },
-  { label: 'Fields' },
+  { label: 'Settings' },
 ])
 
 const fieldModal = ref<TFieldModal | null>(null)
@@ -135,18 +139,24 @@ const {
     @include page-header;
   }
 
+  // `min-width: 0` — the group, not the `<h1>`, is the header's flex item. See the records
+  // page and `docs/decisions.md`.
+  &__header-main {
+    @include cluster;
+
+    min-width: 0;
+  }
+
   &__title {
     @include page-title;
   }
 
-  &__header-actions {
-    display: flex;
-    align-items: center;
-    gap: rem(16);
+  &__create {
+    flex: none;
   }
 
-  &__link {
-    @include text-link;
+  &__header-actions {
+    @include cluster;
   }
 }
 
@@ -159,18 +169,16 @@ const {
 }
 
 .field-row {
-  display: flex;
-  align-items: center;
-  gap: rem(16);
+  @include cluster;
+
   padding: rem(12) rem(16);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 
   &__main {
-    display: flex;
-    align-items: center;
-    gap: rem(8);
+    @include cluster(8);
+
     flex: 1;
     min-width: 0;
   }

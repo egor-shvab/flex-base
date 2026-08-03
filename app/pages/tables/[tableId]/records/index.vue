@@ -3,9 +3,26 @@
     <AppBreadcrumbs :items="breadcrumbs" />
 
     <header class="records-page__header">
-      <h1 class="records-page__title">{{ table?.name }}</h1>
+      <div class="records-page__header-main">
+        <h1 class="records-page__title">{{ table?.name }}</h1>
+        <BaseButton class="records-page__create" :disabled="!hasFields" @click="openCreateRecord">
+          Add record
+        </BaseButton>
+      </div>
       <div class="records-page__header-actions">
-        <NuxtLink :to="`/tables/${tableId}`" class="records-page__link">Fields</NuxtLink>
+        <div class="records-page__header-buttons">
+          <BaseButton variant="ghost" icon="mdi:cog-outline" :to="`/tables/${tableId}`">
+            Settings
+          </BaseButton>
+          <BaseButton
+            v-if="hasFields"
+            variant="ghost"
+            icon="mdi:filter-variant"
+            @click="filterPanelOpen = true"
+          >
+            Filters
+          </BaseButton>
+        </div>
         <BaseInput
           v-if="hasFields"
           id="records-search"
@@ -18,15 +35,6 @@
           :debounce="SEARCH_DEBOUNCE_MS"
           @update:model-value="applySearch"
         />
-        <BaseButton
-          v-if="hasFields"
-          variant="ghost"
-          icon="mdi:filter-variant"
-          @click="filterPanelOpen = true"
-        >
-          Filters
-        </BaseButton>
-        <BaseButton :disabled="!hasFields" @click="openCreateRecord">New record</BaseButton>
       </div>
     </header>
 
@@ -46,7 +54,7 @@
 
     <p v-if="recordsStore.failed" class="records-page__failed" role="alert">
       That view couldn’t be loaded. Check the web address, or
-      <NuxtLink :to="`/tables/${tableId}/records`" class="records-page__link">
+      <NuxtLink :to="`/tables/${tableId}/records`" class="text-link">
         start again with all records</NuxtLink
       >.
     </p>
@@ -55,7 +63,7 @@
     <div class="records-page__body">
       <BaseEmptyState v-if="!hasFields" class="records-page__empty">
         This table has no fields yet —
-        <NuxtLink :to="`/tables/${tableId}`" class="records-page__link">define its fields</NuxtLink>
+        <NuxtLink :to="`/tables/${tableId}`" class="text-link">define its fields</NuxtLink>
         before adding records.
       </BaseEmptyState>
 
@@ -70,7 +78,7 @@
           {{ emptyMessage }}
           <template #action>
             <BaseButton v-if="isNarrowed" @click="clearNarrowing">Show all records</BaseButton>
-            <BaseButton v-else @click="openCreateRecord">New record</BaseButton>
+            <BaseButton v-else @click="openCreateRecord">Add record</BaseButton>
           </template>
         </BaseEmptyState>
 
@@ -319,18 +327,36 @@ const {
     @include page-header;
   }
 
+  // The title and its primary action travel together, so this group — not the `<h1>` — is
+  // the header's flex item. `min-width: 0` is what lets `page-title`'s ellipsis engage: a
+  // flex item's automatic minimum is its content, and a nowrap heading contributes the
+  // whole untruncated table name. See `docs/decisions.md`.
+  &__header-main {
+    @include cluster;
+
+    min-width: 0;
+  }
+
   &__title {
     @include page-title;
   }
 
-  &__header-actions {
-    display: flex;
-    align-items: center;
-    gap: rem(16);
+  // `flex: none`, or the group's shrink is split in proportion to base size, the button
+  // reaches its min-content and wraps its label onto two lines. The title absorbs it all.
+  &__create {
+    flex: none;
   }
 
-  &__link {
-    @include text-link;
+  &__header-actions {
+    @include cluster;
+  }
+
+  // A ghost button is `padding: 0 rem(12)` over a transparent background, so its box edge
+  // is invisible and that padding reads as part of the gap: at the row's rem(16) these two
+  // sit 40px apart optically, against 28px between Filters and the bordered search box.
+  // rem(4) plus the two paddings is the same 28. Do not normalise it back to rem(16).
+  &__header-buttons {
+    @include cluster(4);
   }
 
   &__search {

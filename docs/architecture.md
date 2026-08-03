@@ -249,19 +249,24 @@ Only the modules whose contract is not obvious from their name.
 
 `app/assets/scss/` partials:
 
-| Partial           | Contents                                                                                                  |
-| ----------------- | --------------------------------------------------------------------------------------------------------- |
-| `_palette.scss`   | the primitive colour ramp as **SCSS variables** (`$gray-200`, `$blue-600`, …)                             |
-| `_variables.scss` | the public token surface: CSS custom properties built from the palette                                    |
-| `_reset.scss`     | reset/normalize + base typography + the global `:focus-visible` baseline                                  |
-| `_functions.scss` | the `rem()` helper                                                                                        |
-| `_mixins.scss`    | the shared style fragments + `$breakpoint-shell`; `@use`s `functions` itself and does not re-export it    |
-| `_auth-form.scss` | the shared `.auth-form` block; `@use`s `functions` and `mixins` itself                                    |
-| `main.scss`       | entry point — `@use`s `variables` / `reset` / `auth-form`, and must **not** re-`@use` functions or mixins |
+| Partial           | Contents                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `_palette.scss`   | the primitive colour ramp as **SCSS variables** (`$gray-200`, `$blue-600`, …)                                           |
+| `_variables.scss` | the public token surface: CSS custom properties built from the palette                                                  |
+| `_reset.scss`     | reset/normalize + base typography + the global `:focus-visible` baseline                                                |
+| `_functions.scss` | the `rem()` helper                                                                                                      |
+| `_mixins.scss`    | the shared style fragments + `$breakpoint-shell`; `@use`s `functions` itself and does not re-export it                  |
+| `_auth-form.scss` | the shared `.auth-form` block; `@use`s `functions` and `mixins` itself                                                  |
+| `_text-link.scss` | the global `.text-link` block; references only custom properties, so it `@use`s nothing                                 |
+| `main.scss`       | entry point — `@use`s `variables` / `reset` / `auth-form` / `text-link`, and must **not** re-`@use` functions or mixins |
 
 **Token surface:** semantic colour (`--color-canvas`, `--color-surface`/`-hover`/`-disabled`/`-muted`, `--color-text`/`-subtle`/`-on-accent`, `--color-accent`/`-hover`/`-active`/`-tint`, `--color-danger*`, `--color-border`/`-strong`/`-control`, `--color-focus`, `--color-scrim`, `--shadow-sm`/`-md`), geometry (`--radius-sm`/`-md`/`-lg`/`-pill`, `--control-height`, `--control-padding-x`, `--header-height`, `--sidebar-width`), type (`--font-size-xs…xl`, `--line-height-tight`/`-base`).
 
-**Mixins:** `focus-ring($offset)`, `below-shell`, `stack($gap)`, `field-label`, `field-error`, `form-control`, `error-banner`, `page-header`, `page-title`, `page-empty`, `text-link`.
+**Mixins:** `focus-ring($offset)`, `below-shell`, `stack($gap)`, `cluster($gap)`, `field-label`, `field-error`, `form-control`, `error-banner`, `page-header`, `page-title`.
+
+`stack($gap)` and `cluster($gap)` are the two layout primitives, a column and a row; neither declares `flex-wrap`. A `page-header` side passed as a `cluster` must carry `min-width: 0` itself — the group, not the `<h1>`, is the header's flex item, and `page-title`'s own `min-width: 0` only governs the title _inside_ the group.
+
+**`.text-link` is a class, not a mixin** — an inline navigation link _inside a sentence_, the one link look that is not a control. Anything standing on its own in an action row is a `BaseButton` with `to` instead.
 
 `form-control` splits the two focus signals: `:focus` recolours the border ("this field is active", including programmatic autofocus), `focus-ring` draws the ring ("you are on the keyboard"). Where a link fills a card, the **card** wears the ring via `:has(:focus-visible)` and the link suppresses its own.
 
@@ -278,9 +283,23 @@ Only the modules whose contract is not obvious from their name.
 | `icon`      | borderless icon-only; takes `icon` (iconify name) + `label` (aria-label/title)                                                     |
 | `link`      | bare text button for row actions — the chrome of a link, the semantics of a button                                                 |
 
+`ghost`'s horizontal padding is transparent, so nothing paints at its box edge and the padding reads as gap: space a ghost against a neighbour from the **ink**, not the box (`docs/decisions.md`).
+
 `primary`/`secondary`/`danger`/`ghost` are `min-height: var(--control-height)`, and `icon` takes it on **both** axes (`min-width` too, or it stays glyph-wide). `link` alone declares no height at all — it is a text run, and it is what sizes `.table-card__actions` and `.field-row`.
 
 A typed `tone?: 'default' | 'danger'` recolours hover for the `icon`/`link` variants via the internal `--hover-color` custom property, which each variant defaults for itself (`icon` → text, `link` → accent). Per-variant defaults are why this is a custom property rather than a `v-bind`.
+
+#### `variant` is the appearance; `to` is the element
+
+Passing `to` (a path string) makes the root a `<NuxtLink>` — a real `<a href>`, so middle-click, "copy link address" and the SSR'd markup all work — while every variant keeps its exact look. The two axes are independent on purpose: `variant="link"` is _a button that looks like a link_, `to="/x"` is _a link that looks like whatever `variant` says_.
+
+The modes bind **disjoint** props through one `rootProps` computed: button mode emits `type`/`disabled`, link mode emits `to`. `type` is a MIME hint on an anchor and `disabled` does not exist on one, so neither is ever rendered as a link. Everything else arrives by attribute fallthrough and the component forwards nothing by hand — including `target`, `rel`, `external` and `prefetch`, which are declared `NuxtLink` props and so resolve as props even when they fall through. An absolute URL needs no flag either: `NuxtLink` branches on `hasProtocol()` itself and renders a plain `<a rel="noopener noreferrer">` with no router involved.
+
+**`disabled` wins over `to`:** a disabled link renders `<button disabled>`, reusing the native inertness and the existing `&:disabled` rule rather than rebuilding them from `aria-disabled` + `tabindex="-1"` + `pointer-events: none`.
+
+A link activates on **Enter only** — Space scrolls the page. That is correct anchor behaviour, not a regression, and it is the one way a `to` button differs from the buttons beside it.
+
+The chassis gained `text-decoration: none` for this and nothing else. Colour needed no counterpart: `color: inherit` is an author declaration, so it outranks the UA's link and `:visited` colours by cascade origin — and every variant declares its own colour regardless.
 
 ### Other atoms worth knowing
 

@@ -24,8 +24,4 @@
     text-align: center;
     color: var(--color-text-secondary);
   }
-
-  &__link {
-    @include text-link;
-  }
 }
