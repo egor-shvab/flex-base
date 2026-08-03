@@ -194,11 +194,31 @@ That store holds the table being edited; loading another table's fields into it 
 
 ### Surfaces are split even where two share a value
 
-`--color-surface-hover` / `-disabled` / `-muted` are separate tokens today with the same value. The previous single `--color-bg` meant page background, row hover, disabled fill and chip fill at once; re-collapsing them just relocates that bug.
+`--color-surface-hover` / `-disabled` / `-muted` are separate tokens today with the same value, and `--color-surface-row-hover` / `--color-canvas` are a second such pair. The previous single `--color-bg` meant page background, row hover, disabled fill and chip fill at once; re-collapsing them just relocates that bug. The row-hover pair earns its split the hard way — see _The row wash is not the control wash_ below.
 
-### `--color-border-control` is separate from `--color-border-strong`
+### The row wash is not the control wash
 
-A divider only has to be visible; a control's outline is the only thing identifying the control, so it carries the 3:1 non-text contrast floor. Neither `$gray-200` (1.3:1) nor `$gray-300` (1.66:1) clears it — `$gray-400` (3.17:1) exists for exactly this. `BaseButton --secondary` is surface-on-surface, so its border is load-bearing.
+`--color-surface-row-hover` (`$gray-50`) is lighter than `--color-surface-hover` (`$gray-100`) because a hovered row is the one surface a **badge** has to survive. Every badge fill sits within 1.05:1 of `$gray-100`, so a row painted at the control-hover value erases the badge outright. Raising the badge fills instead would have broken their 4.5:1 text pairings; giving the badge a border back is what this change removed. The row is the thing that moved because it is the only one of the three with no other job.
+
+### The border ramp is four steps, by job
+
+`-subtle` is a rule **inside** a surface (a table's row divider), plain is structural (the box itself), `-strong` is a heavier structural job (a pinned column against columns sliding under it), and `-control` is the only one carrying a contrast floor: a control's outline is the only thing identifying the control, so it needs 3:1 non-text. Neither `$gray-200` (1.3:1) nor `$gray-300` (1.66:1) clears that — `$gray-400` (3.17:1) exists for exactly this. `BaseButton --secondary` is surface-on-surface, so its border is load-bearing. A row rule has no floor at all, which is why `-subtle` can be as light as it is.
+
+### A coloured badge carries a dot, not a border
+
+`BaseBadge` had a 1px border whose only job was surviving the hovered row. With the row wash lightened that job is gone, and the badge matches the design concept: fill, word, and an 8px dot in the `-fg` step.
+
+The dot is a `::before` with **empty** `content`, not the concept's `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word it sits beside, and `DynamicTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — CLAUDE.md §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
+
+The guard is `variant === 'chip' && color !== undefined`, so `--label` never draws one: it is a metadata marker with no hue to signal. The `color === undefined` half is the atom's own contract rather than a state the app currently reaches — a SELECT cell always resolves to a real hue, because `badgeColorFor` falls back to `DEFAULT_BADGE_COLOR` for a value the field no longer offers. A choice renamed after records were written therefore renders **grey with a grey dot**, not untinted. Do not "simplify" the guard to `color !== undefined` on the strength of that: `--label` is reachable, and it is what the second half is for.
+
+The padding moved `rem(1) rem(7)` → `rem(2) rem(8)` in the same change, absorbing the pixel the border gave up so the box keeps the size the row height is built around. Do not "tidy" it back to a round number.
+
+`BaseColorPicker` keeps the border on its swatches, and that asymmetry is the point: a swatch is pure colour with no word beside it, so its edge is the only thing bounding it. It is now the sole consumer of the `-border` step.
+
+### The accent and danger tints are opaque
+
+Both were `rgb(… / 8%)`. A translucent tint composites against whatever is under it, and each of these lands on `--color-surface` _and_ `--color-canvas` — the ghost button's hover, the filter chip, and the error banner all appear on both. Flat steps (`$blue-tint`, `$red-tint`) make the two renderings identical; the danger banner on canvas went 4.66:1 → 4.92:1 as a side effect. The comment that used to justify the alpha form ("a custom property's alpha cannot be modified in CSS") explained why they were _spelled out_, not why they were translucent.
 
 ### Breakpoints live in `_mixins.scss`, in `em`
 
@@ -360,3 +380,4 @@ The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for th
 | **Renaming a SELECT choice orphans the records holding the old text**, which then render as a neutral badge                       | A choice's identity is its own text, so the whole SQL layer stays out of it. The stale value keeps its text rather than blanking, and nothing errors                                                                                                                                           | **Accepted** — an option id buys nothing for colour        |
 | **Choice colours do not show in the record form or the filter dropdown**, only in table cells                                     | Both are a native `<select>`, and `<option>` fills are not styleable across browsers. Showing colour there means a full ARIA listbox — and inside `DynamicTable`, whose scroll container would clip it                                                                                         | **Open** — UX, wants a custom listbox                      |
 | **The colour popover always opens below its trigger and never flips**                                                             | It is 254×110 inside a centred dialog, so the case needs a viewport short enough to matter. Flipping means measuring, which is the anchor-positioning machinery the app has so far not needed                                                                                                  | **Open** — small                                           |
+| **A badge's fill is ~1.1:1 against a hovered row**, so the pill shape barely reads there                                          | The badge draws no border by design. The dot (its `-fg` step, ≥6:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings                                                          | **Accepted** — the word carries the meaning                |

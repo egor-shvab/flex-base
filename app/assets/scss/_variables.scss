@@ -10,22 +10,35 @@
 // inside them — so every `rem()` call here must be interpolated with `#{}`.
 :root {
   // ── Surfaces ──────────────────────────────────────────────────────────────
-  // Three of these share one value today, deliberately: a disabled field, a chip
-  // and a hovered row are different jobs and will diverge. Collapsing them is what
-  // made the previous `--color-bg` mean four unrelated things at once.
+  // Two sets of these share a value today, deliberately: a hovered control, a disabled
+  // field and a chip at `$gray-100`, and a hovered row and the page at `$gray-50`. They
+  // are different jobs and will diverge. Collapsing them is what made the previous
+  // `--color-bg` mean four unrelated things at once.
   --color-canvas: #{$gray-50};
   --color-surface: #{$white};
   --color-surface-hover: #{$gray-100};
   --color-surface-disabled: #{$gray-100};
   --color-surface-muted: #{$gray-100};
+  // The wash a hovered *row* takes, deliberately lighter than the control hover above.
+  // A badge draws no border of its own and every badge fill sits within 1.05:1 of
+  // `--color-surface-hover`, so a row painted at that value erases the fill outright.
+  --color-surface-row-hover: #{$gray-50};
 
   // ── Text ──────────────────────────────────────────────────────────────────
   --color-text: #{$gray-900};
   --color-text-secondary: #{$gray-600};
   --color-text-subtle: #{$gray-500};
   --color-text-on-accent: #{$white};
+  // The pair to the line above: text on the *tint* rather than on the accent fill. The
+  // deepest accent step, so a tinted chip reads as one accent-coloured object instead of
+  // neutral text that happens to sit on a blue patch.
+  --color-text-on-accent-tint: #{$blue-800};
 
   // ── Borders ───────────────────────────────────────────────────────────────
+  // A rule *inside* a surface — a table's row divider — where the surface's own border,
+  // header rule and pinned edge already do the structural work. Separate from
+  // `--color-border` so softening a row rule cannot soften the box that contains it.
+  --color-border-subtle: #{$gray-150};
   --color-border: #{$gray-200};
   --color-border-strong: #{$gray-300};
   // Separate from `-strong`: a divider only has to be visible, but a control's outline is
@@ -33,22 +46,25 @@
   --color-border-control: #{$gray-400};
 
   // ── Accent & danger ───────────────────────────────────────────────────────
-  // The tints are spelled out rather than derived: a custom property's alpha
-  // cannot be modified in CSS.
+  // Both tints are flat steps rather than the accent at 8% alpha. A translucent tint
+  // composites against whatever is under it, and each of these lands on `--color-surface`
+  // *and* on `--color-canvas` — the ghost button's hover, the filter chip, and the error
+  // banner all appear on both. Opaque, the two renderings are identical.
   --color-accent: #{$blue-600};
   --color-accent-hover: #{$blue-700};
   --color-accent-active: #{$blue-800};
-  --color-accent-tint: rgb(28 100 216 / 8%);
+  --color-accent-tint: #{$blue-tint};
   --color-danger: #{$red-600};
   --color-danger-hover: #{$red-700};
   --color-danger-active: #{$red-800};
-  --color-danger-tint: rgb(198 40 40 / 8%);
+  --color-danger-tint: #{$red-tint};
 
   // ── Badge hues ────────────────────────────────────────────────────────────
   // The closed set a SELECT choice is coloured from. Stored as a name (`blue`), never as
   // a value, so the choice survives a re-theme — and so a user can never pick a pairing
   // that fails contrast. `BaseBadge` composes these names into `var()` references; the
-  // set is defined here and nowhere else.
+  // set is defined here and nowhere else. `BaseBadge` reads `-bg` and `-fg` (its dot is
+  // painted from `-fg`); `-border` is `BaseColorPicker`'s alone.
   --color-badge-gray-bg: #{$badge-gray-bg};
   --color-badge-gray-border: #{$badge-gray-border};
   --color-badge-gray-fg: #{$badge-gray-fg};
@@ -88,10 +104,13 @@
   --focus-ring-offset: #{rem(2)};
 
   // ── Overlay & elevation ───────────────────────────────────────────────────
-  // Keyed off the text neutral rather than pure black, and only two of them.
+  // Keyed off the text neutral rather than pure black, and only two of them. Both are
+  // light because neither is load-bearing: what separates a dialog from the page is
+  // `--color-scrim`, and every surface carrying `--shadow-sm` also carries a real border.
+  // The shadow is the lift, not the edge.
   --color-scrim: rgb(31 33 38 / 45%);
-  --shadow-sm: 0 1px 2px rgb(31 33 38 / 8%);
-  --shadow-md: 0 8px 24px rgb(31 33 38 / 14%);
+  --shadow-sm: 0 1px 2px rgb(31 33 38 / 6%);
+  --shadow-md: 0 6px 20px rgb(31 33 38 / 12%);
 
   // ── Geometry ──────────────────────────────────────────────────────────────
   --radius-sm: #{rem(4)};

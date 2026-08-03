@@ -12,6 +12,10 @@
 $white: #fff;
 $gray-50: #f7f8fa;
 $gray-100: #eef0f3;
+// The rule *inside* a surface — the divider between table rows. Lighter than $gray-200
+// on purpose: a row rule sits within a box whose own border already carries the
+// structure, so it only has to separate, not to bound.
+$gray-150: #e8eaee;
 $gray-200: #dcdfe4;
 $gray-300: #c4c9d1;
 // 3.17:1 on white — the floor for a control boundary that is the only thing identifying
@@ -25,24 +29,32 @@ $gray-900: #1f2126;
 $blue-600: #1c64d8;
 $blue-700: #1750b0;
 $blue-800: #123f8c;
+// The flat wash behind accent-coloured text. A real step rather than the accent at 8%
+// alpha: a translucent tint composites to a different colour on every surface under it,
+// and this one lands on both `--color-surface` and `--color-canvas`.
+$blue-tint: #e7eefc;
 
 // Danger
 $red-600: #c62828;
 $red-700: #a51f1f;
 $red-800: #8c1a1a;
+// Opaque for the same reason as $blue-tint — the error banner appears on both surfaces.
+$red-tint: #fdeceb;
 
 // Categorical hues — the badge palette a SELECT choice is coloured from. A separate ramp
 // from the accent and danger steps above on purpose: those are interaction colours, and
 // retuning the accent must never silently retint a user's data.
 //
-// Three steps per hue. `bg` is the badge fill, `fg` the text on it, `border` its edge —
-// and the edge is load-bearing rather than decorative: every `bg` sits within 1.05:1 of
-// `--color-surface-hover`, so on a hovered table row the fill alone is invisible.
+// Three steps per hue, read by two different components. `bg` is the badge fill and `fg`
+// is both its text *and* its dot — `BaseBadge` paints the dot from `currentColor`, so the
+// hue survives on any surface even though the fill barely registers on one. `border` is
+// consumed by `BaseColorPicker` alone: a swatch is colour with no word beside it, so its
+// edge is the only thing bounding it, where a badge is bounded by the word it contains.
 //
 // Verified: every `fg` on its own `bg` clears 4.5:1 (5.65 lowest, green), and every
 // `border` clears the 3:1 non-text floor against *both* the white surface (3.47 lowest)
-// and the hovered row (3.04 lowest) — the second is what the edge is tuned to, since the
-// hovered row is the darker background and the one the fill vanishes into.
+// and `--color-surface-hover` (3.04 lowest) — the second is the binding one, because the
+// picker's trigger takes that wash and the swatch has to survive it.
 $badge-gray-bg: #e9ebef;
 $badge-gray-border: #848a94;
 $badge-gray-fg: #41474f;

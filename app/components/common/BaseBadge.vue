@@ -1,5 +1,9 @@
 <template>
-  <span class="base-badge" :class="{ 'base-badge--label': variant === 'label' }" :style="tint">
+  <span
+    class="base-badge"
+    :class="{ 'base-badge--label': variant === 'label', 'base-badge--dot': hasDot }"
+    :style="tint"
+  >
     <slot />
   </span>
 </template>
@@ -25,29 +29,56 @@ const props = withDefaults(
 // Undefined leaves the SCSS defaults below in place, which is what `--label` and an
 // uncoloured chip render as.
 const tint = computed(() => (props.color === undefined ? undefined : badgeTint(props.color)))
+
+// Both conditions, never colour alone: `--label` is a metadata marker with no hue to
+// signal, and an uncoloured chip is a SELECT choice that has since been renamed away —
+// a dot with no hue behind it would assert a status the value no longer has.
+const hasDot = computed(() => props.variant === 'chip' && props.color !== undefined)
 </script>
 
 <style lang="scss" scoped>
 .base-badge {
-  // The defaults every badge starts from; `color` overrides the trio from the template.
+  // The defaults every badge starts from; `color` overrides the pair from the template.
+  // `badgeTint` also emits `--badge-border`, which only `BaseColorPicker` reads.
   --badge-bg: var(--color-surface-muted);
-  --badge-border: transparent;
   --badge-fg: var(--color-text);
 
   display: inline-flex;
   align-items: center;
-  // The border is what keeps a badge legible on a hovered table row: `--color-surface-hover`
-  // and the neutral fill are the same value, and every tint sits within 1.05:1 of it, so the
-  // fill alone carries no edge. The block padding gives up its 1px to pay for it.
-  padding: rem(1) rem(7);
-  border: 1px solid var(--badge-border);
+  // 2/8 rather than 1/7 plus a 1px border: the border is gone and the padding absorbs the
+  // pixel it used to give up, so the box keeps the size every table row is built around.
+  padding: rem(2) rem(8);
   border-radius: var(--radius-pill);
   background: var(--badge-bg);
   font-size: var(--font-size-sm);
   color: var(--badge-fg);
 
+  // The dot is what let the border go. The fill is within 1.13:1 of a hovered row and so
+  // carries no edge, but the dot is `--badge-fg`, which clears 4.5:1 on its own fill and
+  // 6:1 on any surface it can land on — the hue survives where the fill does not.
+  //
+  // A pseudo-element rather than an `<i>`: an empty `content` contributes no accessible
+  // object, so the dot stays the redundant encoding it is (the word carries the meaning),
+  // and `DynamicTable` does not pay a DOM node per SELECT cell. A glyph would be wrong
+  // twice over — §8 bans text glyphs as icons, and a non-empty `content` string does
+  // reach the accessibility tree.
+  &--dot {
+    gap: rem(8);
+
+    &::before {
+      content: '';
+      flex: none;
+      width: rem(8);
+      height: rem(8);
+      border-radius: 50%;
+      background: currentcolor;
+    }
+  }
+
+  // The same +1px on each axis as the chip above — this variant never declared a border
+  // of its own, it inherited the base rule's, so it shrinks unless its padding moves too.
   &--label {
-    padding: rem(1) rem(5);
+    padding: rem(2) rem(6);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-xs);
     text-transform: uppercase;

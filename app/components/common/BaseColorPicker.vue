@@ -166,6 +166,9 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
     }
   }
 
+  // Bordered where `BaseBadge` is not, and this is the reason: a swatch is pure colour
+  // with no word beside it, so its edge is the only thing that bounds it and identifies
+  // the hue. That makes this component the sole consumer of the `-border` step.
   &__preview {
     width: rem(18);
     height: rem(18);

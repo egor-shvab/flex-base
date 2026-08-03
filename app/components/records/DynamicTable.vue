@@ -141,8 +141,11 @@ $pinned-gutter: rem(20);
     white-space: nowrap;
   }
 
+  // `-subtle`, not `--color-border`: a rule between rows sits *inside* a surface whose own
+  // border, sticky-header rule and pinned-column edge already carry the structure. Those
+  // three stay on the heavier tokens.
   td {
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border-subtle);
   }
 
   // An explicit height, so no single cell defines the row — before this the action cell's
@@ -247,19 +250,23 @@ $pinned-gutter: rem(20);
     border-bottom: none;
   }
 
+  // `-row-hover`, not the control hover: a SELECT cell's badge draws no border, and at
+  // `--color-surface-hover` the row is the same value as the badge fill, which erases it.
   tbody tr:hover {
-    background: var(--color-surface-hover);
+    background: var(--color-surface-row-hover);
 
     // The pinned cell paints its own background, so it has to follow the row — otherwise
     // the hovered row has a white notch at its right edge
     .dynamic-table__actions {
-      background: var(--color-surface-hover);
+      background: var(--color-surface-row-hover);
     }
   }
 
-  // A text role, not a border one — the border token here was ~1.5:1
+  // A text role, not a border one — the border token here was ~1.5:1. `-secondary` rather
+  // than `-subtle`: this is real content, and `-subtle` is 3.9:1 on a hovered row, under
+  // the 4.5:1 body-text floor.
   &__blank {
-    color: var(--color-text-subtle);
+    color: var(--color-text-secondary);
   }
 
   &__number-head,
@@ -272,11 +279,11 @@ $pinned-gutter: rem(20);
   // `border-left` for the same reason the header's rule is — `border-collapse: collapse`
   // paints a real border with the table, so it would scroll away instead of riding with
   // the cell.
-  // The divider is `-strong`, not the `--color-border` used between rows: it separates a
-  // frozen column from columns sliding underneath it, which is a heavier job than a row
-  // rule. A tinted fill was the alternative and was rejected — `--color-surface-muted` is
-  // the same value as `--color-surface-hover`, so it would have swallowed the row hover,
-  // and `--color-accent-tint` already means "selected" everywhere else.
+  // The divider is `-strong`, not the `--color-border-subtle` used between rows: it
+  // separates a frozen column from columns sliding underneath it, which is a heavier job
+  // than a row rule. A tinted fill was the alternative and was rejected — it would have to
+  // restate the row wash to avoid swallowing it, and `--color-accent-tint` already means
+  // "selected" everywhere else.
   &__actions {
     position: sticky;
     right: 0;
