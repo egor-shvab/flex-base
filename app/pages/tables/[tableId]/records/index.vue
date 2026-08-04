@@ -29,6 +29,7 @@
           class="records-page__search"
           :model-value="queryParams.search"
           type="text"
+          icon="mdi:magnify"
           aria-label="Search this table"
           placeholder="Search…"
           trim
