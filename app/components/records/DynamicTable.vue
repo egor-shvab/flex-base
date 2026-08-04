@@ -102,7 +102,7 @@ function ariaSort(field: IField): 'ascending' | 'descending' | 'none' {
 }
 
 function sortIcon(field: IField): string {
-  if (props.sort?.key !== field.key) return 'mdi:unfold-more-horizontal'
+  if (props.sort?.key !== field.key) return 'mdi:code-tags'
   return props.sort.dir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
 }
 </script>
@@ -251,8 +251,8 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
       color: var(--color-accent);
     }
 
-    // Keyboard focus reveals the affordance too — on hover alone it is invisible
-    // to anyone who is not using a pointer
+    // Keyboard focus lights it too — on hover alone the affordance only ever fully resolves
+    // for a pointer.
     &:hover .dynamic-table__sort-icon,
     &:focus-visible .dynamic-table__sort-icon {
       opacity: 1;
@@ -277,10 +277,26 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
   &__sort-icon {
     // Never squeezed out by a label sitting at its cap
     flex: none;
-    opacity: 0;
+    // `mdi:code-tags` is `< >` — 20×12 of its 24 viewBox. A quarter turn makes it 12×20: a
+    // chevron pointing up stacked over one pointing down, which is what a sortable column
+    // means. `transform` is not a layout property, so the flex box stays square and no
+    // column changes width.
+    transform: rotate(90deg);
+    // Always visible: this header is the app's only sort affordance, and a hover-revealed
+    // one does not exist on a touch device. Quiet by transparency rather than a colour step
+    // because the icon has to mute whatever it currently inherits — the header's
+    // `--color-text-secondary` at rest, the button's accent under the pointer.
+    //
+    // 0.35 composites to ~#C6C8CD, about 1.67:1 — deliberately under the 3:1 non-text floor
+    // in CLAUDE.md §8, as a hint rather than a control outline. Registered in
+    // `docs/decisions.md` → Accepted limitations; do not raise it back on contrast grounds
+    // alone without reading that entry first.
+    opacity: 0.35;
     transition: opacity 0.15s ease;
 
     &--active {
+      // A direction arrow must not be turned on its side
+      transform: none;
       opacity: 1;
       color: var(--color-accent);
     }
