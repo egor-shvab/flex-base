@@ -1,5 +1,11 @@
 import { z } from 'zod'
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, SEARCH_MIN_LENGTH } from '#shared/constants/filter'
+import {
+  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_KEY,
+  FILTER_LIST_MAX,
+  FILTER_VALUE_BY_TYPE,
+  SEARCH_MIN_LENGTH,
+} from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { IRecordQueryParams, TRecordData, TRecordValue } from '#shared/types/record'
@@ -143,13 +149,34 @@ export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQuery
       const raw = params[name]
       if (raw === undefined) continue
 
-      // A repeated param arrives as an array — one value per filter, so that is malformed
+      const schema = buildFilterValueSchema(field)
+
+      // A list is the one shape that may repeat its param; every other one takes exactly one
+      // value, so an array there is malformed rather than generous
+      if (FILTER_VALUE_BY_TYPE[field.type].shape === 'list') {
+        const entries = Array.isArray(raw) ? raw : [raw]
+
+        if (entries.length > FILTER_LIST_MAX) {
+          ctx.addIssue({ code: 'custom', path: [name], message: 'Too many filter values' })
+          continue
+        }
+
+        for (const entry of entries) {
+          if (typeof entry !== 'string' || (entry !== '' && !schema.safeParse(entry).success)) {
+            ctx.addIssue({ code: 'custom', path: [name], message: 'Invalid filter value' })
+            break
+          }
+        }
+
+        continue
+      }
+
       if (typeof raw !== 'string') {
         ctx.addIssue({ code: 'custom', path: [name], message: 'Filter takes a single value' })
         continue
       }
 
-      if (raw !== '' && !buildFilterValueSchema(field).safeParse(raw).success) {
+      if (raw !== '' && !schema.safeParse(raw).success) {
         ctx.addIssue({ code: 'custom', path: [name], message: 'Invalid filter value' })
       }
     }

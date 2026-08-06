@@ -43,6 +43,14 @@ export const RESERVED_QUERY_PARAMS = [
 export const SEARCH_MIN_LENGTH = 2
 
 /**
+ * How many values one list-shaped filter may carry. A repeated param is the only place a
+ * single filter can grow without bound, and every value becomes a term of an `IN (…)`, so a
+ * crafted URL would otherwise compose arbitrarily large SQL. Well above any realistic choice
+ * count — this is a ceiling, not a product rule.
+ */
+export const FILTER_LIST_MAX = 50
+
+/**
  * The same keys, as the field-key guard reads them: `slugify` only ever emits `^[a-z0-9_]+$`,
  * so these are already unreachable — stating the reservation keeps that true if the slug rules
  * ever change.
@@ -62,7 +70,9 @@ export const FILTER_VALUE_BY_TYPE: {
   NUMBER: { shape: 'range', empty: { from: null, to: null } },
   BOOLEAN: { shape: 'scalar', empty: null },
   DATE: { shape: 'range', empty: { from: null, to: null } },
-  SELECT: { shape: 'scalar', empty: '' },
+  // Several choices at once, ORed in SQL. The empty *array* is what tells the control it is
+  // a multi-select — the shape is declared once here and read everywhere else.
+  SELECT: { shape: 'list', empty: [] },
   // The target record's id — a picker offers the candidates, so it compares exactly
   RELATION: { shape: 'scalar', empty: '' },
 }

@@ -55,6 +55,10 @@
           v-model="form.targetTableId"
           label="Links to table"
           :options="targetOptions"
+          searchable
+          placeholder="Select a table"
+          clearable
+          empty-label="No other tables yet"
           :error="errors.targetTableId"
           :disabled="mode === 'edit'"
         />
@@ -63,6 +67,10 @@
           v-model="form.labelFieldKey"
           label="Show which field"
           :options="labelOptions"
+          searchable
+          placeholder="Select a field"
+          clearable
+          empty-label="That table has no fields to label by"
           :error="errors.labelFieldKey"
         />
       </template>
@@ -154,10 +162,17 @@ const tablesStore = useTablesStore()
 // real shape. The list is refreshed here so the modal stays self-contained.
 onMounted(() => tablesStore.fetchTables())
 
-const targetOptions = computed(() => [
-  { value: '', label: '— Select a table —' },
-  ...tablesStore.tables.map((table) => ({ value: table.id, label: table.name })),
-])
+// No blank entry any more: a placeholder says "nothing chosen" without posing as a choice,
+// and `clearable` is how the choice is taken back.
+//
+// Both this and `labelOptions` are marked `searchable` unconditionally rather than counted
+// with `shouldSearch`: they arrive after mount, so a derived value would start `false`,
+// render a `<button>`, and flip to an `<input>` when the fetch lands — swapping the focused
+// element out from under the user. A stable branch beats an accurate one, and neither list
+// has an upper bound anyway.
+const targetOptions = computed(() =>
+  tablesStore.tables.map((table) => ({ value: table.id, label: table.name })),
+)
 
 /**
  * The target's own fields, fetched directly rather than through the fields store — that store
@@ -171,10 +186,9 @@ const labelCandidates = computed(() =>
   targetFields.value.filter((field) => field.type !== 'RELATION'),
 )
 
-const labelOptions = computed(() => [
-  { value: '', label: '— Select a field —' },
-  ...labelCandidates.value.map((field) => ({ value: field.key, label: field.name })),
-])
+const labelOptions = computed(() =>
+  labelCandidates.value.map((field) => ({ value: field.key, label: field.name })),
+)
 
 watch(
   () => form.targetTableId,

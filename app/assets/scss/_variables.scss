@@ -136,8 +136,11 @@
   --z-scrim: 40;
   --z-sidebar: 50;
   --z-modal: 100;
-  // Above the dialog, but scoped inside it: `.base-modal` is positioned and carries
-  // `--z-modal`, so it forms a stacking context a popover within it can never escape.
+  // Above the dialog, and now for two different reasons. `BaseColorPicker` renders in place:
+  // `.base-modal` is positioned and carries `--z-modal`, so it forms a stacking context its
+  // panel can never escape, and 110 only orders it within that. `BaseSelect` teleports to
+  // `<body>`, which makes its panel a *sibling* of `.base-modal` in the root stacking
+  // context — there 110 > 100 is what actually puts it over the dialog.
   --z-popover: 110;
 
   // ── Type ──────────────────────────────────────────────────────────────────

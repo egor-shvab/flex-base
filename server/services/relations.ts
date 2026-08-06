@@ -1,5 +1,6 @@
 import { createError } from 'h3'
-import { buildRecordLabelOrderBy } from '#server/services/record-query'
+import { Prisma } from '#server/generated/prisma/client'
+import { buildRecordLabelOrderBy, buildRecordLabelSearch } from '#server/services/record-query'
 import { prisma } from '#server/utils/prisma'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
@@ -140,22 +141,31 @@ export async function assertRelationTargets(fields: IField[], data: TRecordData)
 }
 
 /**
- * The candidates a relation picker offers, label-ascending. Bounded like every other list —
- * a dropdown is not a place to render a whole table — which is the MVP's known limit here.
+ * The candidates a relation picker offers, label-ascending, optionally narrowed by a term the
+ * user typed. Bounded like every other list — a dropdown is not a place to render a whole
+ * table — so the cap applies to the *matches*, which is what search is for: a target past the
+ * first `RELATION_OPTIONS_LIMIT` is reached by naming it rather than by scrolling to it.
+ *
+ * The ORDER BY is deliberately untouched by the search: narrowing and ordering are separate
+ * questions, and folding the term into the sort would silently reorder every existing picker.
  */
-export async function listRelationOptions(field: IField): Promise<IRecordOption[]> {
+export async function listRelationOptions(field: IField, search = ''): Promise<IRecordOption[]> {
   const targetTableId = field.options?.targetTableId
   if (targetTableId === undefined) return []
+
+  const labelFieldKey = field.options?.labelFieldKey
+  const searchGroup = buildRecordLabelSearch(labelFieldKey, search)
 
   const rows = await prisma.$queryRaw<ITargetRow[]>`
     SELECT id, "number", data FROM "Record"
     WHERE "tableId" = ${targetTableId}
-    ORDER BY ${buildRecordLabelOrderBy(field.options?.labelFieldKey)}
+    ${searchGroup ? Prisma.sql`AND ${searchGroup}` : Prisma.empty}
+    ORDER BY ${buildRecordLabelOrderBy(labelFieldKey)}
     LIMIT ${RELATION_OPTIONS_LIMIT}
   `
 
   return rows.map((row) => ({
     id: row.id,
-    label: buildRecordLabel(toLabelSource(row), field.options?.labelFieldKey),
+    label: buildRecordLabel(toLabelSource(row), labelFieldKey),
   }))
 }

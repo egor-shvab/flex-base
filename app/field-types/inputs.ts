@@ -4,7 +4,8 @@ import BaseInput from '~/components/common/BaseInput.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import type { TFieldType } from '#shared/types/field'
-import { choiceValues } from '#shared/utils/field'
+import { choiceOptions } from '#shared/utils/field'
+import { shouldSearch } from '~/utils/select'
 import type { TRecordFieldControl } from '~/field-types/types'
 
 /**
@@ -62,14 +63,17 @@ export const FIELD_INPUTS: Record<TFieldType, TRecordFieldControl> = {
     component: markRaw(BaseSelect),
     props: (field) => ({
       label: field.name,
-      // The blank option is always offered so a null value is never displayed as a real
-      // choice — a required field relies on the schema to reject it.
-      // A native `<option>` cannot carry the choice's colour — `option` fills are not
-      // styleable across browsers — so colour is a table-cell affordance for now.
-      options: [
-        { value: '', label: '— Select —' },
-        ...choiceValues(field).map((choice) => ({ value: choice, label: choice })),
-      ],
+      // No blank option: a placeholder says "nothing chosen" without pretending to be a
+      // choice, and `clearable` is how a value is taken back. A required field still relies
+      // on the schema to reject the empty case.
+      // The choices carry their colour now — an option row can be tinted where an
+      // `<option>` could not be.
+      options: choiceOptions(field),
+      // The registry knows how many choices there are, so the search box is its decision
+      searchable: shouldSearch(choiceOptions(field).length),
+      placeholder: '— Select —',
+      clearable: true,
+      emptyLabel: 'No choices defined',
     }),
     ...blankIsNull,
   },
@@ -77,7 +81,12 @@ export const FIELD_INPUTS: Record<TFieldType, TRecordFieldControl> = {
   // reading the field's metadata — the only entry whose component is not a `Base*` atom
   RELATION: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => ({ label: field.name, fieldId: field.id, blankLabel: '— Select —' }),
+    props: (field) => ({
+      label: field.name,
+      fieldId: field.id,
+      placeholder: '— Select —',
+      clearable: true,
+    }),
     ...blankIsNull,
   },
 }

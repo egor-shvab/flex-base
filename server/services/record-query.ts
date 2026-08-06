@@ -7,7 +7,12 @@ import {
   UPDATED_AT_KEY,
 } from '#shared/constants/filter'
 import type { IRecordSort, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
-import { isRangeFilterValue, queryFields } from '#shared/utils/filter'
+import {
+  isListFilterValue,
+  isRangeFilterValue,
+  isScalarFilterValue,
+  queryFields,
+} from '#shared/utils/filter'
 
 /**
  * Prisma cannot order by a JSON path, so the record list is composed as SQL. Field keys
@@ -32,10 +37,20 @@ function toContainsPattern(value: TFilterValue): string {
 type TFilterSql = (expr: Prisma.Sql, value: TFilterValue) => Prisma.Sql | null
 
 const matchesPartially: TFilterSql = (expr, value) =>
-  isRangeFilterValue(value) ? null : Prisma.sql`${expr} ILIKE ${toContainsPattern(value)}`
+  isScalarFilterValue(value) ? Prisma.sql`${expr} ILIKE ${toContainsPattern(value)}` : null
 
 const matchesExactly: TFilterSql = (expr, value) =>
-  isRangeFilterValue(value) ? null : Prisma.sql`${expr} = ${value}`
+  isScalarFilterValue(value) ? Prisma.sql`${expr} = ${value}` : null
+
+/**
+ * Any of several values, which is what a list-shaped filter means — picking two choices
+ * matches either. `IN (…)` carries its own parentheses, so unlike the OR group in
+ * `buildRecordSearch` this cannot bind to a sibling range's last bound.
+ */
+const matchesAny: TFilterSql = (expr, value) =>
+  isListFilterValue(value) && value.length > 0
+    ? Prisma.sql`${expr} IN (${Prisma.join(value)})`
+    : null
 
 const withinRange: TFilterSql = (expr, value) => {
   if (!isRangeFilterValue(value)) return null
@@ -105,7 +120,9 @@ const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
   // Stored as `YYYY-MM-DD`, so text comparison is already chronological — and searching
   // `2026-07` naturally matches a month
   DATE: { expr: jsonText, searchExpr: jsonText, filter: withinRange },
-  SELECT: { expr: jsonText, searchExpr: jsonText, filter: matchesExactly },
+  // Several choices at once, ORed — the only list-shaped filter. Search still matches the
+  // stored text, which is the choice's own label.
+  SELECT: { expr: jsonText, searchExpr: jsonText, filter: matchesAny },
   // Filters on the stored id — the picker's own value — but reads and orders by its label.
   // Not searchable: the stored value is a cuid, and matching the label instead would mean
   // `targetLabel`'s correlated subquery per row — two detoasts, a PK descent and a random
@@ -238,4 +255,29 @@ export function buildRecordLabelOrderBy(labelFieldKey?: string): Prisma.Sql {
   if (labelFieldKey === undefined) return Prisma.sql`"createdAt" DESC`
 
   return Prisma.sql`${jsonText(labelFieldKey)} ASC NULLS LAST, "createdAt" DESC`
+}
+
+/**
+ * How a relation picker's candidates are narrowed by a typed term: the label field the
+ * options are built from, plus the `#number` that `buildRecordLabel` falls back to when that
+ * field is blank — so a record reading as `#42` is found by typing `42`, exactly as the
+ * `recordNumber` filter already behaves.
+ *
+ * Parenthesised on its own for the same reason `buildRecordSearch` is: an OR group must
+ * never be able to bind to a sibling condition's last term.
+ */
+export function buildRecordLabelSearch(
+  labelFieldKey: string | undefined,
+  search: string,
+): Prisma.Sql | null {
+  if (search === '') return null
+
+  const pattern = toContainsPattern(search)
+  const arms: Prisma.Sql[] = [Prisma.sql`('#' || "number"::text) ILIKE ${pattern}`]
+
+  if (labelFieldKey !== undefined) {
+    arms.push(Prisma.sql`${jsonText(labelFieldKey)} ILIKE ${pattern}`)
+  }
+
+  return Prisma.sql`(${Prisma.join(arms, ' OR ')})`
 }

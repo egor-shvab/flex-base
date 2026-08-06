@@ -179,6 +179,8 @@ Rationale for all three: `docs/decisions.md`.
 - Data fetching chain: page/component → `useAsyncData`/store action → `useApi()`. **Never bare `$fetch`** — it drops cookies during SSR. Surface request errors with `getApiErrorMessage`.
 - Forms use the `useForm` composable — reactive fields, per-field zod errors that clear on edit, form-level server error, `pending`, `submit`, `reset`.
 - Deleting anything from a list page goes through `useDeleteConfirm`, not a hand-rolled pending flag.
+- A popover goes through `usePopover` (+ `useAnchoredPosition` where it must escape a clipping ancestor), never a hand-rolled open/outside-click/focus-restore trio.
+- **A popover swallows Escape only while it has something open.** `BaseModal` owns the `document` listener, so one keypress must never close both. Where focus lives inside the panel, `@keydown.esc.stop` on the panel says that structurally — the panel only exists while open. Where the control keeps focus _outside_ its panel (a combobox), the modifier is wrong: it would make a **closed** control eat the surrounding dialog's Escape. There, handle the key in JS and call `stopPropagation()` only when `open`.
 - **Every async surface states its condition.** Loading, empty, and error are distinct states with distinct copy — never infer "empty" from "unknown". A failed fetch is visible (banner + retry), never a silently stale view.
 - **Never ship a dead control.** A visible input or button that cannot do anything yet is worse than its absence.
 
@@ -258,7 +260,7 @@ A new field type touches exactly these places — and nothing else:
 1. The `FieldType` enum in `prisma/schema.prisma` (+ migration).
 2. `FIELD_TYPES` + `FIELD_TYPE_LABELS` in `shared/constants/field.ts`. `TFieldType` derives from it.
 3. `shared/validation/field.ts` — one zod branch for its `options` (plus the matching branch in `buildOptions`, `server/services/fields.ts`, if it stores options); `shared/validation/record.ts` — one `VALUE_SCHEMA_BY_TYPE` entry (`base` schema + `blank` value + `fromQuery` decoder).
-4. `shared/constants/filter.ts` — one `FILTER_VALUE_BY_TYPE` entry (`shape`: `scalar`/`range`, and `empty` value), plus its shape in `IFilterValueByType` (`shared/types/filter.ts`).
+4. `shared/constants/filter.ts` — one `FILTER_VALUE_BY_TYPE` entry (`shape`: `scalar`/`list`/`range`, and `empty` value), plus its shape in `IFilterValueByType` (`shared/types/filter.ts`).
 5. `app/field-types/` — one entry each in `FIELD_INPUTS`, `FIELD_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES`, plus **one** cell component in `cells/`.
 6. `server/services/record-query.ts` — one `FIELD_SQL_BY_TYPE` entry: its SQL projection (`expr`), how that projection is compared (`filter`), how free-text search matches it (`searchExpr`, `null` to opt out), and `sortExpr` only if it orders differently from how it filters.
 

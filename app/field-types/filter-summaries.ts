@@ -2,7 +2,7 @@ import { BOOLEAN_LABELS } from '#shared/constants/field'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
-import { isRangeFilterValue } from '#shared/utils/filter'
+import { isListFilterValue, isRangeFilterValue } from '#shared/utils/filter'
 import { formatDateProse, formatNumber } from '~/utils/format'
 
 /**
@@ -80,7 +80,13 @@ export const FILTER_SUMMARIES: Record<TFieldType, TFilterSummary> = {
       (to) => `until ${to}`,
     ),
 
-  SELECT: (value) => `is ${String(value)}`,
+  // The only list-shaped filter. One choice reads as an equality because that is what it is;
+  // several read as the OR the SQL actually runs, rather than a count the user must expand.
+  SELECT: (value) => {
+    if (!isListFilterValue(value) || value.length === 0) return ''
+
+    return value.length === 1 ? `is ${value[0]}` : `is any of ${value.join(', ')}`
+  },
 
   // The only entry needing state beyond its own value. A filtered id outside the capped
   // candidate list resolves to nothing, and degrades the same way a cell does.

@@ -1,11 +1,18 @@
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, FILTER_VALUE_BY_TYPE } from '#shared/constants/filter'
+import {
+  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_KEY,
+  FILTER_LIST_MAX,
+  FILTER_VALUE_BY_TYPE,
+} from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterParamRole, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import type { TQueryParams } from '#shared/types/query'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IRecordQueryState, TRecordValue } from '#shared/types/record'
 import {
   claimFilterParams,
   isFilterValueEmpty,
+  isListFilterValue,
   isRangeFilterValue,
   queryFields,
   rangeParamName,
@@ -17,6 +24,18 @@ import { buildFilterValueSchema } from '#shared/validation/record'
 function filterParamValue(query: Record<string, unknown>, name: string): string | null {
   const raw = query[name]
   return typeof raw === 'string' && raw !== '' ? raw : null
+}
+
+/**
+ * Every value a repeated param carries (`?stage=Won&stage=Lost`). A router hands one repeat
+ * over as a bare string and several as an array, so both are read here; empties are dropped
+ * for the same reason `filterParamValue` drops them.
+ */
+function filterParamValues(query: Record<string, unknown>, name: string): string[] {
+  const raw = query[name]
+  const list = Array.isArray(raw) ? raw : [raw]
+
+  return list.filter((entry): entry is string => typeof entry === 'string' && entry !== '')
 }
 
 /**
@@ -33,6 +52,25 @@ function toRange(from: TRecordValue, to: TRecordValue): INumberRange | IDateRang
 }
 
 /**
+ * Every decoded value of a repeated param, deduplicated and capped. The cap is the codec's
+ * own, not a restatement of the schema's: this reader also runs on the client over an
+ * unvalidated `route.query`, where nothing has rejected a crafted link yet.
+ */
+function toList(field: IField, query: Record<string, unknown>, name: string): string[] {
+  const schema = buildFilterValueSchema(field)
+  const decoded = new Set<string>()
+
+  for (const raw of filterParamValues(query, name)) {
+    const parsed = schema.safeParse(raw)
+    // SELECT is the only list-shaped type and its schema is an enum of its choices, so a
+    // decoded value is always a string — the guard is what proves that to the compiler
+    if (parsed.success && typeof parsed.data === 'string') decoded.add(parsed.data)
+  }
+
+  return [...decoded].slice(0, FILTER_LIST_MAX)
+}
+
+/**
  * Decodes the filter params into one typed value per filtered field, in field order, so the
  * map — and the URL built back from it — stays stable. Shared, so the client's panel and the
  * server's query read a link identically. Values that do not decode are dropped; the query
@@ -40,11 +78,19 @@ function toRange(from: TRecordValue, to: TRecordValue): INumberRange | IDateRang
  */
 function parseFilterValues(fields: IField[], query: Record<string, unknown>): TRecordFilterValues {
   const partsByKey = new Map<string, Partial<Record<TFilterParamRole, TRecordValue>>>()
+  const listsByKey = new Map<string, string[]>()
   // The record's own columns filter alongside its table's fields, so the seam is applied
   // here rather than by each caller — the page and the endpoint decode a link identically
   const columns = queryFields(fields)
 
   for (const { field, role, name } of claimFilterParams(columns)) {
+    // A list claims one param name and reads every repeat of it, so it collects whole
+    // rather than by role — there is only ever one slot
+    if (FILTER_VALUE_BY_TYPE[field.type].shape === 'list') {
+      listsByKey.set(field.key, toList(field, query, name))
+      continue
+    }
+
     const raw = filterParamValue(query, name)
     if (raw === null) continue
 
@@ -59,13 +105,19 @@ function parseFilterValues(fields: IField[], query: Record<string, unknown>): TR
   const values: TRecordFilterValues = {}
 
   for (const field of columns) {
+    const { shape } = FILTER_VALUE_BY_TYPE[field.type]
+
+    if (shape === 'list') {
+      const list = listsByKey.get(field.key)
+      if (list !== undefined && !isFilterValueEmpty(list)) values[field.key] = list
+      continue
+    }
+
     const parts = partsByKey.get(field.key)
     if (parts === undefined) continue
 
     const value: TFilterValue =
-      FILTER_VALUE_BY_TYPE[field.type].shape === 'range'
-        ? toRange(parts.from ?? null, parts.to ?? null)
-        : (parts.value ?? null)
+      shape === 'range' ? toRange(parts.from ?? null, parts.to ?? null) : (parts.value ?? null)
 
     if (!isFilterValueEmpty(value)) values[field.key] = value
   }
@@ -102,13 +154,20 @@ export function parseRecordQueryState(
 /**
  * The inverse, for building a URL: `{ company: 'acme', contract_value_from: '100' }`.
  * A param's name follows from the value's shape — a range spreads to its two bounds,
- * a scalar takes the field's bare key.
+ * a scalar takes the field's bare key, a list repeats that key once per value.
  */
-function toFilterParams(values: TRecordFilterValues): Record<string, string> {
-  const params: Record<string, string> = {}
+function toFilterParams(values: TRecordFilterValues): TQueryParams {
+  const params: TQueryParams = {}
 
   for (const [key, value] of Object.entries(values)) {
     if (isFilterValueEmpty(value)) continue
+
+    if (isListFilterValue(value)) {
+      // Sorted, so the same selection always writes the same URL however it was clicked —
+      // which is what keeps `recordQueryKey` from reporting a change nobody made
+      params[key] = [...value].sort()
+      continue
+    }
 
     if (isRangeFilterValue(value)) {
       if (value.from !== null) params[rangeParamName(key, 'from')] = String(value.from)
@@ -127,8 +186,8 @@ function toFilterParams(values: TRecordFilterValues): Record<string, string> {
  * and the API request, so a shared link and the fetch behind it can never diverge.
  * Defaults are omitted, keeping an unfiltered view a clean link.
  */
-export function toRecordQueryParams(state: IRecordQueryState): Record<string, string> {
-  const params: Record<string, string> = { ...toFilterParams(state.filters) }
+export function toRecordQueryParams(state: IRecordQueryState): TQueryParams {
+  const params: TQueryParams = { ...toFilterParams(state.filters) }
 
   // After the filter spread, like the three below: a legacy field keyed `search` must not
   // overwrite the reserved param (`claimFilterParams` already stops it being read back)
@@ -145,13 +204,17 @@ export function toRecordQueryParams(state: IRecordQueryState): Record<string, st
  * rather than on a changed object. `parseRecordQueryState` returns a fresh object on every
  * `route.query` change, so a watcher on it would refetch the whole list when a param the list
  * does not own — the open detail dialog — moves. Keys are sorted, so param order cannot
- * fabricate a change either.
+ * fabricate a change either; a repeated param's values were already sorted on the way out,
+ * so `?stage=Won&stage=Lost` and `?stage=Lost&stage=Won` key identically.
  */
 export function recordQueryKey(state: IRecordQueryState): string {
   const params = toRecordQueryParams(state)
 
   return Object.keys(params)
     .sort()
-    .map((name) => `${name}=${params[name]}`)
+    .map((name) => {
+      const value = params[name]
+      return `${name}=${Array.isArray(value) ? value.join(',') : value}`
+    })
     .join('&')
 }

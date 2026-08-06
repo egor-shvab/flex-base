@@ -1,7 +1,7 @@
 <template>
-  <div ref="root" class="base-color-picker">
+  <div ref="containerRef" class="base-color-picker">
     <button
-      ref="trigger"
+      ref="triggerRef"
       type="button"
       class="base-color-picker__trigger"
       :aria-label="`${label}: ${BADGE_COLOR_LABELS[model]}`"
@@ -9,7 +9,7 @@
       :aria-expanded="open"
       :aria-controls="panelId"
       :disabled="disabled"
-      @click="toggle"
+      @click="onToggle"
     >
       <span class="base-color-picker__preview" :style="badgeTint(model)" />
     </button>
@@ -17,11 +17,13 @@
     <!--
       Plain absolute positioning, no teleport and no measurement: the only surface this
       opens inside is `BaseModal`'s `dialog` variant, which declares no `overflow` on the
-      scrim, the dialog or the body, so nothing clips the panel.
+      scrim, the dialog or the body, so nothing clips the panel. `BaseSelect` is the case
+      that needs `useAnchoredPosition` and a teleport; this one still does not.
     -->
     <div
       v-if="open"
       :id="panelId"
+      ref="panelRef"
       class="base-color-picker__panel"
       role="radiogroup"
       :aria-label="label"
@@ -55,8 +57,9 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { nextTick, ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
+import { usePopover } from '~/composables/usePopover'
 import { badgeTint } from '~/utils/badge-tint'
 import { BADGE_COLORS, BADGE_COLOR_LABELS } from '#shared/constants/color'
 import type { TBadgeColor } from '#shared/types/color'
@@ -72,11 +75,14 @@ withDefaults(
 
 const model = defineModel<TBadgeColor>({ required: true })
 
-const panelId = useId()
-const root = ref<HTMLDivElement>()
-const trigger = ref<HTMLButtonElement>()
+/**
+ * Escape is handled on the panel with `.stop` rather than by the composable — this opens
+ * inside a `BaseModal`, whose own Escape listener is on `document`, and one keypress must not
+ * close both. See `usePopover`'s own note.
+ */
+const { open, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } = usePopover()
+
 const options = ref<HTMLButtonElement[]>([])
-const open = ref(false)
 
 // The list is a module constant, so an index never moves and a stale entry is always
 // overwritten by the next mount.
@@ -88,21 +94,10 @@ function focusSelected() {
   options.value[BADGE_COLORS.indexOf(model.value)]?.focus()
 }
 
-/**
- * Closes and hands focus back — for Escape and for picking a colour.
- *
- * Escape reaches this from a handler on the panel carrying `.stop`, not from `document`:
- * this opens inside a `BaseModal`, whose own Escape listener *is* on `document`, and one
- * keypress must not close both. Stopping the event at the panel is what keeps the two
- * independent, which holds because focus is always inside the panel while it is open.
- */
-function dismiss() {
-  open.value = false
-  trigger.value?.focus()
-}
-
-function toggle() {
-  open.value = !open.value
+// Focus lands on the selected swatch rather than on the panel, so the roving tabindex has
+// somewhere to rove from
+function onToggle() {
+  toggle()
   if (open.value) void nextTick(focusSelected)
 }
 
@@ -123,18 +118,6 @@ function step(delta: number) {
   const next = BADGE_COLORS.indexOf(model.value) + delta
   jump((next + BADGE_COLORS.length) % BADGE_COLORS.length)
 }
-
-function onPointerDown(event: PointerEvent) {
-  // No focus restore here: the pointer has already chosen where focus should go.
-  if (!root.value?.contains(event.target as Node)) open.value = false
-}
-
-watch(open, (isOpen) => {
-  if (isOpen) document.addEventListener('pointerdown', onPointerDown)
-  else document.removeEventListener('pointerdown', onPointerDown)
-})
-
-onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown))
 </script>
 
 <style lang="scss" scoped>

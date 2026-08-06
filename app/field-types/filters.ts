@@ -6,14 +6,14 @@ import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { BOOLEAN_LABELS } from '#shared/constants/field'
 import type { TFieldType } from '#shared/types/field'
 import type { IFilterValueByType } from '#shared/types/filter'
-import { choiceValues } from '#shared/utils/field'
+import { choiceOptions } from '#shared/utils/field'
+import { shouldSearch } from '~/utils/select'
 import type { IFieldControl } from '~/field-types/types'
 
 /** A typed query input must not hit the API on every keystroke. */
 const FILTER_DEBOUNCE_MS = 300
 
 const BOOLEAN_FILTER_OPTIONS = [
-  { value: '', label: 'All' },
   { value: 'true', label: BOOLEAN_LABELS.true },
   { value: 'false', label: BOOLEAN_LABELS.false },
 ]
@@ -43,9 +43,15 @@ export const FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByTyp
   },
   BOOLEAN: {
     component: markRaw(BaseSelect),
-    props: (field) => ({ label: field.name, options: BOOLEAN_FILTER_OPTIONS }),
-    // A `<select>` speaks strings, and `null` is "All" — a two-state control cannot
-    // express "either", so the absent choice has to carry it.
+    props: (field) => ({
+      label: field.name,
+      options: BOOLEAN_FILTER_OPTIONS,
+      placeholder: 'All',
+      clearable: true,
+    }),
+    // The control speaks strings, and `null` is "All" — a two-state control cannot express
+    // "either", so the *absence* of a choice carries it. Clearing emits `''`, which is why
+    // these two adapters are unchanged by the move off a native `<select>`.
     toControl: (value) => (value === null ? '' : String(value)),
     fromControl: (model) => (model === 'true' ? true : model === 'false' ? false : null),
   },
@@ -53,21 +59,31 @@ export const FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByTyp
     component: markRaw(BaseRange),
     props: (field) => ({ label: field.name, type: 'date', debounce: FILTER_DEBOUNCE_MS }),
   },
+  // The only list-shaped filter: several choices at once, ORed. No adapters, because the
+  // control's model already *is* the filter value — `string[]` on both sides.
   SELECT: {
     component: markRaw(BaseSelect),
     props: (field) => ({
       label: field.name,
       // The choices come from the field's own metadata, so the list needs no extra request
-      options: [
-        { value: '', label: 'All' },
-        ...choiceValues(field).map((choice) => ({ value: choice, label: choice })),
-      ],
+      options: choiceOptions(field),
+      // The registry knows how many choices there are, so the search box is its decision
+      searchable: shouldSearch(choiceOptions(field).length),
+      multiple: true,
+      placeholder: 'All',
+      clearable: true,
+      emptyLabel: 'No choices defined',
     }),
   },
   // The same picker the form uses, so a filter offers exactly what a record can link to.
   // Its model is already the filter value — the target record's id — so no adapters.
   RELATION: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => ({ label: field.name, fieldId: field.id, blankLabel: 'All' }),
+    props: (field) => ({
+      label: field.name,
+      fieldId: field.id,
+      placeholder: 'All',
+      clearable: true,
+    }),
   },
 }

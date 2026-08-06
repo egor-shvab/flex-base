@@ -41,8 +41,8 @@ export function queryFields(fields: IField[]): IField[] {
 
 /**
  * Filters travel as plain query params named after the field: a scalar takes the field's
- * bare key, a range spreads to these two suffixes —
- * `?company=acme&contract_value_from=100&contract_value_to=500`.
+ * bare key, a list repeats that same key once per value, a range spreads to these two
+ * suffixes — `?company=acme&stage=Won&stage=Lost&contract_value_from=100`.
  */
 const RANGE_PARAM_SUFFIX = { from: '_from', to: '_to' } as const
 
@@ -66,6 +66,7 @@ function filterParamSlots(
     ]
   }
 
+  // `scalar` and `list` share this: a list is the same param, repeated
   return [{ role: 'value', name: fieldKey }]
 }
 
@@ -96,13 +97,34 @@ export function claimFilterParams(
   return slots
 }
 
+/**
+ * `!Array.isArray` is load-bearing, not defensive: an array *is* a non-null object, so
+ * without it a list-shaped value would narrow to a range and be read for bounds it does
+ * not have. Every guard over `TFilterValue` has to separate the two object shapes.
+ */
 export function isRangeFilterValue(value: TFilterValue): value is INumberRange | IDateRange {
-  return typeof value === 'object' && value !== null
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function isListFilterValue(value: TFilterValue): value is string[] {
+  return Array.isArray(value)
+}
+
+/**
+ * Neither a range nor a list — the single-value shapes a scalar comparison can accept.
+ * Stated positively so a comparison guards on what it *wants* rather than on the one other
+ * shape that existed when it was written; a third shape has now been added once.
+ */
+export function isScalarFilterValue(
+  value: TFilterValue,
+): value is string | number | boolean | null {
+  return !isRangeFilterValue(value) && !isListFilterValue(value)
 }
 
 /** "Not filtered", whatever the value's shape — a blank input never reaches the query. */
 export function isFilterValueEmpty(value: TFilterValue): boolean {
   if (value === null) return true
+  if (isListFilterValue(value)) return value.length === 0
   if (isRangeFilterValue(value)) return value.from === null && value.to === null
   return typeof value === 'string' ? value.trim() === '' : false
 }

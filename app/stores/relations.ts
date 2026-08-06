@@ -18,6 +18,14 @@ export const useRelationsStore = defineStore('relations', () => {
   const optionsByField = ref<Record<string, IRecordOption[]>>({})
   const labelsByField = ref<Record<string, Record<string, string>>>({})
 
+  /**
+   * Which table's endpoint answers for a relation field. Remembered here rather than added to
+   * `IField`, which carries no `tableId` on purpose: `recordColumn()` synthesises fields for
+   * `Record #` / `Created at` / `Updated at` that belong to no field row and would have to
+   * invent one. `loadOptions` already receives it, so this is the one place that knows.
+   */
+  const tableIdByField = ref<Record<string, string>>({})
+
   function cacheLabels(labels: Record<string, Record<string, string>>) {
     for (const [fieldId, fieldLabels] of Object.entries(labels)) {
       labelsByField.value[fieldId] = { ...labelsByField.value[fieldId], ...fieldLabels }
@@ -37,6 +45,7 @@ export const useRelationsStore = defineStore('relations', () => {
         const response = await api<{ options: IRecordOption[] }>(
           `/api/tables/${tableId}/fields/${field.id}/options`,
         )
+        tableIdByField.value[field.id] = tableId
         optionsByField.value[field.id] = response.options
         cacheLabels({
           [field.id]: Object.fromEntries(
@@ -55,5 +64,44 @@ export const useRelationsStore = defineStore('relations', () => {
     return labelsByField.value[fieldId]?.[recordId]
   }
 
-  return { optionsByField, labelsByField, cacheLabels, loadOptions, optionsFor, labelFor }
+  /**
+   * The candidates matching a typed term, straight from the server — how a picker reaches a
+   * record beyond the capped seed list.
+   *
+   * It deliberately does **not** write `optionsByField`: that is the seed every other
+   * consumer of `optionsFor()` reads, and a search result would clobber it. It does cache
+   * the labels, so a record found only through a search still renders as its label in a
+   * cell afterwards without a second round trip.
+   */
+  async function searchOptions(
+    fieldId: string,
+    term: string,
+    signal: AbortSignal,
+  ): Promise<IRecordOption[]> {
+    const tableId = tableIdByField.value[fieldId]
+    // Never seeded — nothing has told this store which table answers for the field
+    if (tableId === undefined) return []
+
+    const response = await api<{ options: IRecordOption[] }>(
+      `/api/tables/${tableId}/fields/${fieldId}/options`,
+      { query: { q: term }, signal },
+    )
+
+    cacheLabels({
+      [fieldId]: Object.fromEntries(response.options.map((option) => [option.id, option.label])),
+    })
+
+    return response.options
+  }
+
+  return {
+    optionsByField,
+    labelsByField,
+    tableIdByField,
+    cacheLabels,
+    loadOptions,
+    searchOptions,
+    optionsFor,
+    labelFor,
+  }
 })
