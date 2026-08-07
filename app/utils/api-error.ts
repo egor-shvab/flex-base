@@ -1,12 +1,22 @@
 import type { FetchError } from 'ofetch'
 
+/**
+ * Blank counts as absent. `??` alone skips only `null`/`undefined`, so a `statusMessage: ''`
+ * used to win over a perfectly good `message` and render an empty error box. The type check
+ * closes the same hole from the other side: `data` is untyped at runtime, and a non-string
+ * message would otherwise be returned from a `string`-typed function.
+ */
+function nonBlank(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined
+}
+
 /** Nitro's `createError` puts the message on `data`; anything else gets a generic fallback. */
 export function getApiErrorMessage(error: unknown): string {
-  const fetchError = error as FetchError
+  const data = (error as FetchError)?.data
 
   return (
-    fetchError?.data?.statusMessage ??
-    fetchError?.data?.message ??
+    nonBlank(data?.statusMessage) ??
+    nonBlank(data?.message) ??
     'Something went wrong. Please try again.'
   )
 }
