@@ -10,6 +10,7 @@ import {
   isFilterValueEmpty,
   isListFilterValue,
   isRangeFilterValue,
+  isReservedParam,
   queryFields,
   rangeParamName,
 } from '#shared/utils/filter'
@@ -144,8 +145,10 @@ export function parseRecordQueryState(
     },
     filters: parseFilterValues(fields, query),
     // `singleParam` already collapses an empty param, a repeat and an absence to `undefined`,
-    // so `?search=` reads as "not searching" exactly like an absent one
-    search: singleParam(query.search) ?? '',
+    // so `?search=` reads as "not searching" exactly like an absent one. Trimmed for the same
+    // reason a scalar filter is — a crafted `?search=%20%20` is blank, not a two-space term —
+    // which also keeps this state matching the term the schema and the SQL will actually use.
+    search: (singleParam(query.search) ?? '').trim(),
   }
 }
 
@@ -185,10 +188,17 @@ function toFilterParams(values: TRecordFilterValues): TQueryParams {
  * Defaults are omitted, keeping an unfiltered view a clean link.
  */
 export function toRecordQueryParams(state: IRecordQueryState): TQueryParams {
-  const params: TQueryParams = { ...toFilterParams(state.filters) }
+  const params: TQueryParams = {}
 
-  // After the filter spread, like the three below: a legacy field keyed `search` must not
-  // overwrite the reserved param (`claimFilterParams` already stops it being read back)
+  // A filter never writes a reserved param — the exact counterpart of `claimFilterParams`
+  // never reading one back, so a legacy field keyed `search` or `detail` can neither leak its
+  // value into the reserved slot nor claim one. Dropped rather than left to be overwritten by
+  // the assignments below: those only fire when the value differs from its default, so on the
+  // default view (`search: ''`, `page: 1`) there is nothing to overwrite it with.
+  for (const [name, value] of Object.entries(toFilterParams(state.filters))) {
+    if (!isReservedParam(name)) params[name] = value
+  }
+
   if (state.search) params.search = state.search
   if (state.page > 1) params.page = String(state.page)
   if (state.sort.key !== DEFAULT_SORT_KEY) params.sort = state.sort.key

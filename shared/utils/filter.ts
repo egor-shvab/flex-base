@@ -99,6 +99,16 @@ export function filterParamNames(fieldKey: string, type: TFieldType): string[] {
   return filterParamSlots(fieldKey, type).map((slot) => slot.name)
 }
 
+const RESERVED_PARAM_NAMES: ReadonlySet<string> = new Set(RESERVED_QUERY_PARAMS)
+
+/**
+ * A param the records URL owns. One definition read by both halves of the codec: a reserved
+ * name is never claimed by a field on the way in, and never written from one on the way out.
+ */
+export function isReservedParam(name: string): boolean {
+  return RESERVED_PARAM_NAMES.has(name)
+}
+
 /**
  * Maps a table's fields to the query params they own, skipping any name already claimed —
  * reserved params first, then fields in order. Field keys created since the param format
@@ -107,7 +117,7 @@ export function filterParamNames(fieldKey: string, type: TFieldType): string[] {
 export function claimFilterParams(
   fields: IField[],
 ): { field: IField; role: TFilterParamRole; name: string }[] {
-  const claimed = new Set<string>(RESERVED_QUERY_PARAMS)
+  const claimed = new Set<string>(RESERVED_PARAM_NAMES)
   const slots = []
 
   for (const field of fields) {
@@ -119,6 +129,26 @@ export function claimFilterParams(
   }
 
   return slots
+}
+
+/**
+ * The columns whose filter can actually round-trip — every field claiming at least one param.
+ * A legacy field keyed like a reserved one (`search`, `page`, …) claims nothing at all, so its
+ * value can never survive the URL; the filter drawer and the summary render from this rather
+ * than from `queryFields` so that no control is offered for a filter that cannot be applied.
+ *
+ * Only *filtering* is affected. Such a field still sorts and still renders as a column: the
+ * sort key travels as the **value** of `?sort=`, where a reserved name collides with nothing.
+ *
+ * `createField` has refused these keys since the param format landed, so this only ever
+ * subtracts anything for data older than that.
+ */
+export function filterableFields(fields: IField[]): IField[] {
+  // By identity rather than by key: two legacy fields can share a key, and `claimFilterParams`
+  // resolves that to the *first* of them — which is the one that must keep its control
+  const claimed = new Set(claimFilterParams(fields).map((slot) => slot.field))
+
+  return fields.filter((field) => claimed.has(field))
 }
 
 /**

@@ -41,7 +41,12 @@
 import { computed } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
-import { emptyFilterValueFor, isFilterValueEmpty, queryFields } from '#shared/utils/filter'
+import {
+  emptyFilterValueFor,
+  filterableFields,
+  isFilterValueEmpty,
+  queryFields,
+} from '#shared/utils/filter'
 import { summaryFor } from '~/field-types/filter-summaries'
 import { useRelationsStore } from '~/stores/relations'
 
@@ -62,7 +67,8 @@ const emit = defineEmits<{
 
 const relations = useRelationsStore()
 
-const columns = computed(() => queryFields(props.fields))
+/** The same columns the drawer offers — a filter it cannot set is one this cannot chip. */
+const columns = computed(() => filterableFields(queryFields(props.fields)))
 
 /**
  * Walks the table's columns and looks each one up in the filter map — never

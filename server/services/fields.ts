@@ -1,10 +1,9 @@
 import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
+import { buildFieldKey } from '#server/utils/field-key'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
-import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
-import { RESERVED_FIELD_KEYS, RESERVED_QUERY_PARAMS } from '#shared/constants/filter'
-import { filterParamNames } from '#shared/utils/filter'
+import type { IField, IFieldOptions } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
 
 export const fieldSelect = {
@@ -35,31 +34,6 @@ function toFieldOptions(options: TFieldRow['options']): IFieldOptions | null {
 /** The same, for a whole row: the shape every layer above the database speaks. */
 export function toFieldMetadata(field: TFieldRow): IField {
   return { ...field, options: toFieldOptions(field.options) }
-}
-
-/** Machine key from a display name: lowercase, non-alphanumerics → `_`. */
-function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'field'
-  )
-}
-
-/**
- * A key must be free for every query param it would claim, not just for itself: filters
- * are named after the field (`price`, `price_from`, `price_to`), so a key may collide
- * with a reserved param or with another field's range bound.
- */
-function uniqueKey(base: string, type: TFieldType, taken: Set<string>): string {
-  const isFree = (key: string) =>
-    !taken.has(key) && filterParamNames(key, type).every((name) => !taken.has(name))
-
-  if (isFree(base)) return base
-  let suffix = 2
-  while (!isFree(`${base}_${suffix}`)) suffix++
-  return `${base}_${suffix}`
 }
 
 /**
@@ -113,11 +87,6 @@ export async function createField(tableId: string, input: TFieldInput): Promise<
     where: { tableId },
     select: { key: true, type: true, order: true },
   })
-  const takenKeys = new Set<string>([
-    ...RESERVED_QUERY_PARAMS,
-    ...RESERVED_FIELD_KEYS,
-    ...existing.flatMap((field) => [field.key, ...filterParamNames(field.key, field.type)]),
-  ])
   const maxOrder = existing.reduce((max, field) => Math.max(max, field.order), -1)
 
   try {
@@ -125,7 +94,7 @@ export async function createField(tableId: string, input: TFieldInput): Promise<
       data: {
         tableId,
         name: input.name,
-        key: uniqueKey(slugify(input.name), input.type, takenKeys),
+        key: buildFieldKey(input.name, input.type, existing),
         type: input.type,
         required: input.required,
         options: buildOptions(input),

@@ -12,9 +12,19 @@ node_modules
 # Prisma generated client
 server/generated
 
+# Test coverage reports
+coverage
+
 # Logs
 logs
 *.log
+
+# Claude Code — local state (throwaway worktrees under .claude/worktrees, personal settings).
+# Ignored by default so nothing the tool drops here has to be noticed; the two shared configs
+# are checked in and stay so. A new file here needs a matching negation to be committable.
+.claude/*
+!.claude/launch.json
+!.claude/settings.json
 
 # Misc
 .DS_Store

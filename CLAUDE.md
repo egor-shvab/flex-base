@@ -43,6 +43,9 @@ Two rules are non-negotiable:
 ```bash
 npm run dev          # start dev server at http://localhost:3000
 npm run typecheck    # vue-tsc only (~7s) — the fast inner-loop type gate
+npm run test          # vitest run — the unit suite (~2s); no database, no browser
+npm run test:watch    # vitest in watch mode
+npm run test:coverage # vitest run --coverage (v8) — reporting only, no threshold gate
 npm run build        # production build — also runs vue-tsc; a TS error fails the build (~30s)
 npm run preview      # preview a production build locally
 npm run lint         # eslint
@@ -68,7 +71,7 @@ A change is finished only when, in order:
 1. `npm run format` has been run;
 2. `npx eslint .` passes;
 3. `npm run build` passes;
-4. tests covering the changed logic are added or updated (once a runner exists — see §10);
+4. `npm run test` passes, with tests covering the changed logic added or updated (§10);
 5. for any interactive or visual change: the keyboard path works, the focus ring is visible, and every target is at least `--control-height` (never below the 24×24 WCAG floor);
 6. the change has been verified working in the running app (dev server);
 7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
@@ -279,13 +282,22 @@ Full contracts for each registry: `docs/architecture.md`.
 
 ## 10. Testing
 
-**No test runner is configured yet. Adding one is current-phase work, not deferred.** The intended stack is **Vitest** (unit: the URL codec, the SQL builder, the zod schemas — the pure logic that is currently verified by throwaway scripts) and **Playwright** (E2E over the auth-gated pages).
+**Vitest is configured and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/` and `server/services/` ship with tests. **Playwright is not set up yet** — E2E over the auth-gated pages is the next piece of testing work.
 
-Until then the safety net is **CI + the type system**: `.github/workflows/ci.yml` runs `format:check` → `lint` → `typecheck` → `build` on every push to `main`/`develop` and on every PR, and the total `Record<TFieldType, …>` registries make an unhandled field type a compile error rather than a runtime surprise.
+`.github/workflows/ci.yml` runs `format:check` → `lint` → `typecheck` → `test` → `build` on every push to `main`/`develop` and on every PR. Alongside it, the total `Record<TFieldType, …>` registries still make an unhandled field type a compile error rather than a runtime surprise.
 
-Once Vitest exists, changes to `shared/utils/`, `shared/validation/` and `server/services/` ship with tests, and step 4 of the definition of done becomes binding.
+### Rules
 
-Behavioural changes are meanwhile verified by driving the running app. The manual regression checklist for the metadata layer is in `docs/architecture.md`.
+- **Specs are colocated** — `shared/utils/record-query.spec.ts` sits beside its source. That is what puts them inside the `include` globs Nuxt generates, so `npm run typecheck` checks them too.
+- **`vitest.config.ts` is a plain Vite config**, not `@nuxt/test-utils`. The suite is `environment: 'node'` with no DOM: nothing under test touches Vue, the browser or Nuxt's runtime. The first component or composable test is what earns `@nuxt/test-utils` + `@vue/test-utils` — do not add them speculatively.
+- **`globals: false`.** Every spec imports `{ describe, it, expect } from 'vitest'`, matching the project's `autoImport: false` doctrine — and required regardless, since the generated tsconfigs set `types: []`.
+- **Imports are aliased in a spec exactly as in source** (`#shared/…`, `#server/…`); `no-restricted-imports` applies to specs too.
+- **Field fixtures live in `test/fixtures.ts`**, reached as `~~/test/fixtures`. Add a builder there rather than restating an `IField` in a second spec.
+- **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/services/record-query.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute. A service that reaches the `prisma` client is not a unit-test subject.
+
+Covered today: all of `shared/utils/`, all of `shared/validation/`, the SQL builder, field-key derivation, the JWT half of `server/utils/auth.ts`, the Prisma→HTTP error mapping, and `resolveSafeRedirect`. Uncovered pure logic worth taking next: `app/field-types/filter-summaries.ts` and the rest of `app/utils/` (`format`, `api-error`, `select`, `badge-tint`) — then `useSelectOptions`' request race guard and `useDebouncedModel`, which need `effectScope` but no DOM.
+
+Behavioural changes are still verified by driving the running app. The manual regression checklist for the metadata layer is in `docs/architecture.md`.
 
 ---
 

@@ -186,7 +186,14 @@ const baseQueryParamsSchema = z.object({
   // Declared on the base rather than left to the loose object: this is what caps the length
   // and enforces the floor, so an unanchored scan can never be triggered by one character.
   // The `superRefine` below cannot serve it — that loop is driven by the filter param slots.
-  search: z.string().trim().min(SEARCH_MIN_LENGTH).max(TEXT_MAX_LENGTH).optional(),
+  //
+  // A blank param is *absent*, not a term of length zero — the same reading every filter param
+  // gets, and the one `parseRecordQueryState` already has. Without the preprocess a present
+  // `?search=` reaches `min()` and answers a 400 for a link that means "not searching".
+  search: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().min(SEARCH_MIN_LENGTH).max(TEXT_MAX_LENGTH).optional(),
+  ),
 })
 
 /**
