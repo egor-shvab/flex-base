@@ -11,30 +11,33 @@ import { usePopover } from '~/composables/usePopover'
  * The panel is rendered as a **sibling** of the container, not a child — that is what a
  * `<Teleport to="body">` leaves behind, and the case the composable's two-ref `contains` exists
  * for. A single trigger-subtree check would call the panel itself "outside".
+ *
+ * The composable's return is captured out of `setup` rather than read back off `wrapper.vm`,
+ * which unwraps refs and would make `open` a boolean where the declared type says `Ref`.
  */
-const Host = defineComponent({
-  setup(_props, { expose }) {
-    const popover = usePopover()
-    expose(popover)
-
-    return () =>
-      h('div', [
-        h('div', { ref: popover.containerRef, 'data-testid': 'container' }, [
-          h('button', { ref: popover.triggerRef, 'data-testid': 'trigger' }, 'Open'),
-          h('button', { 'data-testid': 'clear' }, 'Clear'),
-        ]),
-        h('div', { ref: popover.panelRef, 'data-testid': 'panel' }, [
-          h('button', { 'data-testid': 'option' }, 'An option'),
-        ]),
-        h('button', { 'data-testid': 'outside' }, 'Elsewhere'),
-      ])
-  },
-})
-
 function setup() {
+  let popover!: ReturnType<typeof usePopover>
+
+  const Host = defineComponent({
+    setup() {
+      popover = usePopover()
+
+      return () =>
+        h('div', [
+          h('div', { ref: popover.containerRef, 'data-testid': 'container' }, [
+            h('button', { ref: popover.triggerRef, 'data-testid': 'trigger' }, 'Open'),
+            h('button', { 'data-testid': 'clear' }, 'Clear'),
+          ]),
+          h('div', { ref: popover.panelRef, 'data-testid': 'panel' }, [
+            h('button', { 'data-testid': 'option' }, 'An option'),
+          ]),
+          h('button', { 'data-testid': 'outside' }, 'Elsewhere'),
+        ])
+    },
+  })
+
+  // `mount` runs setup synchronously, so `popover` is assigned by the time this returns
   const wrapper = mount(Host, { attachTo: document.body })
-  // `expose` narrows the instance type away; the composable's own shape is what matters here
-  const popover = wrapper.vm as unknown as ReturnType<typeof usePopover>
 
   const at = (testId: string) => wrapper.get(`[data-testid="${testId}"]`).element as HTMLElement
 
@@ -55,7 +58,7 @@ describe('usePopover', () => {
   it('starts closed and hands out a stable panel id', () => {
     const { wrapper, popover } = setup()
 
-    expect(popover.open).toBe(false)
+    expect(popover.open.value).toBe(false)
     expect(popover.panelId).toBeTruthy()
 
     wrapper.unmount()
@@ -65,13 +68,13 @@ describe('usePopover', () => {
     const { wrapper, popover } = setup()
 
     popover.show()
-    expect(popover.open).toBe(true)
+    expect(popover.open.value).toBe(true)
 
     popover.toggle()
-    expect(popover.open).toBe(false)
+    expect(popover.open.value).toBe(false)
 
     popover.toggle()
-    expect(popover.open).toBe(true)
+    expect(popover.open.value).toBe(true)
 
     wrapper.unmount()
   })
@@ -84,7 +87,7 @@ describe('usePopover', () => {
 
     pointerDownOn(at('outside'))
 
-    expect(popover.open).toBe(false)
+    expect(popover.open.value).toBe(false)
 
     wrapper.unmount()
   })
@@ -102,7 +105,7 @@ describe('usePopover', () => {
 
     pointerDownOn(at('clear'))
 
-    expect(popover.open).toBe(true)
+    expect(popover.open.value).toBe(true)
 
     wrapper.unmount()
   })
@@ -115,7 +118,7 @@ describe('usePopover', () => {
 
     pointerDownOn(at('option'))
 
-    expect(popover.open).toBe(true)
+    expect(popover.open.value).toBe(true)
 
     wrapper.unmount()
   })
@@ -129,7 +132,7 @@ describe('usePopover', () => {
     at('outside').focus()
     pointerDownOn(at('outside'))
 
-    expect(popover.open).toBe(false)
+    expect(popover.open.value).toBe(false)
     // No focus restore here — the pointer has already chosen where focus should go
     expect(document.activeElement).toBe(at('outside'))
 
@@ -145,7 +148,7 @@ describe('usePopover', () => {
 
     popover.dismiss()
 
-    expect(popover.open).toBe(false)
+    expect(popover.open.value).toBe(false)
     expect(document.activeElement).toBe(at('trigger'))
 
     wrapper.unmount()
@@ -162,7 +165,7 @@ describe('usePopover', () => {
     trigger.remove()
 
     expect(() => popover.dismiss()).not.toThrow()
-    expect(popover.open).toBe(false)
+    expect(popover.open.value).toBe(false)
     expect(document.activeElement).not.toBe(trigger)
 
     wrapper.unmount()

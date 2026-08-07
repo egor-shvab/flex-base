@@ -1,9 +1,10 @@
 import type { TBadgeColor } from '#shared/types/color'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
+import type { IRecord } from '#shared/types/record'
 
 /**
- * Field metadata builders for the unit suite. Six spec files need an `IField`, so the shape
- * lives here rather than being restated in each of them.
+ * Metadata and record builders for both suites. Several spec files need an `IField` or an
+ * `IRecord`, so the shapes live here rather than being restated in each of them.
  *
  * Outside `app/`, `server/` and `shared/` on purpose: nothing here ships, and the directory
  * sits outside the layers `no-restricted-imports` governs. Specs reach it through `~~/…`,
@@ -79,4 +80,19 @@ export const ALL_TYPE_FIELDS: Record<TFieldType, IField> = {
   DATE: dateField(),
   SELECT: selectField(),
   RELATION: relationField(),
+}
+
+/**
+ * A stored record. The timestamps are fixed rather than `new Date()`: a `TimestampCell` renders
+ * them, so a spec asserting on that output must not depend on the clock.
+ */
+export function record(overrides: Partial<IRecord> = {}): IRecord {
+  return {
+    id: 'rec_1',
+    number: 1,
+    data: {},
+    createdAt: '2026-01-05T09:14:00.000Z',
+    updatedAt: '2026-02-11T16:30:00.000Z',
+    ...overrides,
+  }
 }
