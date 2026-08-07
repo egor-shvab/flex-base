@@ -2,6 +2,7 @@ import { BOOLEAN_LABELS } from '#shared/constants/field'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
+import { isMultiValue } from '#shared/utils/field'
 import { isListFilterValue, isRangeFilterValue } from '#shared/utils/filter'
 import { formatDateProse, formatNumber } from '~/utils/format'
 
@@ -57,6 +58,20 @@ function summariseRange(
   return ''
 }
 
+/**
+ * Every list-shaped filter reads the same way, parameterised by how one entry is written —
+ * the precedent is `summariseRange` above. One value reads as an equality because that is what
+ * it is; several read as the OR the SQL actually runs, rather than a count the user must
+ * expand. There is no "all of" spelling, because there is no operator to express it.
+ */
+function summariseList(value: TFilterValue, entry: (value: string) => string): string {
+  if (!isListFilterValue(value) || value.length === 0) return ''
+
+  const entries = value.map(entry)
+
+  return entries.length === 1 ? `is ${entries[0]}` : `is any of ${entries.join(', ')}`
+}
+
 export const FILTER_SUMMARIES: Record<TFieldType, TFilterSummary> = {
   TEXT: (value) => `contains ${String(value)}`,
 
@@ -80,16 +95,31 @@ export const FILTER_SUMMARIES: Record<TFieldType, TFilterSummary> = {
       (to) => `until ${to}`,
     ),
 
-  // The only list-shaped filter. One choice reads as an equality because that is what it is;
-  // several read as the OR the SQL actually runs, rather than a count the user must expand.
-  SELECT: (value) => {
-    if (!isListFilterValue(value) || value.length === 0) return ''
-
-    return value.length === 1 ? `is ${value[0]}` : `is any of ${value.join(', ')}`
-  },
+  // Always list-shaped: a choice is its own text, so a filtered value needs no resolving
+  SELECT: (value) => summariseList(value, (choice) => choice),
 
   // The only entry needing state beyond its own value. A filtered id outside the capped
   // candidate list resolves to nothing, and degrades the same way a cell does.
   RELATION: (value, field, ctx) =>
     `is ${ctx.labelFor(field.id, String(value)) ?? UNKNOWN_RECORD_LABEL}`,
+}
+
+/**
+ * How a **multi-value** field's filter reads. Only RELATION needs an entry: a multi field
+ * filters as a list, and SELECT's summary already is one — the same reason `MULTI_FILTERS`
+ * leaves it alone.
+ */
+const MULTI_SUMMARIES: Record<TFieldType, TFilterSummary | null> = {
+  TEXT: null,
+  NUMBER: null,
+  BOOLEAN: null,
+  DATE: null,
+  SELECT: null,
+  RELATION: (value, field, ctx) =>
+    summariseList(value, (id) => ctx.labelFor(field.id, id) ?? UNKNOWN_RECORD_LABEL),
+}
+
+/** How one field's active filter reads — the summary-side twin of `inputFor`/`filterFor`. */
+export function summaryFor(field: IField): TFilterSummary {
+  return (isMultiValue(field) ? MULTI_SUMMARIES[field.type] : null) ?? FILTER_SUMMARIES[field.type]
 }

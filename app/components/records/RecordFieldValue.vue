@@ -1,14 +1,26 @@
 <template>
   <!-- Blank is handled here, once, so no cell component has to deal with null -->
   <span v-if="isBlank" class="record-field-value__blank">Not set</span>
-  <component :is="cellComponent(column)" v-else :field="column" :value="value" />
+  <!--
+    Two branches, because the two cell shapes take different values: a list cell takes the
+    whole list, every other cell takes one value. Splitting here is what lets each component
+    declare the value it actually renders rather than the union of both.
+  -->
+  <component
+    :is="cellComponent(column)"
+    v-else-if="isList"
+    :field="column"
+    :value="cellValues(value)"
+  />
+  <component :is="cellComponent(column)" v-else :field="column" :value="cellSingleValue(value)" />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
-import { cellComponent, cellValue } from '~/utils/record-cells'
+import { isMultiValue } from '#shared/utils/field'
+import { cellComponent, cellSingleValue, cellValue, cellValues } from '~/utils/record-cells'
 
 const props = defineProps<{
   record: IRecord
@@ -18,7 +30,14 @@ const props = defineProps<{
 
 const value = computed(() => cellValue(props.record, props.column))
 
-const isBlank = computed(() => value.value === null || value.value === undefined)
+/** Which of the two cell shapes this column renders — the same question `cellComponent` asks. */
+const isList = computed(() => isMultiValue(props.column))
+
+// An empty list is as blank as a null — without this a cleared multi-value field would render
+// as nothing at all rather than saying so
+const isBlank = computed(() =>
+  isList.value ? cellValues(value.value).length === 0 : cellSingleValue(value.value) === null,
+)
 </script>
 
 <style lang="scss" scoped>

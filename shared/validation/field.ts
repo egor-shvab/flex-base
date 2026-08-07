@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { BADGE_COLORS, DEFAULT_BADGE_COLOR } from '#shared/constants/color'
-import { FIELD_TYPES } from '#shared/constants/field'
+import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
 import { nameSchema } from '#shared/validation/name'
 
 /**
@@ -30,8 +30,20 @@ export const fieldSchema = z
       .default([]),
     targetTableId: z.string().trim().default(''),
     labelFieldKey: z.string().trim().default(''),
+    /** Whether the field holds several values. Only the types below may set it. */
+    multiple: z.boolean().default(false),
   })
   .superRefine((value, ctx) => {
+    // Judged against the registry rather than a hardcoded pair, so a new field type declares
+    // its own position once and this rule follows it
+    if (value.multiple && !MULTI_VALUE_BY_TYPE[value.type]) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['multiple'],
+        message: 'This field type holds a single value',
+      })
+    }
+
     if (value.type === 'SELECT') {
       if (value.choices.length < 1) {
         ctx.addIssue({ code: 'custom', path: ['choices'], message: 'Add at least one choice' })

@@ -1,6 +1,6 @@
 <template>
   <div class="base-checkbox">
-    <label class="base-checkbox__control">
+    <label class="base-checkbox__control" :class="{ 'base-checkbox__control--disabled': disabled }">
       <input
         :id="inputId"
         v-model="model"
@@ -9,6 +9,7 @@
         type="checkbox"
         :aria-invalid="error ? true : undefined"
         :aria-describedby="error ? `${inputId}-error` : undefined"
+        :disabled="disabled"
       />
       <span class="base-checkbox__text">{{ label }}</span>
     </label>
@@ -24,10 +25,17 @@ const props = withDefaults(
     label: string
     id?: string
     error?: string
+    /**
+     * Native `disabled` on the `<input>`, not on the root. Attribute fallthrough would put it
+     * on the wrapping `<div>`, where it means nothing at all — the control would still be
+     * operable while looking as though it were not.
+     */
+    disabled?: boolean
   }>(),
   {
     id: undefined,
     error: undefined,
+    disabled: false,
   },
 )
 
@@ -53,6 +61,13 @@ const inputId = computed(() => props.id ?? fallbackId)
     gap: rem(8);
     font-size: var(--font-size-md);
     cursor: pointer;
+
+    // The native input greys its own box; this is the label beside it, which would otherwise
+    // stay full-strength and read as available
+    &--disabled {
+      color: var(--color-text-secondary);
+      cursor: not-allowed;
+    }
   }
 
   // `accent-color` rather than a hand-built mark: it keeps the native control — and with it

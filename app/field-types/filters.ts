@@ -4,9 +4,9 @@ import BaseRange from '~/components/common/BaseRange.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { BOOLEAN_LABELS } from '#shared/constants/field'
-import type { TFieldType } from '#shared/types/field'
-import type { IFilterValueByType } from '#shared/types/filter'
-import { choiceOptions } from '#shared/utils/field'
+import type { IField, TFieldType } from '#shared/types/field'
+import type { IFilterValueByType, TFilterValue } from '#shared/types/filter'
+import { choiceOptions, isMultiValue } from '#shared/utils/field'
 import { shouldSearch } from '~/utils/select'
 import type { IFieldControl } from '~/field-types/types'
 
@@ -86,4 +86,39 @@ export const FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByTyp
       clearable: true,
     }),
   },
+}
+
+/**
+ * How a **multi-value** field is filtered. A field holding several values can only be asked
+ * whether it holds any of the filtered ones, so its filter is list-shaped whatever its type
+ * says — which SELECT's already was, leaving RELATION as the only entry that has to move.
+ *
+ * Total, like every other per-type map here; `null` is "this type has no list form".
+ */
+const MULTI_FILTERS: Record<TFieldType, IFieldControl<TFilterValue> | null> = {
+  TEXT: null,
+  NUMBER: null,
+  BOOLEAN: null,
+  DATE: null,
+  // Unchanged from the single-value entry: a SELECT filter has always taken several choices,
+  // because picking two is a question about one stored value as much as about a list of them
+  SELECT: null,
+  RELATION: {
+    component: markRaw(RelationFieldSelect),
+    props: (field) => ({
+      label: field.name,
+      fieldId: field.id,
+      multiple: true,
+      placeholder: 'All',
+      clearable: true,
+    }),
+  },
+}
+
+/**
+ * The control that filters one field — the filter-side twin of `inputFor`, and the only place
+ * the drawer's cardinality branch lives.
+ */
+export function filterFor(field: IField): IFieldControl<TFilterValue> {
+  return (isMultiValue(field) ? MULTI_FILTERS[field.type] : null) ?? FIELD_FILTERS[field.type]
 }

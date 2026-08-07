@@ -262,9 +262,12 @@ A new field type touches exactly these places — and nothing else:
 3. `shared/validation/field.ts` — one zod branch for its `options` (plus the matching branch in `buildOptions`, `server/services/fields.ts`, if it stores options); `shared/validation/record.ts` — one `VALUE_SCHEMA_BY_TYPE` entry (`base` schema + `blank` value + `fromQuery` decoder).
 4. `shared/constants/filter.ts` — one `FILTER_VALUE_BY_TYPE` entry (`shape`: `scalar`/`list`/`range`, and `empty` value), plus its shape in `IFilterValueByType` (`shared/types/filter.ts`).
 5. `app/field-types/` — one entry each in `FIELD_INPUTS`, `FIELD_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES`, plus **one** cell component in `cells/`.
-6. `server/services/record-query.ts` — one `FIELD_SQL_BY_TYPE` entry: its SQL projection (`expr`), how that projection is compared (`filter`), how free-text search matches it (`searchExpr`, `null` to opt out), and `sortExpr` only if it orders differently from how it filters.
+6. `server/services/record-query.ts` — one `FIELD_SQL_BY_TYPE` entry: its SQL projection (`expr`), how that projection is compared (`filter`), how free-text search matches it (`searchPredicate`, `null` to opt out), and `sortExpr` only if it orders differently from how it filters.
+7. `MULTI_VALUE_BY_TYPE` in `shared/constants/field.ts` — `true` only if the type has a list form. If it does, one entry in each `MULTI_*` override table (`MULTI_SQL`, `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`); if it does not, `null` in each.
 
 Every one of these registries is a total `Record<TFieldType, …>`, so adding an enum member is a compile error until all of them exist.
+
+**Cardinality is a second axis, and it is per-field, not per-type.** `options.multiple` makes a SELECT or a RELATION hold a list; `MULTI_VALUE_BY_TYPE` (`shared/constants/field.ts`) says which types may, and `isMultiValue(field)` (`shared/utils/field.ts`) is the only reader. Each affected registry keeps its flat per-type entries and gains a `MULTI_*` override table — also total, `Record<TFieldType, X | null>` — plus one resolver that every consumer calls instead of indexing: `sqlFor`, `inputFor`, `filterFor`, `summaryFor`, `cellComponent`, `filterShapeFor`. So a new field type must still declare its position on multi-value, and no component branches on the flag.
 
 **Inputs and filters are data, not components** — each is an `IFieldControl` naming a `Base*` control, a `props(field)` factory, and the adapters between that control's model and the field's value. Only cells are components. A type whose control needs data beyond its own metadata gets a component in `field-types/controls/` (RELATION is the only one today).
 

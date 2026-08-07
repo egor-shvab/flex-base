@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
-import type { TRecordValue } from '#shared/types/record'
+import type { TRecordSingleValue, TRecordValue } from '#shared/types/record'
 
 /**
  * How one field type's value drives a `Base*` control — the shape both per-type control
@@ -30,8 +30,27 @@ export type TRecordFieldControl = Required<IFieldControl<TRecordValue>>
  * Uniform contract every field cell component honours — the same `(field, value)` pair the
  * control tables get. Blank values never reach a cell. Most cells read the value alone; a
  * relation needs the field to know which link it is resolving.
+ *
+ * **`TRecordSingleValue`, not `TRecordValue`.** A per-type cell renders exactly one value:
+ * `MultiValueCell` is what a list resolves to, and it hands each entry back to one of these.
+ * Declaring the wider union here would be a type that no cell honours — and because
+ * `defineProps<T>()` compiles to a *runtime* prop check, it would also add `Array` to the
+ * accepted types of nine components that cannot render one.
  */
 export interface IFieldCellProps {
   field: IField
-  value: TRecordValue
+  value: TRecordSingleValue
+}
+
+/**
+ * `MultiValueCell`'s own contract. Separate from `IFieldCellProps` rather than a widening of
+ * it, because the two are opposites: this is the only cell that takes a list, and every other
+ * one is the thing it delegates each entry to.
+ *
+ * Always a real array — `cellValues` normalises at the seam, so the pre-migration scalar case
+ * is handled in one place instead of in every cell that might meet one.
+ */
+export interface IMultiValueCellProps {
+  field: IField
+  value: string[]
 }

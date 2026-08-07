@@ -18,7 +18,7 @@ import { computed, useId } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 import type { TRecordData, TRecordValue } from '#shared/types/record'
-import { FIELD_INPUTS } from '~/field-types/inputs'
+import { inputFor } from '~/field-types/inputs'
 
 const props = defineProps<{
   fields: IField[]
@@ -34,21 +34,21 @@ const formId = useId()
 
 /** Resolved once per field rather than per render, since `props` is a factory. */
 const controls = computed(() =>
-  props.fields.map((field) => ({
-    field,
-    component: FIELD_INPUTS[field.type].component,
-    props: FIELD_INPUTS[field.type].props(field),
-  })),
+  props.fields.map((field) => {
+    const input = inputFor(field)
+
+    return { field, component: input.component, props: input.props(field) }
+  }),
 )
 
 /** The record's value as the control's own model. */
 function controlValue(field: IField): TFilterValue {
-  return FIELD_INPUTS[field.type].toControl(props.values[field.key] ?? null)
+  return inputFor(field).toControl(props.values[field.key] ?? null)
 }
 
 /** The inverse: what the control just emitted, back as a record value. */
 function applyValue(field: IField, model: TFilterValue) {
-  emit('update', field.key, FIELD_INPUTS[field.type].fromControl(model))
+  emit('update', field.key, inputFor(field).fromControl(model))
 }
 </script>
 

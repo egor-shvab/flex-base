@@ -39,11 +39,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FILTER_VALUE_BY_TYPE } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
-import { isFilterValueEmpty, queryFields } from '#shared/utils/filter'
-import { FILTER_SUMMARIES } from '~/field-types/filter-summaries'
+import { emptyFilterValueFor, isFilterValueEmpty, queryFields } from '#shared/utils/filter'
+import { summaryFor } from '~/field-types/filter-summaries'
 import { useRelationsStore } from '~/stores/relations'
 
 const props = defineProps<{
@@ -75,7 +74,7 @@ const entries = computed(() =>
     const value = props.filters[field.key]
     if (value === undefined) return []
 
-    const phrase = FILTER_SUMMARIES[field.type](value, field, { labelFor: relations.labelFor })
+    const phrase = summaryFor(field)(value, field, { labelFor: relations.labelFor })
     return [{ field, phrase }]
   }),
 )
@@ -89,8 +88,7 @@ function remove(field: IField) {
   const next: TRecordFilterValues = {}
 
   for (const column of columns.value) {
-    const value =
-      column.key === field.key ? FILTER_VALUE_BY_TYPE[column.type].empty : props.filters[column.key]
+    const value = column.key === field.key ? emptyFilterValueFor(column) : props.filters[column.key]
     if (value !== undefined && !isFilterValueEmpty(value)) next[column.key] = value
   }
 

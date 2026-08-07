@@ -1,7 +1,29 @@
 <template>
+  <!--
+    Two branches rather than one select bound to a union, because `BaseSelect` ties `multiple`
+    to its model's own type on purpose (`docs/decisions.md`) — weakening that contract to
+    satisfy one caller would let every other call site disagree with itself at runtime.
+    `multiple` comes from field metadata and is fixed for this control's lifetime, so the
+    branch never swaps the focused element out from under the user.
+  -->
   <BaseSelect
+    v-if="multiple"
     :id="id"
-    v-model="model"
+    v-model="listModel"
+    :label="label"
+    :options="options"
+    searchable
+    :load-options="search"
+    :multiple="true"
+    :placeholder="placeholder"
+    :clearable="clearable"
+    :error="error"
+    empty-label="No records to link to"
+  />
+  <BaseSelect
+    v-else
+    :id="id"
+    v-model="singleModel"
     :label="label"
     :options="options"
     searchable
@@ -36,17 +58,40 @@ const props = withDefaults(
     id: string
     label: string
     fieldId: string
+    /** Several links at once — a multi-value relation field, and its list-shaped filter. */
+    multiple?: boolean
     /** What "no link" reads as — "— Select —" when editing, "All" when filtering. */
     placeholder?: string
     clearable?: boolean
     error?: string
   }>(),
-  { placeholder: undefined, clearable: false, error: undefined },
+  { multiple: false, placeholder: undefined, clearable: false, error: undefined },
 )
 
-const model = defineModel<string>({ required: true })
+const model = defineModel<string | string[]>({ required: true })
 
 const relations = useRelationsStore()
+
+/**
+ * The selection as a list, whatever the model's shape — the same normalisation `BaseSelect`
+ * does internally, and what lets everything below be written once for both branches.
+ */
+const linkedIds = computed<string[]>(() => {
+  if (Array.isArray(model.value)) return model.value
+
+  return model.value === '' ? [] : [model.value]
+})
+
+/** Typed proxies, so each branch hands `BaseSelect` exactly the model its generic expects. */
+const listModel = computed<string[]>({
+  get: () => linkedIds.value,
+  set: (value) => (model.value = value),
+})
+
+const singleModel = computed<string>({
+  get: () => (typeof model.value === 'string' ? model.value : (model.value[0] ?? '')),
+  set: (value) => (model.value = value),
+})
 
 /**
  * The seed `BaseSelect` shows before anything is typed. Still capped by the endpoint, which
@@ -54,24 +99,21 @@ const relations = useRelationsStore()
  */
 const options = computed<ISelectOption[]>(() => {
   const candidates = relations.optionsFor(props.fieldId)
-  const linked = model.value
+  const offered = new Set(candidates.map((candidate) => candidate.id))
 
   // A link the candidate list does not offer — a target beyond the listed page, one reached
   // through a search, or one since deleted — is still shown, or opening the form would
   // silently drop it on save. It is also what keeps the trigger labelled while a search has
-  // replaced the visible list with rows that do not include it.
-  const unlisted = linked !== '' && !candidates.some((candidate) => candidate.id === linked)
+  // replaced the visible list with rows that do not include it. Every link is checked, not
+  // just the first: dropping one of several is as lossy as dropping the only one.
+  const unlisted = linkedIds.value.filter((id) => !offered.has(id))
 
   return [
     ...candidates.map((candidate) => ({ value: candidate.id, label: candidate.label })),
-    ...(unlisted
-      ? [
-          {
-            value: linked,
-            label: relations.labelFor(props.fieldId, linked) ?? UNKNOWN_RECORD_LABEL,
-          },
-        ]
-      : []),
+    ...unlisted.map((id) => ({
+      value: id,
+      label: relations.labelFor(props.fieldId, id) ?? UNKNOWN_RECORD_LABEL,
+    })),
   ]
 })
 

@@ -132,7 +132,7 @@
           ref="listRef"
           class="base-select__list"
           role="listbox"
-          :aria-multiselectable="multiple ? true : undefined"
+          :aria-multiselectable="isMultiple ? true : undefined"
           :aria-labelledby="label ? `${id}-label` : undefined"
           :aria-label="label ? undefined : ariaLabel"
           :tabindex="searchable ? undefined : -1"
@@ -236,6 +236,20 @@ const props = withDefaults(
 
 const model = defineModel<TModel>({ required: true })
 
+/**
+ * **Never read `props.multiple` directly.** Vue casts a bare `multiple` attribute to `true`
+ * only for a prop it knows is `Boolean`, and this one's type is conditional on `TModel`, which
+ * gives the SFC compiler no constructor to emit — so `<BaseSelect multiple />` arrives as `''`
+ * and is falsy, silently putting the control into single mode. `vue-tsc` does not catch it:
+ * the template checker reads a bare attribute as `true`, so the types agree and the runtime
+ * does not.
+ *
+ * Normalising once here is what makes both spellings mean the same thing. Widening the prop to
+ * a plain `boolean` would fix the cast and give back the mismatch the conditional type exists
+ * to prevent (`docs/decisions.md`), so the type stays and the read moves here.
+ */
+const isMultiple = computed(() => props.multiple !== undefined && props.multiple !== false)
+
 const { open, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
 
 const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { matchWidth: true })
@@ -281,7 +295,7 @@ const selected = computed<string[]>(() => {
 
 /** The cast is the seam between a generic model and a component that speaks lists. */
 function commit(values: string[]) {
-  model.value = (props.multiple ? values : (values[0] ?? '')) as TModel
+  model.value = (isMultiple.value ? values : (values[0] ?? '')) as TModel
 }
 
 const showClear = computed(() => props.clearable && !props.disabled && selected.value.length > 0)
@@ -400,7 +414,7 @@ watch(draft, (value) => {
 function choose(option: ISelectOption) {
   if (option.disabled) return
 
-  if (props.multiple) {
+  if (isMultiple.value) {
     const next = selected.value.includes(option.value)
       ? selected.value.filter((value) => value !== option.value)
       : [...selected.value, option.value]

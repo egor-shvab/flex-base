@@ -1,16 +1,12 @@
-import {
-  DEFAULT_SORT_DIR,
-  DEFAULT_SORT_KEY,
-  FILTER_LIST_MAX,
-  FILTER_VALUE_BY_TYPE,
-} from '#shared/constants/filter'
+import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, FILTER_LIST_MAX } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterParamRole, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import type { TQueryParams } from '#shared/types/query'
 import type { IDateRange, INumberRange } from '#shared/types/range'
-import type { IRecordQueryState, TRecordValue } from '#shared/types/record'
+import type { IRecordQueryState, TRecordSingleValue } from '#shared/types/record'
 import {
   claimFilterParams,
+  filterShapeFor,
   isFilterValueEmpty,
   isListFilterValue,
   isRangeFilterValue,
@@ -43,7 +39,7 @@ function filterParamValues(query: Record<string, unknown>, name: string): string
  * ISO string for DATE — so a pair always matches one of the two range shapes. Narrowed by
  * shape rather than by field type, and a bound of neither shape simply reads as "no bound".
  */
-function toRange(from: TRecordValue, to: TRecordValue): INumberRange | IDateRange {
+function toRange(from: TRecordSingleValue, to: TRecordSingleValue): INumberRange | IDateRange {
   if (typeof from === 'number' || typeof to === 'number') {
     return { from: typeof from === 'number' ? from : null, to: typeof to === 'number' ? to : null }
   }
@@ -62,8 +58,8 @@ function toList(field: IField, query: Record<string, unknown>, name: string): st
 
   for (const raw of filterParamValues(query, name)) {
     const parsed = schema.safeParse(raw)
-    // SELECT is the only list-shaped type and its schema is an enum of its choices, so a
-    // decoded value is always a string — the guard is what proves that to the compiler
+    // Every list-shaped filter carries strings — a SELECT choice, or a relation target's id —
+    // so the guard is what proves that to the compiler rather than a narrowing that can fail
     if (parsed.success && typeof parsed.data === 'string') decoded.add(parsed.data)
   }
 
@@ -77,7 +73,9 @@ function toList(field: IField, query: Record<string, unknown>, name: string): st
  * schema rejects them as a 400 first.
  */
 function parseFilterValues(fields: IField[], query: Record<string, unknown>): TRecordFilterValues {
-  const partsByKey = new Map<string, Partial<Record<TFilterParamRole, TRecordValue>>>()
+  // One decoded value per claimed param — a repeat is only read by a list shape, which
+  // collects into `listsByKey` instead, so nothing here is ever an array
+  const partsByKey = new Map<string, Partial<Record<TFilterParamRole, TRecordSingleValue>>>()
   const listsByKey = new Map<string, string[]>()
   // The record's own columns filter alongside its table's fields, so the seam is applied
   // here rather than by each caller — the page and the endpoint decode a link identically
@@ -86,7 +84,7 @@ function parseFilterValues(fields: IField[], query: Record<string, unknown>): TR
   for (const { field, role, name } of claimFilterParams(columns)) {
     // A list claims one param name and reads every repeat of it, so it collects whole
     // rather than by role — there is only ever one slot
-    if (FILTER_VALUE_BY_TYPE[field.type].shape === 'list') {
+    if (filterShapeFor(field) === 'list') {
       listsByKey.set(field.key, toList(field, query, name))
       continue
     }
@@ -105,7 +103,7 @@ function parseFilterValues(fields: IField[], query: Record<string, unknown>): TR
   const values: TRecordFilterValues = {}
 
   for (const field of columns) {
-    const { shape } = FILTER_VALUE_BY_TYPE[field.type]
+    const shape = filterShapeFor(field)
 
     if (shape === 'list') {
       const list = listsByKey.get(field.key)

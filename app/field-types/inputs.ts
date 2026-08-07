@@ -3,8 +3,9 @@ import BaseCheckbox from '~/components/common/BaseCheckbox.vue'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
-import type { TFieldType } from '#shared/types/field'
-import { choiceOptions } from '#shared/utils/field'
+import type { IField, TFieldType } from '#shared/types/field'
+import type { TFilterValue } from '#shared/types/filter'
+import { choiceOptions, isMultiValue } from '#shared/utils/field'
 import { shouldSearch } from '~/utils/select'
 import type { TRecordFieldControl } from '~/field-types/types'
 
@@ -15,6 +16,33 @@ import type { TRecordFieldControl } from '~/field-types/types'
 const blankIsNull: Pick<TRecordFieldControl, 'toControl' | 'fromControl'> = {
   toControl: (value) => (typeof value === 'string' ? value : ''),
   fromControl: (model) => (typeof model === 'string' && model !== '' ? model : null),
+}
+
+/**
+ * The multi-value counterpart, shared by every list control: the model is the stored array
+ * itself, so both directions are a shape guard rather than a conversion.
+ *
+ * `toControl` also accepts a bare string, which is what a record written **before** its field
+ * was widened still holds — the migration in `updateField` rewrites those rows, but a form
+ * opened from a stale page must not drop the value it is about to save back.
+ */
+const listValue: Pick<TRecordFieldControl, 'toControl' | 'fromControl'> = {
+  toControl: (value) => toList(value),
+  // Symmetric with `toControl` rather than `Array.isArray(model) ? model : []`. A control that
+  // hands back a bare string is misconfigured, but discarding the value is the worst possible
+  // response to that — it loses the user's edit with nothing on screen to show for it.
+  fromControl: (model) => toList(model),
+}
+
+/**
+ * The stored array, however the value arrives. A bare string is what a record written **before**
+ * its field was widened still holds — the migration in `updateField` rewrites those rows, but a
+ * form opened from a stale page must not drop the value it is about to save back.
+ */
+function toList(value: TFilterValue): string[] {
+  if (Array.isArray(value)) return value
+
+  return typeof value === 'string' && value !== '' ? [value] : []
 }
 
 /**
@@ -89,4 +117,54 @@ export const FIELD_INPUTS: Record<TFieldType, TRecordFieldControl> = {
     }),
     ...blankIsNull,
   },
+}
+
+/**
+ * How a field is edited when it holds **several** values — the same control with `multiple`
+ * set and the list adapter in place of the scalar one. Total for the same reason
+ * `FIELD_INPUTS` is: a new field type declares whether it has a list form rather than
+ * inheriting one by omission. `null` means it has none, which `MULTI_VALUE_BY_TYPE` already
+ * refuses to configure.
+ *
+ * The control shows "3 selected" rather than a chip row: chips make a control's height a
+ * function of its content, which `useAnchoredPosition` does not observe (`docs/decisions.md`).
+ */
+const MULTI_INPUTS: Record<TFieldType, TRecordFieldControl | null> = {
+  TEXT: null,
+  NUMBER: null,
+  BOOLEAN: null,
+  DATE: null,
+  SELECT: {
+    component: markRaw(BaseSelect),
+    props: (field) => ({
+      label: field.name,
+      options: choiceOptions(field),
+      searchable: shouldSearch(choiceOptions(field).length),
+      multiple: true,
+      placeholder: '— Select —',
+      clearable: true,
+      emptyLabel: 'No choices defined',
+    }),
+    ...listValue,
+  },
+  RELATION: {
+    component: markRaw(RelationFieldSelect),
+    props: (field) => ({
+      label: field.name,
+      fieldId: field.id,
+      multiple: true,
+      placeholder: '— Select —',
+      clearable: true,
+    }),
+    ...listValue,
+  },
+}
+
+/**
+ * The control that edits one field — the single place a field's cardinality is resolved on the
+ * form side, so `DynamicForm` never learns that `multiple` exists any more than it knows which
+ * field types there are.
+ */
+export function inputFor(field: IField): TRecordFieldControl {
+  return (isMultiValue(field) ? MULTI_INPUTS[field.type] : null) ?? FIELD_INPUTS[field.type]
 }

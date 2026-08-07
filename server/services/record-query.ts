@@ -7,6 +7,7 @@ import {
   UPDATED_AT_KEY,
 } from '#shared/constants/filter'
 import type { IRecordSort, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import { isMultiValue } from '#shared/utils/field'
 import {
   isListFilterValue,
   isRangeFilterValue,
@@ -22,6 +23,26 @@ import {
  */
 function jsonText(key: string): Prisma.Sql {
   return Prisma.sql`data ->> ${key}::text`
+}
+
+/**
+ * The stored value as JSONB rather than as text — what a multi-value field projects to, since
+ * `->>` on an array yields the literal `["a","b"]` and would match a filter on `[` or `","`.
+ */
+function jsonArray(key: string): Prisma.Sql {
+  return Prisma.sql`data -> ${key}::text`
+}
+
+/**
+ * The same, but guaranteed to be an array. **Load-bearing:** `jsonb_array_elements_text`
+ * raises `cannot extract elements from a scalar` on anything else, and that error takes down
+ * the whole list query rather than skipping one row. A field flipped to multi migrates its
+ * data, but a row written between the two is a scalar, and so is `null` — both must degrade
+ * to "no elements", not to a 500.
+ */
+function jsonArrayElements(key: string): Prisma.Sql {
+  return Prisma.sql`CASE WHEN jsonb_typeof(${jsonArray(key)}) = 'array'
+    THEN ${jsonArray(key)} ELSE '[]'::jsonb END`
 }
 
 /** Escapes the wildcards a user may legitimately type into a search box. */
@@ -52,6 +73,24 @@ const matchesAny: TFilterSql = (expr, value) =>
     ? Prisma.sql`${expr} IN (${Prisma.join(value)})`
     : null
 
+/**
+ * The multi-value counterpart: the *stored* value is now the list, so the question is whether
+ * it holds any of the filtered ones. `jsonb_exists_any` is the function form of the `?|`
+ * operator, chosen because a literal `?` in raw SQL is the placeholder token on Prisma's other
+ * drivers and has a long history of being mangled — the functions are unambiguous everywhere.
+ *
+ * It carries its own parentheses, so like `IN (…)` and unlike `withinRange` it cannot bind to
+ * a sibling's last term. It also answers correctly for a bare scalar, which is what keeps a
+ * row written before a field's migration from disappearing from its own filter.
+ *
+ * Unlike every other comparison here this one is GIN-indexable, so it is the one filter whose
+ * cost is not pinned to the unindexed JSONB ceiling the rest of the layer accepts.
+ */
+const containsAny: TFilterSql = (expr, value) =>
+  isListFilterValue(value) && value.length > 0
+    ? Prisma.sql`jsonb_exists_any(${expr}, ARRAY[${Prisma.join(value)}]::text[])`
+    : null
+
 const withinRange: TFilterSql = (expr, value) => {
   if (!isRangeFilterValue(value)) return null
 
@@ -68,16 +107,51 @@ const withinRange: TFilterSql = (expr, value) => {
  * target record's label instead — the key of that label field travels in the relation's own
  * options, so no extra metadata has to be fetched. A missing key (its field was deleted)
  * yields NULL for every row, which the `NULLS LAST` suffix already handles.
+ *
+ * A multi-value relation orders by its **first** link, for the same reason a multi SELECT
+ * does: a list has no order of its own, and the first value is the one the user can see
+ * without opening anything.
+ *
+ * The outer `data` is qualified because the subquery's own alias would otherwise shadow it.
  */
 function targetLabel(field: IField): Prisma.Sql {
   const labelFieldKey = field.options?.labelFieldKey
+  const storedId = isMultiValue(field)
+    ? Prisma.sql`"Record".data -> ${field.key}::text ->> 0`
+    : Prisma.sql`"Record".data ->> ${field.key}::text`
 
-  if (labelFieldKey === undefined) return jsonText(field.key)
+  if (labelFieldKey === undefined) return storedId
 
-  // The outer `data` is qualified because the subquery's own alias would otherwise shadow it
   return Prisma.sql`(
     SELECT target.data ->> ${labelFieldKey}::text FROM "Record" AS target
-    WHERE target.id = "Record".data ->> ${field.key}::text
+    WHERE target.id = ${storedId}
+  )`
+}
+
+/**
+ * How a multi-value column orders: by its first value. A list has no intrinsic order, so any
+ * rule here is a choice — this one is the value already visible in the cell, which makes the
+ * ordering explicable from what is on screen rather than from what is stored.
+ */
+function firstElement(field: IField): Prisma.Sql {
+  return Prisma.sql`${jsonArray(field.key)} ->> 0`
+}
+
+/** How free-text search matches a plain text projection — the shape five types share. */
+function matchesText(key: string, pattern: string): Prisma.Sql {
+  return Prisma.sql`${jsonText(key)} ILIKE ${pattern}`
+}
+
+/**
+ * The multi-value counterpart: any one element matching is a hit. Matching the raw
+ * `["Won","Lost"]` text instead would "work" and would also let a term of `","` or `[` match,
+ * which is a lie rather than a near miss. `EXISTS (…)` is self-parenthesising, so it is safe
+ * beside a bare range bound in the same `AND` chain.
+ */
+function matchesAnyElement(key: string, pattern: string): Prisma.Sql {
+  return Prisma.sql`EXISTS (
+    SELECT 1 FROM jsonb_array_elements_text(${jsonArrayElements(key)}) AS element
+    WHERE element ILIKE ${pattern}
   )`
 }
 
@@ -87,11 +161,15 @@ interface IFieldSqlSpec {
   /** How the column orders, for a type that reads as something other than the value it stores. */
   sortExpr?: (field: IField) => Prisma.Sql
   /**
-   * How free-text search matches this type, or `null` to exclude it. Separate from `expr`
-   * because two types cannot be searched the way they are filtered: NUMBER and BOOLEAN cast,
-   * and neither `numeric` nor `boolean` has an `ILIKE` operator.
+   * How free-text search matches this type, as a whole **predicate**, or `null` to exclude it.
+   * Separate from `expr` because two types cannot be searched the way they are filtered:
+   * NUMBER and BOOLEAN cast, and neither `numeric` nor `boolean` has an `ILIKE` operator.
+   *
+   * A predicate rather than an expression the caller appends `ILIKE` to, because a multi-value
+   * column cannot be matched by comparing one expression — it has to ask whether *any element*
+   * matches, which is a shape no projection can express.
    */
-  searchExpr: (key: string) => Prisma.Sql | null
+  searchPredicate: (key: string, pattern: string) => Prisma.Sql | null
   /** Compares this type's filter value against that expression. */
   filter: TFilterSql
 }
@@ -102,37 +180,76 @@ interface IFieldSqlSpec {
  * the field type says how it compares, and the value's shape says with how many bounds.
  */
 const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
-  TEXT: { expr: jsonText, searchExpr: jsonText, filter: matchesPartially },
+  TEXT: { expr: jsonText, searchPredicate: matchesText, filter: matchesPartially },
   // Without the cast, `"10" < "9"` would compare as text — but search matches the un-cast
   // text, so typing `100` also finds `1000`, which is what a substring search should do
   NUMBER: {
     expr: (key) => Prisma.sql`(${jsonText(key)})::numeric`,
-    searchExpr: jsonText,
+    searchPredicate: matchesText,
     filter: withinRange,
   },
   // Not searchable: the stored text is `true`/`false`, so searching `e` would match every
   // record that has the value `false`
   BOOLEAN: {
     expr: (key) => Prisma.sql`(${jsonText(key)})::boolean`,
-    searchExpr: () => null,
+    searchPredicate: () => null,
     filter: matchesExactly,
   },
   // Stored as `YYYY-MM-DD`, so text comparison is already chronological — and searching
   // `2026-07` naturally matches a month
-  DATE: { expr: jsonText, searchExpr: jsonText, filter: withinRange },
-  // Several choices at once, ORed — the only list-shaped filter. Search still matches the
-  // stored text, which is the choice's own label.
-  SELECT: { expr: jsonText, searchExpr: jsonText, filter: matchesAny },
+  DATE: { expr: jsonText, searchPredicate: matchesText, filter: withinRange },
+  // Several choices at once, ORed — the only list-shaped *filter* a single-value field has.
+  // Search still matches the stored text, which is the choice's own label.
+  SELECT: { expr: jsonText, searchPredicate: matchesText, filter: matchesAny },
   // Filters on the stored id — the picker's own value — but reads and orders by its label.
   // Not searchable: the stored value is a cuid, and matching the label instead would mean
   // `targetLabel`'s correlated subquery per row — two detoasts, a PK descent and a random
   // heap read — against every row, since the count query has no LIMIT.
   RELATION: {
     expr: jsonText,
-    searchExpr: () => null,
+    searchPredicate: () => null,
     sortExpr: targetLabel,
     filter: matchesExactly,
   },
+}
+
+/**
+ * How a field behaves when it holds **several** values instead of one — the same lifting the
+ * validation layer applies, expressed in SQL. Consulted before `FIELD_SQL_BY_TYPE` for a field
+ * whose `options.multiple` is set, and total for the same reason that map is: a new field type
+ * must state whether it has a list form rather than inheriting silence.
+ *
+ * `null` means the type has no multi form, which `MULTI_VALUE_BY_TYPE` already refuses to
+ * configure — the two agree by construction, and this one is where that agreement is spent.
+ */
+const MULTI_SQL: Record<TFieldType, IFieldSqlSpec | null> = {
+  TEXT: null,
+  NUMBER: null,
+  BOOLEAN: null,
+  DATE: null,
+  // The stored list is compared for overlap with the filtered one, and searched element-wise
+  SELECT: {
+    expr: jsonArray,
+    sortExpr: firstElement,
+    searchPredicate: matchesAnyElement,
+    filter: containsAny,
+  },
+  // Same comparison over ids; still not searchable, for the reason above — which the array
+  // only strengthens, since matching labels would mean the subquery once per link per row
+  RELATION: {
+    expr: jsonArray,
+    sortExpr: targetLabel,
+    searchPredicate: () => null,
+    filter: containsAny,
+  },
+}
+
+/**
+ * The one place a field's cardinality is resolved into SQL behaviour. Every projection,
+ * comparison and ordering below goes through it, so no builder branches on `multiple` itself.
+ */
+function sqlFor(field: IField): IFieldSqlSpec {
+  return (isMultiValue(field) ? MULTI_SQL[field.type] : null) ?? FIELD_SQL_BY_TYPE[field.type]
 }
 
 /**
@@ -154,14 +271,14 @@ const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql
 }
 
 function valueExpr(field: IField): Prisma.Sql {
-  return RECORD_COLUMN_SQL[field.key]?.expr ?? FIELD_SQL_BY_TYPE[field.type].expr(field.key)
+  return RECORD_COLUMN_SQL[field.key]?.expr ?? sqlFor(field).expr(field.key)
 }
 
 function sortExpr(field: IField): Prisma.Sql {
   const column = RECORD_COLUMN_SQL[field.key]
   if (column) return column.sortExpr
 
-  const spec = FIELD_SQL_BY_TYPE[field.type]
+  const spec = sqlFor(field)
 
   return spec.sortExpr ? spec.sortExpr(field) : spec.expr(field.key)
 }
@@ -175,12 +292,18 @@ function sortExpr(field: IField): Prisma.Sql {
  * - the timestamps project to `::date`, and `date ILIKE text` has no operator. Rather than
  *   add a cast that would let `2026` match every record made this year, they stay
  *   filter-only — the two range controls are the precise tool for a date.
+ *
+ * The record's own columns hold one value each, so they build their predicate here rather
+ * than declaring one; nothing about them can be multi-valued.
  */
-function searchExpr(field: IField): Prisma.Sql | null {
+function searchPredicate(field: IField, pattern: string): Prisma.Sql | null {
   const column = RECORD_COLUMN_SQL[field.key]
-  if (column) return field.key === RECORD_NUMBER_KEY ? column.expr : null
 
-  return FIELD_SQL_BY_TYPE[field.type].searchExpr(field.key)
+  if (column) {
+    return field.key === RECORD_NUMBER_KEY ? Prisma.sql`${column.expr} ILIKE ${pattern}` : null
+  }
+
+  return sqlFor(field).searchPredicate(field.key, pattern)
 }
 
 /**
@@ -198,8 +321,8 @@ function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null 
   const arms: Prisma.Sql[] = []
 
   for (const field of queryFields(fields)) {
-    const expr = searchExpr(field)
-    if (expr) arms.push(Prisma.sql`${expr} ILIKE ${pattern}`)
+    const predicate = searchPredicate(field, pattern)
+    if (predicate) arms.push(predicate)
   }
 
   return arms.length > 0 ? Prisma.sql`(${Prisma.join(arms, ' OR ')})` : null
@@ -223,7 +346,7 @@ export function buildRecordWhere(
     const value = filters[field.key]
     if (value === undefined) continue
 
-    const condition = FIELD_SQL_BY_TYPE[field.type].filter(valueExpr(field), value)
+    const condition = sqlFor(field).filter(valueExpr(field), value)
     if (condition) conditions.push(condition)
   }
 

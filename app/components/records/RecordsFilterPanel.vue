@@ -32,11 +32,10 @@
 
 <script setup lang="ts">
 import { computed, useId } from 'vue'
-import { FILTER_VALUE_BY_TYPE } from '#shared/constants/filter'
-import { isFilterValueEmpty, queryFields } from '#shared/utils/filter'
+import { emptyFilterValueFor, isFilterValueEmpty, queryFields } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
-import { FIELD_FILTERS } from '~/field-types/filters'
+import { filterFor } from '~/field-types/filters'
 
 const props = defineProps<{
   fields: IField[]
@@ -59,21 +58,21 @@ const columns = computed(() => queryFields(props.fields))
 
 /** Resolved once per field rather than per render, since `props` is a factory. */
 const controls = computed(() =>
-  columns.value.map((field) => ({
-    field,
-    component: FIELD_FILTERS[field.type].component,
-    props: FIELD_FILTERS[field.type].props(field),
-  })),
+  columns.value.map((field) => {
+    const filter = filterFor(field)
+
+    return { field, component: filter.component, props: filter.props(field) }
+  }),
 )
 
-/** Every control is always rendered, so an unfiltered field shows its type's empty value. */
+/** Every control is always rendered, so an unfiltered field shows its own empty value. */
 function valueFor(field: IField): TFilterValue {
-  return props.filters[field.key] ?? FILTER_VALUE_BY_TYPE[field.type].empty
+  return props.filters[field.key] ?? emptyFilterValueFor(field)
 }
 
 /** The field's filter value as the control's own model. */
 function controlValue(field: IField): TFilterValue {
-  const { toControl } = FIELD_FILTERS[field.type]
+  const { toControl } = filterFor(field)
   const value = valueFor(field)
 
   return toControl ? toControl(value) : value
@@ -81,7 +80,7 @@ function controlValue(field: IField): TFilterValue {
 
 /** The inverse: what the control just emitted, back as a filter value. */
 function filterValue(field: IField, model: TFilterValue): TFilterValue {
-  const { fromControl } = FIELD_FILTERS[field.type]
+  const { fromControl } = filterFor(field)
 
   return fromControl ? fromControl(model) : model
 }

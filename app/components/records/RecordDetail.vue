@@ -64,6 +64,14 @@ const columns = computed(() =>
   &__value {
     margin: 0;
     overflow-wrap: anywhere;
+
+    // The same rule applied to a multi-value cell, which defaults to one line because a table
+    // row has a fixed height. Here there is no height to keep, so every value is on screen
+    // instead of the first few — the one place this dialog overrides a cell's own layout.
+    :deep(.multi-value-cell) {
+      flex-wrap: wrap;
+      row-gap: rem(6);
+    }
   }
 }
 </style>

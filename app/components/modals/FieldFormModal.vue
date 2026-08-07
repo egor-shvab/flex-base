@@ -21,6 +21,23 @@
 
       <BaseCheckbox v-model="form.required" label="Required" />
 
+      <!--
+        Cardinality is a per-field setting rather than a second field type, which is what makes
+        an existing single-value field convertible. Widening migrates the records that already
+        exist; narrowing would have to discard values, so the server refuses it and the control
+        locks once it is on.
+      -->
+      <div v-if="MULTI_VALUE_BY_TYPE[form.type]" class="field-form__multiple">
+        <BaseCheckbox
+          v-model="form.multiple"
+          label="Allow multiple values"
+          :disabled="lockedMultiple"
+        />
+        <span v-if="lockedMultiple" class="field-form__hint">
+          A multi-value field cannot be changed back to a single value.
+        </span>
+      </div>
+
       <div v-if="form.type === 'SELECT'" class="field-form__choices">
         <span class="field-form__label">Choices</span>
         <div
@@ -90,9 +107,10 @@ import { useApi } from '~/composables/useApi'
 import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
-import { FIELD_TYPES, FIELD_TYPE_LABELS } from '#shared/constants/field'
+import { FIELD_TYPES, FIELD_TYPE_LABELS, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
 import { fieldSchema, type TFieldInput } from '#shared/validation/field'
 import type { IField, TFieldType } from '#shared/types/field'
+import { isMultiValue } from '#shared/utils/field'
 
 const props = withDefaults(
   defineProps<{
@@ -130,12 +148,20 @@ const { form, errors, serverError, pending, submit } = useForm({
     choices: initialChoices,
     targetTableId: props.field?.options?.targetTableId ?? '',
     labelFieldKey: props.field?.options?.labelFieldKey ?? '',
+    multiple: props.field?.options?.multiple ?? false,
   },
   onSubmit: async (values) => {
     await props.submitHandler(values)
     emit('saved')
   },
 })
+
+/**
+ * Read off the saved field rather than the form, so ticking the box in this session does not
+ * immediately lock it — only a field that is *already* multi-value is one the server refuses
+ * to narrow. In create mode there is no saved field, so it is always false.
+ */
+const lockedMultiple = computed(() => props.field?.options?.multiple === true)
 
 /**
  * Identity for the choice rows, since a choice has none of its own — its `value` is still
@@ -181,9 +207,14 @@ const targetOptions = computed(() =>
  */
 const targetFields = shallowRef<IField[]>([])
 
-/** A link labelled by another link would read as an id, so relations cannot label one. */
+/**
+ * A link labelled by another link would read as an id, so relations cannot label one — and a
+ * multi-value field cannot either: a label names one record, and a list names nothing. (A
+ * field already serving as a label can still be widened afterwards, which `buildRecordLabel`
+ * degrades rather than guards against.)
+ */
 const labelCandidates = computed(() =>
-  targetFields.value.filter((field) => field.type !== 'RELATION'),
+  targetFields.value.filter((field) => field.type !== 'RELATION' && !isMultiValue(field)),
 )
 
 const labelOptions = computed(() =>
@@ -214,6 +245,17 @@ watch(
 
   &__label {
     @include field-label;
+  }
+
+  &__multiple {
+    @include stack(4);
+  }
+
+  // A statement about the control above it, not an error — the field-error step would read as
+  // something having gone wrong when nothing has.
+  &__hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
   }
 
   &__choices {

@@ -12,6 +12,14 @@ export function buildRecordLabel(
 ): string {
   const value = labelFieldKey === undefined ? undefined : record.data[labelFieldKey]
 
+  // A multi-value field is not offered as a label — one is chosen to name a record, and a
+  // list does not name anything. It is still reachable, because a field already serving as
+  // some relation's label can be widened afterwards, so it degrades here rather than
+  // rendering `["a","b"]` through `String()`.
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(', ') : `#${record.number}`
+  }
+
   if (value === null || value === undefined || value === '') return `#${record.number}`
 
   return String(value)

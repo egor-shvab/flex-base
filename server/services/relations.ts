@@ -40,8 +40,13 @@ function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelatio
 
     const ids = new Set<string>()
     for (const data of rows) {
-      const id = data[field.key]
-      if (typeof id === 'string' && id !== '') ids.add(id)
+      // A multi-value relation stores a list of ids; every consumer below already works in
+      // sets and batches, so normalising here is the whole of what several links cost this
+      // module. A bare string is also what a row written before the field was widened holds.
+      const stored = data[field.key]
+      for (const id of Array.isArray(stored) ? stored : [stored]) {
+        if (typeof id === 'string' && id !== '') ids.add(id)
+      }
     }
 
     if (ids.size > 0) targets.push({ field, targetTableId, ids })

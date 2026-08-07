@@ -2,8 +2,25 @@ import type { IField } from '#shared/types/field'
 import type { IRecordSort, TRecordFilterValues, TSortDirection } from '#shared/types/filter'
 import type { ITable } from '#shared/types/table'
 
-/** Every value a record cell can hold. Records are stored as JSONB keyed by `Field.key`. */
-export type TRecordValue = string | number | boolean | null
+/**
+ * **One** value — what a single-value field stores, what one element of a multi-value field
+ * is, and what a per-type cell renders. Named separately from `TRecordValue` because most of
+ * the layer genuinely handles one value: a cell, a record column, a decoded filter bound. A
+ * position typed with the wider union when it can only ever hold one is a type that lies, and
+ * on a component it becomes a runtime prop check that lies with it.
+ */
+export type TRecordSingleValue = string | number | boolean | null
+
+/**
+ * Every value a record's `data` can hold, stored as JSONB keyed by `Field.key`.
+ *
+ * `string[]` is what a **multi-value** field stores (`options.multiple`, see `isMultiValue`) —
+ * a SELECT holding several choices, a RELATION holding several target ids. Every guard over
+ * this union must therefore separate the array case, exactly as `TFilterValue`'s already do;
+ * `TRecordValue` stays a subset of `TFilterValue`, so a control table typed on the latter
+ * still accepts a record value.
+ */
+export type TRecordValue = TRecordSingleValue | string[]
 
 export type TRecordData = Record<string, TRecordValue>
 

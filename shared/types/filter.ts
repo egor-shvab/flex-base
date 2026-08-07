@@ -12,8 +12,8 @@ export interface IRecordSort {
 /**
  * Every value a filter control can hold — one per field, whatever its type.
  *
- * `string[]` is the list shape, and it is a **filter** value only: a record still stores one
- * value per field, so `TRecordValue` is deliberately not widened alongside it. Anything
+ * `string[]` is the list shape. It is no longer filter-only: a multi-value field stores one
+ * too, so `TRecordValue` carries it as well and stays a subset of this union. Anything
  * narrowing this union by `typeof value === 'object'` must exclude arrays — see
  * `isRangeFilterValue`.
  */

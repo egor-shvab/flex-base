@@ -102,7 +102,92 @@ The bounds: `FILTER_LIST_MAX` (50) in the schema, because a repeated param is th
 
 `isRangeFilterValue` narrowed on `typeof value === 'object' && value !== null`, which an array passes — so without `!Array.isArray` a list-shaped filter would have decoded as a range and been read for bounds it does not have. `isScalarFilterValue` was added alongside so a comparison guards on the shape it _wants_ rather than on the one other shape that happened to exist when it was written.
 
-`TRecordValue` is deliberately **not** widened. A record still stores one value per field; only a filter holds several.
+`TRecordValue` **is** now widened with `string[]` too — see below. That reversed an explicit note here ("a record still stores one value per field; only a filter holds several"), and it is what made this entry's guards load-bearing on both sides of the wire rather than on one.
+
+### Multi-value is a per-field flag, not a pair of new field types
+
+`MULTI_SELECT` and `MULTI_RELATION` as `FieldType` members was the obvious alternative, and it is what the type system wants: every registry is a total `Record<TFieldType, …>`, so two new members would have made the compiler walk you through all of them, and §9 of `CLAUDE.md` is already a checklist for exactly that.
+
+**It fails on the only conversion anyone actually needs.** `updateField` rejects a type change, and correctly — the stored values would not survive it. So a relation field that already links each master to one service could never become multi-valued: the user would have to create a second field, re-enter every link by hand, and delete the first. A flag can be flipped with a migration; a type cannot. The upgrade path _is_ the feature.
+
+Two smaller costs it also avoids: the user's type list would double (`Select` / `Multi-select` / `Link to table` / `Links to table`), and every one of the ten registries would carry two near-identical rows, which is the duplication `CLAUDE.md` §6's DRY trigger exists to prevent.
+
+**What replaces the compiler's guarantee.** `MULTI_VALUE_BY_TYPE` is a total `Record<TFieldType, boolean>`, and each affected registry gains a total `Record<TFieldType, X | null>` override table. A seventh field type therefore still cannot ship without declaring its position on cardinality — the totality moved, it was not given up. `isMultiValue(field)` is the single reader of the flag, and the guard inside it is why a stale `options.multiple` on a type with no list form can never reach the schema or the SQL.
+
+### Multi is a lifting of the single-value spec, not a second set of specs
+
+Every layer treats "several" as the same uniform transformation of "one": `base` → `z.array(base)`, `= x` → `jsonb_exists_any`, one cell → a row of that cell, `BaseSelect` → `BaseSelect multiple`. So no field type declares a second schema, a second cell or a second summary — each registry keeps its flat entries and one resolver reads the flag.
+
+That is what keeps the change from being a `switch` on cardinality in every renderer, which is the failure `CLAUDE.md` §9 names. The branch exists once per registry, in `sqlFor` / `inputFor` / `filterFor` / `summaryFor` / `cellComponent` / `filterShapeFor`, and nothing downstream of those learns that `multiple` exists.
+
+**Multi-value cells need no registry at all.** `MultiValueCell` renders each entry through `FIELD_CELLS[field.type]`, because a list of values is exactly the list of how each value renders. A future multi-capable type is covered without a component.
+
+### `TRecordSingleValue` exists because a prop type is a runtime contract
+
+`TRecordValue` gained `string[]`, and the reflex is to let every position that holds a record value follow it. That is wrong in most of them: a per-type cell renders one value, a record's own column holds one, a decoded filter bound is one. Nine of the ten cells cannot draw a list — `MultiValueCell` is what a list resolves to, and it hands each entry back to one of them.
+
+Ordinarily a too-wide type is a lint-level complaint. Here it is not, because **`defineProps<T>()` compiles to a _runtime_ prop declaration**: widening `IFieldCellProps.value` adds `Array` to the accepted types of nine components that will never legitimately receive one, which turns off a check that would otherwise catch a real routing bug. The narrow type is the one that keeps the check meaningful.
+
+So `TRecordSingleValue` is the single-value union and `TRecordValue = TRecordSingleValue | string[]`. `MultiValueCell` takes its own `IMultiValueCellProps` with a plain `string[]` — a separate interface, not a widening, because the two contracts are opposites.
+
+The same reasoning narrowed `RECORD_COLUMNS.value`, `VALUE_SCHEMA_BY_TYPE.base` / `blank`, `buildFilterValueSchema` and `toRange`, all of which had silently inherited the wider union.
+
+**`listBase` came out of the same pass.** `buildMultiValueSchema` originally cast its result, because `z.array(base)` over a `ZodType<TRecordSingleValue>` yields `TRecordSingleValue[]`, which is not `string[]`. The cast was hiding a real gap: only a type whose values are strings _can_ be stored as a JSON array, and nothing said which those were. `IValueSchemaSpec.listBase` states it per type (`null` for the four that have none), which produces a genuine `z.ZodType<string[]>` and deletes the cast.
+
+### Type-only imports are invisible to HMR, and `compiler-sfc` caches resolved types
+
+Worth recording because it cost a bug report that looked like a code defect and was not.
+
+Widening `TRecordValue` changed no runtime module: `app/field-types/types.ts` imports it with `import type`, which is erased, so it is **not an edge in Vite's module graph** and nothing downstream was invalidated. `@vue/compiler-sfc` additionally caches resolved type scopes per file. A dev server running across that edit therefore kept generating cell props from the pre-widening union — including for a component **created after** the edit, since the fresh compile still resolved through the stale cached scope.
+
+The symptom is a runtime prop warning naming a union that no longer exists in the source (`Expected String | Number | Boolean | Null, got Array`). **A type-name in a Vue prop warning that does not match the current source means the dev server is stale, not that the source is wrong** — the fix is a full restart, and touching the SFC is not reliably enough.
+
+Corollary for reading built output: this toolchain emits a runtime `type` only for primitive unions. Array-typed props carry none at all — `BaseSelect.options` has done so all along, and `type:Array` appears nowhere in the client bundle. So an absent type on `MultiValueCell.value` is normal, not a resolution failure.
+
+### `TRecordValue` is widened with `string[]`
+
+A record now stores a list for a multi-value field. This is a real reversal of an earlier decision, not an extension of it, and the consequence to know is that **`TRecordValue` stayed a subset of `TFilterValue`** — so `IFieldControl<TValue extends TFilterValue>` needed no change, and the shape guards that already existed for filters (`isListFilterValue`, `isRangeFilterValue`'s `!Array.isArray`) were the ones the record side needed too.
+
+The one place it bites is blankness: `RecordFieldValue` had `value === null || value === undefined`, and an empty array passes neither. Without the array case a cleared multi field renders as an empty cell rather than "Not set" — a silent difference between "no value" and "we did not draw anything".
+
+### A multi-value column sorts by its first value
+
+A list has no intrinsic order, so any rule here is a choice. Three were on the table:
+
+- **opt out of sorting** — the most honest, and rejected on cost: `DynamicTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy` — new surface, for a column the user can still reach through its filter;
+- **`jsonb_array_length`** — orders by how many, which nobody asked;
+- **the first value**, which is what shipped.
+
+It wins because it is explicable from the screen: the first value is the one already visible in the cell, so a user can see why a row sorted where it did without opening anything. Ordering by something invisible would be worse than either alternative.
+
+### Cardinality is one-way: widening migrates, narrowing is refused
+
+Single → multi runs `widenToList` — one scoped `UPDATE` wrapping each stored scalar in an array — **inside `updateField`'s own transaction**, so the metadata and the rows it describes can never disagree. It is idempotent and skips a value that is already an array or is JSON `null`, so a retry is safe and `[null]` is never written where there was no value.
+
+Multi → single is a 400, in the same shape as `Relation target cannot be changed`. It is lossy, and there is no non-arbitrary answer to which of several values survives. A softer rule — allow it when no record holds more than one — was considered and rejected for now: it costs a JSONB scan of the table on every field save to buy a case nobody has asked for.
+
+The consequence, and it is the reason the migration exists at all: a value written **before** the flip is a bare scalar. Three places therefore tolerate one where a list is expected — `listValue.toControl` in `inputs.ts`, `collectRelationTargets`, and `MultiValueCell` — not as defensive padding but because a form opened from a stale page must not drop the value it is about to save back.
+
+### `jsonb_exists_any`, never the `?|` operator
+
+Postgres spells JSONB containment `?`, `?|` and `?&`, and a literal `?` in raw SQL is the parameter placeholder on Prisma's other drivers — it has a long history of being mangled. The function forms `jsonb_exists` / `jsonb_exists_any` mean exactly the same thing and are unambiguous everywhere, so they are what this codebase uses. `widenToList`'s key test is `jsonb_exists(data, key)` for the same reason.
+
+Two properties worth knowing, both verified before the code was written:
+
+- `jsonb_exists_any` answers **correctly for a bare scalar** (`'"abc"'::jsonb` contains `abc`), which is what keeps an un-migrated row from disappearing from its own filter. Do not lean on it as a substitute for the migration — display and validation still want one shape — but it means a half-applied widening degrades quietly.
+- It is the **only GIN-indexable comparison** in the query layer. The "sorting/filtering by a JSONB key is unindexed" ceiling below does not get worse here; this is the one filter that could eventually escape it.
+
+### The multi-value search guard is not defensive
+
+`jsonb_array_elements_text` raises `cannot extract elements from a scalar` on anything that is not an array — including a JSON `null`. It is a **set-returning function in `FROM`**, so that error aborts the entire list query, not the row: one legacy scalar left by a partially-applied migration would turn every search on that table into a 500.
+
+Hence the `CASE WHEN jsonb_typeof(…) = 'array' … ELSE '[]'::jsonb END` inside the call. Writing the type test as an `AND` beside the `EXISTS` instead does **not** work: SQL does not guarantee evaluation order between `AND` operands, so the planner is free to run the function first. The guard has to be inside the argument.
+
+### `searchExpr` became `searchPredicate`
+
+It returned an expression that `buildRecordSearch` appended `ILIKE ${pattern}` to. A multi-value column cannot be matched that way — the question is whether _any element_ matches, which is a predicate shape no projection can express. Widening the contract to `(key, pattern) => Sql | null` cost five one-line rewrites and is what makes multi expressible at all.
+
+Rejected: substring-matching the raw `["Won","Lost"]` text, which "works" and also lets a term of `","` or `[` match every multi-valued row. That is a lie rather than a near miss.
 
 ### `FILTER_VALUE_BY_TYPE` and `VALUE_SCHEMA_BY_TYPE` stay split
 
@@ -557,6 +642,35 @@ While a request is in flight the previous results stay on screen under an explic
 
 The em-dash spellings went with them: they existed to make a fake choice read as not-a-choice, which a muted placeholder carries on its own. `FieldFormModal`'s **Type** select is the exception that proves the rule — it never had a blank option, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
 
+### `BaseSelect` normalises `multiple` instead of reading the prop
+
+The conditional type below has a runtime cost that is invisible until it bites: Vue casts a
+bare attribute (`<BaseSelect multiple />`) to `true` only for a prop it knows is `Boolean`, and
+`multiple?: TModel extends string[] ? true : false` gives the SFC compiler no constructor to
+emit — the built output is `multiple:{default:void 0}`. So a bare attribute arrives as `''`,
+which is **falsy**, and the control silently runs in single mode.
+
+`vue-tsc` cannot catch it: the template checker reads a bare attribute as `true`, so the types
+agree with each other and disagree with the runtime. The failure is quiet and downstream — the
+control emits a string where a list was expected, and whatever adapter receives it decides what
+to do with a value it was never meant to see.
+
+`isMultiple` (`props.multiple !== undefined && props.multiple !== false`) makes both spellings
+mean the same thing. **Never read `props.multiple` directly.** Widening the prop to a plain
+`boolean` would fix the cast and give back exactly the mismatch the entry below exists to
+prevent, so the type stays and the read moved.
+
+### An atom's `disabled` must be a declared prop, never attribute fallthrough
+
+`BaseCheckbox` had no `disabled` prop, so `:disabled` on it landed on the wrapping `<div>` by
+fallthrough — where the attribute means nothing. The control looked plausible and stayed fully
+operable, with only a server 400 behind it. That is the "dead control" failure inverted: not a
+control that cannot act, but a lock that does not lock.
+
+The rule generalises to every atom with a wrapper element: a native form attribute has to be
+declared and bound to the **inner control**, because fallthrough silently targets the root.
+`BaseInput`, `BaseSelect` and `BaseButton` already did this; the checkbox was the gap.
+
 ### `multiple` is tied to the model's type, not merely declared beside it
 
 `multiple?: TModel extends string[] ? true : false`. A plain `multiple?: boolean` would let `<BaseSelect v-model="aStringRef" multiple />` compile and then misbehave at runtime — a worse type system than the single-select generic it replaced. With the conditional, that call is a compile error, and the two states cannot disagree.
@@ -585,9 +699,11 @@ The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for th
 | **A select no longer opens the OS-native picker on touch**, and a searchable one raises the soft keyboard where a `<button>` did not                                 | The price of a listbox that can render a choice's colour, search, and load asynchronously — none of which a `<select>` can do. Every option row is `--control-height`, so SC 2.5.8 is clear either way. Same trade as the 36px row below; the keyboard half is bounded by `shouldSearch()`, which keeps short pickers on the button branch                                                                                                                                                                                                                                                                           | **Accepted** — revisit if touch becomes a primary surface                                 |
 | **The dropdown's `Retry` button is pointer-only**                                                                                                                    | It lives in the teleported panel, and `Tab` dismisses the panel before focus can reach it. Not a dead control — the keyboard path to retrying a failed search is editing the term, which re-issues the request — but the button itself is unreachable. Fixing it needs a roving tabindex across the panel, or a `Tab` that moves _within_ the panel first                                                                                                                                                                                                                                                            | **Open** — a11y, small                                                                    |
 | **The dropdown's `role="status"` mounts together with its first message**                                                                                            | The live region is inside `<Teleport v-if="open">`, and a region inserted in the same frame as its content is not reliably announced — so the _first_ status ("Searching…", "No options") is probably silent while later transitions are announced. A fix means a permanently-mounted mirror region in the control, duplicating the copy                                                                                                                                                                                                                                                                             | **Open** — a11y, small                                                                    |
-| **In `multiple`, the closed control shows a count, not which values are chosen**                                                                                     | Chips would make the control's height content-dependent, which `useAnchoredPosition` does not observe (see the entry above). The information is a click away in the ticked option rows, and already spelled out in `RecordsFilterSummary` above the table                                                                                                                                                                                                                                                                                                                                                            | **Accepted**                                                                              |
+| **In `multiple`, the closed control shows a count, not which values are chosen**                                                                                     | Chips would make the control's height content-dependent, which `useAnchoredPosition` does not observe (see the entry above). The information is a click away in the ticked option rows, and already spelled out in `RecordsFilterSummary` above the table. It now also applies to the **record form**, where the argument is weaker — a filter's selection is restated above the table, an editor's is not, so "3 selected" is the one place multi-value reads as less than single-value did. A chip row _below_ the control (leaving its height fixed) is the cheap fix if it is ever wanted                        | **Accepted** — deliberate; the form case is the one worth revisiting                      |
 | **Relation option search scans the target table unindexed**                                                                                                          | An unanchored `ILIKE` over a user-defined JSON key, same ceiling as the three rows below — but paid **once** (no count query), over one table, on one expression, under a hard `LIMIT`                                                                                                                                                                                                                                                                                                                                                                                                                               | **Accepted** — same ceiling                                                               |
-| **Only SELECT filters are multi-valued**; every other filter and every record value holds one                                                                        | `BaseSelect` supports `multiple` generally, but nothing else has a use for it: `TRecordValue` has no array member and no other field type's filter wants OR-of-values. Widening any of that is a change to the metadata layer, not to this atom — and the atom's internals are already list-shaped, so a second consumer costs a prop                                                                                                                                                                                                                                                                                | **Open** — small, awaits a real second consumer                                           |
+| **Only SELECT filters are multi-valued**; every other filter and every record value holds one                                                                        | The second consumer arrived. `options.multiple` makes a SELECT or a RELATION hold a list, `TRecordValue` gained `string[]`, and a multi-value field filters as a list whatever its type declares. The prediction held exactly: the atom needed no change at all, only a prop                                                                                                                                                                                                                                                                                                                                         | **Closed** — multi-value SELECT and RELATION shipped                                      |
+| **A multi-value filter can only mean _any of_, never _all of_**                                                                                                      | There are no operators anywhere in this project, so a filter's value is its whole contract and "has any" is the only question its shape can ask. Expressing "has all" needs an operator in the URL, in every control and in the SQL map — reopening a load-bearing decision to serve one comparison. Users do want it; the answer is a design change, not a patch                                                                                                                                                                                                                                                    | **Accepted** — revisit only alongside operators as a whole                                |
+| **A multi-value cell shows one line in the table**, so values past the width cap are cut off                                                                         | A row has a fixed height and its cell wrapper truncates, so wrapping would clip the second line rather than reveal it, and a `+2` affordance needs a measurement the cell has no reason to take. `RecordDetail` wraps the same cell and shows every value, which is what that surface is for — the same escape hatch the truncated-cell row below relies on                                                                                                                                                                                                                                                          | **Open** — UX, shares a fix with the truncated-cell row below                             |
 | **`_count.records` drifts between Home visits**                                                                                                                      | `records.ts` is independent of `tables.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | **Open** — small                                                                          |
 | **Deleting a target record leaves a dangling id** that reads as "Unknown record"                                                                                     | Blocking it would mean a JSONB scan of every table on every delete. Deleting a target **table** is refused with a 409 instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | **Accepted** — revisit only with a real referential design                                |
 | **Sorting/filtering by a JSONB key is unindexed**                                                                                                                    | Keys are user-defined per table, so no general index applies                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | **Accepted** — the first scaling ceiling; watch it                                        |

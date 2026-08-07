@@ -7,7 +7,8 @@ import {
 } from '#shared/constants/filter'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IField, TFieldType } from '#shared/types/field'
-import type { TFilterParamRole, TFilterValue } from '#shared/types/filter'
+import type { IFilterValueSpec, TFilterParamRole, TFilterValue } from '#shared/types/filter'
+import { isMultiValue } from '#shared/utils/field'
 
 /**
  * One column of `Record` itself, as the query layer sees it: a read-only field over a real
@@ -40,6 +41,23 @@ export function queryFields(fields: IField[]): IField[] {
 }
 
 /**
+ * A **field's** filter value shape, which is not a function of its type alone: a multi-value
+ * field filters as a list whatever its type says, because "matches this one value" is not a
+ * question that can be asked of a column holding several.
+ *
+ * The shape a field type declares in `FILTER_VALUE_BY_TYPE` is the single-value case; this is
+ * the one place multi overrides it, and every caller that has an `IField` reads it here.
+ */
+export function filterShapeFor(field: IField): IFilterValueSpec<TFilterValue>['shape'] {
+  return isMultiValue(field) ? 'list' : FILTER_VALUE_BY_TYPE[field.type].shape
+}
+
+/** The same override for "not filtered" — an empty list rather than the type's empty scalar. */
+export function emptyFilterValueFor(field: IField): TFilterValue {
+  return isMultiValue(field) ? [] : FILTER_VALUE_BY_TYPE[field.type].empty
+}
+
+/**
  * Filters travel as plain query params named after the field: a scalar takes the field's
  * bare key, a list repeats that same key once per value, a range spreads to these two
  * suffixes — `?company=acme&stage=Won&stage=Lost&contract_value_from=100`.
@@ -54,6 +72,12 @@ export function rangeParamName(fieldKey: string, bound: keyof INumberRange): str
  * The params a field's filter claims, each tagged with the part of the value it carries.
  * The one definition of that mapping — the field-key collision guard, the query schema and
  * the URL codec all read it, so they cannot disagree about which name belongs to whom.
+ *
+ * **Keyed by type rather than by field on purpose, and multi-value does not change that.**
+ * `scalar` and `list` already claim the same single param name (a list is that name repeated),
+ * and no type `MULTI_VALUE_BY_TYPE` allows is `range` — so the slots a field claims are the
+ * same whether it holds one value or several. That is what keeps `filterParamNames` callable
+ * from `createField`, where the field row does not exist yet and only its type is known.
  */
 function filterParamSlots(
   fieldKey: string,

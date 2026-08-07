@@ -62,13 +62,41 @@ function uniqueKey(base: string, type: TFieldType, taken: Set<string>): string {
   return `${base}_${suffix}`
 }
 
-/** SELECT stores its choices, RELATION its target and label field; other types have none. */
+/**
+ * SELECT stores its choices, RELATION its target and label field; other types have none.
+ * Both multi-capable types carry their cardinality alongside — the schema has already refused
+ * `multiple` on a type that has no list form, so nothing needs re-checking here.
+ */
 function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
-  if (input.type === 'SELECT') return { choices: input.choices }
+  if (input.type === 'SELECT') return { choices: input.choices, multiple: input.multiple }
   if (input.type === 'RELATION') {
-    return { targetTableId: input.targetTableId, labelFieldKey: input.labelFieldKey }
+    return {
+      targetTableId: input.targetTableId,
+      labelFieldKey: input.labelFieldKey,
+      multiple: input.multiple,
+    }
   }
   return Prisma.JsonNull
+}
+
+/**
+ * Rewrites every stored value of one field into a single-element array, so widening a field
+ * that already holds data does not leave the whole table on the wrong shape. Runs in the same
+ * transaction as the field update, so the metadata and the rows it describes move together.
+ *
+ * Non-destructive and idempotent: a value already an array is skipped, and so is a missing or
+ * JSON-null one — there is nothing to wrap, and `[null]` would be a value where there was none.
+ * `jsonb_exists` rather than the `?` operator, which is a placeholder token on Prisma's other
+ * drivers and has a history of being mangled in raw SQL.
+ */
+function widenToList(tx: Prisma.TransactionClient, tableId: string, key: string) {
+  return tx.$executeRaw`
+    UPDATE "Record"
+    SET data = jsonb_set(data, ARRAY[${key}::text], jsonb_build_array(data -> ${key}::text))
+    WHERE "tableId" = ${tableId}
+      AND jsonb_exists(data, ${key}::text)
+      AND jsonb_typeof(data -> ${key}::text) NOT IN ('array', 'null')
+  `
 }
 
 export async function listFields(tableId: string): Promise<IField[]> {
@@ -118,7 +146,7 @@ export async function updateField(
 ): Promise<IField> {
   const field = await prisma.field.findFirst({
     where: { id: fieldId, tableId },
-    select: { type: true, options: true },
+    select: { key: true, type: true, options: true },
   })
   if (!field) {
     throw createError({ statusCode: 404, statusMessage: fieldErrors.notFound })
@@ -127,24 +155,47 @@ export async function updateField(
     throw createError({ statusCode: 400, statusMessage: 'Field type cannot be changed' })
   }
 
+  const currentOptions = toFieldOptions(field.options)
+
   // Retargeting would orphan every id already stored, so the target is immutable like the
   // key and the type. The label field is pure display and stays editable.
-  const currentTarget = toFieldOptions(field.options)?.targetTableId
+  const currentTarget = currentOptions?.targetTableId
   if (currentTarget !== undefined && currentTarget !== input.targetTableId) {
     throw createError({ statusCode: 400, statusMessage: 'Relation target cannot be changed' })
   }
 
-  try {
-    // key is immutable — only name/required/options are updated
-    const updated = await prisma.field.update({
-      where: { id: fieldId, tableId },
-      data: {
-        name: input.name,
-        required: input.required,
-        options: buildOptions(input),
-      },
-      select: fieldSelect,
+  // Cardinality is one-way. Widening is a migration this can perform; narrowing would have to
+  // discard every value past the first, and there is no non-arbitrary rule for which survives.
+  const wasMultiple = currentOptions?.multiple === true
+  if (wasMultiple && !input.multiple) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'A multi-value field cannot be changed back to a single value',
     })
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      // key is immutable — only name/required/options are updated
+      const row = await tx.field.update({
+        where: { id: fieldId, tableId },
+        data: {
+          name: input.name,
+          required: input.required,
+          options: buildOptions(input),
+        },
+        select: fieldSelect,
+      })
+
+      // The rows move with the metadata that describes them, or a value stored as a scalar
+      // would be read by a schema and a projection that both expect a list
+      if (!wasMultiple && input.multiple) {
+        await widenToList(tx, tableId, field.key)
+      }
+
+      return row
+    })
+
     return toFieldMetadata(updated)
   } catch (error) {
     throw toHttpError(error, fieldErrors)
