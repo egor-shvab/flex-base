@@ -1,39 +1,35 @@
-import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url))
-
 /**
- * Unit tests only — pure logic, no Nuxt runtime, no DOM, no database. `@nuxt/test-utils` and a
- * DOM environment are deliberately absent: nothing under test touches them, and adding them
- * would make every spec pay for a Nuxt app instance it never uses. The first component or
- * composable test is what earns them.
+ * The suite is two projects, and which one a spec lands in is decided by what it needs rather
+ * than by what it is:
+ *
+ * - `unit` (`vitest.unit.config.ts`) — pure logic and Vue-only reactivity, `environment: 'node'`.
+ * - `nuxt` (`vitest.nuxt.config.ts`) — anything needing the Nuxt runtime or a DOM, marked by a
+ *   `*.nuxt.spec.ts` suffix so the split is visible in the file name.
+ *
+ * `npm run test` runs both. `test:unit` is the inner loop — it stays under a Nuxt build's worth
+ * of startup, which is the whole reason the fast half was not simply absorbed into the slow one.
  */
 export default defineConfig({
   test: {
-    environment: 'node',
-    // No globals, matching the project's `autoImport: false` doctrine — and required anyway,
-    // since the generated tsconfigs set `types: []`, so ambient `describe`/`it` would not typecheck
-    globals: false,
-    include: ['{app,server,shared}/**/*.spec.ts'],
+    projects: ['./vitest.unit.config.ts', './vitest.nuxt.config.ts'],
+
+    // Coverage is root-only under `projects`: one report merged across both, rather than each
+    // project reporting on a slice of the codebase the other one also touches.
     coverage: {
       provider: 'v8',
-      include: ['shared/**/*.ts', 'server/services/**/*.ts'],
+      include: [
+        'shared/**/*.ts',
+        'server/services/**/*.ts',
+        'app/composables/**/*.ts',
+        'app/stores/**/*.ts',
+        'app/utils/**/*.ts',
+        // Only the registries themselves — `field-types/cells/` and `controls/` are components
+        'app/field-types/*.ts',
+      ],
       // Types are erased and the specs are not their own subject
       exclude: ['**/*.spec.ts', 'shared/types/**'],
-    },
-  },
-
-  // Mirrors the `paths` Nuxt generates into `.nuxt/tsconfig.*.json`, so a spec resolves at
-  // runtime exactly as `vue-tsc` resolved it. `~~` is declared first for readability; Vite
-  // matches a string alias on `id === find || id.startsWith(find + '/')`, so `~` cannot
-  // swallow a `~~/…` specifier either way.
-  resolve: {
-    alias: {
-      '~~': resolve('.'),
-      '#shared': resolve('./shared'),
-      '#server': resolve('./server'),
-      '~': resolve('./app'),
     },
   },
 })

@@ -12,6 +12,10 @@ node_modules
 # Prisma generated client
 server/generated
 
+# `@nuxt/test-utils` writes a `setups.@nuxt/test-utils="<version>"` marker here on install.
+# Generated tooling state, not project config — this project's Nuxt config is nuxt.config.ts.
+.nuxtrc
+
 # Test coverage reports
 coverage
 

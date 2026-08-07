@@ -43,7 +43,9 @@ Two rules are non-negotiable:
 ```bash
 npm run dev          # start dev server at http://localhost:3000
 npm run typecheck    # vue-tsc only (~7s) — the fast inner-loop type gate
-npm run test          # vitest run — the unit suite (~2s); no database, no browser
+npm run test          # vitest run — both projects; no database, no browser
+npm run test:unit     # the node project only (~1s) — the inner loop
+npm run test:nuxt     # the Nuxt-environment project only
 npm run test:watch    # vitest in watch mode
 npm run test:coverage # vitest run --coverage (v8) — reporting only, no threshold gate
 npm run build        # production build — also runs vue-tsc; a TS error fails the build (~30s)
@@ -282,20 +284,43 @@ Full contracts for each registry: `docs/architecture.md`.
 
 ## 10. Testing
 
-**Vitest is configured and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/` and `server/services/` ship with tests. **Playwright is not set up yet** — E2E over the auth-gated pages is the next piece of testing work.
+**Vitest is configured and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests. **Playwright is not set up yet** — E2E over the auth-gated pages is the next piece of testing work.
 
 `.github/workflows/ci.yml` runs `format:check` → `lint` → `typecheck` → `test` → `build` on every push to `main`/`develop` and on every PR. Alongside it, the total `Record<TFieldType, …>` registries still make an unhandled field type a compile error rather than a runtime surprise.
 
+### The two projects
+
+`vitest.config.ts` is a thin root declaring `test.projects` and the merged coverage config. The suite itself is two projects, and **which one a spec lands in is decided by what it needs, not by what it is**:
+
+|              | `unit` — `vitest.unit.config.ts`                             | `nuxt` — `vitest.nuxt.config.ts` |
+| ------------ | ------------------------------------------------------------ | -------------------------------- |
+| Files        | `{app,server,shared}/**/*.spec.ts`                           | `{app,shared}/**/*.nuxt.spec.ts` |
+| Environment  | `node`, no DOM                                               | `nuxt` (real app) on happy-dom   |
+| Aliases from | the `resolve.alias` block, mirroring `.nuxt/tsconfig.*.json` | Nuxt itself                      |
+| Cost         | under a second                                               | a Nuxt build's worth of startup  |
+| Run alone    | `npm run test:unit`                                          | `npm run test:nuxt`              |
+
+**Default to `unit`.** Vue reactivity alone does not earn the Nuxt project: `vue` is a plain dependency, so a composable built from `ref`/`watch`/`computed` is testable in `node` with an `effectScope` and nothing else — `useDebouncedModel`, `useSelectOptions`, `useForm` and `useDeleteConfirm` all live there. Reach for `*.nuxt.spec.ts` only for what genuinely cannot run otherwise:
+
+- anything importing `#imports` — every Pinia store does, through `useApi()` at setup time;
+- anything touching `document`, `window`, focus or layout (`usePopover`, `useAnchoredPosition`);
+- anything importing a `.vue` file, which the node project has no Vue plugin for.
+
+`defineVitestConfig` boots the real app from `nuxt.config.ts`, so the aliases, the module list and the SFC pipeline are the ones that ship. **Do not hand-stub what the environment already provides** — a stub is a second source of truth able to drift. In particular: `registerEndpoint` for an API a store calls, `mockNuxtImport` for `useRoute` and friends, `mountSuspended` for a component.
+
 ### Rules
 
-- **Specs are colocated** — `shared/utils/record-query.spec.ts` sits beside its source. That is what puts them inside the `include` globs Nuxt generates, so `npm run typecheck` checks them too.
-- **`vitest.config.ts` is a plain Vite config**, not `@nuxt/test-utils`. The suite is `environment: 'node'` with no DOM: nothing under test touches Vue, the browser or Nuxt's runtime. The first component or composable test is what earns `@nuxt/test-utils` + `@vue/test-utils` — do not add them speculatively.
-- **`globals: false`.** Every spec imports `{ describe, it, expect } from 'vitest'`, matching the project's `autoImport: false` doctrine — and required regardless, since the generated tsconfigs set `types: []`.
-- **Imports are aliased in a spec exactly as in source** (`#shared/…`, `#server/…`); `no-restricted-imports` applies to specs too.
+- **Specs are colocated** — `shared/utils/record-query.spec.ts` and `app/stores/tables.nuxt.spec.ts` each sit beside their source. That is what puts them inside the `include` globs Nuxt generates, so `npm run typecheck` checks them too.
+- **`globals: false` in both projects.** Every spec imports `{ describe, it, expect } from 'vitest'`, matching the project's `autoImport: false` doctrine — and required regardless, since the generated tsconfigs set `types: []`.
+- **Imports are aliased in a spec exactly as in source** (`~/…`, `#shared/…`, `#server/…`); `no-restricted-imports` applies to specs too.
 - **Field fixtures live in `test/fixtures.ts`**, reached as `~~/test/fixtures`. Add a builder there rather than restating an `IField` in a second spec.
 - **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/services/record-query.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute. A service that reaches the `prisma` client is not a unit-test subject.
+- **A mounted component reads the Nuxt app's pinia, not a spec's.** `setActivePinia(createPinia())` is right for a store tested directly and wrong under `mountSuspended`, where `@pinia/nuxt` has already provided one — use `setActivePinia(useNuxtApp().$pinia as Pinia)` and clear the state it carries between cases.
+- **Assert on structure and behaviour, never on computed styles.** Vitest's `test.css` stays `false`, so SCSS is stubbed rather than compiled; a component spec that reads a colour is testing nothing.
 
-Covered today: all of `shared/utils/`, all of `shared/validation/`, the SQL builder, field-key derivation, the JWT half of `server/utils/auth.ts`, the Prisma→HTTP error mapping, and `resolveSafeRedirect`. Uncovered pure logic worth taking next: `app/field-types/filter-summaries.ts` and the rest of `app/utils/` (`format`, `api-error`, `select`, `badge-tint`) — then `useSelectOptions`' request race guard and `useDebouncedModel`, which need `effectScope` but no DOM.
+Covered today — `unit`: all of `shared/utils/`, all of `shared/validation/`, the SQL builder, field-key derivation, the JWT half of `server/utils/auth.ts`, the Prisma→HTTP error mapping, `resolveSafeRedirect`, and the four Vue-only composables. `nuxt`: `useDetailLink`, `usePopover`, `useAnchoredPosition`, the tables and relations stores, `BaseButton`, and `RecordsFilterSummary`.
+
+Uncovered and worth taking next, in order of cheapness: `app/field-types/filter-summaries.ts` and the rest of `app/utils/` (`format`, `api-error`, `select`, `badge-tint`) — all pure, all `unit`; then `BaseSelect` and `BaseModal`, the two components carrying real keyboard and focus contracts; then `useRecordDetail`, whose `useAsyncData` has caching semantics of its own.
 
 Behavioural changes are still verified by driving the running app. The manual regression checklist for the metadata layer is in `docs/architecture.md`.
 
