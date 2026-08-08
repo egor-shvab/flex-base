@@ -49,6 +49,12 @@ async function positionOf(
   await nextTick()
 
   const result = { ...style.value }
+
+  // Closing is what detaches the window listeners: the composable releases them in
+  // `onBeforeUnmount`, which never registers outside a component, so `scope.stop()` alone
+  // would leave a pair behind for every case in this file to trip over
+  open.value = false
+  await nextTick()
   scope.stop()
 
   return result
@@ -188,6 +194,8 @@ describe('useAnchoredPosition', () => {
 
     expect(style.value).toEqual({})
 
+    open.value = false
+    await nextTick()
     scope.stop()
   })
 
@@ -219,5 +227,106 @@ describe('useAnchoredPosition', () => {
     expect(remove).toHaveBeenCalledWith('scroll', expect.any(Function), true)
 
     scope.stop()
+  })
+
+  /**
+   * Scroll fires far more often than a frame, so the handler queues at most one re-measure per
+   * frame — without the cancel, a fast scroll would run the arithmetic dozens of times and
+   * every answer but the last would be thrown away anyway.
+   *
+   * Everything here is asserted on *this* anchor's own rect reads rather than on global
+   * `requestAnimationFrame` counts. The composable cleans up in `onBeforeUnmount`, which never
+   * registers under a bare `effectScope`, so earlier cases in this file leave their window
+   * listeners attached and a global count would see all of them at once.
+   */
+  describe('re-measuring while open', () => {
+    /** An anchor that records how many times it was measured. */
+    function countingAnchor(rect: IRect) {
+      const element = elementAt(rect)
+      const measured = vi.fn(element.getBoundingClientRect.bind(element))
+      element.getBoundingClientRect = measured
+
+      return { element, measured }
+    }
+
+    /** Lets one real animation frame elapse, running whatever `schedule` queued. */
+    function frame() {
+      return new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    }
+
+    async function openedAt(rect: IRect) {
+      const scope = effectScope()
+      const { element, measured } = countingAnchor(rect)
+      const anchor = ref<HTMLElement | undefined>(element)
+      // Starts closed and is opened, because the watch has no `immediate` — it binds the
+      // listeners on the transition, so a ref born `true` would never attach any
+      const open = ref(false)
+
+      const style = scope.run(() => useAnchoredPosition(anchor, ref(undefined), open))!
+      open.value = true
+      // The watch fires on the next tick and defers `measure` one further, matching `positionOf`
+      await nextTick()
+      await nextTick()
+
+      return { style, anchor, measured, close: () => (open.value = false) }
+    }
+
+    it('follows the anchor when the page scrolls under it', async () => {
+      const { style, anchor, close } = await openedAt({
+        top: 100,
+        bottom: 140,
+        left: 200,
+        width: 300,
+      })
+      expect(style.value.top).toBe('144px')
+
+      anchor.value = elementAt({ top: 40, bottom: 80, left: 200, width: 300 })
+      window.dispatchEvent(new Event('scroll'))
+      await frame()
+
+      expect(style.value.top).toBe('84px')
+      close()
+    })
+
+    it('re-measures on a resize too, not only on scroll', async () => {
+      const { style, anchor, close } = await openedAt({
+        top: 100,
+        bottom: 140,
+        left: 200,
+        width: 300,
+      })
+
+      anchor.value = elementAt({ top: 300, bottom: 340, left: 200, width: 300 })
+      window.dispatchEvent(new Event('resize'))
+      await frame()
+
+      expect(style.value.top).toBe('344px')
+      close()
+    })
+
+    it('collapses a burst of events into one measurement', async () => {
+      const { measured, close } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
+      measured.mockClear()
+
+      for (let index = 0; index < 5; index += 1) window.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new Event('resize'))
+      await frame()
+
+      expect(measured).toHaveBeenCalledTimes(1)
+      close()
+    })
+
+    it('stops measuring once closed', async () => {
+      const { measured, close } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
+
+      close()
+      await nextTick()
+      measured.mockClear()
+
+      window.dispatchEvent(new Event('scroll'))
+      await frame()
+
+      expect(measured).not.toHaveBeenCalled()
+    })
   })
 })

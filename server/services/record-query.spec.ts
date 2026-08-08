@@ -6,8 +6,10 @@ import {
   buildRecordOrderBy,
   buildRecordWhere,
 } from '#server/services/record-query'
+import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
 import { CREATED_AT_KEY, RECORD_NUMBER_KEY, UPDATED_AT_KEY } from '#shared/constants/filter'
 import {
+  ALL_TYPE_FIELDS,
   asMultiple,
   booleanField,
   dateField,
@@ -356,5 +358,29 @@ describe('buildRecordLabelSearch', () => {
 
   it('escapes wildcards like the record search does', () => {
     expect(buildRecordLabelSearch('full_name', '50%')?.values).toContain('%50\\%%')
+  })
+})
+
+/**
+ * The counterpart of the `MULTI_INPUTS` invariant in `inputs.nuxt.spec.ts`: `MULTI_SQL` and
+ * `MULTI_VALUE_BY_TYPE` are two hand-maintained total `Record`s in different files, and a
+ * mismatch is silent in both directions — a multi-value field routed through the scalar
+ * projection compares a JSON array against a scalar and simply never matches.
+ *
+ * Probed through ORDER BY rather than WHERE: a widened field's filter is list-shaped whatever
+ * its type declares, so a WHERE would differ from the value's shape rather than from the
+ * routing this is about.
+ */
+describe('MULTI_SQL — the cross-registry invariant', () => {
+  it('projects a widened field differently at exactly the types that may hold a list', () => {
+    for (const type of FIELD_TYPES) {
+      const field = ALL_TYPE_FIELDS[type]
+      const sort = { key: field.key, dir: 'asc' as const }
+
+      const flat = buildRecordOrderBy([field], sort)
+      const widened = buildRecordOrderBy([asMultiple(field)], sort)
+
+      expect(sqlText(flat) !== sqlText(widened)).toBe(MULTI_VALUE_BY_TYPE[type])
+    }
   })
 })

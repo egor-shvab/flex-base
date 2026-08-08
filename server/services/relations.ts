@@ -12,7 +12,7 @@ import { buildRecordLabel } from '#shared/utils/record-label'
  * display on its own. This module is where the server resolves both — the one place that
  * knows what a RELATION field means, so `records.ts` stays generic.
  */
-interface IRelationTarget {
+export interface IRelationTarget {
   field: IField
   targetTableId: string
   /** The ids this field actually references in the rows at hand — never the whole table. */
@@ -31,7 +31,7 @@ function toLabelSource(row: ITargetRow): Pick<IRecord, 'number' | 'data'> {
   return { number: row.number, data: (row.data as TRecordData | null) ?? {} }
 }
 
-function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
+export function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
   const targets: IRelationTarget[] = []
 
   for (const field of fields) {

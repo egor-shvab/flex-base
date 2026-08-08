@@ -1,0 +1,149 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Prisma } from '#server/generated/prisma/client'
+import { createTable, deleteTable, listTables, renameTable } from '#server/services/tables'
+import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
+
+vi.mock('#server/utils/prisma', async () => ({
+  prisma: (await import('~~/test/prisma-mock')).prismaMock,
+}))
+
+const USER_ID = 'usr_1'
+const TABLE_ID = 'tbl_deals'
+
+const conflict = () =>
+  new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: '7.9.0' })
+
+const missing = () =>
+  new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' })
+
+beforeEach(resetPrismaMock)
+
+describe('listTables', () => {
+  it('reads only the owner’s tables, oldest first', async () => {
+    prismaMock.table.findMany.mockResolvedValue([])
+
+    await listTables(USER_ID)
+
+    expect(prismaMock.table.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: USER_ID }, orderBy: { createdAt: 'asc' } }),
+    )
+  })
+
+  it('carries the counts the dashboard reads', async () => {
+    prismaMock.table.findMany.mockResolvedValue([])
+
+    await listTables(USER_ID)
+
+    expect(prismaMock.table.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          _count: { select: { fields: true, records: true } },
+        }),
+      }),
+    )
+  })
+})
+
+describe('createTable', () => {
+  it('stamps the owner onto the row', async () => {
+    prismaMock.table.create.mockResolvedValue({ id: TABLE_ID })
+
+    await createTable(USER_ID, 'Deals')
+
+    expect(prismaMock.table.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { userId: USER_ID, name: 'Deals' } }),
+    )
+  })
+
+  it('maps a duplicate name onto a 409', async () => {
+    prismaMock.table.create.mockRejectedValue(conflict())
+
+    await expect(createTable(USER_ID, 'Deals')).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: 'A table with this name already exists',
+    })
+  })
+})
+
+describe('renameTable', () => {
+  it('scopes the update by owner, so an id alone cannot reach another account’s table', async () => {
+    prismaMock.table.update.mockResolvedValue({ id: TABLE_ID })
+
+    await renameTable(USER_ID, TABLE_ID, 'Renamed')
+
+    expect(prismaMock.table.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: TABLE_ID, userId: USER_ID },
+        data: { name: 'Renamed' },
+      }),
+    )
+  })
+
+  it('maps a name already taken onto a 409', async () => {
+    prismaMock.table.update.mockRejectedValue(conflict())
+
+    await expect(renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('maps a table that is gone onto a 404', async () => {
+    prismaMock.table.update.mockRejectedValue(missing())
+
+    await expect(renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Table not found',
+    })
+  })
+})
+
+/**
+ * A relation's target lives in opaque JSON, so no foreign key protects it and the cascade
+ * would take the referenced rows with it silently. The refusal is the only thing standing
+ * between a delete and every link into that table breaking.
+ */
+describe('deleteTable', () => {
+  it('looks for a relation pointing here before deleting anything', async () => {
+    prismaMock.field.findFirst.mockResolvedValue(null)
+    prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
+
+    await deleteTable(USER_ID, TABLE_ID)
+
+    expect(prismaMock.field.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          type: 'RELATION',
+          table: { userId: USER_ID },
+          options: { path: ['targetTableId'], equals: TABLE_ID },
+        }),
+      }),
+    )
+  })
+
+  it('deletes when nothing links to the table, scoped by owner', async () => {
+    prismaMock.field.findFirst.mockResolvedValue(null)
+    prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
+
+    await deleteTable(USER_ID, TABLE_ID)
+
+    expect(prismaMock.table.delete).toHaveBeenCalledWith({
+      where: { id: TABLE_ID, userId: USER_ID },
+    })
+  })
+
+  it('refuses with a 409 naming the field to remove first', async () => {
+    prismaMock.field.findFirst.mockResolvedValue({ name: 'Owner', table: { name: 'Deals' } })
+
+    await expect(deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: '"Owner" in "Deals" links to this table',
+    })
+
+    expect(prismaMock.table.delete).not.toHaveBeenCalled()
+  })
+
+  it('maps a table that is already gone onto a 404', async () => {
+    prismaMock.field.findFirst.mockResolvedValue(null)
+    prismaMock.table.delete.mockRejectedValue(missing())
+
+    await expect(deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({ statusCode: 404 })
+  })
+})

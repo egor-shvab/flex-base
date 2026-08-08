@@ -19,17 +19,36 @@ export default defineConfig({
     // project reporting on a slice of the codebase the other one also touches.
     coverage: {
       provider: 'v8',
+      // Every module that ships and can be reasoned about as logic, whether or not a spec
+      // reaches it yet — a directory left out here is a gap no report can show. `.vue` files
+      // are deliberately absent: components are pinned by behaviour specs, and ~40 markup
+      // files at partial coverage would drown the signal from the modules that matter.
       include: [
         'shared/**/*.ts',
+        // Handlers are only reachable from integration tests, which do not exist yet — they
+        // are listed so the report says so rather than staying silent about it
+        'server/api/**/*.ts',
+        'server/middleware/**/*.ts',
         'server/services/**/*.ts',
+        'server/utils/**/*.ts',
         'app/composables/**/*.ts',
+        'app/middleware/**/*.ts',
         'app/stores/**/*.ts',
         'app/utils/**/*.ts',
         // Only the registries themselves — `field-types/cells/` and `controls/` are components
         'app/field-types/*.ts',
       ],
-      // Types are erased and the specs are not their own subject
-      exclude: ['**/*.spec.ts', 'shared/types/**'],
+      exclude: [
+        // Types are erased and the specs are not their own subject
+        '**/*.spec.ts',
+        'shared/types/**',
+        // Generated, and matched by no glob above — declared so a future `server/**/*.ts`
+        // shorthand cannot quietly sweep the Prisma client into the report
+        'server/generated/**',
+        // Environment wiring: reads `process.env` and constructs a client. Excluded rather
+        // than carried as a file that would sit at 0% forever
+        'server/utils/prisma.ts',
+      ],
     },
   },
 })

@@ -159,20 +159,14 @@ import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#im
 import { useApi } from '~/composables/useApi'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useRecordDetail } from '~/composables/useRecordDetail'
+import { useRecordListQuery } from '~/composables/useRecordListQuery'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
 import { toPageError } from '~/utils/api-error'
-import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
-import type { TRecordFilterValues } from '#shared/types/filter'
-import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
-import {
-  parseRecordQueryState,
-  recordQueryKey,
-  toRecordQueryParams,
-} from '#shared/utils/record-query'
+import type { IRecord, TRecordData } from '#shared/types/record'
 
 type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
 
@@ -187,17 +181,19 @@ const relationsStore = useRelationsStore()
 const tableId = route.params.tableId as string
 
 /** The URL is the source of truth for the list query, so a filtered view is shareable. */
-const queryParams = computed<IRecordQueryState>(() =>
-  parseRecordQueryState(fieldsStore.fields, route.query),
-)
-
-const filters = computed(() => queryParams.value.filters)
-
-/** One filtered field counts once, however many conditions its control implies. */
-const activeFilterCount = computed(() => Object.keys(filters.value).length)
-
-/** Whether the list is showing less than the whole table, by filter or by search. */
-const isNarrowed = computed(() => activeFilterCount.value > 0 || queryParams.value.search !== '')
+const {
+  queryParams,
+  filters,
+  isNarrowed,
+  emptyTitle,
+  emptyMessage,
+  queryKey,
+  goToPage,
+  applySort,
+  applyFilters,
+  applySearch,
+  clearNarrowing,
+} = useRecordListQuery({ fields: () => fieldsStore.fields })
 
 const { data, error } = await useAsyncData(`table-records-${tableId}`, async () => {
   const [tableResponse] = await Promise.all([
@@ -216,22 +212,16 @@ const { data, error } = await useAsyncData(`table-records-${tableId}`, async () 
 })
 
 // Every list change goes through the URL, so one watcher covers filtering, sorting and paging.
-// Keyed on the serialized query rather than on `queryParams` itself: that computed returns a
-// fresh object whenever *any* param moves, including the record dialog's, and the list must not
-// refetch because a dialog opened.
 // The rejection is swallowed deliberately: the store sets `failed`, which the template shows —
 // letting it escape a watcher would be an unhandled rejection and the table would silently keep
 // rows that no longer match the URL.
-watch(
-  () => recordQueryKey(queryParams.value),
-  async () => {
-    try {
-      await recordsStore.fetchRecords(tableId, queryParams.value)
-    } catch {
-      // surfaced through `recordsStore.failed`
-    }
-  },
-)
+watch(queryKey, async () => {
+  try {
+    await recordsStore.fetchRecords(tableId, queryParams.value)
+  } catch {
+    // surfaced through `recordsStore.failed`
+  }
+})
 
 if (error.value) {
   throw createError(toPageError(error.value))
@@ -246,61 +236,6 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 ])
 
 const hasFields = computed(() => fieldsStore.fields.length > 0)
-
-const emptyTitle = computed(() => {
-  if (!isNarrowed.value) return 'No records yet'
-  if (queryParams.value.search && activeFilterCount.value === 0) {
-    return `Nothing matches “${queryParams.value.search}”`
-  }
-  return activeFilterCount.value === 1 && !queryParams.value.search
-    ? 'No records match this filter'
-    : 'No records match what you are looking for'
-})
-
-const emptyMessage = computed(() => {
-  if (!isNarrowed.value) return 'Add your first record to see it here.'
-  if (queryParams.value.search && activeFilterCount.value === 0) {
-    return 'Check the spelling, or try a shorter word.'
-  }
-  return queryParams.value.search
-    ? 'This table has records, but none match both your search and your filters.'
-    : 'This table has records, but none match all of these filters at once.'
-})
-
-function applyQuery(params: IRecordQueryState, replace = false) {
-  // Sort and page steps are worth a history entry; live filter edits would flood it
-  return navigateTo({ query: toRecordQueryParams(params) }, { replace })
-}
-
-function goToPage(nextPage: number) {
-  return applyQuery({ ...queryParams.value, page: nextPage })
-}
-
-/** Re-clicking the sorted column flips it; a new column starts ascending. */
-function applySort(key: string) {
-  const { sort } = queryParams.value
-  const dir = sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc'
-  return applyQuery({ ...queryParams.value, page: 1, sort: { key, dir } })
-}
-
-function applyFilters(next: TRecordFilterValues) {
-  return applyQuery({ ...queryParams.value, page: 1, filters: next }, true)
-}
-
-/**
- * Below the minimum the term is dropped rather than sent: the schema rejects it anyway, and
- * an unanchored match across every field is not worth running for one character.
- */
-function applySearch(next: string) {
-  const search = next.trim().length >= SEARCH_MIN_LENGTH ? next.trim() : ''
-  if (search === queryParams.value.search) return
-
-  return applyQuery({ ...queryParams.value, page: 1, search }, true)
-}
-
-function clearNarrowing() {
-  return applyQuery({ ...queryParams.value, page: 1, filters: {}, search: '' }, true)
-}
 
 const filterPanelOpen = ref(false)
 
@@ -325,7 +260,7 @@ async function submitRecord(data: TRecordData) {
   // letting the store show a page the address bar disagrees with
   const nextPage = await recordsStore.createRecord(tableId, data, queryParams.value)
   if (nextPage !== queryParams.value.page) {
-    await applyQuery({ ...queryParams.value, page: nextPage }, true)
+    await goToPage(nextPage, true)
   }
 }
 

@@ -41,7 +41,7 @@ export function toFieldMetadata(field: TFieldRow): IField {
  * Both multi-capable types carry their cardinality alongside — the schema has already refused
  * `multiple` on a type that has no list form, so nothing needs re-checking here.
  */
-function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+export function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   if (input.type === 'SELECT') return { choices: input.choices, multiple: input.multiple }
   if (input.type === 'RELATION') {
     return {

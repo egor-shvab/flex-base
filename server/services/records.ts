@@ -27,7 +27,7 @@ type TRecordRow = Prisma.RecordGetPayload<{ select: typeof recordSelect }>
 const recordErrors = { notFound: 'Record not found' }
 
 /** Narrows Prisma's untyped JSONB column onto the shared record shape. */
-function toRecordDto(record: TRecordRow): IRecord {
+export function toRecordDto(record: TRecordRow): IRecord {
   return {
     id: record.id,
     number: record.number,

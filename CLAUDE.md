@@ -2,8 +2,9 @@
 
 Guidance for Claude Code (claude.ai/code) when working in this repository.
 
-Two companion documents carry the detail this file deliberately omits. Read the relevant one before changing the area it covers:
+Three companion documents carry the detail this file deliberately omits. Read the relevant one before changing the area it covers:
 
+- **`ROADMAP.md`** — what is being built next, in what order, and what is already done. The source of truth for the current plan (§2).
 - **`docs/architecture.md`** — how the metadata layer works: the field-type registries, record identity and record columns, relations, the filter/search wire format, the SQL layer, the data model, and a map of the key modules.
 - **`docs/decisions.md`** — why it works that way: the rejected alternatives, the load-bearing constraints that must not be "cleaned up", and the **Accepted limitations** register.
 
@@ -66,6 +67,19 @@ npx prisma generate                   # regenerate the client into server/genera
 
 PostgreSQL runs in Docker. Never use OSPanel's bundled modules.
 
+### The roadmap
+
+**`ROADMAP.md` is the source of truth for the current development plan.** It is not optional reading and it is not a changelog — it states what is being worked on now, what comes next, and in what order.
+
+- **Read it before starting a new task**, to see where that task sits and what it depends on.
+- **Mark a task `[x]` as soon as it is done** (by the definition below), `[~]` while it is in progress, `[ ]` until then.
+- **A necessary task discovered mid-development is added to the roadmap**, in the stage it belongs to — not left in a commit message or in conversation.
+- **When the task changes or new requirements arrive, update the roadmap to match.** A plan that disagrees with what is being built is worse than no plan.
+- **Delete or replace anything cancelled, superseded, or no longer relevant.** No duplicates, no stale entries, no tasks kept "for the record" — that is what git history is for.
+- Keep it current for the rest of the project, not just this phase.
+
+Scope discipline: the roadmap says _what_ and _in what order_. Contracts belong in `docs/architecture.md`, rationale in `docs/decisions.md`, rules here. Do not let it grow into a specification.
+
 ### Definition of done
 
 A change is finished only when, in order:
@@ -77,7 +91,8 @@ A change is finished only when, in order:
 5. for any interactive or visual change: the keyboard path works, the focus ring is visible, and every target is at least `--control-height` (never below the 24×24 WCAG floor);
 6. the change has been verified working in the running app (dev server);
 7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
-8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files here — the codebase is the source of truth for what exists.
+8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files here — the codebase is the source of truth for what exists;
+9. `ROADMAP.md` reflects reality — the task is marked `[x]`, and anything the work revealed, changed, or made obsolete is added, updated, or removed.
 
 ---
 
@@ -284,7 +299,7 @@ Full contracts for each registry: `docs/architecture.md`.
 
 ## 10. Testing
 
-**Vitest is configured and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests. **Playwright is not set up yet** — E2E over the auth-gated pages is the next piece of testing work.
+**Vitest is configured and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests. **Playwright is not set up yet**, and E2E is not the next piece of work — `server/services/` and `server/utils/ownership.ts` are still at zero, and nothing anywhere runs a route handler or touches the database. `ROADMAP.md` holds the order.
 
 `.github/workflows/ci.yml` runs `format:check` → `lint` → `typecheck` → `test` → `build` on every push to `main`/`develop` and on every PR. Alongside it, the total `Record<TFieldType, …>` registries still make an unhandled field type a compile error rather than a runtime surprise.
 
@@ -314,17 +329,22 @@ Full contracts for each registry: `docs/architecture.md`.
 - **`globals: false` in both projects.** Every spec imports `{ describe, it, expect } from 'vitest'`, matching the project's `autoImport: false` doctrine — and required regardless, since the generated tsconfigs set `types: []`.
 - **Imports are aliased in a spec exactly as in source** (`~/…`, `#shared/…`, `#server/…`); `no-restricted-imports` applies to specs too.
 - **Field fixtures live in `test/fixtures.ts`**, reached as `~~/test/fixtures`. Add a builder there rather than restating an `IField` in a second spec.
-- **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/services/record-query.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute. A service that reaches the `prisma` client is not a unit-test subject.
+- **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/services/record-query.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute.
+- **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/utils/prisma', …)`. Not a preference — `server/utils/prisma.ts` constructs a real client at module load, so without it the module cannot be imported in the node project at all. The stub answers to both `$transaction` forms and hands the callback itself as `tx`, so a transactional write and a direct one assert through the same spies. **What it may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs**, or that PostgreSQL agrees with it. Do not stretch a stub to imply otherwise — that half is the integration suite's, and `ROADMAP.md` holds it.
 - **A mounted component reads the Nuxt app's pinia, not a spec's.** `setActivePinia(createPinia())` is right for a store tested directly and wrong under `mountSuspended`, where `@pinia/nuxt` has already provided one — use `setActivePinia(useNuxtApp().$pinia as Pinia)` and clear the state it carries between cases.
 - **Assert on structure and behaviour, never on computed styles.** Vitest's `test.css` stays `false`, so SCSS is stubbed rather than compiled; a component spec that reads a colour is testing nothing.
 
-Covered today — `unit`: all of `shared/utils/`, all of `shared/validation/`, the SQL builder, field-key derivation, the JWT half of `server/utils/auth.ts`, the Prisma→HTTP error mapping, and the four Vue-only composables. `nuxt`: **every composable, every store, all of `app/field-types/`, all of `app/utils/`**, and the components `BaseButton`, `BaseInput`, `BaseModal`, `BaseRange`, `BaseSelect`, `RecordFieldValue`, `RecordsFilterPanel`, `RecordsFilterSummary`, `DynamicForm` and `DynamicTable`.
+Covered today — `unit`: all of `shared/utils/`, all of `shared/validation/`, **all of `server/services/` and all of `server/utils/`** (the SQL builder, the four prisma-backed services, ownership scoping, field-key derivation, the whole of `auth.ts` including the cookie contract, the Prisma→HTTP error mapping), and the four Vue-only composables. `nuxt`: **every composable, every store, all of `app/field-types/`, all of `app/utils/`, and the route guard in `app/middleware/`**, plus the components `BaseButton`, `BaseInput`, `BaseModal`, `BasePagination`, `BaseRange`, `BaseSelect`, `RecordFieldValue`, `RecordsFilterPanel`, `RecordsFilterSummary`, `DynamicForm` and `DynamicTable`.
+
+**`server/api/` and `server/middleware/` are at zero and stay there for now.** Nothing runs a route handler or touches PostgreSQL, so the ownership rules are pinned one layer below the endpoint that enforces them. That gap is deliberate and visible in the coverage report rather than papered over.
 
 **No module under `app/` is at zero.** What is left is the rest of `app/components/`, which is markup, and end-to-end coverage — the browser-only behaviour in `docs/architecture.md` §12 that Playwright is for.
 
 **A pure module that imports a `.vue` file belongs to the `nuxt` project.** `record-cells.ts` and `inputs.ts` mount nothing and assert on plain functions, but the node project has no Vue plugin to resolve their component imports — what decides the project is the import graph, not what the spec does.
 
 Three contracts the renderer specs pin that are invisible in the browser when broken, and must not be "simplified" away: **`DynamicForm` never mutates the `values` prop** (the form object belongs to the parent's `useForm`); **an empty list is as blank as a null** in `RecordFieldValue`, or a cleared multi-value field renders as nothing rather than "Not set"; and **`MULTI_INPUTS` must be non-null at exactly the types `MULTI_VALUE_BY_TYPE` marks `true`** — two hand-maintained total `Record`s in different files, where a mismatch silently drops every value but the first.
+
+**`MULTI_SQL` carries the same invariant and the same guard**, in `record-query.spec.ts`. A widened field routed through the scalar projection compares a JSON array against a scalar and simply never matches — nothing errors, the table just comes back empty. It is probed through `ORDER BY` rather than `WHERE`, because a widened field's filter is list-shaped whatever its type declares, so a `WHERE` would differ from the value's shape rather than from the routing under test.
 
 **A store that must not throw and one that must are a documented pair.** `ensureTables` swallows, because the root layout has no error boundary above it; `fetchRecords` sets `failed` **and rethrows**, because a refetch runs from a watcher where swallowing would leave the table showing rows that no longer match the URL — and the initial load still needs the rejection for `useAsyncData` to produce the 404. Both directions are asserted, in `tables.nuxt.spec.ts` and `records.nuxt.spec.ts`.
 
@@ -333,6 +353,8 @@ Three contracts the renderer specs pin that are invisible in the browser when br
 **The filter side is deliberately not symmetric with the record side, and the specs pin the difference.** `MULTI_FILTERS.SELECT` is `null` because a SELECT filter was always list-shaped, so the `MULTI_INPUTS` invariant above does **not** apply to `MULTI_FILTERS`; only BOOLEAN carries adapters, because every other filter control's model already _is_ the filter value; and `RecordsFilterPanel` rebuilds its whole map in column order rather than patching one key, so a shared URL is stable whichever control was touched. `BaseRange` adds one more: a blank or unparseable bound is `null`, **never `0`**, or an empty box silently becomes `>= 0`.
 
 Two contracts the component specs pin that are invisible in the browser when broken, and must not be "simplified" away: **`BaseSelect` normalises `props.multiple` itself**, because a bare `multiple` attribute arrives as `''` that `vue-tsc` reads as `true`; and **its combobox swallows Escape only while open**, so a closed select inside the filter drawer does not eat the drawer's own key. `BaseModal`'s spec pins the other half of that — it owns the sole document-level Escape listener, and releases it on unmount.
+
+**The list query lives in `useRecordListQuery`, not in the records page**, and which of its actions leaves a history entry is a contract: a sort or a page step **pushes**, a filter edit, a search or a clear **replaces**. Nothing on screen shows the difference — it surfaces only as a browser Back that walks through every keystroke instead of returning where the user came from. Two more the same spec pins: a search term below `SEARCH_MIN_LENGTH` is dropped rather than sent, and an unchanged term does not navigate **at all**, because a debounced input re-emits the value it settled on. Note that `desc` is the default direction and is therefore _absent_ from the URL, so a spec asserting on `dir` reads the params back through `parseRecordQueryState` rather than checking whether the key is there.
 
 Behavioural changes are still verified by driving the running app. The manual regression checklist for the metadata layer is in `docs/architecture.md`.
 
