@@ -1,0 +1,8 @@
+{
+  // The options — node types and the `~~`/`#server`/`#shared` aliases — live one level up, so
+  // the whole test tree resolves the same way. This file exists because `playwright.config.ts`
+  // points at it by name, and because the e2e run also compiles two helpers from outside its
+  // own directory.
+  "extends": "../tsconfig.json",
+  "include": ["./**/*.ts", "../disposable-database.ts", "../integration/seed.ts"]
+}

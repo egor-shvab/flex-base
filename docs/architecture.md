@@ -406,9 +406,17 @@ The table list is fetched **by the layout, once per session**, via `ensureTables
 
 ---
 
-## 12. Manual regression checklist
+## 12. Browser regression checklist
 
-Walk this after any change to the metadata layer. It stays **manual** on purpose: the unit suite now pins the pure logic underneath these behaviours — the URL codec, the filter predicates, the zod schemas and the SQL the builder emits — but every line below is about what the running app _does_ with that logic, which only a browser (or, later, Playwright) can answer. Where a line has a unit test behind it, that test proves the SQL or the param, never the paint.
+**Playwright now owns this list.** `test/e2e/` automates it — every line below is covered by a spec named after it, driven against the production build in Chromium (`npm run test:e2e`, and its own CI job). What was a manual walk after any change to the metadata layer is now a gate.
+
+Three lines are **approximated rather than proven**, and their specs say so where they sit:
+
+- **hydration mismatches** — a production build silences Vue's warning, so what is asserted instead is that the server's own HTML is already correct and that the console stays clean. The warning itself is not observable against the bundle that ships.
+- **a focus ring not clipped by its cell** — asserted as the focused link's box sitting inside its cell's, which catches the structural cause without seeing the outline.
+- **Backspace held down** — a held key is not reproducible through Playwright's API; the spec presses more times than there are values and asserts it stops at empty.
+
+Keep the list current: it is the index of what `test/e2e/` is for, and a behaviour added here without a spec is a gap that will not announce itself.
 
 - Record CRUD across **every** field type.
 - A filtered URL loaded cold — it must render filtered on first paint.

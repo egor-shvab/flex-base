@@ -1,0 +1,27 @@
+{
+  // The build and test tooling configs at the repo root. Nuxt generates a project for `app/`,
+  // one for `server/`, one for `shared/` and one that claims `nuxt.config.ts` — but nothing
+  // claims the Vitest, Playwright or Prisma configs beside it. Left alone they are invisible
+  // twice over: an editor opening one falls back to compiler defaults and marks `process` and
+  // every `node:*` import as an error, and `npm run typecheck` never sees them at all, so a
+  // real type error here would surface only when the tool that reads the file runs — which,
+  // for Playwright, transpiles without checking and so would never surface it.
+  //
+  // Referenced from `tsconfig.json`, which `nuxt prepare` does not rewrite.
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["./*.config.ts"],
+  // `nuxt.config.ts` matches the glob but already belongs to `.nuxt/tsconfig.node.json`, which
+  // is where its ambient `defineNuxtConfig` comes from. Two projects claiming one file is how
+  // it ends up checked against the wrong globals.
+  "exclude": ["./nuxt.config.ts"]
+}

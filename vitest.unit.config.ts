@@ -21,8 +21,10 @@ export default defineConfig({
     globals: false,
     include: ['{app,server,shared}/**/*.spec.ts'],
     // `exclude` replaces Vitest's defaults rather than extending them, so `node_modules` and
-    // friends have to be carried over by hand alongside the Nuxt project's files.
-    exclude: [...configDefaults.exclude, '**/*.nuxt.spec.ts'],
+    // friends have to be carried over by hand alongside the other projects' files. The
+    // integration specs are excluded by name for the same reason they are not in
+    // `test.projects`: they need a database, and this project must never want one.
+    exclude: [...configDefaults.exclude, '**/*.nuxt.spec.ts', '**/*.integration.spec.ts'],
   },
 
   // Mirrors the `paths` Nuxt generates into `.nuxt/tsconfig.*.json`, so a spec resolves at

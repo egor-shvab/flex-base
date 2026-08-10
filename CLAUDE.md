@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 Three companion documents carry the detail this file deliberately omits. Read the relevant one before changing the area it covers:
 
-- **`ROADMAP.md`** — what is being built next, in what order, and what is already done. The source of truth for the current plan (§2).
+- **`docs/roadmap.md`** — what is being built next, in what order, and what is already done. The source of truth for the current plan (§2).
 - **`docs/architecture.md`** — how the metadata layer works: the field-type registries, record identity and record columns, relations, the filter/search wire format, the SQL layer, the data model, and a map of the key modules.
 - **`docs/decisions.md`** — why it works that way: the rejected alternatives, the load-bearing constraints that must not be "cleaned up", and the **Accepted limitations** register.
 
@@ -44,9 +44,12 @@ Two rules are non-negotiable:
 ```bash
 npm run dev          # start dev server at http://localhost:3000
 npm run typecheck    # vue-tsc only (~7s) — the fast inner-loop type gate
-npm run test          # vitest run — both projects; no database, no browser
+npm run test          # vitest run — the unit + nuxt projects; no database, no browser
 npm run test:unit     # the node project only (~1s) — the inner loop
 npm run test:nuxt     # the Nuxt-environment project only
+npm run test:integration # the integration project — runs `db:up` itself, then Vitest
+npm run test:e2e      # Playwright over the production build — installs Chromium and runs `db:up` itself (~90s incl. build)
+npm run test:e2e:ui   # the same, in Playwright's UI mode
 npm run test:watch    # vitest in watch mode
 npm run test:coverage # vitest run --coverage (v8) — reporting only, no threshold gate
 npm run build        # production build — also runs vue-tsc; a TS error fails the build (~30s)
@@ -69,7 +72,7 @@ PostgreSQL runs in Docker. Never use OSPanel's bundled modules.
 
 ### The roadmap
 
-**`ROADMAP.md` is the source of truth for the current development plan.** It is not optional reading and it is not a changelog — it states what is being worked on now, what comes next, and in what order.
+**`docs/roadmap.md` is the source of truth for the current development plan.** It is not optional reading and it is not a changelog — it states what is being worked on now, what comes next, and in what order.
 
 - **Read it before starting a new task**, to see where that task sits and what it depends on.
 - **Mark a task `[x]` as soon as it is done** (by the definition below), `[~]` while it is in progress, `[ ]` until then.
@@ -92,7 +95,7 @@ A change is finished only when, in order:
 6. the change has been verified working in the running app (dev server);
 7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
 8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files here — the codebase is the source of truth for what exists;
-9. `ROADMAP.md` reflects reality — the task is marked `[x]`, and anything the work revealed, changed, or made obsolete is added, updated, or removed.
+9. `docs/roadmap.md` reflects reality — the task is marked `[x]`, and anything the work revealed, changed, or made obsolete is added, updated, or removed.
 
 ---
 
@@ -299,27 +302,53 @@ Full contracts for each registry: `docs/architecture.md`.
 
 ## 10. Testing
 
-**Vitest is configured and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests. **Playwright is not set up yet**, and E2E is not the next piece of work — `server/services/` and `server/utils/ownership.ts` are still at zero, and nothing anywhere runs a route handler or touches the database. `ROADMAP.md` holds the order.
+**Vitest and Playwright are both configured, and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one.
 
-`.github/workflows/ci.yml` runs `format:check` → `lint` → `typecheck` → `test` → `build` on every push to `main`/`develop` and on every PR. Alongside it, the total `Record<TFieldType, …>` registries still make an unhandled field type a compile error rather than a runtime surprise.
+`.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app. Alongside them, the total `Record<TFieldType, …>` registries still make an unhandled field type a compile error rather than a runtime surprise.
 
-### The two projects
+### The four projects
 
-`vitest.config.ts` is a thin root declaring `test.projects` and the merged coverage config. The suite itself is two projects, and **which one a spec lands in is decided by what it needs, not by what it is**:
+`vitest.config.ts` is a thin root declaring `test.projects` and the merged coverage config — **`unit` and `nuxt` only**, so `npm run test` never wants a database. `integration` is a standalone config run by its own script. **Which project a spec lands in is decided by what it needs, not by what it is**:
 
-|              | `unit` — `vitest.unit.config.ts`                             | `nuxt` — `vitest.nuxt.config.ts` |
-| ------------ | ------------------------------------------------------------ | -------------------------------- |
-| Files        | `{app,server,shared}/**/*.spec.ts`                           | `{app,shared}/**/*.nuxt.spec.ts` |
-| Environment  | `node`, no DOM                                               | `nuxt` (real app) on happy-dom   |
-| Aliases from | the `resolve.alias` block, mirroring `.nuxt/tsconfig.*.json` | Nuxt itself                      |
-| Cost         | under a second                                               | a Nuxt build's worth of startup  |
-| Run alone    | `npm run test:unit`                                          | `npm run test:nuxt`              |
+|              | `unit` — `vitest.unit.config.ts`                             | `nuxt` — `vitest.nuxt.config.ts` | `integration` — `vitest.integration.config.ts` | `e2e` — `playwright.config.ts`  |
+| ------------ | ------------------------------------------------------------ | -------------------------------- | ---------------------------------------------- | ------------------------------- |
+| Files        | `{app,server,shared}/**/*.spec.ts`                           | `{app,shared}/**/*.nuxt.spec.ts` | `{server,shared}/**/*.integration.spec.ts`     | `test/e2e/**/*.spec.ts`         |
+| Environment  | `node`, no DOM                                               | `nuxt` (real app) on happy-dom   | `node` + real PostgreSQL                       | Chromium + the production build |
+| Aliases from | the `resolve.alias` block, mirroring `.nuxt/tsconfig.*.json` | Nuxt itself                      | the same block, plus one shim (below)          | `test/e2e/tsconfig.json`        |
+| Cost         | under a second                                               | a Nuxt build's worth of startup  | a database round trip per case                 | a Nuxt build, then ~1 min       |
+| Run alone    | `npm run test:unit`                                          | `npm run test:nuxt`              | `npm run test:integration`                     | `npm run test:e2e`              |
 
 **Default to `unit`.** Vue reactivity alone does not earn the Nuxt project: `vue` is a plain dependency, so a composable built from `ref`/`watch`/`computed` is testable in `node` with an `effectScope` and nothing else — `useDebouncedModel`, `useSelectOptions`, `useForm` and `useDeleteConfirm` all live there. Reach for `*.nuxt.spec.ts` only for what genuinely cannot run otherwise:
 
 - anything importing `#imports` — every Pinia store does, through `useApi()` at setup time;
 - anything touching `document`, `window`, focus or layout (`usePopover`, `useAnchoredPosition`);
 - anything importing a `.vue` file, which the node project has no Vue plugin for.
+
+**Reach for `integration` only for what a stub cannot answer** — that the SQL executes, that a constraint fires, that a lock holds, that the rules survive out to the endpoint. It is not the place to re-test logic the fast projects already cover.
+
+**Reach for `e2e` only for what a browser answers** — first paint, history, focus, keyboard, paint. Its list is `docs/architecture.md` §12 and nothing else; a case that would pass in happy-dom belongs three projects down, where it runs in a second instead of a minute.
+
+### The end-to-end project
+
+`playwright.config.ts` + `test/e2e/`. Chromium only, `workers: 1`, its own `flexbase_e2e` database. Three things are load-bearing:
+
+- **The server is the built output, started by `test/e2e/setup/serve.mjs`.** Never `nuxt preview`: it loads the root `.env`, which points at the **development** database, and the suite truncates between cases. The launcher also works around a Windows-only crash — `.output/server/index.mjs` assigns `globalThis._importMeta_` in its body, but ESM hoists imports, so the bundled Prisma client evaluates first, falls back to the placeholder `file:///_entry.js`, and `fileURLToPath` throws on it. A dynamic import is not hoisted, so assigning first is enough. **`npm run preview` is broken on Windows for the same reason** (`docs/decisions.md`).
+- **One guard for both disposable databases.** `test/disposable-database.ts` refuses any name not ending in `_test` or `_e2e`, and both suites call it before writing. Never weaken it.
+- **Selectors are roles and accessible names**, never `data-testid` — the app labels everything already, so a spec that breaks because a label changed is reporting something real. Note two shapes worth knowing: `BaseSelect`'s non-searchable trigger is a `<button>` whose accessible name is _label + value_ ("Stage Won"), and its value overlay is a **sibling** of that button rather than a child.
+
+**Assert the table through `expect.poll`, never a bare read.** A URL assertion resolves the moment the address bar moves, but the rows behind it refetch asynchronously — reading straight after passes often enough to look fine and fails often enough to be a flake. The same trap has a subtler form: waiting on text that is _already_ on screen. Waiting for "Ada" after drilling into Ada from a record that lists her as its owner proves nothing, and the drill spec waits on the target table's name instead.
+
+### The integration project
+
+Four things make it work, and each is load-bearing:
+
+- **A separate database.** `flexbase_test` on the same container, because the suite `TRUNCATE`s every table between cases and the development database holds real work. `test/integration/global-setup.ts` **refuses to start** unless the database name ends in `_test`, then runs `prisma migrate deploy` — which creates the database if it does not exist yet, so nothing has to be provisioned by hand. Never weaken that guard. `INTEGRATION_DATABASE_URL` is the only variable that overrides the default.
+- **The npm script provisions what the suite needs**, because neither prerequisite is discoverable from `npm ci` and both fail loudly but misleadingly. `test:integration` and `test:e2e` run `db:up` first: a stopped container fails in `globalSetup` — for the e2e suite _after_ a full Nuxt build — and Playwright then reports **zero tests run**, which reads as a broken suite rather than a stopped database. `test:e2e` also runs `playwright install chromium`, a ~1s no-op once the browser is present: without it every test fails identically with `browserType.launch: Executable doesn't exist`, 100 red lines for one missing download. CI only ever worked because its job installs both by hand. Invoking `vitest`/`playwright` directly still works — the setups catch a database failure and name the cause.
+- **`fileParallelism: false`.** One database, so files may not run against it at once.
+- **Handlers invoked directly**, with a real `H3Event` built by `test/integration/event.ts` — `requireUser` → ownership → zod → service all run for real, and only Nitro's routing is skipped. Note the helper sets `content-length`: without it h3 returns an empty body without reading the stream, and every `readValidatedBody` becomes a confusing 400.
+- **One shim, `test/integration/nitro-runtime.ts`.** `nitropack/runtime` cannot be imported outside a Nitro build — its entry pulls in `#nitro-internal-virtual/*`. The shim provides `useRuntimeConfig` returning `jwtSecret` from the environment, which is exactly what `nuxt.config.ts` declares. It exists so the two auth endpoints and the server middleware can be loaded at all; do not grow it into a general Nitro stub.
+
+Rows are seeded through Prisma (`test/integration/seed.ts`), not through the services, so a spec about `createRecord` is not seeded by `createRecord`.
 
 `defineVitestConfig` boots the real app from `nuxt.config.ts`, so the aliases, the module list and the SFC pipeline are the ones that ship. **Do not hand-stub what the environment already provides** — a stub is a second source of truth able to drift. In particular: `registerEndpoint` for an API a store calls, `mockNuxtImport` for `useRoute` and friends, `mountSuspended` for a component.
 
@@ -330,13 +359,15 @@ Full contracts for each registry: `docs/architecture.md`.
 - **Imports are aliased in a spec exactly as in source** (`~/…`, `#shared/…`, `#server/…`); `no-restricted-imports` applies to specs too.
 - **Field fixtures live in `test/fixtures.ts`**, reached as `~~/test/fixtures`. Add a builder there rather than restating an `IField` in a second spec.
 - **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/services/record-query.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute.
-- **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/utils/prisma', …)`. Not a preference — `server/utils/prisma.ts` constructs a real client at module load, so without it the module cannot be imported in the node project at all. The stub answers to both `$transaction` forms and hands the callback itself as `tx`, so a transactional write and a direct one assert through the same spies. **What it may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs**, or that PostgreSQL agrees with it. Do not stretch a stub to imply otherwise — that half is the integration suite's, and `ROADMAP.md` holds it.
+- **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/utils/prisma', …)`. Not a preference — `server/utils/prisma.ts` constructs a real client at module load, so without it the module cannot be imported in the node project at all. The stub answers to both `$transaction` forms and hands the callback itself as `tx`, so a transactional write and a direct one assert through the same spies. **What it may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs**, or that PostgreSQL agrees with it. Do not stretch a stub to imply otherwise — that half is the integration suite's, and `docs/roadmap.md` holds it.
 - **A mounted component reads the Nuxt app's pinia, not a spec's.** `setActivePinia(createPinia())` is right for a store tested directly and wrong under `mountSuspended`, where `@pinia/nuxt` has already provided one — use `setActivePinia(useNuxtApp().$pinia as Pinia)` and clear the state it carries between cases.
 - **Assert on structure and behaviour, never on computed styles.** Vitest's `test.css` stays `false`, so SCSS is stubbed rather than compiled; a component spec that reads a colour is testing nothing.
 
 Covered today — `unit`: all of `shared/utils/`, all of `shared/validation/`, **all of `server/services/` and all of `server/utils/`** (the SQL builder, the four prisma-backed services, ownership scoping, field-key derivation, the whole of `auth.ts` including the cookie contract, the Prisma→HTTP error mapping), and the four Vue-only composables. `nuxt`: **every composable, every store, all of `app/field-types/`, all of `app/utils/`, and the route guard in `app/middleware/`**, plus the components `BaseButton`, `BaseInput`, `BaseModal`, `BasePagination`, `BaseRange`, `BaseSelect`, `RecordFieldValue`, `RecordsFilterPanel`, `RecordsFilterSummary`, `DynamicForm` and `DynamicTable`.
 
-**`server/api/` and `server/middleware/` are at zero and stay there for now.** Nothing runs a route handler or touches PostgreSQL, so the ownership rules are pinned one layer below the endpoint that enforces them. That gap is deliberate and visible in the coverage report rather than papered over.
+**`server/api/` and `server/middleware/` read 0% in the coverage report and are not untested** — the `integration` project exercises them, and coverage is measured over the `unit` + `nuxt` run alone. What it covers: the 404-never-403 rule across all thirteen table-scoped endpoints, 401 across all fourteen, the auth endpoints (identical answer for a wrong password and an unknown email, duplicate-email 409, no hash in any response, the cookie), the records endpoint composing its schema with the shared codec, and the middleware's three anonymous paths including a valid token for a since-deleted user.
+
+**The SQL layer is verified twice, deliberately.** `record-query.spec.ts` asserts on `.text` and `.values` without a connection; `record-query.integration.spec.ts` runs the same builder against PostgreSQL and looks at which rows come back. Neither replaces the other — the first pins the shape and catches a change in intent, the second is the only thing that would catch a fragment the database rejects. The same split covers `widenToList` (invoked, vs. what it does to stored rows) and the record counter (one transaction, vs. twenty concurrent creates getting twenty distinct numbers).
 
 **No module under `app/` is at zero.** What is left is the rest of `app/components/`, which is markup, and end-to-end coverage — the browser-only behaviour in `docs/architecture.md` §12 that Playwright is for.
 
@@ -356,7 +387,7 @@ Two contracts the component specs pin that are invisible in the browser when bro
 
 **The list query lives in `useRecordListQuery`, not in the records page**, and which of its actions leaves a history entry is a contract: a sort or a page step **pushes**, a filter edit, a search or a clear **replaces**. Nothing on screen shows the difference — it surfaces only as a browser Back that walks through every keystroke instead of returning where the user came from. Two more the same spec pins: a search term below `SEARCH_MIN_LENGTH` is dropped rather than sent, and an unchanged term does not navigate **at all**, because a debounced input re-emits the value it settled on. Note that `desc` is the default direction and is therefore _absent_ from the URL, so a spec asserting on `dir` reads the params back through `parseRecordQueryState` rather than checking whether the key is there.
 
-Behavioural changes are still verified by driving the running app. The manual regression checklist for the metadata layer is in `docs/architecture.md`.
+**No module under `app/` is at zero, and `docs/architecture.md` §12 is no longer a manual walk** — `test/e2e/` automates it, bar the three lines recorded there as approximations. A behavioural change still gets driven in the running app before it ships; what changed is that the checklist behind it now has a spec per line.
 
 ---
 

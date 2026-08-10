@@ -1,0 +1,30 @@
+{
+  // Nothing under `test/` belongs to a Nuxt-generated project: `.nuxt/tsconfig.*.json` include
+  // `app/`, `server/`, `shared/` and `test/nuxt/` only. `vue-tsc` still checks these files —
+  // they are pulled into the server program transitively by the specs that import them — but an
+  // editor opening one directly finds no owning config, falls back to defaults with no `paths`
+  // and no node types, and reports `process`, `node:*` and every `~~/…` import as errors.
+  //
+  // This config exists to answer that. It is not referenced by the root tsconfig, so it changes
+  // nothing about `npm run typecheck`; `test/e2e/tsconfig.json` extends it, and Playwright reads
+  // that one.
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["node"],
+    // Mirrors the aliases Nuxt generates, resolved from this file's own directory
+    "paths": {
+      "~~/*": ["../*"],
+      "#server/*": ["../server/*"],
+      "#shared/*": ["../shared/*"],
+      "~/*": ["../app/*"]
+    }
+  },
+  "include": ["./**/*.ts"]
+}

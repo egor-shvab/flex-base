@@ -12,13 +12,16 @@
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:nuxt": "vitest run --project nuxt",
+    "test:integration": "npm run db:up && vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d --wait",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:e2e": "npm run db:up && playwright install chromium && playwright test",
+    "test:e2e:ui": "npm run db:up && playwright install chromium && playwright test --ui"
   },
   "dependencies": {
     "@nuxt/eslint": "^1.16.0",
@@ -41,6 +44,7 @@
   "devDependencies": {
     "@iconify-json/mdi": "^1.2.3",
     "@nuxt/test-utils": "^4.1.0",
+    "@playwright/test": "^1.62.1",
     "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@vitest/coverage-v8": "^4.1.10",

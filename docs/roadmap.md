@@ -1,4 +1,4 @@
-# ROADMAP
+# Roadmap
 
 The source of truth for what is being built next. Statuses: `[ ]` not started · `[~]` in progress · `[x]` done.
 
@@ -38,20 +38,27 @@ The four service modules and `ownership.ts` were at 0%. This is the only layer w
 
 ### Stage 4 — Integration tests (route handlers + real database)
 
-Nothing at any level currently runs an h3 handler or touches PostgreSQL. Needs a decision first, because it needs infrastructure `npm run test` deliberately does not have.
+**Done — 137 tests against real PostgreSQL, in their own project and their own CI job.**
 
-- [ ] Decide: add an `integration` Vitest project against the Docker PostgreSQL (separate CI job, own npm script), or defer. **If deferred, record it in `docs/decisions.md` → Accepted limitations as Open** — the register currently implies E2E is all that remains, which is untrue of `server/`.
-- [ ] Route handlers: the 404-never-403 ownership rule across tables, fields, records and relation options; 401 from `requireUser`; zod 400s; the auth endpoints (generic 401, duplicate-email 409, no password hash in any response, cookie set).
-- [ ] The records endpoint composing the query schema and the shared codec the same way the page does.
-- [ ] Against the database: the generated SQL actually executing on PostgreSQL; record-number allocation under concurrent creates; the `widenToList` migration (idempotent, non-destructive, transactional); unique-constraint 409s; table-delete cascade and refusal.
-- [ ] Server auth middleware — absent, invalid, and since-deleted-user tokens.
+- [x] Decided: an `integration` Vitest project against a separate `flexbase_test` database, with handlers invoked directly rather than over HTTP (no Nuxt build). Its own npm script, kept out of `npm run test` so that stays database-free.
+- [x] Route handlers: the 404-never-403 ownership rule across all thirteen table-scoped endpoints; 401 across all fourteen; zod 400s; the auth endpoints (identical answer for a wrong password and an unknown email, duplicate-email 409, no password hash in any response, cookie set).
+- [x] The records endpoint composing the query schema and the shared codec the same way the page does.
+- [x] Against the database: the generated SQL actually executing on PostgreSQL; record-number allocation under twenty concurrent creates; the `widenToList` migration; unique-constraint 409s; table-delete cascade and refusal.
+- [x] Server auth middleware — absent, invalid, wrong-secret and since-deleted-user tokens.
+- [x] A second CI job with a PostgreSQL service container.
 
 ### Stage 5 — End-to-end (Playwright)
 
-Start only once Stages 2 and 4 are settled — otherwise E2E becomes the first thing to ever exercise ownership scoping and data migrations, which it is the wrong tool for.
+**Done — 100 tests over the production build in Chromium, in their own CI job.**
 
-- [ ] Set up Playwright over the auth-gated pages.
-- [ ] Cover the browser-only behaviour listed in `docs/architecture.md` §12 — a filtered URL rendering filtered on first paint, focus restoration, the detail chain under Back/Forward.
+- [x] Playwright set up over the auth-gated pages, driving the built output against a disposable `flexbase_e2e` database.
+- [x] `docs/architecture.md` §12 automated, bar three lines recorded there and in `docs/decisions.md` as approximations.
+- [x] A third CI job, with a PostgreSQL service container, a cached Chromium and the report uploaded on failure.
+
+### Follow-ups this stage turned up
+
+- [ ] **A refused table delete says nothing on screen.** The 409 names the field to remove first; `ConfirmModal` renders no error and the dialog just stays open. The copy exists — nothing surfaces it.
+- [ ] **`npm run preview` is broken on Windows.** The same hoisting bug `test/e2e/setup/serve.mjs` works around; a launcher script would fix the documented command too.
 
 ### Optional cleanup
 
@@ -71,6 +78,8 @@ Low value, no urgency — do it only when touching these files anyway.
 - [x] Test-coverage audit establishing the stages above.
 - [x] Stage 2 — `server/services/` and `server/utils/` covered against a stubbed prisma client. Headline coverage 74% → 89%.
 - [x] Stage 3 — the last untested logic under `app/`, and the records page reduced to orchestration. Headline coverage 89% → 90%.
+- [x] Stage 4 — an `integration` project against real PostgreSQL: 137 tests over the route handlers, the SQL layer, the widening migration and the record counter, gated by its own CI job.
+- [x] Stage 5 — Playwright over the production build: 100 tests automating the §12 checklist, gated by its own CI job. **The testing phase is complete** — four suites, 1308 tests, every layer gated.
 
 ---
 

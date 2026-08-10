@@ -1,0 +1,1 @@
+{"root":["./playwright.config.ts","./prisma.config.ts","./vitest.config.ts","./vitest.integration.config.ts","./vitest.nuxt.config.ts","./vitest.unit.config.ts"],"version":"6.0.3"}
