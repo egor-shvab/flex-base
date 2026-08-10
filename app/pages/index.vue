@@ -44,6 +44,7 @@
       danger
       :pending="deletePending"
       :confirm-label="deleteLabel"
+      :error="deleteError"
       @confirm="confirmDelete"
       @close="cancelDelete"
     >
@@ -98,6 +99,7 @@ async function submitTable(name: string) {
 const {
   target: deleteTarget,
   pending: deletePending,
+  error: deleteError,
   confirmLabel: deleteLabel,
   confirm: confirmDelete,
   cancel: cancelDelete,

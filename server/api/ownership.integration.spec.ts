@@ -14,6 +14,7 @@ import recordGet from '#server/api/tables/[tableId]/records/[recordId].get'
 import recordPatch from '#server/api/tables/[tableId]/records/[recordId].patch'
 import recordDelete from '#server/api/tables/[tableId]/records/[recordId].delete'
 import tablesGet from '#server/api/tables/index.get'
+import tablesPost from '#server/api/tables/index.post'
 import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
@@ -207,6 +208,7 @@ describe('an anonymous request is 401 before anything else', () => {
   it('on every endpoint, including ones whose ids do not exist', async () => {
     const endpoints: THandler[] = [
       tablesGet,
+      tablesPost,
       tableGet,
       tablePatch,
       tableDelete,

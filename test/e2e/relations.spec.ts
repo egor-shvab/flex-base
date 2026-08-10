@@ -91,21 +91,47 @@ test('a deleted target degrades to an unclickable Unknown record', async ({ page
  * The server refuses, and the table survives — which is the property that matters, because a
  * cascade here would break every link into it silently.
  *
- * Note what is *not* asserted: any explanation on screen. The 409 carries a message naming the
- * field to remove first, but `ConfirmModal` renders no error and `useDeleteConfirm` re-throws,
- * so the dialog simply stays open. Recorded as an open limitation rather than tested for.
+ * The dialog now says **why**. It used to stay open in silence: the 409 named the field to
+ * remove first, but `useDeleteConfirm` re-threw into a template binding with nobody to catch
+ * it, so the message reached the console instead of the screen.
  */
-test('deleting a targeted table is refused, and the table survives', async ({ page }) => {
+test('deleting a targeted table is refused, and says which field to remove', async ({ page }) => {
   await page.goto('/')
   const card = page.getByRole('listitem').filter({ hasText: 'People' })
   await card.getByRole('button', { name: 'Delete' }).click()
   await confirmDeletion(page)
 
-  // The dialog stays open, because the delete never succeeded
-  await expect(page.getByRole('dialog')).toBeVisible()
+  // The dialog stays open, because the delete never succeeded — and now explains itself,
+  // naming the field to remove first and the table it lives on
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('alert')).toContainText('Owner')
+  await expect(dialog.getByRole('alert')).toContainText('Deals')
 
   await page.reload()
   await expect(page.getByRole('listitem').filter({ hasText: 'People' })).toBeVisible()
+})
+
+/** Cancelling after a refusal must not carry the message into the next dialog. */
+test('the refusal is forgotten once the dialog is dismissed', async ({ page }) => {
+  await page.goto('/')
+
+  const people = page.getByRole('listitem').filter({ hasText: 'People' })
+  await people.getByRole('button', { name: 'Delete' }).click()
+  await confirmDeletion(page)
+  await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Close' }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+
+  await page
+    .getByRole('listitem')
+    .filter({ hasText: 'Deals' })
+    .getByRole('button', { name: 'Delete' })
+    .click()
+
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('alert')).toHaveCount(0)
 })
 
 test('deleting a table nothing points at succeeds', async ({ page }) => {

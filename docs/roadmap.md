@@ -40,17 +40,17 @@ Stages run in order of value per hour, not by layer. Stage A is an afternoon and
 
 ### Stage C — Surfaces nothing tests
 
-Ordered by how visible the failure would be.
+**Done — nine items, including the one production fix the stage carried.** No module or user-visible surface is now untested, and the last two endpoint gaps are closed.
 
-- [ ] **`app/error.vue` and the page-level 404.** Both `[tableId]` pages `throw createError(toPageError(…))`; the mapping is unit-tested, the boundary that renders it never runs in any suite. One e2e case (a signed-in user opening a table id that does not exist) covers the page, the copy and the "Back to your tables" recovery.
-- [ ] **The records page's failure banner.** `recordsStore.failed` renders an alert and a "start again with all records" link — the app's only in-page recovery path, untested. Reachable by aborting the list request.
-- [ ] **`FieldFormModal`** — the largest untested component and the one with real logic: the choices editor, colour assignment, duplicate-choice rejection, the relation target/label pickers, and the "Allow multiple values" lock. Today only its outer shell is touched, by three e2e cases. A `nuxt` component spec is the right layer.
-- [ ] **`RelationFieldSelect`** — the only field-type _control_ component, and the async one: debounce, seed list, search, the retry path. Covered today only through five e2e cases that pay a browser for logic happy-dom can answer.
-- [ ] **`ConfirmModal` surfacing a server error** — pairs with the open follow-up below; write the spec with the fix.
-- [ ] **`RecordDetail`** — "Open in …", the Back link and multi-value layout are e2e-only.
-- [ ] **`AppSidebar`'s off-canvas mode** — `CLAUDE.md` §8 requires off-canvas surfaces to be `inert`-guarded and to leave nothing focusable off-screen. `BaseModal`'s half is pinned; the sidebar's is not tested anywhere, at any viewport.
-- [ ] **Two multi-value 400s are claimed at the endpoint and proven only at the schema.** §12 says "a repeated value and one past `RECORD_LIST_MAX` are each a 400"; `shared/validation/record.spec.ts` proves zod rejects both, and nothing drives either through `records/index.post`. Found by Stage B's closing re-read of §12 — the badge convention has no honest marking for this one, because the claim is about a status code, not a schema. Two cases in `records.integration.spec.ts` beside the 400s already there.
-- [ ] **`server/api/tables/index.post` is the one endpoint no integration spec drives** — creating a table, at 0% while the other fourteen are covered. Surfaced by Stage A's merged report, which is what that stage was for. It belongs in `ownership.integration.spec.ts`'s 401 loop and wants a happy-path case beside the 409 the service spec already pins.
+- [x] **A refused delete says why.** `useDeleteConfirm` catches instead of re-throwing and exposes the server's message; `ConfirmModal` renders it; all three delete flows gained it from one change. Closes the Open limitation in `docs/decisions.md`, which now carries the reversal and why it is the opposite call from `fetchRecords`. Driven in the running app: deleting a targeted table shows _"Services" in "Masters" links to this table_, the table survives, and the unhandled promise rejection is gone.
+- [x] **`app/error.vue` and the page-level 404** — a new `error-page.spec.ts`, including the branch that must **not** blame the table: a malformed `?sort=` is a 400 that says the address could not be read, where the old copy claimed a table that had just loaded did not exist.
+- [x] **The records page's failure banner** — in `list-query.spec.ts`, cutting the route _after_ the SSR load, since `failed` is set by a client-side refetch. Both the banner and its recovery link.
+- [x] **`FieldFormModal`** — 12 cases over the choices editor, the multi-value lock, the type lock and the relation label picker. Mutation-checked: a shallow spread instead of the deep copy lets an edit rename the store's own metadata, and the spec catches it.
+- [x] **`RelationFieldSelect`** — 12 cases. Mutation-checked on the load-bearing one: dropping the `unlisted` branch fails exactly the three cases that guard a link being silently discarded on save.
+- [x] **`RecordDetail` and `RecordDetailModal`** — the column set the dialog shares with `DynamicTable`, and the modal's four states plus the one link that leaves the page.
+- [x] **The off-canvas sidebar** — a new `mobile-shell.spec.ts` at 375×812, pinning that nothing inside is reachable while closed. `test.use` scopes the viewport to that file, so Stage D's project is still free to absorb it.
+- [x] **The two multi-value 400s**, now proven at the endpoint rather than only at the schema — and the cap itself is accepted, so an off-by-one floor cannot pass.
+- [x] **`server/api/tables/index.post`** — the fifteenth endpoint, in the 401 loop and in a new `server/api/tables.integration.spec.ts` covering ownership, the 409 and both name bounds.
 
 ### Stage D — The non-functional gates the rules already demand
 
@@ -89,7 +89,6 @@ Recorded so it is not re-litigated. Move an item up only with a reason that has 
 
 ### Follow-ups from the testing phase
 
-- [ ] **A refused table delete says nothing on screen.** The 409 names the field to remove first; `ConfirmModal` renders no error and the dialog just stays open. The copy exists — nothing surfaces it. (Pairs with Stage C.)
 - [ ] **`npm run preview` is broken on Windows.** The same hoisting bug `test/e2e/setup/serve.mjs` works around; a launcher script would fix the documented command too.
 
 ---
@@ -108,6 +107,7 @@ Recorded so it is not re-litigated. Move an item up only with a reason that has 
 - [x] Test-architecture audit over the finished suite — established the stages above.
 - [x] Stage A — the e2e type gate, one merged coverage report (90% → 98%, the jump being measurement rather than new tests), a coverage artefact in CI, and the `db:up`-versus-service-container collision that would have stopped both database-backed CI jobs.
 - [x] Stage B — five behaviours §12 claimed and nothing tested: the `::date` cast, a multi SELECT's JSONB punctuation, RELATION search, the drawer-scroll pin and the detail dialog's wrap. Each verified by mutation; §12 now badges what the browser does not own.
+- [x] Stage C — the last untested surfaces: the error boundary, the failure banner, the off-canvas shell, four components and the two remaining endpoint gaps — plus the production fix that makes a refused delete explain itself.
 
 ---
 

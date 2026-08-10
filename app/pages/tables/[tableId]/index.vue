@@ -54,6 +54,7 @@
       danger
       :pending="deletePending"
       :confirm-label="deleteLabel"
+      :error="deleteError"
       @confirm="confirmDeleteField"
       @close="cancelDelete"
     >
@@ -127,6 +128,7 @@ async function submitField(input: TFieldInput) {
 const {
   target: deleteTarget,
   pending: deletePending,
+  error: deleteError,
   confirmLabel: deleteLabel,
   confirm: confirmDeleteField,
   cancel: cancelDelete,

@@ -4,7 +4,7 @@ import recordsPost from '#server/api/tables/[tableId]/records/index.post'
 import recordGet from '#server/api/tables/[tableId]/records/[recordId].get'
 import recordPatch from '#server/api/tables/[tableId]/records/[recordId].patch'
 import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
-import { RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
+import { RECORD_LIST_MAX, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
@@ -188,6 +188,70 @@ describe('writing through the endpoint', () => {
     const stranger = await createRecord(tableId, { company: 'Not a person' })
 
     await expect(write({ owner: stranger.id })).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  /**
+   * The two caps a multi-value field carries, at the layer that returns the status code.
+   * `shared/validation/record.spec.ts` proves zod rejects both; what only this layer shows is
+   * that the rejection reaches the caller as a 400 rather than being swallowed or stored.
+   *
+   * Duplicates are **rejected rather than deduplicated**: a control cannot produce one, since
+   * picking a chosen option toggles it off, so a repeat is a crafted payload — and dropping it
+   * quietly would put a `.transform()` in a layer whose whole job is to judge.
+   */
+  describe('a multi-value field’s caps', () => {
+    /** Widened on the table the fixture already built, so the rest of its shape is unchanged. */
+    async function withTags() {
+      await createField(tableId, {
+        key: 'tags',
+        type: 'SELECT',
+        order: 4,
+        options: {
+          choices: [
+            { value: 'urgent', color: 'red' },
+            { value: 'renewal', color: 'blue' },
+          ],
+          multiple: true,
+        },
+      })
+    }
+
+    it('400s on a repeated value rather than quietly deduplicating it', async () => {
+      await withTags()
+
+      await expect(write({ company: 'Gamma', tags: ['urgent', 'urgent'] })).rejects.toMatchObject({
+        statusCode: 400,
+      })
+      expect(await companies({})).toEqual(['Beta', 'Acme'])
+    })
+
+    it(`400s past ${RECORD_LIST_MAX} values, and accepts exactly that many`, async () => {
+      await createField(tableId, {
+        key: 'many',
+        type: 'SELECT',
+        order: 5,
+        options: {
+          choices: Array.from({ length: RECORD_LIST_MAX + 1 }, (_, index) => ({
+            value: `c${index}`,
+            color: 'gray' as const,
+          })),
+          multiple: true,
+        },
+      })
+
+      const values = Array.from({ length: RECORD_LIST_MAX + 1 }, (_, index) => `c${index}`)
+
+      await expect(write({ company: 'TooMany', many: values })).rejects.toMatchObject({
+        statusCode: 400,
+      })
+
+      // The cap itself is allowed, or the test would pass against an off-by-one floor
+      const { record } = await write({
+        company: 'AtTheCap',
+        many: values.slice(0, RECORD_LIST_MAX),
+      })
+      expect(record.data.many).toHaveLength(RECORD_LIST_MAX)
+    })
   })
 
   it('400s writing to a table with no fields, since there is no shape to validate against', async () => {

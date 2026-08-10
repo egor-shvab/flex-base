@@ -93,6 +93,44 @@ test.describe('a link loaded cold', () => {
   })
 })
 
+/**
+ * The app's only in-page recovery path. `fetchRecords` sets `failed` **and rethrows**, because
+ * a refetch runs from a watcher where swallowing would leave the table showing rows that no
+ * longer match the URL — so the banner is what tells the user the view on screen is stale.
+ *
+ * Note the sequencing: the first load is SSR, which `page.route` cannot intercept, and `failed`
+ * is set by a *client-side* refetch. So the page is loaded first and the route cut afterwards.
+ */
+test.describe('when the list cannot be loaded', () => {
+  test('says so rather than leaving stale rows looking current', async ({ page }) => {
+    await page.goto(table.url)
+    await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+
+    await page.route('**/api/tables/*/records?*', (route) => route.abort())
+    await page.getByRole('button', { name: /^Company/ }).click()
+
+    const banner = page.getByRole('alert')
+    await expect(banner).toContainText('couldn’t be loaded')
+    await expect(banner.getByRole('link', { name: /start again with all records/i })).toBeVisible()
+  })
+
+  test('the recovery link goes back to the unfiltered table', async ({ page }) => {
+    await page.goto(`${table.url}?stage=Won`)
+    await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+
+    await page.route('**/api/tables/*/records?*', (route) => route.abort())
+    await page.getByRole('button', { name: /^Company/ }).click()
+    await expect(page.getByRole('alert')).toBeVisible()
+
+    await page.unroute('**/api/tables/*/records?*')
+    await page.getByRole('link', { name: /start again with all records/i }).click()
+
+    await expect(page).toHaveURL(table.url)
+    await expectCompanies(page, ['Gamma', 'Beta', 'Acme'])
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+})
+
 test.describe('sorting', () => {
   const sortBy = (page: import('@playwright/test').Page, column: string) =>
     page.getByRole('button', { name: new RegExp(`^${column}`) }).click()

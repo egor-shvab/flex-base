@@ -145,6 +145,7 @@
       danger
       :pending="deletePending"
       :confirm-label="deleteLabel"
+      :error="deleteError"
       @confirm="confirmDeleteRecord"
       @close="cancelDelete"
     >
@@ -286,6 +287,7 @@ function closeDetail() {
 const {
   target: deleteTarget,
   pending: deletePending,
+  error: deleteError,
   confirmLabel: deleteLabel,
   confirm: confirmDeleteRecord,
   cancel: cancelDelete,
