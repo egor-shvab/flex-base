@@ -1,10 +1,22 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { listRecords } from '#server/services/records'
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, RECORD_NUMBER_KEY } from '#shared/constants/filter'
+import {
+  CREATED_AT_KEY,
+  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_KEY,
+  RECORD_NUMBER_KEY,
+} from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
 import type { IRecordQuery } from '#shared/types/record'
-import { createFields, createRecords, createTable, createUser } from '~~/test/integration/seed'
+import {
+  createField,
+  createFields,
+  createRecord,
+  createRecords,
+  createTable,
+  createUser,
+} from '~~/test/integration/seed'
 
 /**
  * The half `record-query.spec.ts` cannot reach. That spec asserts on `.text` and `.values` and
@@ -154,6 +166,45 @@ describe('the WHERE clause selects the rows it claims to', () => {
 
     expect(page.records.map((record) => record.number)).toEqual([1])
   })
+
+  /**
+   * The `::date` cast on the timestamp columns, which is the whole reason they project to
+   * something other than themselves. A range's bounds are dates, so an uncast `createdAt <=
+   * '2026-01-05'` means *midnight* — and every record made during the day the user asked for
+   * drops out of its own filter. Only the database can answer this: `record-query.spec.ts`
+   * asserts the cast is in the string, not what PostgreSQL does with it.
+   *
+   * Its own table, because the shared fixture's rows are all created "now", and timestamps at
+   * **midday** so `::date` reads as the same calendar day whatever offset the driver applies.
+   */
+  it('matches a same-day Created at range, including records made later that day', async () => {
+    const table = await createTable((await createUser()).id)
+    const textOnly = await createFields(table.id, [{ key: 'company', type: 'TEXT' }])
+
+    await createRecord(
+      table.id,
+      { company: 'Before' },
+      { createdAt: new Date('2026-01-04T12:00:00Z') },
+    )
+    await createRecord(
+      table.id,
+      { company: 'Sameday' },
+      { createdAt: new Date('2026-01-05T12:00:00Z') },
+    )
+    await createRecord(
+      table.id,
+      { company: 'After' },
+      { createdAt: new Date('2026-01-06T12:00:00Z') },
+    )
+
+    const page = await listRecords(
+      table.id,
+      textOnly,
+      query({ filters: { [CREATED_AT_KEY]: { from: '2026-01-05', to: '2026-01-05' } } }),
+    )
+
+    expect(page.records.map((record) => record.data.company)).toEqual(['Sameday'])
+  })
 })
 
 describe('free-text search', () => {
@@ -185,6 +236,64 @@ describe('free-text search', () => {
     const page = await listRecords(table.id, textOnly, query({ search: '2' }))
 
     expect(page.records.map((record) => record.number)).toEqual([2])
+  })
+
+  /**
+   * The storage format must not leak into results. A multi-value SELECT stores a JSONB array,
+   * and `matchesAnyElement` unnests it through `jsonb_array_elements_text` precisely so the
+   * brackets, quotes and commas holding it together are not searchable text. Projecting with
+   * `->>` instead would still "work" — every term below would simply start matching rows,
+   * which is a lie rather than a near miss.
+   *
+   * The separator is `", "`, not `","`: **jsonb normalises its text output**, so Beta's tags
+   * render as `["renewal", "urgent"]` with a space after the comma. A `","` probe passes even
+   * against the broken projection, which makes it no test at all — found by breaking the
+   * projection and watching which of these three stayed green.
+   *
+   * Two characters and up, so each is a term the app could really submit: `SEARCH_MIN_LENGTH`
+   * drops anything shorter before it reaches the endpoint.
+   */
+  it.each(['["', '", "', '"]'])(
+    'does not match a multi SELECT on its JSON punctuation: %s',
+    async (term) => {
+      expect(await searching(term)).toEqual([])
+    },
+  )
+
+  /**
+   * RELATION opts out of search entirely — the stored value is a cuid, and matching the label
+   * instead would run `targetLabel`'s correlated subquery per row against a count query that
+   * has no `LIMIT`. The positive half is what keeps this honest: without it the case would
+   * pass just as well against a table nothing could ever find.
+   */
+  it('does not search a RELATION column, by its label or by its stored id', async () => {
+    const user = await createUser()
+    const people = await createTable(user.id, 'People')
+    const nameField = await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
+    const [ada] = await createRecords(people.id, [{ full_name: 'Ada Lovelace' }])
+
+    const deals = await createTable(user.id, 'Deals')
+    const company = await createField(deals.id, { key: 'company', type: 'TEXT' })
+    const owner = await createField(deals.id, {
+      key: 'owner',
+      type: 'RELATION',
+      order: 1,
+      options: { targetTableId: people.id, labelFieldKey: 'full_name' },
+    })
+    await createRecords(deals.id, [{ company: 'Acme', owner: ada?.id ?? '' }])
+
+    const dealFields = [company, owner]
+    const found = async (term: string) => {
+      const page = await listRecords(deals.id, dealFields, query({ search: term }))
+      return page.records.map((record) => record.data.company)
+    }
+
+    expect(nameField).toHaveLength(1)
+    // The label is on the linked record, and this table's search never reaches it
+    expect(await found('lovelace')).toEqual([])
+    expect(await found(ada?.id.slice(0, 8) ?? '')).toEqual([])
+    // …while the row is perfectly findable by its own text
+    expect(await found('acme')).toEqual(['Acme'])
   })
 
   it('treats a wildcard the user typed as a literal', async () => {

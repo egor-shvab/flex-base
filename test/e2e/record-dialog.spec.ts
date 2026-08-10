@@ -204,6 +204,76 @@ test('a target deleted since the page was drawn says so, with no retry', async (
 })
 
 /**
+ * A deliberate override, and invisible when it breaks: `MultiValueCell` is `nowrap` because a
+ * table row has a fixed height and its cell truncates, and `RecordDetail` flips it to `wrap`
+ * because reading a value in full is the whole reason that dialog exists. Lose the override
+ * and the dialog silently shows the first few values on one clipped line.
+ *
+ * Both surfaces in one case, because either alone would pass against a component that wrapped
+ * — or truncated — everywhere. Counted as distinct `top` offsets, which is what "a line" is.
+ */
+test('a multi-value field is one line in the table and wrapped in the dialog', async ({
+  page,
+  seedTable,
+}) => {
+  const TAGS = [
+    'alpha',
+    'bravo',
+    'charlie',
+    'delta',
+    'echo',
+    'foxtrot',
+    'golf',
+    'hotel',
+    'india',
+    'juliet',
+    'kilo',
+    'lima',
+  ]
+
+  const tagged = await seedTable(
+    'Tagged',
+    [
+      { key: 'name', type: 'TEXT', name: 'Name' },
+      {
+        key: 'tags',
+        type: 'SELECT',
+        name: 'Tags',
+        options: {
+          choices: TAGS.map((value) => ({ value, color: 'gray' as const })),
+          multiple: true,
+        },
+      },
+    ],
+    [{ name: 'Apollo', tags: TAGS }],
+  )
+
+  const badges = (scope: import('@playwright/test').Locator) =>
+    scope.locator('.multi-value-cell .base-badge')
+
+  /** How many distinct lines the entries occupy, however many entries there are. */
+  const lines = (scope: import('@playwright/test').Locator) =>
+    badges(scope).evaluateAll(
+      (entries) =>
+        new Set(entries.map((entry) => Math.round(entry.getBoundingClientRect().top))).size,
+    )
+
+  await page.goto(tagged.url)
+
+  const row = page.locator('tbody')
+  await expect(badges(row).first()).toBeVisible()
+  expect(await lines(row)).toBe(1)
+
+  await page.getByRole('link', { name: 'View record' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  // Every value on screen, not the first few — the point of wrapping rather than truncating
+  await expect(badges(dialog)).toHaveCount(TAGS.length)
+  expect(await lines(dialog)).toBeGreaterThan(1)
+})
+
+/**
  * Approximated, and deliberately so: a clipped focus ring is a paint concern. Asserting the
  * focused link's box sits inside its scrolling ancestor catches the structural cause — a cell
  * that clips its own content — without claiming to see the outline itself.

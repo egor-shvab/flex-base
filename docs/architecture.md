@@ -408,7 +408,9 @@ The table list is fetched **by the layout, once per session**, via `ensureTables
 
 ## 12. Browser regression checklist
 
-**Playwright now owns this list.** `test/e2e/` automates it — every line below is covered by a spec named after it, driven against the production build in Chromium (`npm run test:e2e`, and its own CI job). What was a manual walk after any change to the metadata layer is now a gate.
+**Playwright owns this list, bar the clauses marked otherwise.** `test/e2e/` automates it — every line below is covered by a spec, driven against the production build in Chromium (`npm run test:e2e`, and its own CI job). What was a manual walk after any change to the metadata layer is now a gate.
+
+A few clauses are marked **_(integration)_**. Those are SQL semantics — a cast, a projection, an opt-out — that a browser cannot answer any better than a database round trip can, so they are proved in `server/services/record-query.integration.spec.ts` instead. They stay on this list because it is the inventory of what must not regress; the badge says which suite would catch it.
 
 Three lines are **approximated rather than proven**, and their specs say so where they sit:
 
@@ -424,8 +426,8 @@ Keep the list current: it is the index of what `test/e2e/` is for, and a behavio
 - Sort and page history; the console for hydration mismatches.
 - **Relations:** a link renders as its label rather than an id; sorting that column is alphabetical by label; deleting a target record degrades the cell to a dashed, unclickable "Unknown record"; deleting a targeted table is refused.
 - **The record dialog:** a row's View action and a relation link both open it, and the list behind it does **not** refetch; browser Back closes it and Forward reopens it; a `?detail=` URL loaded cold renders the dialog server-side; a relation inside the dialog drills in and `← Back` returns; Escape closes the whole chain and focus lands back on the link that opened it; a target deleted since the page was drawn gives "This record no longer exists." with no Retry; the link's focus ring is not clipped by the cell; `Open in …` is absent when the record shown belongs to the table already on screen.
-- **Record columns:** `#9` sorts before `#10` (integer, not text); a number filter matches partially; a created record takes the next number and a deleted one's is never reused; a `Created at` range whose `from` and `to` are the same day still matches records made later that day (the `::date` cast).
-- **Search:** a one-character term is rejected; a term matching a NUMBER column's text works; BOOLEAN and RELATION columns do not match.
+- **Record columns:** `#9` sorts before `#10` (integer, not text); a number filter matches partially _(integration)_; a created record takes the next number and a deleted one's is never reused _(integration)_; a `Created at` range whose `from` and `to` are the same day still matches records made later that day — the `::date` cast _(integration)_.
+- **Search:** a one-character term is rejected; a term matching a NUMBER column's text works; a BOOLEAN column does not match; a RELATION column matches neither its label nor its stored id _(integration)_.
 - **Multi-value SELECT filters:** two choices give `?stage=Won&stage=Lost` (repeated, sorted) and the table shows the union; the summary chip reads "is any of …"; clearing removes the param rather than emptying it; that URL loaded cold renders filtered with both options ticked; a value the field does not offer is a 400.
 - **Multi-value fields** (`options.multiple`, SELECT and RELATION):
   - the field form offers "Allow multiple values" for those two types only, and locks it once saved on;
@@ -433,7 +435,7 @@ Keep the list current: it is the index of what `test/e2e/` is for, and a behavio
   - a record holding several values shows them on one line in the table and wrapped in the detail dialog; clearing it reads `Not set`, not blank;
   - a required multi field with nothing chosen fails per-field; a repeated value and one past `RECORD_LIST_MAX` are each a 400;
   - the column sorts by its **first** value, blanks last;
-  - search matches text inside a multi SELECT's values and does **not** match on `[`, `"` or `,`;
+  - search matches text inside a multi SELECT's values and does **not** match the JSONB punctuation holding them together — `["`, `", "`, `"]` _(integration)_. Note the separator is `", "`: jsonb normalises its text output, so a `","` probe would pass even against a broken projection;
   - a multi RELATION filters as `?services=id1&services=id2`, its summary chip reads "is any of <labels>", and each link in the cell drills into the detail dialog independently — a deleted target degrades to a dashed "Unknown record" while its siblings still link.
 - **`BaseSelect`, both branches:** Enter/Space/↑/↓ open with the current value active; ↑/↓/PageDown move a _visibly outlined_ highlight and the list scrolls to follow; a panel near the bottom of the filter drawer flips above and is not clipped; scrolling the drawer keeps it pinned. Non-searchable only: focus moves into the list, Home/End jump, and type-ahead works.
 - **Escape — the case that is silent when broken:** focus a **searchable** select **without opening it** → Escape must close the surrounding drawer or dialog. Open it → Escape closes the panel only → Escape again closes the drawer. Repeat on a non-searchable one.

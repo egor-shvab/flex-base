@@ -167,6 +167,55 @@ test('a panel low in the filter drawer stays on screen', async ({ page, seedTabl
 })
 
 /**
+ * The other half of the same problem, and the reason `useAnchoredPosition` listens for scroll
+ * in **capture** phase: the panel is teleported to `<body>`, so it is not inside the drawer
+ * that scrolls under it. Nothing repositions it but that listener, and a panel left behind
+ * where it was first drawn points at whatever control has since scrolled into its place.
+ *
+ * Asserted as a delta rather than a coordinate — the panel must move by exactly what its
+ * trigger moved, which encodes no viewport arithmetic and survives a change of drawer height.
+ */
+test('a panel stays pinned to its trigger while the drawer scrolls', async ({
+  page,
+  seedTable,
+}) => {
+  const tall = await seedTable('Tall', [
+    ...Array.from({ length: 10 }, (_, index) => ({
+      key: `text_${index}`,
+      type: 'TEXT' as const,
+      name: `Text ${index}`,
+    })),
+    { key: 'stage', type: 'SELECT' as const, name: 'Stage', options: { choices: FEW } },
+  ])
+
+  await page.goto(tall.url)
+  await page.getByRole('button', { name: 'Filters' }).click()
+
+  const trigger = page.locator('.filter-panel').getByRole('button', { name: /^Stage/ })
+  await trigger.scrollIntoViewIfNeeded()
+  await trigger.click()
+
+  const panel = page.getByRole('listbox')
+  await expect(panel).toBeVisible()
+
+  const triggerBefore = (await trigger.boundingBox())!.y
+  const panelBefore = (await panel.boundingBox())!.y
+
+  // Back to the top of the drawer, which is as far as the trigger can travel. A programmatic
+  // scroll fires no `pointerdown`, so the panel is not dismissed on the way.
+  await page.locator('.base-modal__body').evaluate((body) => body.scrollTo(0, 0))
+
+  const triggerMoved = Math.round((await trigger.boundingBox())!.y - triggerBefore)
+  // Or the case would pass against a drawer that never scrolled and a panel that never moved
+  expect(triggerMoved).not.toBe(0)
+
+  // The handler coalesces into an animation frame, so the panel follows a beat behind
+  await expect
+    .poll(async () => Math.round((await panel.boundingBox())!.y - panelBefore))
+    .toBe(triggerMoved)
+})
+
+/**
  * The case that is silent when broken: one keypress must never close both the panel and the
  * surface behind it, and a **closed** control must not swallow the key at all.
  */

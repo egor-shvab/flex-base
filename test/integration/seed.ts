@@ -74,10 +74,25 @@ export function createFields(tableId: string, seeds: IFieldSeed[]): Promise<IFie
 }
 
 /**
+ * Timestamps a spec dictates rather than inherits. Settable only **on create**: `createdAt`
+ * defaults to `now()` and `updatedAt` is `@updatedAt`, which Prisma overwrites on every update
+ * — so there is no second seam, and a spec about how a timestamp column is queried has to
+ * seed the row it wants in one statement.
+ */
+interface IRecordTimestamps {
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+/**
  * A record with its number allocated the way the service would, so a spec that seeds rows and
  * then creates one through `createRecord` sees a continuous sequence.
  */
-export async function createRecord(tableId: string, data: TRecordData = {}) {
+export async function createRecord(
+  tableId: string,
+  data: TRecordData = {},
+  timestamps: IRecordTimestamps = {},
+) {
   const { recordCounter } = await prisma.table.update({
     where: { id: tableId },
     data: { recordCounter: { increment: 1 } },
@@ -85,7 +100,12 @@ export async function createRecord(tableId: string, data: TRecordData = {}) {
   })
 
   return prisma.record.create({
-    data: { tableId, number: recordCounter, data: data as Prisma.InputJsonObject },
+    data: {
+      tableId,
+      number: recordCounter,
+      data: data as Prisma.InputJsonObject,
+      ...timestamps,
+    },
     select: { id: true, number: true, data: true, createdAt: true, updatedAt: true },
   })
 }

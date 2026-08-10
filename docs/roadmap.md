@@ -29,14 +29,14 @@ Stages run in order of value per hour, not by layer. Stage A is an afternoon and
 
 ### Stage B — Make `docs/architecture.md` §12 true again
 
-§12 opens with "every line below is covered by a spec named after it". Audit says otherwise. Each line below is either a spec to write or a claim to withdraw — decide per line, but the file must not keep overstating.
+**Done — five gaps closed, three clauses re-pointed, and §12 no longer claims more than the suite keeps.** Every new case was verified by breaking the thing it guards and watching it go red.
 
-- [ ] **The `::date` cast** — "a `Created at` range whose `from` and `to` are the same day still matches records made later that day" is pinned only as SQL _text_ in `record-query.spec.ts`. Nothing executes it. Belongs in `record-query.integration.spec.ts`; it is precisely the class of thing a text assertion cannot answer.
-- [ ] **Search must not match a multi SELECT's JSON punctuation** (`[`, `"`, `,`) — untested at every layer. A regression here leaks storage format into user-visible search results.
-- [ ] **Search must not match a RELATION column** — asserted for BOOLEAN only.
-- [ ] **A panel stays pinned while the filter drawer scrolls** — `useAnchoredPosition`'s frame coalescing is unit-tested; the pin itself is not, and only a browser can answer it.
-- [ ] **A multi-value field wraps in the detail dialog** — the table half is covered, the dialog half is not.
-- [ ] Withdraw or re-point the lines the browser does not own: partial record-number filtering and "a deleted record's number is never reused" are proven in `integration`, not in `e2e`. Say so rather than implying a Playwright spec exists.
+- [x] **The `::date` cast** — a same-day `Created at` range now executes against PostgreSQL in `record-query.integration.spec.ts`, not just as SQL _text_. `test/integration/seed.ts`'s `createRecord` gained optional `createdAt`/`updatedAt`, settable only on create because `@updatedAt` overwrites on every update. Rows are timestamped at **midday** so `::date` reads as the same calendar day whatever offset the driver applies.
+- [x] **Search must not match a multi SELECT's JSONB punctuation.** Three probes — `["`, `", "`, `"]`. The mutation check earned its keep here: the obvious `","` probe passes even against a broken projection, because **jsonb normalises its text output** to `["renewal", "urgent"]` with a space after the comma. Recorded in §12 so the next person does not write the vacuous version.
+- [x] **Search must not match a RELATION column**, by its label or by its stored id — with the positive half beside it, or the case would pass against a table nothing could find.
+- [x] **A panel stays pinned while the filter drawer scrolls.** Asserted as a delta: the panel must move by exactly what its trigger moved. Without the capture-phase scroll listener the trigger travels 485px and the panel travels 0.
+- [x] **A multi-value field is one line in the table and wrapped in the dialog** — both surfaces in one case, since either alone would pass against a component that wrapped, or truncated, everywhere.
+- [x] Re-pointed the clauses the browser does not own. §12 badges them _(integration)_ and its preamble says what the badge means; `CLAUDE.md` §10 lists the three new behaviours.
 
 ### Stage C — Surfaces nothing tests
 
@@ -49,6 +49,7 @@ Ordered by how visible the failure would be.
 - [ ] **`ConfirmModal` surfacing a server error** — pairs with the open follow-up below; write the spec with the fix.
 - [ ] **`RecordDetail`** — "Open in …", the Back link and multi-value layout are e2e-only.
 - [ ] **`AppSidebar`'s off-canvas mode** — `CLAUDE.md` §8 requires off-canvas surfaces to be `inert`-guarded and to leave nothing focusable off-screen. `BaseModal`'s half is pinned; the sidebar's is not tested anywhere, at any viewport.
+- [ ] **Two multi-value 400s are claimed at the endpoint and proven only at the schema.** §12 says "a repeated value and one past `RECORD_LIST_MAX` are each a 400"; `shared/validation/record.spec.ts` proves zod rejects both, and nothing drives either through `records/index.post`. Found by Stage B's closing re-read of §12 — the badge convention has no honest marking for this one, because the claim is about a status code, not a schema. Two cases in `records.integration.spec.ts` beside the 400s already there.
 - [ ] **`server/api/tables/index.post` is the one endpoint no integration spec drives** — creating a table, at 0% while the other fourteen are covered. Surfaced by Stage A's merged report, which is what that stage was for. It belongs in `ownership.integration.spec.ts`'s 401 loop and wants a happy-path case beside the 409 the service spec already pins.
 
 ### Stage D — The non-functional gates the rules already demand
@@ -106,6 +107,7 @@ Recorded so it is not re-litigated. Move an item up only with a reason that has 
 - [x] Stage 5 — Playwright over the production build: 100 tests automating the §12 checklist, gated by its own CI job. Four suites, 1308 tests, every layer gated.
 - [x] Test-architecture audit over the finished suite — established the stages above.
 - [x] Stage A — the e2e type gate, one merged coverage report (90% → 98%, the jump being measurement rather than new tests), a coverage artefact in CI, and the `db:up`-versus-service-container collision that would have stopped both database-backed CI jobs.
+- [x] Stage B — five behaviours §12 claimed and nothing tested: the `::date` cast, a multi SELECT's JSONB punctuation, RELATION search, the drawer-scroll pin and the detail dialog's wrap. Each verified by mutation; §12 now badges what the browser does not own.
 
 ---
 
