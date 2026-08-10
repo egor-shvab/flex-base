@@ -745,6 +745,22 @@ Internally selection is **always** a `string[]`, whatever the model's shape: one
 
 `searchOptions` deliberately does **not** write `optionsByField` — that is the seed every other consumer of `optionsFor()` reads, and a search result would clobber it. It does call `cacheLabels`, so a record found only through a search still renders as its label in a cell afterwards.
 
+### The accessibility gate blocks on serious and critical only
+
+A smoke gate exists to catch regressions. Admitting `moderate` and `minor` on first introduction would have meant one of two things — a long list of disabled rules, or a stage that never landed — and neither is a gate. The bar is raised by narrowing `BLOCKING_IMPACTS` in `test/e2e/setup/a11y.ts`, not by adding exclusions.
+
+Nothing is disabled today: all five desktop screens and both mobile ones pass clean at A/AA. A rule that ever has to be turned off belongs in that file with its reason beside it, never silently at a call site.
+
+It does **not** replace the keyboard walk in step 5 of the definition of done. Axe checks what a machine can decide — a name, a role, a contrast ratio — and cannot tell whether a focus order makes sense or whether a control is findable.
+
+### `--link` gained a target floor rather than an exemption
+
+It was the one `BaseButton` variant with no `min-height`: ~18px tall at `--font-size-sm`, used by nine call sites including every row action. Row actions sit 8px apart, so SC 2.5.8's _Spacing_ exception could not carry them, and `RecordDetailModal`'s Back link had already hand-rolled `min-height: rem(24)` for the same reason — which is what marked the shared variant as an oversight rather than a deliberate exemption.
+
+**Both axes**, for the reason `--icon` already states: the button is content-sized, so a short label is narrow however tall it is. "Edit" measured 23×24 after the height was floored — caught by the gate on its first run, which is the most useful thing that could have happened to a gate written the same afternoon.
+
+The floor is 24 rather than `--control-height`; at 36 a bare text button would read as a filled one, and 24 is the actual AA requirement.
+
 ### `useDeleteConfirm` catches instead of re-throwing
 
 It used to re-throw, and a spec pinned that. The reversal is deliberate: **every call site binds `confirm` directly to a template's `@confirm`**, so there was no caller to catch anything — a refused delete became an unhandled promise rejection while the dialog sat open saying nothing. Re-throwing is only a contract worth keeping where someone is positioned to honour it.

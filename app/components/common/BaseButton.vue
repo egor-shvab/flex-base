@@ -189,10 +189,20 @@ const rootProps = computed(() =>
     }
   }
 
-  // A bare text button for row actions — the chrome of a link, the semantics of a button
+  // A bare text button for row actions — the chrome of a link, the semantics of a button.
+  // Unsized in every other respect, but not unbounded: at `--font-size-sm` its line box is
+  // ~18px, and row actions sit 8px apart, so SC 2.5.8's *Spacing* exception cannot carry them.
+  // The floor is 24 rather than `--control-height`, which would make a text button look like a
+  // filled one — the same bargain `RecordDetailModal`'s Back link struck by hand.
+  //
+  // Both axes, for the reason `--icon` states: the button is content-sized, so a short label
+  // is narrower than the floor however tall it is. "Edit" measures 23px.
   &--link {
     --hover-color: var(--color-accent);
 
+    min-width: rem(24);
+    min-height: rem(24);
+    padding-block: rem(2);
     font-size: var(--font-size-sm);
     font-weight: 400;
     color: var(--color-text-secondary);

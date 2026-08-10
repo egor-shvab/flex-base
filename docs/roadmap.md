@@ -48,17 +48,17 @@ Stages run in order of value per hour, not by layer. Stage A is an afternoon and
 - [x] **`FieldFormModal`** — 12 cases over the choices editor, the multi-value lock, the type lock and the relation label picker. Mutation-checked: a shallow spread instead of the deep copy lets an edit rename the store's own metadata, and the spec catches it.
 - [x] **`RelationFieldSelect`** — 12 cases. Mutation-checked on the load-bearing one: dropping the `unlisted` branch fails exactly the three cases that guard a link being silently discarded on save.
 - [x] **`RecordDetail` and `RecordDetailModal`** — the column set the dialog shares with `DynamicTable`, and the modal's four states plus the one link that leaves the page.
-- [x] **The off-canvas sidebar** — a new `mobile-shell.spec.ts` at 375×812, pinning that nothing inside is reachable while closed. `test.use` scopes the viewport to that file, so Stage D's project is still free to absorb it.
+- [x] **The off-canvas sidebar** — a new `mobile-shell.spec.ts` at 375×812, pinning that nothing inside is reachable while closed. `test.use` scopes the viewport to that file, which Stage D then settled on as the permanent arrangement.
 - [x] **The two multi-value 400s**, now proven at the endpoint rather than only at the schema — and the cap itself is accepted, so an off-by-one floor cannot pass.
 - [x] **`server/api/tables/index.post`** — the fifteenth endpoint, in the 401 loop and in a new `server/api/tables.integration.spec.ts` covering ownership, the 409 and both name bounds.
 
 ### Stage D — The non-functional gates the rules already demand
 
-`CLAUDE.md` step 5 of the definition of done is a manual checklist today. It should be a gate for the paths that matter.
+**Done — the accessibility promise in `CLAUDE.md` §8 is a gate rather than a review item, and it found a real failure on its first run.**
 
-- [ ] **Automated accessibility smoke.** `@axe-core/playwright` over five screens (dashboard, table settings, records list, record form dialog, filter drawer). Serious/critical violations fail; nothing else. This is the cheapest possible version and it catches the regressions a human walk misses.
-- [ ] **Target size.** Nothing asserts the 24×24 floor or the 36px house floor. One helper that measures every interactive element on those same five screens, with the filter-summary chip's remove button as the documented exception.
-- [ ] **A mobile viewport project in `playwright.config.ts`.** The `below-shell` breakpoint (900px) governs a whole layout mode that no test has ever rendered. A handful of cases, not a mirror of the desktop suite.
+- [x] **Automated accessibility smoke.** `@axe-core/playwright` over the five screens, blocking on `serious`/`critical`. **All five pass clean** — no rule is disabled, and the one that ever has to be belongs in `test/e2e/setup/a11y.ts` with its reason. Proved able to fail: an icon button stripped of its label reports `button-name (critical) × 1`.
+- [x] **Target size — and it caught shipping code.** `BaseButton --link` was the only variant with no floor: ~18px tall across nine call sites, with row actions 8px apart, so SC 2.5.8's _Spacing_ exception could not carry them. Fixed on **both axes**, the second of which the gate itself found — "Edit" measured 23×24 once only the height was floored. Reverting the fix turns the gate red with every control named and measured.
+- [x] **Mobile coverage without a project.** Decided against a second Playwright project: it would either duplicate the desktop suite at 375px, where most specs assume the desktop layout, or select only the one file that `test.use({ viewport })` already covers. `mobile-shell.spec.ts` grew instead — the records table scrolling inside its own container, a dialog fitting the viewport, and both gates run again at mobile width, where the shell is a different layout with a control the desktop never renders. **Do not re-add the project without a reason these three cases cannot meet.**
 
 ### Stage E — Trim what is paid for twice
 
@@ -108,6 +108,7 @@ Recorded so it is not re-litigated. Move an item up only with a reason that has 
 - [x] Stage A — the e2e type gate, one merged coverage report (90% → 98%, the jump being measurement rather than new tests), a coverage artefact in CI, and the `db:up`-versus-service-container collision that would have stopped both database-backed CI jobs.
 - [x] Stage B — five behaviours §12 claimed and nothing tested: the `::date` cast, a multi SELECT's JSONB punctuation, RELATION search, the drawer-scroll pin and the detail dialog's wrap. Each verified by mutation; §12 now badges what the browser does not own.
 - [x] Stage C — the last untested surfaces: the error boundary, the failure banner, the off-canvas shell, four components and the two remaining endpoint gaps — plus the production fix that makes a refused delete explain itself.
+- [x] Stage D — the WCAG 2.2 AA promise turned into a gate: axe over seven screens and a 24×24 target floor, both proved able to fail, and the `BaseButton --link` variant that had been below the floor all along.
 
 ---
 

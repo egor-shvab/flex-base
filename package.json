@@ -45,6 +45,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@iconify-json/mdi": "^1.2.3",
     "@nuxt/test-utils": "^4.1.0",
     "@playwright/test": "^1.62.1",

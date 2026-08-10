@@ -1,4 +1,5 @@
 import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { axeViolations, undersizedTargets } from '~~/test/e2e/setup/a11y'
 
 /**
  * The shell below `$breakpoint-shell` (900px), where the sidebar stops being a column and
@@ -21,8 +22,30 @@ const toggle = (page: import('@playwright/test').Page) =>
 const sidebar = (page: import('@playwright/test').Page) =>
   page.getByRole('navigation', { name: 'Your tables' })
 
+let recordsUrl = ''
+
 test.beforeEach(async ({ seedTable }) => {
-  await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }])
+  const table = await seedTable(
+    'Deals',
+    [
+      { key: 'company', type: 'TEXT', name: 'Company' },
+      { key: 'contract_value', type: 'NUMBER', name: 'Contract value' },
+      { key: 'active', type: 'BOOLEAN', name: 'Active' },
+      {
+        key: 'stage',
+        type: 'SELECT',
+        name: 'Stage',
+        options: {
+          choices: [
+            { value: 'Won', color: 'green' },
+            { value: 'Lost', color: 'red' },
+          ],
+        },
+      },
+    ],
+    [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won' }],
+  )
+  recordsUrl = table.url
 })
 
 test('the sidebar is off-screen and unreachable until it is asked for', async ({ page }) => {
@@ -66,6 +89,62 @@ test('the scrim behind it dismisses it without navigating', async ({ page }) => 
 
   await expect(sidebar(page)).toBeHidden()
   await expect(page).toHaveURL('/')
+})
+
+/**
+ * A table is the one thing that cannot simply reflow to 375px. The rule is that it scrolls
+ * inside its own container — the page body must never scroll sideways, or every screen in the
+ * app inherits a horizontal scrollbar from one wide column.
+ */
+test('the records table scrolls inside itself, not the page', async ({ page }) => {
+  await page.goto(recordsUrl)
+  await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+
+  const pageOverflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  )
+  expect(pageOverflows).toBe(false)
+})
+
+/** A dialog at this width has nowhere to overflow to, so it must fit rather than be dragged. */
+test('a dialog fits the viewport and keeps its actions reachable', async ({ page }) => {
+  await page.goto(recordsUrl)
+  await page.getByRole('button', { name: 'Add record' }).first().click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  const box = await dialog.boundingBox()
+  const viewport = page.viewportSize()
+
+  expect(box).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.width).toBeLessThanOrEqual((viewport?.width ?? 0) + 1)
+  await expect(dialog.getByRole('button', { name: 'Create record' })).toBeVisible()
+})
+
+/**
+ * Both gates again at this width, because the shell is a different layout — the header gains a
+ * control the desktop never renders, and a target that clears the floor in a roomy row can be
+ * squeezed under it when the row is 375px wide.
+ */
+test.describe('the gates at this width', () => {
+  for (const [name, path] of [
+    ['the dashboard', '/'],
+    ['the records list', ''],
+  ] as const) {
+    test(`${name} has no serious or critical violations`, async ({ page }) => {
+      await page.goto(path === '' ? recordsUrl : path)
+
+      expect(await axeViolations(page)).toEqual([])
+    })
+
+    test(`${name} has no target below 24×24`, async ({ page }) => {
+      await page.goto(path === '' ? recordsUrl : path)
+
+      expect(await undersizedTargets(page)).toEqual([])
+    })
+  }
 })
 
 /** Above the breakpoint it is a column of the grid, always there and with no toggle to press. */

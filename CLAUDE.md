@@ -94,7 +94,7 @@ A change is finished only when, in order:
 2. `npx eslint .` passes;
 3. `npm run build` passes;
 4. `npm run test` passes, with tests covering the changed logic added or updated (§10);
-5. for any interactive or visual change: the keyboard path works, the focus ring is visible, and every target is at least `--control-height` (never below the 24×24 WCAG floor);
+5. for any interactive or visual change: the keyboard path works and the focus ring is visible — both still a manual walk. Target size and the axe rules are gated by `npm run test:e2e` (§8); a sized control takes `--control-height`, and nothing may fall below the 24×24 floor;
 6. the change has been verified working in the running app (dev server);
 7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
 8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files here — the codebase is the source of truth for what exists;
@@ -235,8 +235,13 @@ A deliberately plain, familiar office-app look for a largely non-technical audie
 
 ### Accessibility target: WCAG 2.2 AA
 
+Two halves of this are machine-checked (`npm run test:e2e`): an **axe** pass over the WCAG A/AA rules, failing on `serious` and `critical`, and the target-size floor below. Neither replaces the keyboard walk in step 5 of the definition of done — axe cannot tell whether a focus order makes sense — but both catch what a walk misses because nothing on screen looks different.
+
 - Every interactive element is keyboard-operable and has a visible `:focus-visible` ring. **Focus is never removed, only restyled** — `_reset.scss` carries a zero-specificity baseline so nothing can end up with no ring; components override it with the `focus-ring` mixin (`outline`, not `box-shadow`, so an ancestor's `overflow` cannot clip it).
 - Minimum target size **24×24** — SC 2.5.8, the AA requirement. The house floor is `--control-height` (**36px**), which every sized control including icon-only buttons meets; nothing may go below 24 (the filter-summary chip's remove button sits exactly on it). 44×44 is SC 2.5.5, which is **AAA** — do not quote it as the AA bar.
+
+  **This is a gate now, not a review item.** `test/e2e/accessibility.spec.ts` measures every interactive element on five screens, plus two at mobile width, and `test/e2e/setup/a11y.ts` holds the measurement. A control that is content-sized needs **both** axes floored — `--icon` and `--link` each say so, because a short label ("Edit" is 23px) is narrow however tall it is. Three exclusions are encoded, each a real SC 2.5.8 exception rather than a convenience: `.text-link` (the _Inline_ exception), an `<input>` whose wrapping `<label>` is the actual target, and anything not rendered. Do not add a fourth to make a failure go away.
+
 - Text contrast ≥ 4.5:1; control outlines and other non-text UI ≥ 3:1 (this is why `--color-border-control` is a separate token from `--color-border-strong`).
 - Dialogs and off-canvas surfaces are `inert`-guarded and must never leave focusable content off-screen — `visibility: hidden`, not translation alone.
 
@@ -412,4 +417,4 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 - `tsconfig.json` references the project configs generated into `.nuxt/` by `nuxt prepare`. Do not edit those directly.
 - `compatibilityDate` is pinned to `2025-07-15`.
 - Modules: `@nuxt/eslint`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt`.
-- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
+- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate in `test/e2e/setup/a11y.ts`; dev-only, and it injects axe into the page rather than shipping in the bundle). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
