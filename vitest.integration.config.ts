@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { configDefaults, defineConfig } from 'vitest/config'
+import { COVERAGE_BASE, SERVER_INCLUDE } from './vitest.coverage.config'
 
 const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
@@ -45,6 +46,12 @@ export default defineConfig({
     setupFiles: ['./test/integration/setup.ts'],
 
     env: { DATABASE_URL, JWT_SECRET },
+
+    // This project is the only one that reaches `server/api/` and `server/middleware/`, so its
+    // numbers are the only honest ones for those twenty files. It reports nothing on its own:
+    // `npm run coverage:collect` writes a blob here and merges it into the root run's report.
+    // Scoped to the server half deliberately — see `vitest.coverage.config.ts`.
+    coverage: { ...COVERAGE_BASE, include: SERVER_INCLUDE },
   },
 
   // The same aliases the unit project mirrors from `.nuxt/tsconfig.*.json`, plus the one shim

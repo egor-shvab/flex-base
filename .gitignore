@@ -16,8 +16,13 @@ server/generated
 # Generated tooling state, not project config — this project's Nuxt config is nuxt.config.ts.
 .nuxtrc
 
-# Test coverage reports
+# Test coverage reports, and the blob reports `coverage:collect` merges them from
 coverage
+.vitest-reports
+
+# Incremental type-checking state — `nuxt typecheck` runs `vue-tsc -b`, which rewrites this
+# on every run
+*.tsbuildinfo
 
 # Logs
 logs

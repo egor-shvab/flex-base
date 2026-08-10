@@ -745,6 +745,22 @@ Internally selection is **always** a `string[]`, whatever the model's shape: one
 
 `searchOptions` deliberately does **not** write `optionsByField` — that is the seed every other consumer of `optionsFor()` reads, and a search result would clobber it. It does call `cacheLabels`, so a record found only through a search still renders as its label in a cell afterwards.
 
+### Coverage is merged from two runs, not collected in one
+
+`server/api/` and `server/middleware/` are reachable only from the `integration` project. Folding that project into `test.projects` would produce one report in one run — and would make `npm run test` want a database, which is the one property the split exists to protect. So each run writes a **blob report** and `vitest run --merge-reports --coverage` merges the coverage maps.
+
+Rejected alongside it: dropping those globs from `coverage.include` and documenting where they are proven instead. It is less work and less honest — twenty files at 0% teach a reader to skim red rows, and the next genuinely uncovered file arrives in a report nobody trusts.
+
+Four constraints are load-bearing:
+
+- **The merge step is `vitest run --merge-reports`, never bare `vitest`.** Watch mode defaults to `!isCI && process.stdin.isTTY && !isAgent`, and merging refuses to run under it — so a bare `vitest` works in CI, in a pipe and under an agent, and fails with `Cannot merge reports with --watch enabled` in the one place it matters: a developer's terminal. The `run` command sets `options.run`, which forces `watch` off unconditionally.
+
+- **The scope lives in `vitest.coverage.config.ts`**, which is a fragment rather than a runnable config. Two `include` lists, one per config, would drift the first time a directory was added. It is named `*.config.ts` only so `tsconfig.tools.json`'s `./*.config.ts` glob type-checks it.
+- **The integration run measures the server half only.** Given `app/**` it would have to transform the uncovered `app/field-types/*.ts` — which import `.vue` files — in a node environment with no Vue plugin. Nothing is lost: merging unions the file sets and the unit blob already carries every `app/` file.
+- **`.vitest-reports/` may contain nothing but blob files.** Vitest's `readBlobs` throws on any subdirectory and merges every file it finds, so the two fixed `--outputFile.blob` paths are what keep a stale or foreign file out of the report.
+
+One cosmetic quirk to expect: the merge step's **summary line** counts the root projects only (57 files / 1071 tests), though all 1208 tests are listed and reported. The two collect steps print their own accurate totals just above it.
+
 ---
 
 ## Accepted limitations

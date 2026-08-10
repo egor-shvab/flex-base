@@ -40,7 +40,7 @@ jobs:
       - run: npm run build
 
   integration:
-    name: Integration tests
+    name: Integration tests & coverage
     runs-on: ubuntu-latest
 
     # A throwaway database per run. Named `*_test` deliberately: the suite truncates every
@@ -77,8 +77,25 @@ jobs:
 
       - run: npm ci
 
-      # Applies the migrations itself, against the service container above
-      - run: npm run test:integration
+      # The runner already has PostgreSQL on 5432 from the service container above, so the
+      # npm scripts cannot be used here: `test:integration` and `test:coverage` both begin
+      # with `db:up`, and a second bind of the same port fails before a test runs. Every
+      # setup applies its own migrations and names a stopped database if it finds one.
+      #
+      # `coverage:collect` is the integration run plus the unit + nuxt one, merged — the
+      # only job with a database is the only place the report can be honest about
+      # `server/api/` and `server/middleware/`. The duplicate unit run costs ~9s and is what
+      # keeps the quality job above database-free.
+      - run: npm run coverage:collect
+
+      # The one artefact that shows where the holes are. Reporting only — there is no
+      # threshold gate, deliberately.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+          retention-days: 7
 
   e2e:
     name: End-to-end tests
@@ -125,8 +142,11 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      # Builds the app and starts it itself, per `playwright.config.ts`
-      - run: npm run test:e2e
+      # Playwright directly, not `npm run test:e2e`: that script begins with `db:up`, which
+      # would try to bind a port the service container above already holds. Its other
+      # prerequisite, Chromium, is installed by the step above. The build and the server are
+      # Playwright's own, per `playwright.config.ts`.
+      - run: npx playwright test
 
       # A failure nobody can inspect is a flake by default
       - if: failure()

@@ -3,6 +3,13 @@
   // the whole test tree resolves the same way. This file exists because `playwright.config.ts`
   // points at it by name, and because the e2e run also compiles two helpers from outside its
   // own directory.
+  //
+  // `npm run typecheck` runs `tsc -p` against it as a second step. That is the only thing
+  // checking these files: no Nuxt-generated project claims `test/e2e/`, and Playwright
+  // transpiles without type-checking. It is a separate invocation rather than a reference from
+  // the root `tsconfig.json` because `nuxt typecheck` runs `vue-tsc -b`, and the two helpers
+  // below already belong to the server project — one file owned by two projects is exactly
+  // what build mode refuses.
   "extends": "../tsconfig.json",
   "include": ["./**/*.ts", "../disposable-database.ts", "../integration/seed.ts"]
 }

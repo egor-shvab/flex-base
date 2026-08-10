@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, nextTick, ref } from 'vue'
+import { mount } from '@vue/test-utils'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
 
 const VIEWPORT_HEIGHT = 800
@@ -26,6 +27,42 @@ function elementAt(rect: IRect, offsetWidth = rect.width): HTMLElement {
   return element
 }
 
+const mounted: { unmount: () => void }[] = []
+
+/**
+ * Runs the composable inside a **component**, because it releases its window listeners and
+ * cancels any queued frame in `onBeforeUnmount` — a hook Vue only registers against an
+ * instance. Under a bare `effectScope` it refuses the hook and warns, and `scope.stop()` then
+ * disposes the watcher while leaving the listeners attached, so each case had to close the
+ * panel by hand to tidy up after it. Mounting is what makes teardown run the same path
+ * `BaseSelect` gets, so the cleanup is exercised rather than simulated.
+ *
+ * Nothing is rendered: the anchor and panel are detached elements with dictated rects, so a
+ * template would contribute no layout. The composable's return is captured out of `setup`
+ * rather than read back off `wrapper.vm`, which unwraps refs.
+ *
+ * Unmounting happens in `afterEach` rather than case by case, unlike the two sibling specs —
+ * a case that fails part-way must not leak a listener into the next one, which is the whole
+ * point here. `docs/roadmap.md` Stage F hoists this into a shared helper.
+ */
+function host<T>(compose: () => T): T {
+  let result!: T
+
+  // `mount` runs setup synchronously, so `result` is assigned by the time this returns
+  const wrapper = mount(
+    defineComponent({
+      setup() {
+        result = compose()
+
+        return () => h('div')
+      },
+    }),
+  )
+  mounted.push(wrapper)
+
+  return result
+}
+
 /**
  * Opens the panel and returns the resulting style. `measure` runs inside a `nextTick`, so the
  * panel's own width is measurable by the time it is read.
@@ -35,29 +72,19 @@ async function positionOf(
   options: Parameters<typeof useAnchoredPosition>[3] = {},
   panelWidth?: number,
 ) {
-  const scope = effectScope()
   const anchor = ref<HTMLElement | undefined>(elementAt(anchorRect))
   const panel = ref<HTMLElement | undefined>(
     elementAt({ top: 0, bottom: 0, left: 0, width: panelWidth ?? anchorRect.width }),
   )
   const open = ref(false)
 
-  const style = scope.run(() => useAnchoredPosition(anchor, panel, open, options))!
+  const style = host(() => useAnchoredPosition(anchor, panel, open, options))
 
   open.value = true
   await nextTick()
   await nextTick()
 
-  const result = { ...style.value }
-
-  // Closing is what detaches the window listeners: the composable releases them in
-  // `onBeforeUnmount`, which never registers outside a component, so `scope.stop()` alone
-  // would leave a pair behind for every case in this file to trip over
-  open.value = false
-  await nextTick()
-  scope.stop()
-
-  return result
+  return { ...style.value }
 }
 
 describe('useAnchoredPosition', () => {
@@ -66,7 +93,11 @@ describe('useAnchoredPosition', () => {
     window.innerWidth = VIEWPORT_WIDTH
   })
 
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    while (mounted.length > 0) mounted.pop()?.unmount()
+
+    vi.restoreAllMocks()
+  })
 
   it('sits below the anchor when there is room', async () => {
     // 800 - 140 - 4 - 8 = 648 below, comfortably over the 280 cap
@@ -181,36 +212,30 @@ describe('useAnchoredPosition', () => {
   })
 
   it('writes no style at all when there is no anchor', async () => {
-    const scope = effectScope()
     const anchor = ref<HTMLElement | undefined>(undefined)
     const panel = ref<HTMLElement | undefined>(undefined)
     const open = ref(false)
 
-    const style = scope.run(() => useAnchoredPosition(anchor, panel, open))!
+    const style = host(() => useAnchoredPosition(anchor, panel, open))
 
     open.value = true
     await nextTick()
     await nextTick()
 
     expect(style.value).toEqual({})
-
-    open.value = false
-    await nextTick()
-    scope.stop()
   })
 
   it('re-measures on scroll and resize while open, and stops when closed', async () => {
     const add = vi.spyOn(window, 'addEventListener')
     const remove = vi.spyOn(window, 'removeEventListener')
 
-    const scope = effectScope()
     const anchor = ref<HTMLElement | undefined>(
       elementAt({ top: 100, bottom: 140, left: 200, width: 300 }),
     )
     const panel = ref<HTMLElement | undefined>(undefined)
     const open = ref(false)
 
-    scope.run(() => useAnchoredPosition(anchor, panel, open))
+    host(() => useAnchoredPosition(anchor, panel, open))
 
     open.value = true
     await nextTick()
@@ -225,8 +250,6 @@ describe('useAnchoredPosition', () => {
 
     expect(remove).toHaveBeenCalledWith('resize', expect.any(Function))
     expect(remove).toHaveBeenCalledWith('scroll', expect.any(Function), true)
-
-    scope.stop()
   })
 
   /**
@@ -234,10 +257,9 @@ describe('useAnchoredPosition', () => {
    * frame — without the cancel, a fast scroll would run the arithmetic dozens of times and
    * every answer but the last would be thrown away anyway.
    *
-   * Everything here is asserted on *this* anchor's own rect reads rather than on global
-   * `requestAnimationFrame` counts. The composable cleans up in `onBeforeUnmount`, which never
-   * registers under a bare `effectScope`, so earlier cases in this file leave their window
-   * listeners attached and a global count would see all of them at once.
+   * Counted through *this* anchor's own rect reads rather than through global
+   * `requestAnimationFrame` calls: the number under test is how many times this panel
+   * re-measured, and a global counter would also see whatever else the environment schedules.
    */
   describe('re-measuring while open', () => {
     /** An anchor that records how many times it was measured. */
@@ -255,14 +277,13 @@ describe('useAnchoredPosition', () => {
     }
 
     async function openedAt(rect: IRect) {
-      const scope = effectScope()
       const { element, measured } = countingAnchor(rect)
       const anchor = ref<HTMLElement | undefined>(element)
       // Starts closed and is opened, because the watch has no `immediate` — it binds the
       // listeners on the transition, so a ref born `true` would never attach any
       const open = ref(false)
 
-      const style = scope.run(() => useAnchoredPosition(anchor, ref(undefined), open))!
+      const style = host(() => useAnchoredPosition(anchor, ref(undefined), open))
       open.value = true
       // The watch fires on the next tick and defers `measure` one further, matching `positionOf`
       await nextTick()
@@ -272,12 +293,7 @@ describe('useAnchoredPosition', () => {
     }
 
     it('follows the anchor when the page scrolls under it', async () => {
-      const { style, anchor, close } = await openedAt({
-        top: 100,
-        bottom: 140,
-        left: 200,
-        width: 300,
-      })
+      const { style, anchor } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
       expect(style.value.top).toBe('144px')
 
       anchor.value = elementAt({ top: 40, bottom: 80, left: 200, width: 300 })
@@ -285,27 +301,20 @@ describe('useAnchoredPosition', () => {
       await frame()
 
       expect(style.value.top).toBe('84px')
-      close()
     })
 
     it('re-measures on a resize too, not only on scroll', async () => {
-      const { style, anchor, close } = await openedAt({
-        top: 100,
-        bottom: 140,
-        left: 200,
-        width: 300,
-      })
+      const { style, anchor } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
 
       anchor.value = elementAt({ top: 300, bottom: 340, left: 200, width: 300 })
       window.dispatchEvent(new Event('resize'))
       await frame()
 
       expect(style.value.top).toBe('344px')
-      close()
     })
 
     it('collapses a burst of events into one measurement', async () => {
-      const { measured, close } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
+      const { measured } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
       measured.mockClear()
 
       for (let index = 0; index < 5; index += 1) window.dispatchEvent(new Event('scroll'))
@@ -313,7 +322,6 @@ describe('useAnchoredPosition', () => {
       await frame()
 
       expect(measured).toHaveBeenCalledTimes(1)
-      close()
     })
 
     it('stops measuring once closed', async () => {
@@ -321,6 +329,29 @@ describe('useAnchoredPosition', () => {
 
       close()
       await nextTick()
+      measured.mockClear()
+
+      window.dispatchEvent(new Event('scroll'))
+      await frame()
+
+      expect(measured).not.toHaveBeenCalled()
+    })
+
+    /**
+     * The teardown `BaseSelect` actually relies on: a select unmounts with its panel still
+     * open, and nothing closes it on the way out. Both halves of `onBeforeUnmount` are covered
+     * here — the listeners it detaches, and the frame the last event left queued.
+     *
+     * This is the case the old harness could not express at all. Under a bare `effectScope`
+     * the hook never registered, so unmounting was not a path the spec could reach.
+     */
+    it('stops measuring when its host unmounts, panel still open', async () => {
+      const { measured } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
+
+      // Queue a re-measure and tear the host down before the frame runs, so an uncancelled
+      // frame would still fire during the `frame()` below
+      window.dispatchEvent(new Event('scroll'))
+      mounted.pop()?.unmount()
       measured.mockClear()
 
       window.dispatchEvent(new Event('scroll'))
