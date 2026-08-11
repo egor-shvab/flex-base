@@ -10,7 +10,7 @@ Keep this file current — see `CLAUDE.md` §2 for the rules that govern it. Rat
 
 The testing phase is finished: four suites, every layer gated, and the accessibility promise machine-checked. What is left is the register `CLAUDE.md` §1 points at — the **Open** entries in `docs/decisions.md`, which are in scope by definition.
 
-There were eight; **three are left**. Each row there already carries its own diagnosis, so this phase is mostly execution; the stages are ordered by how much is still undecided. Read the row before starting the item — the "why it stands" column is the specification.
+There were eight; **one is left**, and it is the parked `⋯` menu below, which carries its own unpark trigger rather than a stage. Each row already carried its own diagnosis, so this phase was mostly execution; the stages were ordered by how much was still undecided. Read the row before starting an item — the "why it stands" column is the specification.
 
 ### Stage 1 — Three fixes whose answer is already known ✅
 
@@ -29,12 +29,13 @@ Same component, and the fixes did touch the same code, so they went together.
 
 Both were invisible to Stage D's axe gate, which is why they lasted this long: axe checks that a name and a role exist, not that focus can reach the control or that an announcement lands.
 
-### Stage 3 — Reading a value the table truncates
+### Stage 3 — Reading a value the table truncates ✅
 
-Two rows of the register share one fix: a truncated cell offers no way to see the whole value, and a multi-value cell shows one line so later values are cut off.
+Two rows of the register shared one fix: a truncated cell offered no way to see the whole value, and a multi-value cell showed one line so later values were cut off.
 
-- [ ] **Settle the approach before writing anything.** The register rejects the obvious route — a text projection per field type — because it would be a fifth registry against the "only cells are components" contract in `CLAUDE.md` §9. The alternative worth pricing first is to make the existing escape hatch _discoverable_: the record dialog already shows every value in full and wrapped, so an affordance on a truncated cell may close both rows without a new registry. Record the decision in `docs/decisions.md`.
-- [ ] **Apply it to both rows**, or narrow them if the chosen fix only serves one.
+- [x] **Settled: structural only, and narrow the second row.** Both routes to a cell's rendered text were priced and both buy a pointer-only tooltip — a per-type projection is §9's fifth registry, and reading it off the DOM needs a `scrollWidth` pass plus a `ResizeObserver` over every cell. Recorded in `docs/decisions.md`.
+- [x] **`MultiValueCell` is `display: inline`.** It was `inline-flex`, i.e. one atomic box, which is the one thing `text-overflow` cannot reach inside — so an over-full list was hard-clipped with nothing saying values were missing. `RecordDetail`'s override went with it.
+- [x] **The truncated-cell row is now Accepted**, with the escape hatch named: the View action on every row, and the ellipsis every cell now ends in.
 
 ### Stage 4 — Dependency vulnerabilities
 

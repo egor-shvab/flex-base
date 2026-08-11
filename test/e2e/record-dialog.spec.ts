@@ -263,6 +263,24 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
   await expect(badges(row).first()).toBeVisible()
   expect(await lines(row)).toBe(1)
 
+  /**
+   * One line has to mean *the values that fit, in full* — not twelve stubs squeezed into the
+   * column. That is what the obvious wrong fix would produce: let the entries shrink so they
+   * all "fit", and every one of them ends in `BaseBadge`'s own ellipsis instead of the cell's.
+   * Read off the badge's text box, which is where that truncation would land.
+   *
+   * The other half — that the entries past the cap give way to a single ellipsis rather than
+   * being clipped mid-pill — is **paint**, and is recorded as approximated in
+   * `docs/architecture.md` §12: the omitted badge keeps its box, its client rects and its
+   * `checkVisibility()`, so no assertion here can see the difference.
+   */
+  const firstTagIsWhole = await badges(row)
+    .first()
+    .locator('.base-badge__text')
+    .evaluate((text) => text.scrollWidth <= text.clientWidth)
+
+  expect(firstTagIsWhole).toBe(true)
+
   await page.getByRole('link', { name: 'View record' }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()

@@ -61,16 +61,18 @@ const columns = computed(() =>
 
   // Values wrap rather than truncate: reading one in full is the reason this dialog exists,
   // which is the opposite of the table's per-column cap.
+  //
+  // A multi-value cell no longer needs an override to wrap: it renders inline, so it wraps
+  // wherever nothing says otherwise, and what put it on one line was always `DynamicTable`'s
+  // `white-space: nowrap` rather than a property of the cell. What is left is the space
+  // *between* the wrapped rows — inline content has no `row-gap`, and a badge stands taller
+  // than the text its line box is measured from, so consecutive rows would otherwise touch.
   &__value {
     margin: 0;
     overflow-wrap: anywhere;
 
-    // The same rule applied to a multi-value cell, which defaults to one line because a table
-    // row has a fixed height. Here there is no height to keep, so every value is on screen
-    // instead of the first few — the one place this dialog overrides a cell's own layout.
     :deep(.multi-value-cell) {
-      flex-wrap: wrap;
-      row-gap: rem(6);
+      line-height: 2;
     }
   }
 }
