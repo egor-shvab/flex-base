@@ -246,18 +246,94 @@ test.describe('a relation picker', () => {
     await expect(page.getByRole('option', { name: /Grace Hopper/ })).toBeVisible()
   })
 
+  /**
+   * The message reads by role rather than by text: it is on screen once, in the panel, and in the
+   * accessibility tree once more, in the control's live region — a `getByText` matches both. The
+   * dialog is a safe scope because this form holds exactly one select; Nuxt's own route announcer
+   * is a `role="status"` too, but it lives outside the shell.
+   */
+  const announcement = (page: import('@playwright/test').Page) =>
+    page.getByRole('dialog').getByRole('status')
+
   test('offers a working Retry when the server cannot be reached', async ({ page }) => {
     const owner = await openOwner(page)
 
     await page.route('**/fields/**/options**', (route) => route.abort())
     await owner.pressSequentially('ada')
 
-    await expect(page.getByText(/could not load options/i)).toBeVisible()
+    await expect(announcement(page)).toHaveText('Could not load options.')
+    // The visible half: the panel draws the same sentence, with the button beside it
+    await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
 
     await page.unroute('**/fields/**/options**')
     await page.getByRole('button', { name: /try again|retry/i }).click()
 
     await expect(page.getByRole('option', { name: /Ada Lovelace/ })).toBeVisible()
+  })
+
+  /**
+   * The keyboard route to that button, which is the browser's answer rather than happy-dom's:
+   * the panel is teleported to `<body>`, so the real tab order runs past the entire app before
+   * reaching it. Where focus *lands* on each press is pinned in `BaseSelect.search.nuxt.spec.ts`;
+   * what only Chromium can say is what the **default** Tab does after we move focus out of the
+   * panel — the two cases below split on exactly that.
+   */
+  test.describe('reaching Retry from the keyboard', () => {
+    const retry = (page: import('@playwright/test').Page) =>
+      // Page-level, not scoped to the dialog: the panel teleports out of it
+      page.getByRole('button', { name: 'Retry', exact: true })
+
+    /** Fails the one request and leaves the panel showing its Retry. */
+    async function failedSearch(page: import('@playwright/test').Page) {
+      const owner = await openOwner(page)
+
+      await page.route('**/fields/**/options**', (route) => route.abort())
+      await owner.pressSequentially('ada')
+      await expect(retry(page)).toBeVisible()
+
+      return owner
+    }
+
+    test('Tab reaches it, Shift+Tab returns, and pressing it keeps focus in the field', async ({
+      page,
+    }) => {
+      const owner = await failedSearch(page)
+
+      await page.keyboard.press('Tab')
+      await expect(retry(page)).toBeFocused()
+
+      await page.keyboard.press('Shift+Tab')
+      await expect(owner).toBeFocused()
+      // Backwards is a return, not an exit — the panel is still there to go forward into
+      await expect(retry(page)).toBeVisible()
+
+      await page.unroute('**/fields/**/options**')
+      await page.keyboard.press('Tab')
+      await page.keyboard.press('Enter')
+
+      // The button unmounts the moment the status changes, so this is the assertion that would
+      // catch focus being dropped on `<body>`
+      await expect(owner).toBeFocused()
+      await expect(page.getByRole('option', { name: /Ada Lovelace/ })).toBeVisible()
+    })
+
+    /**
+     * The half that rests on the browser: the handler closes the panel and hands focus back to
+     * the control **without** cancelling the default, so Chromium must sequence from there. If it
+     * sequenced from the teleported button instead, focus would land somewhere past the whole app
+     * — which is what asserting the very next control catches.
+     */
+    test('Tab past it closes the panel and carries on to the next control', async ({ page }) => {
+      await failedSearch(page)
+
+      await page.keyboard.press('Tab')
+      await expect(retry(page)).toBeFocused()
+
+      await page.keyboard.press('Tab')
+
+      await expect(page.getByRole('listbox')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Create record' })).toBeFocused()
+    })
   })
 })
 

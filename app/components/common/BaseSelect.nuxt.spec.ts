@@ -5,9 +5,11 @@ import {
   input,
   keydown,
   listbox,
+  liveRegion,
   open,
   options,
   select,
+  status,
   trigger,
 } from '~~/test/select-harness'
 import type { TWrapper } from '~~/test/select-harness'
@@ -167,6 +169,49 @@ describe('BaseSelect', () => {
       const wrapper = await select({ searchable: true, modelValue: 'a' })
 
       expect(input(wrapper).attributes('aria-describedby')).toBe('stage-value')
+    })
+  })
+
+  /**
+   * The announcement cannot live on the visible row: that row is inside `<Teleport v-if="open">`,
+   * and a live region inserted in the same frame as its content is not reliably read — so the
+   * *first* message of every open would be silent. The region is in the control instead, mounted
+   * for the component's whole life.
+   */
+  describe('the status announcement', () => {
+    const emptyField = () => select({ options: [], emptyLabel: 'No choices defined' })
+
+    it('exists before anything is opened, and says nothing', async () => {
+      await emptyField()
+
+      expect(liveRegion()).not.toBeNull()
+      expect(liveRegion()?.textContent).toBe('')
+    })
+
+    it('carries the panel’s message while it is open', async () => {
+      const wrapper = await emptyField()
+      await open(wrapper)
+
+      expect(liveRegion()?.textContent).toBe('No choices defined')
+    })
+
+    /** Empty again on close, or reopening would change nothing and announce nothing. */
+    it('empties on close', async () => {
+      const wrapper = await emptyField()
+      await open(wrapper)
+
+      await wrapper.get('.base-select__control').trigger('click')
+
+      expect(liveRegion()?.textContent).toBe('')
+    })
+
+    it('is the only live region — the visible row announces nothing of its own', async () => {
+      const wrapper = await emptyField()
+      await open(wrapper)
+
+      expect(status()?.textContent?.trim()).toBe('No choices defined')
+      expect(status()?.getAttribute('role')).toBeNull()
+      expect(document.querySelectorAll('[role="status"]')).toHaveLength(1)
     })
   })
 })

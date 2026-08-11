@@ -1,0 +1,21 @@
+// No `@use` here, like `_text-link.scss`: this block references no token, function or mixin.
+
+// Removed from the page but **not** from the accessibility tree — which is the whole point, and
+// why neither `display: none` nor `visibility: hidden` can stand in: both take the element out
+// of the tree, so a live region hidden that way would never announce anything.
+//
+// The clip-rect form rather than an off-screen `position: absolute; left: -9999px`: an
+// off-screen element still occupies layout, so a focusable one inside it scrolls the page
+// sideways when it takes focus. Nothing here is focusable today, and this keeps it that way by
+// construction.
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  overflow: hidden;
+}

@@ -21,7 +21,11 @@ export const OPTIONS: ISelectOption[] = [
 export const panel = () => document.querySelector<HTMLElement>('.base-select__panel')
 export const listbox = () => document.querySelector<HTMLElement>('[role="listbox"]')
 export const options = () => [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+/** The panel's *visible* status row. Not the live region — see below, they are two elements. */
 export const status = () => document.querySelector<HTMLElement>('.base-select__status')
+/** The announcement, which lives in the control and outlives the panel. */
+export const liveRegion = () => document.querySelector<HTMLElement>('.visually-hidden[role=status]')
+export const retry = () => status()?.querySelector<HTMLButtonElement>('button') ?? null
 
 export const labels = () => options().map((option) => option.textContent?.trim())
 export const activeLabel = () =>

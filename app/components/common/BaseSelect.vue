@@ -110,6 +110,15 @@
     <span v-if="error" :id="`${id}-error`" class="base-select__error">{{ error }}</span>
 
     <!--
+      The status row's announcement, mirrored here because the row itself cannot carry it: it
+      lives in `<Teleport v-if="open">`, and a live region inserted in the same frame as its
+      content is not reliably read — so the *first* message of every open would be silent. This
+      one is mounted for the component's whole life, in the control rather than the panel, and
+      is empty while closed so that opening is always a change the region can announce.
+    -->
+    <span class="visually-hidden" role="status">{{ open ? statusText : '' }}</span>
+
+    <!--
       Teleported because `BaseModal` marks `#__nuxt` `inert` while a dialog is open, and
       `inert` is inherited by the whole subtree — a panel rendered in place would be
       unfocusable inside the very drawer it belongs to. Clearing that drawer's
@@ -122,9 +131,20 @@
         :style="panelStyle"
         @keydown.esc.stop="dismiss"
       >
-        <p v-if="statusText" class="base-select__status" role="status">
+        <!--
+          The visible copy, and *only* that: the announcement is the region above, or the same
+          sentence would be read twice.
+        -->
+        <p v-if="statusText" ref="statusRef" class="base-select__status">
           {{ statusText }}
-          <BaseButton v-if="status === 'failed'" variant="link" @click="retry">Retry</BaseButton>
+          <BaseButton
+            v-if="status === 'failed'"
+            variant="link"
+            @click="onRetry"
+            @keydown="onRetryKeydown"
+          >
+            Retry
+          </BaseButton>
         </p>
 
         <ul
@@ -264,6 +284,16 @@ const { draft, visibleOptions, status, retry, reset } = useSelectOptions({
 
 const listboxId = panelId
 const listRef = ref<HTMLUListElement>()
+const statusRef = ref<HTMLParagraphElement>()
+
+/**
+ * The panel's one focusable, read out of the status row rather than held as its own ref: the
+ * control is a `BaseButton`, so a component ref would hand back an instance whose `$el` is
+ * `any` — `querySelector` types the element properly and the row has nothing else in it.
+ */
+function retryButton(): HTMLButtonElement | null {
+  return statusRef.value?.querySelector('button') ?? null
+}
 
 const {
   activeIndex,
@@ -440,6 +470,36 @@ function clear() {
   triggerRef.value?.focus()
 }
 
+/**
+ * `retry()` flips `status` to `loading` synchronously, which unmounts the button that was just
+ * pressed — without the handoff focus falls to `<body>`, exactly as it would for the clear
+ * button above. The panel stays open and shows `Searching…`.
+ */
+function onRetry() {
+  retry()
+  triggerRef.value?.focus()
+}
+
+/**
+ * Leaving the panel again. Forward, the panel is closed and the default is **not** cancelled:
+ * `dismiss()` returns focus to the control synchronously, so the browser then continues from
+ * there and one press leaves the select — what Tab means everywhere else. Backwards returns to
+ * the field with the panel still open, since the user is heading back to the term.
+ *
+ * Escape needs nothing here: it bubbles to the panel's own `@keydown.esc.stop`.
+ */
+function onRetryKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Tab') return
+
+  if (event.shiftKey) {
+    event.preventDefault()
+    triggerRef.value?.focus()
+    return
+  }
+
+  dismiss()
+}
+
 function onControlClick() {
   if (props.disabled) return
 
@@ -495,6 +555,15 @@ function onComboboxKeydown(event: KeyboardEvent) {
       chooseActive()
       return
     case 'Tab':
+      // Forward, with a Retry in the panel: move *into* the panel first. It is teleported to
+      // `<body>`, so the browser's own order would never reach it — this is the only route to
+      // the button from the keyboard. Shift+Tab is deliberately not diverted: backwards means
+      // leaving, and a panel is not something to reverse into.
+      if (open.value && !event.shiftKey && retryButton()) {
+        event.preventDefault()
+        retryButton()?.focus()
+        return
+      }
       // No `preventDefault` — closing and letting focus move on is the expected exit
       if (open.value) dismiss()
       return

@@ -10,7 +10,7 @@ Keep this file current — see `CLAUDE.md` §2 for the rules that govern it. Rat
 
 The testing phase is finished: four suites, every layer gated, and the accessibility promise machine-checked. What is left is the register `CLAUDE.md` §1 points at — the **Open** entries in `docs/decisions.md`, which are in scope by definition.
 
-There were eight; **five are left**. Each row there already carries its own diagnosis, so this phase is mostly execution; the stages are ordered by how much is still undecided. Read the row before starting the item — the "why it stands" column is the specification.
+There were eight; **three are left**. Each row there already carries its own diagnosis, so this phase is mostly execution; the stages are ordered by how much is still undecided. Read the row before starting the item — the "why it stands" column is the specification.
 
 ### Stage 1 — Three fixes whose answer is already known ✅
 
@@ -20,14 +20,14 @@ Independent, small, and none needed a decision first.
 - [x] **`npm run preview` cannot start on Windows.** One launcher, `scripts/serve-output.mjs`, with `scripts/preview.mjs` loading `.env` in front of it. `test/e2e/setup/serve.mjs` is gone and Playwright starts the shared one.
 - [x] **`_count.records` drifts between Home visits.** `tables.ts` owns `bumpCount`; the records and fields stores are its only callers. The dashboard's unconditional refetch went with it, and `_count.fields` was fixed alongside so removing it was safe.
 
-### Stage 2 — The two accessibility gaps in `BaseSelect`
+### Stage 2 — The two accessibility gaps in `BaseSelect` ✅
 
-Same component, and the fixes are likely to touch the same code, so they go together.
+Same component, and the fixes did touch the same code, so they went together.
 
-- [ ] **`Retry` in the dropdown is pointer-only** — it lives in the teleported panel, and `Tab` dismisses the panel before focus reaches it. Needs `Tab` to move _within_ the panel first, or a roving tabindex across it. Not a dead control today (editing the term re-issues the search), but the button itself is unreachable.
-- [ ] **The panel's `role="status"` mounts together with its first message**, so "Searching…" and "No options" are probably never announced — a live region inserted in the same frame as its content is not reliably read. Needs a region that outlives the panel.
+- [x] **`Retry` in the dropdown is pointer-only.** `Tab` now moves into the teleported panel and back out again; no roving tabindex, since the panel holds exactly one focusable. The reach fix uncovered a second half — pressing Retry unmounted the button and dropped focus on `<body>` — so the click hands focus back to the field.
+- [x] **The panel's `role="status"` mounts together with its first message.** The region moved into the control, where it outlives the panel, behind a new `.visually-hidden` class; the panel's row is now visible copy only.
 
-Both are invisible to Stage D's axe gate, which is why they are still here: axe checks that a name and a role exist, not that focus can reach the control or that an announcement lands.
+Both were invisible to Stage D's axe gate, which is why they lasted this long: axe checks that a name and a role exist, not that focus can reach the control or that an announcement lands.
 
 ### Stage 3 — Reading a value the table truncates
 
