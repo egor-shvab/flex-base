@@ -2,6 +2,7 @@ import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
 import { useRelationsStore } from '~/stores/relations'
+import { useTablesStore } from '~/stores/tables'
 import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordPage, IRecordQueryState, TRecordData } from '#shared/types/record'
@@ -20,6 +21,9 @@ function isDefaultView(query: IRecordQueryState): boolean {
 export const useRecordsStore = defineStore('records', () => {
   const api = useApi()
   const relations = useRelationsStore()
+  // The sidebar and the dashboard both draw this table's record count from the list the tables
+  // store holds, and nothing else would tell it that a write moved one
+  const tables = useTablesStore()
 
   // shallowRef: the collection is replaced wholesale, never mutated item-by-item
   const records = shallowRef<IRecord[]>([])
@@ -77,6 +81,7 @@ export const useRecordsStore = defineStore('records', () => {
     query: IRecordQueryState,
   ): Promise<number> {
     await api<{ record: IRecord }>(`/api/tables/${tableId}/records`, { method: 'POST', body: data })
+    tables.bumpCount(tableId, 'records', 1)
 
     const nextPage = isDefaultView(query) ? 1 : query.page
     if (nextPage === query.page) await fetchRecords(tableId, query)
@@ -109,6 +114,7 @@ export const useRecordsStore = defineStore('records', () => {
   /** Refetches rather than splicing — under server-side pagination the page shifts. */
   async function deleteRecord(tableId: string, recordId: string, query: IRecordQueryState) {
     await api(`/api/tables/${tableId}/records/${recordId}`, { method: 'DELETE' })
+    tables.bumpCount(tableId, 'records', -1)
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
     await fetchRecords(tableId, { ...query, page: Math.min(page.value, lastPage) })
   }

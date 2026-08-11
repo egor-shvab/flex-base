@@ -15,16 +15,19 @@
     </button>
 
     <!--
-      Plain absolute positioning, no teleport and no measurement: the only surface this
-      opens inside is `BaseModal`'s `dialog` variant, which declares no `overflow` on the
-      scrim, the dialog or the body, so nothing clips the panel. `BaseSelect` is the case
-      that needs `useAnchoredPosition` and a teleport; this one still does not.
+      Measured like every other popover, but rendered in place rather than teleported.
+      `BaseSelect` teleports because `BaseModal` marks `#__nuxt` inert and a panel inside it
+      would be unfocusable; this one opens inside the teleported dialog itself, which is not
+      inert. `--z-popover` orders it within `.base-modal`'s stacking context — see the note
+      on that token — and `.base-modal` declares no `transform`, so the `position: fixed`
+      the composable writes still resolves against the viewport.
     -->
     <div
       v-if="open"
       :id="panelId"
       ref="panelRef"
       class="base-color-picker__panel"
+      :style="panelStyle"
       role="radiogroup"
       :aria-label="label"
       @keydown.esc.stop="dismiss"
@@ -59,6 +62,7 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
+import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
 import { usePopover } from '~/composables/usePopover'
 import { badgeTint } from '~/utils/badge-tint'
 import { BADGE_COLORS, BADGE_COLOR_LABELS } from '#shared/constants/color'
@@ -81,6 +85,16 @@ const model = defineModel<TBadgeColor>({ required: true })
  * close both. See `usePopover`'s own note.
  */
 const { open, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } = usePopover()
+
+/**
+ * `maxHeight` is stated rather than left at the composable's 280 default, because that default
+ * describes a scrolling list and this panel is a fixed grid: two rows of `--control-height`
+ * plus the gap between them and the padding around them, 36×2 + 12 + 12×2 + 2 borders ≈ 110.
+ * With 280 the "does it fit below?" test would fail in rooms the panel comfortably fits, and
+ * it would flip for no reason. `matchWidth` stays off — the grid sets its own width, and the
+ * composable measures it to keep the panel inside the viewport's edges.
+ */
+const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { maxHeight: 120 })
 
 const options = ref<HTMLButtonElement[]>([])
 
@@ -122,7 +136,8 @@ function step(delta: number) {
 
 <style lang="scss" scoped>
 .base-color-picker {
-  position: relative;
+  // No `position: relative`: the panel is positioned against the viewport, not against this
+  // container. What the container is for is the outside-click boundary `usePopover` reads.
 
   // Bordered like any other control, because the swatch inside is content rather than the
   // control's own boundary — `--color-border-control` carries the 3:1 floor that says so.
@@ -160,12 +175,16 @@ function step(delta: number) {
     background: var(--badge-bg);
   }
 
+  // Positioned entirely by `useAnchoredPosition`, in viewport coordinates — `position: fixed`
+  // is what lets it flip above the trigger and stay pinned there. `overflow-y` matters only in
+  // the degenerate case the composable caps `max-height` below the panel's own: a viewport too
+  // short for two rows scrolls rather than clipping a swatch away. The 12px padding still
+  // clears a focus ring, which reaches 5px past a swatch's edge.
   &__panel {
-    position: absolute;
-    top: calc(100% + #{rem(4)});
-    left: 0;
+    position: fixed;
     z-index: var(--z-popover);
     display: grid;
+    overflow-y: auto;
     // Five columns of exactly one control, so the panel is 254px wide and clears the
     // 380px of content a dialog offers even at the deepest indent.
     grid-template-columns: repeat(5, var(--control-height));

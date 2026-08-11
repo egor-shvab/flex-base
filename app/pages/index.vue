@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useAsyncData, useSeoMeta } from '#imports'
+import { useSeoMeta } from '#imports'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useTablesStore } from '~/stores/tables'
 import type { ITableListItem } from '#shared/types/table'
@@ -65,16 +65,11 @@ useSeoMeta({ title: 'Your tables' })
 
 type TFormModal = { mode: 'create' } | { mode: 'rename'; table: ITableListItem }
 
+// No fetch of its own: the layout's `ensureTables` loads the list, and the counts it carries
+// are kept honest at the source — the records and fields stores tell this one when a write
+// moves a count. This page used to refetch the whole list on every client-side entry to paper
+// over that, which fixed Home and left the sidebar's counts stale everywhere else.
 const tablesStore = useTablesStore()
-
-// The layout already loaded the list for SSR, so this only refreshes on client-side
-// entry — Home is the one screen where the record counts *are* the content, and they
-// drift as records are added elsewhere. Its own key, so it never collides with the
-// layout's (`useAsyncData` does not dedupe a layout against a page).
-await useAsyncData('dashboard-tables', async () => {
-  if (import.meta.client) await tablesStore.fetchTables()
-  return true
-})
 
 const formModal = ref<TFormModal | null>(null)
 

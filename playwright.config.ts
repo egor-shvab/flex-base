@@ -24,11 +24,12 @@ process.env.JWT_SECRET = JWT_SECRET
  * The end-to-end suite: the production build, a real database, a real browser. It answers what
  * nothing below it can — what the app *does* with the logic the other three projects pin.
  *
- * **The server is the built output, started through `setup/serve.mjs`.** Two reasons, both
- * load-bearing: `nuxt preview` loads the root `.env`, which points at the *development*
- * database — the suite would create and truncate tables in real work — and the output bundle
- * cannot start on Windows at all without the launcher's fix-up (see that file). Reading env
- * only from `webServer.env` is what makes the target database unambiguous.
+ * **The server is the built output, started through `scripts/serve-output.mjs`** — the same
+ * launcher `npm run preview` uses, minus the `.env` that `scripts/preview.mjs` loads on top of
+ * it. That file is exactly what the suite must not read: it points at the *development*
+ * database, and the suite creates and truncates tables. Reading env only from `webServer.env`
+ * is what makes the target database unambiguous. The launcher itself exists because the output
+ * bundle cannot start on Windows without its fix-up — see that file.
  */
 export default defineConfig({
   testDir: resolve('./test/e2e'),
@@ -57,7 +58,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
   webServer: {
-    command: 'npm run build && node test/e2e/setup/serve.mjs',
+    command: 'npm run build && node scripts/serve-output.mjs',
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

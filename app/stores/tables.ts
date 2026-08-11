@@ -55,6 +55,25 @@ export const useTablesStore = defineStore('tables', () => {
     tables.value = tables.value.map((table) => (table.id === tableId ? response.table : table))
   }
 
+  /**
+   * Moves a cached count by `delta`, because the store that writes the thing being counted is
+   * not this one. `_count` arrives with the list and is read on two always-visible surfaces —
+   * the sidebar and the dashboard — so without this a created record leaves both wrong until
+   * the next full fetch, which in a single-page session may never come.
+   *
+   * A delta rather than a refetch: every write goes through these stores, so the arithmetic is
+   * exact and costs no request. Rebuilt rather than mutated, because `tables` is a `shallowRef`
+   * and an in-place edit would not be seen. Floored at 0 — a count can only be wrong downward
+   * if two tabs disagree, and a negative one would render as nonsense.
+   */
+  function bumpCount(tableId: string, key: keyof ITableListItem['_count'], delta: number) {
+    tables.value = tables.value.map((table) =>
+      table.id === tableId
+        ? { ...table, _count: { ...table._count, [key]: Math.max(0, table._count[key] + delta) } }
+        : table,
+    )
+  }
+
   async function deleteTable(tableId: string) {
     await api(`/api/tables/${tableId}`, { method: 'DELETE' })
     tables.value = tables.value.filter((table) => table.id !== tableId)
@@ -69,5 +88,6 @@ export const useTablesStore = defineStore('tables', () => {
     createTable,
     renameTable,
     deleteTable,
+    bumpCount,
   }
 })

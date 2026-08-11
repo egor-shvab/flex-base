@@ -7,6 +7,7 @@ import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecordPage, IRecordQueryState } from '#shared/types/record'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
+import { useTablesStore } from '~/stores/tables'
 import { record } from '~~/test/fixtures'
 
 /** The unfiltered, unsearched, newest-first view — the only one with a place for a new record. */
@@ -62,6 +63,33 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
     return { ok: true }
   },
 })
+
+/**
+ * The tables store's own list, so a write can be seen moving the cached `_count` the sidebar
+ * and the dashboard draw. Registered here because `registerEndpoint` is per file.
+ */
+registerEndpoint('/api/tables', {
+  method: 'GET',
+  handler: () => ({
+    tables: [
+      {
+        id: 'tbl_1',
+        name: 'Deals',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        _count: { fields: 2, records: 7 },
+      },
+    ],
+  }),
+})
+
+/** The tables store loaded, so a bump has something to land on. */
+async function loadedTables() {
+  const tables = useTablesStore()
+  await tables.fetchTables()
+
+  return tables
+}
 
 function page(overrides: Partial<IRecordPage> = {}): IRecordPage {
   return {
@@ -270,6 +298,19 @@ describe('useRecordsStore', () => {
 
       expect(writes).toContain('POST tbl_1')
     })
+
+    /**
+     * The cached count is read by the sidebar on every page and by the dashboard, and this
+     * store is the only thing that knows it moved — nothing refetches the list to find out.
+     */
+    it('tells the tables store the record count went up', async () => {
+      const tables = await loadedTables()
+      const store = useRecordsStore()
+
+      await store.createRecord('tbl_1', { company: 'New' }, DEFAULT_QUERY)
+
+      expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 8 })
+    })
   })
 
   describe('updateRecord', () => {
@@ -306,6 +347,16 @@ describe('useRecordsStore', () => {
       await store.updateRecord('tbl_1', 'rec_1', { company: 'Renamed' }, query)
 
       expect(listCalls()).toBe(1)
+    })
+
+    it('moves no count — an edit changes a record, not how many there are', async () => {
+      const tables = await loadedTables()
+      const store = useRecordsStore()
+      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+
+      await store.updateRecord('tbl_1', 'rec_1', { company: 'Renamed' }, DEFAULT_QUERY)
+
+      expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 7 })
     })
 
     it('refetches the page it is actually on, not the one the query names', async () => {
@@ -373,6 +424,16 @@ describe('useRecordsStore', () => {
 
       expect(requests[0]?.page).toBeUndefined()
       expect(requests).toHaveLength(1)
+    })
+
+    it('tells the tables store the record count went down', async () => {
+      const tables = await loadedTables()
+      const store = useRecordsStore()
+      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+
+      await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
+
+      expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 6 })
     })
   })
 })

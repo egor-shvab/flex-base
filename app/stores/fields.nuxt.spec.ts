@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { IField } from '#shared/types/field'
 import { fieldSchema } from '#shared/validation/field'
 import { useFieldsStore } from '~/stores/fields'
+import { useTablesStore } from '~/stores/tables'
 import { numberField, textField } from '~~/test/fixtures'
 
 const COMPANY = textField('company', { name: 'Company' })
@@ -38,6 +39,33 @@ registerEndpoint('/api/tables/tbl_1/fields/fld_company', {
   method: 'DELETE',
   handler: () => ({ ok: true }),
 })
+
+/**
+ * The tables store's own list, so a write can be seen moving the cached `_count` the dashboard
+ * draws. Registered here because `registerEndpoint` is per file.
+ */
+registerEndpoint('/api/tables', {
+  method: 'GET',
+  handler: () => ({
+    tables: [
+      {
+        id: 'tbl_1',
+        name: 'Deals',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        _count: { fields: 2, records: 7 },
+      },
+    ],
+  }),
+})
+
+/** The tables store loaded, so a bump has something to land on. */
+async function loadedTables() {
+  const tables = useTablesStore()
+  await tables.fetchTables()
+
+  return tables
+}
 
 /**
  * Built through the schema rather than by hand: `TFieldInput` is the schema's *output*, so
@@ -100,6 +128,40 @@ describe('useFieldsStore', () => {
     await store.deleteField('tbl_1', 'fld_company')
 
     expect(store.fields).toEqual([TOTAL])
+  })
+
+  /**
+   * The dashboard's field count arrives with the table list and nothing refetches it, so this
+   * store is the only thing that can say it moved — the same contract the records store has for
+   * the count beside it.
+   */
+  describe('the cached field count', () => {
+    it('goes up on a create', async () => {
+      const tables = await loadedTables()
+      const store = useFieldsStore()
+
+      await store.createField('tbl_1', INPUT)
+
+      expect(tables.tables[0]?._count).toEqual({ fields: 3, records: 7 })
+    })
+
+    it('goes down on a delete', async () => {
+      const tables = await loadedTables()
+      const store = useFieldsStore()
+
+      await store.deleteField('tbl_1', 'fld_company')
+
+      expect(tables.tables[0]?._count).toEqual({ fields: 1, records: 7 })
+    })
+
+    it('does not move on an edit', async () => {
+      const tables = await loadedTables()
+      const store = useFieldsStore()
+
+      await store.updateField('tbl_1', 'fld_company', INPUT)
+
+      expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 7 })
+    })
   })
 
   /**

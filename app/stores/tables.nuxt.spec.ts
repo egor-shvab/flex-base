@@ -5,13 +5,17 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { ITableListItem } from '#shared/types/table'
 import { useTablesStore } from '~/stores/tables'
 
-function table(id: string, name: string): ITableListItem {
+function table(
+  id: string,
+  name: string,
+  counts: ITableListItem['_count'] = { fields: 0, records: 0 },
+): ITableListItem {
   return {
     id,
     name,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    _count: { fields: 0, records: 0 },
+    _count: counts,
   }
 }
 
@@ -151,5 +155,83 @@ describe('useTablesStore', () => {
     await store.deleteTable('tbl_1')
 
     expect(store.tables).toEqual([table('tbl_2', 'People')])
+  })
+
+  /**
+   * The cached `_count` is read on two always-visible surfaces, and the stores that move it are
+   * the records and fields ones. Without this the sidebar and the dashboard keep showing the
+   * number the list arrived with for the rest of the session.
+   */
+  describe('bumpCount', () => {
+    beforeEach(() => {
+      listing = [
+        table('tbl_1', 'Deals', { fields: 3, records: 7 }),
+        table('tbl_2', 'People', { fields: 2, records: 4 }),
+      ]
+    })
+
+    it('moves one count on one table and leaves every other number alone', async () => {
+      const store = useTablesStore()
+      await store.fetchTables()
+
+      store.bumpCount('tbl_1', 'records', 1)
+
+      expect(store.tables).toEqual([
+        table('tbl_1', 'Deals', { fields: 3, records: 8 }),
+        table('tbl_2', 'People', { fields: 2, records: 4 }),
+      ])
+    })
+
+    it('counts down as well as up, and counts fields as well as records', async () => {
+      const store = useTablesStore()
+      await store.fetchTables()
+
+      store.bumpCount('tbl_2', 'fields', -1)
+
+      expect(store.tables[1]?._count).toEqual({ fields: 1, records: 4 })
+    })
+
+    it('replaces the array rather than mutating the cached item', async () => {
+      const store = useTablesStore()
+      await store.fetchTables()
+      const before = store.tables
+
+      store.bumpCount('tbl_1', 'records', 1)
+
+      // shallowRef: an in-place edit would leave the sidebar drawing the old number
+      expect(store.tables).not.toBe(before)
+      expect(store.tables[0]).not.toBe(before[0])
+    })
+
+    // Only reachable if two tabs disagree about the same table; a negative count would render
+    // as nonsense, and the next full fetch corrects it either way
+    it('floors a count at zero', async () => {
+      const store = useTablesStore()
+      await store.fetchTables()
+
+      store.bumpCount('tbl_1', 'records', -100)
+
+      expect(store.tables[0]?._count.records).toBe(0)
+    })
+
+    it('is a no-op for a table the list does not hold, and never fetches', async () => {
+      const store = useTablesStore()
+      await store.fetchTables()
+      calls.length = 0
+
+      store.bumpCount('tbl_missing', 'records', 1)
+
+      expect(store.tables).toEqual(listing)
+      expect(calls).toHaveLength(0)
+    })
+
+    // The list not being loaded yet is the ordinary case on a record page reached by URL
+    it('is a no-op before the list has loaded', () => {
+      const store = useTablesStore()
+
+      store.bumpCount('tbl_1', 'records', 1)
+
+      expect(store.tables).toEqual([])
+    })
   })
 })

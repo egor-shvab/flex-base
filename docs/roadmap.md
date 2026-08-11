@@ -6,122 +6,64 @@ Keep this file current — see `CLAUDE.md` §2 for the rules that govern it. Rat
 
 ---
 
-## Current phase — test-suite hardening
+## Current phase — the Open limitations
 
-The four suites exist and all four are green: **1071** tests in `unit` + `nuxt` (9s), **137** in `integration` (12s), **100** in `e2e` (1.5m) — 1308 in total, 14.7k lines of spec over 10.3k lines of source, 90% lines covered in the measured scope. The pyramid is the right shape (82 / 11 / 8) and the specs read well: each one names a behaviour, most carry the reason the behaviour is load-bearing, and the four-project split is documented and obeyed.
+The testing phase is finished: four suites, every layer gated, and the accessibility promise machine-checked. What is left is the register `CLAUDE.md` §1 points at — the **Open** entries in `docs/decisions.md`, which are in scope by definition.
 
-What this phase fixes is narrower and mostly not about writing more tests. Three things came out of the audit:
+There were eight; **five are left**. Each row there already carries its own diagnosis, so this phase is mostly execution; the stages are ordered by how much is still undecided. Read the row before starting the item — the "why it stands" column is the specification.
 
-1. **Two gates do not actually run.** Playwright specs are outside `npm run typecheck`, and the coverage report calls twenty exercised files 0%.
-2. **The docs claim more than the suite keeps.** `docs/architecture.md` §12 says every line is automated; several are not.
-3. **A few surfaces a user can reach are tested nowhere** — the error boundary among them.
+### Stage 1 — Three fixes whose answer is already known ✅
 
-Stages run in order of value per hour, not by layer. Stage A is an afternoon and removes two blind spots; Stage F is optional polish.
+Independent, small, and none needed a decision first.
 
-### Stage A — Close the gates that silently do not run
+- [x] **The colour popover never flips above its trigger.** `BaseColorPicker` now takes `useAnchoredPosition` and states its own `maxHeight`; it still renders in place rather than teleporting.
+- [x] **`npm run preview` cannot start on Windows.** One launcher, `scripts/serve-output.mjs`, with `scripts/preview.mjs` loading `.env` in front of it. `test/e2e/setup/serve.mjs` is gone and Playwright starts the shared one.
+- [x] **`_count.records` drifts between Home visits.** `tables.ts` owns `bumpCount`; the records and fields stores are its only callers. The dashboard's unconditional refetch went with it, and `_count.fields` was fixed alongside so removing it was safe.
 
-**Done — three gates that did not run now do, and the coverage report stopped lying.**
+### Stage 2 — The two accessibility gaps in `BaseSelect`
 
-- [x] **`test/e2e/**` was never type-checked.** No Nuxt-generated project claims it and Playwright transpiles without checking, so ~1.8k lines of spec sat outside the type gate. `typecheck` is now `nuxt typecheck && tsc -p test/e2e/tsconfig.json` — a separate invocation rather than a root reference, because `nuxt typecheck` runs `vue-tsc -b` and the e2e project's two shared helpers already belong to the server project. Verified by breaking a type and watching it fail.
-- [x] **Coverage reported twenty exercised files as 0%.** `server/api/**` and `server/middleware/**` are now merged in from the `integration` run via blob reports (`coverage:collect`), with the scope shared through `vitest.coverage.config.ts`. **90.12% → 98.34% statements, 89.51% → 98.31% lines** — the same suite, honestly measured.
-- [x] **CI never produced a coverage report.** The integration job now runs `coverage:collect` and uploads `coverage/` as an artefact. Still no threshold gate — see Stage G.
-- [x] **CI's integration and e2e jobs would have aborted before running a test.** Both invoked npm scripts beginning with `db:up`, which binds host port 5432 — already held by the job's own PostgreSQL service container. Found while wiring the coverage job; this `ci.yml` has never landed on `main`/`develop`, so it had never been exercised. CI now calls `vitest`/`playwright`/`coverage:collect` directly, which is the shape `CLAUDE.md` §10 always described.
+Same component, and the fixes are likely to touch the same code, so they go together.
 
-### Stage B — Make `docs/architecture.md` §12 true again
+- [ ] **`Retry` in the dropdown is pointer-only** — it lives in the teleported panel, and `Tab` dismisses the panel before focus reaches it. Needs `Tab` to move _within_ the panel first, or a roving tabindex across it. Not a dead control today (editing the term re-issues the search), but the button itself is unreachable.
+- [ ] **The panel's `role="status"` mounts together with its first message**, so "Searching…" and "No options" are probably never announced — a live region inserted in the same frame as its content is not reliably read. Needs a region that outlives the panel.
 
-**Done — five gaps closed, three clauses re-pointed, and §12 no longer claims more than the suite keeps.** Every new case was verified by breaking the thing it guards and watching it go red.
+Both are invisible to Stage D's axe gate, which is why they are still here: axe checks that a name and a role exist, not that focus can reach the control or that an announcement lands.
 
-- [x] **The `::date` cast** — a same-day `Created at` range now executes against PostgreSQL in `record-query.integration.spec.ts`, not just as SQL _text_. `test/integration/seed.ts`'s `createRecord` gained optional `createdAt`/`updatedAt`, settable only on create because `@updatedAt` overwrites on every update. Rows are timestamped at **midday** so `::date` reads as the same calendar day whatever offset the driver applies.
-- [x] **Search must not match a multi SELECT's JSONB punctuation.** Three probes — `["`, `", "`, `"]`. The mutation check earned its keep here: the obvious `","` probe passes even against a broken projection, because **jsonb normalises its text output** to `["renewal", "urgent"]` with a space after the comma. Recorded in §12 so the next person does not write the vacuous version.
-- [x] **Search must not match a RELATION column**, by its label or by its stored id — with the positive half beside it, or the case would pass against a table nothing could find.
-- [x] **A panel stays pinned while the filter drawer scrolls.** Asserted as a delta: the panel must move by exactly what its trigger moved. Without the capture-phase scroll listener the trigger travels 485px and the panel travels 0.
-- [x] **A multi-value field is one line in the table and wrapped in the dialog** — both surfaces in one case, since either alone would pass against a component that wrapped, or truncated, everywhere.
-- [x] Re-pointed the clauses the browser does not own. §12 badges them _(integration)_ and its preamble says what the badge means; `CLAUDE.md` §10 lists the three new behaviours.
+### Stage 3 — Reading a value the table truncates
 
-### Stage C — Surfaces nothing tests
+Two rows of the register share one fix: a truncated cell offers no way to see the whole value, and a multi-value cell shows one line so later values are cut off.
 
-**Done — nine items, including the one production fix the stage carried.** No module or user-visible surface is now untested, and the last two endpoint gaps are closed.
+- [ ] **Settle the approach before writing anything.** The register rejects the obvious route — a text projection per field type — because it would be a fifth registry against the "only cells are components" contract in `CLAUDE.md` §9. The alternative worth pricing first is to make the existing escape hatch _discoverable_: the record dialog already shows every value in full and wrapped, so an affordance on a truncated cell may close both rows without a new registry. Record the decision in `docs/decisions.md`.
+- [ ] **Apply it to both rows**, or narrow them if the chosen fix only serves one.
 
-- [x] **A refused delete says why.** `useDeleteConfirm` catches instead of re-throwing and exposes the server's message; `ConfirmModal` renders it; all three delete flows gained it from one change. Closes the Open limitation in `docs/decisions.md`, which now carries the reversal and why it is the opposite call from `fetchRecords`. Driven in the running app: deleting a targeted table shows _"Services" in "Masters" links to this table_, the table survives, and the unhandled promise rejection is gone.
-- [x] **`app/error.vue` and the page-level 404** — a new `error-page.spec.ts`, including the branch that must **not** blame the table: a malformed `?sort=` is a 400 that says the address could not be read, where the old copy claimed a table that had just loaded did not exist.
-- [x] **The records page's failure banner** — in `list-query.spec.ts`, cutting the route _after_ the SSR load, since `failed` is set by a client-side refetch. Both the banner and its recovery link.
-- [x] **`FieldFormModal`** — 12 cases over the choices editor, the multi-value lock, the type lock and the relation label picker. Mutation-checked: a shallow spread instead of the deep copy lets an edit rename the store's own metadata, and the spec catches it.
-- [x] **`RelationFieldSelect`** — 12 cases. Mutation-checked on the load-bearing one: dropping the `unlisted` branch fails exactly the three cases that guard a link being silently discarded on save.
-- [x] **`RecordDetail` and `RecordDetailModal`** — the column set the dialog shares with `DynamicTable`, and the modal's four states plus the one link that leaves the page.
-- [x] **The off-canvas sidebar** — a new `mobile-shell.spec.ts` at 375×812, pinning that nothing inside is reachable while closed. `test.use` scopes the viewport to that file, which Stage D then settled on as the permanent arrangement.
-- [x] **The two multi-value 400s**, now proven at the endpoint rather than only at the schema — and the cap itself is accepted, so an off-by-one floor cannot pass.
-- [x] **`server/api/tables/index.post`** — the fifteenth endpoint, in the 401 loop and in a new `server/api/tables.integration.spec.ts` covering ownership, the 409 and both name bounds.
+### Stage 4 — Dependency vulnerabilities
 
-### Stage D — The non-functional gates the rules already demand
+- [ ] **`npm audit` reports 17** (1 critical, 11 high) across `nuxt`, `prisma`, `sharp`, `undici` and their transitive deps — none from anything this project imports directly. Last checked while adding `@axe-core/playwright`. Kept out of the stages above because a fix means version bumps that can move the build and the generated Prisma client, so it wants its own full-suite verification rather than riding along with a UI change.
 
-**Done — the accessibility promise in `CLAUDE.md` §8 is a gate rather than a review item, and it found a real failure on its first run.**
+---
 
-- [x] **Automated accessibility smoke.** `@axe-core/playwright` over the five screens, blocking on `serious`/`critical`. **All five pass clean** — no rule is disabled, and the one that ever has to be belongs in `test/e2e/setup/a11y.ts` with its reason. Proved able to fail: an icon button stripped of its label reports `button-name (critical) × 1`.
-- [x] **Target size — and it caught shipping code.** `BaseButton --link` was the only variant with no floor: ~18px tall across nine call sites, with row actions 8px apart, so SC 2.5.8's _Spacing_ exception could not carry them. Fixed on **both axes**, the second of which the gate itself found — "Edit" measured 23×24 once only the height was floored. Reverting the fix turns the gate red with every control named and measured.
-- [x] **Mobile coverage without a project.** Decided against a second Playwright project: it would either duplicate the desktop suite at 375px, where most specs assume the desktop layout, or select only the one file that `test.use({ viewport })` already covers. `mobile-shell.spec.ts` grew instead — the records table scrolling inside its own container, a dialog fitting the viewport, and both gates run again at mobile width, where the shell is a different layout with a control the desktop never renders. **Do not re-add the project without a reason these three cases cannot meet.**
+## Parked
 
-### Stage E — Trim what is paid for twice
+Listed with the trigger that would unpark them, so the decision is not re-taken by accident.
 
-**Done — 12 cases removed, none of them covering anything.** Every deletion was checked against the named case that covers it at a cheaper layer, and what stayed was checked for the opposite: that it fails where the cheaper layer cannot.
+- **Row actions are three inline icons where the concept draws one `⋯` menu.** The blocker is gone — `usePopover` + `useAnchoredPosition` anchor correctly inside a clipping container. What remains is that three 36×36 targets still fit, so the menu would be work with no user-visible gain. **Unpark at a fourth row action.**
 
-- [x] **`select-keyboard.spec.ts`, the non-searchable group** — eight cases down to one. All eight had a counterpart in `BaseSelect.nuxt.spec.ts`, run and confirmed passing before deleting. The survivor asserts the cursor's **computed outline**, not its class: removing the `--active` outline rule turns it red while all 71 component cases stay green, which is the proof it was not duplicated.
-- [x] **`filters-multi.spec.ts` → "one choice reads as a plain equality instead"** — the wording matrix belongs to `filter-summaries.spec.ts`; one chip case is enough to prove the summary reaches the page.
-- [x] **The three registry key-presence tests** — compile-enforced, verified by deleting a key and watching `TS2741`. A test that cannot fail reads as coverage.
-- [x] **The search threshold, restated three times** — the two registry specs now assert agreement with `shouldSearch` (still fails a hardcode; survives the number moving), and the e2e docblock no longer names it. `app/utils/select.spec.ts` owns the boundary alone.
-- [x] `docs/architecture.md` §12 gained a second badge, _(unit)_, for the clauses that moved down — the same treatment Stage B gave _(integration)_.
+## Decided against
 
-### Stage F — Structure and maintainability
+Recorded so they are not re-litigated. Move one up only with a reason that has changed.
 
-**Done — the suite's shape, with no test outcome changed: 1117 unit+nuxt, 152 integration, 123 e2e before and after, and coverage byte-identical.**
-
-- [x] **`.gitattributes` pins `eol=lf`.** A fresh clone failed `npm run format:check` on Windows before a line was written. No renormalisation: the index was already LF throughout, so only checkout was wrong. Verified by the symptom that found it — `git checkout` a file, and the check now passes.
-- [x] **A shared mount helper — `test/mount.ts`.** **211** hand-written `wrapper.unmount()` calls across **12** files (the roadmap's "~160 across six" predated Stage C's four new specs); 189 were pure teardown and are gone. `mountTracked` keeps `mountSuspended`'s generic inference — typing it with `Parameters<…>` collapsed the generic and turned every typed prop into an excess-property error. `track()` covers the three composable specs that mount with `@vue/test-utils`.
-- [x] **`BaseSelect.nuxt.spec.ts` split four ways** over `test/select-harness.ts` — what it renders, the keyboard, selection, the searchable branch's async half. 924 lines became 4 files of 120–290.
-- [x] **The e2e helpers that were genuinely shared** — `openRecordForm`, `companies`/`expectCompanies` into `test/e2e/setup/`, and `idOf`'s two in-file copies folded into one. `dialog` and `combo` were **left alone**: the roadmap recorded them as duplicated across three or four files, but each is a one-line `getByRole` that reads better at the call site than as an import.
-- [x] **The selector policy is settled.** Two surfaces gained `role="status"` because it helps users — the pager count (which already had `aria-live="polite"`; the role implies it) and the records empty state, both of which change while focus is elsewhere. `CLAUDE.md` §10 now names the two honest exceptions: a decorative mirror of an accessible name, and structural reach.
-- [x] **Three assertions tightened.** Both required-field cases now name the field, and were proved able to fail by changing the copy. The third was worse than recorded: "stops at empty rather than running away" asserted `toHaveValue('')` on a combobox nothing ever typed into — **vacuous**, not merely weak. It now asserts the selection actually empties.
-- [x] **The request counter simplified** — a regex over `pathname + url` guarding an `if` that already decided.
-- [x] **The 20 ms sleep is gone.** The refetch cases wait on the request list; the mount case waits on `pending`. The negative case could not `waitFor` an absence, so it now drives a change that _must_ refetch straight after the one that must not — which also proves the watcher was alive rather than merely slow.
-
-### Stage G — Considered and deliberately not doing
-
-Recorded so it is not re-litigated. Move an item up only with a reason that has changed.
-
-- **Parallel e2e / integration.** Both serialize on one database. At 1.5m and 12s the wall-clock saving does not pay for per-worker database provisioning.
-- **A hard coverage threshold.** The suite is comprehensive because specs are written to pin behaviour, not to move a number; a gate would invite the opposite. Revisit only if coverage drifts down over several months — which Stage A's report is what makes visible.
-- **More browsers.** The suite is about this app's behaviour, not about browser differences.
-- **Mutation testing, component snapshots, visual regression.** No evidence any of them would catch something the current suite misses, and each adds a maintenance surface.
-
-### Follow-ups from the testing phase
-
-- [ ] **`npm run preview` is broken on Windows.** The same hoisting bug `test/e2e/setup/serve.mjs` works around; a launcher script would fix the documented command too.
+- **Parallel e2e / integration.** Both serialize on one database; at 1.7m and 12s the saving does not pay for per-worker provisioning.
+- **A hard coverage threshold.** Specs here are written to pin behaviour, not to move a number, and a gate invites the opposite. Revisit only if coverage drifts down over months — the merged report is what makes that visible.
+- **More browsers.** The suite is about this app's behaviour, not browser differences.
+- **Mutation testing, component snapshots, visual regression.** No evidence any would catch something the current suite misses, and each adds a maintenance surface.
+- **A mobile Playwright project.** `test.use({ viewport })` in `mobile-shell.spec.ts` gives the same coverage; a project would either duplicate the desktop suite at 375px or select that one file.
 
 ---
 
 ## Done
 
-- [x] Vitest set up as two projects (`unit`, `nuxt`), wired into CI.
-- [x] `shared/` fully covered — utils, validation, constants.
-- [x] The SQL builder covered by asserting on the generated fragments.
-- [x] `app/` covered — every composable, store, field-type registry and util, plus the ten components that carry logic.
-- [x] Test-coverage audit establishing the stages above.
-- [x] Stage 2 — `server/services/` and `server/utils/` covered against a stubbed prisma client. Headline coverage 74% → 89%.
-- [x] Stage 3 — the last untested logic under `app/`, and the records page reduced to orchestration. Headline coverage 89% → 90%.
-- [x] Stage 4 — an `integration` project against real PostgreSQL: 137 tests over the route handlers, the SQL layer, the widening migration and the record counter, gated by its own CI job.
-- [x] Stage 5 — Playwright over the production build: 100 tests automating the §12 checklist, gated by its own CI job. Four suites, 1308 tests, every layer gated.
-- [x] Test-architecture audit over the finished suite — established the stages above.
-- [x] Stage A — the e2e type gate, one merged coverage report (90% → 98%, the jump being measurement rather than new tests), a coverage artefact in CI, and the `db:up`-versus-service-container collision that would have stopped both database-backed CI jobs.
-- [x] Stage B — five behaviours §12 claimed and nothing tested: the `::date` cast, a multi SELECT's JSONB punctuation, RELATION search, the drawer-scroll pin and the detail dialog's wrap. Each verified by mutation; §12 now badges what the browser does not own.
-- [x] Stage C — the last untested surfaces: the error boundary, the failure banner, the off-canvas shell, four components and the two remaining endpoint gaps — plus the production fix that makes a refused delete explain itself.
-- [x] Stage D — the WCAG 2.2 AA promise turned into a gate: axe over seven screens and a 24×24 target floor, both proved able to fail, and the `BaseButton --link` variant that had been below the floor all along.
-- [x] Stage E — 12 duplicated cases removed (1120 → 1117 unit+nuxt, 131 → 123 e2e), each checked against the case that already covered it, and the one survivor checked for the opposite.
-- [x] Stage F — the suite's shape: a shared mount helper deleting 189 hand-written teardowns, `BaseSelect` split four ways, the selector policy settled with two roles the app gained, three assertions tightened (one vacuous), the last sleep removed, and a `.gitattributes` that lets a Windows clone pass its own format gate.
+- [x] **The feature set** — auth, per-user isolation, custom tables and typed fields, record CRUD, generated forms and tables, filtering, sorting, search, relations, record columns.
+- [x] **The test suite** — four projects (`unit`, `nuxt`, `integration`, `e2e`), 1392 tests, each layer gated by its own CI job.
+- [x] **The test-suite audit and its six stages** — the gates that did not run, the checklist that overstated, the surfaces nothing covered, the WCAG 2.2 AA gate, the duplicated cases removed, and the suite's shape. Coverage is one merged, honest report at 98.8%.
 
----
-
-## After testing
-
-Not started, not scheduled. Listed so the direction is visible, not as a commitment.
-
-- [ ] Work through the **Open** entries in `docs/decisions.md` → Accepted limitations.
-- [ ] Add some form of error reporting — there is no client or server error sink today.
+Detail lives where it belongs: contracts in `docs/architecture.md`, rationale and the limitations register in `docs/decisions.md`, and the rest in git history.

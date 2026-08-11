@@ -6,7 +6,7 @@
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
-    "preview": "nuxt preview",
+    "preview": "node scripts/preview.mjs",
     "postinstall": "prisma generate && nuxt prepare",
     "typecheck": "nuxt typecheck && tsc -p test/e2e/tsconfig.json",
     "test": "vitest run",
