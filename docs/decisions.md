@@ -745,6 +745,18 @@ Internally selection is **always** a `string[]`, whatever the model's shape: one
 
 `searchOptions` deliberately does **not** write `optionsByField` — that is the seed every other consumer of `optionsFor()` reads, and a search result would clobber it. It does call `cacheLabels`, so a record found only through a search still renders as its label in a cell afterwards.
 
+### A duplicated test is a cost, not insurance
+
+Twelve cases were deleted rather than left alone, and the runtime they cost was never the argument — eight of them ran in about four seconds. Three reasons they were worth removing:
+
+- **A slow copy teaches the wrong lesson.** `select-keyboard.spec.ts` opened by saying the logic was pinned in happy-dom already, then re-tested the logic in a browser. The next person adding a case reads the file, not the docblock.
+- **A test that cannot fail reads as coverage.** The three "entry for every field type" registry checks were enforced by `Record<TFieldType, …>` over an object literal — verified by deleting a key and watching `TS2741` — so they could only ever be green.
+- **A restated constant turns a design decision into a broken build.** Two specs encoded the search threshold as `length: 9`; they now assert the registry _agrees with_ `shouldSearch`, which still fails a hardcode and survives the number moving. `app/utils/select.spec.ts` owns the boundary, and is the only place that should.
+
+What stayed is the test for the half that is not duplicated: the keyboard cursor's **paint**. `test.css` is `false`, so a component spec sees the `--active` class and never the outline it draws. Removing the outline rule leaves all 71 `BaseSelect` component cases green and turns the one browser case red — which is the shape every e2e case in this repo should have.
+
+**Do not restore these out of caution.** Depth belongs at the cheapest layer that can answer the question; a second copy one layer up only makes the suite slower to run and harder to reason about.
+
 ### The accessibility gate blocks on serious and critical only
 
 A smoke gate exists to catch regressions. Admitting `moderate` and `minor` on first introduction would have meant one of two things — a long list of disabled rules, or a stage that never landed — and neither is a gate. The bar is raised by narrowing `BLOCKING_IMPACTS` in `test/e2e/setup/a11y.ts`, not by adding exclusions.

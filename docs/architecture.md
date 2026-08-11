@@ -410,7 +410,10 @@ The table list is fetched **by the layout, once per session**, via `ensureTables
 
 **Playwright owns this list, bar the clauses marked otherwise.** `test/e2e/` automates it — every line below is covered by a spec, driven against the production build in Chromium (`npm run test:e2e`, and its own CI job). What was a manual walk after any change to the metadata layer is now a gate.
 
-A few clauses are marked **_(integration)_**. Those are SQL semantics — a cast, a projection, an opt-out — that a browser cannot answer any better than a database round trip can, so they are proved in `server/services/record-query.integration.spec.ts` instead. They stay on this list because it is the inventory of what must not regress; the badge says which suite would catch it.
+Two badges appear below, and both mean the same thing: the line is inventory, but another suite is what would catch it.
+
+- **_(integration)_** — SQL semantics: a cast, a projection, an opt-out. A browser cannot answer them any better than a database round trip can, so they are proved in `server/services/record-query.integration.spec.ts`.
+- **_(unit)_** — logic a component spec pins in milliseconds. Where a keyboard cursor _lands_ is decided by the same code whatever renders it; only whether it is _painted_ needs a browser.
 
 Three lines are **approximated rather than proven**, and their specs say so where they sit:
 
@@ -437,7 +440,7 @@ Keep the list current: it is the index of what `test/e2e/` is for, and a behavio
   - the column sorts by its **first** value, blanks last;
   - search matches text inside a multi SELECT's values and does **not** match the JSONB punctuation holding them together — `["`, `", "`, `"]` _(integration)_. Note the separator is `", "`: jsonb normalises its text output, so a `","` probe would pass even against a broken projection;
   - a multi RELATION filters as `?services=id1&services=id2`, its summary chip reads "is any of <labels>", and each link in the cell drills into the detail dialog independently — a deleted target degrades to a dashed "Unknown record" while its siblings still link.
-- **`BaseSelect`, both branches:** Enter/Space/↑/↓ open with the current value active; ↑/↓/PageDown move a _visibly outlined_ highlight and the list scrolls to follow; a panel near the bottom of the filter drawer flips above and is not clipped; scrolling the drawer keeps it pinned. Non-searchable only: focus moves into the list, Home/End jump, and type-ahead works.
+- **`BaseSelect`, both branches:** the keyboard cursor is **visibly outlined** — asserted as a real computed outline, which is the half no component spec can see; ↑/↓/PageDown move it and the list scrolls to follow; a panel near the bottom of the filter drawer flips above and is not clipped; scrolling the drawer keeps it pinned. Where the cursor _lands_ — Enter/Space/↑/↓ opening on the current value, Home/End, type-ahead, focus moving into the list — is logic, not paint _(unit)_.
 - **Escape — the case that is silent when broken:** focus a **searchable** select **without opening it** → Escape must close the surrounding drawer or dialog. Open it → Escape closes the panel only → Escape again closes the drawer. Repeat on a non-searchable one.
 - **Enter in a form:** closed searchable select + Enter → the form submits (the key is not swallowed). Open + Enter → picks, and does not submit.
 - **Combobox:** typing anywhere — keystroke or **paste** — opens the panel and filters; local filtering issues **no request**; the value overlay hides while a term is typed and returns when it is cleared; the native placeholder never shows under a selection. In `multiple`, pick an option **with the mouse** and keep typing — the characters must still land in the field; Backspace on an empty term drops one value per press and does not run away when held.

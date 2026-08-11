@@ -62,14 +62,17 @@ Stages run in order of value per hour, not by layer. Stage A is an afternoon and
 
 ### Stage E — Trim what is paid for twice
 
-Removal, not addition. Roughly 10 e2e cases and a minute of nobody's time, but the reason to do it is that a redundant slow test teaches the wrong lesson about where a case belongs.
+**Done — 12 cases removed, none of them covering anything.** Every deletion was checked against the named case that covers it at a cheaper layer, and what stayed was checked for the opposite: that it fails where the cheaper layer cannot.
 
-- [ ] **`select-keyboard.spec.ts`, the non-searchable group.** Eight cases (Enter/Space/↑/↓ opening, opening on the current value, arrow movement, Home/End, type-ahead) restate `BaseSelect.nuxt.spec.ts` almost assertion for assertion. The file's own docblock states the rule they break: "The logic is pinned in happy-dom already." Keep one case proving the highlight is _visibly_ marked, plus the scroll-following, panel-flip and Escape-layering cases, which are genuinely browser-only.
-- [ ] **`filters-multi.spec.ts` → "one choice reads as a plain equality instead"** duplicates `filter-summaries.spec.ts`. The wording is unit-covered; the URL and union behaviour is what earns a browser.
-- [ ] The two entries already listed under _Optional cleanup_ (registry key-presence tests; the search threshold restated three times) fold into this stage.
+- [x] **`select-keyboard.spec.ts`, the non-searchable group** — eight cases down to one. All eight had a counterpart in `BaseSelect.nuxt.spec.ts`, run and confirmed passing before deleting. The survivor asserts the cursor's **computed outline**, not its class: removing the `--active` outline rule turns it red while all 71 component cases stay green, which is the proof it was not duplicated.
+- [x] **`filters-multi.spec.ts` → "one choice reads as a plain equality instead"** — the wording matrix belongs to `filter-summaries.spec.ts`; one chip case is enough to prove the summary reaches the page.
+- [x] **The three registry key-presence tests** — compile-enforced, verified by deleting a key and watching `TS2741`. A test that cannot fail reads as coverage.
+- [x] **The search threshold, restated three times** — the two registry specs now assert agreement with `shouldSearch` (still fails a hardcode; survives the number moving), and the e2e docblock no longer names it. `app/utils/select.spec.ts` owns the boundary alone.
+- [x] `docs/architecture.md` §12 gained a second badge, _(unit)_, for the clauses that moved down — the same treatment Stage B gave _(integration)_.
 
 ### Stage F — Structure and maintainability
 
+- [ ] **A fresh clone fails `npm run format:check` on Windows.** There is no `.gitattributes` and `core.autocrlf` is `true`, so git rewrites the LF-committed files to CRLF on checkout, while Prettier's `endOfLine` defaults to `lf` and flags every one of them. CI never sees it — Linux checks out LF — so the first thing a Windows contributor meets is a red format gate on code they have not touched, and every file they _do_ touch reports a phantom modification with an empty diff. A committed `.gitattributes` (`* text=auto eol=lf`) fixes both. Found in Stage E, when a file restored by `git checkout` started failing a check it had passed minutes earlier.
 - [ ] **A shared mount helper.** ~160 hand-written `wrapper.unmount()` calls across six files, plus `document.body.innerHTML = ''` teardown hacks. One `test/mount.ts` that tracks instances and unmounts in `afterEach` deletes all of it, and removes the failure mode where a forgotten unmount leaks a listener into the next case — the exact bug Stage 3 already found once in `useAnchoredPosition`.
 - [ ] **Split `BaseSelect.nuxt.spec.ts`** (924 lines, twice the next largest). Its harness (`select`, `open`, `keydown`, the panel queries) is reusable; the concerns — ARIA, keyboard, searching, status, clearing — are already separate `describe`s and would be separate files with no rewriting.
 - [ ] **Hoist the duplicated e2e helpers.** `openRecordForm`, `combo`, `companies`/`expectCompanies` and `idOf` are redefined in three or four spec files each; they belong beside `confirmDeletion` in `test/e2e/setup/`.
@@ -109,6 +112,7 @@ Recorded so it is not re-litigated. Move an item up only with a reason that has 
 - [x] Stage B — five behaviours §12 claimed and nothing tested: the `::date` cast, a multi SELECT's JSONB punctuation, RELATION search, the drawer-scroll pin and the detail dialog's wrap. Each verified by mutation; §12 now badges what the browser does not own.
 - [x] Stage C — the last untested surfaces: the error boundary, the failure banner, the off-canvas shell, four components and the two remaining endpoint gaps — plus the production fix that makes a refused delete explain itself.
 - [x] Stage D — the WCAG 2.2 AA promise turned into a gate: axe over seven screens and a 24×24 target floor, both proved able to fail, and the `BaseButton --link` variant that had been below the floor all along.
+- [x] Stage E — 12 duplicated cases removed (1120 → 1117 unit+nuxt, 131 → 123 e2e), each checked against the case that already covered it, and the one survivor checked for the opposite.
 
 ---
 

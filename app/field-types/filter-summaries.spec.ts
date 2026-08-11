@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { FIELD_TYPES } from '#shared/constants/field'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 import { FILTER_SUMMARIES, summaryFor } from '~/field-types/filter-summaries'
@@ -192,12 +191,5 @@ describe('summaryFor', () => {
 
     expect(summaryFor(field)).toBe(FILTER_SUMMARIES.TEXT)
     expect(summarise(field, 'acme')).toBe('contains acme')
-  })
-})
-
-/** Total, like every other per-type registry — a new field type is a compile error until it is. */
-describe('FILTER_SUMMARIES', () => {
-  it('has an entry for every field type', () => {
-    expect(Object.keys(FILTER_SUMMARIES).sort()).toEqual([...FIELD_TYPES].sort())
   })
 })

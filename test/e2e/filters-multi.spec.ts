@@ -56,19 +56,17 @@ test('two choices repeat the param, sorted, and the table shows the union', asyn
   await expectCompanies(page, ['Beta', 'Acme'])
 })
 
+/**
+ * One case, not two. That the summary *reaches* the chip is a wiring question and belongs
+ * here; which words it chooses for one value versus several is a matrix, and
+ * `app/field-types/filter-summaries.spec.ts` owns every cell of it.
+ */
 test('the summary chip reads as an any-of', async ({ page }) => {
   await page.goto(`${table.url}?stage=Won&stage=Lost`)
 
   await expect(page.locator('.filter-summary__chip')).toContainText('is any of')
   await expect(page.locator('.filter-summary__chip')).toContainText('Lost')
   await expect(page.locator('.filter-summary__chip')).toContainText('Won')
-})
-
-test('one choice reads as a plain equality instead', async ({ page }) => {
-  await page.goto(`${table.url}?stage=Won`)
-
-  await expect(page.locator('.filter-summary__chip')).toContainText('Stage is Won')
-  await expect(page.locator('.filter-summary__chip')).not.toContainText('any of')
 })
 
 test('that URL loaded cold renders filtered with both options ticked', async ({

@@ -6,6 +6,7 @@ import { FIELD_TYPES } from '#shared/constants/field'
 import type { TFieldType } from '#shared/types/field'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { FIELD_FILTERS, filterFor } from '~/field-types/filters'
+import { shouldSearch } from '~/utils/select'
 import {
   ALL_TYPE_FIELDS,
   asMultiple,
@@ -22,10 +23,6 @@ import {
  * mounts anything — the entries are data.
  */
 describe('FIELD_FILTERS', () => {
-  it('has an entry for every field type', () => {
-    expect(Object.keys(FIELD_FILTERS).sort()).toEqual([...FIELD_TYPES].sort())
-  })
-
   it.each([
     ['TEXT', BaseInput],
     ['NUMBER', BaseRange],
@@ -213,12 +210,18 @@ describe('the props each control is handed', () => {
     ])
   })
 
-  it('decides a SELECT’s search box from the choice count', () => {
+  /**
+   * Asserted against `shouldSearch` rather than against `true`/`false`, so the case pins that
+   * the registry *consults* the predicate — moving the threshold is a design decision and must
+   * not break a spec that has no opinion on where it sits. It still fails a hardcode: a
+   * registry always answering `false` disagrees with `shouldSearch(20)`.
+   */
+  it('decides a SELECT’s search box by consulting shouldSearch', () => {
     const few = selectField(['a', 'b', 'c'])
-    expect(filterFor(few).props(few).searchable).toBe(false)
+    expect(filterFor(few).props(few).searchable).toBe(shouldSearch(3))
 
-    const many = selectField(Array.from({ length: 9 }, (_, index) => `choice ${index}`))
-    expect(filterFor(many).props(many).searchable).toBe(true)
+    const many = selectField(Array.from({ length: 20 }, (_, index) => `choice ${index}`))
+    expect(filterFor(many).props(many).searchable).toBe(shouldSearch(20))
   })
 
   /** The same picker the form uses, so a filter offers exactly what a record can link to. */

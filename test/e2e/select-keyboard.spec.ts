@@ -3,11 +3,14 @@ import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
 /**
  * `BaseSelect` from the keyboard, in **both** its branches — which one a field gets is decided
- * by its choice count (`shouldSearch`, threshold 8), so the fixture below has one of each.
+ * by its choice count through `shouldSearch`, so the fixture below sits well either side of it
+ * without naming the number, which is `app/utils/select.spec.ts`'s to pin.
  *
- * The logic is pinned in happy-dom already. What only a real browser answers is whether the
- * highlight is *visibly* moved, whether the panel scrolls to follow it, and whether a flipped
- * panel is actually on screen rather than merely positioned.
+ * **The logic is pinned in happy-dom already**, and this file is deliberately only what a real
+ * browser answers: whether the highlight is painted rather than merely class-marked, whether
+ * the panel scrolls to follow it, whether a flipped panel is on screen rather than merely
+ * positioned, and how Escape layers against the surface behind it. A case that would pass in
+ * happy-dom belongs in `BaseSelect.nuxt.spec.ts`, where it runs in milliseconds.
  */
 
 let table: ISeededTable
@@ -43,64 +46,33 @@ test.beforeEach(async ({ seedTable }) => {
   ])
 })
 
-test.describe('the non-searchable branch', () => {
-  for (const key of ['Enter', 'Space', 'ArrowDown', 'ArrowUp']) {
-    test(`${key} opens the panel`, async ({ page }) => {
-      await openRecordForm(page)
-      await fewTrigger(page).focus()
+/**
+ * Where the cursor *lands* — on opening, on ↑/↓, on Home/End, on a printable key — is pinned
+ * in `BaseSelect.nuxt.spec.ts`, assertion for assertion. Repeating it here bought a slower copy
+ * of the same answer.
+ *
+ * What no component spec can reach is whether the highlight is **painted**: `--active` renders
+ * an inset outline, and Vitest keeps `test.css: false`, so happy-dom sees the class and nothing
+ * else. A cursor the user cannot see is the failure this one case exists for.
+ */
+test('the keyboard cursor is visibly outlined, not just class-marked', async ({ page }) => {
+  await openRecordForm(page)
+  await fewTrigger(page).focus()
 
-      await page.keyboard.press(key)
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
 
-      await expect(page.getByRole('listbox')).toBeVisible()
-    })
-  }
+  const active = activeOption(page)
+  await expect(active).toHaveText('Lost')
 
-  test('opens with the current value active', async ({ page }) => {
-    await openRecordForm(page)
-    await fewTrigger(page).click()
-    await page.getByRole('option', { name: 'Lost', exact: true }).click()
-
-    await fewTrigger(page).focus()
-    await page.keyboard.press('Enter')
-
-    await expect(activeOption(page)).toHaveText('Lost')
+  const outline = await active.evaluate((option) => {
+    const { outlineStyle, outlineWidth, outlineColor } = getComputedStyle(option)
+    return { outlineStyle, width: Number.parseFloat(outlineWidth), outlineColor }
   })
 
-  test('arrows move the highlight one at a time, visibly', async ({ page }) => {
-    await openRecordForm(page)
-    await fewTrigger(page).focus()
-    await page.keyboard.press('ArrowDown')
-
-    await expect(activeOption(page)).toHaveText('Won')
-
-    await page.keyboard.press('ArrowDown')
-    await expect(activeOption(page)).toHaveText('Lost')
-
-    await page.keyboard.press('ArrowUp')
-    await expect(activeOption(page)).toHaveText('Won')
-  })
-
-  test('Home and End jump to the extremes', async ({ page }) => {
-    await openRecordForm(page)
-    await fewTrigger(page).focus()
-    await page.keyboard.press('ArrowDown')
-
-    await page.keyboard.press('End')
-    await expect(activeOption(page)).toHaveText('Open')
-
-    await page.keyboard.press('Home')
-    await expect(activeOption(page)).toHaveText('Won')
-  })
-
-  test('type-ahead jumps to a matching option', async ({ page }) => {
-    await openRecordForm(page)
-    await fewTrigger(page).focus()
-    await page.keyboard.press('ArrowDown')
-
-    await page.keyboard.press('l')
-
-    await expect(activeOption(page)).toHaveText('Lost')
-  })
+  expect(outline.outlineStyle).toBe('solid')
+  expect(outline.width).toBeGreaterThan(0)
+  expect(outline.outlineColor).not.toBe('rgba(0, 0, 0, 0)')
 })
 
 test.describe('the searchable branch', () => {

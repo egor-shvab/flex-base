@@ -7,6 +7,7 @@ import type { TFieldType } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { FIELD_INPUTS, inputFor } from '~/field-types/inputs'
+import { shouldSearch } from '~/utils/select'
 import {
   ALL_TYPE_FIELDS,
   asMultiple,
@@ -23,10 +24,6 @@ import {
  * mounts anything — the entries are data, and the adapters are pure functions.
  */
 describe('FIELD_INPUTS', () => {
-  it('has an entry for every field type', () => {
-    expect(Object.keys(FIELD_INPUTS).sort()).toEqual([...FIELD_TYPES].sort())
-  })
-
   it.each([
     ['TEXT', BaseInput],
     ['NUMBER', BaseInput],
@@ -115,13 +112,18 @@ describe('the props each control is handed', () => {
     ])
   })
 
-  /** The registry knows how many choices there are, so the search box is its decision. */
-  it('decides a SELECT’s search box from the choice count', () => {
+  /**
+   * The registry knows how many choices there are, so the search box is its decision — but
+   * *where* the line sits is `shouldSearch`'s, and `app/utils/select.spec.ts` pins that.
+   * Asserting agreement rather than `true`/`false` keeps the threshold in one place while
+   * still failing a registry that hardcodes the answer.
+   */
+  it('decides a SELECT’s search box by consulting shouldSearch', () => {
     const few = selectField(['a', 'b', 'c'])
-    expect(inputFor(few).props(few).searchable).toBe(false)
+    expect(inputFor(few).props(few).searchable).toBe(shouldSearch(3))
 
-    const many = selectField(Array.from({ length: 9 }, (_, index) => `choice ${index}`))
-    expect(inputFor(many).props(many).searchable).toBe(true)
+    const many = selectField(Array.from({ length: 20 }, (_, index) => `choice ${index}`))
+    expect(inputFor(many).props(many).searchable).toBe(shouldSearch(20))
   })
 
   it('offers a SELECT copy for a field with no choices at all', () => {
