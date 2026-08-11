@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -9,6 +9,7 @@ import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord } from '#shared/types/record'
 import DynamicTable from '~/components/records/DynamicTable.vue'
 import { numberField, record, selectField, textField } from '~~/test/fixtures'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 const TABLE_ID = 'tbl_deals'
 
@@ -20,7 +21,7 @@ const RECORDS: IRecord[] = [
 ]
 
 function table(props: { fields?: IField[]; records?: IRecord[]; sort?: IRecordSort | null } = {}) {
-  return mountSuspended(DynamicTable, {
+  return mountTracked(DynamicTable, {
     props: {
       tableId: TABLE_ID,
       fields: props.fields ?? FIELDS,
@@ -37,6 +38,8 @@ const headerNames = (wrapper: TTable) => headers(wrapper).map((th) => th.text().
 const rows = (wrapper: TTable) => wrapper.findAll('tbody tr')
 
 describe('DynamicTable', () => {
+  afterEach(unmountAll)
+
   // A row's View action goes through `useDetailLink`; a RELATION cell reads the relations store
   beforeEach(() => setActivePinia(useNuxtApp().$pinia as Pinia))
 

@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref, shallowRef } from 'vue'
 import { useListboxNavigation } from '~/composables/useListboxNavigation'
 import type { ISelectOption } from '~/types/select'
+import { track, unmountAll } from '~~/test/mount'
 
 /** Six enabled options, so a PAGE_STEP of 10 always overshoots and has to clamp. */
 const OPTIONS: ISelectOption[] = [
@@ -41,20 +42,20 @@ function setup(initial: ISelectOption[] = OPTIONS, initiallyActive = true) {
   })
 
   // `mount` runs setup synchronously, so `nav` is assigned by the time this returns
-  const wrapper = mount(Host)
+  const wrapper = track(mount(Host))
 
   return { wrapper, options, active, nav }
 }
 
 describe('useListboxNavigation', () => {
+  afterEach(unmountAll)
+
   afterEach(() => vi.useRealTimers())
 
   it('starts with no cursor at all', () => {
-    const { nav, wrapper } = setup()
+    const { nav } = setup()
 
     expect(nav.activeIndex.value).toBe(-1)
-
-    wrapper.unmount()
   })
 
   describe('move', () => {
@@ -71,7 +72,7 @@ describe('useListboxNavigation', () => {
     })
 
     it('steps one at a time in both directions', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.setActive(2)
       nav.move(1)
@@ -79,13 +80,11 @@ describe('useListboxNavigation', () => {
 
       nav.move(-1)
       expect(nav.activeIndex.value).toBe(2)
-
-      wrapper.unmount()
     })
 
     /** A listbox that loops has no felt end; Home/End are the way to the extremes. */
     it('does not wrap at either end', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.setActive(OPTIONS.length - 1)
       nav.move(1)
@@ -94,23 +93,19 @@ describe('useListboxNavigation', () => {
       nav.setActive(0)
       nav.move(-1)
       expect(nav.activeIndex.value).toBe(0)
-
-      wrapper.unmount()
     })
 
     it('does nothing at all with an empty list', () => {
-      const { nav, wrapper } = setup([])
+      const { nav } = setup([])
 
       nav.move(1)
       expect(nav.activeIndex.value).toBe(-1)
-
-      wrapper.unmount()
     })
   })
 
   describe('disabled options', () => {
     it('steps over one on the way down and on the way up', () => {
-      const { nav, wrapper } = setup([
+      const { nav } = setup([
         option('a', 'Alpha'),
         option('b', 'Bravo', true),
         option('c', 'Charlie'),
@@ -122,8 +117,6 @@ describe('useListboxNavigation', () => {
 
       nav.move(-1)
       expect(nav.activeIndex.value).toBe(0)
-
-      wrapper.unmount()
     })
 
     /**
@@ -132,7 +125,7 @@ describe('useListboxNavigation', () => {
      * on an unselectable row.
      */
     it('turns round when a run of disabled options ends the list', () => {
-      const { nav, wrapper } = setup([
+      const { nav } = setup([
         option('a', 'Alpha'),
         option('b', 'Bravo'),
         option('c', 'Charlie', true),
@@ -143,12 +136,10 @@ describe('useListboxNavigation', () => {
       nav.move(1)
 
       expect(nav.activeIndex.value).toBe(1)
-
-      wrapper.unmount()
     })
 
     it('turns round at the start of the list too', () => {
-      const { nav, wrapper } = setup([
+      const { nav } = setup([
         option('a', 'Alpha', true),
         option('b', 'Bravo', true),
         option('c', 'Charlie'),
@@ -159,12 +150,10 @@ describe('useListboxNavigation', () => {
       nav.move(-1)
 
       expect(nav.activeIndex.value).toBe(2)
-
-      wrapper.unmount()
     })
 
     it('skips a leading disabled run on a first move down', () => {
-      const { nav, wrapper } = setup([
+      const { nav } = setup([
         option('a', 'Alpha', true),
         option('b', 'Bravo', true),
         option('c', 'Charlie'),
@@ -173,36 +162,30 @@ describe('useListboxNavigation', () => {
       nav.move(1)
 
       expect(nav.activeIndex.value).toBe(2)
-
-      wrapper.unmount()
     })
 
     it('leaves the cursor alone when every option is disabled', () => {
-      const { nav, wrapper } = setup([option('a', 'Alpha', true), option('b', 'Bravo', true)])
+      const { nav } = setup([option('a', 'Alpha', true), option('b', 'Bravo', true)])
 
       nav.move(1)
 
       expect(nav.activeIndex.value).toBe(-1)
-
-      wrapper.unmount()
     })
   })
 
   describe('first and last', () => {
     it('land on the extremes', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.last()
       expect(nav.activeIndex.value).toBe(OPTIONS.length - 1)
 
       nav.first()
       expect(nav.activeIndex.value).toBe(0)
-
-      wrapper.unmount()
     })
 
     it('land on the first and last *enabled* option', () => {
-      const { nav, wrapper } = setup([
+      const { nav } = setup([
         option('a', 'Alpha', true),
         option('b', 'Bravo'),
         option('c', 'Charlie'),
@@ -214,15 +197,13 @@ describe('useListboxNavigation', () => {
 
       nav.last()
       expect(nav.activeIndex.value).toBe(2)
-
-      wrapper.unmount()
     })
   })
 
   describe('page steps', () => {
     it('jump by PAGE_STEP where the list is long enough', () => {
       const long = Array.from({ length: 30 }, (_, index) => option(`v${index}`, `Option ${index}`))
-      const { nav, wrapper } = setup(long)
+      const { nav } = setup(long)
 
       nav.setActive(0)
       nav.move(nav.PAGE_STEP)
@@ -230,12 +211,10 @@ describe('useListboxNavigation', () => {
 
       nav.move(-nav.PAGE_STEP)
       expect(nav.activeIndex.value).toBe(0)
-
-      wrapper.unmount()
     })
 
     it('clamp rather than overshooting a short list', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.setActive(1)
       nav.move(nav.PAGE_STEP)
@@ -243,8 +222,6 @@ describe('useListboxNavigation', () => {
 
       nav.move(-nav.PAGE_STEP)
       expect(nav.activeIndex.value).toBe(0)
-
-      wrapper.unmount()
     })
   })
 
@@ -254,27 +231,23 @@ describe('useListboxNavigation', () => {
    */
   describe('typeAhead', () => {
     it('jumps to the first option starting with the character', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.typeAhead('d')
 
       expect(nav.activeIndex.value).toBe(3)
-
-      wrapper.unmount()
     })
 
     it('is case-insensitive', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.typeAhead('E')
 
       expect(nav.activeIndex.value).toBe(4)
-
-      wrapper.unmount()
     })
 
     it('accumulates within the window, so a second letter narrows rather than restarts', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.typeAhead('c')
       expect(nav.activeIndex.value).toBe(2)
@@ -283,29 +256,21 @@ describe('useListboxNavigation', () => {
       // this as a bare 'a' and jump to Alpha.
       nav.typeAhead('a')
       expect(nav.activeIndex.value).toBe(2)
-
-      wrapper.unmount()
     })
 
     it('distinguishes options sharing a first letter', () => {
-      const { nav, wrapper } = setup([
-        option('ba', 'Bravo'),
-        option('br', 'Bracket'),
-        option('bu', 'Bugle'),
-      ])
+      const { nav } = setup([option('ba', 'Bravo'), option('br', 'Bracket'), option('bu', 'Bugle')])
 
       nav.typeAhead('b')
       expect(nav.activeIndex.value).toBe(0)
 
       nav.typeAhead('u')
       expect(nav.activeIndex.value).toBe(2)
-
-      wrapper.unmount()
     })
 
     it('starts a fresh buffer once the window has passed', () => {
       vi.useFakeTimers()
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.typeAhead('c')
       expect(nav.activeIndex.value).toBe(2)
@@ -315,12 +280,10 @@ describe('useListboxNavigation', () => {
       // A fresh 'd' rather than 'cd', which would match nothing
       nav.typeAhead('d')
       expect(nav.activeIndex.value).toBe(3)
-
-      wrapper.unmount()
     })
 
     it('will not land on a disabled option', () => {
-      const { nav, wrapper } = setup([
+      const { nav } = setup([
         option('d1', 'Delta', true),
         option('d2', 'Delta Two'),
         option('e', 'Echo'),
@@ -329,19 +292,15 @@ describe('useListboxNavigation', () => {
       nav.typeAhead('d')
 
       expect(nav.activeIndex.value).toBe(1)
-
-      wrapper.unmount()
     })
 
     it('leaves the cursor where it was when nothing matches', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.setActive(2)
       nav.typeAhead('z')
 
       expect(nav.activeIndex.value).toBe(2)
-
-      wrapper.unmount()
     })
   })
 
@@ -351,31 +310,27 @@ describe('useListboxNavigation', () => {
    */
   describe('re-clamping as the list changes', () => {
     it('re-seats the cursor on the first enabled option when the list is replaced', async () => {
-      const { nav, options, wrapper } = setup()
+      const { nav, options } = setup()
 
       nav.setActive(4)
       options.value = [option('x', 'Xray', true), option('y', 'Yankee')]
       await nextTick()
 
       expect(nav.activeIndex.value).toBe(1)
-
-      wrapper.unmount()
     })
 
     it('drops the cursor when the list empties', async () => {
-      const { nav, options, wrapper } = setup()
+      const { nav, options } = setup()
 
       nav.setActive(2)
       options.value = []
       await nextTick()
 
       expect(nav.activeIndex.value).toBe(-1)
-
-      wrapper.unmount()
     })
 
     it('does not move for a fresh array of the same values', async () => {
-      const { nav, options, wrapper } = setup()
+      const { nav, options } = setup()
 
       nav.setActive(4)
       options.value = OPTIONS.map((entry) => ({ ...entry }))
@@ -383,12 +338,10 @@ describe('useListboxNavigation', () => {
 
       // Resetting the highlight on every parent render would fight the user
       expect(nav.activeIndex.value).toBe(4)
-
-      wrapper.unmount()
     })
 
     it('leaves a closed listbox alone', async () => {
-      const { nav, options, active, wrapper } = setup()
+      const { nav, options, active } = setup()
 
       nav.setActive(4)
       active.value = false
@@ -396,25 +349,21 @@ describe('useListboxNavigation', () => {
       await nextTick()
 
       expect(nav.activeIndex.value).toBe(4)
-
-      wrapper.unmount()
     })
   })
 
   describe('reset', () => {
     it('clears the cursor', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.setActive(3)
       nav.reset()
 
       expect(nav.activeIndex.value).toBe(-1)
-
-      wrapper.unmount()
     })
 
     it('clears the type-ahead buffer, so reopening does not continue the last word', () => {
-      const { nav, wrapper } = setup()
+      const { nav } = setup()
 
       nav.typeAhead('c')
       nav.reset()
@@ -422,19 +371,15 @@ describe('useListboxNavigation', () => {
       // 'd' fresh, not 'cd' — which would match nothing and leave the cursor at -1
       nav.typeAhead('d')
       expect(nav.activeIndex.value).toBe(3)
-
-      wrapper.unmount()
     })
   })
 
   it('ignores a negative index from setActive', () => {
-    const { nav, wrapper } = setup()
+    const { nav } = setup()
 
     nav.setActive(2)
     nav.setActive(-1)
 
     expect(nav.activeIndex.value).toBe(2)
-
-    wrapper.unmount()
   })
 })

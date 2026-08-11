@@ -745,6 +745,14 @@ Internally selection is **always** a `string[]`, whatever the model's shape: one
 
 `searchOptions` deliberately does **not** write `optionsByField` — that is the seed every other consumer of `optionsFor()` reads, and a search result would clobber it. It does call `cacheLabels`, so a record found only through a search still renders as its label in a cell afterwards.
 
+### `.gitattributes` pins `eol=lf`, and nothing was renormalised
+
+`core.autocrlf` is `true` on Windows and Prettier's `endOfLine` defaults to `lf`, so git rewrote every checked-out file to CRLF and Prettier then rejected all of them. A fresh clone failed `npm run format:check` before a line was written, and every touched file reported a modification whose diff was empty. CI never saw it: Linux checks out LF.
+
+**No `git add --renormalize` was run, and none should be.** `git ls-files --eol` reported the whole index as `i/lf` already — the blobs were always right, and only checkout was wrong. Renormalising would have produced a whole-repo diff that changed nothing.
+
+Found in Stage E, when a file restored with `git checkout` began failing a check it had passed minutes earlier — the kind of symptom that reads as flakiness until the cause is named.
+
 ### A duplicated test is a cost, not insurance
 
 Twelve cases were deleted rather than left alone, and the runtime they cost was never the argument — eight of them ran in about four seconds. Three reasons they were worth removing:

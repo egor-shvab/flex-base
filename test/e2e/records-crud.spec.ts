@@ -125,8 +125,10 @@ test.describe('a required field', () => {
     await page.getByRole('button', { name: 'Add record' }).first().click()
     await page.getByRole('button', { name: 'Create record' }).click()
 
+    // The field's own name, not a bare "required": the schema emits `${field.name} is
+    // required` per field, and a form that said only "required" would leave the user hunting
     await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.getByText(/required/i).first()).toBeVisible()
+    await expect(page.getByText('Company is required')).toBeVisible()
   })
 
   /** `false` is a real value, so a checkbox can never be "missing" — a documented no-op. */
@@ -187,6 +189,9 @@ test.describe('a multi-value field', () => {
     await page.getByRole('button', { name: 'Add record' }).first().click()
     await page.getByRole('button', { name: 'Create record' }).click()
 
+    // "Per-field" is the claim, so the field's own message is what proves it — a dialog that
+    // merely stayed open would satisfy a form-level error just as well
     await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByText('Tags is required')).toBeVisible()
   })
 })

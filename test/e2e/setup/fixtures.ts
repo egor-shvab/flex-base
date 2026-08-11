@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { prisma } from '#server/utils/prisma'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
@@ -96,5 +97,33 @@ export async function confirmDeletion(page: import('@playwright/test').Page): Pr
   // `Delet` rather than `Delete`: the button reads "Deleting…" while the request is in flight
   await dialog.getByRole('button', { name: /^Delet/ }).click()
 }
+
+/**
+ * The record form, opened the way a user opens it. Shared because both `BaseSelect` spec files
+ * reach their controls through it — a select is only interesting once it is inside a form.
+ */
+export async function openRecordForm(page: Page, url: string): Promise<void> {
+  await page.goto(url)
+  await page.getByRole('button', { name: 'Add record' }).first().click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+}
+
+/**
+ * The Company column, which every list spec reads to say which rows came back.
+ *
+ * Positional on purpose, and one of the documented exceptions in `CLAUDE.md` §10: a *column*
+ * is not a thing a user targets, so no role names it. `getByRole('cell')` would return every
+ * cell of every column, which is not what a filter assertion is about.
+ */
+export const companies = (page: Page): Promise<string[]> =>
+  page.locator('tbody tr td:nth-child(2)').allInnerTexts()
+
+/**
+ * Polled, never read once: a URL change resolves the moment the address bar moves, but the
+ * rows behind it are refetched asynchronously — reading straight after would assert on the
+ * previous query's results often enough to be flaky and never enough to be noticed.
+ */
+export const expectCompanies = (page: Page, expected: string[]) =>
+  expect.poll(() => companies(page)).toEqual(expected)
 
 export { expect, createField, createRecords, prisma }

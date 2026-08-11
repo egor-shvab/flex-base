@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockNuxtImport, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { clearNuxtData, useNuxtApp } from '#imports'
 import { createError } from 'h3'
 import { setActivePinia } from 'pinia'
@@ -10,6 +10,7 @@ import type { IRecordDetail } from '#shared/types/record'
 import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useRelationsStore } from '~/stores/relations'
 import { record, relationField, textField } from '~~/test/fixtures'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
  * A reactive route stub, so the `computed` chain inside the composable re-evaluates when the
@@ -48,8 +49,13 @@ for (const [tableId, recordId] of [
   })
 }
 
-/** `useAsyncData`'s watch refresh is asynchronous and not a microtask. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 20))
+/**
+ * `useAsyncData`'s watch refresh is asynchronous and not a microtask, so every case here has
+ * to wait for one. It waits on the **outcome** rather than on a clock: a fixed sleep is the one
+ * thing in a suite that turns a slow machine into a red build, and it also lies in the other
+ * direction — a sleep that is long enough today passes a race that is already broken.
+ */
+const awaitRequests = (expected: string[]) => vi.waitFor(() => expect(requests).toEqual(expected))
 
 /**
  * Opened inside a mounted component, which is the shape the composable actually has: its
@@ -77,17 +83,19 @@ async function open(query: TUrlQuery = {}) {
     },
   })
 
-  const wrapper = await mountSuspended(Host)
+  const wrapper = await mountTracked(Host)
   host = wrapper
 
   // A sync `setup` does not await its own async data, so Suspense resolves before the first
   // request settles — the dialog renders `pending` and fills in afterwards, same as in the app
-  await settle()
+  await vi.waitFor(() => expect(dialog.pending.value).toBe(false))
 
   return { wrapper, dialog }
 }
 
 describe('useRecordDetail', () => {
+  afterEach(unmountAll)
+
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     useRelationsStore().labelsByField = {}
@@ -149,32 +157,36 @@ describe('useRecordDetail', () => {
    * param moved. Both directions are counted, because that is the only way the difference shows.
    */
   describe('when it refetches', () => {
+    /**
+     * A negative is not something to wait for, so this drives a change that *must* refetch
+     * straight after the one that must not. If the unrelated param had queued a fetch, it
+     * would appear between the two — and the watcher is proved alive rather than merely slow,
+     * which a sleep-and-assert-nothing could never distinguish.
+     */
     it('does not refetch when an unrelated param moves', async () => {
       await open({ detail: 'tbl_deals.rec_1', page: '1' })
       expect(requests).toEqual(['rec_1'])
 
       route.current.query = { detail: 'tbl_deals.rec_1', page: '2', sort: 'company' }
-      await settle()
+      route.current.query = { detail: 'tbl_deals.rec_2', page: '2', sort: 'company' }
 
-      expect(requests).toEqual(['rec_1'])
+      await awaitRequests(['rec_1', 'rec_2'])
     })
 
     it('refetches when the open record changes', async () => {
       await open({ detail: 'tbl_deals.rec_1' })
 
       route.current.query = { detail: 'tbl_deals.rec_2' }
-      await settle()
 
-      expect(requests).toEqual(['rec_1', 'rec_2'])
+      await awaitRequests(['rec_1', 'rec_2'])
     })
 
     it('refetches when a relation is drilled into', async () => {
       await open({ detail: 'tbl_deals.rec_1' })
 
       route.current.query = { detail: 'tbl_deals.rec_1,tbl_people.rec_ada' }
-      await settle()
 
-      expect(requests).toEqual(['rec_1', 'rec_ada'])
+      await awaitRequests(['rec_1', 'rec_ada'])
     })
 
     it('re-runs the request on refresh', async () => {

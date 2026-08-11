@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -9,6 +9,7 @@ import type { TRecordFilterValues } from '#shared/types/filter'
 import RecordsFilterSummary from '~/components/records/RecordsFilterSummary.vue'
 import { useRelationsStore } from '~/stores/relations'
 import { numberField, relationField, selectField, textField } from '~~/test/fixtures'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 const COMPANY = textField('company', { name: 'Company' })
 const VALUE = numberField('contract_value', { name: 'Contract value' })
@@ -19,7 +20,7 @@ async function summary(
   filters: TRecordFilterValues,
   overrides: { fields?: IField[]; search?: string; total?: number; pending?: boolean } = {},
 ) {
-  return mountSuspended(RecordsFilterSummary, {
+  return mountTracked(RecordsFilterSummary, {
     props: {
       fields: overrides.fields ?? [COMPANY, VALUE, STAGE, OWNER],
       filters,
@@ -38,6 +39,8 @@ function chips(wrapper: Awaited<ReturnType<typeof summary>>): string[] {
 }
 
 describe('RecordsFilterSummary', () => {
+  afterEach(unmountAll)
+
   /**
    * The mounted component resolves `useRelationsStore()` through the pinia `@pinia/nuxt`
    * provided to the Nuxt app — not through whatever `createPinia()` a spec makes for itself.

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import { usePopover } from '~/composables/usePopover'
+import { track, unmountAll } from '~~/test/mount'
 
 /**
  * A host component, because `useId()` and `onBeforeUnmount` both need an instance. Render
@@ -37,7 +38,7 @@ function setup() {
   })
 
   // `mount` runs setup synchronously, so `popover` is assigned by the time this returns
-  const wrapper = mount(Host, { attachTo: document.body })
+  const wrapper = track(mount(Host, { attachTo: document.body }))
 
   const at = (testId: string) => wrapper.get(`[data-testid="${testId}"]`).element as HTMLElement
 
@@ -50,22 +51,22 @@ function pointerDownOn(element: HTMLElement) {
 }
 
 describe('usePopover', () => {
+  afterEach(unmountAll)
+
   afterEach(() => {
     document.body.innerHTML = ''
     vi.restoreAllMocks()
   })
 
   it('starts closed and hands out a stable panel id', () => {
-    const { wrapper, popover } = setup()
+    const { popover } = setup()
 
     expect(popover.open.value).toBe(false)
     expect(popover.panelId).toBeTruthy()
-
-    wrapper.unmount()
   })
 
   it('opens with show and flips with toggle', async () => {
-    const { wrapper, popover } = setup()
+    const { popover } = setup()
 
     popover.show()
     expect(popover.open.value).toBe(true)
@@ -75,12 +76,10 @@ describe('usePopover', () => {
 
     popover.toggle()
     expect(popover.open.value).toBe(true)
-
-    wrapper.unmount()
   })
 
   it('closes on a pointerdown outside', async () => {
-    const { wrapper, popover, at } = setup()
+    const { popover, at } = setup()
 
     popover.show()
     await nextTick()
@@ -88,8 +87,6 @@ describe('usePopover', () => {
     pointerDownOn(at('outside'))
 
     expect(popover.open.value).toBe(false)
-
-    wrapper.unmount()
   })
 
   /**
@@ -98,7 +95,7 @@ describe('usePopover', () => {
    * the click.
    */
   it('treats the whole container as inside, not just the trigger', async () => {
-    const { wrapper, popover, at } = setup()
+    const { popover, at } = setup()
 
     popover.show()
     await nextTick()
@@ -106,12 +103,10 @@ describe('usePopover', () => {
     pointerDownOn(at('clear'))
 
     expect(popover.open.value).toBe(true)
-
-    wrapper.unmount()
   })
 
   it('treats a teleported panel as inside even though it is outside the trigger subtree', async () => {
-    const { wrapper, popover, at } = setup()
+    const { popover, at } = setup()
 
     popover.show()
     await nextTick()
@@ -119,12 +114,10 @@ describe('usePopover', () => {
     pointerDownOn(at('option'))
 
     expect(popover.open.value).toBe(true)
-
-    wrapper.unmount()
   })
 
   it('leaves focus where the pointer put it when closing on an outside click', async () => {
-    const { wrapper, popover, at } = setup()
+    const { popover, at } = setup()
 
     popover.show()
     await nextTick()
@@ -135,12 +128,10 @@ describe('usePopover', () => {
     expect(popover.open.value).toBe(false)
     // No focus restore here — the pointer has already chosen where focus should go
     expect(document.activeElement).toBe(at('outside'))
-
-    wrapper.unmount()
   })
 
   it('hands focus back to the trigger on dismiss', async () => {
-    const { wrapper, popover, at } = setup()
+    const { popover, at } = setup()
 
     popover.show()
     await nextTick()
@@ -150,12 +141,10 @@ describe('usePopover', () => {
 
     expect(popover.open.value).toBe(false)
     expect(document.activeElement).toBe(at('trigger'))
-
-    wrapper.unmount()
   })
 
   it('does not try to focus a trigger that has gone with the popover', async () => {
-    const { wrapper, popover, at } = setup()
+    const { popover, at } = setup()
 
     popover.show()
     await nextTick()
@@ -167,15 +156,13 @@ describe('usePopover', () => {
     expect(() => popover.dismiss()).not.toThrow()
     expect(popover.open.value).toBe(false)
     expect(document.activeElement).not.toBe(trigger)
-
-    wrapper.unmount()
   })
 
   it('binds the document listener only while open', async () => {
     const add = vi.spyOn(document, 'addEventListener')
     const remove = vi.spyOn(document, 'removeEventListener')
 
-    const { wrapper, popover } = setup()
+    const { popover } = setup()
 
     popover.show()
     await nextTick()
@@ -184,8 +171,6 @@ describe('usePopover', () => {
     popover.dismiss()
     await nextTick()
     expect(remove).toHaveBeenCalledWith('pointerdown', expect.any(Function))
-
-    wrapper.unmount()
   })
 
   it('releases the document listener on unmount', async () => {
@@ -208,7 +193,7 @@ describe('usePopover', () => {
    */
   it('registers no keyboard listener of its own', async () => {
     const add = vi.spyOn(document, 'addEventListener')
-    const { wrapper, popover } = setup()
+    const { popover } = setup()
 
     popover.show()
     await nextTick()
@@ -216,7 +201,5 @@ describe('usePopover', () => {
     const events = add.mock.calls.map(([event]) => event)
     expect(events).not.toContain('keydown')
     expect(events).not.toContain('keyup')
-
-    wrapper.unmount()
   })
 })

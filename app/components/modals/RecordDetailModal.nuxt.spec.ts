@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -7,6 +7,7 @@ import { DETAIL_PARAM } from '#shared/constants/filter'
 import type { IRecordDetail } from '#shared/types/record'
 import RecordDetailModal from '~/components/modals/RecordDetailModal.vue'
 import { record, textField } from '~~/test/fixtures'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
  * The dialog around `RecordDetail`. Everything it decides is a function of its props, and
@@ -34,7 +35,7 @@ function detailOf(tableId = 'tbl_deals', tableName = 'Deals'): IRecordDetail {
 }
 
 function mountModal(props: Record<string, unknown> = {}) {
-  return mountSuspended(RecordDetailModal, {
+  return mountTracked(RecordDetailModal, {
     props: {
       detail: detailOf(),
       pending: false,
@@ -46,6 +47,8 @@ function mountModal(props: Record<string, unknown> = {}) {
 }
 
 describe('RecordDetailModal', () => {
+  afterEach(unmountAll)
+
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
 
@@ -60,26 +63,22 @@ describe('RecordDetailModal', () => {
 
   describe('which state it shows', () => {
     it('names the record’s table and number above the values', async () => {
-      const wrapper = await mountModal()
+      await mountModal()
 
       expect(dialog()?.textContent).toContain('Deals · #7')
       expect(dialog()?.textContent).toContain('Acme')
-
-      wrapper.unmount()
     })
 
     /** Loading, error and loaded are distinct states with distinct copy — never inferred. */
     it('states that it is loading, and shows no values yet', async () => {
-      const wrapper = await mountModal({ detail: null, pending: true })
+      await mountModal({ detail: null, pending: true })
 
       expect(document.querySelector('[role="status"]')?.textContent).toContain('Loading record…')
       expect(dialog()?.textContent).not.toContain('Acme')
-
-      wrapper.unmount()
     })
 
     it('shows an error instead of the record', async () => {
-      const wrapper = await mountModal({
+      await mountModal({
         detail: null,
         errorMessage: 'This record no longer exists.',
       })
@@ -88,8 +87,6 @@ describe('RecordDetailModal', () => {
         'This record no longer exists.',
       )
       expect(dialog()?.textContent).not.toContain('Acme')
-
-      wrapper.unmount()
     })
 
     /** Retrying a 404 cannot help, so the button is offered only where it could. */
@@ -99,27 +96,22 @@ describe('RecordDetailModal', () => {
       hopeless.unmount()
       document.body.innerHTML = ''
 
-      const retryable = await mountModal({ detail: null, errorMessage: 'Offline', canRetry: true })
+      await mountModal({ detail: null, errorMessage: 'Offline', canRetry: true })
       expect(dialog()?.textContent).toContain('Try again')
-      retryable.unmount()
     })
   })
 
   describe('the Back link', () => {
     it('is absent for the outermost record', async () => {
-      const wrapper = await mountModal()
+      await mountModal()
 
       expect(link('Back')).toBeUndefined()
-
-      wrapper.unmount()
     })
 
     it('appears once the dialog was reached through another record', async () => {
-      const wrapper = await mountModal({ backTo: { query: { [DETAIL_PARAM]: 'tbl_a.rec_a' } } })
+      await mountModal({ backTo: { query: { [DETAIL_PARAM]: 'tbl_a.rec_a' } } })
 
       expect(link('Back')).toBeDefined()
-
-      wrapper.unmount()
     })
   })
 
@@ -130,26 +122,22 @@ describe('RecordDetailModal', () => {
    */
   describe('Open in …', () => {
     it('is absent when the record belongs to the table behind the dialog', async () => {
-      const wrapper = await mountModal({ currentTableId: 'tbl_deals' })
+      await mountModal({ currentTableId: 'tbl_deals' })
 
       expect(link(/Open in/)).toBeUndefined()
-
-      wrapper.unmount()
     })
 
     it('is offered when the record belongs elsewhere, named after its table', async () => {
-      const wrapper = await mountModal({
+      await mountModal({
         detail: detailOf('tbl_people', 'People'),
         currentTableId: 'tbl_deals',
       })
 
       expect(link(/Open in/)?.textContent).toContain('Open in People')
-
-      wrapper.unmount()
     })
 
     it('points at that table with this record still open', async () => {
-      const wrapper = await mountModal({
+      await mountModal({
         detail: detailOf('tbl_people', 'People'),
         currentTableId: 'tbl_deals',
       })
@@ -157,8 +145,6 @@ describe('RecordDetailModal', () => {
       expect(link(/Open in/)?.getAttribute('href')).toBe(
         `/tables/tbl_people/records?${DETAIL_PARAM}=tbl_people.rec_1`,
       )
-
-      wrapper.unmount()
     })
 
     /** Nothing to open while the record is still arriving, or once it failed to. */
@@ -168,9 +154,8 @@ describe('RecordDetailModal', () => {
       loading.unmount()
       document.body.innerHTML = ''
 
-      const failed = await mountModal({ errorMessage: 'Gone', currentTableId: 'tbl_other' })
+      await mountModal({ errorMessage: 'Gone', currentTableId: 'tbl_other' })
       expect(link(/Open in/)).toBeUndefined()
-      failed.unmount()
     })
   })
 })

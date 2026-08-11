@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+
 import ConfirmModal from '~/components/modals/ConfirmModal.vue'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
  * The universal destructive dialog. It is built on `BaseModal`, which teleports its body to
@@ -19,13 +20,15 @@ const button = (name: string) =>
   )
 
 function mountConfirm(props: Record<string, unknown> = {}) {
-  return mountSuspended(ConfirmModal, {
+  return mountTracked(ConfirmModal, {
     props: { title: 'Delete table', ...props },
     slots: { default: () => 'Delete Deals?' },
   })
 }
 
 describe('ConfirmModal', () => {
+  afterEach(unmountAll)
+
   beforeEach(() => {
     // `BaseModal` marks this element inert while it is open and uses `?.`, so an absent one
     // would make that guard pass vacuously
@@ -39,11 +42,9 @@ describe('ConfirmModal', () => {
   })
 
   it('says nothing where the error would go until there is one', async () => {
-    const wrapper = await mountConfirm()
+    await mountConfirm()
 
     expect(alert()).toBeNull()
-
-    wrapper.unmount()
   })
 
   /**
@@ -52,31 +53,25 @@ describe('ConfirmModal', () => {
    * looking at, after an action they took, and nothing else on screen changes to announce it.
    */
   it('renders the reason a refusal gave, as an alert', async () => {
-    const wrapper = await mountConfirm({ error: 'Remove the field “owner” first' })
+    await mountConfirm({ error: 'Remove the field “owner” first' })
 
     expect(alert()?.textContent).toContain('Remove the field “owner” first')
-
-    wrapper.unmount()
   })
 
   /** The dialog stays open behind the message — that is what makes it readable at all. */
   it('keeps both controls reachable so the refusal can be read and dismissed', async () => {
-    const wrapper = await mountConfirm({ error: 'Nope' })
+    await mountConfirm({ error: 'Nope' })
 
     expect(button('Cancel')).toBeDefined()
     expect(button('Confirm')).toBeDefined()
     expect(dialog()).not.toBeNull()
-
-    wrapper.unmount()
   })
 
   it('disables both controls while a request is in flight', async () => {
-    const wrapper = await mountConfirm({ pending: true, confirmLabel: 'Deleting…' })
+    await mountConfirm({ pending: true, confirmLabel: 'Deleting…' })
 
     expect(button('Cancel')?.disabled).toBe(true)
     expect(button('Deleting')?.disabled).toBe(true)
-
-    wrapper.unmount()
   })
 
   it('emits confirm and close rather than acting itself', async () => {
@@ -87,15 +82,11 @@ describe('ConfirmModal', () => {
 
     expect(wrapper.emitted('confirm')).toHaveLength(1)
     expect(wrapper.emitted('close')).toHaveLength(1)
-
-    wrapper.unmount()
   })
 
   it('takes the caller’s label for the destructive action', async () => {
-    const wrapper = await mountConfirm({ confirmLabel: 'Delete', danger: true })
+    await mountConfirm({ confirmLabel: 'Delete', danger: true })
 
     expect(button('Delete')).toBeDefined()
-
-    wrapper.unmount()
   })
 })

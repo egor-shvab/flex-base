@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { registerEndpoint } from '@nuxt/test-utils/runtime'
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -8,6 +8,7 @@ import { BADGE_COLOR_LABELS, DEFAULT_BADGE_COLOR } from '#shared/constants/color
 import type { IField } from '#shared/types/field'
 import FieldFormModal from '~/components/modals/FieldFormModal.vue'
 import { asMultiple, relationField, selectField, textField } from '~~/test/fixtures'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
  * The field editor — the one form whose shape changes with what is being edited, and the only
@@ -67,12 +68,14 @@ const iconButton = (label: string) =>
   )
 
 function mountForm(props: Record<string, unknown> = {}) {
-  return mountSuspended(FieldFormModal, {
+  return mountTracked(FieldFormModal, {
     props: { mode: 'create', submitHandler: vi.fn(async () => {}), ...props } as never,
   })
 }
 
 describe('FieldFormModal', () => {
+  afterEach(unmountAll)
+
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     targetFields = []
@@ -93,9 +96,8 @@ describe('FieldFormModal', () => {
       wrapper.unmount()
       document.body.innerHTML = ''
 
-      const selecting = await mountForm({ mode: 'edit', field: selectField() })
+      await mountForm({ mode: 'edit', field: selectField() })
       expect(dialog()?.querySelector('.field-form__choices')).not.toBeNull()
-      selecting.unmount()
     })
 
     /**
@@ -108,17 +110,14 @@ describe('FieldFormModal', () => {
       single.unmount()
       document.body.innerHTML = ''
 
-      const multi = await mountForm({ mode: 'edit', field: selectField() })
+      await mountForm({ mode: 'edit', field: selectField() })
       expect(labelled('Allow multiple values')).toBeDefined()
-      multi.unmount()
     })
 
     it('locks the type of a field that already exists', async () => {
-      const wrapper = await mountForm({ mode: 'edit', field: textField() })
+      await mountForm({ mode: 'edit', field: textField() })
 
       expect(controlFor('Type')?.hasAttribute('disabled')).toBe(true)
-
-      wrapper.unmount()
     })
   })
 
@@ -129,26 +128,22 @@ describe('FieldFormModal', () => {
    */
   describe('the multi-value lock', () => {
     it('stays open while the saved field is still single-value', async () => {
-      const wrapper = await mountForm({ mode: 'edit', field: selectField() })
+      await mountForm({ mode: 'edit', field: selectField() })
 
       const checkbox = controlFor('Allow multiple values')
       expect(checkbox?.disabled).toBe(false)
       expect(text()).not.toContain('cannot be changed back')
-
-      wrapper.unmount()
     })
 
     it('closes once the field is saved as multi-value, and says why', async () => {
-      const wrapper = await mountForm({ mode: 'edit', field: asMultiple(selectField()) })
+      await mountForm({ mode: 'edit', field: asMultiple(selectField()) })
 
       expect(controlFor('Allow multiple values')?.disabled).toBe(true)
       expect(text()).toContain('cannot be changed back to a single value')
-
-      wrapper.unmount()
     })
 
     it('does not lock the moment the box is ticked in this session', async () => {
-      const wrapper = await mountForm({ mode: 'edit', field: selectField() })
+      await mountForm({ mode: 'edit', field: selectField() })
 
       const checkbox = controlFor('Allow multiple values')!
       checkbox.checked = true
@@ -156,14 +151,12 @@ describe('FieldFormModal', () => {
       await nextTick()
 
       expect(controlFor('Allow multiple values')?.disabled).toBe(false)
-
-      wrapper.unmount()
     })
   })
 
   describe('the choices editor', () => {
     it('adds a blank choice in the default colour', async () => {
-      const wrapper = await mountForm({ mode: 'edit', field: selectField(['Won']) })
+      await mountForm({ mode: 'edit', field: selectField(['Won']) })
       expect(choiceInputs()).toHaveLength(1)
 
       button('Add choice')?.click()
@@ -179,8 +172,6 @@ describe('FieldFormModal', () => {
       expect(pickers[1]?.getAttribute('aria-label')).toContain(
         BADGE_COLOR_LABELS[DEFAULT_BADGE_COLOR],
       )
-
-      wrapper.unmount()
     })
 
     /**
@@ -189,7 +180,7 @@ describe('FieldFormModal', () => {
      * wrong state, which now includes a colour, so the middle row is the one worth removing.
      */
     it('removes the row asked for, leaving the others intact', async () => {
-      const wrapper = await mountForm({
+      await mountForm({
         mode: 'edit',
         field: selectField(['Won', 'Lost', 'Open']),
       })
@@ -199,8 +190,6 @@ describe('FieldFormModal', () => {
       await nextTick()
 
       expect(choiceInputs().map((input) => input.value)).toEqual(['Won', 'Open'])
-
-      wrapper.unmount()
     })
 
     /**
@@ -210,7 +199,7 @@ describe('FieldFormModal', () => {
      */
     it('never writes through to the field it was opened with', async () => {
       const field = selectField([{ value: 'Won', color: 'green' }])
-      const wrapper = await mountForm({ mode: 'edit', field })
+      await mountForm({ mode: 'edit', field })
 
       const input = choiceInputs()[0]!
       input.value = 'Renamed'
@@ -218,8 +207,6 @@ describe('FieldFormModal', () => {
       await nextTick()
 
       expect(field.options?.choices?.[0]?.value).toBe('Won')
-
-      wrapper.unmount()
     })
   })
 
@@ -236,7 +223,7 @@ describe('FieldFormModal', () => {
         asMultiple(selectField(['a'], { key: 'tags', name: 'Tags' })),
       ]
 
-      const wrapper = await mountForm({
+      await mountForm({
         mode: 'edit',
         field: relationField({ targetTableId: 'tbl_people', labelFieldKey: 'full_name' }),
       })
@@ -246,8 +233,6 @@ describe('FieldFormModal', () => {
       expect(labelSelect).not.toBeNull()
       // The relation and the multi-value field are not candidates; the text field is
       await expect.poll(() => text()).toContain('Full name')
-
-      wrapper.unmount()
     })
 
     it('keeps a label choice the target still has', async () => {
@@ -256,19 +241,17 @@ describe('FieldFormModal', () => {
         textField('email', { name: 'Email' }),
       ]
 
-      const wrapper = await mountForm({
+      await mountForm({
         mode: 'edit',
         field: relationField({ targetTableId: 'tbl_people', labelFieldKey: 'email' }),
       })
 
       await expect.poll(() => text()).toContain('Email')
-
-      wrapper.unmount()
     })
   })
 
   it('surfaces a refusal from the server as an alert', async () => {
-    const wrapper = await mountForm({
+    await mountForm({
       mode: 'create',
       submitHandler: vi.fn(async () => {
         throw { data: { statusMessage: 'A field with that key already exists' } }
@@ -287,7 +270,5 @@ describe('FieldFormModal', () => {
     await expect
       .poll(() => document.querySelector('[role="alert"]')?.textContent)
       .toContain('A field with that key already exists')
-
-    wrapper.unmount()
   })
 })

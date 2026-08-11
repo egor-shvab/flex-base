@@ -20,20 +20,27 @@ let deals: ISeededTable
 const owners = (page: import('@playwright/test').Page) =>
   page.locator('tbody tr td:nth-child(3)').allInnerTexts()
 
+/**
+ * A person's record id, looked up by the name on screen — a relation stores the id, so almost
+ * every fixture here needs to turn a readable name into one. Declared once at file scope
+ * because three seeds want it, each of which was re-reading the same three rows.
+ */
+async function idOf(name: string): Promise<string> {
+  const targets = await prisma.record.findMany({
+    where: { tableId: people.id },
+    select: { id: true, data: true },
+    orderBy: { number: 'asc' },
+  })
+
+  return targets.find((row) => (row.data as { full_name?: string }).full_name === name)?.id ?? ''
+}
+
 test.beforeEach(async ({ seedTable }) => {
   people = await seedTable(
     'People',
     [{ key: 'full_name', type: 'TEXT', name: 'Full name' }],
     [{ full_name: 'Ada' }, { full_name: 'Grace' }, { full_name: 'Zoe' }],
   )
-
-  const targets = await prisma.record.findMany({
-    where: { tableId: people.id },
-    select: { id: true, data: true },
-    orderBy: { number: 'asc' },
-  })
-  const idOf = (name: string) =>
-    targets.find((row) => (row.data as { full_name?: string }).full_name === name)?.id ?? ''
 
   deals = await seedTable(
     'Deals',
@@ -47,9 +54,9 @@ test.beforeEach(async ({ seedTable }) => {
       },
     ],
     [
-      { company: 'Acme', owner: idOf('Zoe') },
-      { company: 'Beta', owner: idOf('Ada') },
-      { company: 'Gamma', owner: idOf('Grace') },
+      { company: 'Acme', owner: await idOf('Zoe') },
+      { company: 'Beta', owner: await idOf('Ada') },
+      { company: 'Gamma', owner: await idOf('Grace') },
     ],
   )
 })
@@ -176,14 +183,6 @@ test.describe('a multi-value relation', () => {
   })
 
   test('sorts by its first value, blanks last', async ({ page, seedTable }) => {
-    const targets = await prisma.record.findMany({
-      where: { tableId: people.id },
-      select: { id: true, data: true },
-      orderBy: { number: 'asc' },
-    })
-    const idOf = (name: string) =>
-      targets.find((row) => (row.data as { full_name?: string }).full_name === name)?.id ?? ''
-
     const multi = await seedTable('Projects', [{ key: 'name', type: 'TEXT', name: 'Name' }])
     await createField(multi.id, {
       key: 'crew',
@@ -193,8 +192,8 @@ test.describe('a multi-value relation', () => {
       options: { targetTableId: people.id, labelFieldKey: 'full_name', multiple: true },
     })
     await createRecords(multi.id, [
-      { name: 'Zeta', crew: [idOf('Zoe')] },
-      { name: 'Alpha', crew: [idOf('Ada')] },
+      { name: 'Zeta', crew: [await idOf('Zoe')] },
+      { name: 'Alpha', crew: [await idOf('Ada')] },
       { name: 'Blank', crew: [] },
     ])
 

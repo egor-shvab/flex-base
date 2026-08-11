@@ -1,6 +1,12 @@
 <template>
   <nav class="pagination" aria-label="Pagination">
-    <span class="pagination__count" aria-live="polite">{{ rangeLabel }}</span>
+    <!--
+      `role="status"` rather than a bare `aria-live="polite"`: the role *implies* polite-live,
+      so assistive tech hears exactly the same thing, and the range gains a role a reader — and
+      a spec — can address. Which page you are on changes without focus moving, so it has to
+      announce itself or it does not announce at all.
+    -->
+    <span class="pagination__count" role="status">{{ rangeLabel }}</span>
     <div class="pagination__pager">
       <span class="pagination__page">Page {{ page }} of {{ pageCount }}</span>
       <BaseButton

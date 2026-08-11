@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, describe, expect, it } from 'vitest'
+
 import BasePagination from '~/components/common/BasePagination.vue'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 interface IPageProps {
   page: number
@@ -10,7 +11,7 @@ interface IPageProps {
 }
 
 function mount(props: Partial<IPageProps> = {}) {
-  return mountSuspended(BasePagination, {
+  return mountTracked(BasePagination, {
     props: { page: 1, pageCount: 1, pageSize: 50, total: 0, ...props },
   })
 }
@@ -23,6 +24,8 @@ const rangeOf = async (props: Partial<IPageProps>) =>
  * every boundary is arithmetic that no other test would catch.
  */
 describe('the range label', () => {
+  afterEach(unmountAll)
+
   it('says nothing is there rather than "1–0 of 0"', async () => {
     expect(await rangeOf({ total: 0 })).toBe('0 of 0')
   })
@@ -57,10 +60,14 @@ describe('the pager', () => {
     expect(wrapper.find('.pagination__page').text()).toBe('Page 2 of 3')
   })
 
+  /**
+   * `role="status"` rather than a bare `aria-live="polite"`: the role implies polite-live, so
+   * assistive tech hears the same thing, and the range gains a role a reader can address.
+   */
   it('announces the range politely, since it changes without focus moving', async () => {
     const wrapper = await mount({ total: 120, pageCount: 3 })
 
-    expect(wrapper.find('.pagination__count').attributes('aria-live')).toBe('polite')
+    expect(wrapper.find('.pagination__count').attributes('role')).toBe('status')
   })
 
   it('offers no way back from the first page', async () => {

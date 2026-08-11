@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { mountTracked, unmountAll } from '~~/test/mount'
+
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -25,7 +26,7 @@ function form(
   values: TRecordData = {},
   errors: Partial<Record<string, string>> = {},
 ) {
-  return mountSuspended(DynamicForm, { props: { fields, values, errors } })
+  return mountTracked(DynamicForm, { props: { fields, values, errors } })
 }
 
 type TForm = Awaited<ReturnType<typeof form>>
@@ -36,6 +37,8 @@ const updates = (wrapper: TForm) =>
 const lastUpdate = (wrapper: TForm) => updates(wrapper)?.at(-1)
 
 describe('DynamicForm', () => {
+  afterEach(unmountAll)
+
   // A RELATION field renders `RelationFieldSelect`, which reads the relations store
   beforeEach(() => setActivePinia(useNuxtApp().$pinia as Pinia))
 

@@ -1,4 +1,4 @@
-import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { companies, expect, expectCompanies, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
 /**
@@ -7,17 +7,6 @@ import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
  */
 
 let table: ISeededTable
-
-const companies = (page: import('@playwright/test').Page) =>
-  page.locator('tbody tr td:nth-child(2)').allInnerTexts()
-
-/**
- * Polled, never read once: a URL change resolves the moment the address bar moves, but the
- * rows behind it are refetched asynchronously — reading straight after would assert on the
- * previous query's results often enough to be flaky and never enough to be noticed.
- */
-const expectCompanies = (page: import('@playwright/test').Page, expected: string[]) =>
-  expect.poll(() => companies(page)).toEqual(expected)
 
 test.beforeEach(async ({ seedTable }) => {
   table = await seedTable(
@@ -203,17 +192,21 @@ test.describe('searching', () => {
     await expectCompanies(page, ['Beta'])
   })
 
+  /**
+   * Scoped to `main`, here and below: Nuxt renders its own route announcer as a
+   * `role="status"` live region outside the app shell, so an unscoped query matches two.
+   */
   test('does not match a BOOLEAN column', async ({ page }) => {
     await page.goto(`${table.url}?search=true`)
 
-    await expect(page.locator('.records-page__empty')).toBeVisible()
+    await expect(page.getByRole('main').getByRole('status')).toBeVisible()
   })
 
   test('says what it could not find, naming the term', async ({ page }) => {
     await page.goto(`${table.url}?search=zzzznothing`)
 
-    await expect(page.locator('.records-page__empty')).toContainText('Nothing matches')
-    await expect(page.locator('.records-page__empty')).toContainText('zzzznothing')
+    await expect(page.getByRole('main').getByRole('status')).toContainText('Nothing matches')
+    await expect(page.getByRole('main').getByRole('status')).toContainText('zzzznothing')
   })
 })
 
@@ -276,13 +269,13 @@ test.describe('paging', () => {
     )
 
     await page.goto(many.url)
-    await expect(page.locator('.pagination__count')).toHaveText('1–50 of 60')
+    await expect(page.getByRole('main').getByRole('status')).toHaveText('1–50 of 60')
 
     await page.getByRole('button', { name: 'Next' }).click()
     await expect(page).toHaveURL(/page=2/)
-    await expect(page.locator('.pagination__count')).toHaveText('51–60 of 60')
+    await expect(page.getByRole('main').getByRole('status')).toHaveText('51–60 of 60')
 
     await page.goBack()
-    await expect(page.locator('.pagination__count')).toHaveText('1–50 of 60')
+    await expect(page.getByRole('main').getByRole('status')).toHaveText('1–50 of 60')
   })
 })

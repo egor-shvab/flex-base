@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+
 import { nextTick } from 'vue'
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
@@ -9,6 +9,7 @@ import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
 import RecordsFilterPanel from '~/components/records/RecordsFilterPanel.vue'
 import { asMultiple, booleanField, numberField, selectField, textField } from '~~/test/fixtures'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 const FIELDS: IField[] = [
   textField('company', { name: 'Company' }),
@@ -24,7 +25,7 @@ function panel(
     pending?: boolean
   } = {},
 ) {
-  return mountSuspended(RecordsFilterPanel, {
+  return mountTracked(RecordsFilterPanel, {
     props: {
       fields: props.fields ?? FIELDS,
       filters: props.filters ?? {},
@@ -77,6 +78,8 @@ async function typeInto(element: HTMLInputElement, value: string) {
 }
 
 describe('RecordsFilterPanel', () => {
+  afterEach(unmountAll)
+
   beforeEach(() => {
     // `BaseModal` marks this element inert while the drawer is open
     const root = document.createElement('div')
@@ -94,17 +97,15 @@ describe('RecordsFilterPanel', () => {
 
   describe('which columns get a control', () => {
     it('is a drawer titled Filters', async () => {
-      const wrapper = await panel()
+      await panel()
 
       expect(drawer()).not.toBeNull()
       expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Filters')
-
-      wrapper.unmount()
     })
 
     /** The record's own columns filter alongside the table's fields, and bracket them. */
     it('brackets the table’s fields with the record’s own columns', async () => {
-      const wrapper = await panel()
+      await panel()
 
       expect(labels()).toEqual([
         'Record #',
@@ -114,16 +115,12 @@ describe('RecordsFilterPanel', () => {
         'Created at',
         'Updated at',
       ])
-
-      wrapper.unmount()
     })
 
     it('still offers the record’s own columns for a table with no fields', async () => {
-      const wrapper = await panel({ fields: [] })
+      await panel({ fields: [] })
 
       expect(labels()).toEqual(['Record #', 'Created at', 'Updated at'])
-
-      wrapper.unmount()
     })
 
     /**
@@ -132,7 +129,7 @@ describe('RecordsFilterPanel', () => {
      * `filterableFields` drops it here rather than offering a box that forgets.
      */
     it('offers no control for a field whose filter could not round-trip', async () => {
-      const wrapper = await panel({
+      await panel({
         fields: [
           textField('search', { name: 'Search' }),
           textField('company', { name: 'Company' }),
@@ -141,80 +138,64 @@ describe('RecordsFilterPanel', () => {
 
       expect(labels()).not.toContain('Search')
       expect(labels()).toContain('Company')
-
-      wrapper.unmount()
     })
 
     it('renders one control per column', async () => {
-      const wrapper = await panel()
+      await panel()
 
       expect(controls()).toHaveLength(6)
-
-      wrapper.unmount()
     })
 
     it('suffixes every control id with its field key, under one panel prefix', async () => {
-      const wrapper = await panel({ fields: [textField('company')] })
+      await panel({ fields: [textField('company')] })
 
       const id = textInput('company').id
       expect(id).toMatch(/^.+-company$/)
       expect(id).not.toBe('company')
-
-      wrapper.unmount()
     })
   })
 
   /** Every control is always rendered, so an unfiltered field shows its own empty value. */
   describe('showing the current filters', () => {
     it('shows an unfiltered TEXT column as an empty box', async () => {
-      const wrapper = await panel({ fields: [textField('company')] })
+      await panel({ fields: [textField('company')] })
 
       expect(textInput('company').value).toBe('')
-
-      wrapper.unmount()
     })
 
     it('shows an unfiltered range as two empty bounds', async () => {
-      const wrapper = await panel({ fields: [numberField('salary')] })
+      await panel({ fields: [numberField('salary')] })
 
       expect(boundInput('salary', 'from').value).toBe('')
       expect(boundInput('salary', 'to').value).toBe('')
-
-      wrapper.unmount()
     })
 
     it('shows an active TEXT filter', async () => {
-      const wrapper = await panel({
+      await panel({
         fields: [textField('company')],
         filters: { company: 'acme' },
       })
 
       expect(textInput('company').value).toBe('acme')
-
-      wrapper.unmount()
     })
 
     it('shows an active range on the bound it was set on', async () => {
-      const wrapper = await panel({
+      await panel({
         fields: [numberField('salary')],
         filters: { salary: { from: 1000, to: null } },
       })
 
       expect(boundInput('salary', 'from').value).toBe('1000')
       expect(boundInput('salary', 'to').value).toBe('')
-
-      wrapper.unmount()
     })
 
     it('shows a multi SELECT’s selection as a count', async () => {
-      const wrapper = await panel({
+      await panel({
         fields: [asMultiple(selectField(['Won', 'Lost']))],
         filters: { stage: ['Won', 'Lost'] },
       })
 
       expect(document.querySelector('.base-select__value')?.textContent?.trim()).toBe('2 selected')
-
-      wrapper.unmount()
     })
   })
 
@@ -229,8 +210,6 @@ describe('RecordsFilterPanel', () => {
       await typeInto(textInput('company'), 'acme')
 
       expect(lastFilters(wrapper)).toEqual({ company: 'acme' })
-
-      wrapper.unmount()
     })
 
     it('keeps every other active filter', async () => {
@@ -242,8 +221,6 @@ describe('RecordsFilterPanel', () => {
         company: 'acme',
         salary: { from: 1000, to: null },
       })
-
-      wrapper.unmount()
     })
 
     /** A value that means "not filtered" is dropped, so the map only ever holds active ones. */
@@ -253,8 +230,6 @@ describe('RecordsFilterPanel', () => {
       await typeInto(textInput('company'), '')
 
       expect(lastFilters(wrapper)).toEqual({ active: true })
-
-      wrapper.unmount()
     })
 
     it('drops a range whose only bound was cleared', async () => {
@@ -263,8 +238,6 @@ describe('RecordsFilterPanel', () => {
       await typeInto(boundInput('salary', 'from'), '')
 
       expect(lastFilters(wrapper)).toEqual({})
-
-      wrapper.unmount()
     })
 
     /**
@@ -277,8 +250,6 @@ describe('RecordsFilterPanel', () => {
       await typeInto(textInput('company'), 'acme')
 
       expect(Object.keys(lastFilters(wrapper)!)).toEqual(['company', 'active'])
-
-      wrapper.unmount()
     })
 
     it('lets a record’s own column be filtered like any other', async () => {
@@ -287,8 +258,6 @@ describe('RecordsFilterPanel', () => {
       await typeInto(textInput(RECORD_NUMBER_KEY), '4')
 
       expect(lastFilters(wrapper)).toEqual({ [RECORD_NUMBER_KEY]: '4' })
-
-      wrapper.unmount()
     })
 
     it('filters a timestamp as a range', async () => {
@@ -297,34 +266,28 @@ describe('RecordsFilterPanel', () => {
       await typeInto(boundInput(CREATED_AT_KEY, 'from'), '2026-01-05')
 
       expect(lastFilters(wrapper)).toEqual({ [CREATED_AT_KEY]: { from: '2026-01-05', to: null } })
-
-      wrapper.unmount()
     })
   })
 
   /** The one control whose model is a different shape from its filter value. */
   describe('the BOOLEAN adapters', () => {
     it('shows an unfiltered boolean as no choice at all', async () => {
-      const wrapper = await panel({ fields: [booleanField('active', { name: 'Active' })] })
+      await panel({ fields: [booleanField('active', { name: 'Active' })] })
 
       expect(document.querySelector('.base-select__value')).toBeNull()
       expect(document.querySelector('.base-select__placeholder')?.textContent?.trim()).toBe('All')
-
-      wrapper.unmount()
     })
 
     it.each([
       [true, 'Yes'],
       [false, 'No'],
     ])('shows a filtered %s as its word', async (value, label) => {
-      const wrapper = await panel({
+      await panel({
         fields: [booleanField('active', { name: 'Active' })],
         filters: { active: value },
       })
 
       expect(document.querySelector('.base-select__value')?.textContent?.trim()).toBe(label)
-
-      wrapper.unmount()
     })
 
     it('emits a real boolean when a choice is picked', async () => {
@@ -339,18 +302,14 @@ describe('RecordsFilterPanel', () => {
       await wrapper.vm.$nextTick()
 
       expect(lastFilters(wrapper)).toEqual({ active: true })
-
-      wrapper.unmount()
     })
   })
 
   describe('the footer', () => {
     it('counts the matching records', async () => {
-      const wrapper = await panel({ total: 12 })
+      await panel({ total: 12 })
 
       expect(count()).toBe('12 matching records')
-
-      wrapper.unmount()
     })
 
     it('reads singular at one and plural at zero', async () => {
@@ -358,18 +317,15 @@ describe('RecordsFilterPanel', () => {
       expect(count()).toBe('1 matching record')
       one.unmount()
 
-      const none = await panel({ total: 0 })
+      await panel({ total: 0 })
       expect(count()).toBe('0 matching records')
-      none.unmount()
     })
 
     /** A stale count under a filter being applied would be a lie. */
     it('says it is filtering rather than showing a stale count', async () => {
-      const wrapper = await panel({ total: 12, pending: true })
+      await panel({ total: 12, pending: true })
 
       expect(count()).toBe('Filtering…')
-
-      wrapper.unmount()
     })
 
     /** Never a dead control: with nothing filtered there is nothing to clear. */
@@ -378,9 +334,8 @@ describe('RecordsFilterPanel', () => {
       expect(clearAll()).toBeUndefined()
       empty.unmount()
 
-      const filtered = await panel({ filters: { company: 'acme' } })
+      await panel({ filters: { company: 'acme' } })
       expect(clearAll()).toBeDefined()
-      filtered.unmount()
     })
 
     it('clears every filter at once', async () => {
@@ -389,8 +344,6 @@ describe('RecordsFilterPanel', () => {
       clearAll()?.click()
 
       expect(lastFilters(wrapper)).toEqual({})
-
-      wrapper.unmount()
     })
   })
 
@@ -400,7 +353,5 @@ describe('RecordsFilterPanel', () => {
     document.querySelector<HTMLElement>('[aria-label="Close"]')?.click()
 
     expect(wrapper.emitted('close')).toHaveLength(1)
-
-    wrapper.unmount()
   })
 })

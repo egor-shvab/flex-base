@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { mountTracked, unmountAll } from '~~/test/mount'
+
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -24,7 +25,7 @@ import {
 const createdAtColumn: IField = { ...RECORD_NUMBER_FIELD, key: CREATED_AT_KEY, name: 'Created at' }
 
 function cell(column: IField, row: IRecord = record()) {
-  return mountSuspended(RecordFieldValue, { props: { record: row, column } })
+  return mountTracked(RecordFieldValue, { props: { record: row, column } })
 }
 
 /** A row carrying one value under the column's own key. */
@@ -33,6 +34,8 @@ function rowWith(column: IField, value: unknown): IRecord {
 }
 
 describe('RecordFieldValue', () => {
+  afterEach(unmountAll)
+
   // A RELATION cell resolves its label through the store the Nuxt app provides
   beforeEach(() => setActivePinia(useNuxtApp().$pinia as Pinia))
 

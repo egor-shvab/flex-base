@@ -1,4 +1,4 @@
-import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { expect, openRecordForm, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
 /**
@@ -17,12 +17,6 @@ const MANY = Array.from({ length: 20 }, (_, index) => ({
 const combo = (page: import('@playwright/test').Page, name: string) =>
   page.getByRole('dialog').getByRole('combobox', { name })
 
-async function openRecordForm(page: import('@playwright/test').Page) {
-  await page.goto(table.url)
-  await page.getByRole('button', { name: 'Add record' }).first().click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-}
-
 test.beforeEach(async ({ seedTable }) => {
   table = await seedTable('Deals', [
     { key: 'company', type: 'TEXT', name: 'Company' },
@@ -38,7 +32,7 @@ test.beforeEach(async ({ seedTable }) => {
 
 test.describe('typing', () => {
   test('opens the panel and filters as you go', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
 
     await combo(page, 'Many').pressSequentially('Choice 1')
 
@@ -49,7 +43,7 @@ test.describe('typing', () => {
   })
 
   test('a paste opens and filters it just as a keystroke does', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     const input = combo(page, 'Many')
     await input.focus()
 
@@ -65,7 +59,7 @@ test.describe('typing', () => {
 
   /** A SELECT's choices are already in hand, so filtering them must not go to the server. */
   test('filters locally, issuing no request', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
 
     // Data endpoints only: opening the panel pulls its tick icon from `/api/_nuxt_icon/`, which
     // is an asset rather than a lookup and would make an "any request" count meaningless
@@ -83,7 +77,7 @@ test.describe('typing', () => {
   test('hides the selection overlay while a term is typed, and restores it when cleared', async ({
     page,
   }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     const input = combo(page, 'Many')
 
     await input.click()
@@ -98,7 +92,7 @@ test.describe('typing', () => {
   })
 
   test('never shows the native placeholder under a selection', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     const input = combo(page, 'Many')
 
     await expect(input).toHaveAttribute('placeholder')
@@ -114,7 +108,7 @@ test.describe('typing', () => {
 
 test.describe('picking several', () => {
   test('keeps the term editable after picking with the mouse', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     const input = combo(page, 'Tags')
 
     await input.pressSequentially('Choice 1')
@@ -125,7 +119,7 @@ test.describe('picking several', () => {
   })
 
   test('Backspace on an empty term drops one value per press', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     const input = combo(page, 'Tags')
 
     await input.click()
@@ -143,25 +137,35 @@ test.describe('picking several', () => {
 
   /**
    * Approximated: a held key is not reproducible through Playwright's API, so this presses
-   * more times than there are values and asserts it stops at empty rather than throwing.
+   * more times than there are values. What it can prove is that the presses past the end are
+   * harmless — the selection empties on the first and the extra five change nothing.
+   *
+   * Asserted on the value overlay, not on the input: nothing is ever typed here, so the
+   * field's own value is `''` throughout and could never have failed.
    */
   test('stops at empty rather than running away', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     const input = combo(page, 'Tags')
+    const value = page.locator('.base-select__value')
 
     await input.click()
     await page.getByRole('option', { name: 'Choice 01', exact: true }).click()
     await page.keyboard.press('Escape')
+    await expect(value).toContainText('Choice 01')
 
-    for (let press = 0; press < 6; press += 1) await input.press('Backspace')
+    await input.press('Backspace')
+    await expect(value).toBeHidden()
 
+    // Five more than there is anything to remove
+    for (let press = 0; press < 5; press += 1) await input.press('Backspace')
+
+    await expect(value).toBeHidden()
     await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(input).toHaveValue('')
   })
 })
 
 test('clearing leaves focus in the control, never on the body', async ({ page }) => {
-  await openRecordForm(page)
+  await openRecordForm(page, table.url)
   const input = combo(page, 'Many')
 
   await input.click()

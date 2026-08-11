@@ -71,9 +71,15 @@
       <template v-else>
         <!-- Not when the load failed: an empty result and an unknown result look the same in
              the store, and claiming the table is empty would be a guess -->
+        <!--
+          A status, unlike the fieldless state above it: this one appears and changes in
+          answer to a filter or a search, with focus still in the box that caused it, so
+          nothing else on screen would tell a screen-reader user the table just emptied.
+        -->
         <BaseEmptyState
           v-if="recordsStore.records.length === 0 && !recordsStore.failed"
           class="records-page__empty"
+          role="status"
           :title="emptyTitle"
         >
           {{ emptyMessage }}

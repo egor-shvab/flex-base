@@ -68,13 +68,12 @@ test.describe('opening it', () => {
   test('does not refetch the list behind it', async ({ page }) => {
     await page.goto(deals.url)
 
+    // The list endpoint is `…/records` with or without a query; the detail endpoint appends
+    // `/<recordId>`, so it never matches either form
     let listRequests = 0
     page.on('request', (request) => {
-      if (/\/records\?|\/records$/.test(new URL(request.url()).pathname + request.url())) {
-        if (request.url().includes('/records?') || request.url().endsWith('/records')) {
-          listRequests += 1
-        }
-      }
+      const { pathname } = new URL(request.url())
+      if (pathname.endsWith('/records')) listRequests += 1
     })
 
     await page.getByRole('link', { name: 'View record' }).click()

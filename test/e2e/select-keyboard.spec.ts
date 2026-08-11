@@ -1,4 +1,4 @@
-import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { expect, openRecordForm, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
 /**
@@ -32,12 +32,6 @@ const manyTrigger = (page: import('@playwright/test').Page) =>
 const activeOption = (page: import('@playwright/test').Page) =>
   page.locator('[role="option"].base-select__option--active')
 
-async function openRecordForm(page: import('@playwright/test').Page) {
-  await page.goto(table.url)
-  await page.getByRole('button', { name: 'Add record' }).first().click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-}
-
 test.beforeEach(async ({ seedTable }) => {
   table = await seedTable('Deals', [
     { key: 'company', type: 'TEXT', name: 'Company' },
@@ -56,7 +50,7 @@ test.beforeEach(async ({ seedTable }) => {
  * else. A cursor the user cannot see is the failure this one case exists for.
  */
 test('the keyboard cursor is visibly outlined, not just class-marked', async ({ page }) => {
-  await openRecordForm(page)
+  await openRecordForm(page, table.url)
   await fewTrigger(page).focus()
 
   await page.keyboard.press('ArrowDown')
@@ -77,7 +71,7 @@ test('the keyboard cursor is visibly outlined, not just class-marked', async ({ 
 
 test.describe('the searchable branch', () => {
   test('PageDown jumps further than a single step', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     // Opening already seeds the cursor — on the current value, or on the first option when
     // there is none — so no ArrowDown is needed to get a highlight
     await manyTrigger(page).click()
@@ -91,7 +85,7 @@ test.describe('the searchable branch', () => {
 
   /** A highlight that has scrolled out of sight is no highlight at all. */
   test('the panel scrolls to keep the highlight in view', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     await manyTrigger(page).click()
     await page.keyboard.press('ArrowDown')
 
@@ -193,7 +187,7 @@ test('a panel stays pinned to its trigger while the drawer scrolls', async ({
  */
 test.describe('Escape layering', () => {
   test('a closed non-searchable select lets the dialog behind it close', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     await fewTrigger(page).focus()
 
     await page.keyboard.press('Escape')
@@ -202,7 +196,7 @@ test.describe('Escape layering', () => {
   })
 
   test('a closed searchable select does the same', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     await manyTrigger(page).focus()
 
     await page.keyboard.press('Escape')
@@ -213,7 +207,7 @@ test.describe('Escape layering', () => {
   test('an open select closes only its panel, and a second press closes the dialog', async ({
     page,
   }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     await fewTrigger(page).focus()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('listbox')).toBeVisible()
@@ -227,7 +221,7 @@ test.describe('Escape layering', () => {
   })
 
   test('the same holds for the searchable branch', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     await manyTrigger(page).click()
     await expect(page.getByRole('listbox')).toBeVisible()
 
@@ -244,7 +238,7 @@ test.describe('Enter in a form', () => {
   test('reaches the form when the select is closed, rather than being swallowed', async ({
     page,
   }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     await page.getByLabel('Company').fill('Acme')
 
     await page.getByLabel('Company').press('Enter')
@@ -254,7 +248,7 @@ test.describe('Enter in a form', () => {
   })
 
   test('picks rather than submitting while the panel is open', async ({ page }) => {
-    await openRecordForm(page)
+    await openRecordForm(page, table.url)
     await fewTrigger(page).focus()
     await page.keyboard.press('Enter')
     // Enter opened it on the first choice, so one step down lands on the second

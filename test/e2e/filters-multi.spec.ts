@@ -1,4 +1,4 @@
-import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { companies, expect, expectCompanies, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
 /**
@@ -7,12 +7,6 @@ import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
  */
 
 let table: ISeededTable
-
-const companies = (page: import('@playwright/test').Page) =>
-  page.locator('tbody tr td:nth-child(2)').allInnerTexts()
-
-const expectCompanies = (page: import('@playwright/test').Page, expected: string[]) =>
-  expect.poll(() => companies(page)).toEqual(expected)
 
 const stageFilter = (page: import('@playwright/test').Page) =>
   page.locator('.filter-panel').getByRole('button', { name: /^Stage/ })

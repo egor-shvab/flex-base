@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { registerEndpoint } from '@nuxt/test-utils/runtime'
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -7,6 +7,7 @@ import { nextTick } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { useRelationsStore } from '~/stores/relations'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
  * The one field-type control that is a component rather than data, and the only one that
@@ -37,7 +38,7 @@ const optionLabels = () =>
   )
 
 function mountControl(props: Record<string, unknown> = {}) {
-  return mountSuspended(RelationFieldSelect, {
+  return mountTracked(RelationFieldSelect, {
     attachTo: document.body,
     props: { id: 'owner', label: 'Owner', fieldId: FIELD_ID, modelValue: '', ...props } as never,
   })
@@ -54,6 +55,8 @@ async function open(wrapper: TWrapper) {
 }
 
 describe('RelationFieldSelect', () => {
+  afterEach(unmountAll)
+
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
 
@@ -78,8 +81,6 @@ describe('RelationFieldSelect', () => {
       await open(wrapper)
 
       expect(listbox()?.getAttribute('aria-multiselectable')).not.toBe('true')
-
-      wrapper.unmount()
     })
 
     it('is multi when the field holds several', async () => {
@@ -87,8 +88,6 @@ describe('RelationFieldSelect', () => {
       await open(wrapper)
 
       expect(listbox()?.getAttribute('aria-multiselectable')).toBe('true')
-
-      wrapper.unmount()
     })
 
     /** Both branches search: the seed list is capped, so anything past it is reached by name. */
@@ -99,7 +98,6 @@ describe('RelationFieldSelect', () => {
 
       const multi = await mountControl({ multiple: true, modelValue: [] })
       expect(multi.find('.base-select__input').exists()).toBe(true)
-      multi.unmount()
     })
   })
 
@@ -109,8 +107,6 @@ describe('RelationFieldSelect', () => {
       await open(wrapper)
 
       expect(document.querySelector('.base-select__value')).toBeNull()
-
-      wrapper.unmount()
     })
 
     it('writes a bare string back from the single branch', async () => {
@@ -121,8 +117,6 @@ describe('RelationFieldSelect', () => {
       await nextTick()
 
       expect(lastModel(wrapper)).toBe('rec_ada')
-
-      wrapper.unmount()
     })
 
     it('writes an array back from the multi branch', async () => {
@@ -133,8 +127,6 @@ describe('RelationFieldSelect', () => {
       await nextTick()
 
       expect(lastModel(wrapper)).toEqual(['rec_ada', 'rec_grace'])
-
-      wrapper.unmount()
     })
 
     /**
@@ -145,8 +137,6 @@ describe('RelationFieldSelect', () => {
       const wrapper = await mountControl({ modelValue: ['rec_grace'] })
 
       expect(wrapper.get('.base-select__value').text()).toBe('Grace Hopper')
-
-      wrapper.unmount()
     })
   })
 
@@ -165,8 +155,6 @@ describe('RelationFieldSelect', () => {
 
       expect(optionLabels()).toContain('Katherine Johnson')
       expect(wrapper.get('.base-select__value').text()).toBe('Katherine Johnson')
-
-      wrapper.unmount()
     })
 
     it('degrades to the unknown label when even the cache has never seen it', async () => {
@@ -174,8 +162,6 @@ describe('RelationFieldSelect', () => {
       await open(wrapper)
 
       expect(optionLabels()).toContain(UNKNOWN_RECORD_LABEL)
-
-      wrapper.unmount()
     })
 
     /** Every link is checked, not just the first: dropping one of three is as lossy as one. */
@@ -195,8 +181,6 @@ describe('RelationFieldSelect', () => {
       expect(optionLabels()).toEqual(
         expect.arrayContaining(['Ada Lovelace', 'Katherine Johnson', 'Dorothy Vaughan']),
       )
-
-      wrapper.unmount()
     })
 
     it('never repeats a link the seed already lists', async () => {
@@ -204,8 +188,6 @@ describe('RelationFieldSelect', () => {
       await open(wrapper)
 
       expect(optionLabels().filter((label) => label === 'Ada Lovelace')).toHaveLength(1)
-
-      wrapper.unmount()
     })
   })
 
@@ -220,7 +202,5 @@ describe('RelationFieldSelect', () => {
       .toEqual(expect.arrayContaining(['Margaret Hamilton']))
 
     expect(panel()).not.toBeNull()
-
-    wrapper.unmount()
   })
 })

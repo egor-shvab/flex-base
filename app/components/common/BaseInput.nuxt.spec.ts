@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+
 import { nextTick } from 'vue'
 import BaseInput from '~/components/common/BaseInput.vue'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 function input(props: Record<string, unknown> = {}) {
-  return mountSuspended(BaseInput, { props: { id: 'company', modelValue: '', ...props } as never })
+  return mountTracked(BaseInput, { props: { id: 'company', modelValue: '', ...props } as never })
 }
 
 type TInput = Awaited<ReturnType<typeof input>>
@@ -20,6 +21,8 @@ async function type(wrapper: TInput, value: string) {
 }
 
 describe('BaseInput', () => {
+  afterEach(unmountAll)
+
   afterEach(() => vi.useRealTimers())
 
   describe('structure', () => {

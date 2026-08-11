@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
+import { track, unmountAll } from '~~/test/mount'
 
 const VIEWPORT_HEIGHT = 800
 const VIEWPORT_WIDTH = 1000
@@ -27,8 +28,6 @@ function elementAt(rect: IRect, offsetWidth = rect.width): HTMLElement {
   return element
 }
 
-const mounted: { unmount: () => void }[] = []
-
 /**
  * Runs the composable inside a **component**, because it releases its window listeners and
  * cancels any queued frame in `onBeforeUnmount` — a hook Vue only registers against an
@@ -41,26 +40,27 @@ const mounted: { unmount: () => void }[] = []
  * template would contribute no layout. The composable's return is captured out of `setup`
  * rather than read back off `wrapper.vm`, which unwraps refs.
  *
- * Unmounting happens in `afterEach` rather than case by case, unlike the two sibling specs —
- * a case that fails part-way must not leak a listener into the next one, which is the whole
- * point here. `docs/roadmap.md` Stage F hoists this into a shared helper.
+ * Teardown is `~~/test/mount`'s, so a case that fails part-way cannot leak a listener into the
+ * next one — which is the whole point here. The wrapper comes back as well as the composable's
+ * return, because one case tears the host down *mid-test* to reach the unmount path itself.
  */
-function host<T>(compose: () => T): T {
-  let result!: T
+function host<T>(compose: () => T) {
+  let value!: T
 
-  // `mount` runs setup synchronously, so `result` is assigned by the time this returns
-  const wrapper = mount(
-    defineComponent({
-      setup() {
-        result = compose()
+  // `mount` runs setup synchronously, so `value` is assigned by the time this returns
+  const wrapper = track(
+    mount(
+      defineComponent({
+        setup() {
+          value = compose()
 
-        return () => h('div')
-      },
-    }),
+          return () => h('div')
+        },
+      }),
+    ),
   )
-  mounted.push(wrapper)
 
-  return result
+  return { value, wrapper }
 }
 
 /**
@@ -78,7 +78,7 @@ async function positionOf(
   )
   const open = ref(false)
 
-  const style = host(() => useAnchoredPosition(anchor, panel, open, options))
+  const { value: style } = host(() => useAnchoredPosition(anchor, panel, open, options))
 
   open.value = true
   await nextTick()
@@ -88,16 +88,14 @@ async function positionOf(
 }
 
 describe('useAnchoredPosition', () => {
+  afterEach(unmountAll)
+
   beforeEach(() => {
     window.innerHeight = VIEWPORT_HEIGHT
     window.innerWidth = VIEWPORT_WIDTH
   })
 
-  afterEach(() => {
-    while (mounted.length > 0) mounted.pop()?.unmount()
-
-    vi.restoreAllMocks()
-  })
+  afterEach(() => vi.restoreAllMocks())
 
   it('sits below the anchor when there is room', async () => {
     // 800 - 140 - 4 - 8 = 648 below, comfortably over the 280 cap
@@ -216,7 +214,7 @@ describe('useAnchoredPosition', () => {
     const panel = ref<HTMLElement | undefined>(undefined)
     const open = ref(false)
 
-    const style = host(() => useAnchoredPosition(anchor, panel, open))
+    const { value: style } = host(() => useAnchoredPosition(anchor, panel, open))
 
     open.value = true
     await nextTick()
@@ -283,13 +281,15 @@ describe('useAnchoredPosition', () => {
       // listeners on the transition, so a ref born `true` would never attach any
       const open = ref(false)
 
-      const style = host(() => useAnchoredPosition(anchor, ref(undefined), open))
+      const { value: style, wrapper } = host(() =>
+        useAnchoredPosition(anchor, ref(undefined), open),
+      )
       open.value = true
       // The watch fires on the next tick and defers `measure` one further, matching `positionOf`
       await nextTick()
       await nextTick()
 
-      return { style, anchor, measured, close: () => (open.value = false) }
+      return { style, anchor, measured, wrapper, close: () => (open.value = false) }
     }
 
     it('follows the anchor when the page scrolls under it', async () => {
@@ -346,12 +346,17 @@ describe('useAnchoredPosition', () => {
      * the hook never registered, so unmounting was not a path the spec could reach.
      */
     it('stops measuring when its host unmounts, panel still open', async () => {
-      const { measured } = await openedAt({ top: 100, bottom: 140, left: 200, width: 300 })
+      const { measured, wrapper } = await openedAt({
+        top: 100,
+        bottom: 140,
+        left: 200,
+        width: 300,
+      })
 
       // Queue a re-measure and tear the host down before the frame runs, so an uncancelled
       // frame would still fire during the `frame()` below
       window.dispatchEvent(new Event('scroll'))
-      mounted.pop()?.unmount()
+      wrapper.unmount()
       measured.mockClear()
 
       window.dispatchEvent(new Event('scroll'))

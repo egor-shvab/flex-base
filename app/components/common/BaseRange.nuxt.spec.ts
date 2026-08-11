@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, describe, expect, it } from 'vitest'
+
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import BaseRange from '~/components/common/BaseRange.vue'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 const EMPTY: INumberRange = { from: null, to: null }
 
@@ -13,7 +14,7 @@ function range(
     debounce?: number
   } = {},
 ) {
-  return mountSuspended(BaseRange, {
+  return mountTracked(BaseRange, {
     props: {
       id: 'salary',
       type: props.type ?? 'number',
@@ -33,6 +34,8 @@ const lastModel = (wrapper: TRange) =>
   wrapper.emitted('update:modelValue')?.at(-1)?.[0] as INumberRange | IDateRange | undefined
 
 describe('BaseRange', () => {
+  afterEach(unmountAll)
+
   describe('structure', () => {
     it('groups the two bounds under one label', async () => {
       const wrapper = await range({ label: 'Salary' })
