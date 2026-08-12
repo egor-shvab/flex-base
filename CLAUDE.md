@@ -8,6 +8,8 @@ Three companion documents carry the detail this file deliberately omits. Read th
 - **`docs/architecture.md`** — how the metadata layer works: the field-type registries, record identity and record columns, relations, the filter/search wire format, the SQL layer, the data model, and a map of the key modules.
 - **`docs/decisions.md`** — why it works that way: the rejected alternatives, the load-bearing constraints that must not be "cleaned up", and the **Accepted limitations** register.
 
+How all four are maintained — what belongs where, and what must never be written — is §12.
+
 ---
 
 ## 1. Project & current phase
@@ -63,9 +65,9 @@ PostgreSQL runs in Docker. Never use OSPanel's bundled modules.
 
 ### The roadmap
 
-**`docs/roadmap.md` is the source of truth for the current development plan** — what is being worked on now, what comes next, in what order. Read it before starting a task. Mark a task `[x]` as soon as it is done, `[~]` while in progress. A task discovered mid-development is added to it, in the stage it belongs to; anything cancelled or superseded is deleted rather than kept "for the record" — that is what git history is for.
+**`docs/roadmap.md` is the source of truth for the current development plan** — what is being worked on now, what comes next, in what order. Read it before starting a task. Mark a task `[x]` as soon as it is done, `[~]` while in progress. A task discovered mid-development is added to it; anything cancelled or superseded is deleted rather than kept "for the record".
 
-Scope discipline: the roadmap says _what_ and _in what order_. Contracts belong in `docs/architecture.md`, rationale in `docs/decisions.md`, rules here.
+Scope discipline: the roadmap says _what_ and _in what order_, and never grows into a specification.
 
 ### Definition of done
 
@@ -78,7 +80,7 @@ A change is finished only when, in order:
 5. for any interactive or visual change: the keyboard path works and the focus ring is visible — both still a manual walk. Target size and the axe rules are gated by `npm run test:e2e` (§8);
 6. the change has been verified working in the running app (dev server);
 7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
-8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files, specs or migrations — the codebase is the source of truth for what exists;
+8. documentation is updated **only where a rule, contract, or limitation changed** — §12 governs what belongs where and what must never be written;
 9. `docs/roadmap.md` reflects reality — the task is marked `[x]`, and anything the work revealed or made obsolete is added, updated, or removed.
 
 ---
@@ -370,3 +372,23 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 - `compatibilityDate` is pinned to `2025-07-15`.
 - Modules: `@nuxt/eslint`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt`.
 - Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate; dev-only, and it injects axe into the page rather than shipping in the bundle). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
+
+---
+
+## 12. Documentation maintenance
+
+These four documents are a working reference for whoever changes this code next, not a record of what happened. They load into an agent's context in full, so every unnecessary sentence costs attention the next change needs. **Less documentation, better documentation** — and this section governs itself too.
+
+**Before adding anything, check that it is not already written and that a reader actually needs it.** If it exists in another document, cross-reference it; if it exists in the code, leave it there. If nobody needs it to make a correct change, leave it out. There is exactly one home per kind of information — the routing at the top of this file — and never two.
+
+**Never write:**
+
+- **running inventories** — files, modules, specs, migrations, endpoints, covered surfaces. The codebase answers those, and any list is wrong the moment something is added.
+- **changelogs or shipped history** — what a fix used to do, which stage it landed in, what a limitation looked like before it was closed. Git history holds it.
+- **numbers that drift** — test totals, coverage percentages, file counts, timings beyond an order of magnitude.
+- **narrative** — how a decision was reached, what was tried first, what the symptom looked like. Keep the constraint, drop the story.
+- **the same rule twice.** A rule that must be visible in two places is a cross-reference, not a copy.
+
+**Prefer the short form.** A rule is a sentence. A decision is its rule, the failure mode if it is violated, and the rejected alternative in one clause. Spell out a _why_ only where the code cannot, and only where an obvious-looking "cleanup" would break it.
+
+**When a change makes a passage wrong, rewrite or delete it** — never append a correction beside it.
