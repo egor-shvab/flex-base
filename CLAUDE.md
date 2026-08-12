@@ -25,8 +25,8 @@ Two rules are non-negotiable:
 
 **Current phase — quality, UX, maintainability, polish.** The feature set is done; the work now is tests, accessibility, resilience, and consistency. Two consequences:
 
-- Adding a test suite is current work, not deferred (§10).
-- Entries in `docs/decisions.md` → **Accepted limitations** marked **Open** are in scope; entries marked **Accepted** are not, unless the request says otherwise.
+- The test suite is **built** — four projects, every layer gated (§10). It is no longer work to schedule; it is a gate to keep passing, and step 4 of the definition of done is what binds a change to it.
+- Entries in `docs/decisions.md` → **Accepted limitations** marked **Open** are in scope; entries marked **Accepted** are not, unless the request says otherwise. One **Open** row is left, and it is parked behind a stated trigger — so an "Open" row is now something to read the register for, not a queue to work through.
 
 ### Core principles
 

@@ -14,6 +14,11 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noEmit": true,
+    // The two Vitest configs import `./vitest.coverage.config.ts` **with** its extension, because
+    // Vite's `configLoader: 'native'` — the default in a future major — cannot resolve one
+    // without it, and warns on every `npm run test` until it is there. Nothing is emitted from
+    // this project, so allowing the specifier costs nothing.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,

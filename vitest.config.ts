@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config'
-import { APP_INCLUDE, COVERAGE_BASE, SERVER_INCLUDE } from './vitest.coverage.config'
+import { APP_INCLUDE, COVERAGE_BASE, SERVER_INCLUDE } from './vitest.coverage.config.ts'
 
 /**
  * The suite is two projects, and which one a spec lands in is decided by what it needs rather

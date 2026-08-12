@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { configDefaults, defineConfig } from 'vitest/config'
-import { COVERAGE_BASE, SERVER_INCLUDE } from './vitest.coverage.config'
+import { COVERAGE_BASE, SERVER_INCLUDE } from './vitest.coverage.config.ts'
 
 const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
