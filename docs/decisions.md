@@ -12,11 +12,11 @@ Rules live in `CLAUDE.md`; contracts live in `architecture.md`.
 
 `imports: { autoImport: false }` (app) and `nitro: { imports: { autoImport: false } }` (server) also stop Nuxt generating the global `.d.ts` declarations, so a missing import is a `vue-tsc` error at build time rather than a silently resolved global.
 
-The component scan (`components: [{ path: '~/components', pathPrefix: false }]`) is deliberately **kept**: it is what makes `<LazyRecordFormModal>` code-split for free, and it keeps framework components (`<NuxtLink>`, `<NuxtPage>`, `<Icon>`) working. `pathPrefix: false` is why `common/BaseInput.vue` registers as `<BaseInput>`.
+The component scan (`components: [{ path: '~/components', pathPrefix: false }]`) is deliberately **kept**: it is what code-splits `<LazyRecordFormModal>` for free and what keeps `<NuxtLink>` / `<NuxtPage>` / `<Icon>` working. `pathPrefix: false` is why `common/BaseInput.vue` registers as `<BaseInput>`.
 
 ### Server code must not import from `#imports`
 
-`.nuxt/types/nitro-routes.d.ts` pulls every `server/api/**` handler into the **app** TypeScript project (to type `$fetch` route responses), and `#imports` resolves to the app's module there — so `defineEventHandler` would not be found. `h3` and `nitropack` are therefore declared as direct dependencies; they resolve identically in both projects. Keep their versions in step with the ones Nuxt resolves.
+`.nuxt/types/nitro-routes.d.ts` pulls every `server/api/**` handler into the **app** TypeScript project (to type `$fetch` route responses), and `#imports` resolves to the app's module there — so `defineEventHandler` would not be found. `h3` and `nitropack` are therefore direct dependencies; they resolve identically in both projects. Keep their versions in step with the ones Nuxt resolves.
 
 ### `#server` is server-only
 
@@ -32,49 +32,98 @@ Nuxt's import protection rejects it in app and shared code. The Vue layer reache
 
 ### `@iconify-json/mdi` is declared even though nothing imports it
 
-`@nuxt/icon`'s default `serverBundle: 'auto'` serves an installed collection from disk and otherwise falls back to the public Iconify API — so without the package every icon in the app is a runtime fetch of a third-party host, on a render path that has no fallback if it is slow or unreachable. It is the one dependency whose purpose is its mere presence; dropping it does not fail a build, it just quietly puts the icons back on the network.
+`@nuxt/icon`'s default `serverBundle: 'auto'` serves an installed collection from disk and otherwise falls back to the public Iconify API — so without the package every icon is a runtime fetch of a third-party host, on a render path with no fallback if it is slow or unreachable. Dropping it fails no build; it just quietly puts the icons back on the network.
 
-No `icon: { … }` block in `nuxt.config.ts`: `serverBundle: 'local'` would only restate what `auto` already resolves to, and it would not keep the remote fallback away if the package were ever dropped.
+No `icon: { … }` block in `nuxt.config.ts`: `serverBundle: 'local'` would only restate what `auto` already resolves to, and would not keep the remote fallback away if the package were ever dropped.
 
 ### `@nuxt/fonts` was removed
 
 The app ships no webfonts, and the module tries to resolve the `Segoe UI` / `Roboto` names in `_reset.scss`'s system stack from font providers. Re-add it if and when a real webfont exists — not before.
 
+### The built output is started by one launcher, and its import must stay dynamic
+
+`.output/server/index.mjs` assigns `globalThis._importMeta_` in its module **body**, but ESM hoists imports — so the chunk carrying the bundled Prisma client evaluates first, finds it unset, and falls back to the placeholder `file:///_entry.js`. Prisma then shims `__dirname` through `fileURLToPath()` on it: harmless on POSIX, fatal on Windows, where a relative file URL throws `ERR_INVALID_FILE_URL_PATH`.
+
+`scripts/serve-output.mjs` assigns `_importMeta_` before a **dynamic** import, which is not hoisted. **Making that import static reintroduces the crash.** `scripts/preview.mjs` is the same launcher with the root `.env` loaded first — two files rather than one flag, because loading `.env` is the one thing the e2e suite must never do (it points at the development database, and the suite truncates between cases).
+
+### `.gitattributes` pins `eol=lf`, and nothing was renormalised
+
+`core.autocrlf` is `true` on Windows and Prettier's `endOfLine` defaults to `lf`, so git rewrote every checked-out file to CRLF and Prettier then rejected all of them — a fresh clone failed `npm run format:check` before a line was written, with every touched file reporting a modification whose diff was empty. CI never saw it: Linux checks out LF.
+
+**No `git add --renormalize` was run, and none should be.** `git ls-files --eol` reported the whole index as `i/lf` already — the blobs were always right, only checkout was wrong.
+
+---
+
+## Testing
+
 ### The suite is two Vitest projects, not one with a mixed environment
 
-The original arrangement was a single `environment: 'node'` config, on the grounds that nothing under test touched Vue, the DOM or Nuxt's runtime, and that `environment: 'nuxt'` would boot a Nuxt app per file to serve code importing nothing from it. That held exactly as long as the covered surface was `shared/` and the SQL builder. It stopped holding at the stores: each calls `useApi()` at store-setup time, so `#imports` is in the import graph and the module cannot even be **loaded** in the node project, let alone exercised.
+A single `environment: 'node'` config held exactly as long as the covered surface was `shared/` and the SQL builder. It stopped holding at the stores: each calls `useApi()` at store-setup time, so `#imports` is in the import graph and the module cannot even be **loaded** in the node project.
 
-The split keeps both properties instead of trading one for the other. `vitest.config.ts` is a thin root declaring `test.projects`; `vitest.unit.config.ts` is the previous config unchanged but for a name and an exclude glob, and `vitest.nuxt.config.ts` is `defineVitestConfig` with `environment: 'nuxt'`. The node project still runs in under a second and is still what `npm run test:unit` gives the inner loop — the Nuxt startup cost is paid only by the specs that need it.
+The split keeps both properties instead of trading one for the other — the node project still runs in under a second, and the Nuxt startup cost is paid only by the specs that need it. Three alternatives were rejected:
 
-Three alternatives were rejected:
+- **A per-file `// @vitest-environment nuxt` pragma.** The Nuxt environment is not only an environment — `defineVitestConfig` also installs the Vite plugins that resolve `#imports`, compile SFCs and transform `mockNuxtImport`. There is no file-level form of that, and it would hide the cost.
+- **One project on `environment: 'nuxt'` throughout.** It would make every existing spec pay a Nuxt build for aliases it already had. The fast half is the half run most often.
+- **Hand-stubbing `#imports` in the node project.** A second definition of `useRequestFetch`, `useRoute` and `useAsyncData`, free to drift from the real ones without failing anything. The point of the real environment is that the app under test is configured by `nuxt.config.ts` and nothing else.
 
-- **A per-file `// @vitest-environment nuxt` pragma.** A pragma switches the environment, but the Nuxt environment is not only an environment — `defineVitestConfig` also installs the Vite plugins that resolve `#imports`, compile SFCs and transform `mockNuxtImport`. There is no file-level form of that. It would also hide the cost: nothing in the file name or the run output would say which specs are expensive.
-- **One project on `environment: 'nuxt'` throughout.** Simpler config, and it would make every existing spec pay a Nuxt build for aliases it already had. The fast half is the half run most often.
-- **Hand-stubbing `#imports` in the node project.** A stub module aliased in place of `#imports` would keep one project — and would be a second definition of `useRequestFetch`, `useRoute` and `useAsyncData`, free to drift from the real ones without failing anything. The point of using the real environment is that the app under test is configured by `nuxt.config.ts` and by nothing else.
-
-`@vue/test-utils` and `happy-dom` come with it: the former is `mountSuspended`'s peer, the latter is the Nuxt environment's default DOM and the lighter of the two it supports. **Playwright is deliberately not part of this** — a browser is what E2E needs, and none of these specs are E2E.
+**Playwright is deliberately not part of this** — a browser is what E2E needs, and none of these specs are E2E.
 
 ### `@nuxt/test-utils/module` is not in `nuxt.config.ts`
 
-The package ships a Nuxt module, and the docs list it alongside the Vitest config. It is not required to run `environment: 'nuxt'`: its job is Vitest integration inside Nuxt DevTools. Adding it would put a test concern into the config that describes the shipped app, for a devtools panel nobody has asked for. The two config files are the whole setup, and `nuxt.config.ts` stays about the application.
+It is not required to run `environment: 'nuxt'`; its job is Vitest integration inside Nuxt DevTools. Adding it would put a test concern into the config that describes the shipped app.
 
-### Specs colocated in `app/` are split by suffix, not by directory
+### Specs are colocated, and the project is named by suffix
 
-`.nuxt/tsconfig.app.json` ships an `include` glob for `../test/nuxt/**/*`, which is Nuxt's own convention for exactly these tests. It was not used: it would put a spec several directories from its subject, for the sole benefit of a glob that `../app/**/*` already covers.
+`.nuxt/tsconfig.shared.json` includes `../shared/**/*` and `.nuxt/tsconfig.server.json` includes `../server/**/*`, so a colocated `*.spec.ts` is type-checked by `npm run typecheck` with **no** tsconfig change. A top-level `tests/` tree sits outside every generated `include` and would need its own config plus a `references` entry — new configuration to restore what colocation gets for free. Nuxt's own `test/nuxt/**` convention was rejected for the same reason plus one more: it puts a spec several directories from its subject.
 
-`*.nuxt.spec.ts` instead names the project in the file name. The node project excludes the pattern, the Nuxt project includes only it, and both are visible from a directory listing — which matters most when the question is "why is this one slow", and the answer has to be readable without opening two config files.
+`*.nuxt.spec.ts` names the project in the file name instead, so which specs are slow is readable from a directory listing rather than from two config files.
 
-### Specs are colocated rather than gathered under `tests/`
-
-`.nuxt/tsconfig.shared.json` includes `../shared/**/*` and `.nuxt/tsconfig.server.json` includes `../server/**/*`, so a colocated `*.spec.ts` is type-checked by `npm run typecheck` with **no** tsconfig change at all. A top-level `tests/` tree sits outside every generated `include`, so it would need its own `tsconfig.test.json` plus a `references` entry — new configuration whose only purpose is to restore what colocation gets for free.
-
-The one thing that does not fit inside a source directory is the shared `IField` builder: it is test-only code, so it lives in `test/fixtures.ts` and is reached as `~~/test/fixtures`. The root alias resolves in both the shared and the server project already, which is why this needs no `nuxt.config.ts` entry either — and being outside `app`/`server`/`shared` keeps it clear of `no-restricted-imports`.
+The one thing that does not fit inside a source directory is the shared `IField` builder: it is test-only, so it lives in `test/fixtures.ts` and is reached as `~~/test/fixtures`. Being outside `app`/`server`/`shared` also keeps it clear of `no-restricted-imports`.
 
 ### The SQL builder is unit-testable because it never executes
 
-`server/services/record-query.ts` imports `Prisma` from the generated client for `Prisma.sql` / `Prisma.join` alone — no client instance, no `server/utils/prisma`. Its four exports return `Prisma.Sql`, whose `.text` (numbered `$1…$n` placeholders) and `.values` can be asserted on with no connection. That is what lets the layer where a mistake is most expensive — a filter that silently widens, a wildcard that is not escaped — be pinned without a database.
+`server/services/record-query.ts` imports `Prisma` from the generated client for `Prisma.sql` / `Prisma.join` alone — no client instance. Its exports return `Prisma.Sql`, whose `.text` (numbered `$1…$n` placeholders) and `.values` can be asserted on with no connection. That is what lets the layer where a mistake is most expensive — a filter that silently widens, a wildcard that is not escaped — be pinned without a database. The suite therefore needs `prisma generate` to have run, which `postinstall` covers.
 
-The suite therefore needs `prisma generate` to have run, which `postinstall` already covers on every `npm ci`. The other four services reach the client and are not unit-test subjects.
+### A duplicated test is a cost, not insurance
+
+Runtime was never the argument. Three reasons a second copy one layer up is worth deleting:
+
+- **A slow copy teaches the wrong lesson.** A browser spec that opens by saying the logic is pinned in happy-dom already, then re-tests the logic, is read by the next person as the place to add cases.
+- **A test that cannot fail reads as coverage.** An "entry for every field type" check over a `Record<TFieldType, …>` object literal is enforced by the compiler (`TS2741`) and can only ever be green.
+- **A restated constant turns a design decision into a broken build.** A spec encoding the search threshold as a literal fails when the number moves; asserting the registry _agrees with_ `shouldSearch()` still catches a hardcode and survives it. `app/utils/select.spec.ts` owns that boundary and is the only place that should.
+
+What stays is the half that is not duplicated — e.g. the keyboard cursor's **paint**: `test.css` is `false`, so a component spec sees the `--active` class and never the outline it draws. Removing the outline rule leaves every component case green and turns the one browser case red, which is the shape every e2e case here should have. **Do not restore a deleted duplicate out of caution.** Depth belongs at the cheapest layer that can answer the question.
+
+### The accessibility gate blocks on serious and critical only
+
+Admitting `moderate` and `minor` on first introduction meant either a long list of disabled rules or a stage that never landed, and neither is a gate. The bar is raised by narrowing `BLOCKING_IMPACTS` in `test/e2e/setup/a11y.ts`, not by adding exclusions. Nothing is disabled today; a rule that ever has to be turned off belongs in that file with its reason beside it, never silently at a call site.
+
+It does **not** replace the keyboard walk in the definition of done: axe decides a name, a role, a contrast ratio, and cannot tell whether a focus order makes sense.
+
+### Coverage is merged from two runs, not collected in one
+
+`server/api/` and `server/middleware/` are reachable only from the `integration` project. Folding that project into `test.projects` would produce one report in one run — and would make `npm run test` want a database, which is the property the split exists to protect. So each run writes a **blob report** and `vitest run --merge-reports --coverage` merges the coverage maps.
+
+Rejected alongside it: dropping those globs from `coverage.include` and documenting where they are proven instead. Less work and less honest — files at 0% teach a reader to skim red rows, and the next genuinely uncovered file arrives in a report nobody trusts.
+
+Four constraints are load-bearing:
+
+- **The merge step is `vitest run --merge-reports`, never bare `vitest`.** Watch mode defaults to `!isCI && process.stdin.isTTY && !isAgent`, and merging refuses to run under it — so a bare `vitest` works in CI, in a pipe and under an agent, and fails in the one place it matters: a developer's terminal. `run` forces `watch` off unconditionally.
+- **The scope lives in `vitest.coverage.config.ts`**, a fragment rather than a runnable config, because two `include` lists would drift the first time a directory was added. It is named `*.config.ts` only so `tsconfig.tools.json`'s glob type-checks it, and its importers name it **with the `.ts` extension** — Vite's `configLoader: 'native'` cannot resolve an extensionless relative specifier and warns on every run until it is spelled out.
+- **The integration run measures the server half only.** Given `app/**` it would have to transform `app/field-types/*.ts` — which import `.vue` files — in a node environment with no Vue plugin. Nothing is lost: merging unions the file sets.
+- **`.vitest-reports/` may contain nothing but blob files.** Vitest's `readBlobs` throws on any subdirectory and merges every file it finds, so the two fixed `--outputFile.blob` paths are what keep a stale or foreign file out of the report.
+
+The merge step's summary line counts the root projects only, though every test is listed and reported. The two collect steps print their own accurate totals just above it.
+
+### Decided against, in testing scope
+
+Recorded so they are not re-litigated. Revisit only with a reason that has changed.
+
+- **Parallel e2e / integration.** Both serialize on one database; the saving does not pay for per-worker provisioning.
+- **A hard coverage threshold.** Specs here are written to pin behaviour, not to move a number, and a gate invites the opposite. Revisit only if coverage drifts down over months — the merged report is what makes that visible.
+- **More browsers.** The suite is about this app's behaviour, not browser differences.
+- **Mutation testing, component snapshots, visual regression.** No evidence any would catch something the current suite misses, and each adds a maintenance surface.
+- **A mobile Playwright project.** `test.use({ viewport })` in `mobile-shell.spec.ts` gives the same coverage; a project would either duplicate the desktop suite at 375px or select that one file.
 
 ---
 
@@ -96,19 +145,13 @@ It lives only on `Table.userId`; fields and records reach the user through their
 
 ### `Record.number` instead of an auto-incrementing PK
 
-Every user's records share one physical `Record` table, so a global sequence would:
-
-- number rows across all tenants (a table would read `1, 47, 2931`);
-- leak platform-wide row volume through the counter;
-- make ids enumerable;
-
-—all while still not giving the per-table `1..n` that makes a number readable in the first place. So `id` stays an unguessable `cuid()` for reference and addressing, and `number` is a separate display column (`architecture.md` §4).
+Every user's records share one physical `Record` table, so a global sequence would number rows across all tenants (a table would read `1, 47, 2931`), leak platform-wide row volume through the counter, and make ids enumerable — all while still not giving the per-table `1..n` that makes a number readable. So `id` stays an unguessable `cuid()` for reference and addressing, and `number` is a separate display column.
 
 `number` is allocated inside the insert's own transaction via Prisma's atomic `{ increment: 1 }`, which takes the row lock, so concurrent creates queue rather than race — no retry loop. It is a **high-water mark, not a count**: deleting a record never frees its number.
 
 ### The redundant single-column indexes were dropped — do not re-add them
 
-`Table_userId_idx`, `Field_tableId_idx` and `Record_tableId_idx` were each subsumed by the left prefix of the composite index above them, and only cost write throughput. `drop_redundant_indexes` removed all three; `EXPLAIN` confirmed the plans are unchanged, and the record list improved (the composite supplies the ordering, so its `Sort` node is gone).
+`Table_userId_idx`, `Field_tableId_idx` and `Record_tableId_idx` were each subsumed by the left prefix of the composite index above them, and only cost write throughput. `EXPLAIN` confirmed the plans are unchanged, and the record list improved (the composite supplies the ordering, so its `Sort` node is gone).
 
 `@@index([tableId, createdAt])` stays even though the default ordering is `DESC` — Postgres scans a btree backwards.
 
@@ -128,116 +171,110 @@ A filter's **value** is the whole contract. How a value is compared is the field
 
 ### A multi-value filter is a repeated param, not a delimited one
 
-SELECT filters carry several choices, ORed — `?stage=Won&stage=Lost`. Comma-joining was rejected: a choice's value is free user text and may contain any character, so any delimiter needs escaping, and escaping user text into a separator is a silent-corruption failure mode rather than a loud one.
+`?stage=Won&stage=Lost`. Comma-joining was rejected: a choice's value is free user text and may contain any character, so any delimiter needs escaping, and escaping user text into a separator is a silent-corruption failure mode rather than a loud one.
 
-This does not overturn "a repeated param is a 400" — it makes it a **per-shape** rule, which is how the layer already works ("a type declares the shape of its value, that shape names its params"). A scalar or range slot given an array is still malformed and still 400s; only a `list` slot reads repeats. The values are **sorted on serialize**, so the same selection always writes the same URL however it was clicked, and `recordQueryKey` cannot report a change nobody made.
+This does not overturn "a repeated param is a 400" — it makes it a **per-shape** rule. A scalar or range slot given an array is still malformed and still 400s; only a `list` slot reads repeats. Values are **sorted on serialize**, so one selection always writes one URL and `recordQueryKey` cannot report a change nobody made.
 
 The bounds: `FILTER_LIST_MAX` (50) in the schema, because a repeated param is the one place a single filter can grow without limit and every value becomes a term of an `IN (…)`; and the codec caps and deduplicates independently, because it also runs client-side over an unvalidated `route.query`.
 
-### Widening `TFilterValue` with `string[]` means every object guard must exclude arrays
-
-`isRangeFilterValue` narrowed on `typeof value === 'object' && value !== null`, which an array passes — so without `!Array.isArray` a list-shaped filter would have decoded as a range and been read for bounds it does not have. `isScalarFilterValue` was added alongside so a comparison guards on the shape it _wants_ rather than on the one other shape that happened to exist when it was written.
-
-`TRecordValue` **is** now widened with `string[]` too — see below. That reversed an explicit note here ("a record still stores one value per field; only a filter holds several"), and it is what made this entry's guards load-bearing on both sides of the wire rather than on one.
-
 ### Multi-value is a per-field flag, not a pair of new field types
 
-`MULTI_SELECT` and `MULTI_RELATION` as `FieldType` members was the obvious alternative, and it is what the type system wants: every registry is a total `Record<TFieldType, …>`, so two new members would have made the compiler walk you through all of them, and §9 of `CLAUDE.md` is already a checklist for exactly that.
+`MULTI_SELECT` and `MULTI_RELATION` as `FieldType` members is what the type system wants — two new members would make the compiler walk you through every total registry. **It fails on the only conversion anyone actually needs.** `updateField` rejects a type change, and correctly, so a relation field already linking each master to one service could never become multi-valued: the user would have to create a second field, re-enter every link by hand, and delete the first. A flag can be flipped with a migration; a type cannot. The upgrade path _is_ the feature.
 
-**It fails on the only conversion anyone actually needs.** `updateField` rejects a type change, and correctly — the stored values would not survive it. So a relation field that already links each master to one service could never become multi-valued: the user would have to create a second field, re-enter every link by hand, and delete the first. A flag can be flipped with a migration; a type cannot. The upgrade path _is_ the feature.
+It also avoids doubling the user's type list (`Select` / `Multi-select` / `Link to table` / `Links to table`) and carrying two near-identical rows in every registry.
 
-Two smaller costs it also avoids: the user's type list would double (`Select` / `Multi-select` / `Link to table` / `Links to table`), and every one of the ten registries would carry two near-identical rows, which is the duplication `CLAUDE.md` §6's DRY trigger exists to prevent.
-
-**What replaces the compiler's guarantee.** `MULTI_VALUE_BY_TYPE` is a total `Record<TFieldType, boolean>`, and each affected registry gains a total `Record<TFieldType, X | null>` override table. A seventh field type therefore still cannot ship without declaring its position on cardinality — the totality moved, it was not given up. `isMultiValue(field)` is the single reader of the flag, and the guard inside it is why a stale `options.multiple` on a type with no list form can never reach the schema or the SQL.
+**What replaces the compiler's guarantee:** `MULTI_VALUE_BY_TYPE` is a total `Record<TFieldType, boolean>`, and each affected registry gains a total `Record<TFieldType, X | null>` override table. A seventh field type still cannot ship without declaring its position — the totality moved, it was not given up. `isMultiValue(field)` is the single reader, and its guard is why a stale `options.multiple` on a type with no list form can never reach the schema or the SQL.
 
 ### Multi is a lifting of the single-value spec, not a second set of specs
 
-Every layer treats "several" as the same uniform transformation of "one": `base` → `z.array(base)`, `= x` → `jsonb_exists_any`, one cell → a row of that cell, `BaseSelect` → `BaseSelect multiple`. So no field type declares a second schema, a second cell or a second summary — each registry keeps its flat entries and one resolver reads the flag.
+Every layer treats "several" as the same uniform transformation of "one": `base` → `z.array(base)`, `= x` → `jsonb_exists_any`, one cell → a row of that cell, `BaseSelect` → `BaseSelect multiple`. So no field type declares a second schema, cell or summary. The branch exists once per registry — in `sqlFor` / `inputFor` / `filterFor` / `summaryFor` / `cellComponent` / `filterShapeFor` — and nothing downstream learns that `multiple` exists, which is what keeps this from being a `switch` on cardinality in every renderer.
 
-That is what keeps the change from being a `switch` on cardinality in every renderer, which is the failure `CLAUDE.md` §9 names. The branch exists once per registry, in `sqlFor` / `inputFor` / `filterFor` / `summaryFor` / `cellComponent` / `filterShapeFor`, and nothing downstream of those learns that `multiple` exists.
+**Multi-value cells need no override table at all.** `MultiValueCell` renders each entry through `FIELD_CELLS[field.type]`, because a list of values is exactly the list of how each value renders. A future multi-capable type is covered without a component.
 
-**Multi-value cells need no registry at all.** `MultiValueCell` renders each entry through `FIELD_CELLS[field.type]`, because a list of values is exactly the list of how each value renders. A future multi-capable type is covered without a component.
+Duplicates in a stored list are **rejected, not deduplicated**: a control cannot produce one (picking a chosen option toggles it off), so a repeat is a crafted payload, and rejecting keeps a `.transform()` out of a layer that only judges.
 
-### `TRecordSingleValue` exists because a prop type is a runtime contract
+### One value union, narrowed by shape — and a prop type is a runtime contract
 
-`TRecordValue` gained `string[]`, and the reflex is to let every position that holds a record value follow it. That is wrong in most of them: a per-type cell renders one value, a record's own column holds one, a decoded filter bound is one. Nine of the ten cells cannot draw a list — `MultiValueCell` is what a list resolves to, and it hands each entry back to one of them.
+`TRecordValue` is widened with `string[]`, reversing an earlier decision that a record holds one value per field. The consequence to know is that **`TRecordValue` stayed a subset of `TFilterValue`**, so `IFieldControl<TValue extends TFilterValue>` needed no change and the shape guards that already existed for filters were the ones the record side needed too.
 
-Ordinarily a too-wide type is a lint-level complaint. Here it is not, because **`defineProps<T>()` compiles to a _runtime_ prop declaration**: widening `IFieldCellProps.value` adds `Array` to the accepted types of nine components that will never legitimately receive one, which turns off a check that would otherwise catch a real routing bug. The narrow type is the one that keeps the check meaningful.
+Those guards are load-bearing on both sides now. `isRangeFilterValue` narrowed on `typeof value === 'object' && value !== null`, which an array passes — so without `!Array.isArray` a list-shaped filter decodes as a range and is read for bounds it does not have. `isScalarFilterValue` exists so a comparison guards on the shape it _wants_ rather than on the one other shape that happened to exist when it was written.
 
-So `TRecordSingleValue` is the single-value union and `TRecordValue = TRecordSingleValue | string[]`. `MultiValueCell` takes its own `IMultiValueCellProps` with a plain `string[]` — a separate interface, not a widening, because the two contracts are opposites.
+**`TRecordSingleValue` is the narrow half, and it is not a lint-level preference.** `defineProps<T>()` compiles to a _runtime_ prop declaration, so widening `IFieldCellProps.value` would add `Array` to the accepted types of every per-type cell that can never legitimately receive one — turning off a check that would otherwise catch a real routing bug. `MultiValueCell` takes its own `IMultiValueCellProps` with a plain `string[]`: a separate interface, not a widening, because the two contracts are opposites. The same reasoning narrowed `RECORD_COLUMNS.value`, `VALUE_SCHEMA_BY_TYPE.base` / `blank`, `buildFilterValueSchema` and `toRange`.
 
-The same reasoning narrowed `RECORD_COLUMNS.value`, `VALUE_SCHEMA_BY_TYPE.base` / `blank`, `buildFilterValueSchema` and `toRange`, all of which had silently inherited the wider union.
+`IValueSchemaSpec.listBase` came out of the same pass: `z.array(base)` over a `ZodType<TRecordSingleValue>` yields `TRecordSingleValue[]`, not `string[]`, and the cast that hid the gap was hiding a real one — only a type whose values are strings _can_ be stored as a JSON array, and nothing said which those were.
 
-**`listBase` came out of the same pass.** `buildMultiValueSchema` originally cast its result, because `z.array(base)` over a `ZodType<TRecordSingleValue>` yields `TRecordSingleValue[]`, which is not `string[]`. The cast was hiding a real gap: only a type whose values are strings _can_ be stored as a JSON array, and nothing said which those were. `IValueSchemaSpec.listBase` states it per type (`null` for the four that have none), which produces a genuine `z.ZodType<string[]>` and deletes the cast.
+The other place it bites is blankness: `RecordFieldValue` had `value === null || value === undefined`, and an empty array passes neither. Without the array case a cleared multi field renders as an empty cell rather than "Not set" — a silent difference between "no value" and "we did not draw anything".
 
-### Type-only imports are invisible to HMR, and `compiler-sfc` caches resolved types
-
-Worth recording because it cost a bug report that looked like a code defect and was not.
-
-Widening `TRecordValue` changed no runtime module: `app/field-types/types.ts` imports it with `import type`, which is erased, so it is **not an edge in Vite's module graph** and nothing downstream was invalidated. `@vue/compiler-sfc` additionally caches resolved type scopes per file. A dev server running across that edit therefore kept generating cell props from the pre-widening union — including for a component **created after** the edit, since the fresh compile still resolved through the stale cached scope.
-
-The symptom is a runtime prop warning naming a union that no longer exists in the source (`Expected String | Number | Boolean | Null, got Array`). **A type-name in a Vue prop warning that does not match the current source means the dev server is stale, not that the source is wrong** — the fix is a full restart, and touching the SFC is not reliably enough.
-
-Corollary for reading built output: this toolchain emits a runtime `type` only for primitive unions. Array-typed props carry none at all — `BaseSelect.options` has done so all along, and `type:Array` appears nowhere in the client bundle. So an absent type on `MultiValueCell.value` is normal, not a resolution failure.
-
-### `TRecordValue` is widened with `string[]`
-
-A record now stores a list for a multi-value field. This is a real reversal of an earlier decision, not an extension of it, and the consequence to know is that **`TRecordValue` stayed a subset of `TFilterValue`** — so `IFieldControl<TValue extends TFilterValue>` needed no change, and the shape guards that already existed for filters (`isListFilterValue`, `isRangeFilterValue`'s `!Array.isArray`) were the ones the record side needed too.
-
-The one place it bites is blankness: `RecordFieldValue` had `value === null || value === undefined`, and an empty array passes neither. Without the array case a cleared multi field renders as an empty cell rather than "Not set" — a silent difference between "no value" and "we did not draw anything".
-
-### A multi-value column sorts by its first value
-
-A list has no intrinsic order, so any rule here is a choice. Three were on the table:
-
-- **opt out of sorting** — the most honest, and rejected on cost: `DynamicTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy` — new surface, for a column the user can still reach through its filter;
-- **`jsonb_array_length`** — orders by how many, which nobody asked;
-- **the first value**, which is what shipped.
-
-It wins because it is explicable from the screen: the first value is the one already visible in the cell, so a user can see why a row sorted where it did without opening anything. Ordering by something invisible would be worse than either alternative.
-
-### Cardinality is one-way: widening migrates, narrowing is refused
+### Cardinality is one-way, and a multi-value column sorts by its first value
 
 Single → multi runs `widenToList` — one scoped `UPDATE` wrapping each stored scalar in an array — **inside `updateField`'s own transaction**, so the metadata and the rows it describes can never disagree. It is idempotent and skips a value that is already an array or is JSON `null`, so a retry is safe and `[null]` is never written where there was no value.
 
-Multi → single is a 400, in the same shape as `Relation target cannot be changed`. It is lossy, and there is no non-arbitrary answer to which of several values survives. A softer rule — allow it when no record holds more than one — was considered and rejected for now: it costs a JSONB scan of the table on every field save to buy a case nobody has asked for.
+Multi → single is a 400, in the same shape as `Relation target cannot be changed`. It is lossy, and there is no non-arbitrary answer to which of several values survives. A softer rule — allow it when no record holds more than one — costs a JSONB scan of the table on every field save to buy a case nobody has asked for.
 
-The consequence, and it is the reason the migration exists at all: a value written **before** the flip is a bare scalar. Three places therefore tolerate one where a list is expected — `listValue.toControl` in `inputs.ts`, `collectRelationTargets`, and `MultiValueCell` — not as defensive padding but because a form opened from a stale page must not drop the value it is about to save back.
+The consequence, and the reason the migration exists: a value written **before** the flip is a bare scalar. Three places tolerate one where a list is expected — `listValue.toControl` in `inputs.ts`, `collectRelationTargets`, and `MultiValueCell` — not as defensive padding but because a form opened from a stale page must not drop the value it is about to save back.
+
+**Sorting by the first value** is a choice, since a list has no intrinsic order. Opting out of sorting is the most honest and was rejected on cost: `DynamicTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy`. `jsonb_array_length` orders by how many, which nobody asked. The first value wins because it is explicable from the screen — it is the one already visible in the cell.
 
 ### `jsonb_exists_any`, never the `?|` operator
 
-Postgres spells JSONB containment `?`, `?|` and `?&`, and a literal `?` in raw SQL is the parameter placeholder on Prisma's other drivers — it has a long history of being mangled. The function forms `jsonb_exists` / `jsonb_exists_any` mean exactly the same thing and are unambiguous everywhere, so they are what this codebase uses. `widenToList`'s key test is `jsonb_exists(data, key)` for the same reason.
+A literal `?` in raw SQL is the parameter placeholder on Prisma's other drivers and has a long history of being mangled. The function forms `jsonb_exists` / `jsonb_exists_any` mean exactly the same thing and are unambiguous everywhere; `widenToList`'s key test is `jsonb_exists(data, key)` for the same reason. Two properties worth knowing:
 
-Two properties worth knowing, both verified before the code was written:
-
-- `jsonb_exists_any` answers **correctly for a bare scalar** (`'"abc"'::jsonb` contains `abc`), which is what keeps an un-migrated row from disappearing from its own filter. Do not lean on it as a substitute for the migration — display and validation still want one shape — but it means a half-applied widening degrades quietly.
-- It is the **only GIN-indexable comparison** in the query layer. The "sorting/filtering by a JSONB key is unindexed" ceiling below does not get worse here; this is the one filter that could eventually escape it.
+- It answers **correctly for a bare scalar** (`'"abc"'::jsonb` contains `abc`), which keeps an un-migrated row from disappearing from its own filter. Do not lean on that as a substitute for the migration — display and validation still want one shape.
+- It is the **only GIN-indexable comparison** in the query layer, so it is the one filter that could eventually escape the unindexed-JSONB ceiling.
 
 ### The multi-value search guard is not defensive
 
-`jsonb_array_elements_text` raises `cannot extract elements from a scalar` on anything that is not an array — including a JSON `null`. It is a **set-returning function in `FROM`**, so that error aborts the entire list query, not the row: one legacy scalar left by a partially-applied migration would turn every search on that table into a 500.
+`jsonb_array_elements_text` raises `cannot extract elements from a scalar` on anything that is not an array, including a JSON `null`. It is a **set-returning function in `FROM`**, so that error aborts the entire list query, not the row: one legacy scalar would turn every search on that table into a 500.
 
-Hence the `CASE WHEN jsonb_typeof(…) = 'array' … ELSE '[]'::jsonb END` inside the call. Writing the type test as an `AND` beside the `EXISTS` instead does **not** work: SQL does not guarantee evaluation order between `AND` operands, so the planner is free to run the function first. The guard has to be inside the argument.
+Hence `CASE WHEN jsonb_typeof(…) = 'array' … ELSE '[]'::jsonb END` inside the call. Writing the type test as an `AND` beside the `EXISTS` does **not** work — SQL does not guarantee evaluation order between `AND` operands, so the planner is free to run the function first. The guard has to be inside the argument.
 
-### `searchExpr` became `searchPredicate`
+### `searchPredicate` is a predicate, and it is separate from `expr`
 
-It returned an expression that `buildRecordSearch` appended `ILIKE ${pattern}` to. A multi-value column cannot be matched that way — the question is whether _any element_ matches, which is a predicate shape no projection can express. Widening the contract to `(key, pattern) => Sql | null` cost five one-line rewrites and is what makes multi expressible at all.
+It was `searchExpr`, returning an expression that `buildRecordSearch` appended `ILIKE ${pattern}` to. A multi-value column cannot be matched that way — the question is whether _any element_ matches, which no projection can express. Rejected: substring-matching the raw `["Won","Lost"]` text, which "works" and also lets a term of `","` or `[` match every multi-valued row. That is a lie rather than a near miss.
 
-Rejected: substring-matching the raw `["Won","Lost"]` text, which "works" and also lets a term of `","` or `[` match every multi-valued row. That is a lie rather than a near miss.
+It stays separate from `expr` because NUMBER and BOOLEAN cast in their filter projection and neither `numeric` nor `boolean` has an `ILIKE` operator: NUMBER searches the un-cast text, BOOLEAN opts out (searching `e` would match every `false`), and RELATION opts out because its stored value is a cuid — matching the label instead would run `targetLabel`'s correlated subquery against every row, and the count query has no `LIMIT`.
+
+### `buildRecordSearch`'s parentheses are load-bearing
+
+`withinRange` returns a bare `a >= x AND a <= y` with no parentheses of its own, which is safe only while every sibling is `AND`. Search is the only OR in the query layer, and unparenthesised it would bind to the last bound of a range filter and silently widen it.
 
 ### `FILTER_VALUE_BY_TYPE` and `VALUE_SCHEMA_BY_TYPE` stay split
 
-They look like one table split across two layers. Merging them would be a **cycle**: `shared/utils/filter.ts` imports the constant, and `shared/validation/record.ts` imports `shared/utils/filter.ts`. The split is load-bearing.
+They look like one table split across two layers. Merging them would be a **cycle**: `shared/utils/filter.ts` imports the constant, and `shared/validation/record.ts` imports `shared/utils/filter.ts`.
 
 ### The query schema validates; the codec decodes
 
-`buildRecordQuerySchema` has no `.transform()`. Turning validated params into an `IRecordQuery` is `parseRecordQueryState`'s job — which is what keeps the `utils → validation` dependency direction acyclic. The endpoint composes the two: the schema judges, the codec decodes.
+`buildRecordQuerySchema` has no `.transform()`. Turning validated params into an `IRecordQuery` is `parseRecordQueryState`'s job, which is what keeps the `utils → validation` dependency direction acyclic. The endpoint composes the two: the schema judges, the codec decodes.
 
 `parseRecordQueryState` is lenient by design and is the **exact inverse** of `toRecordQueryParams`, used by both the page (over `route.query`) and the endpoint (over its validated params), so a link cannot decode two ways.
 
 ### Unknown query params are ignored, not rejected
 
 Filter params are named after the field with no prefix, so a typo is indistinguishable from `utm_source`. A stray param must not break the page. A malformed **known** param is still a 400.
+
+### A reserved param is refused symmetrically, and a field that claims none renders no control
+
+`claimFilterParams` always seeded its claimed set with `RESERVED_QUERY_PARAMS`, so a field keyed `search` could never be **read** back from a URL. The encoder relied on something weaker — it spread the filter params first and let the reserved assignments below overwrite them — but those assignments are conditional (`page` only above 1, `search` only when non-empty), so on the default view a legacy field keyed `search` wrote its value into the free-text search param and the server ran it as a site-wide search. `detail` was worse: nothing writes it, so such a field leaked into the dialog param unconditionally.
+
+Both halves now read one `isReservedParam`, and the encoder **drops** those names rather than overwriting them. Ordering is not a contract; a set membership test is. The drop is per **param name**, exactly as the claim is — so a NUMBER field keyed `page` keeps its filter under `page_from`/`page_to`, names nothing has reserved.
+
+That leaves the control. A scalar field keyed `search` claimed no param, yet the drawer rendered its filter anyway, because both filter surfaces built from every column — a dead control, which `CLAUDE.md` §7 forbids. `filterableFields` is the narrowing both surfaces now apply. It narrows **filtering only**: such a field still renders as a table column and still sorts, because a sort key travels as the _value_ of `?sort=`, where a reserved name collides with nothing. Removing it from the table as well would hide user data to fix a URL problem.
+
+### A blank `?search=` is absent, not a zero-length term
+
+`z.string().trim().min(SEARCH_MIN_LENGTH).optional()` treats `''` as _present_, so the floor ran and answered a 400 — while `parseRecordQueryState` read the same link as "not searching", and every filter param already reads an empty value that way. The divergence itself was the defect: the whole point of the codec is that both sides read a link identically.
+
+A preprocess maps a blank param to `undefined` before the floor runs, and blank means empty **after trimming** — the same test `isFilterValueEmpty` applies to a text filter. The floor did not move: `?search=a` is still a 400, because a term that is too short is a different thing from a term that is not there.
+
+### `SEARCH_MIN_LENGTH` is enforced by the schema, not the input
+
+An unanchored `ILIKE` over user-defined JSON keys is unindexable and the count query cannot stop early, so a one-character term is a full-table scan paid twice. Enforcing it client-side only would leave the endpoint open to any caller.
+
+### Relation option search deliberately does **not** enforce `SEARCH_MIN_LENGTH`
+
+Read the reason the floor exists rather than the name of the constant. Not one half of it holds for `/fields/:fieldId/options?q=`: it is one expression over one table chosen by the field's own metadata, not an OR across every searchable column; there is no count query, so nothing is paid twice; there is a hard `LIMIT RELATION_OPTIONS_LIMIT`; and a 300 ms debounce bounds the request rate. A one-character term costs exactly what the **zero**-character term this endpoint already serves unconditionally costs.
+
+There is a real UX cost too: with a floor, typing one character either shows the unfiltered seed (a lie — it looks like the search did nothing) or needs a third "keep typing" state. The bound that applies here is `max(100)` on the term. Stated explicitly so nobody later harmonises the two on the strength of the shared word "search".
 
 ### Inputs and filters are data; only cells are components
 
@@ -249,81 +286,31 @@ A cell carries markup and scoped styles (an icon, tabular figures), not just a v
 
 Retargeting would orphan every stored id, so `updateField` rejects it with 400. The label field is pure display and freely editable. RELATION-typed fields are excluded from the label candidates — a link labelled by a link would read as an id.
 
-### The open record lives in the URL, not in a store
-
-A `recordDetail` store holding what is open would have been fewer moving parts, and it was rejected: a relation is a **link** in the concept, and a link needs an `href`. Putting the chain in `?detail=` makes the cell a real `<a>` — middle-click, "copy link address" and the SSR'd markup all work — and buys three things a store cannot: browser Back closes the dialog (and Forward reopens it), a refresh or a shared link renders the same dialog server-side, and the drill-down trail is history rather than a stack to maintain.
-
-The cost is the reserved param and the watcher below. Both were one-line changes; a store would have needed its own stack, its own back semantics, and would still have left the link an `href="#"`.
-
-### `BaseButton`'s `to` accepts a query patch, not only a path
-
-The prop was `string`, justified by "every link here is a path". That stopped being true when the dialog moved into the URL: a row's View action changes **one param of the route it is already on**, and the page, sort and filters around it have to survive. Serializing that to a path by hand would either drop them or rebuild the codec at the call site.
-
-It is still not vue-router's `RouteLocationRaw` — that package stays undeclared. `{ query: TUrlQuery }` is our own shape, `NuxtLink` accepts it, and `isLink`/`rootProps` needed no change at all: an object is truthy and `to` was already forwarded unmodified.
-
-### Reading a record is a link, everywhere
-
-The View action in a row could have been a button emitting `view` for the page to act on — every other row action is. It is a `<NuxtLink>` instead, for the same reason a relation is: the dialog **is** a URL, so a control that opens it has an `href`, and middle-click, "copy link address" and the SSR'd markup all follow for free. It also keeps `DynamicTable` out of the business of navigation.
-
-The cost is the `tableId` prop. Reading it from the route inside the component would have avoided the prop and coupled a generic renderer to a URL shape that is not its to know.
-
-### The chain appends from wherever a relation cell renders
-
-`RelationFieldCell` builds its target from `route.query` alone, so a cell **behind** an open dialog also appends to the chain — its `href` reads `?detail=A,A` rather than `?detail=A`. Unreachable in practice: `BaseModal` marks `#__nuxt` `inert` while it is open, which takes the whole table out of pointer, keyboard and accessibility reach, and the hrefs are recomputed the moment the dialog closes.
-
-Making them differ would mean telling the cell where it is rendering — a prop threaded through `DynamicTable` and `RecordFieldValue`, or an injection — to change a link nobody can follow. The uniform rule is what keeps the same cell working in both places.
-
-### The detail endpoint returns an aggregate, not just the record
-
-`GET /api/tables/:tableId/records/:recordId` answers with the record **plus** its table's name, its fields, and its relation labels. Strictly, three resources. The dialog needs all three at once, and `resolveRelationLabels` needs the fields server-side regardless — so they are already loaded, and returning them costs nothing while saving two round trips and two more loading states for one small dialog.
-
-### The dialog's title is static
-
-`Record details`, with `{table} · #{number}` as the first line of the body — not the label the user clicked. A record's label is a property of the **relation field** (`options.labelFieldKey`), not of the table it lives in, so it is only knowable on the click path: a shared `?detail=` link or a refresh could not reproduce it, and the same dialog would carry two different titles depending on how it was reached. A static heading also does not flicker between the pending and loaded states. The label is still on screen — it is one of the record's own values.
-
 ### The record's own columns go through one seam
 
-`queryFields(fields)` wraps a table's fields in `Record #` / `Created at` / `Updated at` **only where a query is built**, never where record data is read or written. Special-casing them at each layer instead would have meant a branch in the codec, the schema, the SQL builder, the table and the filter panel — five places to forget one.
+`queryFields(fields)` wraps a table's fields in `Record #` / `Created at` / `Updated at` **only where a query is built**, never where record data is read or written. Special-casing them at each layer instead would mean a branch in the codec, the schema, the SQL builder, the table and the filter panel — five places to forget one.
 
 The reserved keys are **camelCase**, a shape `slugify` can never emit, so no user field can shadow one. `RESERVED_FIELD_KEYS` states the reservation rather than relying on that luck.
 
-### A reserved param is refused symmetrically, and a field that claims none renders no control
+### A choice's identity is its own text
 
-`claimFilterParams` has always seeded its claimed set with `RESERVED_QUERY_PARAMS`, so a field keyed `search` could never be **read** back from a URL. The encoder relied on something weaker: it spread the filter params first and let the reserved assignments below overwrite them. Those assignments are conditional — `page` is only written above 1, `search` only when non-empty — so on the default view there was nothing to overwrite with, and a legacy field keyed `search` wrote its value into the free-text search param. The server then ran it as a site-wide search. `detail` was worse: nothing writes it here at all, so such a field would have leaked into the page's dialog param unconditionally.
+`Record.data` stores the choice string, not an option id. That keeps the whole SQL layer, the filter constants and the URL codec out of the colour change — SELECT still filters, sorts and searches on the stored text. The cost is that renaming a choice orphans the records holding the old one, which is recorded in the register rather than fixed: a stable option id buys nothing for colour and rewrites `record-query.ts` to get there.
 
-Both halves now read one `isReservedParam`, and the encoder **drops** those names rather than overwriting them. Ordering is not a contract; a set membership test is. The drop is per **param name**, exactly as the claim is — so a NUMBER field keyed `page` keeps its filter under `page_from`/`page_to`, names nothing has reserved.
+### A SELECT choice is coloured from a closed palette, not a free colour picker
 
-That leaves the control. A scalar field keyed `search` claimed no param, yet the drawer rendered its filter anyway, because both filter surfaces built from `queryFields(props.fields)` — every column. Its value could only ever be discarded, which is the dead control `CLAUDE.md` §7 forbids. `filterableFields` is the narrowing both surfaces now apply: the fields that claimed at least one param. It subtracts nothing for any field `createField` can produce.
+A custom hex picker loses on all three axes the codebase already cares about:
 
-It narrows **filtering only**. Such a field still renders as a table column and still sorts: a sort key travels as the _value_ of `?sort=`, where a reserved name collides with nothing. Removing it from the table as well would hide user data to fix a URL problem.
+- It **breaks the token boundary** `_palette.scss` exists to enforce — an arbitrary colour would have to arrive as a literal. `BaseButton`'s `tone` prop is the precedent; it replaced a free-form `hoverColor` string for exactly this reason.
+- It **breaks the contrast guarantee.** A badge needs 4.5:1 text on its fill; with a closed set every pairing is authored and verified once, while a free picker needs runtime luminance maths and still lets a user choose a pairing that fails.
+- It **stores the wrong thing.** What is persisted is a **name** (`"blue"`), so the colour survives a re-theme and dark mode stays reachable. Widening the enum to accept a hex later needs no data migration, because the stored names stay valid members of whatever union replaces it.
 
-### A blank `?search=` is absent, not a zero-length term
+### Type-only imports are invisible to HMR, and `compiler-sfc` caches resolved types
 
-The query schema's `search` was `z.string().trim().min(SEARCH_MIN_LENGTH).optional()`, and `''` is _present_, so the floor ran and answered a 400 — while `parseRecordQueryState` read the same link as "not searching", and every filter param already reads an empty value that way. The client never emitted it, so only a hand-written link hit it; the divergence itself was the defect, since the whole point of the codec is that both sides read a link identically.
+Worth recording because it cost a bug report that looked like a code defect and was not.
 
-A preprocess maps a blank param to `undefined` before the floor runs, and blank means empty **after trimming** — the same test `isFilterValueEmpty` applies to a text filter. The codec trims on read for the same reason, so `?search=%20%20` cannot produce a state that claims a search the server is not running.
+Widening `TRecordValue` changed no runtime module: `app/field-types/types.ts` imports it with `import type`, which is erased, so it is **not an edge in Vite's module graph**. `@vue/compiler-sfc` additionally caches resolved type scopes per file, so a dev server running across that edit kept generating cell props from the pre-widening union — including for a component created **after** the edit.
 
-The floor itself did not move. `?search=a` is still a 400: `SEARCH_MIN_LENGTH` is what stops one character triggering an unanchored scan of every column, and a term that is too short is a different thing from a term that is not there.
-
-### `searchExpr` is separate from `expr`
-
-NUMBER and BOOLEAN cast in their filter projection, and neither `numeric` nor `boolean` has an `ILIKE` operator. NUMBER searches the un-cast text; BOOLEAN opts out (searching `e` would match every `false`); RELATION opts out because its stored value is a cuid, and matching the label instead would run `targetLabel`'s correlated subquery against every row — the count query has no `LIMIT`.
-
-### `buildRecordSearch`'s parentheses are load-bearing
-
-`withinRange` returns a bare `a >= x AND a <= y` with no parentheses of its own, which is safe only while every sibling is `AND`. Search is the only OR in the query layer, and unparenthesised it would bind to the last bound of a range filter and silently widen it.
-
-### `SEARCH_MIN_LENGTH` is enforced by the schema, not the input
-
-An unanchored `ILIKE` over user-defined JSON keys is unindexable and the count query cannot stop early, so a one-character term is a full-table scan paid twice. Enforcing it client-side only would leave the endpoint open to any caller.
-
-### Relation option search deliberately does **not** enforce `SEARCH_MIN_LENGTH`
-
-Read the reason the floor exists rather than the name of the constant. Not one half of it holds for `/fields/:fieldId/options?q=`: it is one expression over one table chosen by the field's own metadata, not an OR across every searchable column of every row; there is no count query, so nothing is paid twice; there is a hard `LIMIT RELATION_OPTIONS_LIMIT`; and a 300 ms debounce bounds the request rate. A one-character term costs exactly what the **zero**-character term this endpoint already serves unconditionally costs, so rejecting `a` while accepting `` would be cargo cult.
-
-There is a real UX cost too: with a floor, typing one character either shows the unfiltered seed (a lie — it looks like the search did nothing) or needs a third "keep typing" state.
-
-The bound that applies here is `max(100)`, which is what stops a caller pushing a megabyte pattern into an `ILIKE`. Stated explicitly so nobody later harmonises the two on the strength of the shared word "search".
+**A type name in a Vue prop warning that does not match the current source means the dev server is stale, not that the source is wrong** — the fix is a full restart. Corollary for reading built output: this toolchain emits a runtime `type` only for primitive unions, so an absent type on an array-typed prop is normal, not a resolution failure.
 
 ---
 
@@ -331,11 +318,23 @@ The bound that applies here is `max(100)`, which is what stops a caller pushing 
 
 ### A layout and a page must never share a `useAsyncData` key
 
-`useAsyncData` does **not** dedupe a layout against a page in one SSR render: it fires two requests and warns `NUXT_E3004`, with the page's closure silently never called. The layout owns `app-tables` and every page keys on what it is actually fetching — `table-${tableId}`, `table-records-${tableId}`. The dashboard was the near miss: it once refetched the same list under `dashboard-tables` to refresh the counts it draws, which is why the rule was written down. That refetch is gone (the counts are now maintained at the source — see the limitations register), so Home fetches nothing of its own, but the rule is about the key space, not about that page.
+`useAsyncData` does **not** dedupe a layout against a page in one SSR render: it fires two requests and warns `NUXT_E3004`, with the page's closure silently never called. The layout owns `app-tables` and every page keys on what it is actually fetching. The rule is about the key space, not about any one page.
 
 ### `ensureTables()` never throws
 
 A rejection in the layout's async setup would replace the page with an error boundary for what is chrome, not content — the sidebar failing to list tables should not take down a records page that loaded fine. It sets `failed` instead, and the sidebar reports it inline with a Retry.
+
+### A failed refetch is visible, not silent
+
+`records.ts` sets `failed` in a `catch` that **rethrows**; the page's `watch` swallows the rejection and shows a banner. Both halves are needed: an unhandled rejection in a watcher left the table showing rows that no longer matched the URL, and the initial load still needs the rejection for `useAsyncData` to produce the 404. **The empty state is suppressed while `failed`** — an empty result and an unknown result are indistinguishable in the store, and "No records yet" would be a guess.
+
+This is the opposite call from `useDeleteConfirm`. The rule is not "swallow" or "throw"; it is whether anyone is listening.
+
+### `useDeleteConfirm` catches instead of re-throwing
+
+**Every call site binds `confirm` directly to a template's `@confirm`**, so there was no caller to catch anything — a refused delete became an unhandled promise rejection while the dialog sat open saying nothing. Re-throwing is only a contract worth keeping where someone is positioned to honour it.
+
+The catch lives in the composable rather than in the three pages because the alternative is the same `try`/`catch` written three times. The message is cleared on two paths, and both are needed: a `watch` on `target` covers dismissing the dialog or opening it on something else, while `confirm()` clears at the start because a **retry keeps the same target** and would otherwise show the previous attempt's message while the next one is in flight.
 
 ### `app/error.vue` is store-free
 
@@ -349,29 +348,13 @@ A mirrored copy would have to survive SSR hydration to stay correct. Every actio
 
 `createRecord` returns the page the new record landed on and only refetches when that equals the current page; the page navigates when it differs. Otherwise the URL would show one page while the table showed another, or the refetch would happen twice.
 
-### A failed refetch is visible, not silent
-
-`records.ts` sets `failed` in a `catch` that rethrows; the page's `watch` swallows the rejection (an unhandled one in a watcher left the table showing rows that no longer matched the URL) and shows a banner. **The empty state is suppressed while `failed`** — an empty result and an unknown result are indistinguishable in the store, and "No records yet" would be a guess.
-
 ### In `getApiErrorMessage`, blank counts as absent
 
-The chain was three `??`s over `data.statusMessage`, `data.message` and the generic copy. `??` skips only `null`/`undefined`, so a response carrying `statusMessage: ''` won the chain and rendered an **empty** error box — the one failure mode worse than a generic message, because it looks like the form simply did nothing.
-
-The candidates now go through a `nonBlank` guard rather than the operator. That also closes the hole from the other side: `data` is untyped at runtime, so a non-string `statusMessage` from anything that is not Nitro used to be returned unchanged from a `string`-typed function.
-
-`||` would have been shorter and is wrong for the same reason it is usually wrong here — it is the explicit `typeof` check that makes a number or an object fall through rather than stringify.
-
-### `BaseInput` binds `:value` + `@input`, not `v-model`
-
-`v-model` would cast a `type="number"` input's value to a number and write `1.5` back while the user is still typing `1.50`. The composition guard `v-model` provides is kept by hand, so IME input still works.
-
-`BaseRange` applies the same reasoning to both bounds: its watcher resyncs **only a bound that disagrees with what is on screen**, which is what distinguishes an outside change (clear all, a shared URL, the back button) from the value being echoed back. Dates run through the same drafts even though their round trip is lossless — that is what lets one component serve both types.
+The chain was three `??`s, and `??` skips only `null`/`undefined` — so a response carrying `statusMessage: ''` won the chain and rendered an **empty** error box, the one failure mode worse than a generic message because it looks like the form simply did nothing. The candidates now go through a `nonBlank` guard, which also closes the hole from the other side: `data` is untyped at runtime, so a non-string `statusMessage` used to be returned unchanged from a `string`-typed function. `||` is wrong for the same reason it is usually wrong here — it is the explicit `typeof` check that makes a number or an object fall through rather than stringify.
 
 ### Locales and time zones are hard-coded
 
-`en-GB` everywhere, and `formatTimestamp` pins `timeZone: 'UTC'`. An `undefined` locale renders differently on the server and in the browser — a hydration mismatch. `DateFieldCell` gets away with no zone because it parses a date-only value as local midnight, the same wall-clock everywhere; a real timestamp does not.
-
-Pinning UTC also keeps the displayed day equal to the day the filter matches on, since that compares `::date`.
+`en-GB` everywhere, and `formatTimestamp` pins `timeZone: 'UTC'`. An `undefined` locale renders differently on the server and in the browser — a hydration mismatch. `DateFieldCell` gets away with no zone because it parses a date-only value as local midnight, the same wall-clock everywhere; a real timestamp does not. Pinning UTC also keeps the displayed day equal to the day the filter matches on, since that compares `::date`.
 
 ### The active-table check compares `route.params.tableId`, not the path
 
@@ -385,183 +368,185 @@ Each page passes its own `IBreadcrumb[]` because the pages already hold the `ITa
 
 That store holds the table being edited; loading another table's fields into it would clobber the page behind the modal.
 
+### The open record lives in the URL, not in a store
+
+A `recordDetail` store would have been fewer moving parts, and it was rejected: a relation is a **link** in the concept, and a link needs an `href`. Putting the chain in `?detail=` makes the cell a real `<a>` — middle-click, "copy link address" and the SSR'd markup all work — and buys three things a store cannot: browser Back closes the dialog (and Forward reopens it), a refresh or a shared link renders the same dialog server-side, and the drill-down trail is history rather than a stack to maintain. A store would still have left the link an `href="#"`.
+
+### Reading a record is a link, everywhere
+
+The View action in a row could have been a button emitting `view`, as every other row action is. It is a `<NuxtLink>` for the same reason a relation is: the dialog **is** a URL. It also keeps `DynamicTable` out of the business of navigation. The cost is the `tableId` prop — reading it from the route inside the component would have coupled a generic renderer to a URL shape that is not its to know.
+
+### The chain appends from wherever a relation cell renders
+
+`RelationFieldCell` builds its target from `route.query` alone, so a cell **behind** an open dialog also appends to the chain — its `href` reads `?detail=A,A`. Unreachable in practice: `BaseModal` marks `#__nuxt` `inert` while open, which takes the whole table out of pointer, keyboard and accessibility reach, and the hrefs are recomputed the moment the dialog closes. Making them differ would mean telling the cell where it is rendering, to change a link nobody can follow.
+
+### The detail endpoint returns an aggregate, not just the record
+
+`GET /api/tables/:tableId/records/:recordId` answers with the record **plus** its table's name, its fields and its relation labels. Strictly three resources — but the dialog needs all three at once, and `resolveRelationLabels` needs the fields server-side regardless, so returning them costs nothing while saving two round trips and two more loading states.
+
+### The dialog's title is static
+
+`Record details`, with `{table} · #{number}` as the first line of the body — not the label the user clicked. A record's label is a property of the **relation field** (`options.labelFieldKey`), not of the table it lives in, so it is only knowable on the click path: a shared `?detail=` link could not reproduce it, and the same dialog would carry two titles depending on how it was reached. The label is still on screen — it is one of the record's own values.
+
 ---
 
-## Styling
+## Components
 
-### The token layer is three layers, and the build enforces the boundary
+### `BaseButton` renders the element its role implies
 
-`_palette.scss` holds primitives as SCSS variables. Because `additionalData` injects only `functions` and `mixins`, a component **cannot** reference `$blue-600` without an `@use` it will never have. Components consume `var(--color-*)` and nothing else — that is a compile-time fact, not a convention.
+One component, one stylesheet. A `BaseLinkButton` would have been a second copy of six variants' worth of SCSS kept in step by hand. Passing `to` makes the root a `<NuxtLink>` while every variant keeps its look: `variant="link"` is _a button that looks like a link_, `to="/x"` is _a link that looks like whatever `variant` says_.
 
-### Surfaces are split even where two share a value
+Rejected: a separate `href` prop — `NuxtLink` already resolves an absolute URL to a plain `<a href rel="noopener noreferrer">`, so it would be a second prop meaning the same thing plus a decision at every call site. Rejected: a polymorphic `as`/`is` — an open element set with no caller asking for it, which would let a call site emit a `<div>` that looks like a button, the bug this component exists to prevent.
 
-`--color-surface-hover` / `-disabled` / `-muted` are separate tokens today with the same value, and `--color-surface-row-hover` / `--color-canvas` are a second such pair. The previous single `--color-bg` meant page background, row hover, disabled fill and chip fill at once; re-collapsing them just relocates that bug. The row-hover pair earns its split the hard way — see _The row wash is not the control wash_ below.
+`to` accepts a **path string or a `{ query }` patch**, but never vue-router's `RouteLocationRaw` — that package stays undeclared. The query form exists because a row's View action changes one param of the route it is already on, and the page, sort and filters around it have to survive; serializing that by hand would either drop them or rebuild the codec at the call site. `NuxtLink` is imported from `#components`, because only components _in templates_ are ambient.
 
-### The row wash is not the control wash
+**`disabled` wins over `to`:** a disabled link is not a link. Every alternative rebuilds native `disabled` out of `aria-disabled` + `tabindex="-1"` + `pointer-events: none` — three mechanisms for one, taking the control out of the tab order by hand. A JS click guard was rejected separately: `stopImmediatePropagation` ordering against fallthrough listeners is not something a component can rely on, and `NuxtLink` installs its own handler you cannot get in front of.
 
-`--color-surface-row-hover` (`$gray-50`) is lighter than `--color-surface-hover` (`$gray-100`) because a hovered row is the one surface a **badge** has to survive. Every badge fill sits within 1.05:1 of `$gray-100`, so a row painted at the control-hover value erases the badge outright. Raising the badge fills instead would have broken their 4.5:1 text pairings; giving the badge a border back is what this change removed. The row is the thing that moved because it is the only one of the three with no other job.
+A link activates on **Enter only** — Space scrolls the page. That is correct anchor behaviour and the one way a `to` button differs from the buttons beside it.
 
-### The border ramp is four steps, by job
+### An atom's `disabled` must be a declared prop, never attribute fallthrough
 
-`-subtle` is a rule **inside** a surface (a table's row divider), plain is structural (the box itself), `-strong` is a heavier structural job (a pinned column against columns sliding under it), and `-control` is the only one carrying a contrast floor: a control's outline is the only thing identifying the control, so it needs 3:1 non-text. Neither `$gray-200` (1.3:1) nor `$gray-300` (1.66:1) clears that — `$gray-400` (3.17:1) exists for exactly this. `BaseButton --secondary` is surface-on-surface, so its border is load-bearing. A row rule has no floor at all, which is why `-subtle` can be as light as it is.
+`BaseCheckbox` had no `disabled` prop, so `:disabled` landed on the wrapping `<div>` by fallthrough, where the attribute means nothing: the control looked plausible and stayed fully operable, with only a server 400 behind it. That is the "dead control" failure inverted — not a control that cannot act, but a lock that does not lock. The rule generalises to every atom with a wrapper element: a native form attribute has to be declared and bound to the **inner control**.
+
+### `BaseInput` binds `:value` + `@input`, not `v-model`
+
+`v-model` would cast a `type="number"` input's value to a number and write `1.5` back while the user is still typing `1.50`. The composition guard `v-model` provides is kept by hand, so IME input still works.
+
+`BaseRange` applies the same reasoning to both bounds: its watcher resyncs **only a bound that disagrees with what is on screen**, which is what distinguishes an outside change (clear all, a shared URL, the back button) from the value being echoed back. Dates run through the same drafts even though their round trip is lossless — that is what lets one component serve both types.
+
+### `BaseSelect` is an ARIA listbox **or** a combobox, never a `<select>`
+
+A native `<select>` cannot render a choice's colour (`<option>` fills are not styleable across browsers), cannot search, cannot load asynchronously, and has nowhere to put "loading" / "no results" / "could not load" as distinct states. All four were wanted at once. Rejected: a native `<select>` with a colour swatch beside it — the swatch cannot follow the open dropdown, which is exactly where the choice is made.
+
+`searchable` picks the control's root, and only the root — the clear button, the chevron, the teleported panel, the status row and the `role="listbox"` `<ul>` are shared. `false` gives a `<button aria-haspopup="listbox">` whose accessible name is label + value, the way a `<select>` announces; `true` gives an `<input role="combobox">`.
+
+What it cost, all of it deliberate: **the OS-native picker on touch** (and `searchable` raises the soft keyboard where a `<button>` did not); **arrow keys changing the value while closed**, which the ARIA pattern replaces with opening the list, since a filter changing under an unseen arrow key would fire a request per press; and **type-ahead**, which is _not_ given up — reimplemented by hand (500 ms buffer, match on the option's label) for the non-searchable branch, and it must stay. Where there is a search box, the search box _is_ the type-ahead.
+
+### The search input is in the control, not in the panel
+
+A select where you click to open and then move to a second field to type is a select wearing a search box. **The selection renders as an overlay over the control, never as the input's value:** searching never means clearing what is already chosen, there is no restore-on-close or restore-on-blur to get wrong, and one piece of markup serves single and multiple alike. The native `placeholder` handles the empty case, so it can never show underneath a selection.
+
+Rejected: APG's editable-combobox flavour, where the input's value **is** the selected label. It needs restore-on-close logic, forces the user to erase the current value before searching, and has no multi-select story at all.
+
+Two ARIA consequences that are easy to get backwards:
+
+- **`aria-labelledby="${id}-label ${id}"` must not cross to the input branch.** On a `<button>` that self-reference folds the element's _content_ into its name; on an `<input>` the same construct computes from the element's **value**, so the accessible name would change with every keystroke. The button points at the overlay by IDREF instead.
+- **The selection has to be announced somewhere.** On an `<input>` the accessible value is the search term, so `aria-describedby` points at the same visible overlay — a description is the right slot for "what is currently chosen", and pointing at the visible copy beats keeping a hidden second one in step with it.
+
+### `searchable` is an explicit prop, and the threshold lives at the call site
+
+It was derived — `loadOptions !== undefined || options.length > 8` — which welded search to the data source and made it impossible to turn off. Two things were wrong: **search and async are orthogonal** (local options deserve filtering too), and the docblock defending it was factually false — every call site owns the `options` array it passes and can count it. `shouldSearch()` in `app/utils/select.ts` exports the **predicate, not the number**, because what the registries would otherwise duplicate is the comparison rather than the literal.
+
+Rejected: a tri-state `searchable?: boolean | 'auto'`, which keeps the threshold inside the component — the very thing being removed.
+
+**Not for a list that arrives after mount.** `FieldFormModal`'s relation selects hardcode `searchable`: both lists are fetched, so a derived value would start `false`, render a `<button>`, then flip to an `<input>` when the fetch lands — swapping the focused element out from under the user. A stable branch beats an accurate one.
+
+### `multiple` is tied to the model's type, and is read through `isMultiple`
+
+`multiple?: TModel extends string[] ? true : false`. A plain `multiple?: boolean` would let `<BaseSelect v-model="aStringRef" multiple />` compile and then misbehave — a worse type system than the single-select generic it replaced.
+
+That conditional type has a runtime cost that is invisible until it bites: Vue casts a bare attribute to `true` only for a prop it knows is `Boolean`, and the conditional gives the SFC compiler no constructor to emit, so `<BaseSelect multiple />` arrives as `''`, which is **falsy**, and the control silently runs in single mode. `vue-tsc` cannot catch it — the template checker reads a bare attribute as `true`, so the types agree with each other and disagree with the runtime.
+
+`isMultiple` (`props.multiple !== undefined && props.multiple !== false`) makes both spellings mean the same thing. **Never read `props.multiple` directly.** Widening the prop to a plain `boolean` would fix the cast and give back exactly the mismatch the conditional prevents, so the type stays and the read moved.
+
+Internally selection is **always** a `string[]`, whatever the model's shape: one normalisation in, one `commit` out, and keyboard, rendering and ARIA are written once. That is the whole cost of multi mode.
+
+### In `multiple`, the control shows a count, not chips
+
+One selection reads as itself; several read as "3 selected". Chips were rejected on a structural argument: they make the control's height a function of its content, and **nothing in the positioning layer observes that**. `useAnchoredPosition` measures on open, on `resize` and on capture-phase `scroll` — the moment a chip wrapped to a second row the control would grow, the panel would not move, and it would visibly detach from the field. Fixing that means a `ResizeObserver` in a composable whose other consumer has no use for one.
+
+Independently sufficient: the control height is a design invariant, and in the filter drawer every control below a growing chip field would shift down as the user picks — moving the control they were aiming at.
+
+### Escape is swallowed only while something of ours is open
+
+`BaseModal` owns the sole `document`-level Escape listener, so a popover must never eat an Escape that belongs to the dialog around it. **`usePopover` registers no Escape listener and must never grow one** — the key is the caller's, in one of two spellings:
+
+- **Where focus lives inside the panel, `@keydown.esc.stop` on the panel says so structurally** — the panel only exists while open, so the handler cannot fire otherwise. That is `BaseColorPicker` and `BaseSelect`'s non-searchable branch. Two document-level listeners could not be ordered instead: `stopPropagation` between listeners on the _same_ node does nothing, and registration order is an accident of mount order.
+- **Where the control keeps focus outside its panel, the modifier is actively wrong.** A combobox holds focus in its input whether the list is open or shut, so an unconditional `.stop` would mean _the filter drawer can never be closed by keyboard while any searchable select has focus_. The condition is not expressible as a modifier, so that branch handles the key in JS and calls `stopPropagation()` only when `open`.
+
+The invariant is the sentence, not the spelling.
+
+`.stop` survives the Teleport, which looks like it should not: the panel is a real DOM child of `<body>`, so a keydown inside it bubbles panel → body → html → document, and stopping it at the panel means `BaseModal`'s listener never sees it. Teleport moves the node, not the event path.
+
+### `usePopover` and `useAnchoredPosition` are two composables, split by reason to change
+
+`usePopover` owns open state, outside-pointer dismissal and focus restore; `useAnchoredPosition` owns measurement, flipping and reflow. The seam is real because their consumer sets differ — `BaseColorPicker` took the first before it took the second. Merging them would have made that retrofit an all-or-nothing change to a working control.
+
+`usePopover` exposes `containerRef` and `triggerRef` **separately** — the outside-click boundary and the focus-restore target are not the same element once a control puts a clear button beside its trigger. Inferring the second from the first with a `querySelector` was tried and rejected: it made the ordering of two buttons load-bearing and invisible.
+
+The extraction waited for a second consumer on purpose. Extracting on the first occurrence is the speculative build `CLAUDE.md` §1 rules out.
+
+### `useListboxNavigation` was extracted for SRP, not DRY
+
+The rule above does **not** bind here: it rejects a _DRY_-motivated extraction with one consumer and no size problem. This is decomposition of an SFC that had grown to two control branches, two keyboard dispatchers, a search model, an async pipeline and a popover — the same case as `useSelectOptions`, and both carry the "not a general-purpose composable" warning for the same reason.
+
+`typeAhead` lives in it despite being called from only one branch: its whole effect is `setActive(index)`, so it shares the composable's single reason to change. Splitting a twenty-line function with one consumer into a third file is the over-fragmentation SRP is supposed to prevent.
+
+### The select panel teleports to `<body>`, and the native `popover` attribute cannot substitute
+
+`BaseModal` marks `#__nuxt` `inert` while a dialog is open, and `inert` is inherited by the entire subtree. A panel rendered in place is therefore unfocusable inside the very drawer it belongs to — and the native `popover` attribute does **not** rescue it, because top-layer promotion changes paint order, not DOM ancestry. Teleporting to `<body>` makes the panel a sibling of the app root, which is the only escape. Clearing the drawer's `overflow-y: auto` is a second benefit, not the reason; both together are why `useAnchoredPosition` works in viewport coordinates with `position: fixed`.
+
+### Tab moves _into_ the panel before it moves past the control
+
+That same teleport puts the panel after the entire app in the browser's tab order, so nothing in it is reachable by tabbing. It holds exactly one focusable — the failed state's `Retry` — which is why this is a special case in the combobox's `Tab` branch rather than a roving tabindex: a roving index manages a set, and one control is not a set. Three edges decide the shape:
+
+- **Only forward.** Shift+Tab from the field closes and leaves, because backwards means leaving; reversing into a panel you have not been in yet reads as a trap.
+- **Out of the panel, the default is not cancelled.** `dismiss()` restores focus to the control synchronously and the browser sequences from _there_, so one press leaves the select the way Tab does everywhere else. Cancelling it and focusing by hand would be one press short of the exit the user asked for.
+- **Escape needs nothing new** — it bubbles from the button to the panel's own `.stop` handler.
+
+The reachability fix is only half of it: `retry()` sets the status to `loading` synchronously, which unmounts the button being pressed, so the click handler hands focus back to the control first — exactly as `clear()` does for the ✕ that disappears with the value it clears.
+
+### Opening on type is driven by the model, not by `keydown`
+
+A printable-key test (`event.key.length === 1 && !ctrl && !meta && !alt`) is wrong for at least three real inputs: **paste** (`Ctrl+V` is excluded by definition, and the pasted text fires no keydown of its own), **IME composition** (the keydown is `Process`, never the composed character), and text **dropped** into the field. Watching the model catches every path by construction.
+
+It also means this input needs no composition guard: `v-model` already withholds the write until a composition commits. `BaseInput` hand-rolls one only because it binds `:value` + `@input` to dodge the `type="number"` cast — do not copy that here.
+
+### A click inside a searchable control never closes the panel
+
+On the non-searchable branch a click on the trigger toggles, as a button should. On the combobox branch it only ever opens: a click inside a text field places the caret, and closing on it would make it impossible to click into the middle of a term being edited. The chevron therefore stays decorative on both branches, so the combobox offers no pointer close — accepted rather than fixed, since a real toggle button would add a third focusable inside a 36px control for a case that outside-click and Escape already cover.
+
+### The async option list is stale-while-revalidating
+
+While a request is in flight the previous results stay on screen under an explicit `Searching…` row, rather than blanking — the condition is still stated, which is what `CLAUDE.md` §7 asks for, and emptying the list every debounce window would flicker for no information gained. The seed (`props.options`) is what shows whenever the search box is empty, so a failed search or a cleared term always lands on a usable list.
+
+`loadOptions` is passed through **only when `searchable`**. Handing it a loader nothing can call would leave a half-built async machine — `status` pinned at `idle`, `retry` unreachable, the abort and request-id pair dead code. One ternary, and "never ship a dead control" holds a layer below the UI. Rejected: letting `loadOptions` imply `searchable`, which would re-couple the two props and silently override an explicit `false`.
+
+### The active option's indicator is an inset outline, not a background wash
+
+Under `aria-activedescendant` the active option is not focused, so `:focus-visible` — and with it the `focus-ring` mixin — can never match it. A background wash fails twice over: `--color-surface-hover` on `--color-surface` is ~1.05:1, under SC 1.4.11's 3:1 floor for a non-text indicator, and it is indistinguishable from the pointer hover on the same row. Hence a real outline in `--color-focus`, written out rather than `@include`d, with a negative offset so the scrolling list cannot clip it.
+
+### The blank option became a placeholder, and the wire format did not move
+
+`— Select —` / `All` used to be real `<option value="">` entries because a native select had nowhere else to put them. They are placeholders now, with `clearable` as the way back. Clearing still emits `''`, which is why `blankIsNull` in `inputs.ts` and the BOOLEAN filter's adapters are **unchanged**, `isFilterValueEmpty` still drops it, and a shared filter URL means exactly what it meant before.
+
+The em-dash spellings went with them: they existed to make a fake choice read as not-a-choice, which a muted placeholder carries on its own. `FieldFormModal`'s **Type** select is the exception that proves the rule — it never had a blank option, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
+
+### `BaseSelect` no longer pins `height` — the reason expired
+
+It used to, because Chrome ignores `line-height` on `<select>` and left it 1px taller than the inputs beside it. Its trigger is a `<button>` now, so `form-control`'s `min-height` applies like every other control. Recorded rather than deleted, or the next person to find a select a pixel off will re-pin it.
+
+### `RelationFieldSelect` gets its `tableId` from the store, not from `IField`
+
+`IField` carries no `tableId`, and adding one is wrong: `recordColumn()` synthesises `IField`s for `Record #` / `Created at` / `Updated at` that belong to no field row and would have to invent one, poisoning a type the query layer keeps honest. `loadOptions(tableId, fields)` already receives it, so the relations store records it per field.
+
+`searchOptions` deliberately does **not** write `optionsByField` — that is the seed every other consumer reads, and a search result would clobber it. It does call `cacheLabels`, so a record found only through a search still renders as its label in a cell afterwards.
 
 ### A coloured badge carries a dot, not a border
 
 `BaseBadge` had a 1px border whose only job was surviving the hovered row. With the row wash lightened that job is gone, and the badge matches the design concept: fill, word, and an 8px dot in the `-fg` step.
 
-The dot is a `::before` with **empty** `content`, not the concept's `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word it sits beside, and `DynamicTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — CLAUDE.md §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
+The dot is a `::before` with **empty** `content`, not an `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word beside it, and `DynamicTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — `CLAUDE.md` §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
 
-The guard is `variant === 'chip' && color !== undefined`, so `--label` never draws one: it is a metadata marker with no hue to signal. The `color === undefined` half is the atom's own contract rather than a state the app currently reaches — a SELECT cell always resolves to a real hue, because `badgeColorFor` falls back to `DEFAULT_BADGE_COLOR` for a value the field no longer offers. A choice renamed after records were written therefore renders **grey with a grey dot**, not untinted. Do not "simplify" the guard to `color !== undefined` on the strength of that: `--label` is reachable, and it is what the second half is for.
+The guard is `variant === 'chip' && color !== undefined`, so `--label` never draws one: it is a metadata marker with no hue to signal. **Do not "simplify" it to `color !== undefined`** — a SELECT cell always resolves to a real hue (`badgeColorFor` falls back to `DEFAULT_BADGE_COLOR`, so a renamed choice renders grey with a grey dot), which makes the first half look redundant, and `--label` is what the second half is for.
 
 The padding moved `rem(1) rem(7)` → `rem(2) rem(8)` in the same change, absorbing the pixel the border gave up so the box keeps the size the row height is built around. Do not "tidy" it back to a round number.
 
-`BaseColorPicker` keeps the border on its swatches, and that asymmetry is the point: a swatch is pure colour with no word beside it, so its edge is the only thing bounding it. It is now the sole consumer of the `-border` step.
+`BaseColorPicker` keeps the border on its swatches, and that asymmetry is the point: a swatch is pure colour with no word beside it, so its edge is the only thing bounding it. It is the sole consumer of the `-border` step.
 
-### The accent and danger tints are opaque
+### The badge palette is selected in JavaScript, by token name
 
-Both were `rgb(… / 8%)`. A translucent tint composites against whatever is under it, and each of these lands on `--color-surface` _and_ `--color-canvas` — the ghost button's hover, the filter chip, and the error banner all appear on both. Flat steps (`$blue-tint`, `$red-tint`) make the two renderings identical; the danger banner on canvas went 4.66:1 → 4.92:1 as a side effect. The comment that used to justify the alpha form ("a custom property's alpha cannot be modified in CSS") explained why they were _spelled out_, not why they were translucent.
-
-### The sort icon is muted with `opacity`, not a colour step
-
-`BaseInput` carries the general rule — a muted foreground is a colour token, because placeholder text at `opacity: 0.6` measured ~2.4:1. `DynamicTable`'s sort icon is the deliberate exception: it has to mute **whatever colour it currently inherits**. At rest that is the header's `--color-text-secondary`; under the pointer the sort button hands it `--color-accent`. A fixed colour step can only mute one of the two, and restoring the other costs a `color: inherit` override that then has to out-specify the `--active` modifier.
-
-The value is `0.35`, which composites to ~`#C6C8CD` — about **1.67:1**, deliberately under the 3:1 SC 1.4.11 bar for non-text UI. That is a considered trade, not an oversight: see **Accepted limitations**. It was tried at `0.7` (~3.14:1, compliant) first and read as visual clutter across four columns at once. The `BaseInput` rule still stands for **text**, which needs 4.5:1 and cannot reach it through transparency.
-
-The glyph is `mdi:code-tags` under `transform: rotate(90deg)`, not the nominally correct `mdi:unfold-more-horizontal`. Turned a quarter turn, `code-tags` is a chevron pointing up stacked over one pointing down — 12×20 of its viewBox against the other glyph's 9×18 — and its two halves are more open and further apart, which is what makes it read as an affordance at 14px. `--active` resets the rotation to `none`, because the sorted column's `mdi:arrow-up` / `mdi:arrow-down` must stay upright.
-
-### Breakpoints live in `_mixins.scss`, in `em`
-
-A media query cannot read a custom property, and `additionalData` injects that file into every SFC. `em` rather than `px` so it honours the browser's font-size setting.
-
-### A truncating cell clips with `overflow: clip`, not `hidden`
-
-`DynamicTable`'s cell wrapper caps a column by truncating, and `overflow: hidden` clips a **descendant's** focus ring along with the text. That went unnoticed while every focusable thing in the table owned its own box; a relation cell puts a link _inside_ the wrapper, and its ring was invisible on all four sides.
-
-`clip` truncates identically — the ellipsis is still computed at the content edge, so no extra text shows — but honours `overflow-clip-margin`, which lets the ring paint outside the box while the text stays in it. The margin is written as `rem(5)` (the ring's 3px width + 2px offset) because **Chrome drops `overflow-clip-margin` to 0 for any `calc()`**, `var()` included. It is the one place the ring's geometry is restated rather than referenced, so it has to move when `--focus-ring-*` does.
-
-### Focus is never removed, only restyled
-
-`_reset.scss` carries a zero-specificity baseline — `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` — so nothing can end up with no ring, and any component rule overrides it without a fight. Component rings use `outline`, not `box-shadow`, so an ancestor's `overflow` cannot clip them.
-
-### Every sized control is one height; `link` alone has none
-
-There is a single control height and no secondary size. `primary`/`secondary`/`danger`/`ghost` take it as `min-height`, `icon` takes it on both axes, `BaseCheckbox` gives it to the whole label row, `AppSidebar` to its items, `DynamicTable` to its sort button. `--link` is the one exception and is not an oversight: it is a text run with the semantics of a button, and it is what sizes `.table-card__actions` and `.field-row` — giving it a height would grow both surfaces for no gain, since neither is a standalone target.
-
-The heights that are _derived_ from the control rather than equal to it are all in one direction — a control plus its own inset — and are written that way rather than as literals: `DynamicTable`'s `tbody td` is `calc(var(--control-height) + #{$cell-padding-y * 2})` against a cell inset of `rem(4)`. Anything that instead restates the number by hand will drift the next time the token moves, which is exactly what happened at 44px.
-
-`BaseModal`'s header padding (`rem(10)`) and `DynamicTable`'s cell padding (`$cell-padding-y`, `rem(4)`) are the two insets that keep those bands from gaining an empty strip around a control. Both are deliberate and both are load-bearing. The layout's sidebar toggle is hand-rolled rather than a `BaseButton`, so it restates `--control-height` explicitly — the one place the token is duplicated instead of inherited.
-
-### The control height is 36px, and 44px was never the AA bar
-
-WCAG 2.2 **AA** is SC 2.5.8 _Target Size (Minimum)_: **24×24 CSS px**. 36px clears it with 50% margin. The 44×44 the design system used to carry is SC 2.5.5 _Target Size (Enhanced)_, which is **AAA**, and also the Apple HIG touch figure — it was being quoted in `CLAUDE.md` under a "WCAG 2.2 AA" heading as though it were the requirement. It was not.
-
-The drop to 36 is a density decision, and it is safe because it never touches a content box: every control lost 8px of height _and_ 8px of block padding together, so text has exactly the room it had at 44. `form-control` went `rem(10)` → `rem(6)`, `DynamicTable`'s sort button and its Actions corner header the same (both have since folded into `$cell-padding-y`, `rem(4)` — the header row is sized by the sort button's `min-height`, so its block padding only has to stay under it), rows `rem(52)` → the calc above. Anything that trims the height without trimming the padding clips instead of compacting.
-
-`--header-height` moved 64 → 56 in the same change, keeping the 10px-per-side slack it had around a 44px control. Its only consumers are the shell grid row and the off-canvas sidebar's `top`, both token references.
-
-The focus ring was left at `3px` width / `2px` offset. An outline paints outside the border box, so its geometry is independent of the control height, and the places where a 5px halo crosses into a neighbour (`DynamicTable`'s actions `gap: rem(4)` and its cell inset, `AppSidebar`'s `gap: rem(2)`, and the records header's ghost pair at the same `rem(4)` — see below) were true at 44 and are unchanged — more conspicuous against a smaller box, not newly broken.
-
-### A ghost button's padding is spacing, so the gaps beside it are unequal on purpose
-
-`ghost` is `padding: 0 rem(12)` over a transparent background: nothing paints at its box edge, so that padding reads as part of the gap. In the records header the row's `cluster` at `rem(16)` therefore put **40px** of visible space between Settings and Filters (12 + 16 + 12) and **28px** between Filters and the bordered search box (12 + 16 + 0) — the two controls that belong together looked the furthest apart.
-
-The ghost pair sits in its own `cluster(4)`: 12 + 4 + 12 is the same 28. **The two gaps in that row are deliberately different numbers producing equal space** — normalising them back to one value is the regression, and it will look like a tidy-up.
-
-The cost is a fourth site where the 5px focus halo crosses into a neighbour (above): Settings' ring overlaps Filters' box by 1px. The identical trade-off was already accepted at the identical `rem(4)` in `DynamicTable`'s row actions, so this is the existing bargain, not a new one.
-
-### The header group needs `min-width: 0`, same as the panes
-
-The two table headers group the `<h1>` with its primary action, so the **group** — not the title — is `page-header`'s flex item. `page-title` still carries `min-width: 0`, and that is still what lets the text shrink _inside_ the group; it does nothing for the group itself. A flex item's automatic minimum is its content-based minimum, and a nowrap flex container's min-content size is the sum of its items' contributions — which for a `white-space: nowrap` heading is the whole untruncated table name. `overflow: hidden` on the `<h1>` does not rescue it: `overflow` zeroes a box's own _automatic minimum_, not its min-content _contribution_ to its parent's intrinsic size. Without `min-width: 0` on the group the header refuses to shrink and a long name runs past the pane instead of ellipsising. It reads like a redundant line and is not.
-
-**Rejected: `flex: 1` on the group.** That implies `flex-basis: 0`, so the group's base size stops being its content, it never reaches `page-header`'s wrap threshold, and the title starts ellipsising at widths where it would have fitted whole. `justify-content: space-between` already pushes the right-hand cluster to the edge; nothing needs to grow.
-
-The primary button in that group takes `flex: none`, through a page-owned class (`&__create`, the same shape as `&__search`) rather than a bare `.base-button` selector — a page must not reach for another component's internal class name. Shrink is distributed in proportion to flex base size, so an unfrozen button reaches its min-content and wraps "Add record" onto two lines; `.base-button` declares no `white-space`, and `--primary` is `min-height` precisely so a long label wraps rather than overflows. Freezing the button sends every pixel of the deficit to the title, which is the one child that can absorb it.
-
-### A table column's width cap lives on a wrapper, not on the cell
-
-`DynamicTable` sizes columns from content — `th, td { white-space: nowrap }` under the browser's default `table-layout: auto`. A table's columns are user-defined, so no field's content is bounded from above: one long TEXT value stretches its column to the width of that value and pushes the rest of the grid out of the viewport. `$column-max-width` (`rem(320)`) caps it, and `$content-max-width` derives the per-box figure by subtracting the cell's own `$cell-padding-x` twice, so a column bounded by a **value** and a column bounded by its **header name** land on the same width.
-
-**The cap cannot go on the `td`.** CSS 2.2 §17.5.2 leaves the effect of `min-width`/`max-width` on table cells explicitly undefined, and under `table-layout: auto` browsers ignore it — the column is sized by the cell's max-content contribution, which the declaration never touches. A **block child's** `max-width` does bound that contribution. So `&__cell` is load-bearing markup, not a div for its own sake; deleting it silently restores the unbounded behaviour with the SCSS still in place.
-
-**Rejected: `table-layout: fixed`.** It discards content-driven sizing outright and needs an explicit width per column — a figure the metadata layer has no source for, since a field carries a type and a name, not a display width. Every column would end up the same width whether it holds a checkbox or a paragraph.
-
-**Rejected: a `--*` token.** One component's measure, and §8 admits tokens only as coherent semantic sets. It sits beside `$cell-padding-y` / `$cell-padding-x` as a local SCSS variable for the same reason.
-
-**Rejected: capping `&__sort` instead of its label.** That button is deliberately `width: 100%` so the whole header cell is the sort target; a `max-width` on it stops it short of the cell edge whenever the table has widened a column past the cap. The cap therefore sits on `&__sort-label`, which leaves the gap and the sort icon outside the bounded box — a column bounded by its header name can run ~`rem(18)` over `$column-max-width`. Closing that gap means encoding the icon's rendered size in the table's stylesheet, which buys nothing at that magnitude.
-
-**`BaseBadge` truncates itself.** A badge is `display: inline-flex`, so it is an atomic inline box to the cell that contains it: `text-overflow` cannot ellipsise it, and an overflowing badge is hard-clipped mid-pill with the ellipsis painted over its own fill. The `&__text` wrapper plus `max-width: 100%` moves the truncation inside the badge, where it renders as a pill ending in an ellipsis. This is why the badge, not `DynamicTable`, owns the rule.
-
-**`MultiValueCell` is `display: inline` for the same reason, from the other side.** It was `inline-flex`, which made a whole list one atomic box — so an over-full list was hard-clipped at the cell edge with nothing to say values were missing, and the entries did not even shrink to hint at it, because a flex item's automatic minimum size floors it at its own content. Plain inline puts the entries in the cell's own inline formatting context, where the cap it already carries applies: the values that fit are drawn in full, and Chrome drops the first one that does not in favour of a single ellipsis. `gap` goes with the flex box, replaced by a margin on adjacent siblings.
-
-Two consequences worth stating. **`RecordDetail` no longer overrides the cell's layout** — inline content wraps wherever nothing forbids it, and what put the list on one line was always `DynamicTable`'s `white-space: nowrap`; the dialog only has to not impose it, and to space the wrapped rows with a `line-height`, since inline content has no `row-gap`. And **the ellipsis itself is not machine-checkable**: the dropped badge keeps its box, its client rects and its `checkVisibility()`, so it is paint and nothing else. It joins the approximated clauses in `docs/architecture.md` §12 rather than pretending to a spec.
-
-### `BaseButton` renders the element its role implies
-
-One component, one stylesheet. A `BaseLinkButton` would have been a second copy of six variants' worth of SCSS kept in step by hand, and the two would have drifted the first time a token moved.
-
-Rejected: a separate `href` prop — `NuxtLink` already resolves an absolute URL to a plain `<a href rel="noopener noreferrer">` with no router involvement, so `href` would be a second prop meaning the same thing, plus a decision at every call site. Rejected: a polymorphic `as`/`is` — an open element set with no caller asking for it, and it would let a call site emit a `<div>` that looks like a button, which is the bug this component exists to prevent.
-
-`to` is typed `string`, not vue-router's `RouteLocationRaw`: that package is deliberately undeclared, and every link in the app is a plain path. `NuxtLink` is imported from `#components` rather than resolved by name — only components _in templates_ are ambient; one referenced from script is imported like anything else.
-
-`disabled` wins over `to` because a disabled link is not a link. Every alternative rebuilds the native attribute out of `aria-disabled` + `tabindex="-1"` + `pointer-events: none` — three mechanisms for one, taking the control out of the tab order by hand, and needing a selector for a state nothing else in the app expresses that way. A JS click guard was rejected separately: `stopImmediatePropagation` ordering against fallthrough listeners is not something a component can rely on, and `NuxtLink` installs its own handler you cannot get in front of.
-
-### `text-link` is a class, not a mixin
-
-It had three `@include`s and no per-site variation, which is a shared block, not a fragment. Converting the two page-header links to `BaseButton` with `to` took it to two, both of them prose links inside a sentence — so `_text-link.scss` carries the one look and `_mixins.scss` no longer carries a mixin whose whole body was a fixed declaration list.
-
-That conversion was the point rather than a side effect: at 14px × `--line-height-base` with no padding those two header links were ~21px tall, standing alone in an action cluster rather than inline in prose, so SC 2.5.8's inline exception did not cover them. They were the only targets in the app under 24×24.
-
-### The viewport lock lives in the shell, not in the records page
-
-`app/layouts/default.vue` is `height: 100dvh; overflow: hidden`, and the sidebar and main region scroll their own content. The alternative — leaving the shell in document flow and giving the records page a `height: calc(100vh - var(--header-height) - …)` — was rejected on two counts: the page would have to restate the shell's own padding and header height and stay in step with them by hand, and it would still let the brand bar scroll away above the table, which is half of what makes a long list tiring to use. Putting it in the shell also deleted the sidebar's `position: sticky` + `calc(100vh - var(--header-height))`, which existed only to fake the height the fixed shell now supplies.
-
-`dvh`, not `vh`: on mobile a collapsing URL bar leaves a `100vh` shell overhanging the visible area, which is exactly where the pager lives.
-
-The consequence to know: **`min-height: 0` on the two panes is load-bearing.** A grid or flex item's automatic minimum is its content, so an item holding a 50-row table grows past its row and the `overflow-y: auto` beside it never fires. It reads like a redundant line and is not.
-
-### The records grid sizes to its rows, not to the pane
-
-`DynamicTable` takes `flex: 0 1 auto` from the records page, so its height is the height of its content, capped by the space left in the pane: a few rows end at the last row with the pager directly beneath, and a full page shrinks to the pane and scrolls inside itself.
-
-It was `flex: 1` first, on the reasoning that a pager welded to the bottom edge gives the page a stable frame. That was wrong, and visibly so — with seven records the grid was a mostly-empty box with a void between the last row and the pager. **Do not restore it.** The frame is not worth the void.
-
-`flex-basis: auto` is the load-bearing third of the shorthand: it makes the flex base size the grid's own content height, which is what a `max-height` or a measured height would have had to approximate. Nothing here states a height, so the behaviour re-resolves for free on resize, at any breakpoint, and when the filter summary or the error banner takes a slice of the pane.
-
-The empty states are centred with `margin-block: auto` on the child rather than `justify-content: center` on `&__body`, because the parent cannot centre one child without lifting a short grid off the top as well. That rule is nested (`&__body &__empty`) so it outranks `BaseEmptyState`'s own `margin` — flat, the two selectors tie and the winner falls to stylesheet order across components.
-
-### The sticky table header's rule is a shadow, not a border
-
-`thead th` in `DynamicTable` carries `box-shadow: inset 0 -1px 0 var(--color-border)` where every other cell edge is a `border-bottom`. Under `border-collapse: collapse` the collapsed edge between the header row and the first body row is painted by the **table**, not by the cell, so a sticky `th`'s `border-bottom` scrolls away with the rows and the pinned header ends up floating. `border-collapse: separate` would fix the border and cost the single-hairline grid the table is built on, so the shadow stays. For the same reason the `th` carries its own opaque `background`: its padding lives on the inner `&__sort` button, so only the cell can paint the full width the rows scroll under.
-
-### The pinned Actions column needs a wrapper inside the cell
-
-The action buttons' flex row lives on a `div.dynamic-table__actions-group` **inside** the `<td>`, not on the `<td>` itself, and that is load-bearing rather than tidiness. A `<td>` with `display: flex` is not a table-cell box, so CSS generates an anonymous table-cell around it; the sticky box's containing block becomes that anonymous cell, which shrink-wraps it, and a sticky box cannot move outside its containing block. `position: sticky; right: 0` would clamp to zero movement and the column simply would not pin. Putting the flex on a wrapper keeps the `<td>` a real table cell — which the column's `width: rem(1)` + `white-space: nowrap` shrink-to-fit also assumes.
-
-Its left edge is `box-shadow: inset 1px 0 0` for the same reason the sticky header's rule is a shadow: under `border-collapse: collapse` a real border is painted by the table, not the cell, so it would scroll away instead of riding with the pinned column. The hairline is permanent rather than appearing on scroll — a scroll-aware shadow would put a scroll listener and reactive state into a component that is otherwise pure CSS, and in this design borders already do the structural work.
-
-It is the one divider drawn in `--color-border-strong` rather than `--color-border`: separating a frozen column from columns sliding underneath it is a heavier job than ruling off a row. **A tinted fill was considered and rejected** — `--color-surface-muted` is the same value as `--color-surface-hover`, so filling the column would have swallowed the row hover exactly where the buttons are, and `--color-accent-tint` reads as "selected" everywhere else in the app (active sidebar item, filter chips), which a permanently pinned column is not. The column earns its emphasis from the divider alone.
-
-**A wider gutter on the pinned column was tried and dropped.** It took `rem(20)` against the scrolling columns' `rem(16)`, on the reasoning that a column sitting between a divider and the scrollbar needs the air. In practice the 4px read as a misalignment against the header label above it rather than as breathing room, and it is what the divider is for. Every cell now takes the same `$cell-padding-y $cell-padding-x` — see below.
-
-`&.dynamic-table__actions-head` still needs its own padding rule: it is the only header with no sort button to carry the inset, so `th { padding: 0 }` would leave its label flat against the divider while every label beside it sits a full `$cell-padding-x` in. It takes the same pair as everything else, not a special one.
-
-The pinned cells paint opaque backgrounds, so `tbody tr:hover` has to repaint the actions cell explicitly; without it the hovered row shows a white notch at its right edge.
-
-`&.dynamic-table__actions-head` is nested inside `thead th` rather than written as a sibling `&__…` block, and spells the class out because `&__…` would resolve against the wrong parent. That is specificity, not style: `.dynamic-table thead th` outranks a bare `.dynamic-table__actions-head`, so the same declarations written as a sibling block are silently dead. Moving it out of its parent will not error — it will simply stop applying.
-
-The body counterpart, `&.dynamic-table__actions` inside `tbody td`, **used to exist for the same reason** and is gone: it carried a tighter `padding-block` than the generic cell, because the row `height` is only a minimum on a real table cell and a 36px button at the old `rem(6)` pushed every row to 49px. Now that every cell takes `$cell-padding-y` there is nothing left to override — the constraint that rule existed to satisfy is satisfied by the generic rule itself.
-
-### `DynamicTable` rows have an explicit height
-
-`height: calc(var(--control-height) + #{$cell-padding-y * 2})` on `tbody td`, not derived from the tallest cell — otherwise the action cell's buttons define the row, and a button plus whatever padding happens to be generic sets it rather than the design doing so. A row is one control plus the cell inset on both sides: 44px at the current 36px control and `rem(4)` inset. A bordered row measures 45px; the last row drops its border and measures 44.
-
-**The height and `$cell-padding-y` are one decision, not two.** A table cell treats `height` as a minimum, so the action cell's 36px buttons only land _on_ the row height if the padding the height was built from is the padding the cell actually has. Raising `$cell-padding-y` without the `calc` following it grows every row; the `calc` is written against the variable precisely so it cannot be raised alone.
-
-It is the app's **first and only `calc()`**, and deliberately so. Written as a literal it was a magic number calibrated against a token three files away, and it went stale the moment that token moved — the `calc` is what makes the relationship survive the next density change instead of quietly mis-sizing every row.
-
-### `BaseSelect` no longer pins `height` — the reason expired
-
-It used to, because Chrome ignores `line-height` on `<select>` and left it 1px taller than the inputs beside it. Its trigger is a `<button>` now, so the quirk is gone and `form-control`'s `min-height` applies like every other control. Recorded rather than deleted, or the next person to find a select a pixel off will re-pin it.
+`badgeTint()` builds `var(--color-badge-<name>-bg)` from the colour prop and returns inline custom properties. A Sass `@each` emitting one modifier class per hue would keep the selection in CSS, but needs the palette list to exist in both SCSS and TypeScript — and the failure mode of that duplication is silent: add a colour to the enum, forget the stylesheet, and the badge renders unstyled with no error anywhere. Composing the name keeps `_variables.scss` the single definition, and a literal colour still never reaches a component.
 
 ### `BaseBadge --chip` is never uppercased
 
@@ -571,295 +556,192 @@ It displays a **value** — SELECT choices are user data. `--label` is the upper
 
 The header deliberately has no global "Search everything" box: cross-table search is not built, and a dead input is worse than a gap. The principle outlives the instance — if cross-table search is built, the box arrives with it.
 
-### A SELECT choice is coloured from a closed palette, not a free colour picker
+---
 
-A custom hex picker was the alternative, and it loses on all three axes the codebase already cares about.
+## Styling & tokens
 
-It breaks the token boundary `_palette.scss` exists to enforce: components consume `var(--color-*)` and the build makes a primitive unreachable, so an arbitrary colour would have to arrive as a literal. `BaseButton`'s `tone` prop is the precedent — it **replaced** a free-form `hoverColor` string for exactly this reason.
+### The token layer is three layers, and the build enforces the boundary
 
-It breaks the contrast guarantee. A badge needs 4.5:1 text on its fill; with a closed set every pairing is authored and verified once, while a free picker needs runtime luminance maths and still lets a user choose a pairing that fails.
+`_palette.scss` holds primitives as SCSS variables. Because `additionalData` injects only `functions` and `mixins`, a component **cannot** reference `$blue-600` without an `@use` it will never have. Components consume `var(--color-*)` and nothing else — a compile-time fact, not a convention.
 
-And it stores the wrong thing. What is persisted is a **name** (`"blue"`), not a value, so the colour survives a re-theme, and dark mode remains reachable. The upgrade path is preserved either way: widening the enum to accept a hex later needs no data migration, because the stored names stay valid members of whatever union replaces it.
+### Surfaces are split even where two share a value
 
-### A choice's identity is its own text
+`--color-surface-hover` / `-disabled` / `-muted` are separate tokens with the same value, and `--color-surface-row-hover` / `--color-canvas` are a second such pair. The previous single `--color-bg` meant page background, row hover, disabled fill and chip fill at once; re-collapsing them just relocates that bug.
 
-`Record.data` stores the choice string, not an option id. That keeps the whole SQL layer, the filter constants and the URL codec out of this change — SELECT still filters, sorts and searches on the stored text.
+### The row wash is not the control wash
 
-The cost is that renaming a choice orphans the records holding the old one. That was already true before colours existed; it is now also true of the colour, and it is recorded below rather than fixed, because a stable option id buys nothing for colour and rewrites `record-query.ts` to get there.
+`--color-surface-row-hover` (`$gray-50`) is lighter than `--color-surface-hover` (`$gray-100`) because a hovered row is the one surface a **badge** has to survive. Every badge fill sits within 1.05:1 of `$gray-100`, so a row painted at the control-hover value erases the badge outright. Raising the badge fills instead would break their 4.5:1 text pairings; giving the badge a border back is what that change removed. The row moved because it is the only one of the three with no other job.
 
-### The badge palette is selected in JavaScript, by token name
+### The border ramp is four steps, by job
 
-`badgeTint()` builds `var(--color-badge-<name>-bg)` from the colour prop and returns inline custom properties. A Sass `@each` emitting one modifier class per hue would keep the selection in CSS, but it needs the palette list to exist in both SCSS and TypeScript — and the failure mode of that duplication is silent: add a colour to the enum, forget the stylesheet, and the badge renders unstyled with no error anywhere. Composing the name keeps `_variables.scss` the single definition, and a literal colour still never reaches a component.
+`-subtle` is a rule **inside** a surface (a table's row divider), plain is structural (the box itself), `-strong` is a heavier structural job (a pinned column against columns sliding under it), and `-control` is the only one carrying a contrast floor: a control's outline is the only thing identifying the control, so it needs 3:1 non-text. Neither `$gray-200` (1.3:1) nor `$gray-300` (1.66:1) clears that — `$gray-400` (3.17:1) exists for exactly this. A row rule has no floor at all, which is why `-subtle` can be as light as it is.
 
-### `BaseColorPicker` handles Escape on its panel, never on `document`
+### The accent and danger tints are opaque
 
-It opens inside `BaseModal`, whose Escape listener is on `document`. Two document-level listeners cannot be ordered reliably — `stopPropagation` between listeners on the _same_ node does nothing, and registration order is an accident of mount order. Handling the key on the panel with `.stop` means the event never reaches `document` at all, so one Escape closes the popover and leaves the dialog open. The precondition is that focus is inside the panel while it is open, which the roving tabindex requires regardless.
+Both were `rgb(… / 8%)`. A translucent tint composites against whatever is under it, and each of these lands on `--color-surface` _and_ `--color-canvas` — the ghost button's hover, the filter chip and the error banner all appear on both. Flat steps make the two renderings identical; the danger banner on canvas went 4.66:1 → 4.92:1 as a side effect. The comment that used to justify the alpha form ("a custom property's alpha cannot be modified in CSS") explained why they were _spelled out_, not why they were translucent.
 
-No `useDismissable` was extracted and `BaseModal` was not refactored, though an earlier plan called for both. The justification had been that a popover would be the third hand-rolled document-Escape listener — but because the popover deliberately does _not_ register one, the count stays at two and the extraction would have had a single consumer. Extracting on the first occurrence is the speculative build `CLAUDE.md` §1 rules out; the trigger still fires the day a second popover appears.
+### The sort icon is muted with `opacity`, not a colour step
 
-### The trigger fired: `usePopover` and `useAnchoredPosition` were extracted
+`BaseInput` carries the general rule — a muted foreground is a colour token, because placeholder text at `opacity: 0.6` measured ~2.4:1. `DynamicTable`'s sort icon is the deliberate exception: it has to mute **whatever colour it currently inherits** (the header's secondary text at rest, `--color-accent` under the pointer). A fixed colour step can only mute one of the two, and restoring the other costs a `color: inherit` override that then has to out-specify the `--active` modifier.
 
-`BaseSelect` is the second popover, so the entry above is now spent. Two composables rather than one, split by reason to change: `usePopover` owns open state, outside-pointer dismissal and focus restore; `useAnchoredPosition` owns measurement, flipping and reflow. The seam is real because their consumer sets differ — `BaseColorPicker` took the first and not the second, since its panel is 254×110 inside a centred dialog where `position: absolute` already works. Merging them would have made that retrofit an all-or-nothing change to a working control.
+The value is `0.35`, deliberately under the 3:1 SC 1.4.11 bar — a considered trade recorded in the register. `0.7` (compliant) was shipped first and read as visual clutter across four columns at once. The `BaseInput` rule still stands for **text**, which needs 4.5:1 and cannot reach it through transparency.
 
-**`usePopover` registers no Escape listener and must never grow one.** The entry above is the reason, and it applies verbatim to a select opened inside the filter drawer. Escape is the caller's, in one of two spellings — see "Escape is swallowed only while something is open" below.
+The glyph is `mdi:code-tags` under `transform: rotate(90deg)`, not the nominally correct `mdi:unfold-more-horizontal`. Turned a quarter turn, `code-tags` is a chevron pointing up stacked over one pointing down, and its two halves are more open and further apart — which is what makes it read as an affordance at 14px. `--active` resets the rotation, because the sorted column's arrow must stay upright.
 
-It also exposes `containerRef` and `triggerRef` **separately** — the outside-click boundary and the focus-restore target are not the same element once a control puts a clear button beside its trigger. Inferring the second from the first with a `querySelector` was tried and rejected: it made the ordering of two buttons load-bearing and invisible.
+### Breakpoints live in `_mixins.scss`, in `em`
 
-### `BaseSelect` is an ARIA listbox **or** a combobox, never a `<select>`
+A media query cannot read a custom property, and `additionalData` injects that file into every SFC. `em` rather than `px` so it honours the browser's font-size setting.
 
-A native `<select>` cannot render a choice's colour (`<option>` fills are not styleable across browsers), cannot search, cannot load asynchronously, and has nowhere to put "loading" / "no results" / "could not load" as distinct states. All four were wanted at once, so the element had to go.
+### Focus is never removed, only restyled
 
-`searchable` picks the control's root, and only the root — the clear button, the chevron, the teleported panel, the status row and the `role="listbox"` `<ul>` are shared:
+`_reset.scss` carries a zero-specificity baseline — `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` — so nothing can end up with no ring, and any component rule overrides it without a fight. Component rings use `outline`, not `box-shadow`, so an ancestor's `overflow` cannot clip them.
 
-- **`false` → a `<button aria-haspopup="listbox">`.** Native semantics, native focus, and its accessible name is label + current value, the way a `<select>` announces.
-- **`true` → an `<input role="combobox">`.** The user types into the control itself; the panel below lists matches.
+### A truncating cell clips with `overflow: clip`, not `hidden`
 
-What it cost, all of it deliberate:
+`overflow: hidden` clips a **descendant's** focus ring along with the text. That went unnoticed while every focusable thing in the table owned its own box; a relation cell puts a link _inside_ the wrapper, and its ring was invisible on all four sides.
 
-- **the OS-native picker on touch** — an accepted limitation, the same trade as the 36px control height; `searchable` additionally raises the soft keyboard where a `<button>` did not;
-- **arrow keys changing the value while closed** — a native select does it; the ARIA pattern opens the list instead, and a filter that changed under an unseen arrow key would fire a request per press;
-- **type-ahead**, which is _not_ given up — reimplemented by hand (500 ms buffer, match on the option's label) for the non-searchable branch, and it must stay. Where there is a search box, the search box _is_ the type-ahead.
+`clip` truncates identically — the ellipsis is still computed at the content edge — but honours `overflow-clip-margin`, which lets the ring paint outside the box while the text stays in it. The margin is written as `rem(5)` (the ring's 3px width + 2px offset) because **Chrome drops `overflow-clip-margin` to 0 for any `calc()`**, `var()` included. It is the one place the ring's geometry is restated rather than referenced, so it has to move when `--focus-ring-*` does.
 
-Rejected: a native `<select>` with a colour swatch rendered beside it. The swatch cannot follow the open dropdown, which is exactly where the choice is made.
+### The control height is 36px, and 44px was never the AA bar
 
-### `searchable` is an explicit prop, and the threshold moved to the call site
+WCAG 2.2 **AA** is SC 2.5.8 _Target Size (Minimum)_: **24×24 CSS px**, which 36 clears with 50% margin. The 44×44 the design system used to carry is SC 2.5.5 _Target Size (Enhanced)_, which is **AAA** — it was being quoted under a "WCAG 2.2 AA" heading as though it were the requirement.
 
-It was once derived — `loadOptions !== undefined || options.length > 8` — which welded search to the data source and made it impossible to turn off. Two things were wrong with that:
+The drop is a density decision, and it is safe because it never touches a content box: every control lost 8px of height _and_ 8px of block padding together, so text has exactly the room it had at 44. **Anything that trims the height without trimming the padding clips instead of compacting.** `--header-height` moved 64 → 56 in the same change, keeping the slack it had around a 44px control.
 
-1. **Search and async are orthogonal.** Local options deserve filtering just as much; a server-backed list is not the only long one.
-2. **The docblock defending it was factually false**, not merely superseded: it claimed "a call site cannot know whether the user has three tables or forty". Every call site owns the `options` array it passes and can count it. `shouldSearch()` in `app/utils/select.ts` counts exactly what the component was counting, one layer out, where the number is visible.
+The focus ring stayed at 3px width / 2px offset: an outline paints outside the border box, so its geometry is independent of the control height. The places where a 5px halo crosses into a neighbour were true at 44 and are unchanged — more conspicuous against a smaller box, not newly broken.
 
-`shouldSearch` exports the **predicate, not the number**, because what the two field-type registries would otherwise duplicate is the comparison rather than the literal.
+### Every sized control is one height; `link` alone has none
 
-Rejected: a tri-state `searchable?: boolean | 'auto'`. It keeps the threshold inside the component — the very thing being removed — and would add a fourth spelling of the implicit behaviour rather than deleting it.
+There is a single control height and no secondary size. `primary`/`secondary`/`danger`/`ghost` take it as `min-height`, `icon` takes it on both axes, `BaseCheckbox` gives it to the whole label row, `AppSidebar` to its items, `DynamicTable` to its sort button. `--link` is the exception and not an oversight: it is a text run with the semantics of a button, and it is what sizes `.table-card__actions` and `.field-row` — giving it the full height would grow both surfaces for no gain.
 
-**Not for a list that arrives after mount.** `FieldFormModal`'s two relation selects hardcode `searchable` instead of counting: both lists are fetched, so a derived value would start `false`, render a `<button>`, then flip to an `<input>` when the fetch lands — swapping the focused element out from under the user. A stable branch beats an accurate one.
-
-### The search input is in the control, not in the panel
-
-A select where you click to open and then move to a second field to type is a select wearing a search box. Putting the input in the control makes it what it actually is — a combobox — and the panel becomes purely a result list.
-
-**The selection renders as an overlay over the control, never as the input's value.** Consequences that make it the right model: searching never means clearing what is already chosen first; there is no restore-on-close or restore-on-blur to get wrong; and one piece of markup serves single and multiple alike. The native `placeholder` attribute handles the empty case, so it can never show _underneath_ a selection.
-
-Rejected: APG's editable-combobox flavour, where the input's value **is** the selected label. It needs restore-on-close logic, forces the user to erase the current value before searching, and has no multi-select story at all.
-
-Two ARIA consequences that are easy to get backwards:
-
-- **`aria-labelledby="${id}-label ${id}"` must not cross to the input branch.** On a `<button>` that self-reference folds the element's _content_ into its name. On an `<input>` the same construct computes from the element's **value** — so the control's accessible name would change with every keystroke. The button instead points at the overlay by IDREF, which keeps the name label + value with the markup shared.
-- **The selection has to be announced somewhere.** On a `<button>` it was the accessible _name_; on an `<input>` the accessible value is the search term, so without help the selection would reach assistive tech nowhere but the option rows. `aria-describedby` points at the same visible overlay — a description is the right slot for "what is currently chosen", and it needs no hidden element to say something already on screen. (The argument used to add "the project has no `sr-only` mixin". It has `.visually-hidden` now, for the status region below; the choice is unchanged, because pointing at the visible copy is still better than keeping a second one in step with it.)
-
-### Escape is swallowed only while something of ours is open
-
-`BaseModal` listens on `document`, so a popover must never eat an Escape that belongs to the dialog around it. **Where focus lives inside the panel, `@keydown.esc.stop` says that structurally** — the panel only exists while open, so the handler cannot fire otherwise. That is `BaseColorPicker` and `BaseSelect`'s non-searchable branch.
-
-**Where the control keeps focus outside its panel, the modifier is actively wrong.** A combobox holds focus in its input whether the list is open or shut, so an unconditional `.stop` there would mean _the filter drawer can never be closed by keyboard while any searchable select has focus_. The condition is not expressible as a modifier, so that branch handles the key in JS and calls `stopPropagation()` only when `open`.
-
-The invariant is the sentence, not the spelling.
-
-### Tab moves _into_ the panel before it moves past the control
-
-The same teleport that makes the panel focusable inside a dialog puts it after the entire app in the browser's tab order, so nothing in the panel is reachable by tabbing. It holds exactly one focusable — the failed state's `Retry` — which is why this is a special case in the combobox's `Tab` branch rather than a roving tabindex: a roving index manages a set, and one control is not a set.
-
-Three edges decide the shape:
-
-- **Only forward.** Shift+Tab from the field closes and leaves, because backwards means leaving; reversing into a panel you have not been in yet reads as a trap.
-- **Out of the panel, the default is not cancelled.** `dismiss()` restores focus to the control synchronously, and the browser then sequences from _there_, so one press leaves the select the way Tab does everywhere else. Cancelling it and focusing the control by hand would be one press short of the exit the user asked for. This is the one clause happy-dom cannot answer — `select-combobox.spec.ts` asserts the very next control takes focus, which is what would catch a browser sequencing from the teleported button instead.
-- **Escape needs nothing new.** It bubbles from the button to the panel's own `@keydown.esc.stop`, so the rule above still holds while focus is inside the panel.
-
-The reachability fix is only half of it. `retry()` sets the status to `loading` synchronously, which unmounts the button being pressed — so the click handler hands focus back to the control first, exactly as `clear()` does for the ✕ that disappears with the value it clears. Without it, reaching Retry from the keyboard would deliver the user to a control that drops them on `<body>`.
-
-### Opening on type is driven by the model, not by `keydown`
-
-A printable-key test (`event.key.length === 1 && !ctrl && !meta && !alt`) is wrong for at least three real inputs: **paste** (`Ctrl+V` is excluded by definition, and the pasted text fires no keydown of its own), **IME composition** (the keydown is `Process`, never the composed character), and text **dropped** into the field. Watching the model catches every path by construction.
-
-It also means the input needs no composition guard: `v-model` already withholds the write until a composition commits. `BaseInput` hand-rolls one only because it binds `:value` + `@input` to dodge the `type="number"` cast — do not copy that here.
-
-### A click inside a searchable control never closes the panel
-
-On the non-searchable branch a click on the trigger toggles, as a button should. On the combobox branch it only ever opens: a click inside a text field places the caret, and closing on it would make it impossible to click into the middle of a term being edited.
-
-The chevron therefore stays decorative on both branches, so the combobox offers no pointer close. Accepted rather than fixed: a real toggle button would add a third focusable element inside a 36px control for a case that outside-click and Escape already cover.
-
-### In `multiple`, the control shows a count, not chips
-
-One selection reads as itself; several read as "3 selected". Chips were rejected on a structural argument, not an aesthetic one: they make the control's height a function of its content, and **nothing in the positioning layer observes that**. `useAnchoredPosition` measures on open, on `resize` and on capture-phase `scroll` — the moment a chip wrapped to a second row the control would grow, the panel would not move, and it would visibly detach from the field it belongs to. Fixing that means a `ResizeObserver` in a composable whose other consumer has no use for one: a positioning rewrite in service of a display choice.
-
-Independently sufficient: the 36px control height is a design invariant (`CLAUDE.md` §8), and in the filter drawer every control below a growing chip field would shift down as the user picks — moving the control they were aiming at.
-
-### `useListboxNavigation` was extracted for SRP, not DRY
-
-"Extracting on the first occurrence is the speculative build `CLAUDE.md` §1 rules out" (above) does **not** bind here: that entry rejected a _DRY_-motivated extraction of a composable with one consumer and no size problem. This is decomposition of an SFC that had grown to two control branches, two keyboard dispatchers, a search model, an async pipeline and a popover. The blessed precedent is `useSelectOptions`, and this file carries the same "not a general-purpose composable" warning for the same reason.
-
-`typeAhead` lives in it despite being called from only one of the two branches: its whole effect is `setActive(index)`, so it shares the composable's single reason to change. Splitting a twenty-line function with one consumer into a third file is the over-fragmentation the SRP argument is supposed to prevent.
-
-### The select panel teleports to `<body>`, and the native `popover` attribute cannot substitute
-
-`BaseModal` marks `#__nuxt` `inert` while a dialog is open, and `inert` is inherited by the entire subtree. A panel rendered in place is therefore unfocusable inside the very drawer it belongs to — and the native `popover` attribute does **not** rescue it, because top-layer promotion changes paint order, not DOM ancestry. Teleporting to `<body>` makes the panel a sibling of the app root, which is the only escape; it is the same reason `BaseModal` itself teleports.
-
-Clearing the drawer's `overflow-y: auto` is a second benefit, not the reason. Both together are why `useAnchoredPosition` works in viewport coordinates with `position: fixed`.
-
-### `.stop` on Escape survives the Teleport
-
-Worth stating because it looks like it should not. The panel is a real DOM child of `<body>`, so a keydown inside it bubbles panel → body → html → document; stopping it at the panel means `BaseModal`'s `document` listener never sees it. Teleport moves the node, not the event path.
-
-This covers the branch whose focus is inside the panel. The combobox branch's handler is **not** teleported — it sits on the input, in the control — so it needs no such argument; what it needs instead is the `open` condition the modifier cannot express (above).
-
-### The active option's indicator is an inset outline, not a background wash
-
-Under `aria-activedescendant` the active option is not focused, so `:focus-visible` — and with it the `focus-ring` mixin — can never match it. A background wash fails twice over: `--color-surface-hover` on `--color-surface` is ~1.05:1, under SC 1.4.11's 3:1 floor for a non-text indicator, and it is indistinguishable from the pointer hover on the same row. Hence a real outline in `--color-focus`, written out rather than `@include`d, with a negative offset so the scrolling list cannot clip it.
-
-### The async option list is stale-while-revalidating
-
-While a request is in flight the previous results stay on screen under an explicit `Searching…` row, rather than blanking. The condition is still stated, which is what `CLAUDE.md` §7 asks for; emptying the list on every debounce window would flicker for no information gained. The seed (`props.options`) is what shows whenever the search box is empty, so a failed search or a cleared term always lands on a usable list rather than an empty one.
-
-`loadOptions` is passed through to this composable **only when `searchable`**. Handing it a loader nothing can ever call would leave a half-built async machine — `status` pinned at `idle`, `retry` unreachable, the abort and request-id pair dead code for that instance. One ternary, and "never ship a dead control" holds a layer below the UI. Rejected: letting `loadOptions` imply `searchable`, which would re-couple the two props and silently override an explicit `false`.
-
-### The blank option became a placeholder, and the wire format did not move
-
-`— Select —` / `All` used to be real `<option value="">` entries because a native select had nowhere else to put them. They are placeholders now, with `clearable` as the way back. Clearing still emits `''`, which is why `blankIsNull` in `inputs.ts` and the BOOLEAN filter's two adapters in `filters.ts` are **unchanged**, `isFilterValueEmpty` still drops it, and a shared filter URL means exactly what it meant before.
-
-The em-dash spellings went with them: they existed to make a fake choice read as not-a-choice, which a muted placeholder carries on its own. `FieldFormModal`'s **Type** select is the exception that proves the rule — it never had a blank option, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
-
-### `BaseSelect` normalises `multiple` instead of reading the prop
-
-The conditional type below has a runtime cost that is invisible until it bites: Vue casts a
-bare attribute (`<BaseSelect multiple />`) to `true` only for a prop it knows is `Boolean`, and
-`multiple?: TModel extends string[] ? true : false` gives the SFC compiler no constructor to
-emit — the built output is `multiple:{default:void 0}`. So a bare attribute arrives as `''`,
-which is **falsy**, and the control silently runs in single mode.
-
-`vue-tsc` cannot catch it: the template checker reads a bare attribute as `true`, so the types
-agree with each other and disagree with the runtime. The failure is quiet and downstream — the
-control emits a string where a list was expected, and whatever adapter receives it decides what
-to do with a value it was never meant to see.
-
-`isMultiple` (`props.multiple !== undefined && props.multiple !== false`) makes both spellings
-mean the same thing. **Never read `props.multiple` directly.** Widening the prop to a plain
-`boolean` would fix the cast and give back exactly the mismatch the entry below exists to
-prevent, so the type stays and the read moved.
-
-### An atom's `disabled` must be a declared prop, never attribute fallthrough
-
-`BaseCheckbox` had no `disabled` prop, so `:disabled` on it landed on the wrapping `<div>` by
-fallthrough — where the attribute means nothing. The control looked plausible and stayed fully
-operable, with only a server 400 behind it. That is the "dead control" failure inverted: not a
-control that cannot act, but a lock that does not lock.
-
-The rule generalises to every atom with a wrapper element: a native form attribute has to be
-declared and bound to the **inner control**, because fallthrough silently targets the root.
-`BaseInput`, `BaseSelect` and `BaseButton` already did this; the checkbox was the gap.
-
-### `multiple` is tied to the model's type, not merely declared beside it
-
-`multiple?: TModel extends string[] ? true : false`. A plain `multiple?: boolean` would let `<BaseSelect v-model="aStringRef" multiple />` compile and then misbehave at runtime — a worse type system than the single-select generic it replaced. With the conditional, that call is a compile error, and the two states cannot disagree.
-
-Internally selection is **always** a `string[]`, whatever the model's shape: one normalisation in, one `commit` out, and keyboard, rendering and ARIA are written once. That is the whole cost of multi mode.
-
-### `RelationFieldSelect` gets its `tableId` from the store, not from `IField`
-
-`IField` carries no `tableId`, and adding one is wrong: `recordColumn()` in `shared/utils/filter.ts` synthesises `IField`s for `Record #` / `Created at` / `Updated at` that belong to no field row and would have to invent one, poisoning a type the query layer keeps honest. `loadOptions(tableId, fields)` already receives it, so the relations store records it per field and `searchOptions` resolves its own URL.
-
-`searchOptions` deliberately does **not** write `optionsByField` — that is the seed every other consumer of `optionsFor()` reads, and a search result would clobber it. It does call `cacheLabels`, so a record found only through a search still renders as its label in a cell afterwards.
-
-### `.gitattributes` pins `eol=lf`, and nothing was renormalised
-
-`core.autocrlf` is `true` on Windows and Prettier's `endOfLine` defaults to `lf`, so git rewrote every checked-out file to CRLF and Prettier then rejected all of them. A fresh clone failed `npm run format:check` before a line was written, and every touched file reported a modification whose diff was empty. CI never saw it: Linux checks out LF.
-
-**No `git add --renormalize` was run, and none should be.** `git ls-files --eol` reported the whole index as `i/lf` already — the blobs were always right, and only checkout was wrong. Renormalising would have produced a whole-repo diff that changed nothing.
-
-Found in Stage E, when a file restored with `git checkout` began failing a check it had passed minutes earlier — the kind of symptom that reads as flakiness until the cause is named.
-
-### A duplicated test is a cost, not insurance
-
-Twelve cases were deleted rather than left alone, and the runtime they cost was never the argument — eight of them ran in about four seconds. Three reasons they were worth removing:
-
-- **A slow copy teaches the wrong lesson.** `select-keyboard.spec.ts` opened by saying the logic was pinned in happy-dom already, then re-tested the logic in a browser. The next person adding a case reads the file, not the docblock.
-- **A test that cannot fail reads as coverage.** The three "entry for every field type" registry checks were enforced by `Record<TFieldType, …>` over an object literal — verified by deleting a key and watching `TS2741` — so they could only ever be green.
-- **A restated constant turns a design decision into a broken build.** Two specs encoded the search threshold as `length: 9`; they now assert the registry _agrees with_ `shouldSearch`, which still fails a hardcode and survives the number moving. `app/utils/select.spec.ts` owns the boundary, and is the only place that should.
-
-What stayed is the test for the half that is not duplicated: the keyboard cursor's **paint**. `test.css` is `false`, so a component spec sees the `--active` class and never the outline it draws. Removing the outline rule leaves all 71 `BaseSelect` component cases green and turns the one browser case red — which is the shape every e2e case in this repo should have.
-
-**Do not restore these out of caution.** Depth belongs at the cheapest layer that can answer the question; a second copy one layer up only makes the suite slower to run and harder to reason about.
-
-### The accessibility gate blocks on serious and critical only
-
-A smoke gate exists to catch regressions. Admitting `moderate` and `minor` on first introduction would have meant one of two things — a long list of disabled rules, or a stage that never landed — and neither is a gate. The bar is raised by narrowing `BLOCKING_IMPACTS` in `test/e2e/setup/a11y.ts`, not by adding exclusions.
-
-Nothing is disabled today: all five desktop screens and both mobile ones pass clean at A/AA. A rule that ever has to be turned off belongs in that file with its reason beside it, never silently at a call site.
-
-It does **not** replace the keyboard walk in step 5 of the definition of done. Axe checks what a machine can decide — a name, a role, a contrast ratio — and cannot tell whether a focus order makes sense or whether a control is findable.
+Heights _derived_ from the control are all in one direction — a control plus its own inset — and are written that way rather than as literals. Anything that restates the number by hand drifts the next time the token moves, which is exactly what happened at 44px.
 
 ### `--link` gained a target floor rather than an exemption
 
-It was the one `BaseButton` variant with no `min-height`: ~18px tall at `--font-size-sm`, used by nine call sites including every row action. Row actions sit 8px apart, so SC 2.5.8's _Spacing_ exception could not carry them, and `RecordDetailModal`'s Back link had already hand-rolled `min-height: rem(24)` for the same reason — which is what marked the shared variant as an oversight rather than a deliberate exemption.
+It was the one `BaseButton` variant with no `min-height`: ~18px tall, used by every row action. Row actions sit 8px apart, so SC 2.5.8's _Spacing_ exception could not carry them, and `RecordDetailModal`'s Back link had already hand-rolled `min-height: rem(24)` for the same reason — which is what marked the shared variant as an oversight.
 
-**Both axes**, for the reason `--icon` already states: the button is content-sized, so a short label is narrow however tall it is. "Edit" measured 23×24 after the height was floored — caught by the gate on its first run, which is the most useful thing that could have happened to a gate written the same afternoon.
+**Both axes**, for the reason `--icon` already states: the button is content-sized, so a short label is narrow however tall it is ("Edit" measured 23×24 after the height was floored). The floor is 24 rather than `--control-height`: at 36 a bare text button would read as a filled one, and 24 is the actual AA requirement.
 
-The floor is 24 rather than `--control-height`; at 36 a bare text button would read as a filled one, and 24 is the actual AA requirement.
+### A ghost button's padding is spacing, so the gaps beside it are unequal on purpose
 
-### `useDeleteConfirm` catches instead of re-throwing
+`ghost` is `padding: 0 rem(12)` over a transparent background: nothing paints at its box edge, so that padding reads as part of the gap. In the records header a uniform `cluster` at `rem(16)` therefore put **40px** of visible space between Settings and Filters (12 + 16 + 12) and **28px** between Filters and the bordered search box (12 + 16 + 0) — the two controls that belong together looked the furthest apart.
 
-It used to re-throw, and a spec pinned that. The reversal is deliberate: **every call site binds `confirm` directly to a template's `@confirm`**, so there was no caller to catch anything — a refused delete became an unhandled promise rejection while the dialog sat open saying nothing. Re-throwing is only a contract worth keeping where someone is positioned to honour it.
+The ghost pair sits in its own `cluster(4)`: 12 + 4 + 12 is the same 28. **The two gaps in that row are deliberately different numbers producing equal space** — normalising them back to one value is the regression, and it will look like a tidy-up.
 
-The catch lives in the composable rather than in the three pages because the alternative is the same `try`/`catch` written three times, which `CLAUDE.md` §6 says to extract on the second occurrence. `ConfirmModal` renders the message, so all three delete flows gained it at once.
+### The header group needs `min-width: 0`, same as the panes
 
-The message is cleared on two paths, and both are needed: a `watch` on `target` covers dismissing the dialog or opening it on something else, while `confirm()` clears at the start because a **retry keeps the same target** and would otherwise show the previous attempt's message while the next one is in flight.
+The two table headers group the `<h1>` with its primary action, so the **group** — not the title — is `page-header`'s flex item. `page-title`'s own `min-width: 0` lets the text shrink _inside_ the group and does nothing for the group itself. A flex item's automatic minimum is its content-based minimum, and a nowrap flex container's min-content size is the sum of its items' contributions — for a `white-space: nowrap` heading, the whole untruncated table name. `overflow: hidden` on the `<h1>` does not rescue it: `overflow` zeroes a box's own _automatic minimum_, not its min-content _contribution_ to its parent. It reads like a redundant line and is not.
 
-This is the opposite call from `records.ts`'s `fetchRecords`, which sets `failed` **and** rethrows — there the rejection has a real consumer, `useAsyncData`, which needs it to produce a 404. The rule is not "swallow" or "throw"; it is whether anyone is listening.
+**Rejected: `flex: 1` on the group.** That implies `flex-basis: 0`, so the group's base size stops being its content, it never reaches the wrap threshold, and the title starts ellipsising at widths where it would have fitted whole.
 
-### Coverage is merged from two runs, not collected in one
+The primary button takes `flex: none`, through a page-owned class rather than a bare `.base-button` selector — a page must not reach for another component's internal class name. Shrink is distributed in proportion to flex base size, so an unfrozen button reaches its min-content and wraps its label onto two lines; freezing it sends every pixel of the deficit to the title, which is the one child that can absorb it.
 
-`server/api/` and `server/middleware/` are reachable only from the `integration` project. Folding that project into `test.projects` would produce one report in one run — and would make `npm run test` want a database, which is the one property the split exists to protect. So each run writes a **blob report** and `vitest run --merge-reports --coverage` merges the coverage maps.
+### `text-link` is a class, not a mixin
 
-Rejected alongside it: dropping those globs from `coverage.include` and documenting where they are proven instead. It is less work and less honest — twenty files at 0% teach a reader to skim red rows, and the next genuinely uncovered file arrives in a report nobody trusts.
+It had three `@include`s and no per-site variation, which is a shared block, not a fragment. Converting the two page-header links to `BaseButton` with `to` was the point rather than a side effect: at 14px with no padding they were ~21px tall, standing alone in an action cluster rather than inline in prose, so SC 2.5.8's inline exception did not cover them. `.text-link` now carries the one look — a link _inside a sentence_ — and anything standing on its own in an action row is a `BaseButton` with `to`.
 
-Four constraints are load-bearing:
+### The viewport lock lives in the shell, not in the records page
 
-- **The merge step is `vitest run --merge-reports`, never bare `vitest`.** Watch mode defaults to `!isCI && process.stdin.isTTY && !isAgent`, and merging refuses to run under it — so a bare `vitest` works in CI, in a pipe and under an agent, and fails with `Cannot merge reports with --watch enabled` in the one place it matters: a developer's terminal. The `run` command sets `options.run`, which forces `watch` off unconditionally.
+`app/layouts/default.vue` is `height: 100dvh; overflow: hidden`, and the sidebar and main region scroll their own content. The alternative — leaving the shell in document flow and giving the records page a `height: calc(100vh - …)` — was rejected on two counts: the page would have to restate the shell's own padding and header height and stay in step with them by hand, and it would still let the brand bar scroll away above the table. It also deleted the sidebar's `position: sticky` + `calc()`, which existed only to fake the height the fixed shell now supplies.
 
-- **The scope lives in `vitest.coverage.config.ts`**, which is a fragment rather than a runnable config. Two `include` lists, one per config, would drift the first time a directory was added. It is named `*.config.ts` only so `tsconfig.tools.json`'s `./*.config.ts` glob type-checks it. Its two importers name it **with the `.ts` extension**, which is not a style choice: Vite's `configLoader: 'native'` — announced as a future default — cannot resolve an extensionless relative specifier, and warns on every `npm run test` until it is spelled out. `tsconfig.tools.json` carries `allowImportingTsExtensions` for it, which is free there because that project emits nothing.
-- **The integration run measures the server half only.** Given `app/**` it would have to transform the uncovered `app/field-types/*.ts` — which import `.vue` files — in a node environment with no Vue plugin. Nothing is lost: merging unions the file sets and the unit blob already carries every `app/` file.
-- **`.vitest-reports/` may contain nothing but blob files.** Vitest's `readBlobs` throws on any subdirectory and merges every file it finds, so the two fixed `--outputFile.blob` paths are what keep a stale or foreign file out of the report.
+`dvh`, not `vh`: on mobile a collapsing URL bar leaves a `100vh` shell overhanging the visible area, which is exactly where the pager lives.
 
-One cosmetic quirk to expect: the merge step's **summary line** counts the root projects only (57 files / 1071 tests), though all 1208 tests are listed and reported. The two collect steps print their own accurate totals just above it.
+**`min-width: 0` and `min-height: 0` on the panes are load-bearing.** A grid or flex item's automatic minimum is its content, so without them the main column's min-content width is `DynamicTable`'s full intrinsic width (the table's `overflow-x` never engages and the document scrolls sideways), and a pane holding 50 rows grows past its row so the `overflow-y: auto` beside it never fires. Both read like redundant lines and are not.
+
+### The records grid sizes to its rows, not to the pane
+
+`DynamicTable` takes `flex: 0 1 auto` from the records page, so its height is its content's, capped by the space left in the pane: a few rows end at the last row with the pager directly beneath, a full page shrinks to the pane and scrolls inside itself.
+
+It was `flex: 1` first, on the reasoning that a pager welded to the bottom edge gives the page a stable frame. That was visibly wrong — with seven records the grid was a mostly-empty box with a void between the last row and the pager. **Do not restore it.**
+
+`flex-basis: auto` is the load-bearing third of the shorthand: it makes the flex base size the grid's own content height, which a `max-height` or a measured height would have had to approximate. Nothing states a height, so the behaviour re-resolves for free on resize and when the filter summary or the error banner takes a slice of the pane.
+
+The empty states are centred with `margin-block: auto` on the child rather than `justify-content: center` on the parent, because the parent cannot centre one child without lifting a short grid off the top as well. That rule is nested so it outranks `BaseEmptyState`'s own `margin` — flat, the two selectors tie and the winner falls to stylesheet order across components.
+
+### The sticky table header's rule is a shadow, not a border
+
+`thead th` carries `box-shadow: inset 0 -1px 0 var(--color-border)` where every other cell edge is a `border-bottom`. Under `border-collapse: collapse` the collapsed edge between the header row and the first body row is painted by the **table**, not by the cell, so a sticky `th`'s `border-bottom` scrolls away with the rows and the pinned header floats. `border-collapse: separate` would fix the border and cost the single-hairline grid the table is built on. For the same reason the `th` carries its own opaque `background`: its padding lives on the inner sort button, so only the cell can paint the full width the rows scroll under.
+
+### The pinned Actions column needs a wrapper inside the cell
+
+The action buttons' flex row lives on a `div` **inside** the `<td>`, not on the `<td>` itself, and that is load-bearing rather than tidiness. A `<td>` with `display: flex` is not a table-cell box, so CSS generates an anonymous table-cell around it; the sticky box's containing block becomes that anonymous cell, which shrink-wraps it, and a sticky box cannot move outside its containing block — `position: sticky; right: 0` would clamp to zero movement and the column simply would not pin.
+
+Its left edge is a `box-shadow` for the same reason the sticky header's rule is. The hairline is permanent rather than appearing on scroll — a scroll-aware shadow would put a scroll listener and reactive state into a component that is otherwise pure CSS, and in this design borders already do the structural work.
+
+It is the one divider drawn in `--color-border-strong`: separating a frozen column from columns sliding underneath it is a heavier job than ruling off a row. **A tinted fill was rejected** — `--color-surface-muted` equals `--color-surface-hover`, so filling the column would swallow the row hover exactly where the buttons are, and `--color-accent-tint` reads as "selected" everywhere else in the app. **A wider gutter was tried and dropped**: the extra 4px read as a misalignment against the header label rather than as breathing room. Every cell now takes the same inset, with no per-cell exception.
+
+The Actions corner header still needs its own padding rule, because it is the only header with no sort button to carry the inset. It is nested inside `thead th` and spells its class out rather than being written as a sibling `&__…` block: that is specificity, not style — `.dynamic-table thead th` outranks a bare class, so the same declarations written as a sibling block are silently dead. Moving it out of its parent will not error; it will simply stop applying.
+
+The pinned cells paint opaque backgrounds, so `tbody tr:hover` has to repaint the actions cell explicitly, or the hovered row shows a white notch at its right edge.
+
+### `DynamicTable` rows have an explicit height, and it is one decision with the cell inset
+
+`height: calc(var(--control-height) + #{$cell-padding-y * 2})` on `tbody td`, not derived from the tallest cell — otherwise the action cell's buttons define the row rather than the design doing so. A row is one control plus the cell inset on both sides.
+
+**The height and `$cell-padding-y` are one decision, not two.** A table cell treats `height` as a minimum, so the action cell's buttons only land _on_ the row height if the padding the height was built from is the padding the cell actually has. Raising `$cell-padding-y` without the `calc` following it grows every row; the `calc` is written against the variable precisely so it cannot be raised alone.
+
+It is the app's **first and only `calc()`**, and deliberately so. Written as a literal it was a magic number calibrated against a token three files away, and it went stale the moment that token moved.
+
+### A table column's width cap lives on a wrapper, not on the cell
+
+`DynamicTable` sizes columns from content under the browser's default `table-layout: auto`. A table's columns are user-defined, so no field's content is bounded from above: one long TEXT value stretches its column to the width of that value and pushes the rest of the grid out of the viewport. `$column-max-width` caps it, and `$content-max-width` derives the per-box figure by subtracting the cell's own padding twice, so a column bounded by a **value** and one bounded by its **header name** land on the same width.
+
+**The cap cannot go on the `td`.** CSS 2.2 §17.5.2 leaves the effect of `min-width`/`max-width` on table cells explicitly undefined, and under `table-layout: auto` browsers ignore it — the column is sized by the cell's max-content contribution, which the declaration never touches. A **block child's** `max-width` does bound that contribution, so the inner cell wrapper is load-bearing markup: deleting it silently restores the unbounded behaviour with the SCSS still in place.
+
+**Rejected: `table-layout: fixed`.** It discards content-driven sizing and needs an explicit width per column — a figure the metadata layer has no source for, since a field carries a type and a name, not a display width.
+
+**Rejected: a `--*` token.** One component's measure, and `CLAUDE.md` §8 admits tokens only as coherent semantic sets.
+
+**Rejected: capping the sort button instead of its label.** That button is deliberately `width: 100%` so the whole header cell is the sort target; a `max-width` on it stops it short of the cell edge whenever a column has widened past the cap. The cap sits on the label instead, which leaves the gap and the sort icon outside the bounded box — a column bounded by its header name can run slightly over. Closing that gap means encoding the icon's rendered size in the table's stylesheet.
+
+**`BaseBadge` truncates itself.** A badge is `display: inline-flex`, so it is an atomic inline box to the cell containing it: `text-overflow` cannot ellipsise it, and an overflowing badge is hard-clipped mid-pill with the ellipsis painted over its own fill. An inner `&__text` wrapper plus `max-width: 100%` moves the truncation inside the badge. This is why the badge, not `DynamicTable`, owns the rule.
+
+**`MultiValueCell` is `display: inline` for the same reason, from the other side.** It was `inline-flex`, which made a whole list one atomic box — so an over-full list was hard-clipped at the cell edge with nothing to say values were missing, and the entries did not even shrink, because a flex item's automatic minimum floors it at its own content. Plain inline puts the entries in the cell's own inline formatting context, where the cap already applies: the values that fit are drawn in full and the first that does not gives way to an ellipsis. `gap` goes with the flex box, replaced by a margin on adjacent siblings.
+
+Two consequences. **`RecordDetail` no longer overrides the cell's layout** — what put the list on one line was always `DynamicTable`'s `white-space: nowrap`, so the dialog only has to not impose it and to space the wrapped rows with a `line-height`, since inline content has no `row-gap`. And **the ellipsis is not machine-checkable**: the dropped badge keeps its box, its client rects and its `checkVisibility()`, so it is paint and nothing else — it is one of the approximated clauses in `architecture.md` §12.
 
 ---
 
 ## Accepted limitations
 
-The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for the current phase; **Accepted** entries are not, unless a request says otherwise.
+The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for the current phase; **Accepted** entries are not, unless a request says otherwise. A limitation that has been fixed leaves the register — the constraint that outlives it, if any, moves into the entry above that governs it.
 
-| Limitation                                                                                                                                                           | Why it stands                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Status                                                                                                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **A dialog does not trap focus**, it only moves focus in on open and restores it on close                                                                            | `BaseModal` now focuses its own container (or an `autofocus` descendant) on mount and returns focus to the still-connected trigger on unmount. A real trap is unnecessary while `inert` on `#__nuxt` keeps Tab inside, and it is the container rather than the first control on purpose — that control is a destructive Delete in one dialog and a text input in another                                                                                                                                                                                                                                                                                                                                                                                                                              | **Closed** — the WCAG 2.2 AA gap is met                                                                               |
-| **Row actions are three inline icons, where the concept draws one `⋯` menu** of full sentences                                                                       | The stated blocker is gone: `usePopover` + `useAnchoredPosition` exist, and they anchor correctly inside a scrolling, clipping container — that is exactly what the filter drawer proved. What is left is that three 36×36 targets in a pinned column still fit, so the menu would be work without a user-visible gain. The third button does add one more site where the 5px focus halo crosses a `gap: rem(4)` neighbour — the bargain that row already struck                                                                                                                                                                                                                                                                                                                                      | **Open** — revisit when a fourth row action appears                                                                   |
-| **Three lines of `docs/architecture.md` §12 are approximated, not proven**                                                                                           | Playwright covers the rest of the checklist. What it cannot reach: a **hydration-mismatch warning**, which a production build silences (the specs assert the SSR HTML is correct and the console clean instead); a **clipped focus ring**, asserted structurally as the focused link's box sitting inside its cell's rather than by seeing the outline; and **Backspace held down**, which no Playwright API reproduces — pressed repeatedly instead. Running the suite against a dev build would recover the first at the cost of testing something other than what ships                                                                                                                                                                                                                            | **Accepted** — the alternative tests a different artefact                                                             |
-| **`npm run preview` cannot start on Windows**                                                                                                                        | `.output/server/index.mjs` assigns `globalThis._importMeta_` in its module **body**, but ESM hoists imports — so the chunk carrying the bundled Prisma client evaluates first, finds it unset, and falls back to the placeholder `file:///_entry.js`. Prisma then shims `__dirname` through `fileURLToPath()` on it: harmless on POSIX (`/_entry.js`), fatal on Windows, where a relative file URL throws `ERR_INVALID_FILE_URL_PATH`. The e2e suite's launcher had the fix all along — assign `_importMeta_` before a **dynamic** import, which is not hoisted — and it is now `scripts/serve-output.mjs`, which both callers start. `preview` is `scripts/preview.mjs`: the same launcher with the root `.env` loaded first, which is the one thing `nuxt preview` did that the suite must never do | **Closed** — one launcher, two entry points                                                                           |
-| **A refused table delete gives the user no reason**                                                                                                                  | Deleting a table a relation still points at is correctly refused with a 409 naming the field to remove first, and the data survives. The message used to stop at the console: `ConfirmModal` rendered no error and `useDeleteConfirm.confirm()` re-threw into a template binding with nobody to catch it. It is now caught in the composable and rendered in the dialog, so all three delete flows gained it at once                                                                                                                                                                                                                                                                                                                                                                                  | **Closed** — the dialog names the field to remove                                                                     |
-| **Nitro's own routing is exercised by no test**                                                                                                                      | The integration suite imports each handler and invokes it with a constructed `H3Event`, so `requireUser` → ownership → zod → service all run against a real database, but the path-to-handler mapping, the method suffix convention and route-param extraction are taken on trust. Covering them meant booting the whole app per run (`@nuxt/test-utils/e2e`), which costs a Nuxt build for a layer that is generated rather than written — and which Playwright will drive from the outside anyway                                                                                                                                                                                                                                                                                                   | **Accepted** — revisit only if a routing bug ever reaches production                                                  |
-| **A field named entirely in non-ASCII gets the key `field`**                                                                                                         | `slugify` keeps `^[a-z0-9_]+$` and nothing else, so "Компания", "会社" and "🎯" all reduce to nothing and take the `field` fallback — several on one table become `field`, `field_2`, `field_3`. The charset is not incidental: `shared/constants/filter.ts` argues that no user key can shadow a camelCase record column _because_ this cannot emit one, and `record-query.ts` rests its raw-SQL note on the same sentence. Allowing unicode keys would be SQL-safe (keys are always bound as parameters) but would put percent-encoded names in every filter URL and retire both arguments. The key is machine-facing — the field's **name** is what the user reads, and that is untouched                                                                                                          | **Accepted** — revisit only if non-ASCII names become the common case                                                 |
-| **The Vue layer is covered; what is left is end-to-end**                                                                                                             | The blocker is long gone, and the unit-testable half is done: every composable, every store, every pure helper in `app/`, all of `app/field-types/`, and the ten components that carry logic — `BaseSelect` and `BaseModal` for keyboard and focus, `BaseInput` and `BaseRange` for the value discipline underneath them, and both renderer pairs for the metadata contract. **No module under `app/` is at zero.** The rest of `app/components/` is markup, and what genuinely remains is the browser-only behaviour below                                                                                                                                                                                                                                                                           | **Closed** — superseded by the end-to-end row                                                                         |
-| **36px targets are below the Apple HIG / Material touch figure on touch devices**                                                                                    | A flat 36 was chosen over a `@media (pointer: coarse)` override restoring 44: a second geometry mode means every derived height has to hold at two values, and the app's touch use is secondary. Clears WCAG 2.2 AA (SC 2.5.8, 24×24) with 50% margin; it is SC 2.5.5 **AAA** that is given up                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | **Accepted** — revisit if touch becomes a primary surface                                                             |
-| **Relation picker lists at most `RELATION_OPTIONS_LIMIT` (200) candidates**                                                                                          | Now 200 **matches**, not 200 candidates: the picker searches the target table server-side (`?q=`, debounced 300 ms, race-guarded, matching the label field and the `#number` fallback), so a record past the seed is reached by naming it. The cap itself stands — a dropdown is not a place to render a whole table. A value outside the list is still shown as its own option, so editing never drops a link silently                                                                                                                                                                                                                                                                                                                                                                               | **Closed** — search shipped; the cap is deliberate                                                                    |
-| **A select no longer opens the OS-native picker on touch**, and a searchable one raises the soft keyboard where a `<button>` did not                                 | The price of a listbox that can render a choice's colour, search, and load asynchronously — none of which a `<select>` can do. Every option row is `--control-height`, so SC 2.5.8 is clear either way. Same trade as the 36px row below; the keyboard half is bounded by `shouldSearch()`, which keeps short pickers on the button branch                                                                                                                                                                                                                                                                                                                                                                                                                                                            | **Accepted** — revisit if touch becomes a primary surface                                                             |
-| **The dropdown's `Retry` button is pointer-only**                                                                                                                    | `Tab` now moves _within_ the panel first, and no roving tabindex was needed — the panel has exactly one focusable. Forward from the field diverts into it when a Retry is present; Shift+Tab does not, because backwards means leaving. Fixing the reach exposed the other half: `retry()` flips the status to `loading` synchronously, unmounting the button being pressed, so activating it dropped focus on `<body>` — the trap the clear button already documented, and now the same handoff                                                                                                                                                                                                                                                                                                      | **Closed** — reachable, and it no longer strands whoever reaches it                                                   |
-| **The dropdown's `role="status"` mounts together with its first message**                                                                                            | The mirror region it predicted, and the copy is duplicated exactly as predicted: a `.visually-hidden` `role="status"` in the **control**, mounted for the component's whole life, with the panel's visible row reduced to a plain `<p>` so nothing is read twice. It renders empty while closed on purpose — `statusText` is non-empty for a field with no choices even before anything opens, so an ungated region would already hold "No options" and opening it would change nothing                                                                                                                                                                                                                                                                                                               | **Closed** — the region outlives the panel                                                                            |
-| **In `multiple`, the closed control shows a count, not which values are chosen**                                                                                     | Chips would make the control's height content-dependent, which `useAnchoredPosition` does not observe (see the entry above). The information is a click away in the ticked option rows, and already spelled out in `RecordsFilterSummary` above the table. It now also applies to the **record form**, where the argument is weaker — a filter's selection is restated above the table, an editor's is not, so "3 selected" is the one place multi-value reads as less than single-value did. A chip row _below_ the control (leaving its height fixed) is the cheap fix if it is ever wanted                                                                                                                                                                                                         | **Accepted** — deliberate; the form case is the one worth revisiting                                                  |
-| **Relation option search scans the target table unindexed**                                                                                                          | An unanchored `ILIKE` over a user-defined JSON key, same ceiling as the three rows below — but paid **once** (no count query), over one table, on one expression, under a hard `LIMIT`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | **Accepted** — same ceiling                                                                                           |
-| **Only SELECT filters are multi-valued**; every other filter and every record value holds one                                                                        | The second consumer arrived. `options.multiple` makes a SELECT or a RELATION hold a list, `TRecordValue` gained `string[]`, and a multi-value field filters as a list whatever its type declares. The prediction held exactly: the atom needed no change at all, only a prop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | **Closed** — multi-value SELECT and RELATION shipped                                                                  |
-| **A multi-value filter can only mean _any of_, never _all of_**                                                                                                      | There are no operators anywhere in this project, so a filter's value is its whole contract and "has any" is the only question its shape can ask. Expressing "has all" needs an operator in the URL, in every control and in the SQL map — reopening a load-bearing decision to serve one comparison. Users do want it; the answer is a design change, not a patch                                                                                                                                                                                                                                                                                                                                                                                                                                     | **Accepted** — revisit only alongside operators as a whole                                                            |
-| **A multi-value cell shows one line in the table**, so values past the width cap are cut off                                                                         | One line stands — a row has a fixed height, so wrapping would clip the second line rather than reveal it, and a `+2` affordance still needs a measurement the cell has no reason to take. What was actually wrong was narrower and is fixed: the cell was `inline-flex`, i.e. one **atomic** inline box, and `text-overflow: ellipsis` cannot reach inside one — so the overflow was hard-clipped mid-pill with nothing saying values were missing. Plain `inline` puts the entries in the cell's own inline formatting context, so the values that fit are drawn in full and the rest give way to an ellipsis, exactly as a long TEXT value always has. `RecordDetail` needed no override to wrap once the flex box was gone                                                                         | **Closed** — the cut-off now reads as one                                                                             |
-| **A legacy field keyed like a reserved param cannot be filtered**, and nothing on screen says why — its control is simply absent from the drawer                     | Only `page`, `pageSize`, `sort`, `dir`, `search` and `detail` are affected, and `createField` has refused those keys since the filter param format landed — so no field the app can create is in this state, only data older than that guard. Both alternatives cost more than the gap: a migration renaming user field keys rewrites the JSONB key of every record and every link already shared, to fix tables nobody has reported; and an explanation in the drawer is UI built for a state that should not exist. What actually mattered is closed — the value can no longer change meaning in transit, and the field still renders and still sorts                                                                                                                                               | **Accepted** — unreachable for any field `createField` can produce                                                    |
-| **`_count.records` drifts between Home visits**                                                                                                                      | The independence was the wrong thing to preserve: the count is cached on `tables.ts` and moved by `records.ts`, so one of them has to say so. `tables.ts` owns `bumpCount(tableId, key, delta)` and the records and fields stores are its only callers — a delta rather than a refetch, because every write goes through those stores, so the arithmetic is exact and costs no request. The dashboard's own client-entry refetch is gone with it: it papered over the same gap for Home only, and left the sidebar's count stale on every other page. `_count.fields` was fixed alongside, which is what made removing that refetch safe                                                                                                                                                              | **Closed** — invalidated at the source, both counts                                                                   |
-| **Deleting a target record leaves a dangling id** that reads as "Unknown record"                                                                                     | Blocking it would mean a JSONB scan of every table on every delete. Deleting a target **table** is refused with a 409 instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | **Accepted** — revisit only with a real referential design                                                            |
-| **Sorting/filtering by a JSONB key is unindexed**                                                                                                                    | Keys are user-defined per table, so no general index applies                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | **Accepted** — the first scaling ceiling; watch it                                                                    |
-| **Relation label sort costs one PK lookup per matching row**                                                                                                         | On top of the unindexed JSONB path above                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | **Accepted** — same ceiling                                                                                           |
-| **Free-text search is unindexable and its cost is paid twice** (page query + count)                                                                                  | Unanchored `ILIKE` over user-defined JSON keys. `SEARCH_MIN_LENGTH` bounds the worst case                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | **Accepted** — same ceiling                                                                                           |
-| **A disabled `BaseButton` with `to` renders `<button disabled>`**, so it announces as _button, dimmed_ rather than _link, dimmed_                                    | Every alternative rebuilds native `disabled` out of `aria-disabled` + `tabindex="-1"` + `pointer-events: none`, taking the control out of the tab order by hand for a state the rest of the app expresses natively                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | **Accepted**                                                                                                          |
-| **No error reporting or observability**                                                                                                                              | Nothing beyond `createError` responses; no client or server error sink exists                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | **Accepted** — revisit before any real deployment                                                                     |
-| **Renaming a SELECT choice orphans the records holding the old text**, which then render as a neutral badge                                                          | A choice's identity is its own text, so the whole SQL layer stays out of it. The stale value keeps its text rather than blanking, and nothing errors                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | **Accepted** — an option id buys nothing for colour                                                                   |
-| **Choice colours do not show in the record form or the filter dropdown**, only in table cells                                                                        | The custom listbox this wanted now exists. `choiceOptions()` carries the hue and `BaseBadge` renders it in the trigger and in every option row, so a choice reads the same in three places from one palette. The parenthetical about a scroll container clipping it is moot — the panel teleports to `<body>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | **Closed**                                                                                                            |
-| **The _colour_ popover always opens below its trigger and never flips**                                                                                              | `BaseColorPicker` now takes `useAnchoredPosition` too, so it flips and stays pinned like every other popover. It still renders **in place** rather than teleporting: `BaseSelect` teleports because `BaseModal` marks `#__nuxt` inert, and this panel opens inside the teleported dialog itself, which is not. It states its own `maxHeight` (120) instead of taking the composable's 280 default — that default describes a scrolling list, and against a fixed two-row grid it would fail the "fits below?" test in rooms the panel fits, flipping for no reason                                                                                                                                                                                                                                    | **Closed** — the machinery existed; it now uses it                                                                    |
-| **A truncated table cell offers no way to read the full value** — no `title`, no expand affordance, **except for a relation**, whose dialog shows the target in full | The rendered text is produced by the cell _component_ (a relation label resolved from a store, `Yes`/`No`, a formatted date), so it is not recoverable from the raw value. Both routes to it were priced and both buy a **pointer-only** tooltip: a text projection per field type is a fifth registry against the "only cells are components" contract in `CLAUDE.md` §9, and reading it back off the DOM means a `scrollWidth` pass over every cell plus a `ResizeObserver`, re-run on every fetch. Against that, the escape hatch is one click away on **every** row — the View action, always visible in a pinned column, keyboard-reachable, opening a dialog that shows every value wrapped and in full — and every cell now ends in an ellipsis when there is more, multi-value ones included  | **Accepted** — revisit if something else earns the table a measurement pass, which would make the tooltip nearly free |
-| **The unsorted sort icon is ~1.67:1**, under the 3:1 SC 1.4.11 floor for non-text UI                                                                                 | `--color-text-secondary` at `opacity: 0.35`. A compliant `0.7` (~3.14:1) was shipped first and read as clutter — the glyph repeats on every column at once, so what is legible on one header is noise across four. Nothing depends on seeing it: the header's own text names the column, the button is a real `<button>` in the tab order with a 3px focus ring, and sort state reaches assistive tech through `aria-sort` on the `th` rather than through the icon. It is an affordance hint, not a control boundary — unlike `--color-border-control`, which is why that token carries the floor and this does not                                                                                                                                                                                  | **Accepted** — deliberate; raise it only on a real report of users missing the affordance                             |
-| **A badge's fill is ~1.1:1 against a hovered row**, so the pill shape barely reads there                                                                             | The badge draws no border by design. The dot (its `-fg` step, ≥6:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | **Accepted** — the word carries the meaning                                                                           |
+### Open
+
+**Row actions are three inline icons, where the concept draws one `⋯` menu** of full sentences. The stated blocker is gone — `usePopover` + `useAnchoredPosition` anchor correctly inside a scrolling, clipping container. What is left is that three targets in a pinned column still fit, so the menu would be work without a user-visible gain. The third button does add one more site where the focus halo crosses a `gap: rem(4)` neighbour — the bargain that row already struck. _Revisit when a fourth row action appears._
+
+### Accepted
+
+**Four lines of `architecture.md` §12 are approximated, not proven.** Playwright covers the rest. What it cannot reach: a **hydration-mismatch warning**, which a production build silences (the specs assert the SSR HTML is correct and the console clean instead); a **clipped focus ring**, asserted structurally as the focused link's box sitting inside its cell's; **Backspace held down**, which no Playwright API reproduces — pressed repeatedly instead; and **a multi-value cell's ellipsis**, which is paint with no DOM consequence. Running against a dev build recovers the first at the cost of testing something other than what ships.
+
+**Nitro's own routing is exercised by no test.** The integration suite imports each handler and invokes it with a constructed `H3Event`, so `requireUser` → ownership → zod → service all run against a real database, but the path-to-handler mapping, the method suffix convention and route-param extraction are taken on trust. Covering them meant booting the whole app per run, which costs a Nuxt build for a layer that is generated rather than written — and which Playwright drives from the outside anyway. _Revisit only if a routing bug reaches production._
+
+**A field named entirely in non-ASCII gets the key `field`.** `slugify` keeps `^[a-z0-9_]+$` and nothing else, so "Компания", "会社" and "🎯" all reduce to nothing and take the `field` fallback. The charset is not incidental: the camelCase record columns cannot be shadowed by a user key _because_ this cannot emit one, and the raw-SQL note rests on the same sentence. Unicode keys would be SQL-safe (keys are always bound as parameters) but would put percent-encoded names in every filter URL and retire both arguments. The key is machine-facing — the field's **name** is untouched. _Revisit only if non-ASCII names become the common case._
+
+**36px targets are below the Apple HIG / Material touch figure on touch devices.** A flat 36 was chosen over a `@media (pointer: coarse)` override restoring 44: a second geometry mode means every derived height has to hold at two values, and the app's touch use is secondary. Clears SC 2.5.8 (24×24) with 50% margin; it is SC 2.5.5 **AAA** that is given up. _Revisit if touch becomes a primary surface._
+
+**A select no longer opens the OS-native picker on touch**, and a searchable one raises the soft keyboard where a `<button>` did not. The price of a listbox that can render a choice's colour, search, and load asynchronously — none of which a `<select>` can do. Every option row is `--control-height`, so SC 2.5.8 is clear either way; the keyboard half is bounded by `shouldSearch()`, which keeps short pickers on the button branch. _Revisit if touch becomes a primary surface._
+
+**In `multiple`, the closed control shows a count, not which values are chosen.** Chips would make the control's height content-dependent, which `useAnchoredPosition` does not observe. In a filter the information is restated in `RecordsFilterSummary` above the table; in the **record form** it is not, which is the one place multi-value reads as less than single-value did. A chip row _below_ the control, leaving its height fixed, is the cheap fix if it is ever wanted. _The form case is the one worth revisiting._
+
+**A multi-value filter can only mean _any of_, never _all of_.** There are no operators anywhere in this project, so a filter's value is its whole contract and "has any" is the only question its shape can ask. Expressing "has all" needs an operator in the URL, in every control and in the SQL map — reopening a load-bearing decision to serve one comparison. Users do want it; the answer is a design change, not a patch. _Revisit only alongside operators as a whole._
+
+**A multi-value cell shows one line in the table**, so values past the width cap are cut off. A row has a fixed height, so wrapping would clip the second line rather than reveal it, and a `+2` affordance still needs a measurement the cell has no reason to take. The values that fit are drawn in full and the rest give way to an ellipsis, exactly as a long TEXT value always has.
+
+**A legacy field keyed like a reserved param cannot be filtered**, and nothing on screen says why. Only `page`, `pageSize`, `sort`, `dir`, `search` and `detail` are affected, and `createField` has refused those keys since the filter param format landed — so no field the app can create is in this state, only older data. Both alternatives cost more: a migration renaming user field keys rewrites the JSONB key of every record and every link already shared; an explanation in the drawer is UI built for a state that should not exist. The field still renders and still sorts.
+
+**Deleting a target record leaves a dangling id** that reads as "Unknown record". Blocking it would mean a JSONB scan of every table on every delete. Deleting a target **table** is refused with a 409 instead. _Revisit only with a real referential design._
+
+**Renaming a SELECT choice orphans the records holding the old text**, which then render as a neutral badge. A choice's identity is its own text, so the whole SQL layer stays out of it. The stale value keeps its text rather than blanking, and nothing errors. An option id buys nothing for colour.
+
+**Sorting/filtering by a JSONB key is unindexed.** Keys are user-defined per table, so no general index applies. _The first scaling ceiling; watch it._ Three limitations sit on top of it and are accepted for the same reason: a **relation label sort** costs one PK lookup per matching row; **free-text search** is unindexable and its cost is paid twice (page query + count), bounded only by `SEARCH_MIN_LENGTH`; and **relation option search** scans the target table the same way, though paid once, over one table, on one expression, under a hard `LIMIT`.
+
+**A disabled `BaseButton` with `to` renders `<button disabled>`**, so it announces as _button, dimmed_ rather than _link, dimmed_. Every alternative rebuilds native `disabled` out of `aria-disabled` + `tabindex="-1"` + `pointer-events: none`, taking the control out of the tab order by hand for a state the rest of the app expresses natively.
+
+**A truncated table cell offers no way to read the full value** — no `title`, no expand affordance, **except for a relation**, whose dialog shows the target in full. The rendered text is produced by the cell _component_ (a label resolved from a store, `Yes`/`No`, a formatted date), so it is not recoverable from the raw value. Both routes to it buy a **pointer-only** tooltip: a text projection per field type is a fifth registry against the "only cells are components" contract, and reading it back off the DOM means a `scrollWidth` pass over every cell plus a `ResizeObserver`, re-run on every fetch. Against that, the View action is one click away on every row. _Revisit if something else earns the table a measurement pass, which would make the tooltip nearly free._
+
+**The unsorted sort icon is ~1.67:1**, under the 3:1 SC 1.4.11 floor for non-text UI. `--color-text-secondary` at `opacity: 0.35`. A compliant `0.7` was shipped first and read as clutter — the glyph repeats on every column at once. Nothing depends on seeing it: the header's own text names the column, the button is in the tab order with a 3px focus ring, and sort state reaches assistive tech through `aria-sort` on the `th`. It is an affordance hint, not a control boundary — unlike `--color-border-control`, which is why that token carries the floor and this does not. _Raise it only on a real report of users missing the affordance._
+
+**A badge's fill is ~1.1:1 against a hovered row**, so the pill shape barely reads there. The badge draws no border by design. The dot (its `-fg` step, ≥6:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings.
+
+**No error reporting or observability.** Nothing beyond `createError` responses; no client or server error sink exists. _Revisit before any real deployment._

@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 Three companion documents carry the detail this file deliberately omits. Read the relevant one before changing the area it covers:
 
-- **`docs/roadmap.md`** — what is being built next, in what order, and what is already done. The source of truth for the current plan (§2).
+- **`docs/roadmap.md`** — what is being built next and in what order. The source of truth for the current plan (§2).
 - **`docs/architecture.md`** — how the metadata layer works: the field-type registries, record identity and record columns, relations, the filter/search wire format, the SQL layer, the data model, and a map of the key modules.
 - **`docs/decisions.md`** — why it works that way: the rejected alternatives, the load-bearing constraints that must not be "cleaned up", and the **Accepted limitations** register.
 
@@ -16,26 +16,14 @@ FlexBase is a full-stack **low-code platform** built with **Nuxt 4, Vue 3, TypeS
 
 Two rules are non-negotiable:
 
-- **Metadata-driven** — forms, tables, and APIs are generated from configuration stored in the database, never from hardcoded business entities.
+- **Metadata-driven** — forms, tables, and APIs are generated from configuration stored in the database, never from hardcoded business entities. Adding a table type requires no new frontend or backend code, and a new field type plugs into the registries without rewrites (§9).
 - **Server-enforced ownership** — every resource belongs to one authenticated user, checked on the server for every request.
 
-**Shipped and complete:** registration and authentication, per-user isolation, custom tables, typed custom fields, full record CRUD, generated forms and tables, metadata-derived validation, filtering, sorting, table-scoped search, relations between tables, and the record's own columns (`Record #`, `Created at`, `Updated at`).
+Two more that shape every change: **full TypeScript coverage**, with zod schemas shared between client and server; and **YAGNI** — build what the change needs, not what a future feature might, favouring clean architecture over short-term optimizations.
 
-**Not in scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, third-party integrations. Do not build them speculatively — but the architecture **may** now be shaped to accommodate them where doing so also improves the code that exists.
+**Not in scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, third-party integrations. Do not build them speculatively — but the architecture **may** be shaped to accommodate them where doing so also improves the code that exists.
 
-**Current phase — quality, UX, maintainability, polish.** The feature set is done; the work now is tests, accessibility, resilience, and consistency. Two consequences:
-
-- The test suite is **built** — four projects, every layer gated (§10). It is no longer work to schedule; it is a gate to keep passing, and step 4 of the definition of done is what binds a change to it.
-- Entries in `docs/decisions.md` → **Accepted limitations** marked **Open** are in scope; entries marked **Accepted** are not, unless the request says otherwise. One **Open** row is left, and it is parked behind a stated trigger — so an "Open" row is now something to read the register for, not a queue to work through.
-
-### Core principles
-
-- **Metadata-driven architecture** — behavior described by data; no hardcoded business entities, pages, or components.
-- **Dynamic UI generation** — forms and tables are generated from field definitions, input components are selected by field type, validation rules are derived from metadata.
-- **Generic, reusable code** — adding a new table type requires no new frontend or backend code.
-- **Extensible field system** — new field types plug in without rewrites (§9).
-- **Full TypeScript coverage** — with zod schemas shared between client and server.
-- **YAGNI** — build what the change needs, not what a future feature might. Favor clean architecture and maintainability over short-term optimizations.
+**Current phase — quality, UX, maintainability, polish.** The feature set is done; the work now is tests, accessibility, resilience, and consistency. The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/decisions.md` → **Accepted limitations** marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. One **Open** row is left and it is parked behind a stated trigger, so "Open" is now something to read the register for rather than a queue to work through.
 
 ---
 
@@ -67,24 +55,17 @@ npx prisma migrate dev --name <name>  # create & apply a migration
 npx prisma generate                   # regenerate the client into server/generated/prisma (gitignored)
 ```
 
-`typecheck` is the one to reach for while iterating: same `vue-tsc` errors as the build at a quarter of the time, and it never rewrites `.output`. Keep `build` as the pre-commit gate — it is the only step that exercises Vite/Nitro bundling. It runs in two steps: `nuxt typecheck` over the four generated projects, then `tsc -p test/e2e/tsconfig.json`, which is the **only** thing checking the Playwright specs — no generated project claims them and Playwright transpiles without checking.
+`typecheck` is the one to reach for while iterating: same `vue-tsc` errors as the build at a quarter of the time, and it never rewrites `.output`. Keep `build` as the pre-commit gate — it is the only step that exercises Vite/Nitro bundling, and its second step (`tsc -p test/e2e/tsconfig.json`) is the **only** thing checking the Playwright specs.
 
-**In CI, call the tools rather than these scripts.** `test:integration`, `test:e2e` and `test:coverage` each begin with `db:up`, which is right on a developer machine and wrong on a runner that already has a PostgreSQL service container on 5432 — the second bind fails before a test runs. `.github/workflows/ci.yml` invokes `vitest`/`playwright`/`coverage:collect` directly for that reason.
+**In CI, call the tools rather than these scripts.** `test:integration`, `test:e2e` and `test:coverage` each begin with `db:up`, which is right on a developer machine and wrong on a runner that already has PostgreSQL on 5432. `.github/workflows/ci.yml` invokes `vitest`/`playwright`/`coverage:collect` directly for that reason.
 
 PostgreSQL runs in Docker. Never use OSPanel's bundled modules.
 
 ### The roadmap
 
-**`docs/roadmap.md` is the source of truth for the current development plan.** It is not optional reading and it is not a changelog — it states what is being worked on now, what comes next, and in what order.
+**`docs/roadmap.md` is the source of truth for the current development plan** — what is being worked on now, what comes next, in what order. Read it before starting a task. Mark a task `[x]` as soon as it is done, `[~]` while in progress. A task discovered mid-development is added to it, in the stage it belongs to; anything cancelled or superseded is deleted rather than kept "for the record" — that is what git history is for.
 
-- **Read it before starting a new task**, to see where that task sits and what it depends on.
-- **Mark a task `[x]` as soon as it is done** (by the definition below), `[~]` while it is in progress, `[ ]` until then.
-- **A necessary task discovered mid-development is added to the roadmap**, in the stage it belongs to — not left in a commit message or in conversation.
-- **When the task changes or new requirements arrive, update the roadmap to match.** A plan that disagrees with what is being built is worse than no plan.
-- **Delete or replace anything cancelled, superseded, or no longer relevant.** No duplicates, no stale entries, no tasks kept "for the record" — that is what git history is for.
-- Keep it current for the rest of the project, not just this phase.
-
-Scope discipline: the roadmap says _what_ and _in what order_. Contracts belong in `docs/architecture.md`, rationale in `docs/decisions.md`, rules here. Do not let it grow into a specification.
+Scope discipline: the roadmap says _what_ and _in what order_. Contracts belong in `docs/architecture.md`, rationale in `docs/decisions.md`, rules here.
 
 ### Definition of done
 
@@ -94,11 +75,11 @@ A change is finished only when, in order:
 2. `npx eslint .` passes;
 3. `npm run build` passes;
 4. `npm run test` passes, with tests covering the changed logic added or updated (§10);
-5. for any interactive or visual change: the keyboard path works and the focus ring is visible — both still a manual walk. Target size and the axe rules are gated by `npm run test:e2e` (§8); a sized control takes `--control-height`, and nothing may fall below the 24×24 floor;
+5. for any interactive or visual change: the keyboard path works and the focus ring is visible — both still a manual walk. Target size and the axe rules are gated by `npm run test:e2e` (§8);
 6. the change has been verified working in the running app (dev server);
 7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
-8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files here — the codebase is the source of truth for what exists;
-9. `docs/roadmap.md` reflects reality — the task is marked `[x]`, and anything the work revealed, changed, or made obsolete is added, updated, or removed.
+8. documentation is updated **only where a rule, contract, or limitation changed**: this file for rules, `docs/architecture.md` for contracts, `docs/decisions.md` for rationale. Do not maintain a running inventory of files, specs or migrations — the codebase is the source of truth for what exists;
+9. `docs/roadmap.md` reflects reality — the task is marked `[x]`, and anything the work revealed or made obsolete is added, updated, or removed.
 
 ---
 
@@ -109,34 +90,34 @@ app/                         # Nuxt 4 frontend (client)
   assets/scss/               # global SCSS (main.scss + partials, incl. _mixins.scss)
   components/
     app/                     # the shell — AppSidebar, AppBreadcrumbs
-    common/                  # generic UI atoms, all `Base*` (buttons, inputs, modal, range, …)
-    modals/                  # dialogs built on BaseModal — ConfirmModal (universal), the form modals
+    common/                  # generic UI atoms, all `Base*`
+    modals/                  # dialogs built on BaseModal
     records/                 # the metadata renderers — DynamicForm, DynamicTable, the filter panel & summary
   field-types/               # EVERYTHING per-field-type: the input/filter/cell registries + the cell components
   composables/               # useApi, useForm, useDeleteConfirm, … (imported explicitly — see §4)
   layouts/                   # default + auth layouts
   middleware/                # route guards (auth)
   pages/                     # file-based routing
-    auth/                    # login / register
     tables/[tableId]/records/  # dynamic table & record views
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
 server/                      # Nitro backend
   api/                       # HTTP route handlers (thin: parse → check ownership → call service)
   middleware/                # server middleware (attach authenticated user to event.context)
-  services/                  # generic, framework-agnostic business logic (record/query/relations)
+  services/                  # generic, framework-agnostic business logic
   utils/                     # prisma singleton, auth helpers, ownership assertions
   generated/prisma/          # generated Prisma client (gitignored — never edit by hand)
 shared/                      # code used by BOTH client & server — one rule per folder
   types/                     # type & interface declarations ONLY (zero runtime exports)
-  constants/                 # the runtime constant registries (field types, filter values, page size)
-  utils/                     # generic framework-free helpers (filter predicates, the URL codec)
+  constants/                 # the runtime constant registries
+  utils/                     # generic framework-free helpers
   validation/                # zod schemas and nothing else
 prisma/migrations/           # Prisma migration history
-docs/                        # architecture.md + decisions.md
+test/                        # fixtures, mount/prisma helpers, the integration and e2e suites
+docs/                        # roadmap.md, architecture.md, decisions.md + the design concept
 public/                      # static assets
 ```
 
-`shared/` is four layers with a strict dependency order — `types` → `constants` → `utils` → `validation`, each importing only from layers above it. A helper that fits none of `types`/`constants`/`validation` belongs in `utils/`, not in whichever folder is nearest. See `docs/architecture.md`.
+`shared/` is four layers with a strict dependency order — `types` → `constants` → `utils` → `validation`, each importing only from layers above it. A helper that fits none of `types`/`constants`/`validation` belongs in `utils/`, not in whichever folder is nearest.
 
 ---
 
@@ -206,7 +187,7 @@ Rationale for all three: `docs/decisions.md`.
 - Forms use the `useForm` composable — reactive fields, per-field zod errors that clear on edit, form-level server error, `pending`, `submit`, `reset`.
 - Deleting anything from a list page goes through `useDeleteConfirm`, not a hand-rolled pending flag.
 - A popover goes through `usePopover` (+ `useAnchoredPosition` where it must escape a clipping ancestor), never a hand-rolled open/outside-click/focus-restore trio.
-- **A popover swallows Escape only while it has something open.** `BaseModal` owns the `document` listener, so one keypress must never close both. Where focus lives inside the panel, `@keydown.esc.stop` on the panel says that structurally — the panel only exists while open. Where the control keeps focus _outside_ its panel (a combobox), the modifier is wrong: it would make a **closed** control eat the surrounding dialog's Escape. There, handle the key in JS and call `stopPropagation()` only when `open`.
+- **A popover swallows Escape only while it has something open.** `BaseModal` owns the sole `document` listener, so one keypress must never close both. Two spellings, and the difference matters: `@keydown.esc.stop` on the panel where focus lives inside it; the key handled in JS with `stopPropagation()` guarded on `open` where the control keeps focus **outside** its panel (a combobox), since an unconditional modifier there would make a _closed_ control eat the surrounding dialog's Escape. See `docs/decisions.md`.
 - **Every async surface states its condition.** Loading, empty, and error are distinct states with distinct copy — never infer "empty" from "unknown". A failed fetch is visible (banner + retry), never a silently stale view.
 - **Never ship a dead control.** A visible input or button that cannot do anything yet is worse than its absence.
 
@@ -231,17 +212,15 @@ All styles are **SCSS**, never plain CSS. Global styles live in `app/assets/scss
 
 ### Design principles
 
-A deliberately plain, familiar office-app look for a largely non-technical audience: **16px base, 36px control height, 8px control radius, a single accent blue (`#1C64D8`), two shadows, borders doing the structural work.** New UI matches that register; it is not a blank canvas.
+A deliberately plain, familiar office-app look for a largely non-technical audience: **16px base, 36px control height, 8px control radius, a single accent blue (`#1C64D8`), two shadows, borders doing the structural work.** New UI matches that register; it is not a blank canvas. `docs/concept-d-workspace.html` is the visual reference — where code and concept disagree, propose a concept update rather than changing code to match.
 
 ### Accessibility target: WCAG 2.2 AA
 
-Two halves of this are machine-checked (`npm run test:e2e`): an **axe** pass over the WCAG A/AA rules, failing on `serious` and `critical`, and the target-size floor below. Neither replaces the keyboard walk in step 5 of the definition of done — axe cannot tell whether a focus order makes sense — but both catch what a walk misses because nothing on screen looks different.
+Two halves are machine-checked by `npm run test:e2e`: an **axe** pass over the WCAG A/AA rules, failing on `serious` and `critical`, and the target-size floor below. Neither replaces the keyboard walk in step 5 of the definition of done — axe cannot tell whether a focus order makes sense — but both catch what a walk misses because nothing on screen looks different.
 
 - Every interactive element is keyboard-operable and has a visible `:focus-visible` ring. **Focus is never removed, only restyled** — `_reset.scss` carries a zero-specificity baseline so nothing can end up with no ring; components override it with the `focus-ring` mixin (`outline`, not `box-shadow`, so an ancestor's `overflow` cannot clip it).
-- Minimum target size **24×24** — SC 2.5.8, the AA requirement. The house floor is `--control-height` (**36px**), which every sized control including icon-only buttons meets; nothing may go below 24 (the filter-summary chip's remove button sits exactly on it). 44×44 is SC 2.5.5, which is **AAA** — do not quote it as the AA bar.
-
-  **This is a gate now, not a review item.** `test/e2e/accessibility.spec.ts` measures every interactive element on five screens, plus two at mobile width, and `test/e2e/setup/a11y.ts` holds the measurement. A control that is content-sized needs **both** axes floored — `--icon` and `--link` each say so, because a short label ("Edit" is 23px) is narrow however tall it is. Three exclusions are encoded, each a real SC 2.5.8 exception rather than a convenience: `.text-link` (the _Inline_ exception), an `<input>` whose wrapping `<label>` is the actual target, and anything not rendered. Do not add a fourth to make a failure go away.
-
+- Minimum target size **24×24** — SC 2.5.8, the AA requirement. The house floor is `--control-height` (**36px**), which every sized control including icon-only buttons meets; nothing may go below 24. A content-sized control needs **both** axes floored, because a short label ("Edit" is 23px) is narrow however tall it is. 44×44 is SC 2.5.5, which is **AAA** — do not quote it as the AA bar.
+- The gate lives in `test/e2e/accessibility.spec.ts` + `test/e2e/setup/a11y.ts`, which encode three real SC 2.5.8 exceptions (the _Inline_ exception for `.text-link`, an `<input>` whose wrapping `<label>` is the actual target, and anything not rendered). **Do not add a fourth to make a failure go away.**
 - Text contrast ≥ 4.5:1; control outlines and other non-text UI ≥ 3:1 (this is why `--color-border-control` is a separate token from `--color-border-strong`).
 - Dialogs and off-canvas surfaces are `inert`-guarded and must never leave focusable content off-screen — `visibility: hidden`, not translation alone.
 
@@ -251,7 +230,7 @@ Two halves of this are machine-checked (`npm run test:e2e`): an **axe** pass ove
 - **Sizes in rem via the `rem()` helper** (16px base): `font-size: rem(14)`, `padding: rem(10) rem(12)`. Plain `px` is reserved for hairline borders and box-shadow offsets/blur.
 - **`functions` and `mixins` reach every SFC `<style>` block and entry file automatically** (Vite `additionalData`). They do **not** reach a transitively `@use`d partial — a standalone partial like `_auth-form.scss` must `@use` both itself, and `main.scss` must **not** re-`@use` either.
 - Use SCSS **nesting with `&`**; never duplicate a parent selector that could be nested.
-- **Reuse before you paste.** A declaration block that would be a second copy belongs in `_mixins.scss`. Check the list there first — `focus-ring`, `below-shell`, `stack`, `cluster`, `truncate`, `field-label`, `field-error`, `form-control`, `error-banner`, `page-header`, `page-title` cover most needs. A block with no per-site variation is a **class** in its own partial instead (`.auth-form`, `.text-link`, `.visually-hidden`), `@use`d from `main.scss`. `.visually-hidden` is the one to reach for rather than reinvent: it clips rather than hiding, because `display: none` and `visibility: hidden` both take an element out of the accessibility tree — which would silence the live region it exists for.
+- **Reuse before you paste.** A declaration block that would be a second copy belongs in `_mixins.scss` — check the list there first. A block with no per-site variation is a **class** in its own partial instead (`.auth-form`, `.text-link`, `.visually-hidden`), `@use`d from `main.scss`. `.visually-hidden` is the one to reach for rather than reinvent: it clips rather than hiding, because `display: none` and `visibility: hidden` both take an element out of the accessibility tree — which would silence the live region it exists for.
 - **Components consume `var(--color-*)` and nothing else.** The palette primitives (`$gray-200`, `$blue-600`) are unreachable from an SFC by construction, and it must stay that way.
 - **Tokens are added as coherent sets, not one-offs.** A new token must be semantic (name the role, not the value), belong to an existing ramp or establish a complete one, and be consumed by real UI in the same change. Never add a value to `_variables.scss` that no component reads.
 - **Sass parses custom-property values literally** — every `rem()` in `_variables.scss` must be interpolated: `--radius-md: #{rem(8)}`.
@@ -266,10 +245,6 @@ Two halves of this are machine-checked (`npm run test:e2e`): an **axe** pass ove
     padding: rem(16);
   }
 
-  &__title {
-    font-size: rem(20);
-  }
-
   &--active {
     border-color: var(--color-accent);
   }
@@ -280,7 +255,7 @@ Two halves of this are machine-checked (`npm run test:e2e`): an **axe** pass ove
 }
 ```
 
-The token inventory, the partial layout, and the `BaseButton` variant contract are documented in `docs/architecture.md`.
+The token inventory, the mixin list, the partial layout, and the `BaseButton` variant contract are documented in `docs/architecture.md` §11.
 
 ---
 
@@ -298,39 +273,37 @@ A new field type touches exactly these places — and nothing else:
 
 Every one of these registries is a total `Record<TFieldType, …>`, so adding an enum member is a compile error until all of them exist.
 
-**Cardinality is a second axis, and it is per-field, not per-type.** `options.multiple` makes a SELECT or a RELATION hold a list; `MULTI_VALUE_BY_TYPE` (`shared/constants/field.ts`) says which types may, and `isMultiValue(field)` (`shared/utils/field.ts`) is the only reader. Each affected registry keeps its flat per-type entries and gains a `MULTI_*` override table — also total, `Record<TFieldType, X | null>` — plus one resolver that every consumer calls instead of indexing: `sqlFor`, `inputFor`, `filterFor`, `summaryFor`, `cellComponent`, `filterShapeFor`. So a new field type must still declare its position on multi-value, and no component branches on the flag.
+**Cardinality is a second axis, and it is per-field, not per-type.** `options.multiple` makes a SELECT or a RELATION hold a list; `MULTI_VALUE_BY_TYPE` says which types may, and `isMultiValue(field)` (`shared/utils/field.ts`) is the only reader. Each affected registry keeps its flat per-type entries and gains a `MULTI_*` override table — also total — plus one resolver every consumer calls instead of indexing: `sqlFor`, `inputFor`, `filterFor`, `summaryFor`, `cellComponent`, `filterShapeFor`. So a new type must still declare its position on multi-value, and no component branches on the flag.
 
 **Inputs and filters are data, not components** — each is an `IFieldControl` naming a `Base*` control, a `props(field)` factory, and the adapters between that control's model and the field's value. Only cells are components. A type whose control needs data beyond its own metadata gets a component in `field-types/controls/` (RELATION is the only one today).
 
 **No scattered `switch`/`if` chains on field type** in pages, services, or generic components. If adding a type would require editing `DynamicForm`, `DynamicTable`, or a service, the abstraction is broken — fix the abstraction instead of special-casing.
 
-Full contracts for each registry: `docs/architecture.md`.
+Full contracts for each registry: `docs/architecture.md` §3.
 
 ---
 
 ## 10. Testing
 
-**Vitest and Playwright are both configured, and step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one.
-
-`.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app. Alongside them, the total `Record<TFieldType, …>` registries still make an unhandled field type a compile error rather than a runtime surprise.
+**Step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one. `.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app.
 
 ### The four projects
 
-`vitest.config.ts` is a thin root declaring `test.projects` and the merged coverage config — **`unit` and `nuxt` only**, so `npm run test` never wants a database. `integration` is a standalone config run by its own script. **Which project a spec lands in is decided by what it needs, not by what it is**:
+`vitest.config.ts` is a thin root declaring `test.projects` — **`unit` and `nuxt` only**, so `npm run test` never wants a database. `integration` is a standalone config run by its own script. **Which project a spec lands in is decided by what it needs, not by what it is:**
 
 |              | `unit` — `vitest.unit.config.ts`                             | `nuxt` — `vitest.nuxt.config.ts` | `integration` — `vitest.integration.config.ts` | `e2e` — `playwright.config.ts`  |
 | ------------ | ------------------------------------------------------------ | -------------------------------- | ---------------------------------------------- | ------------------------------- |
 | Files        | `{app,server,shared}/**/*.spec.ts`                           | `{app,shared}/**/*.nuxt.spec.ts` | `{server,shared}/**/*.integration.spec.ts`     | `test/e2e/**/*.spec.ts`         |
 | Environment  | `node`, no DOM                                               | `nuxt` (real app) on happy-dom   | `node` + real PostgreSQL                       | Chromium + the production build |
-| Aliases from | the `resolve.alias` block, mirroring `.nuxt/tsconfig.*.json` | Nuxt itself                      | the same block, plus one shim (below)          | `test/e2e/tsconfig.json`        |
+| Aliases from | the `resolve.alias` block, mirroring `.nuxt/tsconfig.*.json` | Nuxt itself                      | the same block, plus one shim                  | `test/e2e/tsconfig.json`        |
 | Cost         | under a second                                               | a Nuxt build's worth of startup  | a database round trip per case                 | a Nuxt build, then ~1 min       |
 | Run alone    | `npm run test:unit`                                          | `npm run test:nuxt`              | `npm run test:integration`                     | `npm run test:e2e`              |
 
-**Default to `unit`.** Vue reactivity alone does not earn the Nuxt project: `vue` is a plain dependency, so a composable built from `ref`/`watch`/`computed` is testable in `node` with an `effectScope` and nothing else — `useDebouncedModel`, `useSelectOptions`, `useForm` and `useDeleteConfirm` all live there. Reach for `*.nuxt.spec.ts` only for what genuinely cannot run otherwise:
+**Default to `unit`.** Vue reactivity alone does not earn the Nuxt project: `vue` is a plain dependency, so a composable built from `ref`/`watch`/`computed` is testable in `node` with an `effectScope` and nothing else. Reach for `*.nuxt.spec.ts` only for what genuinely cannot run otherwise:
 
 - anything importing `#imports` — every Pinia store does, through `useApi()` at setup time;
-- anything touching `document`, `window`, focus or layout (`usePopover`, `useAnchoredPosition`);
-- anything importing a `.vue` file, which the node project has no Vue plugin for.
+- anything touching `document`, `window`, focus or layout;
+- anything importing a `.vue` file, which the node project has no Vue plugin for. **What decides the project is the import graph, not what the spec does** — a pure module that imports an SFC belongs to `nuxt` even if it mounts nothing.
 
 **Reach for `integration` only for what a stub cannot answer** — that the SQL executes, that a constraint fires, that a lock holds, that the rules survive out to the endpoint. It is not the place to re-test logic the fast projects already cover.
 
@@ -338,76 +311,47 @@ Full contracts for each registry: `docs/architecture.md`.
 
 ### The end-to-end project
 
-`playwright.config.ts` + `test/e2e/`. Chromium only, `workers: 1`, its own `flexbase_e2e` database. Three things are load-bearing:
+Chromium only, `workers: 1`, its own `flexbase_e2e` database. Three things are load-bearing:
 
-- **The server is the built output, started by `scripts/serve-output.mjs`.** Never `nuxt preview`, and never `npm run preview`: both load the root `.env`, which points at the **development** database, and the suite truncates between cases. `scripts/preview.mjs` is exactly that — the same launcher with `dotenv/config` in front of it — which is why the two are separate files rather than one flag. The launcher itself works around a Windows-only crash: `.output/server/index.mjs` assigns `globalThis._importMeta_` in its body, but ESM hoists imports, so the bundled Prisma client evaluates first, falls back to the placeholder `file:///_entry.js`, and `fileURLToPath` throws on it. A dynamic import is not hoisted, so assigning first is enough — **making that import static reintroduces the bug** (`docs/decisions.md`).
+- **The server is the built output, started by `scripts/serve-output.mjs`.** Never `nuxt preview`, and never `npm run preview`: both load the root `.env`, which points at the **development** database, and the suite truncates between cases. The launcher also works around a Windows-only crash whose fix is one dynamic import — **making it static reintroduces the bug** (`docs/decisions.md`).
 - **One guard for both disposable databases.** `test/disposable-database.ts` refuses any name not ending in `_test` or `_e2e`, and both suites call it before writing. Never weaken it.
-- **Selectors are roles and accessible names**, never `data-testid` — the app labels everything already, so a spec that breaks because a label changed is reporting something real. Note two shapes worth knowing: `BaseSelect`'s non-searchable trigger is a `<button>` whose accessible name is _label + value_ ("Stage Won"), and its value overlay is a **sibling** of that button rather than a child.
+- **Selectors are roles and accessible names**, never `data-testid` — the app labels everything already, so a spec that breaks because a label changed is reporting something real. Note that `BaseSelect`'s non-searchable trigger is a `<button>` whose accessible name is _label + value_ ("Stage Won"), and its value overlay is a **sibling** of that button rather than a child.
 
-  **Two exceptions, and only two.** Both are real limits rather than shortcuts, so do not "fix" a selector that falls under one — and do not add a third without the same test: would a role here help a _user_?
-  1. **A decorative mirror of an accessible name.** `.base-select__value` draws the selection the trigger's own name already carries; giving it a role would announce the value twice.
-  2. **Structural reach** — reading a column (`tbody tr td:nth-child(2)`), driving a scroll container (`.base-modal__body`), measuring geometry (`.base-badge`). None of these is a thing a user targets, so no role names them.
+  **Two exceptions, and only two** — a decorative mirror of an accessible name (`.base-select__value`, which giving a role would announce twice), and structural reach (reading a column, driving a scroll container, measuring geometry). Do not "fix" a selector that falls under one, and do not add a third without the same test: would a role here help a _user_? When a surface _would_ benefit, the fix is the app, not the spec — that is why the pager count and the records empty state are `role="status"`. **Scope that one to `main`**, or Nuxt's own route announcer matches too and fails strict mode.
 
-  When a surface _would_ benefit, the fix is the app, not the spec: the pager count and the records empty state became `role="status"` for exactly that reason — both change while focus is elsewhere, so they now announce themselves and are addressable by role. **Scope that one to `main`**: Nuxt renders its own route announcer as a `role="status"` live region outside the app shell, so a bare `getByRole('status')` matches two elements and fails Playwright's strict mode.
-
-**Assert the table through `expect.poll`, never a bare read.** A URL assertion resolves the moment the address bar moves, but the rows behind it refetch asynchronously — reading straight after passes often enough to look fine and fails often enough to be a flake. The same trap has a subtler form: waiting on text that is _already_ on screen. Waiting for "Ada" after drilling into Ada from a record that lists her as its owner proves nothing, and the drill spec waits on the target table's name instead.
+**Assert the table through `expect.poll`, never a bare read.** A URL assertion resolves the moment the address bar moves, but the rows behind it refetch asynchronously. The same trap has a subtler form: waiting on text that is _already_ on screen proves nothing — wait on something the navigation must produce.
 
 ### The integration project
 
-Four things make it work, and each is load-bearing:
+Five things make it work, and each is load-bearing:
 
-- **A separate database.** `flexbase_test` on the same container, because the suite `TRUNCATE`s every table between cases and the development database holds real work. `test/integration/global-setup.ts` **refuses to start** unless the database name ends in `_test`, then runs `prisma migrate deploy` — which creates the database if it does not exist yet, so nothing has to be provisioned by hand. Never weaken that guard. `INTEGRATION_DATABASE_URL` is the only variable that overrides the default.
-- **The npm script provisions what the suite needs**, because neither prerequisite is discoverable from `npm ci` and both fail loudly but misleadingly. `test:integration` and `test:e2e` run `db:up` first: a stopped container fails in `globalSetup` — for the e2e suite _after_ a full Nuxt build — and Playwright then reports **zero tests run**, which reads as a broken suite rather than a stopped database. `test:e2e` also runs `playwright install chromium`, a ~1s no-op once the browser is present: without it every test fails identically with `browserType.launch: Executable doesn't exist`, 100 red lines for one missing download. **CI must not use these scripts** — its jobs provide both prerequisites themselves, and a `db:up` there would try to bind a port the service container already holds. Invoking `vitest`/`playwright` directly is the supported path: the setups catch a database failure and name the cause.
+- **A separate database.** `flexbase_test` on the same container, because the suite `TRUNCATE`s every table between cases. `test/integration/global-setup.ts` **refuses to start** unless the name ends in `_test`, then runs `prisma migrate deploy` — which creates the database if it does not exist, so nothing has to be provisioned by hand. `INTEGRATION_DATABASE_URL` is the only override.
+- **The npm script provisions the database and the browser** (§2), because neither is discoverable from `npm ci` and both fail misleadingly — a stopped container makes Playwright report **zero tests run**, which reads as a broken suite.
 - **`fileParallelism: false`.** One database, so files may not run against it at once.
 - **Handlers invoked directly**, with a real `H3Event` built by `test/integration/event.ts` — `requireUser` → ownership → zod → service all run for real, and only Nitro's routing is skipped. Note the helper sets `content-length`: without it h3 returns an empty body without reading the stream, and every `readValidatedBody` becomes a confusing 400.
-- **One shim, `test/integration/nitro-runtime.ts`.** `nitropack/runtime` cannot be imported outside a Nitro build — its entry pulls in `#nitro-internal-virtual/*`. The shim provides `useRuntimeConfig` returning `jwtSecret` from the environment, which is exactly what `nuxt.config.ts` declares. It exists so the two auth endpoints and the server middleware can be loaded at all; do not grow it into a general Nitro stub.
+- **One shim, `test/integration/nitro-runtime.ts`.** `nitropack/runtime` cannot be imported outside a Nitro build. The shim provides `useRuntimeConfig` returning `jwtSecret` from the environment, so the auth endpoints and the server middleware can be loaded at all; do not grow it into a general Nitro stub.
 
 Rows are seeded through Prisma (`test/integration/seed.ts`), not through the services, so a spec about `createRecord` is not seeded by `createRecord`.
 
-`defineVitestConfig` boots the real app from `nuxt.config.ts`, so the aliases, the module list and the SFC pipeline are the ones that ship. **Do not hand-stub what the environment already provides** — a stub is a second source of truth able to drift. In particular: `registerEndpoint` for an API a store calls, `mockNuxtImport` for `useRoute` and friends, `mountSuspended` for a component.
-
 ### Rules
 
-- **Specs are colocated** — `shared/utils/record-query.spec.ts` and `app/stores/tables.nuxt.spec.ts` each sit beside their source. That is what puts them inside the `include` globs Nuxt generates, so `npm run typecheck` checks them too.
+- **Specs are colocated** — each sits beside its source. That is what puts them inside the `include` globs Nuxt generates, so `npm run typecheck` checks them too.
 - **`globals: false` in both projects.** Every spec imports `{ describe, it, expect } from 'vitest'`, matching the project's `autoImport: false` doctrine — and required regardless, since the generated tsconfigs set `types: []`.
 - **Imports are aliased in a spec exactly as in source** (`~/…`, `#shared/…`, `#server/…`); `no-restricted-imports` applies to specs too.
 - **Field fixtures live in `test/fixtures.ts`**, reached as `~~/test/fixtures`. Add a builder there rather than restating an `IField` in a second spec.
-- **Mount through `~~/test/mount`, never `mountSuspended` directly.** `mountTracked` registers the wrapper and `afterEach(unmountAll)` tears it down, so no spec ends a case with `wrapper.unmount()`. This is not tidiness: a case that _fails_ skips its own trailing unmount, and `useAnchoredPosition` leaked a window listener into the next case exactly that way. `track()` is the same seam for the three composable specs that mount a plain host with `@vue/test-utils`.
-- **`BaseSelect` is four spec files over one rig**, `~~/test/select-harness` — what it renders, the keyboard, selection, and the searchable branch's async half. Add a case to the file whose concern it belongs to rather than growing one back toward 900 lines.
+- **Mount through `~~/test/mount`, never `mountSuspended` directly.** `mountTracked` registers the wrapper and `afterEach(unmountAll)` tears it down, so no spec ends a case with `wrapper.unmount()`. This is not tidiness: a case that _fails_ skips its own trailing unmount, and a composable leaked a window listener into the next case exactly that way. `track()` is the same seam for a plain `@vue/test-utils` host.
+- **Do not hand-stub what the Nuxt environment already provides** — `defineVitestConfig` boots the real app from `nuxt.config.ts`, so a stub is a second source of truth able to drift. In particular: `registerEndpoint` for an API a store calls, `mockNuxtImport` for `useRoute` and friends, `mountSuspended` for a component.
+- **A mounted component reads the Nuxt app's pinia, not a spec's.** `setActivePinia(createPinia())` is right for a store tested directly and wrong under `mountSuspended` — use `setActivePinia(useNuxtApp().$pinia as Pinia)` and clear the state it carries between cases.
 - **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/services/record-query.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute.
-- **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/utils/prisma', …)`. Not a preference — `server/utils/prisma.ts` constructs a real client at module load, so without it the module cannot be imported in the node project at all. The stub answers to both `$transaction` forms and hands the callback itself as `tx`, so a transactional write and a direct one assert through the same spies. **What it may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs**, or that PostgreSQL agrees with it. Do not stretch a stub to imply otherwise — that half is the integration suite's, and `docs/roadmap.md` holds it.
-- **A mounted component reads the Nuxt app's pinia, not a spec's.** `setActivePinia(createPinia())` is right for a store tested directly and wrong under `mountSuspended`, where `@pinia/nuxt` has already provided one — use `setActivePinia(useNuxtApp().$pinia as Pinia)` and clear the state it carries between cases.
+- **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/utils/prisma', …)`. Not a preference — `server/utils/prisma.ts` constructs a real client at module load. **What the stub may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs.** That half is the integration suite's.
 - **Assert on structure and behaviour, never on computed styles.** Vitest's `test.css` stays `false`, so SCSS is stubbed rather than compiled; a component spec that reads a colour is testing nothing.
+- **A spec file that has grown past its concern is split over one shared rig**, not grown further — `BaseSelect` is four files over `~~/test/select-harness`. Add a case to the file whose concern it belongs to.
 
-Covered today — `unit`: all of `shared/utils/`, all of `shared/validation/`, **all of `server/services/` and all of `server/utils/`** (the SQL builder, the four prisma-backed services, ownership scoping, field-key derivation, the whole of `auth.ts` including the cookie contract, the Prisma→HTTP error mapping), and the four Vue-only composables. `nuxt`: **every composable, every store, all of `app/field-types/`, all of `app/utils/`, and the route guard in `app/middleware/`**, plus the components `BaseButton`, `BaseColorPicker`, `BaseInput`, `BaseModal`, `BasePagination`, `BaseRange`, `BaseSelect`, `RecordFieldValue`, `RecordsFilterPanel`, `RecordsFilterSummary`, `DynamicForm`, `DynamicTable`, `ConfirmModal`, `FieldFormModal`, `RecordDetail`, `RecordDetailModal` and the one field-type control, `RelationFieldSelect`.
+**Coverage is one report merged from two runs**, because `server/api/` and `server/middleware/` are reachable only from the `integration` project, which stays out of `npm run test`. `npm run coverage:collect` writes a blob per run into `.vitest-reports/` and merges them. The constraints that hold it together are in `docs/decisions.md`; the one to remember is that **`.vitest-reports/` must contain nothing but the blob files**. **`e2e` contributes no coverage** — it drives a built server, not an instrumented one.
 
-**Coverage is one report merged from two runs**, because `server/api/` and `server/middleware/` are reachable only from the `integration` project, which needs a database and so stays out of `npm run test`. `npm run coverage:collect` writes a blob per run into `.vitest-reports/` and merges them; `test:coverage` is that plus `db:up`. Three constraints hold it together, all in `docs/decisions.md`: the scope lives in `vitest.coverage.config.ts` so one `include` list cannot drift into two, the integration run measures the server half only, and `.vitest-reports/` must contain nothing but the blob files. **`e2e` contributes no coverage** — it drives a built server, not an instrumented one.
+**The SQL layer is verified twice, deliberately.** `record-query.spec.ts` asserts on `.text` and `.values` without a connection; `record-query.integration.spec.ts` runs the same builder against PostgreSQL and looks at which rows come back. Neither replaces the other — the first pins the shape and catches a change in intent, the second is the only thing that would catch a fragment the database rejects. The same split covers `widenToList` and the record counter (one transaction, vs. concurrent creates getting distinct numbers).
 
-What the `integration` project covers: the 404-never-403 rule across all thirteen table-scoped endpoints, **401 across all fifteen**, the auth endpoints (identical answer for a wrong password and an unknown email, duplicate-email 409, no hash in any response, the cookie), the records endpoint composing its schema with the shared codec, table creation (ownership, the 409, the two name bounds), the multi-value write caps arriving as 400s, and the middleware's three anonymous paths including a valid token for a since-deleted user.
-
-It also owns three clauses of `docs/architecture.md` §12 that read like browser behaviour and are not: the **`::date` cast** (a same-day `Created at` range must still match records made later that day), a multi SELECT's **JSONB punctuation** staying unsearchable, and **RELATION** matching neither its label nor its stored id. §12 badges them _(integration)_ rather than implying a Playwright spec exists.
-
-**The SQL layer is verified twice, deliberately.** `record-query.spec.ts` asserts on `.text` and `.values` without a connection; `record-query.integration.spec.ts` runs the same builder against PostgreSQL and looks at which rows come back. Neither replaces the other — the first pins the shape and catches a change in intent, the second is the only thing that would catch a fragment the database rejects. The same split covers `widenToList` (invoked, vs. what it does to stored rows) and the record counter (one transaction, vs. twenty concurrent creates getting twenty distinct numbers).
-
-**No module under `app/` is at zero.** What is left is the rest of `app/components/`, which is markup, and end-to-end coverage — the browser-only behaviour in `docs/architecture.md` §12 that Playwright is for.
-
-**A pure module that imports a `.vue` file belongs to the `nuxt` project.** `record-cells.ts` and `inputs.ts` mount nothing and assert on plain functions, but the node project has no Vue plugin to resolve their component imports — what decides the project is the import graph, not what the spec does.
-
-Three contracts the renderer specs pin that are invisible in the browser when broken, and must not be "simplified" away: **`DynamicForm` never mutates the `values` prop** (the form object belongs to the parent's `useForm`); **an empty list is as blank as a null** in `RecordFieldValue`, or a cleared multi-value field renders as nothing rather than "Not set"; and **`MULTI_INPUTS` must be non-null at exactly the types `MULTI_VALUE_BY_TYPE` marks `true`** — two hand-maintained total `Record`s in different files, where a mismatch silently drops every value but the first.
-
-**`MULTI_SQL` carries the same invariant and the same guard**, in `record-query.spec.ts`. A widened field routed through the scalar projection compares a JSON array against a scalar and simply never matches — nothing errors, the table just comes back empty. It is probed through `ORDER BY` rather than `WHERE`, because a widened field's filter is list-shaped whatever its type declares, so a `WHERE` would differ from the value's shape rather than from the routing under test.
-
-**A store that must not throw and one that must are a documented pair.** `ensureTables` swallows, because the root layout has no error boundary above it; `fetchRecords` sets `failed` **and rethrows**, because a refetch runs from a watcher where swallowing would leave the table showing rows that no longer match the URL — and the initial load still needs the rejection for `useAsyncData` to produce the 404. Both directions are asserted, in `tables.nuxt.spec.ts` and `records.nuxt.spec.ts`.
-
-**`useRecordDetail` keys its `useAsyncData` on the literal `'record-detail'`**, so in a spec one case's entry is the next case's cache and the fetch is skipped. Its spec tears down the previous host **and** calls `clearNuxtData` together — clearing alone leaves the instance resolved. A sync `setup` also does not await its own async data, so the mount resolves before the first request does; the helper settles a real tick afterwards rather than pretending otherwise.
-
-**The filter side is deliberately not symmetric with the record side, and the specs pin the difference.** `MULTI_FILTERS.SELECT` is `null` because a SELECT filter was always list-shaped, so the `MULTI_INPUTS` invariant above does **not** apply to `MULTI_FILTERS`; only BOOLEAN carries adapters, because every other filter control's model already _is_ the filter value; and `RecordsFilterPanel` rebuilds its whole map in column order rather than patching one key, so a shared URL is stable whichever control was touched. `BaseRange` adds one more: a blank or unparseable bound is `null`, **never `0`**, or an empty box silently becomes `>= 0`.
-
-Two contracts the component specs pin that are invisible in the browser when broken, and must not be "simplified" away: **`BaseSelect` normalises `props.multiple` itself**, because a bare `multiple` attribute arrives as `''` that `vue-tsc` reads as `true`; and **its combobox swallows Escape only while open**, so a closed select inside the filter drawer does not eat the drawer's own key. `BaseModal`'s spec pins the other half of that — it owns the sole document-level Escape listener, and releases it on unmount.
-
-**The list query lives in `useRecordListQuery`, not in the records page**, and which of its actions leaves a history entry is a contract: a sort or a page step **pushes**, a filter edit, a search or a clear **replaces**. Nothing on screen shows the difference — it surfaces only as a browser Back that walks through every keystroke instead of returning where the user came from. Two more the same spec pins: a search term below `SEARCH_MIN_LENGTH` is dropped rather than sent, and an unchanged term does not navigate **at all**, because a debounced input re-emits the value it settled on. Note that `desc` is the default direction and is therefore _absent_ from the URL, so a spec asserting on `dir` reads the params back through `parseRecordQueryState` rather than checking whether the key is there.
-
-**No module under `app/` is at zero, and `docs/architecture.md` §12 is no longer a manual walk** — `test/e2e/` automates it, bar the three lines recorded there as approximations. A behavioural change still gets driven in the running app before it ships; what changed is that the checklist behind it now has a spec per line.
+Contracts the specs pin that are **invisible in the browser when broken**, and must not be "simplified" away, are documented where they belong — the renderer and store contracts in `docs/architecture.md` §10, the component and query-layer ones in `docs/decisions.md`. Two structural invariants live only in the specs, because they span files no type can join: **`MULTI_INPUTS` must be non-null at exactly the types `MULTI_VALUE_BY_TYPE` marks `true`** (a mismatch silently drops every value but the first), and **`MULTI_SQL` carries the same invariant** (a widened field routed through the scalar projection compares a JSON array against a scalar and simply never matches — nothing errors, the table just comes back empty). The second is probed through `ORDER BY` rather than `WHERE`, because a widened field's filter is list-shaped whatever its type declares.
 
 ---
 
@@ -425,4 +369,4 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 - `tsconfig.json` references the project configs generated into `.nuxt/` by `nuxt prepare`. Do not edit those directly.
 - `compatibilityDate` is pinned to `2025-07-15`.
 - Modules: `@nuxt/eslint`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt`.
-- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate in `test/e2e/setup/a11y.ts`; dev-only, and it injects axe into the page rather than shipping in the bundle). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
+- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate; dev-only, and it injects axe into the page rather than shipping in the bundle). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
