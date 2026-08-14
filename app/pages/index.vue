@@ -5,7 +5,7 @@
       <BaseButton @click="openCreateModal">Add table</BaseButton>
     </header>
 
-    <BaseEmptyState v-if="tablesStore.tables.length === 0" title="No tables yet">
+    <BaseEmptyState v-if="tablesStore.tables.length === 0" title="No tables yet" icon="mdi:table">
       A table is a list of things you want to keep track of — customers, deals, invoices.
       <template #action>
         <BaseButton @click="openCreateModal">Add table</BaseButton>

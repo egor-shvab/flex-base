@@ -62,7 +62,16 @@
 
     <!-- Everything above this is the fixed band; the rows below are the only thing that scrolls -->
     <div class="records-page__body">
-      <BaseEmptyState v-if="!hasFields" class="records-page__empty">
+      <!-- Ahead of the fieldless state below, not only of the empty one: leaving a table that has
+           no fields would otherwise keep claiming that about the table being fetched, and the two
+           are the same mistake. A fieldless table at rest is not pending, so it still says so. -->
+      <RecordsTableSkeleton v-if="rowsLoading" class="records-page__skeleton" />
+
+      <BaseEmptyState
+        v-else-if="!hasFields"
+        class="records-page__empty"
+        icon="mdi:view-column-outline"
+      >
         This table has no fields yet —
         <NuxtLink :to="`/tables/${tableId}`" class="text-link">define its fields</NuxtLink>
         before adding records.
@@ -81,6 +90,7 @@
           class="records-page__empty"
           role="status"
           :title="emptyTitle"
+          :icon="emptyIcon"
         >
           {{ emptyMessage }}
           <template #action>
@@ -194,6 +204,7 @@ const {
   isNarrowed,
   emptyTitle,
   emptyMessage,
+  emptyIcon,
   queryKey,
   goToPage,
   applySort,
@@ -243,6 +254,15 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 ])
 
 const hasFields = computed(() => fieldsStore.fields.length > 0)
+
+/**
+ * Loading is its own state, and both halves of this are needed. The store drops the previous
+ * table's rows *before* requesting the next one's — and this page is still the one on screen until
+ * the incoming one resolves — so between the two there is nothing here to tell "empty" from "not
+ * known yet", exactly as `failed` cannot be told from empty. The row count is what keeps it to a
+ * body with nothing to draw: an in-place refetch keeps its rows and says "Filtering…" instead.
+ */
+const rowsLoading = computed(() => recordsStore.pending && recordsStore.records.length === 0)
 
 const filterPanelOpen = ref(false)
 
@@ -377,6 +397,12 @@ const {
   &__table {
     flex: 0 1 auto;
     min-height: 0;
+  }
+
+  // Where the rows will be, not the middle of the pane like the empty states below: it stands in
+  // for the table, so it takes the table's place.
+  &__skeleton {
+    flex: none;
   }
 
   // An empty state has no natural place in the flow, so it takes the middle of the pane.

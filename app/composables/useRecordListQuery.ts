@@ -64,6 +64,12 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
       : 'This table has records, but none match all of these filters at once.'
   })
 
+  /** The same decision the copy above makes, in a glyph: what is keeping the list empty. */
+  const emptyIcon = computed(() => {
+    if (!isNarrowed.value) return 'mdi:table'
+    return activeFilterCount.value === 0 ? 'mdi:magnify' : 'mdi:filter-variant'
+  })
+
   function applyQuery(params: IRecordQueryState, replace = false) {
     // Sort and page steps are worth a history entry; live filter edits would flood it
     return navigateTo({ query: toRecordQueryParams(params) }, { replace })
@@ -106,6 +112,7 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
     isNarrowed,
     emptyTitle,
     emptyMessage,
+    emptyIcon,
     /**
      * A stable string for a watcher to key on. `queryParams` is a fresh object whenever *any*
      * param moves — including the detail dialog's — and the list must not refetch because a

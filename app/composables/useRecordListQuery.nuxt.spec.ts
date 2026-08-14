@@ -143,6 +143,28 @@ describe('the empty-state copy', () => {
   })
 })
 
+/** The same four cases as the copy above, said in a glyph: what is keeping the list empty. */
+describe('the empty-state icon', () => {
+  const icon = (query: Record<string, string | string[]>) => setup(query).emptyIcon.value
+
+  it('is the table itself when nothing is narrowing the list', () => {
+    expect(icon({})).toBe('mdi:table')
+  })
+
+  it('is the search glyph when only a search is narrowing it', () => {
+    expect(icon({ search: 'acme' })).toBe('mdi:magnify')
+  })
+
+  it('is the filter glyph for a filter', () => {
+    expect(icon({ company: 'acme' })).toBe('mdi:filter-variant')
+  })
+
+  it('stays the filter glyph when a search and a filter are combined', () => {
+    // The filter is the narrower claim of the two, and the one the user can clear wholesale
+    expect(icon({ company: 'acme', search: 'beta' })).toBe('mdi:filter-variant')
+  })
+})
+
 describe('sorting', () => {
   it('starts a fresh column ascending', () => {
     setup().applySort('company')

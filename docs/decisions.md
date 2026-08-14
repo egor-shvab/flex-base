@@ -328,6 +328,8 @@ A rejection in the layout's async setup would replace the page with an error bou
 
 `records.ts` sets `failed` in a `catch` that **rethrows**; the page's `watch` swallows the rejection and shows a banner. Both halves are needed: an unhandled rejection in a watcher left the table showing rows that no longer matched the URL, and the initial load still needs the rejection for `useAsyncData` to produce the 404. **The empty state is suppressed while `failed`** — an empty result and an unknown result are indistinguishable in the store, and "No records yet" would be a guess.
 
+**And suppressed the same way while a fetch is in flight with no rows to show**, which is the same guess about a different unknown: `fetchRecords` clears the previous table's rows _before_ requesting the next one's, and the outgoing page stays mounted until the incoming one's `setup` resolves, so switching tables emptied the body of the page still on screen. `RecordsTableSkeleton` takes that state. Deliberately conditioned on the row count rather than on `pending` alone — an **in-place** refetch (sort, page, a filter over rows already drawn) keeps its rows and states itself through the summary's "Filtering…", because a table that blanks and rebuilds on every sort reads as heavier than one that does not.
+
 This is the opposite call from `useDeleteConfirm`. The rule is not "swallow" or "throw"; it is whether anyone is listening.
 
 ### `useDeleteConfirm` catches instead of re-throwing

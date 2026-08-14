@@ -14,7 +14,11 @@
       </div>
     </header>
 
-    <BaseEmptyState v-if="fieldsStore.fields.length === 0" title="No fields yet">
+    <BaseEmptyState
+      v-if="fieldsStore.fields.length === 0"
+      title="No fields yet"
+      icon="mdi:view-column-outline"
+    >
       Fields decide what each record stores. Add one and it becomes a column here and a question on
       the form.
       <template #action>

@@ -120,6 +120,51 @@ test.describe('when the list cannot be loaded', () => {
   })
 })
 
+/**
+ * The store drops the previous table's rows *before* requesting the next one's, and this page is
+ * the one still on screen until the incoming one resolves — so the body has nothing to draw for the
+ * length of that request. "No records yet" there is a claim about a table nothing has looked at
+ * yet, which is why the window is held open deliberately rather than raced.
+ */
+test.describe('while another table loads', () => {
+  test('shows the skeleton rather than claiming the table is empty', async ({
+    page,
+    seedTable,
+  }) => {
+    const leads = await seedTable(
+      'Leads',
+      [{ key: 'company', type: 'TEXT', name: 'Company' }],
+      [{ company: 'Zeta' }],
+    )
+
+    await page.goto(table.url)
+    await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+
+    // The first load is SSR, which `page.route` cannot intercept, so the hold goes on afterwards —
+    // the same sequencing the failure cases above need. No `?` in the glob: the default view sends
+    // no query string at all.
+    await page.route('**/api/tables/*/records*', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await route.continue()
+    })
+
+    await page
+      .getByRole('navigation', { name: 'Your tables' })
+      .getByRole('link', { name: 'Leads' })
+      .click()
+
+    // Scoped to `main`, or Nuxt's own route announcer is a second `role="status"` and the locator
+    // is ambiguous. This assertion is what proves the request is still in flight, so the one below
+    // it is not passing on an empty page.
+    await expect(page.getByRole('main').getByRole('status')).toContainText('Loading records')
+    await expect(page.getByText('No records yet')).toHaveCount(0)
+
+    await page.unroute('**/api/tables/*/records*')
+    await expect(page).toHaveURL(leads.url)
+    await expectCompanies(page, ['Zeta'])
+  })
+})
+
 test.describe('sorting', () => {
   const sortBy = (page: import('@playwright/test').Page, column: string) =>
     page.getByRole('button', { name: new RegExp(`^${column}`) }).click()
