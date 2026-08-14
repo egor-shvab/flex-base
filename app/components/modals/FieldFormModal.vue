@@ -40,20 +40,24 @@
 
       <div v-if="form.type === 'SELECT'" class="field-form__choices">
         <span class="field-form__label">Choices</span>
-        <div
-          v-for="(choice, index) in form.choices"
-          :key="rowIds[index]"
-          class="field-form__choice"
-        >
-          <BaseColorPicker v-model="choice.color" :label="`Colour for choice ${index + 1}`" />
-          <BaseInput :id="`${choicesId}-${index}`" v-model.trim="choice.value" />
-          <BaseButton
-            variant="icon"
-            icon="mdi:trash-can-outline"
-            label="Remove choice"
-            tone="danger"
-            @click="removeChoice(index)"
-          />
+        <!-- Rendered only when there are rows: an empty wrapper is still a flex item, so it
+             would open a second `stack` gap under the label on a field with no choices yet. -->
+        <div v-if="form.choices.length > 0" class="field-form__choice-list">
+          <div
+            v-for="(choice, index) in form.choices"
+            :key="rowIds[index]"
+            class="field-form__choice"
+          >
+            <BaseColorPicker v-model="choice.color" :label="`Colour for choice ${index + 1}`" />
+            <BaseInput :id="`${choicesId}-${index}`" v-model.trim="choice.value" />
+            <BaseButton
+              variant="icon"
+              icon="mdi:trash-can-outline"
+              label="Remove choice"
+              tone="danger"
+              @click="removeChoice(index)"
+            />
+          </div>
         </div>
         <BaseButton
           variant="ghost"
@@ -260,6 +264,27 @@ watch(
 
   &__choices {
     @include stack(8);
+  }
+
+  // Only the rows scroll — the label, "Add choice" and the error stay put. A field with thirty
+  // choices would otherwise bury every other control in the form, and the dialog's own scrolling
+  // does not help with that: it is one section dominating the form, not the form outgrowing the
+  // screen.
+  &__choice-list {
+    @include stack(8);
+
+    // Four rows and the top of a fifth — 36px controls with rem(8) gaps and the rem(5) inset
+    // below, so the cut lands *inside* a row rather than in a gap, where it would read as the
+    // end of the list.
+    max-height: rem(200);
+    overflow-y: auto;
+    // A focus ring reaches `--focus-ring-width` + `--focus-ring-offset` = 5px past a control's
+    // edge, and `overflow-y: auto` computes `overflow-x` to `auto` too, so without this inset
+    // the rings on the colour picker and the remove button are clipped at the container's
+    // edges. `overflow-clip-margin` is not the tool here — it applies to `clip`, not `auto`.
+    // The matching negative margin keeps the rows aligned with the controls above them.
+    padding: rem(5);
+    margin: rem(-5);
   }
 
   &__choice {

@@ -102,6 +102,10 @@ onBeforeUnmount(() => {
 .base-modal {
   position: fixed;
   inset: 0;
+  // `inset` alone sizes a fixed box to the *large* viewport, so on mobile a dialog capped
+  // against it puts its last rows under an expanded URL bar. The same reason the shell is
+  // `100dvh` rather than `100vh` — see `decisions.md`.
+  max-height: 100dvh;
   z-index: var(--z-modal);
   display: flex;
   align-items: center;
@@ -110,8 +114,15 @@ onBeforeUnmount(() => {
   background: var(--color-scrim);
 
   &__dialog {
+    display: flex;
+    flex-direction: column;
     width: 100%;
     max-width: rem(420);
+    // A percentage, never a `calc()` against the viewport: it resolves against the scrim's own
+    // content box, so it already excludes the scrim's padding and re-resolves for free where
+    // `--drawer` zeroes it. Without a cap the dialog is *centred while overflowing both edges*,
+    // and the shell does not scroll, so its header and its submit button are unreachable.
+    max-height: 100%;
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     box-shadow: var(--shadow-md);
@@ -145,7 +156,13 @@ onBeforeUnmount(() => {
     font-weight: 600;
   }
 
+  // The only part that scrolls, in both variants: the header and the footer stay put, so a
+  // dialog with more content than the screen has room for is reachable rather than clipped.
+  // No `min-height: 0` — `overflow-y: auto` already zeroes a flex item's automatic minimum
+  // size, which is why the drawer has never needed one.
   &__body {
+    flex: 1;
+    overflow-y: auto;
     padding: rem(20);
   }
 
@@ -154,22 +171,16 @@ onBeforeUnmount(() => {
     border-top: 1px solid var(--color-border);
   }
 
+  // Everything it used to restate — the flex column and the scrolling body — is the base rule
+  // now, so what is left is the two things that actually make it a drawer
   &--drawer {
     align-items: stretch;
     justify-content: flex-end;
     padding: 0;
 
     .base-modal__dialog {
-      display: flex;
-      flex-direction: column;
       max-width: rem(360);
       border-radius: 0;
-    }
-
-    // The field list can outgrow the viewport, so only the body scrolls
-    .base-modal__body {
-      flex: 1;
-      overflow-y: auto;
     }
   }
 }

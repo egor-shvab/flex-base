@@ -650,6 +650,16 @@ It had three `@include`s and no per-site variation, which is a shared block, not
 
 **`min-width: 0` and `min-height: 0` on the panes are load-bearing.** A grid or flex item's automatic minimum is its content, so without them the main column's min-content width is `DynamicTable`'s full intrinsic width (the table's `overflow-x` never engages and the document scrolls sideways), and a pane holding 50 rows grows past its row so the `overflow-y: auto` beside it never fires. Both read like redundant lines and are not.
 
+### A dialog caps against the scrim, and only its body scrolls
+
+`.base-modal__dialog` is `max-height: 100%` and a flex column; `.base-modal__body` is `flex: 1; overflow-y: auto`. Uncapped, a dialog taller than the screen is **centred while overflowing both edges** — and the shell is `height: 100dvh; overflow: hidden`, so nothing can be scrolled to reach its header or its submit button. The percentage is the load-bearing part: it resolves against the scrim's content box, so it excludes the scrim's `rem(16)` padding already and re-resolves for free where `--drawer` zeroes it. A `calc(100dvh - rem(32))` would restate that padding by hand and drift from it — the same trap as the records page restating the shell's header height.
+
+The scrim carries `max-height: 100dvh` because `inset: 0` on a fixed box sizes it to the _large_ viewport, which would put the bottom of a capped dialog under an expanded mobile URL bar.
+
+The body needs no `min-height: 0`: `overflow-y: auto` already zeroes a flex item's automatic minimum size. That is why this rule worked in `--drawer` for as long as it lived there, and hoisting it left the drawer with only the two declarations that make it a drawer.
+
+A submit button inside the body scrolls out of view on a short screen, which is how forms behave everywhere and leaves it reachable — the complaint was that it was **unreachable**. Moving the four form dialogs' buttons into the pinned `footer` would repurpose a slot the concept draws for a secondary link. Rejected outright: a bottom-sheet or full-screen dialog below a new breakpoint, for one layout that a viewport-relative cap already handles at every width.
+
 ### The records grid sizes to its rows, not to the pane
 
 `DynamicTable` takes `flex: 0 1 auto` from the records page, so its height is its content's, capped by the space left in the pane: a few rows end at the last row with the pager directly beneath, a full page shrinks to the pane and scrolls inside itself.

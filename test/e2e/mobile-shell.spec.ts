@@ -126,7 +126,13 @@ test('the records table scrolls inside itself, not the page', async ({ page }) =
   expect(pageOverflows).toBe(false)
 })
 
-/** A dialog at this width has nowhere to overflow to, so it must fit rather than be dragged. */
+/**
+ * A dialog at this width has nowhere to overflow to, so it must fit rather than be dragged.
+ *
+ * Both axes, and the vertical half is the one that was missing: the scrim centres the dialog, so
+ * an uncapped one taller than the screen overflows *both* edges at once — and the shell is
+ * `height: 100dvh; overflow: hidden`, so the document cannot be scrolled to reach either.
+ */
 test('a dialog fits the viewport and keeps its actions reachable', async ({ page }) => {
   await page.goto(recordsUrl)
   await page.getByRole('button', { name: 'Add record' }).first().click()
@@ -140,7 +146,61 @@ test('a dialog fits the viewport and keeps its actions reachable', async ({ page
   expect(box).not.toBeNull()
   expect(box!.x).toBeGreaterThanOrEqual(0)
   expect(box!.width).toBeLessThanOrEqual((viewport?.width ?? 0) + 1)
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.y + box!.height).toBeLessThanOrEqual((viewport?.height ?? 0) + 1)
   await expect(dialog.getByRole('button', { name: 'Create record' })).toBeVisible()
+})
+
+/**
+ * The same dialog with more content than the screen can hold, which is where the cap earns its
+ * keep: the dialog stops growing and its *body* scrolls, so the header stays on screen and the
+ * submit button is reached by scrolling rather than being clipped away.
+ *
+ * `toBeInViewport`, never `toBeVisible`: Playwright counts an element scrolled out of an overflow
+ * container as visible, so the weaker assertion passes against the very bug this pins.
+ */
+test('a dialog taller than the screen scrolls its body instead of overflowing', async ({
+  page,
+  seedTable,
+}) => {
+  const table = await seedTable(
+    'Wide',
+    Array.from({ length: 15 }, (_, index) => ({
+      key: `field_${index}`,
+      type: 'TEXT' as const,
+      name: `Field ${index}`,
+    })),
+  )
+
+  await page.goto(table.url)
+  await page.getByRole('button', { name: 'Add record' }).first().click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  const box = await dialog.boundingBox()
+  const viewport = page.viewportSize()
+
+  expect(box).not.toBeNull()
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.y + box!.height).toBeLessThanOrEqual((viewport?.height ?? 0) + 1)
+
+  // The header is the half that used to be pushed off the top, and it never scrolls away
+  const title = dialog.getByRole('heading', { name: 'New record' })
+  await expect(title).toBeInViewport()
+
+  // The body genuinely overflows, or the case is proving nothing. Reaching for the class is the
+  // structural-reach exception to the roles-and-names rule (`CLAUDE.md` §10) — a scroll container
+  // is not a thing a user targets, so no role names it.
+  const body = dialog.locator('.base-modal__body')
+  expect(await body.evaluate((element) => element.scrollHeight > element.clientHeight + 1)).toBe(
+    true,
+  )
+
+  const submit = dialog.getByRole('button', { name: 'Create record' })
+  await submit.scrollIntoViewIfNeeded()
+  await expect(submit).toBeInViewport()
+  await expect(title).toBeInViewport()
 })
 
 /**
