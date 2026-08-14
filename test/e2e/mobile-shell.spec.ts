@@ -67,6 +67,26 @@ test('the toggle opens it, and says so', async ({ page }) => {
   await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true')
 })
 
+/**
+ * Geometry, because no assertion above can see it: `toBeVisible()` reads the same whether the
+ * panel starts at the viewport top or 56px below it, so an anchor that drifts back to the header
+ * height would leave this file green and the drawer visibly misaligned. Measuring is the
+ * structural-reach exception to the roles-and-names rule (`CLAUDE.md` §10). The open transition is
+ * horizontal, so `y` is settled the moment the panel is visible.
+ */
+test('the open panel is anchored to the top of the viewport', async ({ page }) => {
+  await page.goto('/')
+  await toggle(page).click()
+  await expect(sidebar(page)).toBeVisible()
+
+  const box = await sidebar(page).boundingBox()
+  const viewport = page.viewportSize()
+
+  expect(box).not.toBeNull()
+  expect(box!.y).toBe(0)
+  expect(box!.height).toBe(viewport?.height)
+})
+
 /** It covers the content at this width, so leaving it open over the page just navigated to
  * would hide the very thing the user asked for. */
 test('navigating through it dismisses it', async ({ page }) => {

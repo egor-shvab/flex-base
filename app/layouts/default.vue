@@ -177,8 +177,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     // every page. `visibility` is animatable, so the slide still works.
     &__sidebar {
       position: fixed;
-      // `bottom`, because out of the grid it no longer inherits the row's height
-      top: var(--header-height);
+      // Anchored to the viewport, not to the header: it is a drawer over the whole shell, and
+      // the strip it used to leave above itself was scrimmed header anyway. Both edges are
+      // stated because out of the grid it no longer inherits the row's height.
+      top: 0;
       bottom: 0;
       left: 0;
       z-index: var(--z-sidebar);
