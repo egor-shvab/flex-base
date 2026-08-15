@@ -1,3 +1,4 @@
++
 <template>
   <div class="base-checkbox">
     <label class="base-checkbox__control" :class="{ 'base-checkbox__control--disabled': disabled }">
@@ -52,11 +53,17 @@ const inputId = computed(() => props.id ?? fallbackId)
 .base-checkbox {
   @include stack(4);
 
-  // The label wraps the input, so giving the row the control height makes the whole
-  // line the target rather than just the native checkbox
+  // The label wraps the input, so the label's box *is* the target — 20×20 of native
+  // checkbox would not clear the 24px floor on its own, which is why the row takes the
+  // control height. `align-self` is the other half of that: without it the label is a
+  // stretched flex item spanning the whole form, so a click in the empty space beside
+  // the text toggled the box and the pointer cursor claimed ground nothing is drawn on.
+  // Shrink-wrapped it still clamps to the container, so a long label wraps rather than
+  // overflowing.
   &__control {
     display: flex;
     align-items: center;
+    align-self: flex-start;
     min-height: var(--control-height);
     gap: rem(8);
     font-size: var(--font-size-md);
