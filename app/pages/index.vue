@@ -140,6 +140,9 @@ const {
   &:has(:focus-visible) {
     outline: var(--focus-ring-width) solid var(--color-focus);
     outline-offset: var(--focus-ring-offset);
+    // Composed rather than replaced: the rule above lifts the card on focus, and a bare halo
+    // here would drop that lift instead of sitting behind it
+    box-shadow: var(--shadow-sm), var(--focus-ring-halo);
   }
 
   &__link {
@@ -148,8 +151,10 @@ const {
     text-decoration: none;
     color: inherit;
 
+    // Both halves, or the baseline's halo still paints the rect the outline was suppressed for
     &:focus-visible {
       outline: none;
+      box-shadow: none;
     }
   }
 

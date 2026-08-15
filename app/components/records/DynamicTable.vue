@@ -181,12 +181,13 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     // and a relation cell puts a link inside this box, the first focusable thing to live in
     // one. `clip` truncates identically (the ellipsis is still computed at the content edge,
     // so no more text shows) but honours a margin, so the ring paints and the text does not.
-    // The margin is the ring's width plus its offset (3 + 2). Written as a literal because
-    // `overflow-clip-margin` takes a bare length — Chrome drops the declaration to 0 for any
-    // `calc()`, `var()` included — so this is the one place the ring's geometry is restated
-    // rather than referenced, and it has to move when `--focus-ring-*` does.
+    // The margin is the focus state's whole reach — the halo's 4px spread, the ring sitting
+    // inside it. Written as a literal because `overflow-clip-margin` takes a bare length —
+    // Chrome drops the declaration to 0 for any `calc()`, `var()` included — so this is the one
+    // place that geometry is restated rather than referenced, and it moves when
+    // `--focus-ring-halo` does.
     overflow: clip;
-    overflow-clip-margin: rem(5);
+    overflow-clip-margin: rem(4);
   }
 
   th {

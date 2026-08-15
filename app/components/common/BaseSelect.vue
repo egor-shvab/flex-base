@@ -878,7 +878,11 @@ watch(open, (isOpen) => {
     font-size: rem(18);
     cursor: pointer;
 
-    // Inset, or the ring would be clipped by the control's own rounded corner beside it
+    // Inset, or the ring would be clipped by the control's own rounded corner beside it — and
+    // with it inset the halo would glow *outward* from a button sitting inside the field, over
+    // that border and the chevron next to it. The ring alone says everything here.
+    --focus-ring-halo: none;
+
     @include focus-ring(rem(-1));
 
     &:hover {

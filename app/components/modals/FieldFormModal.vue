@@ -273,18 +273,18 @@ watch(
   &__choice-list {
     @include stack(8);
 
-    // Four rows and the top of a fifth — 36px controls with rem(8) gaps and the rem(5) inset
+    // Four rows and the top of a fifth — 36px controls with rem(8) gaps and the rem(4) inset
     // below, so the cut lands *inside* a row rather than in a gap, where it would read as the
     // end of the list.
     max-height: rem(200);
     overflow-y: auto;
-    // A focus ring reaches `--focus-ring-width` + `--focus-ring-offset` = 5px past a control's
-    // edge, and `overflow-y: auto` computes `overflow-x` to `auto` too, so without this inset
-    // the rings on the colour picker and the remove button are clipped at the container's
-    // edges. `overflow-clip-margin` is not the tool here — it applies to `clip`, not `auto`.
-    // The matching negative margin keeps the rows aligned with the controls above them.
-    padding: rem(5);
-    margin: rem(-5);
+    // The focus state reaches 4px past a control's edge — the halo's spread, with the ring
+    // inside it — and `overflow-y: auto` computes `overflow-x` to `auto` too, so without this
+    // inset the states on the colour picker and the remove button are clipped at the
+    // container's edges. `overflow-clip-margin` is not the tool here — it applies to `clip`,
+    // not `auto`. The matching negative margin keeps the rows aligned with the controls above.
+    padding: rem(4);
+    margin: rem(-4);
   }
 
   &__choice {

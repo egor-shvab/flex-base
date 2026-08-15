@@ -103,9 +103,30 @@
   // ── Focus ─────────────────────────────────────────────────────────────────
   // Exposed as custom properties so `_reset.scss` can carry the global focus rule
   // without needing its own `@use 'functions'`.
-  --color-focus: #{$blue-600};
-  --focus-ring-width: #{rem(3)};
-  --focus-ring-offset: #{rem(2)};
+  //
+  // `$blue-500` clears 3:1 against every surface the state can touch — the halo drawn against
+  // it first, at 3.63:1 — and it is a step lighter than `--color-accent` on purpose: at the
+  // same value it read as a thicker border, and on a filled accent button it was invisible
+  // against the fill it sat on.
+  //
+  // **Two registers wear it, and which one a control gets is decided by whether it has a border
+  // of its own.** A control that does not — a button, a link, a row, an option — takes the
+  // `focus-ring` mixin: a hairline `outline`, which no ancestor's `overflow` can clip and which
+  // forced-colors mode redraws. A form control recolours **its own border** instead
+  // (`form-control`), because a ring drawn immediately outside a border that has already
+  // changed colour is the same edge stated twice.
+  //
+  // Both then take the same `--focus-ring-halo` — the soft part, borrowed from the concept's
+  // search field. It carries nothing: it is a `box-shadow`, so an ancestor can clip it and a
+  // component's own shadow outranks it, and neither may be allowed to cost a user the state.
+  //
+  // The halo's 4px spread is the state's whole reach, and the number three containers are sized
+  // against — `DynamicTable`'s clip margin, `FieldFormModal`'s scroll inset, and the colour
+  // picker's grid gap. Changing it moves all three.
+  --color-focus: #{$blue-500};
+  --focus-ring-width: #{rem(1)};
+  --focus-ring-offset: 0;
+  --focus-ring-halo: 0 0 0 #{rem(4)} var(--color-accent-tint);
 
   // ── Overlay & elevation ───────────────────────────────────────────────────
   // Keyed off the text neutral rather than pure black, and only two of them. Both are

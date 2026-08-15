@@ -18,10 +18,19 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   }
 }
 
-/// The keyboard focus ring. `:focus-visible` only, so clicking a control never draws
-/// one — pass a negative `$offset` for a ring that must sit inside its own box.
-/// `outline` rather than `box-shadow`: an outline is not clipped by an ancestor's
-/// `overflow`, and it survives forced-colors mode.
+/// The keyboard focus state for a control **with no border of its own** — a button, a
+/// link, a row, an option. A field recolours its own border instead; that half lives in
+/// `form-control`, and the two must not be combined on one control.
+///
+/// `:focus-visible` only, so clicking a control never draws one — pass a negative
+/// `$offset` for a ring that must sit inside its own box.
+///
+/// Two layers, and which is which matters. The **outline** is the indicator: it is not
+/// clipped by an ancestor's `overflow` and forced-colors mode redraws it, so it is what
+/// the accessibility of this state rests on. The **halo** behind it is the soft part —
+/// a `box-shadow`, therefore clippable and outrankable by a component's own shadow, which
+/// is exactly why it carries no information. Set `--focus-ring-halo: none` on a control
+/// whose ring is inset, where a glow would wash outward over whatever encloses it.
 @mixin focus-ring($offset: var(--focus-ring-offset)) {
   &:focus {
     outline: none;
@@ -30,6 +39,7 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   &:focus-visible {
     outline: var(--focus-ring-width) solid var(--color-focus);
     outline-offset: $offset;
+    box-shadow: var(--focus-ring-halo);
   }
 }
 
@@ -86,13 +96,31 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   // it a select sits 1px taller than the input beside it
   line-height: var(--line-height-tight);
 
-  // Two separate signals: the border says "this field is active" on any focus,
-  // including programmatic autofocus; the ring says "you are on the keyboard".
+  // Two separate signals, and neither is an outline: the border says "this field is
+  // active" on any focus, including programmatic autofocus; the halo says "you are on
+  // the keyboard". A field already draws an edge, so it recolours that edge rather than
+  // gaining a second one a hairline outside it.
   &:focus {
-    border-color: var(--color-accent);
+    border-color: var(--color-focus);
   }
 
-  @include focus-ring;
+  &:focus-visible {
+    // `_reset.scss`'s baseline would otherwise still draw the ring this replaces —
+    // `:where()` costs it nothing, but nothing here overrides it either
+    outline: none;
+    box-shadow: var(--focus-ring-halo);
+  }
+
+  // The one register that cannot survive on a border. Forced-colors mode resolves every
+  // border to the same system colour and paints no `box-shadow` at all, so both signals
+  // above vanish together — and only for the users least able to spare them. The outline
+  // comes back for that mode alone, where the system also supplies its colour.
+  @media (forced-colors: active) {
+    &:focus-visible {
+      outline: rem(2) solid;
+      outline-offset: rem(1);
+    }
+  }
 
   &--invalid {
     border-color: var(--color-danger);

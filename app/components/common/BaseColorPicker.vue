@@ -188,8 +188,8 @@ function step(delta: number) {
     // Five columns of exactly one control, so the panel is 254px wide and clears the
     // 380px of content a dialog offers even at the deepest indent.
     grid-template-columns: repeat(5, var(--control-height));
-    // Wide enough that two neighbouring focus rings cannot touch: the ring reaches
-    // `--focus-ring-width` + `--focus-ring-offset` = 5px past each edge.
+    // Wide enough that two neighbouring focus states cannot touch: the halo reaches 4px past
+    // each edge, with the ring inside it.
     gap: rem(12);
     padding: rem(12);
     border: 1px solid var(--color-border);

@@ -40,7 +40,12 @@ textarea {
 
 // The global focus baseline. `:where()` contributes zero specificity, so any
 // component rule overrides it without a fight — but nothing is left without a ring.
+//
+// That cuts one way for the halo: a component with a `box-shadow` of its own outranks this
+// rule and keeps it, so such an element loses the glow while the outline still draws. The
+// indicator is never what goes missing, which is why it is the outline that carries it.
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
+  box-shadow: var(--focus-ring-halo);
 }

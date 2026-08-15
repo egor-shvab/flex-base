@@ -10,6 +10,12 @@
     --doc-text: #1f2126;
     --doc-muted: #5b6370;
     --doc-accent: #1c64d8;
+    /* The focus ring: a step lighter than the accent, so it reads as a signal rather than a
+       second border. Floored by the halo drawn against it, at 3.63:1. */
+    --doc-focus: #3478e5;
+    /* The focus halo. Mirrors the app's --color-accent-tint in light; translucent in dark,
+       where a flat pale blue would glow brighter than the surface it sits on. */
+    --doc-accent-tint: #e7eefc;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -19,6 +25,9 @@
       --doc-text: #eceef2;
       --doc-muted: #9ba3af;
       --doc-accent: #7aa9f5;
+      /* Already light against a dark panel, so the ring is the accent itself here */
+      --doc-focus: #7aa9f5;
+      --doc-accent-tint: rgb(122 169 245 / 25%);
     }
   }
   :root[data-theme='dark'] {
@@ -28,6 +37,8 @@
     --doc-text: #eceef2;
     --doc-muted: #9ba3af;
     --doc-accent: #7aa9f5;
+    --doc-focus: #7aa9f5;
+    --doc-accent-tint: rgb(122 169 245 / 25%);
   }
   :root[data-theme='light'] {
     --doc-bg: #eef0f3;
@@ -36,6 +47,8 @@
     --doc-text: #1f2126;
     --doc-muted: #5b6370;
     --doc-accent: #1c64d8;
+    --doc-focus: #3478e5;
+    --doc-accent-tint: #e7eefc;
   }
 
   body {
@@ -151,11 +164,18 @@
     border: 1px solid var(--doc-border);
     background: #fff;
   }
+  /* Anything with no border of its own. A field recolours its own edge instead — see
+     `.find:focus-within` below, which is where this whole state came from. */
   a:focus-visible,
-  button:focus-visible,
+  button:focus-visible {
+    outline: 1px solid var(--doc-focus);
+    outline-offset: 0;
+    box-shadow: 0 0 0 4px var(--doc-accent-tint);
+  }
   input:focus-visible {
-    outline: 3px solid var(--doc-accent);
-    outline-offset: 2px;
+    outline: none;
+    border-color: var(--doc-focus);
+    box-shadow: 0 0 0 4px var(--doc-accent-tint);
   }
   @media (prefers-reduced-motion: reduce) {
     * {
@@ -201,6 +221,8 @@
     --tx-2: #5b6370;
     --accent: #1c64d8;
     --accent-hover: #1750b0;
+    /* The focus ring — one step lighter than the accent, and never text */
+    --focus: #3478e5;
     --accent-tint: #e7eefc;
     --on-accent-tint: #123f8c;
     --badge-gray: #41474f;
@@ -659,8 +681,9 @@
   /* A relation opens the record it points at, so it is reachable by keyboard and says so.
      Stated here rather than left to the global ring: the underline is not a focus signal. */
   .rel:focus-visible {
-    outline: 3px solid var(--accent);
-    outline-offset: 2px;
+    outline: 1px solid var(--focus);
+    outline-offset: 0;
+    box-shadow: 0 0 0 4px var(--accent-tint);
   }
   .rel--dead {
     color: var(--tx-2);
@@ -1880,9 +1903,17 @@
         <tr>
           <td>Focus</td>
           <td>
-            <code>outline: 3px solid #1C64D8; outline-offset: 2px</code> on every focusable element
+            <code>outline: 1px solid #3478E5</code> flush on a button or link,
+            <code>border-color: #3478E5</code> on a field, and
+            <code>box-shadow: 0 0 0 4px #E7EEFC</code> on both
           </td>
-          <td>Thick, offset, and never removed — the single most-skipped accessibility basic.</td>
+          <td>
+            The search field's own focus, generalised: a blue edge with a pale halo outside it, one
+            step lighter than the accent so it reads as a signal rather than a second border and
+            stays visible on a filled accent button. A field already draws an edge, so it recolours
+            that one rather than gaining a second a hairline outside it. Never removed — the single
+            most-skipped accessibility basic; the halo is what makes it feel soft.
+          </td>
         </tr>
         <tr>
           <td>Icons</td>

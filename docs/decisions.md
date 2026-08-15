@@ -604,13 +604,21 @@ A media query cannot read a custom property, and `additionalData` injects that f
 
 ### Focus is never removed, only restyled
 
-`_reset.scss` carries a zero-specificity baseline — `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` — so nothing can end up with no ring, and any component rule overrides it without a fight. Component rings use `outline`, not `box-shadow`, so an ancestor's `overflow` cannot clip them.
+`_reset.scss` carries a zero-specificity baseline — `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` — so nothing can end up with no ring, and any component rule overrides it without a fight.
+
+**The state is two layers, and the split is the load-bearing part.** The indicator is `--color-focus` — `$blue-500`, a step lighter than the accent so it reads as a signal rather than a second border, and floored by the halo drawn against it at 3.63:1 rather than by the page behind it, which is the pairing to check if it ever moves. Behind it sits `--focus-ring-halo`, the pale glow taken from the concept's search field.
+
+**Where that indicator is drawn depends on whether the control already has an edge.** A button, link, row or option has none, so `focus-ring` gives it a hairline `outline`. A form control has one, so `form-control` recolours **that** border and suppresses the ring: drawing both puts two blue edges a hairline apart, which reads as a rendering fault rather than as emphasis. The two mixins are therefore mutually exclusive — a control that takes `form-control` must never also take `focus-ring`.
+
+That leaves fields with **no** outline, and both of their signals are ones `forced-colors` mode erases: every border resolves to the same system colour and `box-shadow` is not painted. `form-control` restores a real outline inside `@media (forced-colors: active)` for exactly that reason. Removing it looks like dead code in every normal rendering and takes the focus state away from the users least able to spare it. The halo is a `box-shadow`, which means an ancestor's `overflow` can clip it and a component's own shadow outranks it in the zero-specificity baseline — both acceptable **only** because it carries nothing. Never move the indicator into the shadow to save a declaration: the states where the glow silently vanishes are exactly the ones where a ring is needed most, a truncating table cell first among them.
+
+Two consequences worth knowing. A component that sets its own `box-shadow` **and** wants the glow must compose them in one declaration — `pages/index.vue`'s table card is the only such site. A control whose ring is inset (a negative offset, because it sits inside another control) sets `--focus-ring-halo: none`, since a glow there spreads outward over whatever encloses it — `BaseSelect`'s clear button is the only such site.
 
 ### A truncating cell clips with `overflow: clip`, not `hidden`
 
 `overflow: hidden` clips a **descendant's** focus ring along with the text. That went unnoticed while every focusable thing in the table owned its own box; a relation cell puts a link _inside_ the wrapper, and its ring was invisible on all four sides.
 
-`clip` truncates identically — the ellipsis is still computed at the content edge — but honours `overflow-clip-margin`, which lets the ring paint outside the box while the text stays in it. The margin is written as `rem(5)` (the ring's 3px width + 2px offset) because **Chrome drops `overflow-clip-margin` to 0 for any `calc()`**, `var()` included. It is the one place the ring's geometry is restated rather than referenced, so it has to move when `--focus-ring-*` does.
+`clip` truncates identically — the ellipsis is still computed at the content edge — but honours `overflow-clip-margin`, which lets the ring paint outside the box while the text stays in it. The margin is written as `rem(4)` — the focus state's whole reach, which is the halo's spread with the ring inside it — because **Chrome drops `overflow-clip-margin` to 0 for any `calc()`**, `var()` included. It is the one place that geometry is restated rather than referenced, so it has to move when `--focus-ring-halo` does.
 
 ### The control height is 36px, and 44px was never the AA bar
 
@@ -618,7 +626,7 @@ WCAG 2.2 **AA** is SC 2.5.8 _Target Size (Minimum)_: **24×24 CSS px**, which 36
 
 The drop is a density decision, and it is safe because it never touches a content box: every control lost 8px of height _and_ 8px of block padding together, so text has exactly the room it had at 44. **Anything that trims the height without trimming the padding clips instead of compacting.** `--header-height` moved 64 → 56 in the same change, keeping the slack it had around a 44px control.
 
-The focus ring stayed at 3px width / 2px offset: an outline paints outside the border box, so its geometry is independent of the control height. The places where a 5px halo crosses into a neighbour were true at 44 and are unchanged — more conspicuous against a smaller box, not newly broken.
+The focus state's geometry did not move with it: it paints outside the border box, so its reach is independent of the control height. The places where its halo crosses into a neighbour were true at 44 and are unchanged — more conspicuous against a smaller box, not newly broken.
 
 ### Every sized control is one height; `link` alone has none
 
@@ -760,7 +768,7 @@ The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for th
 
 **A truncated table cell offers no way to read the full value** — no `title`, no expand affordance, **except for a relation**, whose dialog shows the target in full. The rendered text is produced by the cell _component_ (a label resolved from a store, `Yes`/`No`, a formatted date), so it is not recoverable from the raw value. Both routes to it buy a **pointer-only** tooltip: a text projection per field type is a fifth registry against the "only cells are components" contract, and reading it back off the DOM means a `scrollWidth` pass over every cell plus a `ResizeObserver`, re-run on every fetch. Against that, the View action is one click away on every row. _Revisit if something else earns the table a measurement pass, which would make the tooltip nearly free._
 
-**The unsorted sort icon is ~1.67:1**, under the 3:1 SC 1.4.11 floor for non-text UI. `--color-text-secondary` at `opacity: 0.35`. A compliant `0.7` was shipped first and read as clutter — the glyph repeats on every column at once. Nothing depends on seeing it: the header's own text names the column, the button is in the tab order with a 3px focus ring, and sort state reaches assistive tech through `aria-sort` on the `th`. It is an affordance hint, not a control boundary — unlike `--color-border-control`, which is why that token carries the floor and this does not. _Raise it only on a real report of users missing the affordance._
+**The unsorted sort icon is ~1.67:1**, under the 3:1 SC 1.4.11 floor for non-text UI. `--color-text-secondary` at `opacity: 0.35`. A compliant `0.7` was shipped first and read as clutter — the glyph repeats on every column at once. Nothing depends on seeing it: the header's own text names the column, the button is in the tab order with a visible focus ring, and sort state reaches assistive tech through `aria-sort` on the `th`. It is an affordance hint, not a control boundary — unlike `--color-border-control`, which is why that token carries the floor and this does not. _Raise it only on a real report of users missing the affordance._
 
 **A badge's fill is ~1.1:1 against a hovered row**, so the pill shape barely reads there. The badge draws no border by design. The dot (its `-fg` step, ≥6:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings.
 

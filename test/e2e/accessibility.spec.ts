@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '~~/test/e2e/setup/fixtures'
 import { axeViolations, undersizedTargets } from '~~/test/e2e/setup/a11y'
 
@@ -85,6 +85,67 @@ test.describe('the five screens', () => {
       expect(await undersizedTargets(page)).toEqual([])
     })
   }
+})
+
+/** `--color-focus` and `--color-accent-tint`, the two values the state is made of. */
+const FOCUS = 'rgb(52, 120, 229)'
+const HALO = '231, 238, 252'
+
+const focusState = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const { outlineStyle, outlineWidth, outlineColor, boxShadow, borderColor } =
+      getComputedStyle(element)
+    return {
+      outlineStyle,
+      width: Number.parseFloat(outlineWidth),
+      outlineColor,
+      boxShadow,
+      borderColor,
+    }
+  })
+
+/**
+ * Both registers of the focus state, neither of which a component spec can see: Vitest keeps
+ * `test.css` false. Which one a control gets is decided by whether it already has a border —
+ * a field recolours its own, everything else takes a hairline ring — and both add the halo.
+ *
+ * The halo is the half that vanishes *silently*: a component's own `box-shadow` outranks it in
+ * the zero-specificity baseline and a clipping ancestor eats it, so a soft state quietly
+ * becoming a bare edge shows up here rather than in a screenshot nobody takes. The field's
+ * `outline: none` is asserted for the mirror-image reason — the baseline would otherwise
+ * redraw the ring that register exists to drop.
+ */
+test('a focused field recolours its border, and takes no ring', async ({ page, seedTable }) => {
+  const table = await seedTable('Deals', FIELDS, ROWS)
+
+  await page.goto(table.url)
+  const search = page.getByRole('textbox', { name: 'Search this table' })
+  await search.focus()
+
+  const state = await focusState(search)
+
+  expect(state.borderColor).toBe(FOCUS)
+  expect(state.outlineStyle).toBe('none')
+  expect(state.boxShadow).toContain(HALO)
+})
+
+test('a focused button takes the ring, since it has no border to recolour', async ({
+  page,
+  seedTable,
+}) => {
+  const table = await seedTable('Deals', FIELDS, ROWS)
+
+  await page.goto(table.url)
+  // Keyboard modality first: `:focus-visible` does not match a script focus after a click
+  await page.keyboard.press('Tab')
+  await page.getByRole('button', { name: 'Add record' }).first().focus()
+
+  const state = await focusState(page.getByRole('button', { name: 'Add record' }).first())
+
+  expect(state.outlineStyle).toBe('solid')
+  expect(state.width).toBeGreaterThan(0)
+  expect(state.outlineColor).toBe(FOCUS)
+  expect(state.boxShadow).toContain(HALO)
 })
 
 /**
