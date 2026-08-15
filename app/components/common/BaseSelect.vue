@@ -197,7 +197,6 @@
             :aria-selected="selected.includes(option.value)"
             :aria-disabled="option.disabled ? true : undefined"
             @click="choose(option)"
-            @pointermove="setActive(index)"
             @mousedown.prevent
           >
             <BaseBadge v-if="option.color" :color="option.color" class="base-select__badge">
@@ -323,8 +322,8 @@ function retryButton(): HTMLButtonElement | null {
 const {
   activeIndex,
   PAGE_STEP,
-  nextEnabled,
   setActive,
+  scrollIntoView,
   move,
   first,
   last,
@@ -334,6 +333,8 @@ const {
   options: () => visibleOptions.value,
   listRef,
   active: open,
+  // Typing is the user placing the cursor; options merely arriving is not
+  seedCursor: () => props.searchable && draft.value !== '',
 })
 
 /**
@@ -431,25 +432,49 @@ function isPrintable(event: KeyboardEvent): boolean {
   return event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 }
 
-function indexOfFirstSelected(): number {
-  const found = visibleOptions.value.findIndex((option) => selected.value.includes(option.value))
-
-  return found >= 0 ? found : nextEnabled(0, 1)
+/** -1 when nothing is chosen — "no selection" and "the top option" are not the same answer. */
+function selectedIndex(): number {
+  return visibleOptions.value.findIndex((option) => selected.value.includes(option.value))
 }
 
+/**
+ * The cursor is a position the **keyboard** asked for, so opening does not create one: a ring
+ * drawn before the user has navigated reads as a choice already made. What opening keeps is the
+ * useful half — a long list arrives scrolled to the current value, without highlighting it.
+ */
 function openPanel() {
   if (props.disabled) return
 
   show()
-  // Opening on the current value is what makes ↑/↓ feel like a native select's
-  setActive(indexOfFirstSelected())
 
   void nextTick(() => {
     // Searchable keeps focus in the field it is already in; otherwise it moves into the list,
     // which is what `aria-activedescendant` on the `<ul>` then describes
     if (props.searchable) triggerRef.value?.focus()
     else listRef.value?.focus()
+
+    const index = selectedIndex()
+    if (index >= 0) scrollIntoView(index)
   })
+}
+
+/**
+ * ↑/↓ go through here rather than to `move` directly. With no cursor yet, the first press
+ * *reveals* one on the current value — what makes the keys feel like a native select's — and
+ * only then do they walk. With nothing selected there is nothing to reveal, so `move` starts
+ * from the end the direction implies: ↓ on the first option, ↑ on the last.
+ */
+function moveCursor(delta: number) {
+  if (activeIndex.value < 0) {
+    const index = selectedIndex()
+
+    if (index >= 0) {
+      setActive(index)
+      return
+    }
+  }
+
+  move(delta)
 }
 
 /**
@@ -564,20 +589,25 @@ function onComboboxKeydown(event: KeyboardEvent) {
       return
     case 'ArrowDown':
       event.preventDefault()
-      if (open.value) move(1)
-      else openPanel()
+      // The press that opens is itself a navigation key, so it places the cursor too — one
+      // press to open and see where ↓ continues from, exactly as a native select behaves
+      if (!open.value) openPanel()
+      moveCursor(1)
       return
     case 'ArrowUp':
       event.preventDefault()
+      if (open.value && event.altKey) {
+        dismiss()
+        return
+      }
       if (!open.value) openPanel()
-      else if (event.altKey) dismiss()
-      else move(-1)
+      moveCursor(-1)
       return
     case 'PageDown':
     case 'PageUp':
       if (!open.value) return
       event.preventDefault()
-      move(event.key === 'PageDown' ? PAGE_STEP : -PAGE_STEP)
+      moveCursor(event.key === 'PageDown' ? PAGE_STEP : -PAGE_STEP)
       return
     case 'Enter':
       // Closed, Enter belongs to the form around this control — both `FieldFormModal` and the
@@ -630,6 +660,10 @@ function onTriggerKeydown(event: KeyboardEvent) {
     // does not open and immediately toggle shut
     event.preventDefault()
     openPanel()
+    // An arrow opening the list places the cursor as well; Enter and Space only open, the way a
+    // click does — the ring appears when the user starts navigating and not before
+    if (event.key === 'ArrowDown') moveCursor(1)
+    if (event.key === 'ArrowUp') moveCursor(-1)
     return
   }
 
@@ -655,17 +689,17 @@ function onListKeydown(event: KeyboardEvent) {
   switch (event.key) {
     case 'ArrowDown':
       event.preventDefault()
-      move(1)
+      moveCursor(1)
       return
     case 'ArrowUp':
       event.preventDefault()
       if (event.altKey) dismiss()
-      else move(-1)
+      else moveCursor(-1)
       return
     case 'PageDown':
     case 'PageUp':
       event.preventDefault()
-      move(event.key === 'PageDown' ? PAGE_STEP : -PAGE_STEP)
+      moveCursor(event.key === 'PageDown' ? PAGE_STEP : -PAGE_STEP)
       return
     case 'Home':
       event.preventDefault()
@@ -912,12 +946,15 @@ watch(open, (isOpen) => {
       background: var(--color-accent-tint);
     }
 
-    // The active option is *not* focused — `aria-activedescendant` keeps DOM focus on the
+    // The cursor option is *not* focused — `aria-activedescendant` keeps DOM focus on the
     // control or the list — so `:focus-visible`, and with it the `focus-ring` mixin, can
     // never match here. A background wash would not serve either: `--color-surface-hover` on
     // `--color-surface` is ~1.05:1, under SC 1.4.11's 3:1 floor for a non-text indicator, and
     // indistinguishable from the pointer hover above. Hence a real outline, drawn inside its
     // own box so the scrolling list cannot clip it.
+    //
+    // One class, because only the keyboard can put the cursor anywhere: neither opening nor the
+    // pointer sets it, so `--active` and "the ring the user is steering" are the same thing.
     &--active {
       outline: var(--focus-ring-width) solid var(--color-focus);
       outline-offset: calc(-1 * var(--focus-ring-width));

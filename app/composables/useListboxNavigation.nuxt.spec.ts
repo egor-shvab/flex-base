@@ -31,12 +31,19 @@ function setup(initial: ISelectOption[] = OPTIONS, initiallyActive = true) {
   const options = shallowRef(initial)
   const active = ref(initiallyActive)
   const listRef = ref<HTMLElement>()
+  /** What a typed term would say. False here, which is the plain case: no term, no seeding. */
+  const seedCursor = ref(false)
 
   let nav!: ReturnType<typeof useListboxNavigation>
 
   const Host = defineComponent({
     setup() {
-      nav = useListboxNavigation({ options: () => options.value, listRef, active })
+      nav = useListboxNavigation({
+        options: () => options.value,
+        listRef,
+        active,
+        seedCursor: () => seedCursor.value,
+      })
       return () => h('div')
     },
   })
@@ -44,7 +51,7 @@ function setup(initial: ISelectOption[] = OPTIONS, initiallyActive = true) {
   // `mount` runs setup synchronously, so `nav` is assigned by the time this returns
   const wrapper = track(mount(Host))
 
-  return { wrapper, options, active, nav }
+  return { wrapper, options, active, seedCursor, nav }
 }
 
 describe('useListboxNavigation', () => {
@@ -349,6 +356,31 @@ describe('useListboxNavigation', () => {
       await nextTick()
 
       expect(nav.activeIndex.value).toBe(4)
+    })
+
+    /**
+     * The difference between validating a cursor and inventing one. An async select's options
+     * land while it is open and no key has been pressed; re-seating to the first enabled option
+     * there would light a row up on its own, which is what `seedCursor` gates.
+     */
+    it('creates no cursor for a list that changes under none', async () => {
+      const { nav, options } = setup()
+
+      options.value = [option('x', 'Xray'), option('y', 'Yankee')]
+      await nextTick()
+
+      expect(nav.activeIndex.value).toBe(-1)
+    })
+
+    it('creates one when the change is a term narrowing the list', async () => {
+      const { nav, options, seedCursor } = setup()
+
+      seedCursor.value = true
+      options.value = [option('x', 'Xray', true), option('y', 'Yankee')]
+      await nextTick()
+
+      // The first *enabled* match, so Enter commits what the term found
+      expect(nav.activeIndex.value).toBe(1)
     })
   })
 

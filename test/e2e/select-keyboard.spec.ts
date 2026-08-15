@@ -72,9 +72,10 @@ test('the keyboard cursor is visibly outlined, not just class-marked', async ({ 
 test.describe('the searchable branch', () => {
   test('PageDown jumps further than a single step', async ({ page }) => {
     await openRecordForm(page, table.url)
-    // Opening already seeds the cursor — on the current value, or on the first option when
-    // there is none — so no ArrowDown is needed to get a highlight
+    // Opening by click highlights nothing — only a navigation key creates the cursor — so one
+    // ↓ reveals it on the first option, and PageDown then has somewhere to jump from
     await manyTrigger(page).click()
+    await page.keyboard.press('ArrowDown')
     await expect(activeOption(page)).toHaveText('Choice 01')
 
     await page.keyboard.press('PageDown')
@@ -251,13 +252,14 @@ test.describe('Enter in a form', () => {
     await openRecordForm(page, table.url)
     await fewTrigger(page).focus()
     await page.keyboard.press('Enter')
-    // Enter opened it on the first choice, so one step down lands on the second
+    // Enter opens with nothing highlighted — only a navigation key creates the cursor — so the
+    // first ↓ reveals it on the top choice rather than stepping past it
     await page.keyboard.press('ArrowDown')
 
     await page.keyboard.press('Enter')
 
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByRole('listbox')).toBeHidden()
-    await expect(fewTrigger(page)).toHaveAccessibleName(/Lost/)
+    await expect(fewTrigger(page)).toHaveAccessibleName(/Won/)
   })
 })

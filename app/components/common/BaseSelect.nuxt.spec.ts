@@ -153,6 +153,11 @@ describe('BaseSelect', () => {
       const wrapper = await select()
       await open(wrapper)
 
+      // Nothing is highlighted until a key says so, and the attribute says the same
+      expect(listbox()?.getAttribute('aria-activedescendant')).toBeNull()
+
+      keydown(listbox()!, 'ArrowDown')
+      await nextTick()
       keydown(listbox()!, 'ArrowDown')
       await nextTick()
 

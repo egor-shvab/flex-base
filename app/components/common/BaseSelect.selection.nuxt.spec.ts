@@ -5,6 +5,7 @@ import {
   activeLabel,
   chevron,
   input,
+  keydown,
   lastModel,
   listbox,
   open,
@@ -79,19 +80,58 @@ describe('BaseSelect', () => {
   })
 
   describe('opening', () => {
-    /** Opening on the current value is what makes ↑/↓ feel like a native select's. */
-    it('lands the cursor on the selected option, not the top', async () => {
+    /**
+     * The cursor is a position the keyboard asked for, and opening is not a navigation. A ring
+     * drawn before the user has moved reads as a choice already made — and the same applies to
+     * the option under the mouse, which is why hovering is asserted here rather than assumed.
+     */
+    it('highlights nothing, however the panel was opened', async () => {
       const wrapper = await select({ modelValue: 'c' })
       await open(wrapper)
+
+      expect(activeLabel()).toBeUndefined()
+    })
+
+    it('still highlights nothing once the pointer is over an option', async () => {
+      const wrapper = await select()
+      await open(wrapper)
+
+      options()[1]!.dispatchEvent(new Event('pointermove', { bubbles: true }))
+      await nextTick()
+
+      expect(activeLabel()).toBeUndefined()
+    })
+
+    /** Opening on the current value is what makes ↑/↓ feel like a native select's. */
+    it('reveals the cursor on the selected option at the first arrow', async () => {
+      const wrapper = await select({ modelValue: 'c' })
+      await open(wrapper)
+
+      keydown(listbox()!, 'ArrowDown')
+      await nextTick()
 
       expect(activeLabel()).toBe('Charlie')
     })
 
-    it('lands on the first option when nothing is selected', async () => {
+    it('reveals it on the first option when nothing is selected', async () => {
       const wrapper = await select()
       await open(wrapper)
 
+      keydown(listbox()!, 'ArrowDown')
+      await nextTick()
+
       expect(activeLabel()).toBe('Alpha')
+    })
+
+    /** Nothing selected and ↑ first: `move` starts from the end the direction implies. */
+    it('reveals it on the last option when the first arrow is ↑', async () => {
+      const wrapper = await select()
+      await open(wrapper)
+
+      keydown(listbox()!, 'ArrowUp')
+      await nextTick()
+
+      expect(activeLabel()).toBe('Charlie')
     })
 
     it('moves focus into the list on the button branch', async () => {

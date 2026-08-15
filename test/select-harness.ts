@@ -28,6 +28,7 @@ export const liveRegion = () => document.querySelector<HTMLElement>('.visually-h
 export const retry = () => status()?.querySelector<HTMLButtonElement>('button') ?? null
 
 export const labels = () => options().map((option) => option.textContent?.trim())
+/** The cursor, which only the keyboard can place — so where it is and whether it shows are one. */
 export const activeLabel = () =>
   document.querySelector<HTMLElement>('.base-select__option--active')?.textContent?.trim()
 

@@ -518,9 +518,13 @@ While a request is in flight the previous results stay on screen under an explic
 
 `loadOptions` is passed through **only when `searchable`**. Handing it a loader nothing can call would leave a half-built async machine — `status` pinned at `idle`, `retry` unreachable, the abort and request-id pair dead code. One ternary, and "never ship a dead control" holds a layer below the UI. Rejected: letting `loadOptions` imply `searchable`, which would re-couple the two props and silently override an explicit `false`.
 
-### The active option's indicator is an inset outline, not a background wash
+### The active option's indicator is an inset outline, and only the keyboard creates one
 
 Under `aria-activedescendant` the active option is not focused, so `:focus-visible` — and with it the `focus-ring` mixin — can never match it. A background wash fails twice over: `--color-surface-hover` on `--color-surface` is ~1.05:1, under SC 1.4.11's 3:1 floor for a non-text indicator, and it is indistinguishable from the pointer hover on the same row. Hence a real outline in `--color-focus`, written out rather than `@include`d, with a negative offset so the scrolling list cannot clip it.
+
+**`activeIndex === -1` is a real state, not just the value before the first open.** The cursor is a position the keyboard asked for: ↑/↓ and Page (through `moveCursor`, which _reveals_ on the current value before it walks), Home/End, type-ahead, and a term narrowing the list. Opening does not create one — a ring drawn before the user has navigated reads as a choice already made — and neither does the pointer or a set of options merely arriving, which is why the re-clamp watcher returns early rather than falling through to `nextEnabled(0, 1)`. An arrow that _opens_ the list does place the cursor: it is a navigation key, and the alternative costs a press on the most common keyboard path.
+
+Three consequences to leave alone. **`Enter` with no cursor does nothing** — there is no cursor precisely because the user has not chosen anything to commit; a fallback to the top option would commit a row nobody was shown. **Opening scrolls to the selected option without highlighting it**, which is why `scrollIntoView` is public on the composable. And **the re-clamp watcher is `flush: 'post'`**: a typed term narrows the list in the same tick that opens the panel, and the watcher is created before the one that opens it, so a pre-flush run sees `active` still false and skips the seed. Keying it on `active` instead reintroduces the bug from the other side — opening then re-clamps a cursor a printable key has just placed.
 
 ### The blank option became a placeholder, and the wire format did not move
 

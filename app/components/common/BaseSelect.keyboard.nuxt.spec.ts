@@ -102,8 +102,13 @@ describe('BaseSelect', () => {
       return wrapper
     }
 
+    /** The panel was opened by a click here, so the first press is the one that reveals it. */
     it('moves with the arrow keys', async () => {
       await openList()
+
+      keydown(listbox()!, 'ArrowDown')
+      await nextTick()
+      expect(activeLabel()).toBe('Alpha')
 
       keydown(listbox()!, 'ArrowDown')
       await nextTick()
@@ -129,6 +134,11 @@ describe('BaseSelect', () => {
     it('pages to the ends of a short list', async () => {
       await openList()
 
+      // Every navigation key reveals the cursor before it moves it, Page included
+      keydown(listbox()!, 'PageDown')
+      await nextTick()
+      expect(activeLabel()).toBe('Alpha')
+
       keydown(listbox()!, 'PageDown')
       await nextTick()
       expect(activeLabel()).toBe('Charlie')
@@ -141,12 +151,27 @@ describe('BaseSelect', () => {
     it.each(['Enter', ' '])('chooses the active option on %s', async (key) => {
       const wrapper = await openList()
 
+      // Two presses: the first reveals the cursor on the top option, the second walks to Bravo —
+      // choosing something other than the first is what proves the key reads the cursor
+      keydown(listbox()!, 'ArrowDown')
+      await nextTick()
       keydown(listbox()!, 'ArrowDown')
       await nextTick()
       keydown(listbox()!, key)
       await nextTick()
 
       expect(lastModel(wrapper)).toBe('b')
+    })
+
+    /** There is nothing to commit until a key has placed the cursor. */
+    it.each(['Enter', ' '])('does nothing on %s while no option is highlighted', async (key) => {
+      const wrapper = await openList()
+
+      keydown(listbox()!, key)
+      await nextTick()
+
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+      expect(panel()).not.toBeNull()
     })
 
     it('dismisses on Tab, letting focus move on', async () => {
@@ -185,8 +210,60 @@ describe('BaseSelect', () => {
 
       keydown(listbox()!, 'ArrowDown')
       await nextTick()
+      keydown(listbox()!, 'ArrowDown')
+      await nextTick()
 
       expect(activeLabel()).toBe('Charlie')
+    })
+  })
+
+  /**
+   * What may create the cursor, which is the whole rule: a navigation key, and nothing else.
+   * Opening does not, the pointer does not, and options merely arriving do not — each of those
+   * would draw a ring the user never asked for and would then have to notice was not their doing.
+   */
+  describe('what creates the cursor', () => {
+    it('gives the opening arrow the cursor as well, the way a native select does', async () => {
+      const wrapper = await select()
+
+      keydown(trigger(wrapper).element, 'ArrowDown')
+      await nextTick()
+
+      expect(activeLabel()).toBe('Alpha')
+    })
+
+    it('opens with nothing highlighted when the key is Enter rather than an arrow', async () => {
+      const wrapper = await select()
+
+      keydown(trigger(wrapper).element, 'Enter')
+      await nextTick()
+
+      expect(panel()).not.toBeNull()
+      expect(activeLabel()).toBeUndefined()
+    })
+
+    it('lands the cursor on the top match as a term narrows the list', async () => {
+      const wrapper = await select({ searchable: true })
+
+      await input(wrapper).setValue('br')
+      await nextTick()
+
+      expect(activeLabel()).toBe('Bravo')
+    })
+
+    /**
+     * The async case, and the reason the re-clamp is guarded rather than the open path alone: a
+     * relation picker's options land a moment *after* it opens, and re-clamping to the first
+     * enabled option would light a row up with no key pressed and no term typed.
+     */
+    it('leaves the cursor alone when options merely arrive', async () => {
+      const wrapper = await select({ options: [] })
+      await open(wrapper)
+
+      await wrapper.setProps({ options: OPTIONS })
+      await nextTick()
+
+      expect(activeLabel()).toBeUndefined()
     })
   })
 
@@ -246,6 +323,8 @@ describe('BaseSelect', () => {
       const wrapper = await select({ searchable: true })
       await open(wrapper)
 
+      keydown(input(wrapper).element, 'ArrowDown')
+      await nextTick()
       keydown(input(wrapper).element, 'ArrowDown')
       await nextTick()
       const event = keydown(input(wrapper).element, 'Enter')

@@ -12,6 +12,12 @@ interface IUseListboxNavigationInput {
   listRef: Ref<HTMLElement | undefined>
   /** `usePopover`'s `open` — the re-clamp below must not fire while the list is closed. */
   active: Readonly<Ref<boolean>>
+  /**
+   * Whether a list that changed underneath *no* cursor should take one. True exactly when the
+   * change is the user's own typing narrowing the list, so `Enter` commits the top match; false
+   * for options merely arriving, which would otherwise light a row up on their own.
+   */
+  seedCursor: () => boolean
 }
 
 /**
@@ -30,8 +36,9 @@ interface IUseListboxNavigationInput {
 export function useListboxNavigation(input: IUseListboxNavigationInput) {
   const activeIndex = ref(-1)
 
-  function scrollActiveIntoView() {
-    input.listRef.value?.children[activeIndex.value]?.scrollIntoView({ block: 'nearest' })
+  /** Public because opening reveals the *selected* option without giving it the cursor. */
+  function scrollIntoView(index: number) {
+    input.listRef.value?.children[index]?.scrollIntoView({ block: 'nearest' })
   }
 
   /** The first option at or beyond `from` that can actually be chosen, walking in `step`. */
@@ -49,7 +56,7 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
     if (index < 0) return
 
     activeIndex.value = index
-    void nextTick(scrollActiveIntoView)
+    void nextTick(() => scrollIntoView(activeIndex.value))
   }
 
   /** No wrap: a listbox that loops has no felt end, and Home/End are the way to the extremes. */
@@ -107,13 +114,24 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
   }
 
   // Keyed on the option *values*, not the array: the source is rebuilt by a `props(field)`
-  // factory on every parent render, and resetting the highlight on that would fight the user
+  // factory on every parent render, and resetting the highlight on that would fight the user.
+  //
+  // `flush: 'post'` for an ordering that is otherwise invisible: a typed term narrows the list
+  // in the same tick that opens the panel, and this watcher is created before the one that
+  // opens it — a pre-flush run would see `active` still false and skip the seed that term is
+  // owed. Keying on `active` instead would make *opening* re-clamp a cursor a printable key had
+  // just placed, which is the same bug from the other side.
   watch(
     () => JSON.stringify(input.options().map((option) => option.value)),
     () => {
       if (!input.active.value) return
+      // A changed list re-clamps a cursor; it does not *create* one. Without this an async
+      // select highlights a row the moment its options land, which no one asked it to do.
+      if (activeIndex.value < 0 && !input.seedCursor()) return
+
       activeIndex.value = input.options().length === 0 ? -1 : nextEnabled(0, 1)
     },
+    { flush: 'post' },
   )
 
   onBeforeUnmount(() => clearTimeout(typeTimer))
@@ -123,6 +141,7 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
     PAGE_STEP,
     nextEnabled,
     setActive,
+    scrollIntoView,
     move,
     first,
     last,
