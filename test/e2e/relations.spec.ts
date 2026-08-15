@@ -226,7 +226,7 @@ test.describe('widening a field', () => {
     await expect(page.getByRole('link', { name: 'Ada' })).toBeVisible()
 
     // Widen through the UI, which is what runs the migration over the rows that exist
-    await page.goto(`/tables/${table.id}`)
+    await page.goto(`/tables/${table.id}/settings`)
     await page
       .getByRole('listitem')
       .filter({ hasText: 'Lead' })

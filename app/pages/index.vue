@@ -14,7 +14,7 @@
 
     <ul v-else class="dashboard__grid">
       <li v-for="table in tablesStore.tables" :key="table.id" class="table-card">
-        <NuxtLink :to="`/tables/${table.id}/records`" class="table-card__link">
+        <NuxtLink :to="`/tables/${table.id}`" class="table-card__link">
           <h2 class="table-card__name">{{ table.name }}</h2>
           <p class="table-card__meta">
             {{ table._count.fields }} fields · {{ table._count.records }} records

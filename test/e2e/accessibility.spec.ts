@@ -53,7 +53,7 @@ test.describe('the five screens', () => {
       await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
     },
     'table settings': async (page) => {
-      await page.goto(`/tables/${tableId}`)
+      await page.goto(`/tables/${tableId}/settings`)
       await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible()
     },
     'records list': async (page) => {

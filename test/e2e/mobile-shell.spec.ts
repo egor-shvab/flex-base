@@ -47,7 +47,7 @@ test.beforeEach(async ({ seedTable }) => {
     [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won' }],
   )
   recordsUrl = table.url
-  settingsUrl = `/tables/${table.id}`
+  settingsUrl = `/tables/${table.id}/settings`
 })
 
 test('the sidebar is off-screen and unreachable until it is asked for', async ({ page }) => {
@@ -97,7 +97,8 @@ test('navigating through it dismisses it', async ({ page }) => {
 
   await sidebar(page).getByRole('link', { name: /Deals/ }).click()
 
-  await expect(page).toHaveURL(/\/tables\/[^/]+\/records/)
+  // Anchored, or it would also pass on `/tables/:id/settings`
+  await expect(page).toHaveURL(/\/tables\/[^/]+$/)
   await expect(sidebar(page)).toBeHidden()
   await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false')
 })

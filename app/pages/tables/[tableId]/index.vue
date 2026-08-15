@@ -1,313 +1,349 @@
 <template>
-  <div class="table-page">
+  <section class="records-page">
     <AppBreadcrumbs :items="breadcrumbs" />
 
-    <header class="table-page__header">
-      <div class="table-page__heading">
-        <h1 class="table-page__title">{{ table?.name }}</h1>
-        <!-- Both table screens open with the same name; this line is what says which one -->
-        <p class="table-page__subtitle">Table settings</p>
+    <header class="records-page__header">
+      <div class="records-page__header-main">
+        <h1 class="records-page__title">{{ table?.name }}</h1>
+        <BaseButton class="records-page__create" :disabled="!hasFields" @click="openCreateRecord">
+          Add record
+        </BaseButton>
       </div>
-      <BaseButton variant="ghost" prepend-icon="mdi:table" :to="`/tables/${tableId}/records`">
-        Records
-      </BaseButton>
-    </header>
-
-    <section class="table-page__section">
-      <div class="section-head">
-        <h2 class="section-head__title">Table</h2>
-      </div>
-
-      <div class="detail-card">
-        <dl class="detail-card__list">
-          <div class="detail-card__row">
-            <dt class="detail-card__term">Name</dt>
-            <dd class="detail-card__value">{{ table?.name }}</dd>
-          </div>
-          <div class="detail-card__row">
-            <dt class="detail-card__term">Created</dt>
-            <dd class="detail-card__value">{{ createdAt }}</dd>
-          </div>
-          <!-- Omitted rather than zeroed: the count comes from the tables store, and
-               `ensureTables` fails silently — a 0 here would be a claim, not a reading -->
-          <div v-if="recordCount !== null" class="detail-card__row">
-            <dt class="detail-card__term">Records</dt>
-            <dd class="detail-card__value">{{ recordCount }}</dd>
-          </div>
-        </dl>
-
-        <!-- Words, not icons: a one-off action in a card footer, the same pair the
-             dashboard's table card carries. The repeated row actions below are icons. -->
-        <div class="detail-card__actions">
-          <BaseButton variant="link" @click="renameOpen = true">Rename</BaseButton>
-          <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableId">
-            Delete table
+      <div class="records-page__header-actions">
+        <div class="records-page__header-buttons">
+          <BaseButton
+            variant="ghost"
+            prepend-icon="mdi:cog-outline"
+            :to="`/tables/${tableId}/settings`"
+          >
+            Settings
+          </BaseButton>
+          <BaseButton
+            v-if="hasFields"
+            variant="ghost"
+            prepend-icon="mdi:filter-variant"
+            @click="filterPanelOpen = true"
+          >
+            Filters
           </BaseButton>
         </div>
+        <BaseInput
+          v-if="hasFields"
+          id="records-search"
+          class="records-page__search"
+          :model-value="queryParams.search"
+          type="text"
+          icon="mdi:magnify"
+          aria-label="Search this table"
+          placeholder="Search…"
+          trim
+          :debounce="SEARCH_DEBOUNCE_MS"
+          @update:model-value="applySearch"
+        />
       </div>
-    </section>
+    </header>
 
-    <section class="table-page__section">
-      <div class="section-head">
-        <h2 class="section-head__title">Fields</h2>
-        <span v-if="fieldCount > 0" class="section-head__count">{{ fieldCount }}</span>
-        <BaseButton class="section-head__action" @click="openCreateField">Add field</BaseButton>
-      </div>
+    <!-- The active filters are stated above the data rather than hidden behind the
+         drawer that covers it -->
+    <RecordsFilterSummary
+      v-if="hasFields && isNarrowed"
+      :fields="fieldsStore.fields"
+      :filters="filters"
+      :search="queryParams.search"
+      :total="recordsStore.total"
+      :pending="recordsStore.pending"
+      @update:filters="applyFilters"
+      @update:search="applySearch"
+      @clear="clearNarrowing"
+    />
 
-      <div class="field-card">
+    <p v-if="recordsStore.failed" class="records-page__failed" role="alert">
+      That view couldn’t be loaded. Check the web address, or
+      <NuxtLink :to="`/tables/${tableId}`" class="text-link">start again with all records</NuxtLink
+      >.
+    </p>
+
+    <!-- Everything above this is the fixed band; the rows below are the only thing that scrolls -->
+    <div class="records-page__body">
+      <!-- Ahead of the fieldless state below, not only of the empty one: leaving a table that has
+           no fields would otherwise keep claiming that about the table being fetched, and the two
+           are the same mistake. A fieldless table at rest is not pending, so it still says so. -->
+      <RecordsTableSkeleton v-if="rowsLoading" class="records-page__skeleton" />
+
+      <BaseEmptyState
+        v-else-if="!hasFields"
+        class="records-page__empty"
+        icon="mdi:view-column-outline"
+      >
+        This table has no fields yet —
+        <NuxtLink :to="`/tables/${tableId}/settings`" class="text-link">define its fields</NuxtLink>
+        before adding records.
+      </BaseEmptyState>
+
+      <template v-else>
+        <!-- Not when the load failed: an empty result and an unknown result look the same in
+             the store, and claiming the table is empty would be a guess -->
+        <!--
+          A status, unlike the fieldless state above it: this one appears and changes in
+          answer to a filter or a search, with focus still in the box that caused it, so
+          nothing else on screen would tell a screen-reader user the table just emptied.
+        -->
         <BaseEmptyState
-          v-if="fieldCount === 0"
-          title="No fields yet"
-          icon="mdi:view-column-outline"
+          v-if="recordsStore.records.length === 0 && !recordsStore.failed"
+          class="records-page__empty"
+          role="status"
+          :title="emptyTitle"
+          :icon="emptyIcon"
         >
-          Fields decide what each record stores. Add one and it becomes a column here and a question
-          on the form.
+          {{ emptyMessage }}
           <template #action>
-            <BaseButton @click="openCreateField">Add field</BaseButton>
+            <BaseButton v-if="isNarrowed" @click="clearNarrowing">Show all records</BaseButton>
+            <BaseButton v-else @click="openCreateRecord">Add record</BaseButton>
           </template>
         </BaseEmptyState>
 
-        <ul v-else class="field-list">
-          <li v-for="field in fieldsStore.fields" :key="field.id" class="field-row">
-            <div class="field-row__lead">
-              <!-- The scannable column. Never without the type's word beside it, below. -->
-              <span class="field-row__icon">
-                <Icon :name="FIELD_TYPE_ICONS[field.type]" aria-hidden="true" />
-              </span>
+        <template v-else>
+          <DynamicTable
+            class="records-page__table"
+            :table-id="tableId"
+            :fields="fieldsStore.fields"
+            :records="recordsStore.records"
+            :sort="queryParams.sort"
+            @edit="openEditRecord"
+            @delete="deleteTarget = $event"
+            @sort="applySort"
+          />
 
-              <div class="field-row__body">
-                <p class="field-row__name">
-                  <span class="field-row__label">{{ field.name }}</span>
-                  <BaseBadge v-if="field.required" variant="label">required</BaseBadge>
-                </p>
-                <!-- Type, then how it is configured, then the key it is addressed by. The
-                     detail comes from the registry and the cardinality from `isMultiValue`,
-                     so nothing here branches on the type itself. -->
-                <!-- Every part is an element, never a bare text node: Vue's `condense` drops
-                     the whitespace between two elements but keeps a space beside loose text,
-                     which would space one separator differently from the next. -->
-                <p class="field-row__meta">
-                  <span>{{ FIELD_TYPE_LABELS[field.type] }}</span>
-                  <template v-if="FIELD_DETAILS[field.type]">
-                    <span class="field-row__sep" aria-hidden="true">·</span>
-                    <component :is="FIELD_DETAILS[field.type]" :field="field" />
-                  </template>
-                  <template v-if="isMultiValue(field)">
-                    <span class="field-row__sep" aria-hidden="true">·</span>
-                    <span>multiple values</span>
-                  </template>
-                  <span class="field-row__sep" aria-hidden="true">·</span>
-                  <code class="field-row__key">{{ field.key }}</code>
-                </p>
-              </div>
-            </div>
+          <BasePagination
+            class="records-page__pagination"
+            :page="recordsStore.page"
+            :page-count="recordsStore.pageCount"
+            :page-size="recordsStore.pageSize"
+            :total="recordsStore.total"
+            @update:page="goToPage"
+          />
+        </template>
+      </template>
+    </div>
 
-            <div class="field-row__actions">
-              <BaseButton
-                variant="icon"
-                prepend-icon="mdi:pencil-outline"
-                :label="`Edit field ${field.name}`"
-                @click="openEditField(field)"
-              />
-              <BaseButton
-                variant="icon"
-                prepend-icon="mdi:trash-can-outline"
-                tone="danger"
-                :label="`Delete field ${field.name}`"
-                @click="deleteTarget = field"
-              />
-            </div>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    <LazyTableFormModal
-      v-if="renameOpen"
-      mode="rename"
-      :initial-name="table?.name ?? ''"
-      :submit-handler="submitRename"
-      @saved="renameOpen = false"
-      @close="renameOpen = false"
+    <LazyRecordsFilterPanel
+      v-if="filterPanelOpen"
+      :fields="fieldsStore.fields"
+      :filters="filters"
+      :total="recordsStore.total"
+      :pending="recordsStore.pending"
+      @update:filters="applyFilters"
+      @close="filterPanelOpen = false"
     />
 
-    <LazyFieldFormModal
-      v-if="fieldModal"
-      :mode="fieldModal.mode"
-      :field="fieldModal.mode === 'edit' ? fieldModal.field : undefined"
-      :submit-handler="submitField"
-      @saved="fieldModal = null"
-      @close="fieldModal = null"
+    <LazyRecordFormModal
+      v-if="recordModal"
+      :mode="recordModal.mode"
+      :fields="fieldsStore.fields"
+      :record="recordModal.mode === 'edit' ? recordModal.record : undefined"
+      :submit-handler="submitRecord"
+      @saved="recordModal = null"
+      @close="recordModal = null"
     />
 
-    <LazyConfirmModal
-      v-if="tableDeleteTarget"
-      title="Delete table"
-      danger
-      :pending="tableDeletePending"
-      :confirm-label="tableDeleteLabel"
-      :error="tableDeleteError"
-      @confirm="confirmDeleteTable"
-      @close="cancelDeleteTable"
-    >
-      Delete <strong>{{ table?.name }}</strong
-      >? All of its fields and records will be permanently removed. This cannot be undone.
-    </LazyConfirmModal>
+    <LazyRecordDetailModal
+      v-if="detailChain.length > 0"
+      :detail="detail"
+      :pending="detailPending"
+      :error-message="detailError"
+      :can-retry="detailCanRetry"
+      :current-table-id="tableId"
+      :back-to="detailBackTo"
+      @retry="refreshDetail"
+      @close="closeDetail"
+    />
 
     <LazyConfirmModal
       v-if="deleteTarget"
-      title="Delete field"
+      title="Delete record"
       danger
       :pending="deletePending"
       :confirm-label="deleteLabel"
       :error="deleteError"
-      @confirm="confirmDeleteField"
+      @confirm="confirmDeleteRecord"
       @close="cancelDelete"
     >
-      Delete <strong>{{ deleteTarget.name }}</strong
-      >? Everything stored in this field will be permanently removed from every record. This cannot
-      be undone.
+      Delete record #{{ deleteTarget.number }}? This cannot be undone.
     </LazyConfirmModal>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useApi } from '~/composables/useApi'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
+import { useRecordDetail } from '~/composables/useRecordDetail'
+import { useRecordListQuery } from '~/composables/useRecordListQuery'
 import { useFieldsStore } from '~/stores/fields'
-import { useTablesStore } from '~/stores/tables'
+import { useRecordsStore } from '~/stores/records'
+import { useRelationsStore } from '~/stores/relations'
 import { toPageError } from '~/utils/api-error'
-import { formatNumber, formatTimestamp } from '~/utils/format'
-import { FIELD_DETAILS } from '~/field-types/details'
-import { FIELD_TYPE_ICONS } from '~/field-types/icons'
-import { FIELD_TYPE_LABELS } from '#shared/constants/field'
-import { isMultiValue } from '#shared/utils/field'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { ITable } from '#shared/types/table'
-import type { IField } from '#shared/types/field'
-import type { TFieldInput } from '#shared/validation/field'
+import type { IRecord, TRecordData } from '#shared/types/record'
 
-type TFieldModal = { mode: 'create' } | { mode: 'edit'; field: IField }
+type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
+
+/** The same hold the filter controls use — a keystroke must not hit the API. */
+const SEARCH_DEBOUNCE_MS = 300
 
 const route = useRoute()
 const api = useApi()
 const fieldsStore = useFieldsStore()
-const tablesStore = useTablesStore()
+const recordsStore = useRecordsStore()
+const relationsStore = useRelationsStore()
 const tableId = route.params.tableId as string
 
-const { data, error } = await useAsyncData(`table-${tableId}`, async () => {
+/** The URL is the source of truth for the list query, so a filtered view is shareable. */
+const {
+  queryParams,
+  filters,
+  isNarrowed,
+  emptyTitle,
+  emptyMessage,
+  emptyIcon,
+  queryKey,
+  goToPage,
+  applySort,
+  applyFilters,
+  applySearch,
+  clearNarrowing,
+} = useRecordListQuery({ fields: () => fieldsStore.fields })
+
+const { data, error } = await useAsyncData(`table-records-${tableId}`, async () => {
   const [tableResponse] = await Promise.all([
     api<{ table: ITable }>(`/api/tables/${tableId}`),
     fieldsStore.fetchFields(tableId),
   ])
+  // Filters decode against field metadata, so these wait rather than running in parallel —
+  // otherwise a shared filter URL would render unfiltered on first load.
+  await Promise.all([
+    recordsStore.fetchRecords(tableId, queryParams.value),
+    // A relation filter is a picker over the target's records, so its candidates have to be
+    // there on first paint for a shared link to show what it is filtered by
+    relationsStore.loadOptions(tableId, fieldsStore.fields),
+  ])
   return tableResponse
+})
+
+// Every list change goes through the URL, so one watcher covers filtering, sorting and paging.
+// The rejection is swallowed deliberately: the store sets `failed`, which the template shows —
+// letting it escape a watcher would be an unhandled rejection and the table would silently keep
+// rows that no longer match the URL.
+watch(queryKey, async () => {
+  try {
+    await recordsStore.fetchRecords(tableId, queryParams.value)
+  } catch {
+    // surfaced through `recordsStore.failed`
+  }
 })
 
 if (error.value) {
   throw createError(toPageError(error.value))
 }
 
-/**
- * The list row for this table, when the layout's `ensureTables` has loaded one. It carries the
- * counts, and it is the copy a rename writes to — `renameTable` updates the store, not this
- * page's `data`, so reading the name from here is what keeps the heading and the breadcrumbs
- * in step without a refetch.
- */
-const storeRow = computed(() => tablesStore.tables.find((table) => table.id === tableId))
-
-/**
- * Preferred over the fetched table, and falling back to it: `ensureTables` never throws, so
- * the store may legitimately hold nothing at all and the page must still render.
- */
-const table = computed(() => storeRow.value ?? data.value?.table)
-
-useSeoMeta({ title: () => table.value?.name ?? 'Table' })
+const table = computed(() => data.value?.table)
+useSeoMeta({ title: () => table.value?.name ?? 'Records' })
 
 const breadcrumbs = computed<IBreadcrumb[]>(() => [
   { label: 'Home', to: '/' },
-  { label: table.value?.name ?? 'Table', to: `/tables/${tableId}/records` },
-  { label: 'Settings' },
+  { label: table.value?.name ?? 'Table' },
 ])
 
-const createdAt = computed(() => (table.value ? formatTimestamp(table.value.createdAt) : ''))
+const hasFields = computed(() => fieldsStore.fields.length > 0)
 
-/** `null` when the store has no row for this table — see the template. */
-const recordCount = computed(() =>
-  storeRow.value ? formatNumber(storeRow.value._count.records) : null,
-)
+/**
+ * Loading is its own state, and both halves of this are needed. The store drops the previous
+ * table's rows *before* requesting the next one's — and this page is still the one on screen until
+ * the incoming one resolves — so between the two there is nothing here to tell "empty" from "not
+ * known yet", exactly as `failed` cannot be told from empty. The row count is what keeps it to a
+ * body with nothing to draw: an in-place refetch keeps its rows and says "Filtering…" instead.
+ */
+const rowsLoading = computed(() => recordsStore.pending && recordsStore.records.length === 0)
 
-const fieldCount = computed(() => fieldsStore.fields.length)
+const filterPanelOpen = ref(false)
 
-const renameOpen = ref(false)
+const recordModal = ref<TRecordModal | null>(null)
 
-// Throws (409 on a duplicate name) propagate into TableFormModal's useForm, which shows the error
-async function submitRename(name: string) {
-  await tablesStore.renameTable(tableId, { name })
+function openCreateRecord() {
+  recordModal.value = { mode: 'create' }
 }
 
-const fieldModal = ref<TFieldModal | null>(null)
-
-function openCreateField() {
-  fieldModal.value = { mode: 'create' }
+function openEditRecord(record: IRecord) {
+  recordModal.value = { mode: 'edit', record }
 }
 
-function openEditField(field: IField) {
-  fieldModal.value = { mode: 'edit', field }
-}
+// Throws (400/404) propagate into RecordFormModal's useForm, which shows the error
+async function submitRecord(data: TRecordData) {
+  if (recordModal.value?.mode === 'edit') {
+    await recordsStore.updateRecord(tableId, recordModal.value.record.id, data, queryParams.value)
+    return
+  }
 
-// Throws (400/409) propagate into FieldFormModal's useForm, which shows the error
-async function submitField(input: TFieldInput) {
-  if (fieldModal.value?.mode === 'edit') {
-    await fieldsStore.updateField(tableId, fieldModal.value.field.id, input)
-  } else {
-    await fieldsStore.createField(tableId, input)
+  // A new record lands on page 1 of the default view; keep the URL in step rather than
+  // letting the store show a page the address bar disagrees with
+  const nextPage = await recordsStore.createRecord(tableId, data, queryParams.value)
+  if (nextPage !== queryParams.value.page) {
+    await goToPage(nextPage, true)
   }
 }
 
 /**
- * Deleting the table leaves nowhere to stand, so the navigation is part of the removal rather
- * than something that follows it. A refusal — another table's RELATION points here — is caught
- * by the composable and rendered in the dialog, which is why nothing is rethrown.
+ * The linked-record dialog is URL state exactly as the list query is, so it is read back from
+ * the route rather than held here — and closing it is a navigation, not a state change.
  */
 const {
-  target: tableDeleteTarget,
-  pending: tableDeletePending,
-  error: tableDeleteError,
-  confirmLabel: tableDeleteLabel,
-  confirm: confirmDeleteTable,
-  cancel: cancelDeleteTable,
-} = useDeleteConfirm(async (id: string) => {
-  await tablesStore.deleteTable(id)
-  await navigateTo('/')
-})
+  chain: detailChain,
+  detail,
+  pending: detailPending,
+  errorMessage: detailError,
+  canRetry: detailCanRetry,
+  backTo: detailBackTo,
+  refresh: refreshDetail,
+  closeTo: detailCloseTo,
+} = useRecordDetail()
+
+function closeDetail() {
+  return navigateTo(detailCloseTo.value)
+}
 
 const {
   target: deleteTarget,
   pending: deletePending,
   error: deleteError,
   confirmLabel: deleteLabel,
-  confirm: confirmDeleteField,
+  confirm: confirmDeleteRecord,
   cancel: cancelDelete,
-} = useDeleteConfirm((field: IField) => fieldsStore.deleteField(tableId, field.id))
+} = useDeleteConfirm((record: IRecord) =>
+  recordsStore.deleteRecord(tableId, record.id, queryParams.value),
+)
 </script>
 
 <style lang="scss" scoped>
-.table-page {
-  @include stack(24);
+.records-page {
+  // Fills the shell's main pane exactly, so the header, the active filters and the pager
+  // stay in place while the rows move
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 
   &__header {
     @include page-header;
-
-    // The stack above already spaces the sections; `page-header` carries its own bottom
-    // margin for pages that do not stack, and here the two would compound.
-    margin-bottom: 0;
   }
 
-  // `min-width: 0` — the group, not the `<h1>`, is the header's flex item. See the records
-  // page and `docs/decisions.md`.
-  &__heading {
+  // The title and its primary action travel together, so this group — not the `<h1>` — is
+  // the header's flex item. `min-width: 0` is what lets `page-title`'s ellipsis engage: a
+  // flex item's automatic minimum is its content, and a nowrap heading contributes the
+  // whole untruncated table name. See `docs/decisions.md`.
+  &__header-main {
+    @include cluster;
+
     min-width: 0;
   }
 
@@ -315,202 +351,75 @@ const {
     @include page-title;
   }
 
-  &__subtitle {
-    margin: rem(2) 0 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
-  &__section {
-    @include stack(10);
-  }
-}
-
-.section-head {
-  @include cluster(12);
-
-  // Matches a control, so a section with an action and one without line up
-  min-height: var(--control-height);
-
-  &__title {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-  }
-
-  &__count {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  // Pushed to the far edge rather than the row being `space-between`: the title, the count
-  // and the action are three items, and only the last one belongs on the right.
-  &__action {
-    margin-left: auto;
-  }
-}
-
-.detail-card {
-  @include surface-card;
-
-  &__list {
-    margin: 0;
-  }
-
-  &__row {
-    display: grid;
-    grid-template-columns: rem(160) minmax(0, 1fr);
-    gap: rem(16);
-    align-items: center;
-    min-height: rem(44);
-    padding: rem(8) rem(16);
-    // A rule inside a surface, so the softer token — the card's own edge is the structure
-    border-bottom: 1px solid var(--color-border-subtle);
-
-    @include below-shell {
-      grid-template-columns: minmax(0, 1fr);
-      gap: rem(2);
-      align-items: start;
-      padding-block: rem(10);
-    }
-  }
-
-  &__term {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
-  &__value {
-    margin: 0;
-    min-width: 0;
-
-    @include truncate;
-  }
-
-  &__actions {
-    @include cluster;
-
-    padding: rem(10) rem(16);
-  }
-}
-
-.field-card {
-  @include surface-card;
-}
-
-.field-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.field-row {
-  display: flex;
-  align-items: center;
-  gap: rem(16);
-  padding: rem(8) rem(16);
-  border-bottom: 1px solid var(--color-border-subtle);
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    // The row wash, not the control hover — the same pairing `DynamicTable` uses
-    background: var(--color-surface-row-hover);
-  }
-
-  // The icon and the text travel together; on a narrow pane the actions drop below them,
-  // so they are one flex item rather than two.
-  &__lead {
-    display: flex;
-    align-items: center;
-    gap: rem(16);
-    flex: 1;
-    min-width: 0;
-  }
-
-  // Neutral, not accent-tinted: the section's one blue is spent on "Add field", and six
-  // tinted tiles would outrank it.
-  &__icon {
-    display: grid;
-    place-items: center;
-    width: rem(32);
-    height: rem(32);
+  // `flex: none`, or the group's shrink is split in proportion to base size, the button
+  // reaches its min-content and wraps its label onto two lines. The title absorbs it all.
+  &__create {
     flex: none;
-    border-radius: var(--radius-md);
-    background: var(--color-surface-muted);
-    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
-    font-size: rem(20);
-    color: var(--color-text-secondary);
+  }
+
+  &__header-actions {
+    @include cluster;
+  }
+
+  // A ghost button is `padding: 0 rem(12)` over a transparent background, so its box edge
+  // is invisible and that padding reads as part of the gap: at the row's rem(16) these two
+  // sit 40px apart optically, against 28px between Filters and the bordered search box.
+  // rem(4) plus the two paddings is the same 28. Do not normalise it back to rem(16).
+  &__header-buttons {
+    @include cluster(4);
+  }
+
+  &__search {
+    width: rem(220);
+  }
+
+  &__failed {
+    @include error-banner;
+
+    margin-bottom: rem(16);
   }
 
   &__body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__name {
-    @include cluster(8);
-
-    margin: 0;
-  }
-
-  // The only run at full text colour on the row: it is the one thing the user named
-  &__label {
-    min-width: 0;
-    font-size: var(--font-size-md);
-    font-weight: 500;
-
-    @include truncate;
-  }
-
-  // Deliberately not a flex row: `truncate` ellipsises a block of inline content, and a
-  // flex container would clip its children mid-word instead.
-  &__meta {
-    margin: rem(2) 0 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-
-    @include truncate;
-
-    @include below-shell {
-      white-space: normal;
-    }
-  }
-
-  &__sep {
-    margin: 0 rem(6);
-    color: var(--color-border-strong);
-  }
-
-  // A URL contract rather than a category, so it stops sharing the type's grey
-  &__key {
-    padding: rem(1) rem(6);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-muted);
-    font-size: var(--font-size-xs);
-  }
-
-  &__actions {
     display: flex;
-    align-items: center;
-    gap: rem(4);
+    flex-direction: column;
+    // `min-height: 0` — without it the item's automatic minimum is the whole table, so it
+    // would never shrink and the table's own `overflow` would stay inert
+    flex: 1;
+    min-height: 0;
+  }
+
+  // Sizes to its rows and stops there; past the pane it shrinks and scrolls inside itself.
+  // `flex-basis: auto` is what makes the base size the content height, `flex-grow: 0` what
+  // keeps a short result from stretching to the bottom edge. Intrinsic throughout, so it
+  // re-resolves on resize — and when the summary or the error banner appears — with no
+  // height stated anywhere.
+  //
+  // `min-height: 0` is belt and braces: a scroll container's automatic minimum is already
+  // zero, which is what lets this shrink at all. It would stop the day `overflow` moved off
+  // this element.
+  &__table {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  // Where the rows will be, not the middle of the pane like the empty states below: it stands in
+  // for the table, so it takes the table's place.
+  &__skeleton {
     flex: none;
   }
 
-  // Below the shell breakpoint the actions take their own line rather than squeezing the
-  // name to nothing: two 36px targets and a truncating label cannot share 327px.
-  @include below-shell {
-    flex-wrap: wrap;
-    padding-block: rem(12);
+  // An empty state has no natural place in the flow, so it takes the middle of the pane.
+  // `margin` rather than the parent's `justify-content`, which cannot centre this one child
+  // without lifting a short grid off the top too. Nested so it outranks `BaseEmptyState`'s
+  // own `margin` — flat, the two would tie and stylesheet order would decide.
+  &__body &__empty {
+    margin-block: auto;
+  }
 
-    &__actions {
-      flex-basis: 100%;
-      // Aligned under the text, not the icon tile
-      margin-left: rem(48);
-    }
+  // Placement only — BasePagination owns its internal layout
+  &__pagination {
+    flex: none;
+    margin-top: rem(12);
   }
 }
 </style>

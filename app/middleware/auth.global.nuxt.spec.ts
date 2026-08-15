@@ -57,7 +57,7 @@ describe('restoring the session', () => {
     auth.initialized = true
     auth.user = ADA
 
-    await guard('/tables/tbl_1/records')
+    await guard('/tables/tbl_1')
 
     expect(fetchUser).not.toHaveBeenCalled()
   })
@@ -74,18 +74,18 @@ describe('restoring the session', () => {
 
 describe('an anonymous visitor', () => {
   it('is sent to the login page', async () => {
-    await guard('/tables/tbl_1/records')
+    await guard('/tables/tbl_1')
 
     expect(navigateTo).toHaveBeenCalledWith(expect.objectContaining({ path: '/auth/login' }))
   })
 
   /** So signing in lands back on the filtered view the link pointed at, not on the dashboard. */
   it('carries where it was going, query and all', async () => {
-    await guard('/tables/tbl_1/records?stage=Won&page=2')
+    await guard('/tables/tbl_1?stage=Won&page=2')
 
     expect(navigateTo).toHaveBeenCalledWith({
       path: '/auth/login',
-      query: { redirect: '/tables/tbl_1/records?stage=Won&page=2' },
+      query: { redirect: '/tables/tbl_1?stage=Won&page=2' },
     })
   })
 
@@ -109,7 +109,7 @@ describe('a signed-in visitor', () => {
   })
 
   it('is left alone on an app route', async () => {
-    await guard('/tables/tbl_1/records')
+    await guard('/tables/tbl_1')
 
     expect(navigateTo).not.toHaveBeenCalled()
   })
@@ -121,9 +121,9 @@ describe('a signed-in visitor', () => {
   })
 
   it('is bounced to where it was originally headed', async () => {
-    await guard('/auth/login?redirect=/tables/tbl_1/records')
+    await guard('/auth/login?redirect=/tables/tbl_1')
 
-    expect(navigateTo).toHaveBeenCalledWith('/tables/tbl_1/records')
+    expect(navigateTo).toHaveBeenCalledWith('/tables/tbl_1')
   })
 
   /**

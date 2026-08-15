@@ -65,7 +65,7 @@ export const test = base.extend<IFixtures>({
         id: table.id,
         name: table.name,
         fields: created,
-        url: `/tables/${table.id}/records`,
+        url: `/tables/${table.id}`,
       }
     })
   },

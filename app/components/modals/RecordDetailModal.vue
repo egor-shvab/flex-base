@@ -71,7 +71,7 @@ const openInTableTo = computed(() => {
   const { table, record } = props.detail
   const chain = toDetailParam([{ tableId: table.id, recordId: record.id }])
 
-  return `/tables/${table.id}/records?${DETAIL_PARAM}=${chain}`
+  return `/tables/${table.id}?${DETAIL_PARAM}=${chain}`
 })
 </script>
 

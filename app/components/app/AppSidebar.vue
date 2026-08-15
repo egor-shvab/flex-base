@@ -17,7 +17,7 @@
     <NuxtLink
       v-for="table in tablesStore.tables"
       :key="table.id"
-      :to="`/tables/${table.id}/records`"
+      :to="`/tables/${table.id}`"
       class="app-sidebar__item"
       :class="{ 'app-sidebar__item--on': table.id === activeTableId }"
     >
@@ -66,13 +66,13 @@ function close() {
  */
 async function submitHandler(name: string) {
   const table = await tablesStore.createTable({ name })
-  await navigateTo(`/tables/${table.id}/records`)
+  await navigateTo(`/tables/${table.id}`)
 }
 
 /**
  * Compared by route param, not by path: `/tables/:id` is a string prefix of
- * `/tables/:id/records`, so a path check would be ambiguous. The param is exact, and
- * marks the table active on both the field manager and the records page.
+ * `/tables/:id/settings`, so a path check would be ambiguous. The param is exact, and
+ * marks the table active on both the table itself and its settings page.
  */
 const activeTableId = computed(() => route.params.tableId)
 

@@ -100,7 +100,7 @@ app/                         # Nuxt 4 frontend (client)
   layouts/                   # default + auth layouts
   middleware/                # route guards (auth)
   pages/                     # file-based routing
-    tables/[tableId]/records/  # dynamic table & record views
+    tables/[tableId]/          # the table itself (index.vue) + settings.vue
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
 server/                      # Nitro backend
   api/                       # HTTP route handlers (thin: parse → check ownership → call service)

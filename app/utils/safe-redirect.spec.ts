@@ -3,12 +3,12 @@ import { resolveSafeRedirect } from '~/utils/safe-redirect'
 
 describe('resolveSafeRedirect — internal paths pass through', () => {
   it('keeps an app path', () => {
-    expect(resolveSafeRedirect('/tables/abc/records')).toBe('/tables/abc/records')
+    expect(resolveSafeRedirect('/tables/abc')).toBe('/tables/abc')
   })
 
   it('keeps the query and fragment, which carry a filtered view', () => {
-    expect(resolveSafeRedirect('/tables/abc/records?stage=Won&page=2#top')).toBe(
-      '/tables/abc/records?stage=Won&page=2#top',
+    expect(resolveSafeRedirect('/tables/abc?stage=Won&page=2#top')).toBe(
+      '/tables/abc?stage=Won&page=2#top',
     )
   })
 

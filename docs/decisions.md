@@ -360,7 +360,7 @@ The chain was three `??`s, and `??` skips only `null`/`undefined` — so a respo
 
 ### The active-table check compares `route.params.tableId`, not the path
 
-`/tables/:id` is a string prefix of `/tables/:id/records`, so a path check is ambiguous. The param marks the table active on both inner pages.
+`/tables/:id` is a string prefix of `/tables/:id/settings`, so a path check is ambiguous — and an equality check would drop the highlight on the settings page. The param marks the table active on both.
 
 ### `AppBreadcrumbs` is prop-driven
 

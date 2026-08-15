@@ -11,7 +11,7 @@ test.describe('signed out', () => {
   test('a protected page sends you to sign in, remembering where you were going', async ({
     page,
   }) => {
-    await page.goto('/tables/whatever/records?stage=Won')
+    await page.goto('/tables/whatever?stage=Won')
 
     await expect(page).toHaveURL(/\/auth\/login\?redirect=/)
     await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible()

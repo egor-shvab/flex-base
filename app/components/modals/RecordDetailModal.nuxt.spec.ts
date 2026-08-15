@@ -143,7 +143,7 @@ describe('RecordDetailModal', () => {
       })
 
       expect(link(/Open in/)?.getAttribute('href')).toBe(
-        `/tables/tbl_people/records?${DETAIL_PARAM}=tbl_people.rec_1`,
+        `/tables/tbl_people?${DETAIL_PARAM}=tbl_people.rec_1`,
       )
     })
 

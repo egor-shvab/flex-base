@@ -11,7 +11,7 @@ import { expect, test } from '~~/test/e2e/setup/fixtures'
 test('a table that does not exist renders the 404 boundary, not a broken page', async ({
   page,
 }) => {
-  await page.goto('/tables/does-not-exist/records')
+  await page.goto('/tables/does-not-exist')
 
   await expect(page.getByRole('heading', { name: /we couldn’t find that/i })).toBeVisible()
   await expect(page.locator('.error-page__code')).toHaveText('404')
@@ -20,7 +20,7 @@ test('a table that does not exist renders the 404 boundary, not a broken page', 
 })
 
 test('the same for a table settings page', async ({ page }) => {
-  await page.goto('/tables/does-not-exist')
+  await page.goto('/tables/does-not-exist/settings')
 
   await expect(page.getByRole('heading', { name: /we couldn’t find that/i })).toBeVisible()
 })
@@ -45,7 +45,7 @@ test('a link the server could not read says so instead of blaming the table', as
 })
 
 test('the recovery action returns to the dashboard', async ({ page }) => {
-  await page.goto('/tables/does-not-exist/records')
+  await page.goto('/tables/does-not-exist')
   await expect(page.locator('.error-page__code')).toHaveText('404')
 
   await page.getByRole('button', { name: 'Back to your tables' }).click()
