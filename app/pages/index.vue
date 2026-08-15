@@ -122,11 +122,10 @@ const {
 }
 
 .table-card {
+  @include surface-card;
+
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
 
   &:hover,
   &:has(:focus-visible) {

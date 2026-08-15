@@ -23,6 +23,7 @@ const sidebar = (page: import('@playwright/test').Page) =>
   page.getByRole('navigation', { name: 'Your tables' })
 
 let recordsUrl = ''
+let settingsUrl = ''
 
 test.beforeEach(async ({ seedTable }) => {
   const table = await seedTable(
@@ -46,6 +47,7 @@ test.beforeEach(async ({ seedTable }) => {
     [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won' }],
   )
   recordsUrl = table.url
+  settingsUrl = `/tables/${table.id}`
 })
 
 test('the sidebar is off-screen and unreachable until it is asked for', async ({ page }) => {
@@ -209,22 +211,53 @@ test('a dialog taller than the screen scrolls its body instead of overflowing', 
  * squeezed under it when the row is 375px wide.
  */
 test.describe('the gates at this width', () => {
-  for (const [name, path] of [
-    ['the dashboard', '/'],
-    ['the records list', ''],
+  // Thunks rather than paths: two of these are seeded per case, so their URLs do not exist
+  // until `beforeEach` has run
+  for (const [name, url] of [
+    ['the dashboard', () => '/'],
+    ['the records list', () => recordsUrl],
+    ['the table settings page', () => settingsUrl],
   ] as const) {
     test(`${name} has no serious or critical violations`, async ({ page }) => {
-      await page.goto(path === '' ? recordsUrl : path)
+      await page.goto(url())
 
       expect(await axeViolations(page)).toEqual([])
     })
 
     test(`${name} has no target below 24×24`, async ({ page }) => {
-      await page.goto(path === '' ? recordsUrl : path)
+      await page.goto(url())
 
       expect(await undersizedTargets(page)).toEqual([])
     })
   }
+})
+
+/**
+ * The field row is a non-wrapping cluster at full width; here the actions take their own line
+ * instead. Without that the name truncates to nothing between a 32px tile and two 36px targets
+ * in a 327px column — the row would still "work" and be unreadable, which no other gate catches.
+ */
+test('a field row stacks its actions rather than squeezing the name', async ({ page }) => {
+  await page.goto(settingsUrl)
+
+  // Filtered by the button only a field row carries — the breadcrumbs are a list of items too
+  const row = page
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('button', { name: /^Edit field/ }) })
+    .first()
+  const name = row.getByText('Company', { exact: true })
+  const edit = row.getByRole('button', { name: /^Edit field/ })
+
+  const [nameBox, editBox] = await Promise.all([name.boundingBox(), edit.boundingBox()])
+
+  // Below it, not beside it
+  expect(editBox!.y).toBeGreaterThan(nameBox!.y + nameBox!.height)
+  // And the page itself never scrolls sideways
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true)
 })
 
 /** Above the breakpoint it is a column of the grid, always there and with no toggle to press. */

@@ -225,6 +225,8 @@
     --focus: #3478e5;
     --accent-tint: #e7eefc;
     --on-accent-tint: #123f8c;
+    /* The destructive step, 5.62:1 on white — the same `--color-danger` the app ships */
+    --red: #c62828;
     --badge-gray: #41474f;
     --badge-gray-tint: #e9ebef;
     --badge-orange: #8a4a11;
@@ -797,6 +799,150 @@
     cursor: not-allowed;
   }
 
+  /* ── Table settings ───────────────────────────────────────────────────────
+     The app's second screen. It is a document that scrolls rather than a table
+     pinned to the pane, so its cards size to their content. */
+  .main--doc {
+    overflow-y: auto;
+  }
+  .card--plain {
+    flex: none;
+    min-height: 0;
+  }
+  .sect {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: none;
+  }
+  .sect__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+  }
+  /* Not the doc's own uppercase h2 — this is a heading inside the mock UI */
+  .sect__head h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--tx);
+  }
+  .sect__count {
+    font-size: 14px;
+    color: var(--tx-2);
+    font-variant-numeric: tabular-nums;
+  }
+  /* The table's own facts, as a definition list */
+  .drow {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: 16px;
+    align-items: center;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .drow dt {
+    font-size: 14px;
+    color: var(--tx-2);
+  }
+  .drow dd {
+    margin: 0;
+  }
+  .cardfoot {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+  }
+  /* One field per row, two lines: what it is called, then what it is */
+  .frow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .frow:last-child {
+    border-bottom: none;
+  }
+  .frow:hover {
+    background: var(--row-hover);
+  }
+  /* Neutral, never accent-tinted: the screen's one blue is spent on Add field,
+     and six tinted tiles would outrank it */
+  .ftile {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: 8px;
+    background: var(--hover);
+    color: var(--tx-2);
+  }
+  .fbody {
+    flex: 1;
+    min-width: 0;
+  }
+  .fname {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .fname b {
+    font-weight: 500;
+  }
+  .fmeta {
+    margin-top: 2px;
+    font-size: 14px;
+    color: var(--tx-2);
+  }
+  .fmeta .dot {
+    margin: 0 6px;
+    color: var(--line);
+  }
+  .key {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--hover);
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: 12px;
+  }
+  /* The metadata marker — smaller and quieter than a value chip */
+  .tag {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--hover);
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--tx-2);
+  }
+  .facts {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+  }
+  /* Icon-only, and only here: a row action repeats once per row, so a word would
+     outweigh the data beside it. Tooltip and accessible name carry the meaning. */
+  .ibtn {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: var(--tx-2);
+  }
+  .ibtn:hover {
+    background: var(--hover);
+    color: var(--accent);
+  }
+  .ibtn--danger:hover {
+    color: var(--red);
+  }
+
   /* ── Doc cards ────────────────────────────────────────────────────────── */
   .states {
     display: grid;
@@ -1045,6 +1191,26 @@
   <symbol id="i-trash" viewBox="0 0 20 20">
     <path d="M4.5 6.2h11M8 6.2V4.5h4v1.7M6 6.2l.7 10h6.6l.7-10" />
   </symbol>
+  <!-- Field types. Each is drawn beside its own word, never instead of it. -->
+  <symbol id="i-ftext" viewBox="0 0 20 20"><path d="M5 5.5h10M10 5.5v9M8 14.5h4" /></symbol>
+  <symbol id="i-fnumber" viewBox="0 0 20 20">
+    <path d="M7.5 4.5 6 15.5M13 4.5l-1.5 11M4.5 8h11M4 12h11" />
+  </symbol>
+  <symbol id="i-fcheck" viewBox="0 0 20 20">
+    <rect x="3.5" y="3.5" width="13" height="13" rx="2" />
+    <path d="m6.8 10.2 2.2 2.2 4.2-4.6" />
+  </symbol>
+  <symbol id="i-fdate" viewBox="0 0 20 20">
+    <rect x="3.5" y="4.5" width="13" height="12" rx="1.5" />
+    <path d="M3.5 8.5h13M7 3v3M13 3v3" />
+  </symbol>
+  <symbol id="i-fselect" viewBox="0 0 20 20">
+    <path d="M4 6h9M4 10h9M4 14h5M14.5 12.5l2 2 2-2" />
+  </symbol>
+  <symbol id="i-frelation" viewBox="0 0 20 20">
+    <path d="M8.5 11.5a3 3 0 0 0 4.3.2l2.4-2.4a3 3 0 0 0-4.2-4.2l-1 1" />
+    <path d="M11.5 8.5a3 3 0 0 0-4.3-.2l-2.4 2.4a3 3 0 0 0 4.2 4.2l1-1" />
+  </symbol>
   <symbol id="i-cleft" viewBox="0 0 20 20"><path d="M12 5l-5 5 5 5" /></symbol>
   <symbol id="i-cright" viewBox="0 0 20 20"><path d="m8 5 5 5-5 5" /></symbol>
   <symbol id="i-settings" viewBox="0 0 20 20">
@@ -1066,13 +1232,13 @@
     <p class="lede">
       The design idea is that there is no design idea: this looks like the office tools people
       already use every day, so nothing has to be learned.
-      <b>Every action is a word, not a symbol.</b> One search box. One blue. One card holding the
-      data. Nothing on screen that does not do a job.
+      <b>Actions are words; only a row's own repeated actions are icons.</b> One search box. One
+      blue. One card holding the data. Nothing on screen that does not do a job.
     </p>
     <p class="note">
       <b>This is a living reference, not a specification.</b> It tracks the implementation rather
       than the other way round: where the two disagree, the code is right and this document is
-      updated to match. Metrics below are the project's real tokens. Last synced 3 August 2026.
+      updated to match. Metrics below are the project's real tokens. Last synced 15 August 2026.
     </p>
     <ul class="specs">
       <li>Base <b>16px</b></li>
@@ -1413,11 +1579,284 @@
   </figure>
 
   <section>
+    <h2>The second screen — table settings</h2>
+    <p class="note">
+      Where a table is defined rather than used. It has exactly two objects on it — the table, and
+      its fields — so it has exactly two sections, each named after one. A field states what it is
+      configured to do on the row itself, because reading a table's shape should not mean opening a
+      dialog per row.
+    </p>
+    <figure>
+      <div class="scroll">
+        <div class="ui">
+          <header class="bar">
+            <a href="#" class="bar__name">FlexBase</a>
+            <label class="find">
+              <svg><use href="#i-search" /></svg>
+              <input placeholder="Search everything" />
+            </label>
+            <span class="sp"></span>
+            <button class="btn btn--plain">
+              <svg><use href="#i-help" /></svg> Help
+            </button>
+            <button class="who">
+              <i>MK</i> Marta <svg style="width: 16px; height: 16px"><use href="#i-down" /></svg>
+            </button>
+          </header>
+
+          <nav class="nav">
+            <a href="#" class="nav__item"
+              ><svg><use href="#i-home" /></svg> <span class="n">Home</span></a
+            >
+            <div class="nav__group">Your tables</div>
+            <a href="#" class="nav__item nav__item--on">
+              <svg><use href="#i-table" /></svg> <span class="n">Deals</span>
+              <span class="c">1,284</span>
+            </a>
+            <a href="#" class="nav__item">
+              <svg><use href="#i-table" /></svg> <span class="n">Companies</span>
+              <span class="c">148</span>
+            </a>
+            <a href="#" class="nav__item">
+              <svg><use href="#i-table" /></svg> <span class="n">People</span>
+              <span class="c">392</span>
+            </a>
+            <button class="nav__add">
+              <svg><use href="#i-plus" /></svg> Add a table
+            </button>
+          </nav>
+
+          <main class="main main--doc">
+            <nav class="crumb">
+              <a href="#">Home</a> › <a href="#">Deals</a> › <span>Settings</span>
+            </nav>
+
+            <div class="head">
+              <div>
+                <h1>Deals</h1>
+                <!-- Both table screens open with the same name; this line says which one -->
+                <p>Table settings</p>
+              </div>
+              <span class="sp"></span>
+              <a href="#" class="btn btn--plain">
+                <svg><use href="#i-table" /></svg> Records
+              </a>
+            </div>
+
+            <section class="sect">
+              <div class="sect__head"><h3>Table</h3></div>
+              <div class="card card--plain">
+                <dl style="margin: 0">
+                  <div class="drow">
+                    <dt>Name</dt>
+                    <dd>Deals</dd>
+                  </div>
+                  <div class="drow">
+                    <dt>Created</dt>
+                    <dd>03 Aug 2026, 09:14</dd>
+                  </div>
+                  <div class="drow">
+                    <dt>Records</dt>
+                    <dd>1,284</dd>
+                  </div>
+                </dl>
+                <!-- Words here, icons on the rows below: a one-off action in a card
+                     footer needs no decoding, and "Delete table" says what it deletes -->
+                <div class="cardfoot">
+                  <button class="btn btn--link">Rename</button>
+                  <button class="btn btn--link">Delete table</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sect">
+              <div class="sect__head">
+                <h3>Fields</h3>
+                <span class="sect__count">6</span>
+                <span class="sp"></span>
+                <button class="btn btn--primary">
+                  <svg><use href="#i-plus" /></svg> Add field
+                </button>
+              </div>
+
+              <div class="card card--plain">
+                <div class="frow">
+                  <span class="ftile"
+                    ><svg><use href="#i-ftext" /></svg
+                  ></span>
+                  <div class="fbody">
+                    <div class="fname"><b>Company</b> <span class="tag">required</span></div>
+                    <div class="fmeta">
+                      Text <span class="dot">·</span> <span class="key">company</span>
+                    </div>
+                  </div>
+                  <div class="facts">
+                    <button class="ibtn" aria-label="Edit field Company" title="Edit field Company">
+                      <svg><use href="#i-pencil" /></svg>
+                    </button>
+                    <button
+                      class="ibtn ibtn--danger"
+                      aria-label="Delete field Company"
+                      title="Delete field Company"
+                    >
+                      <svg><use href="#i-trash" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="frow">
+                  <span class="ftile"
+                    ><svg><use href="#i-fnumber" /></svg
+                  ></span>
+                  <div class="fbody">
+                    <div class="fname"><b>Contract value</b></div>
+                    <div class="fmeta">
+                      Number <span class="dot">·</span> <span class="key">contract_value</span>
+                    </div>
+                  </div>
+                  <div class="facts">
+                    <button
+                      class="ibtn"
+                      aria-label="Edit field Contract value"
+                      title="Edit field Contract value"
+                    >
+                      <svg><use href="#i-pencil" /></svg>
+                    </button>
+                    <button
+                      class="ibtn ibtn--danger"
+                      aria-label="Delete field Contract value"
+                      title="Delete field Contract value"
+                    >
+                      <svg><use href="#i-trash" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="frow">
+                  <span class="ftile"
+                    ><svg><use href="#i-fselect" /></svg
+                  ></span>
+                  <div class="fbody">
+                    <div class="fname"><b>Stage</b> <span class="tag">required</span></div>
+                    <div class="fmeta">
+                      Select <span class="dot">·</span> 5 choices
+                      <span class="dot">·</span> multiple values <span class="dot">·</span>
+                      <span class="key">stage</span>
+                    </div>
+                  </div>
+                  <div class="facts">
+                    <button class="ibtn" aria-label="Edit field Stage" title="Edit field Stage">
+                      <svg><use href="#i-pencil" /></svg>
+                    </button>
+                    <button
+                      class="ibtn ibtn--danger"
+                      aria-label="Delete field Stage"
+                      title="Delete field Stage"
+                    >
+                      <svg><use href="#i-trash" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="frow">
+                  <span class="ftile"
+                    ><svg><use href="#i-frelation" /></svg
+                  ></span>
+                  <div class="fbody">
+                    <div class="fname"><b>Owner</b></div>
+                    <div class="fmeta">
+                      Link to table <span class="dot">·</span> links to People
+                      <span class="dot">·</span> <span class="key">owner</span>
+                    </div>
+                  </div>
+                  <div class="facts">
+                    <button class="ibtn" aria-label="Edit field Owner" title="Edit field Owner">
+                      <svg><use href="#i-pencil" /></svg>
+                    </button>
+                    <button
+                      class="ibtn ibtn--danger"
+                      aria-label="Delete field Owner"
+                      title="Delete field Owner"
+                    >
+                      <svg><use href="#i-trash" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="frow">
+                  <span class="ftile"
+                    ><svg><use href="#i-fdate" /></svg
+                  ></span>
+                  <div class="fbody">
+                    <div class="fname"><b>Signed on</b></div>
+                    <div class="fmeta">
+                      Date <span class="dot">·</span> <span class="key">signed_on</span>
+                    </div>
+                  </div>
+                  <div class="facts">
+                    <button
+                      class="ibtn"
+                      aria-label="Edit field Signed on"
+                      title="Edit field Signed on"
+                    >
+                      <svg><use href="#i-pencil" /></svg>
+                    </button>
+                    <button
+                      class="ibtn ibtn--danger"
+                      aria-label="Delete field Signed on"
+                      title="Delete field Signed on"
+                    >
+                      <svg><use href="#i-trash" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="frow">
+                  <span class="ftile"
+                    ><svg><use href="#i-fcheck" /></svg
+                  ></span>
+                  <div class="fbody">
+                    <div class="fname"><b>Active</b></div>
+                    <div class="fmeta">
+                      Checkbox <span class="dot">·</span> <span class="key">active</span>
+                    </div>
+                  </div>
+                  <div class="facts">
+                    <button class="ibtn" aria-label="Edit field Active" title="Edit field Active">
+                      <svg><use href="#i-pencil" /></svg>
+                    </button>
+                    <button
+                      class="ibtn ibtn--danger"
+                      aria-label="Delete field Active"
+                      title="Delete field Active"
+                    >
+                      <svg><use href="#i-trash" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
+      </div>
+      <figcaption>
+        Deals · settings — the table's own facts and actions on the page named after it · one icon
+        column to scan a table's shape by, each glyph beside its type's word · a SELECT says how
+        many choices it holds, a relation says what it points at · the key is set as code, because
+        it is a URL contract rather than a category
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
     <h2>Why this is easy to learn</h2>
     <ul class="why">
       <li>
-        <b>Words beat symbols</b> Filter, Sort, Choose columns, Add a deal — no icon has to be
-        decoded, and every icon has a label beside it.
+        <b>Words beat symbols, with one exception</b> Filter, Sort, Choose columns, Add a deal — no
+        icon has to be decoded, and an icon standing beside a word keeps it. The exception is a
+        row's own actions, which repeat once per row: spelled out they would outweigh the data they
+        sit next to, so they are icon buttons carrying a tooltip and an accessible name that says
+        what they act on ("Edit field Company").
       </li>
       <li>
         <b>One search box, top left</b> Where every product this audience uses already puts it. A

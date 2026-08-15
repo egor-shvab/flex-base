@@ -43,6 +43,22 @@ export interface IFieldCellProps {
 }
 
 /**
+ * What a field-detail component receives: the field and nothing else. It states how one type is
+ * *configured* — a SELECT's choice count, a RELATION's target — beside the type's own word, so
+ * a field list can be read without opening a dialog per row.
+ *
+ * No `value`, which is what separates it from `IFieldCellProps`: a detail is about the field's
+ * metadata, and no record is involved.
+ *
+ * Cardinality is deliberately **not** its business. `isMultiValue(field)` is guarded by
+ * `MULTI_VALUE_BY_TYPE` and answers for any type, so the caller renders that part itself rather
+ * than every detail component repeating it.
+ */
+export interface IFieldDetailProps {
+  field: IField
+}
+
+/**
  * `MultiValueCell`'s own contract. Separate from `IFieldCellProps` rather than a widening of
  * it, because the two are opposites: this is the only cell that takes a list, and every other
  * one is the thing it delegates each entry to.

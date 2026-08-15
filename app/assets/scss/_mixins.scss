@@ -69,6 +69,20 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   white-space: nowrap;
 }
 
+/// A bordered surface sitting on the canvas — the dashboard's table cards, and each
+/// section of the table settings page. The edge is the structure, which is why this is
+/// `--color-border` rather than `-subtle`: a rule drawn *inside* one of these (between
+/// rows) is the softer token's job.
+///
+/// Geometry and colour only. A card that lifts on hover, or wears the ring because a
+/// link fills it, declares that itself — those differ per caller and collapsing them
+/// here would put a hover state on surfaces that are not interactive.
+@mixin surface-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
 /// The caption above a form control.
 @mixin field-label {
   font-size: var(--font-size-sm);
