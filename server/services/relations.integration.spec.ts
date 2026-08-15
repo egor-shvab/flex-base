@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   assertRelationTargets,
   listRelationOptions,
-  resolveRelationLabels,
+  resolveRelationRefs,
 } from '#server/services/relations'
 import { createRecord as createRecordService } from '#server/services/records'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
@@ -14,7 +14,7 @@ let userId: string
 let peopleId: string
 let owner: IField
 
-/** The shape `resolveRelationLabels` reads; only these two fields matter to it. */
+/** The shape `resolveRelationRefs` reads; only these two fields matter to it. */
 const asRecord = (data: TRecordData): IRecord => ({
   id: 'rec',
   number: 1,
@@ -39,37 +39,38 @@ beforeEach(async () => {
   })
 })
 
-describe('resolving labels', () => {
-  it('reads the label field of the linked record', async () => {
+describe('resolving refs', () => {
+  it('reads the number and the label field of the linked record', async () => {
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
-    const labels = await resolveRelationLabels([owner], [asRecord({ owner: ada.id })])
+    const refs = await resolveRelationRefs([owner], [asRecord({ owner: ada.id })])
 
-    expect(labels[owner.id]).toEqual({ [ada.id]: 'Ada' })
+    expect(refs[owner.id]).toEqual({ [ada.id]: { number: ada.number, label: 'Ada' } })
   })
 
-  it('falls back to the record number when the label field is blank', async () => {
+  /** The number is what still names the record; it is never folded into the label. */
+  it('resolves a blank label field to a null label', async () => {
     const blank = await createRecord(peopleId, { full_name: '' })
 
-    const labels = await resolveRelationLabels([owner], [asRecord({ owner: blank.id })])
+    const refs = await resolveRelationRefs([owner], [asRecord({ owner: blank.id })])
 
-    expect(labels[owner.id]?.[blank.id]).toBe(`#${blank.number}`)
+    expect(refs[owner.id]?.[blank.id]).toEqual({ number: blank.number, label: null })
   })
 
   /** A deleted target degrades to a placeholder in the cell rather than breaking the list. */
   it('leaves an id that no longer resolves absent', async () => {
-    const labels = await resolveRelationLabels([owner], [asRecord({ owner: 'rec_gone' })])
+    const refs = await resolveRelationRefs([owner], [asRecord({ owner: 'rec_gone' })])
 
-    expect(labels[owner.id]).toEqual({})
+    expect(refs[owner.id]).toEqual({})
   })
 
   it('will not resolve an id through the wrong table', async () => {
     const elsewhere = await createTable(userId, 'Elsewhere')
     const stranger = await createRecord(elsewhere.id, { full_name: 'Not Ada' })
 
-    const labels = await resolveRelationLabels([owner], [asRecord({ owner: stranger.id })])
+    const refs = await resolveRelationRefs([owner], [asRecord({ owner: stranger.id })])
 
-    expect(labels[owner.id]).toEqual({})
+    expect(refs[owner.id]).toEqual({})
   })
 
   it('resolves every id of a widened field', async () => {
@@ -77,9 +78,12 @@ describe('resolving labels', () => {
     const grace = await createRecord(peopleId, { full_name: 'Grace' })
     const multi = { ...owner, options: { ...owner.options, multiple: true } }
 
-    const labels = await resolveRelationLabels([multi], [asRecord({ owner: [ada.id, grace.id] })])
+    const refs = await resolveRelationRefs([multi], [asRecord({ owner: [ada.id, grace.id] })])
 
-    expect(labels[owner.id]).toEqual({ [ada.id]: 'Ada', [grace.id]: 'Grace' })
+    expect(refs[owner.id]).toEqual({
+      [ada.id]: { number: ada.number, label: 'Ada' },
+      [grace.id]: { number: grace.number, label: 'Grace' },
+    })
   })
 })
 
@@ -111,13 +115,16 @@ describe('checking a write’s targets', () => {
 })
 
 describe('the options a picker offers', () => {
-  it('lists the target table’s records, labelled', async () => {
-    await createRecord(peopleId, { full_name: 'Grace' })
-    await createRecord(peopleId, { full_name: 'Ada' })
+  it('lists the target table’s records, each with the number it reads by', async () => {
+    const grace = await createRecord(peopleId, { full_name: 'Grace' })
+    const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
     const options = await listRelationOptions(owner)
 
-    expect(options.map((option) => option.label)).toEqual(['Ada', 'Grace'])
+    expect(options).toEqual([
+      { id: ada.id, number: ada.number, label: 'Ada' },
+      { id: grace.id, number: grace.number, label: 'Grace' },
+    ])
   })
 
   it('orders by the label the user reads, not by the id stored', async () => {
@@ -139,7 +146,7 @@ describe('the options a picker offers', () => {
     expect(options.map((option) => option.label)).toEqual(['Grace Hopper'])
   })
 
-  it('matches the #number a blank label falls back to', async () => {
+  it('matches the #number a blank-labelled record reads by', async () => {
     const blank = await createRecord(peopleId, { full_name: '' })
 
     const options = await listRelationOptions(owner, `#${blank.number}`)

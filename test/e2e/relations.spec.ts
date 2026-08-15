@@ -21,6 +21,14 @@ const owners = (page: import('@playwright/test').Page) =>
   page.locator('tbody tr td:nth-child(3)').allInnerTexts()
 
 /**
+ * The owner cells with the record number stripped off. A relation reads as `#N Label`, and the
+ * number happens to ascend with the label in this fixture — comparing the labels alone is what
+ * keeps the sort assertion about the label it claims to be about.
+ */
+const ownerLabels = async (page: import('@playwright/test').Page) =>
+  (await owners(page)).map((text) => text.replace(/^#\d+\s/, ''))
+
+/**
  * A person's record id, looked up by the name on screen — a relation stores the id, so almost
  * every fixture here needs to turn a readable name into one. Declared once at file scope
  * because three seeds want it, each of which was re-reading the same three rows.
@@ -61,7 +69,7 @@ test.beforeEach(async ({ seedTable }) => {
   )
 })
 
-test('a link renders as its label, never as the stored id', async ({ page }) => {
+test('a link renders as its number and label, never as the stored id', async ({ page }) => {
   const target = await prisma.record.findFirstOrThrow({
     where: { tableId: people.id, data: { path: ['full_name'], equals: 'Ada' } },
     select: { id: true },
@@ -69,14 +77,14 @@ test('a link renders as its label, never as the stored id', async ({ page }) => 
 
   await page.goto(deals.url)
 
-  await expect(page.getByRole('link', { name: 'Ada' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /#\d+ Ada/ })).toBeVisible()
   await expect(page.locator('tbody')).not.toContainText(target.id)
 })
 
 test('the column sorts alphabetically by label, not by id', async ({ page }) => {
   await page.goto(`${deals.url}?sort=owner&dir=asc`)
 
-  await expect.poll(() => owners(page)).toEqual(['Ada', 'Grace', 'Zoe'])
+  await expect.poll(() => ownerLabels(page)).toEqual(['Ada', 'Grace', 'Zoe'])
 })
 
 test('a deleted target degrades to an unclickable Unknown record', async ({ page }) => {
@@ -87,7 +95,8 @@ test('a deleted target degrades to an unclickable Unknown record', async ({ page
 
   await page.goto(deals.url)
 
-  await expect(page.getByText('Unknown record')).toBeVisible()
+  // Exactly that, and no `#N`: nothing resolved, so there is no number to state either
+  await expect(page.getByText('Unknown record')).toHaveText('Unknown record')
   // Degraded, not merely relabelled — there is nothing to open
   await expect(page.getByRole('link', { name: 'Unknown record' })).toHaveCount(0)
   // The siblings still link

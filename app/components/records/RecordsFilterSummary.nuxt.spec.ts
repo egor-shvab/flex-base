@@ -49,7 +49,7 @@ describe('RecordsFilterSummary', () => {
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     // That store outlives the case, so its cache is cleared rather than re-created
-    useRelationsStore().labelsByField = {}
+    useRelationsStore().refsByField = {}
   })
 
   describe('the chips it builds from the registry', () => {
@@ -80,11 +80,15 @@ describe('RecordsFilterSummary', () => {
 
     /** The one summariser needing state beyond its own value. */
     it('resolves a RELATION filter through the relations store', async () => {
-      useRelationsStore().cacheLabels({ fld_owner: { rec_ada: 'Ada Lovelace' } })
+      useRelationsStore().cacheRefs({
+        fld_owner: { rec_ada: { number: 7, label: 'Ada Lovelace' } },
+      })
 
       const wrapper = await summary({ owner: 'rec_ada' })
 
-      expect(chips(wrapper)).toEqual(['Owner is Ada Lovelace'])
+      // Flat, unlike a cell: a chip's phrase is a string by contract, so there is nothing
+      // to style the number apart from
+      expect(chips(wrapper)).toEqual(['Owner is #7 Ada Lovelace'])
     })
 
     it('degrades a relation id it cannot resolve rather than showing the id', async () => {

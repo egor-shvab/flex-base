@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import type { Prisma } from '#server/generated/prisma/client'
 import { buildRecordOrderBy, buildRecordWhere } from '#server/services/record-query'
-import { assertRelationTargets, resolveRelationLabels } from '#server/services/relations'
+import { assertRelationTargets, resolveRelationRefs } from '#server/services/relations'
 import { prisma } from '#server/utils/prisma'
 import { toHttpError } from '#server/utils/prisma-errors'
 import type { IField } from '#shared/types/field'
@@ -75,7 +75,7 @@ export async function listRecords(
     page,
     pageSize,
     // Resolved for the ids on this page alone, in one query per target table
-    relationLabels: await resolveRelationLabels(fields, records),
+    relationRefs: await resolveRelationRefs(fields, records),
   }
 }
 
@@ -107,7 +107,7 @@ export async function getRecordDetail(
     table,
     fields,
     record,
-    relationLabels: await resolveRelationLabels(fields, [record]),
+    relationRefs: await resolveRelationRefs(fields, [record]),
   }
 }
 

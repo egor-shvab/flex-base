@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
+import type { IRecordRef } from '#shared/types/record'
 import { FILTER_SUMMARIES, summaryFor } from '~/field-types/filter-summaries'
 import type { IFilterSummaryContext } from '~/field-types/filter-summaries'
 import {
@@ -13,13 +14,14 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-const LABELS: Record<string, string> = {
-  rec_ada: 'Ada Lovelace',
-  rec_grace: 'Grace Hopper',
+const REFS: Record<string, IRecordRef> = {
+  rec_ada: { number: 7, label: 'Ada Lovelace' },
+  rec_grace: { number: 9, label: 'Grace Hopper' },
+  rec_blank: { number: 11, label: null },
 }
 
 const ctx: IFilterSummaryContext = {
-  labelFor: (_fieldId, recordId) => LABELS[recordId],
+  refFor: (_fieldId, recordId) => REFS[recordId],
 }
 
 /** How one field's active filter actually reads — the resolver, not the raw registry entry. */
@@ -127,8 +129,13 @@ describe('SELECT', () => {
 describe('RELATION', () => {
   const field = relationField()
 
-  it('resolves a single id to its label', () => {
-    expect(summarise(field, 'rec_ada')).toBe('is Ada Lovelace')
+  /** Flat, because a chip's phrase is a string — the number is stated, not styled apart. */
+  it('resolves a single id to its number and label', () => {
+    expect(summarise(field, 'rec_ada')).toBe('is #7 Ada Lovelace')
+  })
+
+  it('states the number alone for a record nothing names', () => {
+    expect(summarise(field, 'rec_blank')).toBe('is #11')
   })
 
   /** An id outside the capped candidate list resolves to nothing, and degrades like a cell. */
@@ -140,18 +147,18 @@ describe('RELATION', () => {
     const multi = asMultiple(relationField())
 
     it('resolves one id as an equality', () => {
-      expect(summarise(multi, ['rec_ada'])).toBe('is Ada Lovelace')
+      expect(summarise(multi, ['rec_ada'])).toBe('is #7 Ada Lovelace')
     })
 
     it('resolves several as an any-of', () => {
       expect(summarise(multi, ['rec_ada', 'rec_grace'])).toBe(
-        'is any of Ada Lovelace, Grace Hopper',
+        'is any of #7 Ada Lovelace, #9 Grace Hopper',
       )
     })
 
     it('degrades per entry, keeping the ones it can resolve', () => {
       expect(summarise(multi, ['rec_ada', 'rec_deleted'])).toBe(
-        'is any of Ada Lovelace, Unknown record',
+        'is any of #7 Ada Lovelace, Unknown record',
       )
     })
 
@@ -172,8 +179,8 @@ describe('summaryFor', () => {
     const multi = asMultiple(relationField())
 
     // The same value, read by the two entries — proof they are genuinely different functions
-    expect(summarise(single, 'rec_ada')).toBe('is Ada Lovelace')
-    expect(summarise(multi, ['rec_ada'])).toBe('is Ada Lovelace')
+    expect(summarise(single, 'rec_ada')).toBe('is #7 Ada Lovelace')
+    expect(summarise(multi, ['rec_ada'])).toBe('is #7 Ada Lovelace')
     expect(summaryFor(single)).not.toBe(summaryFor(multi))
   })
 

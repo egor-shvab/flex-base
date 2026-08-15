@@ -80,7 +80,7 @@ const entries = computed(() =>
     const value = props.filters[field.key]
     if (value === undefined) return []
 
-    const phrase = summaryFor(field)(value, field, { labelFor: relations.labelFor })
+    const phrase = summaryFor(field)(value, field, { refFor: relations.refFor })
     return [{ field, phrase }]
   }),
 )

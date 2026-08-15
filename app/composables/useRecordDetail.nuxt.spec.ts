@@ -20,12 +20,12 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 const route = vi.hoisted(() => ({ current: { query: {} as TUrlQuery } }))
 mockNuxtImport('useRoute', () => () => route.current)
 
-function detail(recordId: string, labels: IRecordDetail['relationLabels'] = {}): IRecordDetail {
+function detail(recordId: string, refs: IRecordDetail['relationRefs'] = {}): IRecordDetail {
   return {
     table: { id: 'tbl_deals', name: 'Deals' },
     fields: [textField('company'), relationField()],
     record: record({ id: recordId, number: 1, data: { company: 'Acme' } }),
-    relationLabels: labels,
+    relationRefs: refs,
   }
 }
 
@@ -98,7 +98,7 @@ describe('useRecordDetail', () => {
 
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
-    useRelationsStore().labelsByField = {}
+    useRelationsStore().refsByField = {}
 
     responses = {}
     failures = {}
@@ -141,14 +141,19 @@ describe('useRecordDetail', () => {
 
   /**
    * The same merge-only cache the list feeds, so a relation *inside* the dialog resolves to a
-   * label and can link on again without a second round trip.
+   * ref and can link on again without a second round trip.
    */
-  it('caches the relation labels the record came with', async () => {
-    responses.rec_1 = detail('rec_1', { fld_owner: { rec_ada: 'Ada Lovelace' } })
+  it('caches the relation refs the record came with', async () => {
+    responses.rec_1 = detail('rec_1', {
+      fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } },
+    })
 
     await open({ detail: 'tbl_deals.rec_1' })
 
-    expect(useRelationsStore().labelFor('fld_owner', 'rec_ada')).toBe('Ada Lovelace')
+    expect(useRelationsStore().refFor('fld_owner', 'rec_ada')).toEqual({
+      number: 1,
+      label: 'Ada Lovelace',
+    })
   })
 
   /**

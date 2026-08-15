@@ -36,8 +36,12 @@ function rowWith(column: IField, value: unknown): IRecord {
 describe('RecordFieldValue', () => {
   afterEach(unmountAll)
 
-  // A RELATION cell resolves its label through the store the Nuxt app provides
-  beforeEach(() => setActivePinia(useNuxtApp().$pinia as Pinia))
+  // A RELATION cell resolves its ref through the store the Nuxt app provides, and that store
+  // outlives the case — so its cache is cleared rather than re-created
+  beforeEach(() => {
+    setActivePinia(useNuxtApp().$pinia as Pinia)
+    useRelationsStore().refsByField = {}
+  })
 
   /**
    * Handled here, once, so no cell component has to deal with null — which is what lets
@@ -153,13 +157,26 @@ describe('RecordFieldValue', () => {
       expect((await cell(column, rowWith(column, false))).text()).toBe('No')
     })
 
-    it('resolves a RELATION through the relations store', async () => {
+    /** The same cell the detail dialog draws, so this covers both surfaces. */
+    it('resolves a RELATION to its number and label through the relations store', async () => {
       const column = relationField()
-      useRelationsStore().cacheLabels({ [column.id]: { rec_ada: 'Ada Lovelace' } })
+      useRelationsStore().cacheRefs({
+        [column.id]: { rec_ada: { number: 7, label: 'Ada Lovelace' } },
+      })
 
       const wrapper = await cell(column, rowWith(column, 'rec_ada'))
 
-      expect(wrapper.text()).toContain('Ada Lovelace')
+      expect(wrapper.text()).toContain('#7 Ada Lovelace')
+    })
+
+    /** Nothing names it, so the number is the whole reference — stated once. */
+    it('reads a RELATION whose target has no label as its number alone', async () => {
+      const column = relationField()
+      useRelationsStore().cacheRefs({ [column.id]: { rec_blank: { number: 8, label: null } } })
+
+      const wrapper = await cell(column, rowWith(column, 'rec_blank'))
+
+      expect(wrapper.text()).toBe('#8')
     })
 
     it('degrades a relation whose target is gone', async () => {
@@ -167,6 +184,8 @@ describe('RecordFieldValue', () => {
       const wrapper = await cell(column, rowWith(column, 'rec_deleted'))
 
       expect(wrapper.text()).toContain('Unknown record')
+      // Nothing resolved, so there is no number to state either
+      expect(wrapper.text()).not.toContain('#')
     })
   })
 

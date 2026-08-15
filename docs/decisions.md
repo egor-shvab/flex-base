@@ -169,6 +169,14 @@ Every user's records share one physical `Record` table, so a global sequence wou
 
 A filter's **value** is the whole contract. How a value is compared is the field type's business, declared once in `FIELD_SQL_BY_TYPE` on the server — it never travels in the URL, no control knows it, and no user can pick one. This is what keeps the filter drawer, the URL codec, the summary chips and the SQL builder from each needing a per-operator branch.
 
+### A record reference is a number plus a nullable label, never a pre-flattened string
+
+A relation travels as `IRecordRef` — `{ number, label: string | null }` — because a renderer is the only layer that knows whether it can style the two apart, and a flattened `#3 Example` can never be taken back apart. `buildRecordLabel` therefore returns `null` for a record with nothing to name it by; it used to return `#<number>`, which made the number unrecoverable from the label and turned "state the number too" into `#3 #3`.
+
+**Only `formatRecordRef` and `BaseRecordRef` write a `#`, and both require a real number.** That is what makes the doubling structurally impossible, and it also settles the deleted-target case: an unresolvable id has no ref at all, so it degrades to `UNKNOWN_RECORD_LABEL` with no number — the app genuinely does not know one.
+
+The visible `#N` is **not** the sort key: `targetLabel` orders by the target's label field, blanks last, so a column of blank-labelled records shows numbers in no particular order. Sorting by number instead would reorder every existing picker and every relation column to match a tiebreaker rather than a name.
+
 ### A multi-value filter is a repeated param, not a delimited one
 
 `?stage=Won&stage=Lost`. Comma-joining was rejected: a choice's value is free user text and may contain any character, so any delimiter needs escaping, and escaping user text into a separator is a silent-corruption failure mode rather than a loud one.
@@ -384,7 +392,7 @@ The View action in a row could have been a button emitting `view`, as every othe
 
 ### The detail endpoint returns an aggregate, not just the record
 
-`GET /api/tables/:tableId/records/:recordId` answers with the record **plus** its table's name, its fields and its relation labels. Strictly three resources — but the dialog needs all three at once, and `resolveRelationLabels` needs the fields server-side regardless, so returning them costs nothing while saving two round trips and two more loading states.
+`GET /api/tables/:tableId/records/:recordId` answers with the record **plus** its table's name, its fields and its relation refs. Strictly three resources — but the dialog needs all three at once, and `resolveRelationRefs` needs the fields server-side regardless, so returning them costs nothing while saving two round trips and two more loading states.
 
 ### The dialog's title is static
 
@@ -462,6 +470,14 @@ Internally selection is **always** a `string[]`, whatever the model's shape: one
 One selection reads as itself; several read as "3 selected". Chips were rejected on a structural argument: they make the control's height a function of its content, and **nothing in the positioning layer observes that**. `useAnchoredPosition` measures on open, on `resize` and on capture-phase `scroll` — the moment a chip wrapped to a second row the control would grow, the panel would not move, and it would visibly detach from the field. Fixing that means a `ResizeObserver` in a composable whose other consumer has no use for one.
 
 Independently sufficient: the control height is a design invariant, and in the filter drawer every control below a growing chip field would shift down as the user picks — moving the control they were aiming at.
+
+### `BaseSelect` has one slot, and it replaces an option's text rather than its row
+
+`option-label` sits **inside** `.base-select__option-label`, not around the `<li>`. Slot content compiles in the caller's scope, so this component's scoped rules cannot reach it — a row-level slot would silently hand out `min-width: 0` and `@include truncate` with it, and a long option would stop ellipsizing in a narrow panel. Keeping the slot inside leaves the row, its classes, its ARIA and the check icon the component's own, and leaves the default rendering byte-identical for every caller that passes nothing. A coloured option stays outside it: a badge is already the whole of its row.
+
+A second slot for the **value overlay** was rejected. `valueText` is not only display — it is the non-searchable branch's accessible name and the searchable branch's `aria-describedby` — so a flat string is the right thing there, and a 36px overlay is the wrong place for styled sub-parts.
+
+This is also why `ISelectOption` did not grow a `number`: the only caller that needs one (`RelationFieldSelect`) resolves it from the relations store by `option.value`, which additionally covers `BaseSelect`'s `{ value, label: value }` fallback for an option it has never rendered.
 
 ### Escape is swallowed only while something of ours is open
 

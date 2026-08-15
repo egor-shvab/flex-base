@@ -30,7 +30,7 @@ function detailOf(tableId = 'tbl_deals', tableName = 'Deals'): IRecordDetail {
     table: { id: tableId, name: tableName },
     fields: [textField('company', { name: 'Company' })],
     record: record({ id: 'rec_1', number: 7, data: { company: 'Acme' } }),
-    relationLabels: {},
+    relationRefs: {},
   }
 }
 

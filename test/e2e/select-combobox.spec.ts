@@ -229,7 +229,20 @@ test.describe('a relation picker', () => {
     const owner = await openOwner(page)
     await owner.pressSequentially('#3')
 
-    await expect(page.getByRole('option', { name: '#3' })).toBeVisible()
+    await expect(page.getByRole('option', { name: '#3', exact: true })).toBeVisible()
+  })
+
+  /**
+   * The number is what tells two same-named records apart, so the picker states it beside every
+   * candidate — in an element of its own, which is what lets it be styled apart from the label.
+   */
+  test('offers each candidate as its number and label', async ({ page }) => {
+    const owner = await openOwner(page)
+    await owner.pressSequentially('lovelace')
+
+    const option = page.getByRole('option', { name: /Ada Lovelace/ })
+    await expect(option).toHaveText(/^#\d+ Ada Lovelace$/)
+    await expect(option.locator('.record-ref__number')).toHaveText(/^#\d+$/)
   })
 
   test('returns to the seed when the term is cleared, with no stale result winning', async ({

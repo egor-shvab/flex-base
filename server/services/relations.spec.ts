@@ -3,7 +3,7 @@ import {
   assertRelationTargets,
   collectRelationTargets,
   listRelationOptions,
-  resolveRelationLabels,
+  resolveRelationRefs,
 } from '#server/services/relations'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
@@ -109,43 +109,44 @@ describe('collectRelationTargets', () => {
   })
 })
 
-describe('resolveRelationLabels', () => {
+describe('resolveRelationRefs', () => {
   it('asks nothing of the database when there is nothing to resolve', async () => {
-    await expect(resolveRelationLabels([owner], [record()])).resolves.toEqual({})
+    await expect(resolveRelationRefs([owner], [record()])).resolves.toEqual({})
     expect(prismaMock.record.findMany).not.toHaveBeenCalled()
   })
 
-  it('labels each id, keyed by the field that points at it', async () => {
+  it('resolves each id to its number and label, keyed by the field that points at it', async () => {
     prismaMock.record.findMany.mockResolvedValue([targetRow('rec_1', 1, 'Ada')])
 
-    const labels = await resolveRelationLabels([owner], [record({ data: { owner: 'rec_1' } })])
+    const refs = await resolveRelationRefs([owner], [record({ data: { owner: 'rec_1' } })])
 
-    expect(labels).toEqual({ fld_owner: { rec_1: 'Ada' } })
+    expect(refs).toEqual({ fld_owner: { rec_1: { number: 1, label: 'Ada' } } })
   })
 
-  it('falls back to the record number when the label field is blank', async () => {
+  /** The number carries the whole reference when the label field says nothing. */
+  it('resolves a blank label field to a null label, never to the number', async () => {
     prismaMock.record.findMany.mockResolvedValue([targetRow('rec_1', 7)])
 
-    const labels = await resolveRelationLabels([owner], [record({ data: { owner: 'rec_1' } })])
+    const refs = await resolveRelationRefs([owner], [record({ data: { owner: 'rec_1' } })])
 
-    expect(labels.fld_owner?.rec_1).toBe('#7')
+    expect(refs.fld_owner?.rec_1).toEqual({ number: 7, label: null })
   })
 
-  it('labels a target whose data column is null, rather than failing on it', async () => {
+  it('resolves a target whose data column is null, rather than failing on it', async () => {
     prismaMock.record.findMany.mockResolvedValue([{ id: 'rec_1', number: 4, data: null }])
 
-    const labels = await resolveRelationLabels([owner], [record({ data: { owner: 'rec_1' } })])
+    const refs = await resolveRelationRefs([owner], [record({ data: { owner: 'rec_1' } })])
 
-    expect(labels.fld_owner?.rec_1).toBe('#4')
+    expect(refs.fld_owner?.rec_1).toEqual({ number: 4, label: null })
   })
 
   it('leaves an unresolvable id absent rather than inventing a placeholder', async () => {
     // A deleted target degrades in the cell, which is where the copy for it lives
     prismaMock.record.findMany.mockResolvedValue([])
 
-    const labels = await resolveRelationLabels([owner], [record({ data: { owner: 'rec_gone' } })])
+    const refs = await resolveRelationRefs([owner], [record({ data: { owner: 'rec_gone' } })])
 
-    expect(labels).toEqual({ fld_owner: {} })
+    expect(refs).toEqual({ fld_owner: {} })
   })
 
   it('issues one query per target table, never one per row', async () => {
@@ -154,7 +155,7 @@ describe('resolveRelationLabels', () => {
       targetRow('rec_2', 2, 'Grace'),
     ])
 
-    await resolveRelationLabels(
+    await resolveRelationRefs(
       [owner, reviewer],
       [
         record({ id: 'a', data: { owner: 'rec_1', reviewer: 'rec_2' } }),
@@ -177,7 +178,7 @@ describe('resolveRelationLabels', () => {
     )
     prismaMock.record.findMany.mockResolvedValue([])
 
-    await resolveRelationLabels([owner, elsewhere], [record({ data: { owner: 'r1', org: 'r2' } })])
+    await resolveRelationRefs([owner, elsewhere], [record({ data: { owner: 'r1', org: 'r2' } })])
 
     expect(prismaMock.record.findMany).toHaveBeenCalledTimes(2)
   })
@@ -188,12 +189,15 @@ describe('resolveRelationLabels', () => {
       targetRow('rec_2', 2, 'Grace'),
     ])
 
-    const labels = await resolveRelationLabels(
+    const refs = await resolveRelationRefs(
       [asMultiple(owner)],
       [record({ data: { owner: ['rec_1', 'rec_2'] } })],
     )
 
-    expect(labels.fld_owner).toEqual({ rec_1: 'Ada', rec_2: 'Grace' })
+    expect(refs.fld_owner).toEqual({
+      rec_1: { number: 1, label: 'Ada' },
+      rec_2: { number: 2, label: 'Grace' },
+    })
   })
 })
 
@@ -235,12 +239,13 @@ describe('listRelationOptions', () => {
     expect(prismaMock.$queryRaw).not.toHaveBeenCalled()
   })
 
-  it('labels each candidate, falling back to its number', async () => {
+  /** The picker states a number beside every candidate, so it travels with each of them. */
+  it('offers each candidate as its id, its number and its label', async () => {
     prismaMock.$queryRaw.mockResolvedValue([targetRow('rec_1', 1, 'Ada'), targetRow('rec_2', 2)])
 
     await expect(listRelationOptions(owner)).resolves.toEqual([
-      { id: 'rec_1', label: 'Ada' },
-      { id: 'rec_2', label: '#2' },
+      { id: 'rec_1', number: 1, label: 'Ada' },
+      { id: 'rec_2', number: 2, label: null },
     ])
   })
 

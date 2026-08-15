@@ -2,21 +2,21 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
 import type { IField } from '#shared/types/field'
-import type { IRecordOption } from '#shared/types/record'
+import type { IRecordOption, IRecordRef } from '#shared/types/record'
 
 /**
  * Everything a relation needs in order to read as something other than an id, keyed by the
  * relation field throughout — two fields may point at one table through different label
  * fields, so a field is the only key under which both halves are unambiguous.
  *
- * Labels arrive from two places that never disagree, because the server builds both from the
- * same rule: the candidates a picker offers, and the labels a page of records came with.
+ * Refs arrive from two places that never disagree, because the server builds both from the
+ * same rule: the candidates a picker offers, and the refs a page of records came with.
  */
 export const useRelationsStore = defineStore('relations', () => {
   const api = useApi()
 
   const optionsByField = ref<Record<string, IRecordOption[]>>({})
-  const labelsByField = ref<Record<string, Record<string, string>>>({})
+  const refsByField = ref<Record<string, Record<string, IRecordRef>>>({})
 
   /**
    * Which table's endpoint answers for a relation field. Remembered here rather than added to
@@ -26,10 +26,17 @@ export const useRelationsStore = defineStore('relations', () => {
    */
   const tableIdByField = ref<Record<string, string>>({})
 
-  function cacheLabels(labels: Record<string, Record<string, string>>) {
-    for (const [fieldId, fieldLabels] of Object.entries(labels)) {
-      labelsByField.value[fieldId] = { ...labelsByField.value[fieldId], ...fieldLabels }
+  function cacheRefs(refs: Record<string, Record<string, IRecordRef>>) {
+    for (const [fieldId, fieldRefs] of Object.entries(refs)) {
+      refsByField.value[fieldId] = { ...refsByField.value[fieldId], ...fieldRefs }
     }
+  }
+
+  /** An option already carries everything a ref does; the id is the key it is filed under. */
+  function refsFromOptions(options: IRecordOption[]): Record<string, IRecordRef> {
+    return Object.fromEntries(
+      options.map((option) => [option.id, { number: option.number, label: option.label }]),
+    )
   }
 
   /**
@@ -47,11 +54,7 @@ export const useRelationsStore = defineStore('relations', () => {
         )
         tableIdByField.value[field.id] = tableId
         optionsByField.value[field.id] = response.options
-        cacheLabels({
-          [field.id]: Object.fromEntries(
-            response.options.map((option) => [option.id, option.label]),
-          ),
-        })
+        cacheRefs({ [field.id]: refsFromOptions(response.options) })
       }),
     )
   }
@@ -60,8 +63,8 @@ export const useRelationsStore = defineStore('relations', () => {
     return optionsByField.value[fieldId] ?? []
   }
 
-  function labelFor(fieldId: string, recordId: string): string | undefined {
-    return labelsByField.value[fieldId]?.[recordId]
+  function refFor(fieldId: string, recordId: string): IRecordRef | undefined {
+    return refsByField.value[fieldId]?.[recordId]
   }
 
   /**
@@ -70,8 +73,8 @@ export const useRelationsStore = defineStore('relations', () => {
    *
    * It deliberately does **not** write `optionsByField`: that is the seed every other
    * consumer of `optionsFor()` reads, and a search result would clobber it. It does cache
-   * the labels, so a record found only through a search still renders as its label in a
-   * cell afterwards without a second round trip.
+   * the refs, so a record found only through a search still reads as itself in a cell
+   * afterwards without a second round trip.
    */
   async function searchOptions(
     fieldId: string,
@@ -87,21 +90,19 @@ export const useRelationsStore = defineStore('relations', () => {
       { query: { q: term }, signal },
     )
 
-    cacheLabels({
-      [fieldId]: Object.fromEntries(response.options.map((option) => [option.id, option.label])),
-    })
+    cacheRefs({ [fieldId]: refsFromOptions(response.options) })
 
     return response.options
   }
 
   return {
     optionsByField,
-    labelsByField,
+    refsByField,
     tableIdByField,
-    cacheLabels,
+    cacheRefs,
     loadOptions,
     searchOptions,
     optionsFor,
-    labelFor,
+    refFor,
   }
 })

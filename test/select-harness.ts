@@ -47,10 +47,14 @@ export function keydown(element: Element, key: string, init: KeyboardEventInit =
  * typed cases. Everything asserted afterwards is read back off the rendered DOM, which is where
  * the real contract lives.
  */
-export async function select(props: Record<string, unknown> = {}) {
+export async function select(
+  props: Record<string, unknown> = {},
+  slots: Record<string, string> = {},
+) {
   return mountTracked(BaseSelect, {
     attachTo: document.body,
     props: { id: 'stage', modelValue: '', options: OPTIONS, ...props } as never,
+    slots,
   })
 }
 

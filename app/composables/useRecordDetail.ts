@@ -43,8 +43,8 @@ export function useRecordDetail() {
 
       const detail = await api<IRecordDetail>(`/api/tables/${ref.tableId}/records/${ref.recordId}`)
       // The same merge-only cache the list feeds, so a relation *inside* the dialog resolves
-      // to a label and can link on again
-      relations.cacheLabels(detail.relationLabels)
+      // to a ref and can link on again
+      relations.cacheRefs(detail.relationRefs)
       return detail
     },
     // `null` rather than `undefined` while it loads: "no record open" is a state the dialog

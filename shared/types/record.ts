@@ -43,18 +43,28 @@ export interface IRecordPage {
   page: number
   pageSize: number
   /**
-   * Display labels for every relation value on this page, keyed by the relation field's id
-   * and then by the target record's id. Resolved server-side, so a cell reads correctly
-   * however large the target table is; keyed per field, because two relation fields may
-   * point at one table through different label fields.
+   * How every relation value on this page reads, keyed by the relation field's id and then by
+   * the target record's id. Resolved server-side, so a cell reads correctly however large the
+   * target table is; keyed per field, because two relation fields may point at one table
+   * through different label fields.
    */
-  relationLabels: Record<string, Record<string, string>>
+  relationRefs: Record<string, Record<string, IRecordRef>>
 }
 
-/** A target record as a relation picker offers it — the id it stores, and what it reads as. */
-export interface IRecordOption {
+/**
+ * How a linked record reads: its own number, plus whatever its label field says. The two travel
+ * apart rather than pre-joined, because only a renderer knows whether it can style them
+ * differently — and a flattened `#3 Example` can never be taken apart again.
+ */
+export interface IRecordRef {
+  number: number
+  /** The label field's value — `null` when blank, missing, or an empty list. Never `#N`. */
+  label: string | null
+}
+
+/** A target record as a relation picker offers it — the id it stores, and how it reads. */
+export interface IRecordOption extends IRecordRef {
   id: string
-  label: string
 }
 
 /**
@@ -77,7 +87,7 @@ export interface IRecordDetail {
   fields: IField[]
   record: IRecord
   /** Keyed exactly like `IRecordPage`'s, so the same client cache ingests both. */
-  relationLabels: Record<string, Record<string, string>>
+  relationRefs: Record<string, Record<string, IRecordRef>>
 }
 
 /**

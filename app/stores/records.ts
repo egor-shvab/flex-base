@@ -56,8 +56,8 @@ export const useRecordsStore = defineStore('records', () => {
       page.value = response.page
       pageSize.value = response.pageSize
       loadedTableId.value = tableId
-      // Relation cells read their label from there, not from the record's own data
-      relations.cacheLabels(response.relationLabels)
+      // Relation cells read how a link reads from there, not from the record's own data
+      relations.cacheRefs(response.relationRefs)
     } catch (error) {
       // A refetch runs from a watcher, where a rejection would be unhandled and the table
       // would silently keep showing rows that no longer match the URL. Surfacing it is the

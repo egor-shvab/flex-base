@@ -199,10 +199,18 @@
             @click="choose(option)"
             @mousedown.prevent
           >
+            <!--
+              The slot sits *inside* the label span rather than around the row: slot content is
+              compiled in the caller's scope, so this component's scoped rules would not reach
+              it — a row-level slot would silently lose `min-width: 0` and the truncation with
+              it. The row, its classes, its ARIA and the check below stay ours either way.
+            -->
             <BaseBadge v-if="option.color" :color="option.color" class="base-select__badge">
               {{ option.label }}
             </BaseBadge>
-            <span v-else class="base-select__option-label">{{ option.label }}</span>
+            <span v-else class="base-select__option-label">
+              <slot name="option-label" :option="option">{{ option.label }}</slot>
+            </span>
 
             <!-- Colour alone cannot carry the selected state (WCAG 1.4.1) -->
             <Icon
@@ -279,6 +287,16 @@ const props = withDefaults(
 )
 
 const model = defineModel<TModel>({ required: true })
+
+defineSlots<{
+  /**
+   * Replaces the **text** of an option that carries no colour — a coloured choice is a badge,
+   * which is already the whole of its row. Declared so `vue-tsc` checks the scope at the call
+   * site; the option is all of it, since selected and active are stated by the row's own
+   * classes and its check icon, which the slot cannot reach.
+   */
+  'option-label'?: (props: { option: ISelectOption }) => unknown
+}>()
 
 /**
  * **Never read `props.multiple` directly.** Vue casts a bare `multiple` attribute to `true`

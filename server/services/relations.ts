@@ -4,7 +4,7 @@ import { buildRecordLabelOrderBy, buildRecordLabelSearch } from '#server/service
 import { prisma } from '#server/utils/prisma'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
-import type { IRecord, IRecordOption, TRecordData } from '#shared/types/record'
+import type { IRecord, IRecordOption, IRecordRef, TRecordData } from '#shared/types/record'
 import { buildRecordLabel } from '#shared/utils/record-label'
 
 /**
@@ -19,7 +19,7 @@ export interface IRelationTarget {
   ids: Set<string>
 }
 
-/** Just enough of a target record to label it — its number is the fallback when it is blank. */
+/** Just enough of a target record to say how it reads — its number, and its label field. */
 interface ITargetRow {
   id: string
   number: number
@@ -29,6 +29,11 @@ interface ITargetRow {
 /** Prisma's JSON column is untyped; every row was written through the record schema. */
 function toLabelSource(row: ITargetRow): Pick<IRecord, 'number' | 'data'> {
   return { number: row.number, data: (row.data as TRecordData | null) ?? {} }
+}
+
+/** The one mapping from a stored row to how it reads — both producers below go through it. */
+function toRecordRef(source: Pick<IRecord, 'number' | 'data'>, labelFieldKey?: string): IRecordRef {
+  return { number: source.number, label: buildRecordLabel(source, labelFieldKey) }
 }
 
 export function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
@@ -89,14 +94,14 @@ async function fetchTargetRecords(
 }
 
 /**
- * The label of every linked record on a page of results, keyed by relation field and then by
+ * How every linked record on a page of results reads, keyed by relation field and then by
  * target record id. An id that no longer resolves is simply absent, so a deleted target
  * degrades to a placeholder in the cell rather than breaking the list.
  */
-export async function resolveRelationLabels(
+export async function resolveRelationRefs(
   fields: IField[],
   records: IRecord[],
-): Promise<Record<string, Record<string, string>>> {
+): Promise<Record<string, Record<string, IRecordRef>>> {
   const targets = collectRelationTargets(
     fields,
     records.map((record) => record.data),
@@ -104,21 +109,21 @@ export async function resolveRelationLabels(
   if (targets.length === 0) return {}
 
   const recordsByTable = await fetchTargetRecords(targets)
-  const labels: Record<string, Record<string, string>> = {}
+  const refs: Record<string, Record<string, IRecordRef>> = {}
 
   for (const { field, targetTableId, ids } of targets) {
     const found = recordsByTable.get(targetTableId)
-    const fieldLabels: Record<string, string> = {}
+    const fieldRefs: Record<string, IRecordRef> = {}
 
     for (const id of ids) {
       const target = found?.get(id)
-      if (target) fieldLabels[id] = buildRecordLabel(target, field.options?.labelFieldKey)
+      if (target) fieldRefs[id] = toRecordRef(target, field.options?.labelFieldKey)
     }
 
-    labels[field.id] = fieldLabels
+    refs[field.id] = fieldRefs
   }
 
-  return labels
+  return refs
 }
 
 /**
@@ -169,8 +174,5 @@ export async function listRelationOptions(field: IField, search = ''): Promise<I
     LIMIT ${RELATION_OPTIONS_LIMIT}
   `
 
-  return rows.map((row) => ({
-    id: row.id,
-    label: buildRecordLabel(toLabelSource(row), labelFieldKey),
-  }))
+  return rows.map((row) => ({ id: row.id, ...toRecordRef(toLabelSource(row), labelFieldKey) }))
 }

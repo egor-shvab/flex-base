@@ -21,13 +21,13 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 const FIELD_ID = 'fld_owner'
 
 const SEED = [
-  { id: 'rec_ada', label: 'Ada Lovelace' },
-  { id: 'rec_grace', label: 'Grace Hopper' },
+  { id: 'rec_ada', number: 1, label: 'Ada Lovelace' },
+  { id: 'rec_grace', number: 2, label: 'Grace Hopper' },
 ]
 
 /** `searchOptions` needs a seeded `tableIdByField`, or it short-circuits to `[]`. */
 registerEndpoint('/api/tables/tbl_people/fields/fld_owner/options', () => ({
-  options: [{ id: 'rec_margaret', label: 'Margaret Hamilton' }],
+  options: [{ id: 'rec_margaret', number: 3, label: 'Margaret Hamilton' }],
 }))
 
 const panel = () => document.querySelector<HTMLElement>('.base-select__panel')
@@ -62,8 +62,10 @@ describe('RelationFieldSelect', () => {
 
     const relations = useRelationsStore()
     relations.optionsByField = { [FIELD_ID]: [...SEED] }
-    relations.labelsByField = {
-      [FIELD_ID]: Object.fromEntries(SEED.map((option) => [option.id, option.label])),
+    relations.refsByField = {
+      [FIELD_ID]: Object.fromEntries(
+        SEED.map((option) => [option.id, { number: option.number, label: option.label }]),
+      ),
     }
     relations.tableIdByField = { [FIELD_ID]: 'tbl_people' }
 
@@ -136,7 +138,36 @@ describe('RelationFieldSelect', () => {
     it('reads the first entry when a single model arrives as a list', async () => {
       const wrapper = await mountControl({ modelValue: ['rec_grace'] })
 
-      expect(wrapper.get('.base-select__value').text()).toBe('Grace Hopper')
+      expect(wrapper.get('.base-select__value').text()).toBe('#2 Grace Hopper')
+    })
+  })
+
+  /**
+   * The number is stated everywhere a record is named, and its own element is what lets it be
+   * styled apart from the label. The option's flat `label` is what `BaseSelect` shows in the
+   * trigger and matches on, so the two must say the same thing.
+   */
+  describe('how a record reads', () => {
+    it('states the number before the label in every option', async () => {
+      const wrapper = await mountControl()
+      await open(wrapper)
+
+      expect(optionLabels()).toEqual(['#1 Ada Lovelace', '#2 Grace Hopper'])
+    })
+
+    it('gives the number an element of its own inside the option', async () => {
+      const wrapper = await mountControl()
+      await open(wrapper)
+
+      const first = document.querySelector<HTMLElement>('[role="option"]')
+
+      expect(first?.querySelector('.record-ref__number')?.textContent).toBe('#1')
+    })
+
+    it('shows the same flat text in the trigger', async () => {
+      const wrapper = await mountControl({ modelValue: 'rec_ada' })
+
+      expect(wrapper.get('.base-select__value').text()).toBe('#1 Ada Lovelace')
     })
   })
 
@@ -146,17 +177,21 @@ describe('RelationFieldSelect', () => {
    * or opening the form and saving it would silently drop the link.
    */
   describe('a link the seed list does not offer', () => {
-    it('is still offered, labelled from the cache', async () => {
+    it('is still offered, read from the cache', async () => {
       const relations = useRelationsStore()
-      relations.labelsByField[FIELD_ID]!.rec_katherine = 'Katherine Johnson'
+      relations.refsByField[FIELD_ID]!.rec_katherine = { number: 12, label: 'Katherine Johnson' }
 
       const wrapper = await mountControl({ modelValue: 'rec_katherine' })
       await open(wrapper)
 
-      expect(optionLabels()).toContain('Katherine Johnson')
-      expect(wrapper.get('.base-select__value').text()).toBe('Katherine Johnson')
+      expect(optionLabels()).toContain('#12 Katherine Johnson')
+      expect(wrapper.get('.base-select__value').text()).toBe('#12 Katherine Johnson')
     })
 
+    /**
+     * Nothing resolved, so there is no number to state either. The match is exact on purpose:
+     * a `#` prefixed to this would be a number the app does not actually know.
+     */
     it('degrades to the unknown label when even the cache has never seen it', async () => {
       const wrapper = await mountControl({ modelValue: 'rec_deleted' })
       await open(wrapper)
@@ -167,9 +202,9 @@ describe('RelationFieldSelect', () => {
     /** Every link is checked, not just the first: dropping one of three is as lossy as one. */
     it('offers every unlisted link, not merely the first', async () => {
       const relations = useRelationsStore()
-      Object.assign(relations.labelsByField[FIELD_ID]!, {
-        rec_katherine: 'Katherine Johnson',
-        rec_dorothy: 'Dorothy Vaughan',
+      Object.assign(relations.refsByField[FIELD_ID]!, {
+        rec_katherine: { number: 12, label: 'Katherine Johnson' },
+        rec_dorothy: { number: 13, label: 'Dorothy Vaughan' },
       })
 
       const wrapper = await mountControl({
@@ -179,7 +214,7 @@ describe('RelationFieldSelect', () => {
       await open(wrapper)
 
       expect(optionLabels()).toEqual(
-        expect.arrayContaining(['Ada Lovelace', 'Katherine Johnson', 'Dorothy Vaughan']),
+        expect.arrayContaining(['#1 Ada Lovelace', '#12 Katherine Johnson', '#13 Dorothy Vaughan']),
       )
     })
 
@@ -187,7 +222,7 @@ describe('RelationFieldSelect', () => {
       const wrapper = await mountControl({ modelValue: 'rec_ada' })
       await open(wrapper)
 
-      expect(optionLabels().filter((label) => label === 'Ada Lovelace')).toHaveLength(1)
+      expect(optionLabels().filter((label) => label === '#1 Ada Lovelace')).toHaveLength(1)
     })
   })
 
@@ -199,7 +234,7 @@ describe('RelationFieldSelect', () => {
     // The control debounces, then resolves — poll rather than count ticks
     await expect
       .poll(() => optionLabels(), { timeout: 2000 })
-      .toEqual(expect.arrayContaining(['Margaret Hamilton']))
+      .toEqual(expect.arrayContaining(['#3 Margaret Hamilton']))
 
     expect(panel()).not.toBeNull()
   })

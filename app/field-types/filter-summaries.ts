@@ -2,8 +2,10 @@ import { BOOLEAN_LABELS } from '#shared/constants/field'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
+import type { IRecordRef } from '#shared/types/record'
 import { isMultiValue } from '#shared/utils/field'
 import { isListFilterValue, isRangeFilterValue } from '#shared/utils/filter'
+import { formatRecordRef } from '#shared/utils/record-label'
 import { formatDateProse, formatNumber } from '~/utils/format'
 
 /**
@@ -23,7 +25,7 @@ import { formatDateProse, formatNumber } from '~/utils/format'
 
 /** What a summariser may need beyond the value itself. Only RELATION uses it. */
 export interface IFilterSummaryContext {
-  labelFor: (fieldId: string, recordId: string) => string | undefined
+  refFor: (fieldId: string, recordId: string) => IRecordRef | undefined
 }
 
 /**
@@ -100,8 +102,17 @@ export const FILTER_SUMMARIES: Record<TFieldType, TFilterSummary> = {
 
   // The only entry needing state beyond its own value. A filtered id outside the capped
   // candidate list resolves to nothing, and degrades the same way a cell does.
-  RELATION: (value, field, ctx) =>
-    `is ${ctx.labelFor(field.id, String(value)) ?? UNKNOWN_RECORD_LABEL}`,
+  RELATION: (value, field, ctx) => `is ${summariseRef(ctx, field, String(value))}`,
+}
+
+/**
+ * How one linked record reads inside a chip: the flat form, because a summary is a string by
+ * contract. Nothing resolved means there is no number to state either, so it degrades whole.
+ */
+function summariseRef(ctx: IFilterSummaryContext, field: IField, recordId: string): string {
+  const ref = ctx.refFor(field.id, recordId)
+
+  return ref === undefined ? UNKNOWN_RECORD_LABEL : formatRecordRef(ref)
 }
 
 /**
@@ -115,8 +126,7 @@ const MULTI_SUMMARIES: Record<TFieldType, TFilterSummary | null> = {
   BOOLEAN: null,
   DATE: null,
   SELECT: null,
-  RELATION: (value, field, ctx) =>
-    summariseList(value, (id) => ctx.labelFor(field.id, id) ?? UNKNOWN_RECORD_LABEL),
+  RELATION: (value, field, ctx) => summariseList(value, (id) => summariseRef(ctx, field, id)),
 }
 
 /** How one field's active filter reads — the summary-side twin of `inputFor`/`filterFor`. */

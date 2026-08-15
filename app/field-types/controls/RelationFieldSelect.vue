@@ -19,7 +19,12 @@
     :clearable="clearable"
     :error="error"
     empty-label="No records to link to"
-  />
+  >
+    <template #option-label="{ option }">
+      <BaseRecordRef v-if="refOf(option.value)" v-bind="refOf(option.value)!" />
+      <template v-else>{{ option.label }}</template>
+    </template>
+  </BaseSelect>
   <BaseSelect
     v-else
     :id="id"
@@ -32,12 +37,19 @@
     :clearable="clearable"
     :error="error"
     empty-label="No records to link to"
-  />
+  >
+    <template #option-label="{ option }">
+      <BaseRecordRef v-if="refOf(option.value)" v-bind="refOf(option.value)!" />
+      <template v-else>{{ option.label }}</template>
+    </template>
+  </BaseSelect>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
+import type { IRecordRef } from '#shared/types/record'
+import { formatRecordRef } from '#shared/utils/record-label'
 import { useRelationsStore } from '~/stores/relations'
 import type { ISelectOption } from '~/types/select'
 
@@ -93,9 +105,19 @@ const singleModel = computed<string>({
   set: (value) => (model.value = value),
 })
 
+/** How a candidate reads, for the slot below. `undefined` only for a target that is gone. */
+function refOf(recordId: string): IRecordRef | undefined {
+  return relations.refFor(props.fieldId, recordId)
+}
+
 /**
  * The seed `BaseSelect` shows before anything is typed. Still capped by the endpoint, which
  * is exactly why the search below exists.
+ *
+ * Every option's `label` is the **flat** form of its ref. That is what `BaseSelect` shows in
+ * the trigger, matches on type-ahead, filters locally, and remembers in its `seen` map — none
+ * of which need to know what a record reference is. The slot restyles the same text; it never
+ * adds to it, so the two can never disagree.
  */
 const options = computed<ISelectOption[]>(() => {
   const candidates = relations.optionsFor(props.fieldId)
@@ -105,21 +127,23 @@ const options = computed<ISelectOption[]>(() => {
   // through a search, or one since deleted — is still shown, or opening the form would
   // silently drop it on save. It is also what keeps the trigger labelled while a search has
   // replaced the visible list with rows that do not include it. Every link is checked, not
-  // just the first: dropping one of several is as lossy as dropping the only one.
+  // just the first: dropping one of several is as lossy as dropping the only one. It is also
+  // why `BaseSelect`'s own `{ value, label: value }` fallback is unreachable from here.
   const unlisted = linkedIds.value.filter((id) => !offered.has(id))
 
   return [
-    ...candidates.map((candidate) => ({ value: candidate.id, label: candidate.label })),
-    ...unlisted.map((id) => ({
-      value: id,
-      label: relations.labelFor(props.fieldId, id) ?? UNKNOWN_RECORD_LABEL,
-    })),
+    ...candidates.map((candidate) => ({ value: candidate.id, label: formatRecordRef(candidate) })),
+    ...unlisted.map((id) => {
+      const ref = refOf(id)
+      // Nothing resolved: the target is gone, so there is no number to state either
+      return { value: id, label: ref === undefined ? UNKNOWN_RECORD_LABEL : formatRecordRef(ref) }
+    }),
   ]
 })
 
 function search(term: string, signal: AbortSignal): Promise<ISelectOption[]> {
   return relations
     .searchOptions(props.fieldId, term, signal)
-    .then((rows) => rows.map((row) => ({ value: row.id, label: row.label })))
+    .then((rows) => rows.map((row) => ({ value: row.id, label: formatRecordRef(row) })))
 }
 </script>

@@ -202,6 +202,56 @@ describe('BaseSelect', () => {
   })
 
   /**
+   * The component's only slot. It replaces an option's **text**, never its row: slot content is
+   * compiled in the caller's scope, so this component's scoped rules cannot reach it — a
+   * row-level slot would hand out `min-width: 0` and the truncation with it.
+   */
+  describe('the option-label slot', () => {
+    it('renders the plain label when no caller passes one', async () => {
+      const wrapper = await select()
+      await open(wrapper)
+
+      expect(options()[0]?.querySelector('.base-select__option-label')?.textContent).toBe('Alpha')
+    })
+
+    it('replaces the text, and is handed the option', async () => {
+      const wrapper = await select(
+        {},
+        { 'option-label': '<b class="custom">{{ params.option.value }}</b>' },
+      )
+      await open(wrapper)
+
+      expect(options()[0]?.querySelector('.custom')?.textContent).toBe('a')
+      expect(options()[0]?.textContent?.trim()).toBe('a')
+    })
+
+    /** The row, its classes and its check icon stay the component's own either way. */
+    it('keeps the row around whatever the slot renders', async () => {
+      const wrapper = await select(
+        { modelValue: 'a' },
+        { 'option-label': '<b>{{ params.option.label }}</b>' },
+      )
+      await open(wrapper)
+
+      expect(options()[0]?.getAttribute('role')).toBe('option')
+      expect(options()[0]?.getAttribute('aria-selected')).toBe('true')
+      expect(options()[0]?.querySelector('.base-select__option-label')).not.toBeNull()
+    })
+
+    /** A coloured choice is a badge, which is already the whole of its row. */
+    it('leaves a coloured option to its badge', async () => {
+      const wrapper = await select(
+        { options: [{ value: 'won', label: 'Won', color: 'green' }] },
+        { 'option-label': '<b class="custom">nope</b>' },
+      )
+      await open(wrapper)
+
+      expect(options()[0]?.querySelector('.base-badge')?.textContent?.trim()).toBe('Won')
+      expect(options()[0]?.querySelector('.custom')).toBeNull()
+    })
+  })
+
+  /**
    * The announcement cannot live on the visible row: that row is inside `<Teleport v-if="open">`,
    * and a live region inserted in the same frame as its content is not reliably read — so the
    * *first* message of every open would be silent. The region is in the control instead, mounted

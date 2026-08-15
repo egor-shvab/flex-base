@@ -97,7 +97,7 @@ function page(overrides: Partial<IRecordPage> = {}): IRecordPage {
     total: 2,
     page: 1,
     pageSize: RECORD_PAGE_SIZE,
-    relationLabels: {},
+    relationRefs: {},
     ...overrides,
   }
 }
@@ -138,14 +138,19 @@ describe('useRecordsStore', () => {
       expect(store.pageSize).toBe(25)
     })
 
-    /** Relation cells read their label from the store, not from the record's own data. */
-    it('caches the relation labels the page came with', async () => {
-      response = page({ relationLabels: { fld_owner: { rec_ada: 'Ada Lovelace' } } })
+    /** Relation cells read how a link reads from the store, not from the record's own data. */
+    it('caches the relation refs the page came with', async () => {
+      response = page({
+        relationRefs: { fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } },
+      })
       const store = useRecordsStore()
 
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
 
-      expect(useRelationsStore().labelFor('fld_owner', 'rec_ada')).toBe('Ada Lovelace')
+      expect(useRelationsStore().refFor('fld_owner', 'rec_ada')).toEqual({
+        number: 1,
+        label: 'Ada Lovelace',
+      })
     })
 
     it('is pending only for the duration of the request', async () => {
