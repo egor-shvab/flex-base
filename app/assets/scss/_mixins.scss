@@ -84,7 +84,14 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 }
 
 /// The caption above a form control.
+///
+/// `align-self` is load-bearing: the caption is the first item of a `stack`, so the
+/// default `stretch` makes it span the whole field — and a `<label for>` turns that
+/// empty space into a click target for a control nothing is drawn under. Shrink-wrapped
+/// it still clamps to the container, so a long caption wraps rather than overflowing.
+/// `BaseCheckbox` opts out of the same stretch by hand, for the same reason.
 @mixin field-label {
+  align-self: flex-start;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
