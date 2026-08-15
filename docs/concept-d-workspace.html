@@ -700,7 +700,12 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 2px 8px;
+    /* Both explicit: without them an inline-flex badge is sized by the line-height it
+       inherits, so it would stand taller inside any container that spaces its own rows
+       with one. The pill is one height wherever it is drawn. */
+    height: 24px;
+    line-height: 1.25;
+    padding: 0 8px;
     border-radius: 999px;
     font-size: 14px;
   }
@@ -912,7 +917,12 @@
   }
   /* The metadata marker — smaller and quieter than a value chip */
   .tag {
-    padding: 2px 6px;
+    /* Same fixed-height rule as .pill, one step quieter */
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    line-height: 1.25;
+    padding: 0 6px;
     border-radius: 4px;
     background: var(--hover);
     font-size: 12px;

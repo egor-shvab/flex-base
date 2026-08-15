@@ -744,6 +744,8 @@ It is the app's **first and only `calc()`**, and deliberately so. Written as a l
 
 Two consequences. **`RecordDetail` no longer overrides the cell's layout** — what put the list on one line was always `DynamicTable`'s `white-space: nowrap`, so the dialog only has to not impose it and to space the wrapped rows with a `line-height`, since inline content has no `row-gap`. And **the ellipsis is not machine-checkable**: the dropped badge keeps its box, its client rects and its `checkVisibility()`, so it is paint and nothing else — it is one of the approximated clauses in `architecture.md` §12.
 
+**`BaseBadge` declares its own `height` and `line-height`, and the second is what matters.** An `inline-flex` box with neither is sized by the line-height it _inherits_, so a badge was 25px in a table cell, 21.5px in a `BaseSelect` overlay and 32px in `RecordDetail` — where the `line-height` above spaces the wrapped rows and the pills standing on them grew with it. Declaring the pair ends the inheritance at the badge, which leaves a container free to set leading for its own rows. **Rejected: normalising line-height at each call site** — one rule spread over every container that will ever hold a badge, and silent when the next one forgets. Only Playwright can see this: `test.css` is `false` in both Vitest projects, so a component spec reading a height reads nothing.
+
 ---
 
 ## Accepted limitations

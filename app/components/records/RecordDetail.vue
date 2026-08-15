@@ -65,8 +65,13 @@ const columns = computed(() =>
   // A multi-value cell no longer needs an override to wrap: it renders inline, so it wraps
   // wherever nothing says otherwise, and what put it on one line was always `DynamicTable`'s
   // `white-space: nowrap` rather than a property of the cell. What is left is the space
-  // *between* the wrapped rows — inline content has no `row-gap`, and a badge stands taller
-  // than the text its line box is measured from, so consecutive rows would otherwise touch.
+  // *between* the wrapped rows — inline content has no `row-gap`, so the line-height is the
+  // only control over it, and consecutive rows would otherwise touch.
+  //
+  // It is purely that control now. `BaseBadge` declares its own height and line-height, so
+  // this sets the leading the rows are spaced by without resizing the badges standing on
+  // them — which is exactly what it used to do, and why a badge here was 32px against the
+  // table's 25px. Raising it is safe; the pills do not follow.
   &__value {
     margin: 0;
     overflow-wrap: anywhere;

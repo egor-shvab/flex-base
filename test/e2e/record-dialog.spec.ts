@@ -288,6 +288,22 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
   // Every value on screen, not the first few — the point of wrapping rather than truncating
   await expect(badges(dialog)).toHaveCount(TAGS.length)
   expect(await lines(dialog)).toBeGreaterThan(1)
+
+  /**
+   * A badge is one height wherever it is drawn, and only a browser can say so: `test.css` is
+   * `false` in both Vitest projects, so a component spec reading a height reads nothing.
+   *
+   * The row and the dialog are the two contexts that disagreed — `RecordDetail` spaces the
+   * wrapped rows with a `line-height`, which an unsized `inline-flex` badge inherits and grows
+   * on. Assert across both scopes at once: one distinct height, or the badge is being measured
+   * off its container again.
+   */
+  const heights = async (scope: import('@playwright/test').Locator) =>
+    badges(scope).evaluateAll((entries) =>
+      entries.map((entry) => Math.round(entry.getBoundingClientRect().height)),
+    )
+
+  expect(new Set([...(await heights(row)), ...(await heights(dialog))]).size).toBe(1)
 })
 
 /**

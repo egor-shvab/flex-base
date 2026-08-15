@@ -48,12 +48,20 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
 
   display: inline-flex;
   align-items: center;
+  // Both explicit, and this pair is load-bearing. An `inline-flex` box with neither is sized
+  // by the line-height it *inherits*, so one badge stood 25px in a table cell, 21.5px in a
+  // `BaseSelect` overlay and 32px inside `RecordDetail`'s wrapped multi-value row — a
+  // container that set a line-height for its own row spacing silently resized every pill on
+  // it. Declaring `line-height` here ends that inheritance at the badge; `height` then fixes
+  // the box. 14px of text at `tight` is 17.5, so the content sits well inside 24.
+  height: rem(24);
+  line-height: var(--line-height-tight);
   // Never wider than whatever bounds it — `DynamicTable`'s capped cell is the case that
   // matters. Inert everywhere the badge already fits.
   max-width: 100%;
-  // 2/8 rather than 1/7 plus a 1px border: the border is gone and the padding absorbs the
-  // pixel it used to give up, so the box keeps the size every table row is built around.
-  padding: rem(2) rem(8);
+  // Inline only: `height` sizes the box, so block padding would be a second number that has
+  // to agree with it.
+  padding: 0 rem(8);
   border-radius: var(--radius-pill);
   background: var(--badge-bg);
   font-size: var(--font-size-sm);
@@ -88,10 +96,11 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
     }
   }
 
-  // The same +1px on each axis as the chip above — this variant never declared a border
-  // of its own, it inherited the base rule's, so it shrinks unless its padding moves too.
+  // A quieter register, held by the same rule: its own height rather than an inherited one.
+  // It takes `line-height` from the base above, so 12px of text is 15 inside 20.
   &--label {
-    padding: rem(2) rem(6);
+    height: rem(20);
+    padding: 0 rem(6);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-xs);
     text-transform: uppercase;
