@@ -87,7 +87,32 @@
         {{ placeholder }}
       </span>
 
-      <Icon name="mdi:chevron-down" class="base-select__chevron" aria-hidden="true" />
+      <!--
+        Not only an indicator: the arrow toggles the panel on both branches, so it is a real
+        `<button>` — an element that performs an action says so in the markup. It needs its own
+        handler because `onControlClick` deliberately never closes the searchable branch; `.stop`
+        keeps that handler from re-opening what this just closed, and `@mousedown.prevent` keeps
+        focus where it is, exactly as on the clear button below.
+
+        `tabindex="-1"` with `aria-hidden`, together and deliberately. The toggle duplicates a
+        function the control already has from the keyboard (↓/Enter/Space open, Escape and Alt+↑
+        close), so it is a pointer convenience and nothing more: a tab stop before every select's
+        options, and a second node announcing the control a second time, would both be cost with
+        no function behind it. `disabled` rather than a modifier class, so the state is the
+        element's own — a disabled button fires no click, which is the guard `togglePanel`
+        repeats for the control's own handler.
+      -->
+      <button
+        type="button"
+        class="base-select__chevron"
+        tabindex="-1"
+        aria-hidden="true"
+        :disabled="disabled"
+        @click.stop="togglePanel"
+        @mousedown.prevent
+      >
+        <Icon name="mdi:chevron-down" />
+      </button>
 
       <!--
         `.stop`, because the control around it now owns a click handler; `@mousedown.prevent`
@@ -500,19 +525,27 @@ function onRetryKeydown(event: KeyboardEvent) {
   dismiss()
 }
 
+/** The button branch's control and the chevron on either branch both route through this. */
+function togglePanel() {
+  if (props.disabled) return
+
+  if (open.value) dismiss()
+  else openPanel()
+}
+
 function onControlClick() {
   if (props.disabled) return
 
   if (props.searchable) {
     // Never a toggle: a click inside a text field places the caret, and closing on it would
-    // make it impossible to click into the middle of a term being edited
+    // make it impossible to click into the middle of a term being edited. The chevron above is
+    // the unambiguous target, and it is the one that closes.
     if (!open.value) openPanel()
     triggerRef.value?.focus()
     return
   }
 
-  if (open.value) dismiss()
-  else openPanel()
+  togglePanel()
 }
 
 /** Branch B: focus never leaves the input, so one dispatcher covers both open and closed. */
@@ -728,6 +761,11 @@ watch(open, (isOpen) => {
     border-color: var(--color-accent);
   }
 
+  &--open &__chevron {
+    // The base rule centres with `translateY(-50%)`; a bare `rotate()` here would drop it
+    transform: translateY(-50%) rotate(180deg);
+  }
+
   // Drawn over the control rather than inside it, so one piece of markup serves the `<button>`
   // and the `<input>` alike. `pointer-events: none` is what keeps the control beneath
   // clickable — and, on the searchable branch, keeps the caret reachable through it.
@@ -769,11 +807,26 @@ watch(open, (isOpen) => {
   }
 
   &__chevron {
-    right: rem(12);
+    // `rem(10)` with a 24px box, not `rem(12)` with a bare glyph: the arrow is drawn in the same
+    // place either way, and the target now clears SC 2.5.8's 24×24 floor
+    right: rem(10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: rem(24);
+    height: rem(24);
+    padding: 0;
+    border: none;
+    background: none;
     // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
     font-size: rem(20);
-    // The glyph sits over the control, so a click on it must reach what is beneath
-    pointer-events: none;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+
+    // Inert with the control, so the `not-allowed` cursor beneath shows through
+    &:disabled {
+      pointer-events: none;
+    }
   }
 
   &__clear {
@@ -887,6 +940,13 @@ watch(open, (isOpen) => {
     margin-left: auto;
     font-size: rem(18);
     color: var(--color-accent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  // The arrow still turns to show the state — it just arrives there without the sweep
+  .base-select__chevron {
+    transition: none;
   }
 }
 </style>

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import {
   OPTIONS,
+  chevron,
   input,
   keydown,
   listbox,
@@ -69,6 +70,29 @@ describe('BaseSelect', () => {
 
       expect(trigger(wrapper).attributes('aria-label')).toBe('Stage')
       expect(trigger(wrapper).attributes('aria-labelledby')).toBeUndefined()
+    })
+
+    /**
+     * All three attributes are one decision. The arrow acts, so it is a `<button>`; what it does
+     * is a pointer route to something the keyboard already has, so it is neither a tab stop
+     * before every select's options nor a second announcement of the control beside it. Drop the
+     * `aria-hidden` and screen readers gain a nameless button; drop the `tabindex` and every
+     * select grows a stop for a function bound to ↓, Escape and Alt+↑ already.
+     */
+    it('renders the chevron as a button that is neither tabbable nor announced', async () => {
+      const wrapper = await select()
+      const arrow = chevron(wrapper)
+
+      expect(arrow.element.tagName).toBe('BUTTON')
+      expect(arrow.attributes('type')).toBe('button')
+      expect(arrow.attributes('tabindex')).toBe('-1')
+      expect(arrow.attributes('aria-hidden')).toBe('true')
+    })
+
+    it('disables the chevron with the control', async () => {
+      const wrapper = await select({ disabled: true })
+
+      expect(chevron(wrapper).attributes('disabled')).toBeDefined()
     })
   })
 

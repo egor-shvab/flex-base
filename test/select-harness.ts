@@ -63,5 +63,7 @@ export async function open(wrapper: TWrapper) {
 }
 
 export const trigger = (wrapper: TWrapper) => wrapper.get('.base-select__trigger')
+/** The arrow — a target in its own right, and the only one that closes the searchable branch. */
+export const chevron = (wrapper: TWrapper) => wrapper.get('.base-select__chevron')
 export const input = (wrapper: TWrapper) => wrapper.get('.base-select__input')
 export const lastModel = (wrapper: TWrapper) => wrapper.emitted('update:modelValue')?.at(-1)?.[0]

@@ -430,6 +430,10 @@ A select where you click to open and then move to a second field to type is a se
 
 Rejected: APG's editable-combobox flavour, where the input's value **is** the selected label. It needs restore-on-close logic, forces the user to erase the current value before searching, and has no multi-select story at all.
 
+**The chevron toggles; a click in the field never closes.** Clicking a text field places the caret, so closing on it would make the middle of a term unreachable — which leaves the searchable branch with no pointer route out unless the arrow is a target of its own. It is a `<button type="button">` sized to 24×24, because it performs an action and the target-size floor is about what a pointer must hit.
+
+**And it is `tabindex="-1"` + `aria-hidden`, which is the part that looks like an oversight.** The toggle is a pointer convenience for something the control already does from the keyboard — ↓/Enter/Space open, Escape and Alt+↑ close — so SC 2.1.1 is satisfied by the control, not by this element. Making it tabbable would put a stop between every select and the next field for a function already bound to the keys; giving it a name without `aria-hidden` would announce one control twice, in a listbox pattern where the arrow is chrome rather than a second widget. Rejected in the other direction too: a click handler on a `<span>`, which conforms only for as long as the `aria-hidden` stays — the element would then be an unnamed, roleless target, and nothing in the markup would say it acts.
+
 Two ARIA consequences that are easy to get backwards:
 
 - **`aria-labelledby="${id}-label ${id}"` must not cross to the input branch.** On a `<button>` that self-reference folds the element's _content_ into its name; on an `<input>` the same construct computes from the element's **value**, so the accessible name would change with every keystroke. The button points at the overlay by IDREF instead.

@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import {
   OPTIONS,
   activeLabel,
+  chevron,
   input,
   lastModel,
   listbox,
@@ -130,6 +131,73 @@ describe('BaseSelect', () => {
       await nextTick()
 
       expect(panel()).not.toBeNull()
+    })
+
+    /**
+     * The arrow is the pointer route the searchable branch would otherwise lack: the field
+     * itself never closes, so without this the only way back out is a click elsewhere.
+     */
+    it('toggles shut on the chevron of the searchable branch', async () => {
+      const wrapper = await select({ searchable: true })
+
+      await open(wrapper)
+      expect(panel()).not.toBeNull()
+
+      await chevron(wrapper).trigger('click')
+      await nextTick()
+
+      expect(panel()).toBeNull()
+    })
+
+    it('opens on the chevron of the searchable branch', async () => {
+      const wrapper = await select({ searchable: true })
+
+      await chevron(wrapper).trigger('click')
+      await nextTick()
+      await nextTick()
+
+      expect(panel()).not.toBeNull()
+    })
+
+    /**
+     * `.stop` on the chevron is what this pins: the click bubbles to the control, whose button
+     * branch toggles too — so without it the panel would close and immediately re-open.
+     */
+    it('toggles shut on the chevron of the button branch', async () => {
+      const wrapper = await select()
+
+      await open(wrapper)
+      await chevron(wrapper).trigger('click')
+      await nextTick()
+
+      expect(panel()).toBeNull()
+    })
+
+    it('ignores a chevron click while disabled', async () => {
+      const wrapper = await select({ disabled: true })
+
+      await chevron(wrapper).trigger('click')
+      await nextTick()
+
+      expect(panel()).toBeNull()
+    })
+
+    /**
+     * The open-state class the chevron's rotation hangs off. Asserted structurally because
+     * Vitest keeps `test.css` false — the transform itself is only visible in the browser.
+     */
+    it('marks the root open while the panel is', async () => {
+      const wrapper = await select()
+
+      expect(wrapper.classes()).not.toContain('base-select--open')
+
+      await open(wrapper)
+      expect(wrapper.classes()).toContain('base-select--open')
+
+      await chevron(wrapper).trigger('click')
+      await nextTick()
+
+      expect(wrapper.classes()).not.toContain('base-select--open')
     })
 
     /** Any way text arrives opens the list — keystroke, paste, IME commit, drop. */
