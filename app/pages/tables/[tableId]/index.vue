@@ -8,7 +8,7 @@
         <BaseButton class="table-page__create" @click="openCreateField">Add field</BaseButton>
       </div>
       <div class="table-page__header-actions">
-        <BaseButton variant="ghost" icon="mdi:table" :to="`/tables/${tableId}/records`">
+        <BaseButton variant="ghost" prepend-icon="mdi:table" :to="`/tables/${tableId}/records`">
           Records
         </BaseButton>
       </div>

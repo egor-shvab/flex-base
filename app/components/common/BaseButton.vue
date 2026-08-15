@@ -7,8 +7,9 @@
     :aria-label="label"
     :title="label"
   >
-    <Icon v-if="icon" :name="icon" class="base-button__icon" aria-hidden="true" />
+    <Icon v-if="prependIcon" :name="prependIcon" class="base-button__icon" aria-hidden="true" />
     <slot />
+    <Icon v-if="appendIcon" :name="appendIcon" class="base-button__icon" aria-hidden="true" />
   </component>
 </template>
 
@@ -41,7 +42,9 @@ const props = withDefaults(
     variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'ghost' | 'link'
     disabled?: boolean
     /** Iconify name (e.g. `mdi:trash-can-outline`); renders an `<Icon>` before the slot. */
-    icon?: string
+    prependIcon?: string
+    /** The same, after the slot — a trailing chevron on a "Next" button, say. */
+    appendIcon?: string
     /** Accessible name — required for icon-only buttons (sets `aria-label` + `title`). */
     label?: string
     /**
@@ -57,7 +60,8 @@ const props = withDefaults(
     to: undefined,
     variant: 'primary',
     disabled: false,
-    icon: undefined,
+    prependIcon: undefined,
+    appendIcon: undefined,
     label: undefined,
     tone: 'default',
   },

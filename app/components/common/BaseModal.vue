@@ -11,7 +11,12 @@
       >
         <header class="base-modal__header">
           <h2 class="base-modal__title">{{ title }}</h2>
-          <BaseButton variant="icon" icon="mdi:close" label="Close" @click="emit('close')" />
+          <BaseButton
+            variant="icon"
+            prepend-icon="mdi:close"
+            label="Close"
+            @click="emit('close')"
+          />
         </header>
         <div class="base-modal__body">
           <slot />

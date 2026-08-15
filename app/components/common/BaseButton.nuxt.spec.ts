@@ -100,27 +100,53 @@ describe('BaseButton', () => {
     /** Required for icon-only buttons, which have no text for a screen reader to read. */
     it('sets both aria-label and title from label', async () => {
       const wrapper = await mountTracked(BaseButton, {
-        props: { variant: 'icon', icon: 'mdi:trash-can-outline', label: 'Delete this table' },
+        props: {
+          variant: 'icon',
+          prependIcon: 'mdi:trash-can-outline',
+          label: 'Delete this table',
+        },
       })
 
       expect(wrapper.attributes('aria-label')).toBe('Delete this table')
       expect(wrapper.attributes('title')).toBe('Delete this table')
     })
 
-    it('renders the icon and hides it from assistive tech', async () => {
-      const wrapper = await mountTracked(BaseButton, {
-        props: { icon: 'mdi:plus', label: 'Add' },
-      })
+    it.each(['prependIcon', 'appendIcon'] as const)(
+      'renders the %s and hides it from assistive tech',
+      async (side) => {
+        const wrapper = await mountTracked(BaseButton, {
+          props: { [side]: 'mdi:plus', label: 'Add' },
+        })
 
-      const icon = wrapper.find('.base-button__icon')
-      expect(icon.exists()).toBe(true)
-      expect(icon.attributes('aria-hidden')).toBe('true')
-    })
+        const icon = wrapper.find('.base-button__icon')
+        expect(icon.exists()).toBe(true)
+        expect(icon.attributes('aria-hidden')).toBe('true')
+      },
+    )
 
     it('renders no icon element when none is named', async () => {
       const wrapper = await mountTracked(BaseButton, { slots: { default: () => 'Save' } })
 
       expect(wrapper.find('.base-button__icon').exists()).toBe(false)
+    })
+
+    /**
+     * The two icons share one element class, so which side each lands on is carried by DOM order
+     * alone — nothing else states it, and swapping the two template lines would be invisible to
+     * every other assertion here.
+     */
+    it('puts the prepended icon before the label and the appended one after', async () => {
+      const wrapper = await mountTracked(BaseButton, {
+        props: { prependIcon: 'mdi:chevron-left', appendIcon: 'mdi:chevron-right' },
+        slots: { default: () => 'Next' },
+      })
+
+      const icons = wrapper.findAll('.base-button__icon')
+      expect(icons).toHaveLength(2)
+      expect(icons[0]?.element).toBe(wrapper.element.firstElementChild)
+      expect(icons[1]?.element).toBe(wrapper.element.lastElementChild)
+      // The label sits between them, so the accessible name is unchanged by either icon
+      expect(wrapper.text()).toBe('Next')
     })
   })
 

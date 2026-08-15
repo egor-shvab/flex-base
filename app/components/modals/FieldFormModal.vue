@@ -52,7 +52,7 @@
             <BaseInput :id="`${choicesId}-${index}`" v-model.trim="choice.value" />
             <BaseButton
               variant="icon"
-              icon="mdi:trash-can-outline"
+              prepend-icon="mdi:trash-can-outline"
               label="Remove choice"
               tone="danger"
               @click="removeChoice(index)"
@@ -61,7 +61,7 @@
         </div>
         <BaseButton
           variant="ghost"
-          icon="mdi:plus"
+          prepend-icon="mdi:plus"
           class="field-form__add-choice"
           @click="addChoice"
         >

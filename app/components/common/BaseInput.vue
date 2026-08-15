@@ -50,7 +50,7 @@ const props = withDefaults(
     trim?: boolean
     /**
      * Iconify name (e.g. `mdi:magnify`); renders a decorative leading icon inside the field.
-     * Same shape as `BaseButton`'s `icon`, so there is one icon convention rather than two —
+     * Same shape as `BaseButton`'s `prependIcon`, so there is one icon convention rather than two —
      * and a prop rather than a slot, because the `field-types` registries hand this component
      * a `props(field)` object through `v-bind` and cannot pass a slot.
      */

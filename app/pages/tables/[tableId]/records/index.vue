@@ -11,13 +11,13 @@
       </div>
       <div class="records-page__header-actions">
         <div class="records-page__header-buttons">
-          <BaseButton variant="ghost" icon="mdi:cog-outline" :to="`/tables/${tableId}`">
+          <BaseButton variant="ghost" prepend-icon="mdi:cog-outline" :to="`/tables/${tableId}`">
             Settings
           </BaseButton>
           <BaseButton
             v-if="hasFields"
             variant="ghost"
-            icon="mdi:filter-variant"
+            prepend-icon="mdi:filter-variant"
             @click="filterPanelOpen = true"
           >
             Filters

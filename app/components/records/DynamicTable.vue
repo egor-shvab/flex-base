@@ -40,19 +40,19 @@
                    record is a place, and the row must not have to mediate a navigation -->
               <BaseButton
                 variant="icon"
-                icon="mdi:eye-outline"
+                prepend-icon="mdi:eye-outline"
                 label="View record"
                 :to="detailLinkTo({ tableId, recordId: record.id })"
               />
               <BaseButton
                 variant="icon"
-                icon="mdi:pencil-outline"
+                prepend-icon="mdi:pencil-outline"
                 label="Edit record"
                 @click="emit('edit', record)"
               />
               <BaseButton
                 variant="icon"
-                icon="mdi:trash-can-outline"
+                prepend-icon="mdi:trash-can-outline"
                 label="Delete record"
                 tone="danger"
                 @click="emit('delete', record)"

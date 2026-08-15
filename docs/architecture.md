@@ -344,10 +344,12 @@ Only the modules whose contract is not obvious from their name.
 | `secondary` | the neutral peer of primary — same geometry so a dialog's footer pair aligns, bordered rather than filled. `ConfirmModal`'s Cancel |
 | `danger`    | destructive filled action                                                                                                          |
 | `ghost`     | transparent text+icon with a faint `--color-accent-tint` hover                                                                     |
-| `icon`      | borderless icon-only; takes `icon` (iconify name) + `label` (aria-label/title)                                                     |
+| `icon`      | borderless icon-only; takes `prependIcon` + `label` (aria-label/title)                                                             |
 | `link`      | bare text button for row actions — the chrome of a link, the semantics of a button                                                 |
 
 `primary`/`secondary`/`danger`/`ghost` are `min-height: var(--control-height)`; `icon` takes it on **both** axes (`min-width` too, or it stays glyph-wide); `link` declares no height but is floored at 24 on both axes. `ghost`'s horizontal padding is transparent, so it reads as gap — space a ghost against a neighbour from the **ink**, not the box (`decisions.md`).
+
+Any variant takes `prependIcon` and `appendIcon` (iconify names) for an icon before and after the slot. Both render the same `aria-hidden` `.base-button__icon` — the side is DOM order, not a modifier class, since nothing about the two differs visually and the chassis's `gap` already spaces them.
 
 A typed `tone?: 'default' | 'danger'` recolours hover for the `icon`/`link` variants via the internal `--hover-color` custom property, which each variant defaults for itself. Per-variant defaults are why this is a custom property rather than a `v-bind`.
 

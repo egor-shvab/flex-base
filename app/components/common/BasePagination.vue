@@ -11,7 +11,7 @@
       <span class="pagination__page">Page {{ page }} of {{ pageCount }}</span>
       <BaseButton
         variant="ghost"
-        icon="mdi:chevron-left"
+        prepend-icon="mdi:chevron-left"
         :disabled="page <= 1"
         @click="emit('update:page', page - 1)"
       >
@@ -19,11 +19,11 @@
       </BaseButton>
       <BaseButton
         variant="ghost"
+        append-icon="mdi:chevron-right"
         :disabled="page >= pageCount"
         @click="emit('update:page', page + 1)"
       >
         Next
-        <Icon name="mdi:chevron-right" aria-hidden="true" />
       </BaseButton>
     </div>
   </nav>

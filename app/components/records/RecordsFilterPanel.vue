@@ -20,7 +20,7 @@
         <BaseButton
           v-if="activeFilterCount > 0"
           variant="ghost"
-          icon="mdi:filter-remove-outline"
+          prepend-icon="mdi:filter-remove-outline"
           @click="emit('update:filters', {})"
         >
           Clear all

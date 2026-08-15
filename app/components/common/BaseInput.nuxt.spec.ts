@@ -60,7 +60,7 @@ describe('BaseInput', () => {
       expect(field(wrapper).attributes('autocomplete')).toBe('email')
     })
 
-    /** Same shape as `BaseButton`'s `icon`, and a prop because the registries bind objects. */
+    /** Same shape as `BaseButton`'s `prependIcon`, and a prop because the registries bind objects. */
     it('renders a decorative leading icon', async () => {
       const wrapper = await input({ icon: 'mdi:magnify' })
 
