@@ -6,11 +6,13 @@ This file says only _what_ and _in what order_ — contracts belong in `docs/arc
 
 ---
 
-## Current phase — none scheduled
+## Current phase — server error logging
 
-**Nothing is in progress.** The feature set and the test suite are done, the Open-limitations phase is finished, and the naming-clarity phase has landed — its rules now live in `CLAUDE.md` §6, where new code is judged against them.
+Closing the server half of the **No error reporting or observability** row in `docs/decisions.md` → **Accepted limitations**.
 
-The next phase is a decision, not a backlog. It would be drawn from the parked item below, or from `docs/decisions.md` → **Accepted limitations** when a row's "revisit" condition comes true.
+- [x] Record every unhandled 5xx to `logs/server-errors.log` from Nitro's `error` hook, with a fixed redaction contract and size-based rotation.
+
+The client half stays open, and its own row says so. The next phase after this is a decision, not a backlog — drawn from the parked item below, or from the register when a row's "revisit" condition comes true.
 
 ---
 

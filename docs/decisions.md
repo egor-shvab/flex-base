@@ -161,6 +161,20 @@ Every user's records share one physical `Record` table, so a global sequence wou
 
 **This generalizes:** use `--create-only` and edit the SQL for any future required column over existing data.
 
+### Server errors are recorded from Nitro's `error` hook, and only the 5xx ones
+
+The sink is a Nitro plugin, not a wrapper around each handler: h3's `onError` reaches every route, `middleware/auth.ts` and the SSR renderer alike, so nothing has to opt in and a handler that logged for itself would only duplicate it.
+
+**The hook must stay synchronous and unawaited.** Nitro's `captureError` fires it with `callHookParallel` without awaiting it into the response and catches its own rejections — that is the entire reason the sink may write to a file at all. Making the handler `async`, or awaiting it anywhere, puts disk I/O on the response path.
+
+**Only a 5xx or an error with no status is logged.** Every 4xx here is a deliberate outcome — `requireUser`'s 401, the 404 standing in for another user's row, a 409 on a duplicate name, a zod 400 — so logging them would bury the faults beneath them. It also settles the one real leak: a zod rejection carries `error.data.issues`, which echoes the submitted value.
+
+**The redaction is structural, not a scrub.** The entry is built from `event.method`, the pathname, the query parameter **names**, and `context.user.id`. Headers are never read (they carry `auth_token`), nor the body (it carries a password on the login route), nor query values, nor `error.data`, nor the user's email. A filter list is something a later change forgets to extend; not reaching for the data cannot be forgotten. **Rejected: logging the whole event and stripping known-sensitive keys.**
+
+**NDJSON, because a stack is multi-line.** `JSON.stringify` escapes it, so one error is always exactly one line and no reader downstream needs a multi-line rule.
+
+Two things in `utils/error-log-file.ts` look like tidying opportunities and are not. **The write is `writeSync`, not a buffered stream** — a stream loses its tail when the process dies, and the entry worth having is the last one before a crash; the hook only fires on a fault, so this is never a hot path. And **the descriptor is closed before the first rename**, because Windows refuses to rename an open file. Rotation walks the generations highest-first for the same class of reason: the other direction copies the newest file over all five.
+
 ---
 
 ## The metadata layer
@@ -790,4 +804,4 @@ The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for th
 
 **A badge's fill is ~1.1:1 against a hovered row**, so the pill shape barely reads there. The badge draws no border by design. The dot (its `-fg` step, ≥6:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings.
 
-**No error reporting or observability.** Nothing beyond `createError` responses; no client or server error sink exists. _Revisit before any real deployment._
+**Nothing reports the client's errors, and the server's log is a local file.** The server half is covered — `plugins/error-log.ts` records every 5xx — but a rotating file is per-machine and nobody is told it grew, so more than one process means a real sink. The browser side has nothing at all. _Revisit before any real deployment._

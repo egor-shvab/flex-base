@@ -107,8 +107,9 @@ app/                         # Nuxt 4 frontend (client)
 server/                      # Nitro backend
   api/                       # HTTP route handlers (thin: parse → check ownership → call service)
   middleware/                # server middleware (attach authenticated user to event.context)
+  plugins/                   # Nitro plugins — the `error` hook that records server faults
   services/                  # generic, framework-agnostic business logic
-  utils/                     # prisma singleton, auth helpers, ownership assertions
+  utils/                     # prisma singleton, auth helpers, ownership assertions, the error log
   generated/prisma/          # generated Prisma client (gitignored — never edit by hand)
 shared/                      # code used by BOTH client & server — one rule per folder
   types/                     # type & interface declarations ONLY (zero runtime exports)
@@ -162,7 +163,7 @@ Rationale for all three: `docs/decisions.md`.
 - Record lists are **always paginated server-side** (`take`/`skip`, default 50, hard cap 100). An endpoint must never return an unbounded table.
 - **No queries in loops:** batch with `findMany` + `where: { id: { in: […] } }`, `createMany`, or a relation `include`. Relation-label resolution is the case to watch.
 - `select` only the columns a response needs. New query patterns must check existing `@@index` coverage first.
-- No `console.log` in committed code; errors are surfaced with `createError`, not logged and swallowed.
+- No `console.log` in committed code; errors are surfaced with `createError`, not logged and swallowed. **A handler never logs for itself** — `server/plugins/error-log.ts` records every unhandled 5xx from Nitro's `error` hook, and what it may write is fixed by the redaction contract in `docs/decisions.md`.
 
 **Migrations are non-destructive.** A new required column is added nullable → backfilled → set `NOT NULL`; `prisma migrate dev` cannot generate that and refuses the diff, so use `--create-only` and edit the SQL. Never drop or retype a column holding user data without an explicit migration plan.
 
