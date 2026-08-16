@@ -359,6 +359,8 @@ Any variant takes `prependIcon` and `appendIcon` (iconify names) for an icon bef
 
 A typed `tone?: 'default' | 'danger'` recolours hover for the `icon`/`link` variants via the internal `--hover-color` custom property, which each variant defaults for itself. Per-variant defaults are why this is a custom property rather than a `v-bind`.
 
+A typed `size?: 'md' | 'sm'` works the same way and is likewise a closed set, not a free-form measurement. `icon` reads its box and glyph from `--icon-box`/`--icon-glyph`; `sm` resteps only those two, so it declares no property of its own and is inert on every other variant. It is the **24×24** step for an icon button sitting inside another control — the select's clear ✕, the filter chip's remove ✕ — where the 36px floor does not fit. `16 + rem(4)` of the variant's padding on each side is exactly 24, which is SC 2.5.8's floor and the boundary case `test/e2e/setup/a11y.ts` measures: neither number moves alone.
+
 **`variant` is the appearance; `to` is the element.** Passing `to` makes the root a `<NuxtLink>` — a real `<a href>` — while every variant keeps its exact look. The modes bind **disjoint** props through one `rootProps` computed: button mode emits `type`/`disabled`, link mode emits `to`. Everything else arrives by attribute fallthrough and the component forwards nothing by hand — including `target`, `rel`, `external` and `prefetch`, which are declared `NuxtLink` props and so resolve as props even when they fall through. **`disabled` wins over `to`**, and a link activates on Enter only (`decisions.md`).
 
 ### Other atoms worth knowing

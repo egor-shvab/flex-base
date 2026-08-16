@@ -94,6 +94,27 @@ describe('BaseButton', () => {
 
       expect(wrapper.classes()).not.toContain('base-button--danger-tone')
     })
+
+    /**
+     * `sm` resteps the icon variant's box and glyph through the two custom properties `--icon`
+     * reads, so it is applied *alongside* the variant rather than in place of it — the same
+     * shape as the tone above. The 24×24 geometry it produces is invisible here: `test.css` is
+     * `false`, so the e2e target-size gate is what proves the box.
+     */
+    it('adds the small size alongside the variant rather than replacing it', async () => {
+      const wrapper = await mountTracked(BaseButton, {
+        props: { variant: 'icon', size: 'sm' },
+      })
+
+      expect(wrapper.classes()).toContain('base-button--icon')
+      expect(wrapper.classes()).toContain('base-button--sm')
+    })
+
+    it('leaves the size class off at the default size', async () => {
+      const wrapper = await mountTracked(BaseButton, { props: { variant: 'icon' } })
+
+      expect(wrapper.classes()).not.toContain('base-button--sm')
+    })
   })
 
   describe('accessible naming', () => {

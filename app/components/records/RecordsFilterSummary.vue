@@ -10,27 +10,27 @@
     <span v-if="search" class="filter-summary__chip">
       <span class="filter-summary__field">Search</span>
       {{ search }}
-      <button
-        type="button"
+      <BaseButton
+        variant="icon"
+        size="sm"
+        prepend-icon="mdi:close"
         class="filter-summary__remove"
-        aria-label="Clear the search"
+        label="Clear the search"
         @click="emit('update:search', '')"
-      >
-        <Icon name="mdi:close" aria-hidden="true" />
-      </button>
+      />
     </span>
 
     <span v-for="entry in entries" :key="entry.field.key" class="filter-summary__chip">
       <span class="filter-summary__field">{{ entry.field.name }}</span>
       {{ entry.phrase }}
-      <button
-        type="button"
+      <BaseButton
+        variant="icon"
+        size="sm"
+        prepend-icon="mdi:close"
         class="filter-summary__remove"
-        :aria-label="`Remove the ${entry.field.name} filter`"
+        :label="`Remove the ${entry.field.name} filter`"
         @click="remove(entry.field)"
-      >
-        <Icon name="mdi:close" aria-hidden="true" />
-      </button>
+      />
     </span>
 
     <BaseButton variant="link" @click="emit('clear')">Show all records</BaseButton>
@@ -131,27 +131,23 @@ function remove(field: IField) {
     font-weight: 600;
   }
 
+  // A `BaseButton` with `variant="icon" size="sm"`, which carries the 24×24 box, the glyph, the
+  // border reset, the cursor, the hover colour and the focus ring. Only the placement is ours.
   &__remove {
     position: absolute;
     right: rem(4);
     top: rem(4);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: rem(24);
-    height: rem(24);
-    border: none;
-    border-radius: 50%;
-    background: none;
-    font-size: rem(16);
-    color: var(--color-text-secondary);
-    cursor: pointer;
+  }
 
-    @include focus-ring;
+  // The round disc, the one thing the icon variant does not give: it declares `--radius-md` on
+  // the chassis, at the same specificity this rule would otherwise have, so the two would be
+  // settled by source order. Scoping under the chip breaks the tie deterministically — and says
+  // something true, since the button exists nowhere else.
+  &__chip &__remove {
+    border-radius: 50%;
 
     &:hover {
       background: var(--color-surface-hover);
-      color: var(--color-text);
     }
   }
 }

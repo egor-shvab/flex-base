@@ -10,6 +10,7 @@ This file says only _what_ and _in what order_ — contracts belong in `docs/arc
 
 - [x] `BaseBadge` declares its own height, so a container's line-height no longer resizes it.
 - [x] A field caption shrink-wraps to its text, so the empty space beside it is no longer a click target for the control.
+- [x] `BaseButton` gains a `size` step, and the two 24×24 icon buttons that were hand-rolled around it — the select's clear ✕ and the filter chip's remove ✕ — are `BaseButton`s.
 
 **Nothing else is in progress.** The feature set and the test suite are done, and the Open-limitations phase is finished: one **Open** row is left in `docs/decisions.md`, and it is the parked item below rather than a stage.
 

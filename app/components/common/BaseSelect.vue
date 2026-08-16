@@ -101,6 +101,10 @@
         no function behind it. `disabled` rather than a modifier class, so the state is the
         element's own — a disabled button fires no click, which is the guard `togglePanel`
         repeats for the control's own handler.
+
+        That `aria-hidden` is also why this stays hand-rolled while the clear button below is a
+        `BaseButton`: that component's contract is that `label` *names* the control, so adopting
+        it here would mean passing attributes to un-name it.
       -->
       <button
         type="button"
@@ -119,17 +123,16 @@
         because `showClear` goes false with the selection, which unmounts this button
         mid-click and would drop focus onto `<body>`.
       -->
-      <button
+      <BaseButton
         v-if="showClear"
-        type="button"
+        variant="icon"
+        size="sm"
+        prepend-icon="mdi:close"
         class="base-select__clear"
-        :aria-label="`Clear ${label ?? ariaLabel ?? 'selection'}`"
-        :title="`Clear ${label ?? ariaLabel ?? 'selection'}`"
+        :label="`Clear ${label ?? ariaLabel ?? 'selection'}`"
         @click.stop="clear"
         @mousedown.prevent
-      >
-        <Icon name="mdi:close" aria-hidden="true" />
-      </button>
+      />
     </div>
 
     <span v-if="error" :id="`${id}-error`" class="base-select__error">{{ error }}</span>
@@ -881,31 +884,22 @@ watch(open, (isOpen) => {
     }
   }
 
+  // A `BaseButton` with `variant="icon" size="sm"` — the 24×24 step, which is SC 2.5.8's floor
+  // and what fits beside the chevron inside a 36px control. The box, the glyph, the border
+  // reset, the cursor and the hover colour all come from there; what stays here is the two
+  // things only this call site knows.
   &__clear {
     right: rem(36);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    // SC 2.5.8's 24×24 floor — what fits beside the chevron inside a 36px control
-    width: rem(24);
-    height: rem(24);
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: none;
-    font-size: rem(18);
-    cursor: pointer;
 
     // Inset, or the ring would be clipped by the control's own rounded corner beside it — and
     // with it inset the halo would glow *outward* from a button sitting inside the field, over
     // that border and the chevron next to it. The ring alone says everything here.
+    //
+    // Both are custom properties, so `BaseButton`'s own `focus-ring` — whose offset argument
+    // defaults to `var(--focus-ring-offset)` — resolves them on this element. Nothing about
+    // the mixin or the component had to change to accept an inset ring.
+    --focus-ring-offset: #{rem(-1)};
     --focus-ring-halo: none;
-
-    @include focus-ring(rem(-1));
-
-    &:hover {
-      color: var(--color-text);
-    }
   }
 
   &__error {

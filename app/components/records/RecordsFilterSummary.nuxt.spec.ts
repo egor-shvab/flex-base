@@ -218,7 +218,11 @@ describe('RecordsFilterSummary', () => {
   it('clears filters and search together in one navigation', async () => {
     const wrapper = await summary({ company: 'acme' }, { search: 'lovelace' })
 
-    await wrapper.get('.base-button').trigger('click')
+    // By accessible name rather than `.base-button`: every chip's remove ✕ is a `BaseButton`
+    // too, so the bare class matches all of them and picks the first chip's.
+    const showAll = wrapper.findAll('button').find((button) => button.text() === 'Show all records')
+
+    await showAll!.trigger('click')
 
     expect(wrapper.emitted('clear')).toHaveLength(1)
     expect(wrapper.emitted('update:filters')).toBeUndefined()

@@ -2,7 +2,13 @@
   <component
     :is="root"
     class="base-button"
-    :class="[`base-button--${variant}`, { 'base-button--danger-tone': tone === 'danger' }]"
+    :class="[
+      `base-button--${variant}`,
+      {
+        'base-button--danger-tone': tone === 'danger',
+        'base-button--sm': size === 'sm',
+      },
+    ]"
     v-bind="rootProps"
     :aria-label="label"
     :title="label"
@@ -54,6 +60,15 @@ const props = withDefaults(
      * design system. Inert on the filled variants, which carry their own intent.
      */
     tone?: 'default' | 'danger'
+    /**
+     * The icon box. `sm` is the 24×24 step for an icon button that sits *inside* another
+     * control — a select's clear ✕, a filter chip's remove ✕ — where the 36px house floor
+     * does not fit. A closed set rather than a free-form size, for the reason `tone` states.
+     *
+     * Inert on every variant but `icon`, which is the only one reading the variables it
+     * resteps.
+     */
+    size?: 'md' | 'sm'
   }>(),
   {
     type: 'button',
@@ -64,6 +79,7 @@ const props = withDefaults(
     appendIcon: undefined,
     label: undefined,
     tone: 'default',
+    size: 'md',
   },
 )
 
@@ -176,14 +192,19 @@ const rootProps = computed(() =>
 
   &--icon {
     --hover-color: var(--color-text);
+    // The box and the glyph go through variables so `--sm` can restep them without a
+    // specificity race — two single classes would otherwise be decided by source order.
+    // The same indirection `--danger-tone` uses for `--hover-color`.
+    --icon-box: var(--control-height);
+    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
+    --icon-glyph: #{rem(20)};
 
     // Both axes, or the button takes the control height but stays glyph-wide — it is
     // content-sized
-    min-width: var(--control-height);
-    min-height: var(--control-height);
+    min-width: var(--icon-box);
+    min-height: var(--icon-box);
     padding: rem(4);
-    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
-    font-size: rem(20);
+    font-size: var(--icon-glyph);
     line-height: 1;
     color: var(--color-text-secondary);
 
@@ -235,6 +256,19 @@ const rootProps = computed(() =>
   // each default for themselves
   &--danger-tone {
     --hover-color: var(--color-danger);
+  }
+
+  // Applied alongside `--icon`, whose box and glyph are the two variables it resteps — so it
+  // declares no property of its own and is inert on every other variant, exactly as
+  // `--danger-tone` is on the filled ones.
+  //
+  // The step is for an icon button sitting *inside* another control, where the 36px house floor
+  // does not fit. 16 plus the variant's own `rem(4)` on both sides is exactly 24: SC 2.5.8's
+  // floor, which the e2e target-size gate measures the filter chip's remove button against as
+  // its boundary case. Neither number may go down without the other going up.
+  &--sm {
+    --icon-box: #{rem(24)};
+    --icon-glyph: #{rem(16)};
   }
 
   &__icon {
