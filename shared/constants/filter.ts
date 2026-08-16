@@ -13,7 +13,7 @@ export const UPDATED_AT_KEY = 'updatedAt'
 export const DEFAULT_SORT_KEY = CREATED_AT_KEY
 
 /** Newest first: a record added now belongs at the top of page 1, not the end of the last. */
-export const DEFAULT_SORT_DIR: TSortDirection = 'desc'
+export const DEFAULT_SORT_DIRECTION: TSortDirection = 'desc'
 
 /**
  * The record open in the detail dialog, and the trail of records it was reached through.

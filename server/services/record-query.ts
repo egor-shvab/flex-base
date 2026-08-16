@@ -357,7 +357,7 @@ export function buildRecordWhere(
 }
 
 export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): Prisma.Sql {
-  const direction = sort.dir === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
+  const direction = sort.direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
   const field =
     sort.key === DEFAULT_SORT_KEY ? undefined : queryColumns(fields).find((f) => f.key === sort.key)
 

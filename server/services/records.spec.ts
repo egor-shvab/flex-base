@@ -8,7 +8,7 @@ import {
   toSharedRecord,
   updateRecord,
 } from '#server/services/records'
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import type { IRecordQuery } from '#shared/types/record'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { relationField, textField } from '~~/test/fixtures'
@@ -38,7 +38,7 @@ function query(overrides: Partial<IRecordQuery> = {}): IRecordQuery {
   return {
     page: 1,
     pageSize: 50,
-    sort: { key: DEFAULT_SORT_KEY, dir: DEFAULT_SORT_DIR },
+    sort: { key: DEFAULT_SORT_KEY, direction: DEFAULT_SORT_DIRECTION },
     filters: {},
     search: '',
     ...overrides,

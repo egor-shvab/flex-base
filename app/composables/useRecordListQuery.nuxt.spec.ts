@@ -55,7 +55,7 @@ describe('reading the URL', () => {
 
     expect(queryState.value).toMatchObject({
       page: 2,
-      sort: { key: 'company', dir: 'desc' },
+      sort: { key: 'company', direction: 'desc' },
       filters: { company: 'acme' },
     })
   })
@@ -169,25 +169,25 @@ describe('sorting', () => {
   it('starts a fresh column ascending', () => {
     setup().applySort('company')
 
-    expect(emittedSort()).toEqual({ key: 'company', dir: 'asc' })
+    expect(emittedSort()).toEqual({ key: 'company', direction: 'asc' })
   })
 
   it('flips the column that is already sorted', () => {
     setup({ sort: 'company', dir: 'asc' }).applySort('company')
 
-    expect(emittedSort()).toEqual({ key: 'company', dir: 'desc' })
+    expect(emittedSort()).toEqual({ key: 'company', direction: 'desc' })
   })
 
   it('flips back rather than sticking on descending', () => {
     setup({ sort: 'company', dir: 'desc' }).applySort('company')
 
-    expect(emittedSort()).toEqual({ key: 'company', dir: 'asc' })
+    expect(emittedSort()).toEqual({ key: 'company', direction: 'asc' })
   })
 
   it('starts ascending again when the column changes, whatever the old direction was', () => {
     setup({ sort: 'company', dir: 'desc' }).applySort('stage')
 
-    expect(emittedSort()).toEqual({ key: 'stage', dir: 'asc' })
+    expect(emittedSort()).toEqual({ key: 'stage', direction: 'asc' })
   })
 
   it('returns to the first page, since row 51 of the old order means nothing', () => {

@@ -260,40 +260,40 @@ describe('buildRecordOrderBy', () => {
   const table = [textField('company'), relationField()]
 
   it('orders by creation for the default key', () => {
-    expect(sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, dir: 'desc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'desc' }))).toBe(
       '"createdAt" DESC',
     )
-    expect(sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, dir: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'asc' }))).toBe(
       '"createdAt" ASC',
     )
   })
 
   it('falls back to creation for a key the table no longer owns', () => {
-    expect(sqlText(buildRecordOrderBy(table, { key: 'deleted_field', dir: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy(table, { key: 'deleted_field', direction: 'asc' }))).toBe(
       '"createdAt" ASC',
     )
   })
 
   it('sorts blanks last and breaks ties newest-first, which is what keeps paging stable', () => {
-    expect(sqlText(buildRecordOrderBy(table, { key: 'company', dir: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy(table, { key: 'company', direction: 'asc' }))).toBe(
       'data ->> $1::text ASC NULLS LAST, "createdAt" DESC',
     )
   })
 
   it('orders the number as an integer though it filters as text, so #9 precedes #10', () => {
-    expect(sqlText(buildRecordOrderBy([], { key: RECORD_NUMBER_KEY, dir: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy([], { key: RECORD_NUMBER_KEY, direction: 'asc' }))).toBe(
       '"number" ASC NULLS LAST, "createdAt" DESC',
     )
   })
 
   it('orders a timestamp as a timestamp, so two records made in one day still order by time', () => {
-    expect(sqlText(buildRecordOrderBy([], { key: UPDATED_AT_KEY, dir: 'desc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy([], { key: UPDATED_AT_KEY, direction: 'desc' }))).toBe(
       '"updatedAt" DESC NULLS LAST, "createdAt" DESC',
     )
   })
 
   it('orders a RELATION by the label the user reads, not by the id it stores', () => {
-    const orderBy = buildRecordOrderBy(table, { key: 'owner', dir: 'asc' })
+    const orderBy = buildRecordOrderBy(table, { key: 'owner', direction: 'asc' })
 
     expect(sqlText(orderBy)).toBe(
       '( SELECT target.data ->> $1::text FROM "Record" AS target WHERE target.id = "Record".data ->> $2::text ) ASC NULLS LAST, "createdAt" DESC',
@@ -303,21 +303,21 @@ describe('buildRecordOrderBy', () => {
 
   it('orders a multi-value RELATION by its first link', () => {
     const multi = asMultiple(relationField())
-    expect(sqlText(buildRecordOrderBy([multi], { key: 'owner', dir: 'asc' }))).toContain(
+    expect(sqlText(buildRecordOrderBy([multi], { key: 'owner', direction: 'asc' }))).toContain(
       'target.id = "Record".data -> $2::text ->> 0',
     )
   })
 
   it('orders a multi-value SELECT by its first value', () => {
     const multi = asMultiple(selectField())
-    expect(sqlText(buildRecordOrderBy([multi], { key: 'stage', dir: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy([multi], { key: 'stage', direction: 'asc' }))).toBe(
       'data -> $1::text ->> 0 ASC NULLS LAST, "createdAt" DESC',
     )
   })
 
   it('falls back to the stored id when the label field was deleted', () => {
     const orphan = relationField({ labelFieldKey: undefined })
-    expect(sqlText(buildRecordOrderBy([orphan], { key: 'owner', dir: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy([orphan], { key: 'owner', direction: 'asc' }))).toBe(
       '"Record".data ->> $1::text ASC NULLS LAST, "createdAt" DESC',
     )
   })
@@ -375,7 +375,7 @@ describe('MULTI_SQL — the cross-registry invariant', () => {
   it('projects a widened field differently at exactly the types that may hold a list', () => {
     for (const type of FIELD_TYPES) {
       const field = ALL_TYPE_FIELDS[type]
-      const sort = { key: field.key, dir: 'asc' as const }
+      const sort = { key: field.key, direction: 'asc' as const }
 
       const flat = buildRecordOrderBy([field], sort)
       const widened = buildRecordOrderBy([asMultiple(field)], sort)

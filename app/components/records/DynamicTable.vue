@@ -98,12 +98,12 @@ const emit = defineEmits<{
 
 function ariaSort(field: IField): 'ascending' | 'descending' | 'none' {
   if (props.sort?.key !== field.key) return 'none'
-  return props.sort.dir === 'asc' ? 'ascending' : 'descending'
+  return props.sort.direction === 'asc' ? 'ascending' : 'descending'
 }
 
 function sortIcon(field: IField): string {
   if (props.sort?.key !== field.key) return 'mdi:code-tags'
-  return props.sort.dir === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+  return props.sort.direction === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
 }
 </script>
 

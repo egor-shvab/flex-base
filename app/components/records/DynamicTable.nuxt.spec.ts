@@ -136,7 +136,7 @@ describe('DynamicTable', () => {
     })
 
     it('reports the direction on the sorted column alone', async () => {
-      const wrapper = await table({ sort: { key: 'company', dir: 'asc' } })
+      const wrapper = await table({ sort: { key: 'company', direction: 'asc' } })
 
       expect(headers(wrapper).map((th) => th.attributes('aria-sort'))).toEqual([
         'none',
@@ -149,14 +149,14 @@ describe('DynamicTable', () => {
     })
 
     it('reports descending too', async () => {
-      const wrapper = await table({ sort: { key: 'company', dir: 'desc' } })
+      const wrapper = await table({ sort: { key: 'company', direction: 'desc' } })
 
       expect(headers(wrapper)[1]!.attributes('aria-sort')).toBe('descending')
     })
 
     /** The affordance is always visible — a hover-revealed one does not exist on touch. */
     it('marks only the sorted column’s icon active', async () => {
-      const wrapper = await table({ sort: { key: 'company', dir: 'asc' } })
+      const wrapper = await table({ sort: { key: 'company', direction: 'asc' } })
 
       const active = wrapper.findAll('.dynamic-table__sort-icon--active')
       expect(active).toHaveLength(1)

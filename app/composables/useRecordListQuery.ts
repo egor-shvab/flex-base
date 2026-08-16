@@ -81,8 +81,8 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
   /** Re-clicking the sorted column flips it; a new column starts ascending. */
   function applySort(key: string) {
     const { sort } = queryState.value
-    const dir = sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc'
-    return applyQuery({ ...queryState.value, page: 1, sort: { key, dir } })
+    const direction = sort.key === key && sort.direction === 'asc' ? 'desc' : 'asc'
+    return applyQuery({ ...queryState.value, page: 1, sort: { key, direction } })
   }
 
   function applyFilters(next: TRecordFilterValues) {

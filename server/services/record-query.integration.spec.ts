@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { listRecords } from '#server/services/records'
 import {
   CREATED_AT_KEY,
-  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_KEY,
   RECORD_NUMBER_KEY,
 } from '#shared/constants/filter'
@@ -31,7 +31,7 @@ let fields: IField[]
 const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
   page: 1,
   pageSize: 50,
-  sort: { key: DEFAULT_SORT_KEY, dir: DEFAULT_SORT_DIR },
+  sort: { key: DEFAULT_SORT_KEY, direction: DEFAULT_SORT_DIRECTION },
   filters: {},
   search: '',
   ...overrides,
@@ -311,8 +311,8 @@ describe('free-text search', () => {
 })
 
 describe('ORDER BY', () => {
-  const ordered = async (key: string, dir: 'asc' | 'desc') => {
-    const page = await listRecords(tableId, fields, query({ sort: { key, dir } }))
+  const ordered = async (key: string, direction: 'asc' | 'desc') => {
+    const page = await listRecords(tableId, fields, query({ sort: { key, direction } }))
     return page.records.map((record) => record.data.company)
   }
 
@@ -324,7 +324,7 @@ describe('ORDER BY', () => {
     const page = await listRecords(
       tableId,
       fields,
-      query({ sort: { key: RECORD_NUMBER_KEY, dir: 'asc' } }),
+      query({ sort: { key: RECORD_NUMBER_KEY, direction: 'asc' } }),
     )
 
     expect(page.records.map((record) => record.number)).toEqual([1, 2, 3])

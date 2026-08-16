@@ -6,7 +6,7 @@ export type TSortDirection = 'asc' | 'desc'
 export interface IRecordSort {
   /** A `Field.key`, or `DEFAULT_SORT_KEY` for the record's own creation order. */
   key: string
-  dir: TSortDirection
+  direction: TSortDirection
 }
 
 /**

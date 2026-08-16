@@ -1,4 +1,8 @@
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, FILTER_VALUES_MAX } from '#shared/constants/filter'
+import {
+  DEFAULT_SORT_DIRECTION,
+  DEFAULT_SORT_KEY,
+  FILTER_VALUES_MAX,
+} from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterParamPart, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import type { TQueryParams } from '#shared/types/query'
@@ -135,13 +139,13 @@ export function parseRecordQueryState(
   query: Record<string, unknown>,
 ): IRecordQueryState {
   const page = Number(singleParam(query.page) ?? 1)
-  const dir = singleParam(query.dir)
+  const direction = singleParam(query.dir)
 
   return {
     page: Number.isInteger(page) && page > 0 ? page : 1,
     sort: {
       key: singleParam(query.sort) ?? DEFAULT_SORT_KEY,
-      dir: dir === 'asc' || dir === 'desc' ? dir : DEFAULT_SORT_DIR,
+      direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_SORT_DIRECTION,
     },
     filters: parseFilterValues(fields, query),
     // `singleParam` already collapses an empty param, a repeat and an absence to `undefined`,
@@ -202,7 +206,7 @@ export function toRecordQueryParams(state: IRecordQueryState): TQueryParams {
   if (state.search) params.search = state.search
   if (state.page > 1) params.page = String(state.page)
   if (state.sort.key !== DEFAULT_SORT_KEY) params.sort = state.sort.key
-  if (state.sort.dir !== DEFAULT_SORT_DIR) params.dir = state.sort.dir
+  if (state.sort.direction !== DEFAULT_SORT_DIRECTION) params.dir = state.sort.direction
 
   return params
 }

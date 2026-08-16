@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CREATED_AT_KEY,
-  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_KEY,
   FILTER_VALUES_MAX,
   RECORD_NUMBER_KEY,
@@ -39,7 +39,7 @@ const parse = (query: Record<string, unknown>) => parseRecordQueryState(fields, 
 
 const state = (overrides: Partial<IRecordQueryState> = {}): IRecordQueryState => ({
   page: 1,
-  sort: { key: DEFAULT_SORT_KEY, dir: DEFAULT_SORT_DIR },
+  sort: { key: DEFAULT_SORT_KEY, direction: DEFAULT_SORT_DIRECTION },
   filters: {},
   search: '',
   ...overrides,
@@ -52,7 +52,7 @@ describe('parseRecordQueryState — pagination, sorting, search', () => {
 
   it('reads a page, a sort key and a direction', () => {
     expect(parse({ page: '3', sort: 'company', dir: 'asc' })).toEqual(
-      state({ page: 3, sort: { key: 'company', dir: 'asc' } }),
+      state({ page: 3, sort: { key: 'company', direction: 'asc' } }),
     )
   })
 
@@ -64,9 +64,9 @@ describe('parseRecordQueryState — pagination, sorting, search', () => {
   })
 
   it('falls back to the default direction for anything but asc/desc', () => {
-    expect(parse({ dir: 'ASC' }).sort.dir).toBe(DEFAULT_SORT_DIR)
-    expect(parse({ dir: 'sideways' }).sort.dir).toBe(DEFAULT_SORT_DIR)
-    expect(parse({ dir: 'asc' }).sort.dir).toBe('asc')
+    expect(parse({ dir: 'ASC' }).sort.direction).toBe(DEFAULT_SORT_DIRECTION)
+    expect(parse({ dir: 'sideways' }).sort.direction).toBe(DEFAULT_SORT_DIRECTION)
+    expect(parse({ dir: 'asc' }).sort.direction).toBe('asc')
   })
 
   it('passes an unknown sort key straight through', () => {
@@ -221,10 +221,12 @@ describe('toRecordQueryParams', () => {
 
   it('omits every default and emits only what differs', () => {
     expect(toRecordQueryParams(state({ page: 2 }))).toEqual({ page: '2' })
-    expect(toRecordQueryParams(state({ sort: { key: 'company', dir: 'desc' } }))).toEqual({
+    expect(toRecordQueryParams(state({ sort: { key: 'company', direction: 'desc' } }))).toEqual({
       sort: 'company',
     })
-    expect(toRecordQueryParams(state({ sort: { key: DEFAULT_SORT_KEY, dir: 'asc' } }))).toEqual({
+    expect(
+      toRecordQueryParams(state({ sort: { key: DEFAULT_SORT_KEY, direction: 'asc' } })),
+    ).toEqual({
       dir: 'asc',
     })
     expect(toRecordQueryParams(state({ search: 'acme' }))).toEqual({ search: 'acme' })
@@ -305,7 +307,7 @@ describe('toRecordQueryParams', () => {
         filters: { search: 'legacy', page: 'legacy', sort: 'legacy', dir: 'legacy' },
         search: 'real',
         page: 2,
-        sort: { key: 'company', dir: 'asc' },
+        sort: { key: 'company', direction: 'asc' },
       }),
     )
     expect(params).toEqual({ search: 'real', page: '2', sort: 'company', dir: 'asc' })
@@ -337,7 +339,7 @@ describe('round-trip', () => {
   it('survives a query covering every type and both cardinalities', () => {
     const original = state({
       page: 4,
-      sort: { key: 'company', dir: 'asc' },
+      sort: { key: 'company', direction: 'asc' },
       search: 'acme',
       filters: {
         [RECORD_NUMBER_KEY]: '4',

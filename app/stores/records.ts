@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordPage, IRecordQueryState, TRecordData } from '#shared/types/record'
 import { toRecordQueryParams } from '#shared/utils/record-query'
@@ -14,7 +14,7 @@ function isDefaultView(query: IRecordQueryState): boolean {
     Object.keys(query.filters).length === 0 &&
     query.search === '' &&
     query.sort.key === DEFAULT_SORT_KEY &&
-    query.sort.dir === DEFAULT_SORT_DIR
+    query.sort.direction === DEFAULT_SORT_DIRECTION
   )
 }
 

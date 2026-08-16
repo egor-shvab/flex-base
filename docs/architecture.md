@@ -40,7 +40,7 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 **`shared/constants/`**
 
 - `field.ts` — `FIELD_TYPES`, `FIELD_TYPE_LABELS`, `BOOLEAN_LABELS`, `MULTI_VALUE_BY_TYPE` (which types may be configured to hold several values — SELECT and RELATION). Every type in `FIELD_TYPES` is creatable; there is no second, narrower list.
-- `filter.ts` — `FILTER_VALUE_BY_TYPE`; `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIR` (`desc`); `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir`/`search`/`detail`) + `DETAIL_PARAM`; `SEARCH_MIN_LENGTH` (2); `FILTER_VALUES_MAX` (50, the cap on one list-shaped filter's values); `RECORD_NUMBER_KEY` / `CREATED_AT_KEY` / `UPDATED_AT_KEY` + `RESERVED_FIELD_KEYS`.
+- `filter.ts` — `FILTER_VALUE_BY_TYPE`; `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIRECTION` (`desc`); `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir`/`search`/`detail`) + `DETAIL_PARAM`; `SEARCH_MIN_LENGTH` (2); `FILTER_VALUES_MAX` (50, the cap on one list-shaped filter's values); `RECORD_NUMBER_KEY` / `CREATED_AT_KEY` / `UPDATED_AT_KEY` + `RESERVED_FIELD_KEYS`.
 - `record.ts` — `RECORD_PAGE_SIZE` (50), `RECORD_PAGE_SIZE_MAX` (100), `RELATION_OPTIONS_LIMIT` (200), `UNKNOWN_RECORD_LABEL`, `MULTI_VALUE_MAX_ITEMS` (50, the cap on how many values one multi-value field may hold — `FILTER_VALUES_MAX`'s counterpart on the write side).
 
 **`shared/utils/`**

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createRecord, deleteRecord, listRecords, updateRecord } from '#server/services/records'
 import { prisma } from '#server/utils/prisma'
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createTable, createUser } from '~~/test/integration/seed'
@@ -12,7 +12,7 @@ let fields: IField[]
 const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
   page: 1,
   pageSize: 50,
-  sort: { key: DEFAULT_SORT_KEY, dir: DEFAULT_SORT_DIR },
+  sort: { key: DEFAULT_SORT_KEY, direction: DEFAULT_SORT_DIRECTION },
   filters: {},
   search: '',
   ...overrides,

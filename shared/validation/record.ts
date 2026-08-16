@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import {
-  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_KEY,
   FILTER_VALUES_MAX,
   SEARCH_MIN_LENGTH,
@@ -186,7 +186,7 @@ const baseQueryParamsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(RECORD_PAGE_SIZE_MAX).default(RECORD_PAGE_SIZE),
   sort: z.string().optional(),
-  dir: z.enum(['asc', 'desc']).default(DEFAULT_SORT_DIR),
+  dir: z.enum(['asc', 'desc']).default(DEFAULT_SORT_DIRECTION),
   // Declared on the base rather than left to the loose object: this is what caps the length
   // and enforces the floor, so an unanchored scan can never be triggered by one character.
   // The `superRefine` below cannot serve it — that loop is driven by the filter param claims.

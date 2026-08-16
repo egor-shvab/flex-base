@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
 import { createPinia, setActivePinia } from 'pinia'
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecordPage, IRecordQueryState } from '#shared/types/record'
 import { useRecordsStore } from '~/stores/records'
@@ -13,7 +13,7 @@ import { record } from '~~/test/fixtures'
 /** The unfiltered, unsearched, newest-first view — the only one with a place for a new record. */
 const DEFAULT_QUERY: IRecordQueryState = {
   page: 1,
-  sort: { key: DEFAULT_SORT_KEY, dir: DEFAULT_SORT_DIR },
+  sort: { key: DEFAULT_SORT_KEY, direction: DEFAULT_SORT_DIRECTION },
   filters: {},
   search: '',
 }
@@ -281,8 +281,8 @@ describe('useRecordsStore', () => {
     it.each([
       ['a filter', { filters: { company: 'acme' } }],
       ['a search', { search: 'acme' }],
-      ['another sort key', { sort: { key: 'company', dir: DEFAULT_SORT_DIR } }],
-      ['the other direction', { sort: { key: DEFAULT_SORT_KEY, dir: 'asc' as const } }],
+      ['another sort key', { sort: { key: 'company', direction: DEFAULT_SORT_DIRECTION } }],
+      ['the other direction', { sort: { key: DEFAULT_SORT_KEY, direction: 'asc' as const } }],
     ])('stays on the current page under %s', async (_name, narrowing) => {
       const store = useRecordsStore()
       const query = { ...DEFAULT_QUERY, page: 2, ...narrowing }
