@@ -206,6 +206,8 @@ export function toRecordQueryParams(state: IRecordQueryState): TQueryParams {
   if (state.search) params.search = state.search
   if (state.page > 1) params.page = String(state.page)
   if (state.sort.key !== DEFAULT_SORT_KEY) params.sort = state.sort.key
+  // `dir`, not `direction`: the param spelling is frozen because a shared link outlives any
+  // rename, so the state field and the param it writes disagree on purpose (`CLAUDE.md` §6).
   if (state.sort.direction !== DEFAULT_SORT_DIRECTION) params.dir = state.sort.direction
 
   return params
