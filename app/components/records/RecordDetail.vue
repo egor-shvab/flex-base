@@ -14,7 +14,7 @@ import { computed } from 'vue'
 import { RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
-import { queryFields } from '#shared/utils/filter'
+import { queryColumns } from '#shared/utils/filter'
 
 const props = defineProps<{
   fields: IField[]
@@ -30,7 +30,7 @@ const props = defineProps<{
  * dialog's own heading, where a `Record # · #1` row would only say it twice.
  */
 const columns = computed(() =>
-  queryFields(props.fields).filter((column) => column.key !== RECORD_NUMBER_KEY),
+  queryColumns(props.fields).filter((column) => column.key !== RECORD_NUMBER_KEY),
 )
 </script>
 

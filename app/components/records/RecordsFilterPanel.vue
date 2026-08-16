@@ -36,7 +36,7 @@ import {
   emptyFilterValueFor,
   filterableFields,
   isFilterValueEmpty,
-  queryFields,
+  queryColumns,
 } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
@@ -59,11 +59,11 @@ const panelId = useId()
 const activeFilterCount = computed(() => Object.keys(props.filters).length)
 
 /**
- * The record's own columns filter alongside the table's fields (see `queryFields`), minus any
+ * The record's own columns filter alongside the table's fields (see `queryColumns`), minus any
  * column whose filter could not round-trip through the URL — a control that discards what is
  * typed into it is a dead control (`CLAUDE.md` §7).
  */
-const columns = computed(() => filterableFields(queryFields(props.fields)))
+const columns = computed(() => filterableFields(queryColumns(props.fields)))
 
 /** Resolved once per field rather than per render, since `props` is a factory. */
 const controls = computed(() =>

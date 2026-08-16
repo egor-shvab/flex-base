@@ -119,7 +119,7 @@ describe('RecordsFilterSummary', () => {
       expect(chips(wrapper)).toEqual(['Created at from 1 Jan 2026'])
     })
 
-    /** `queryFields` fixes where each one sits: the number leads, the timestamps trail. */
+    /** `queryColumns` fixes where each one sits: the number leads, the timestamps trail. */
     it('places the record’s own columns around a table’s own fields', async () => {
       const wrapper = await summary({
         [RECORD_NUMBER_KEY]: '4',

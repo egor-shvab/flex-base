@@ -29,7 +29,7 @@ import {
 
 const props = defineProps<{
   record: IRecord
-  /** A column of `queryFields` — the table's own fields, or one of the record's. */
+  /** A column of `queryColumns` — the table's own fields, or one of the record's. */
   column: IField
 }>()
 

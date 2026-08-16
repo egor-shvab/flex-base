@@ -45,7 +45,7 @@ import {
   emptyFilterValueFor,
   filterableFields,
   isFilterValueEmpty,
-  queryFields,
+  queryColumns,
 } from '#shared/utils/filter'
 import { summaryFor } from '~/field-types/filter-summaries'
 import { useRelationsStore } from '~/stores/relations'
@@ -68,7 +68,7 @@ const emit = defineEmits<{
 const relations = useRelationsStore()
 
 /** The same columns the drawer offers — a filter it cannot set is one this cannot chip. */
-const columns = computed(() => filterableFields(queryFields(props.fields)))
+const columns = computed(() => filterableFields(queryColumns(props.fields)))
 
 /**
  * Walks the table's columns and looks each one up in the filter map — never

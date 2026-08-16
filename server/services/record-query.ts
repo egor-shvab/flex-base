@@ -12,7 +12,7 @@ import {
   isListFilterValue,
   isRangeFilterValue,
   isScalarFilterValue,
-  queryFields,
+  queryColumns,
 } from '#shared/utils/filter'
 
 /**
@@ -320,7 +320,7 @@ function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null 
   const pattern = toContainsPattern(search)
   const arms: Prisma.Sql[] = []
 
-  for (const field of queryFields(fields)) {
+  for (const field of queryColumns(fields)) {
     const predicate = searchPredicate(field, pattern)
     if (predicate) arms.push(predicate)
   }
@@ -342,7 +342,7 @@ export function buildRecordWhere(
 ): Prisma.Sql {
   const conditions = [Prisma.sql`"tableId" = ${tableId}`]
 
-  for (const field of queryFields(fields)) {
+  for (const field of queryColumns(fields)) {
     const value = filters[field.key]
     if (value === undefined) continue
 
@@ -359,7 +359,7 @@ export function buildRecordWhere(
 export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): Prisma.Sql {
   const direction = sort.dir === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
   const field =
-    sort.key === DEFAULT_SORT_KEY ? undefined : queryFields(fields).find((f) => f.key === sort.key)
+    sort.key === DEFAULT_SORT_KEY ? undefined : queryColumns(fields).find((f) => f.key === sort.key)
 
   if (!field) {
     return Prisma.sql`"createdAt" ${direction}`

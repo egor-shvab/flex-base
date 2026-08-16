@@ -71,7 +71,7 @@ import { RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord } from '#shared/types/record'
-import { queryFields } from '#shared/utils/filter'
+import { queryColumns } from '#shared/utils/filter'
 import { useDetailLink } from '~/composables/useDetailLink'
 
 const props = defineProps<{
@@ -88,7 +88,7 @@ const detailLinkTo = useDetailLink()
  * The record's own columns bracket the table's fields, and one list drives both the header and
  * the body so the two cannot drift. Each sorts through the same helpers as any other column.
  */
-const columns = computed(() => queryFields(props.fields))
+const columns = computed(() => queryColumns(props.fields))
 
 const emit = defineEmits<{
   edit: [record: IRecord]

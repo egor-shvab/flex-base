@@ -18,7 +18,7 @@ import type {
   TRecordValue,
 } from '#shared/types/record'
 import { choiceValues, isMultiValue } from '#shared/utils/field'
-import { claimFilterParams, filterShapeFor, queryFields } from '#shared/utils/filter'
+import { claimFilterParams, filterShapeFor, queryColumns } from '#shared/utils/filter'
 
 const TEXT_MAX_LENGTH = 1000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -212,7 +212,7 @@ const baseQueryParamsSchema = z.object({
  */
 export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQueryParams> {
   // The record's own columns sort and filter like fields, so they judge the params too
-  const columns = queryFields(fields)
+  const columns = queryColumns(fields)
   const fieldByKey = new Map(columns.map((field) => [field.key, field]))
   const claims = claimFilterParams(columns)
 

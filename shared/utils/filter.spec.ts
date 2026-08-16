@@ -18,7 +18,7 @@ import {
   isRangeFilterValue,
   isReservedParam,
   isScalarFilterValue,
-  queryFields,
+  queryColumns,
   rangeParamName,
 } from '#shared/utils/filter'
 import {
@@ -30,11 +30,11 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-describe('queryFields', () => {
+describe('queryColumns', () => {
   it('leads with the record number and trails with the timestamps', () => {
     // The order the table and the filter drawer both render from — a table's own data must
     // not be pushed to the right by the record's columns
-    expect(queryFields([textField('company')]).map((field) => field.key)).toEqual([
+    expect(queryColumns([textField('company')]).map((field) => field.key)).toEqual([
       RECORD_NUMBER_KEY,
       'company',
       CREATED_AT_KEY,
@@ -43,12 +43,12 @@ describe('queryFields', () => {
   })
 
   it('yields the three record columns for a table with no fields', () => {
-    expect(queryFields([])).toHaveLength(3)
+    expect(queryColumns([])).toHaveLength(3)
   })
 
   it('does not mutate the fields it was given', () => {
     const fields = [textField('company')]
-    queryFields(fields)
+    queryColumns(fields)
     expect(fields).toHaveLength(1)
   })
 })

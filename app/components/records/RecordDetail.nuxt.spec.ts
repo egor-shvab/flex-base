@@ -28,7 +28,7 @@ describe('RecordDetail', () => {
       props: { fields: FIELDS, record: record() },
     })
 
-    // `queryFields` order, which is what `DynamicTable` renders too
+    // `queryColumns` order, which is what `DynamicTable` renders too
     expect(terms(wrapper)).toEqual(['Company', 'stage', 'Created at', 'Updated at'])
   })
 

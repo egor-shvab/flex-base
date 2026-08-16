@@ -15,7 +15,7 @@ import { isMultiValue } from '#shared/utils/field'
  * column rather than a key of `data`. Declaring these as ordinary `IField`s is what lets the
  * filter control, the URL codec, the query schema and the match count treat them like any
  * other column — only the SQL projection knows they are not JSONB. `order` is inert here,
- * since `queryFields` fixes where each one sits.
+ * since `queryColumns` fixes where each one sits.
  */
 function recordColumn(key: string, name: string, type: TFieldType): IField {
   return { id: key, key, name, type, required: false, options: null, order: 0 }
@@ -36,7 +36,7 @@ const UPDATED_AT_FIELD = recordColumn(UPDATED_AT_KEY, 'Updated at', 'DATE')
  * Applied wherever a *query* is built — never where a record's data is read or written, since
  * nothing here is part of that data.
  */
-export function queryFields(fields: IField[]): IField[] {
+export function queryColumns(fields: IField[]): IField[] {
   return [RECORD_NUMBER_FIELD, ...fields, CREATED_AT_FIELD, UPDATED_AT_FIELD]
 }
 
@@ -135,7 +135,7 @@ export function claimFilterParams(
  * The columns whose filter can actually round-trip — every field claiming at least one param.
  * A legacy field keyed like a reserved one (`search`, `page`, …) claims nothing at all, so its
  * value can never survive the URL; the filter drawer and the summary render from this rather
- * than from `queryFields` so that no control is offered for a filter that cannot be applied.
+ * than from `queryColumns` so that no control is offered for a filter that cannot be applied.
  *
  * Only *filtering* is affected. Such a field still sorts and still renders as a column: the
  * sort key travels as the **value** of `?sort=`, where a reserved name collides with nothing.

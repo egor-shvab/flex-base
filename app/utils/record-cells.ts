@@ -10,7 +10,7 @@ import { RECORD_COLUMNS } from '~/field-types/record-columns'
 const MULTI_VALUE_CELL = markRaw(MultiValueCell)
 
 /**
- * How a column of `queryFields` is read and drawn — shared by the table and the detail dialog,
+ * How a column of `queryColumns` is read and drawn — shared by the table and the detail dialog,
  * so a value reads the same wherever it is shown. Key before type in both, mirroring the
  * precedence the server's `FIELD_SQL_BY_TYPE` lookup uses.
  */

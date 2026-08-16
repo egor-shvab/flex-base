@@ -11,7 +11,7 @@ import {
   isListFilterValue,
   isRangeFilterValue,
   isReservedParam,
-  queryFields,
+  queryColumns,
   rangeParamName,
 } from '#shared/utils/filter'
 import { singleParam } from '#shared/utils/query-param'
@@ -80,7 +80,7 @@ function parseFilterValues(fields: IField[], query: Record<string, unknown>): TR
   const listsByKey = new Map<string, string[]>()
   // The record's own columns filter alongside its table's fields, so the seam is applied
   // here rather than by each caller — the page and the endpoint decode a link identically
-  const columns = queryFields(fields)
+  const columns = queryColumns(fields)
 
   for (const { field, part, name } of claimFilterParams(columns)) {
     // A list claims one param name and reads every repeat of it, so it collects whole

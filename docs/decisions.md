@@ -296,7 +296,7 @@ Retargeting would orphan every stored id, so `updateField` rejects it with 400. 
 
 ### The record's own columns go through one seam
 
-`queryFields(fields)` wraps a table's fields in `Record #` / `Created at` / `Updated at` **only where a query is built**, never where record data is read or written. Special-casing them at each layer instead would mean a branch in the codec, the schema, the SQL builder, the table and the filter panel — five places to forget one.
+`queryColumns(fields)` wraps a table's fields in `Record #` / `Created at` / `Updated at` **only where a query is built**, never where record data is read or written. Special-casing them at each layer instead would mean a branch in the codec, the schema, the SQL builder, the table and the filter panel — five places to forget one.
 
 The reserved keys are **camelCase**, a shape `slugify` can never emit, so no user field can shadow one. `RESERVED_FIELD_KEYS` states the reservation rather than relying on that luck.
 

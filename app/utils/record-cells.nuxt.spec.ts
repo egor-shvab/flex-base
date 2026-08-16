@@ -20,7 +20,7 @@ import {
 } from '~~/test/fixtures'
 import { RECORD_NUMBER_FIELD } from '#shared/utils/filter'
 
-/** The record's own columns, as `queryFields` presents them. */
+/** The record's own columns, as `queryColumns` presents them. */
 const createdAtColumn = { ...RECORD_NUMBER_FIELD, key: CREATED_AT_KEY, name: 'Created at' }
 const updatedAtColumn = { ...RECORD_NUMBER_FIELD, key: UPDATED_AT_KEY, name: 'Updated at' }
 
