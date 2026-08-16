@@ -48,7 +48,7 @@ export const SEARCH_MIN_LENGTH = 2
  * crafted URL would otherwise compose arbitrarily large SQL. Well above any realistic choice
  * count — this is a ceiling, not a product rule.
  */
-export const FILTER_LIST_MAX = 50
+export const FILTER_VALUES_MAX = 50
 
 /**
  * The same keys, as the field-key guard reads them: `slugify` only ever emits `^[a-z0-9_]+$`,

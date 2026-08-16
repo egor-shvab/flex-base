@@ -2,10 +2,14 @@ import { z } from 'zod'
 import {
   DEFAULT_SORT_DIR,
   DEFAULT_SORT_KEY,
-  FILTER_LIST_MAX,
+  FILTER_VALUES_MAX,
   SEARCH_MIN_LENGTH,
 } from '#shared/constants/filter'
-import { RECORD_LIST_MAX, RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
+import {
+  MULTI_VALUE_MAX_ITEMS,
+  RECORD_PAGE_SIZE,
+  RECORD_PAGE_SIZE_MAX,
+} from '#shared/constants/record'
 import type { IField, TFieldType } from '#shared/types/field'
 import type {
   IRecordQueryParams,
@@ -116,7 +120,7 @@ function buildMultiValueSchema(
 ): z.ZodType<string[]> {
   let list = z
     .array(listBase(field))
-    .max(RECORD_LIST_MAX, `Choose at most ${RECORD_LIST_MAX} values`)
+    .max(MULTI_VALUE_MAX_ITEMS, `Choose at most ${MULTI_VALUE_MAX_ITEMS} values`)
     .refine((values) => new Set(values).size === values.length, {
       error: `${field.name} cannot repeat a value`,
     })
@@ -232,7 +236,7 @@ export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQuery
       if (filterShapeFor(field) === 'list') {
         const entries = Array.isArray(raw) ? raw : [raw]
 
-        if (entries.length > FILTER_LIST_MAX) {
+        if (entries.length > FILTER_VALUES_MAX) {
           ctx.addIssue({ code: 'custom', path: [name], message: 'Too many filter values' })
           continue
         }

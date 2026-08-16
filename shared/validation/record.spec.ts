@@ -1,7 +1,11 @@
 ﻿import { describe, expect, it } from 'vitest'
 import { FIELD_TYPES } from '#shared/constants/field'
-import { FILTER_LIST_MAX, SEARCH_MIN_LENGTH } from '#shared/constants/filter'
-import { RECORD_LIST_MAX, RECORD_PAGE_SIZE, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
+import { FILTER_VALUES_MAX, SEARCH_MIN_LENGTH } from '#shared/constants/filter'
+import {
+  MULTI_VALUE_MAX_ITEMS,
+  RECORD_PAGE_SIZE,
+  RECORD_PAGE_SIZE_MAX,
+} from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
 import {
   blankValueFor,
@@ -148,11 +152,11 @@ describe('buildRecordSchema — multi-value', () => {
     expect(parseList(multiSelect, ['Won', 'Renamed']).success).toBe(false)
   })
 
-  it(`bounds the list at ${RECORD_LIST_MAX} values`, () => {
-    const ids = Array.from({ length: RECORD_LIST_MAX + 1 }, (_, index) => `rec_${index}`)
+  it(`bounds the list at ${MULTI_VALUE_MAX_ITEMS} values`, () => {
+    const ids = Array.from({ length: MULTI_VALUE_MAX_ITEMS + 1 }, (_, index) => `rec_${index}`)
     const multiRelation = asMultiple(relationField())
 
-    expect(parseList(multiRelation, ids.slice(0, RECORD_LIST_MAX)).success).toBe(true)
+    expect(parseList(multiRelation, ids.slice(0, MULTI_VALUE_MAX_ITEMS)).success).toBe(true)
     expect(parseList(multiRelation, ids).success).toBe(false)
   })
 
@@ -303,10 +307,10 @@ describe('buildRecordQuerySchema — filter params', () => {
     expect(schema.safeParse({ partners: ['rec_1', 'rec_2'] }).success).toBe(true)
   })
 
-  it(`rejects more than ${FILTER_LIST_MAX} values on one filter`, () => {
-    const ids = Array.from({ length: FILTER_LIST_MAX + 1 }, (_, index) => `rec_${index}`)
+  it(`rejects more than ${FILTER_VALUES_MAX} values on one filter`, () => {
+    const ids = Array.from({ length: FILTER_VALUES_MAX + 1 }, (_, index) => `rec_${index}`)
 
-    expect(schema.safeParse({ partners: ids.slice(0, FILTER_LIST_MAX) }).success).toBe(true)
+    expect(schema.safeParse({ partners: ids.slice(0, FILTER_VALUES_MAX) }).success).toBe(true)
     expect(issuePaths(schema, { partners: ids })).toEqual(['partners'])
   })
 

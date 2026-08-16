@@ -3,7 +3,7 @@ import {
   CREATED_AT_KEY,
   DEFAULT_SORT_DIR,
   DEFAULT_SORT_KEY,
-  FILTER_LIST_MAX,
+  FILTER_VALUES_MAX,
   RECORD_NUMBER_KEY,
   RESERVED_QUERY_PARAMS,
   UPDATED_AT_KEY,
@@ -185,18 +185,18 @@ describe('parseRecordQueryState — malformed values degrade rather than throw',
 })
 
 describe('parseRecordQueryState — list bounds', () => {
-  const choices = Array.from({ length: FILTER_LIST_MAX + 5 }, (_, index) => `choice_${index}`)
+  const choices = Array.from({ length: FILTER_VALUES_MAX + 5 }, (_, index) => `choice_${index}`)
   const wide = [selectField(choices)]
 
   it('deduplicates repeats', () => {
     expect(parse({ stage: ['Won', 'Won', 'Lost'] }).filters).toEqual({ stage: ['Won', 'Lost'] })
   })
 
-  it('caps a crafted link at FILTER_LIST_MAX values', () => {
+  it('caps a crafted link at FILTER_VALUES_MAX values', () => {
     // The codec's own cap, not a restatement of the schema's: this reader also runs on the
     // client over an unvalidated `route.query`, where nothing has rejected the link yet
     const filters = parseRecordQueryState(wide, { stage: choices }).filters
-    expect(filters.stage).toHaveLength(FILTER_LIST_MAX)
+    expect(filters.stage).toHaveLength(FILTER_VALUES_MAX)
   })
 
   it('drops the empty repeats of a list', () => {

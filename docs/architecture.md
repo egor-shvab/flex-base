@@ -40,8 +40,8 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 **`shared/constants/`**
 
 - `field.ts` — `FIELD_TYPES`, `FIELD_TYPE_LABELS`, `BOOLEAN_LABELS`, `MULTI_VALUE_BY_TYPE` (which types may be configured to hold several values — SELECT and RELATION). Every type in `FIELD_TYPES` is creatable; there is no second, narrower list.
-- `filter.ts` — `FILTER_VALUE_BY_TYPE`; `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIR` (`desc`); `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir`/`search`/`detail`) + `DETAIL_PARAM`; `SEARCH_MIN_LENGTH` (2); `FILTER_LIST_MAX` (50, the cap on one list-shaped filter's values); `RECORD_NUMBER_KEY` / `CREATED_AT_KEY` / `UPDATED_AT_KEY` + `RESERVED_FIELD_KEYS`.
-- `record.ts` — `RECORD_PAGE_SIZE` (50), `RECORD_PAGE_SIZE_MAX` (100), `RELATION_OPTIONS_LIMIT` (200), `UNKNOWN_RECORD_LABEL`, `RECORD_LIST_MAX` (50, the cap on how many values one multi-value field may hold — `FILTER_LIST_MAX`'s counterpart on the write side).
+- `filter.ts` — `FILTER_VALUE_BY_TYPE`; `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIR` (`desc`); `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir`/`search`/`detail`) + `DETAIL_PARAM`; `SEARCH_MIN_LENGTH` (2); `FILTER_VALUES_MAX` (50, the cap on one list-shaped filter's values); `RECORD_NUMBER_KEY` / `CREATED_AT_KEY` / `UPDATED_AT_KEY` + `RESERVED_FIELD_KEYS`.
+- `record.ts` — `RECORD_PAGE_SIZE` (50), `RECORD_PAGE_SIZE_MAX` (100), `RELATION_OPTIONS_LIMIT` (200), `UNKNOWN_RECORD_LABEL`, `MULTI_VALUE_MAX_ITEMS` (50, the cap on how many values one multi-value field may hold — `FILTER_VALUES_MAX`'s counterpart on the write side).
 
 **`shared/utils/`**
 
@@ -63,7 +63,7 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 - `field.ts` — flat `fieldSchema` with a per-type `superRefine`, one schema for client and server. `multiple` is judged against `MULTI_VALUE_BY_TYPE` rather than a hardcoded type pair. Flat at the top level only: a SELECT choice is `{ value, color }`, and uniqueness is judged on `value` alone, since two choices differing only by colour are the same choice. Whether a RELATION's target exists and is owned is a database question, so the server layers `requireFieldTarget` on top.
 - `record.ts` — `VALUE_SCHEMA_BY_TYPE` (per type: `base` schema + `blank` value + `fromQuery` decoder + `listBase`), `buildRecordSchema(fields)` (strips unknown keys), `blankValueFor(field)`, `buildFilterValueSchema(field)`, `buildRecordQuerySchema(fields)` (page + pageSize + sort/dir + the filter params the table's fields claim; a **loose** object so the refinement can read filter params without widening the base ones). Required is enforced only where `blank` is `null`, so a BOOLEAN's `false` counts as a value.
 
-  **A multi-value field's schema is its type's own `base` lifted into `z.array`** — the type still says what one value is, cardinality says how many. `blank` becomes `[]`, `required` becomes "at least one", the cap is `RECORD_LIST_MAX`, and duplicates are rejected rather than deduplicated (`decisions.md`). No type declares a second schema.
+  **A multi-value field's schema is its type's own `base` lifted into `z.array`** — the type still says what one value is, cardinality says how many. `blank` becomes `[]`, `required` becomes "at least one", the cap is `MULTI_VALUE_MAX_ITEMS`, and duplicates are rejected rather than deduplicated (`decisions.md`). No type declares a second schema.
 
 ---
 
@@ -178,7 +178,7 @@ Plain query params named after the field, the name following from the value's sh
 - The record's own columns ride in the same namespace: `?recordNumber=4` as a scalar (partial match, like any text filter), `?createdAt_from=…&updatedAt_to=…` as ranges. All three are accepted `?sort=` keys too.
 - A RELATION carries the target record's **id** (`?company=clx…`) — the picker's own value, so a link cannot decode to a label the server would have to re-resolve.
 - **How each is compared is the field type's business on the server** (TEXT partially, scalars exactly, a list as `IN (…)`, ranges inclusively) and never travels in the URL. There are no operators anywhere in the project.
-- Every filter is ANDed; the values **within** one list filter are ORed. A list is capped at `FILTER_LIST_MAX` and deduplicated, and its values are sorted on serialize so one selection has one canonical URL.
+- Every filter is ANDed; the values **within** one list filter are ORed. A list is capped at `FILTER_VALUES_MAX` and deduplicated, and its values are sorted on serialize so one selection has one canonical URL.
 - One value per param — a repeated param is a 400 **for every shape but `list`**, which is the only one that reads repeats.
 - An empty value (`?company=`) means "not filtered", never `ILIKE '%%'`.
 - Params the table does not own are **ignored, not rejected** — with bare names a typo is indistinguishable from `utm_source`. A malformed **known** param (`?contract_value_from=abc`) is still a 400.
@@ -422,7 +422,7 @@ Two badges appear below, and both mean the line is inventory but another suite i
   - the field form offers "Allow multiple values" for those two types only, and locks it once saved on;
   - widening a field that already holds data leaves every existing value rendering unchanged, and narrowing it back is a 400;
   - a record holding several values shows them on one line in the table and wrapped in the detail dialog, and that one line means the values that **fit, in full** — never every value shrunk to a stub; clearing it reads `Not set`, not blank;
-  - a required multi field with nothing chosen fails per-field; a repeated value and one past `RECORD_LIST_MAX` are each a 400;
+  - a required multi field with nothing chosen fails per-field; a repeated value and one past `MULTI_VALUE_MAX_ITEMS` are each a 400;
   - the column sorts by its **first** value, blanks last;
   - search matches text inside a multi SELECT's values and does **not** match the JSONB punctuation holding them together — `["`, `", "`, `"]` _(integration)_. Note the separator is `", "`: jsonb normalises its text output, so a `","` probe would pass even against a broken projection;
   - a multi RELATION filters as `?services=id1&services=id2`, its summary chip reads "is any of <labels>", and each link in the cell drills into the detail dialog independently — a deleted target degrades to a dashed "Unknown record" while its siblings still link.

@@ -183,7 +183,7 @@ The visible `#N` is **not** the sort key: `targetLabel` orders by the target's l
 
 This does not overturn "a repeated param is a 400" — it makes it a **per-shape** rule. A scalar or range slot given an array is still malformed and still 400s; only a `list` slot reads repeats. Values are **sorted on serialize**, so one selection always writes one URL and `recordQueryKey` cannot report a change nobody made.
 
-The bounds: `FILTER_LIST_MAX` (50) in the schema, because a repeated param is the one place a single filter can grow without limit and every value becomes a term of an `IN (…)`; and the codec caps and deduplicates independently, because it also runs client-side over an unvalidated `route.query`.
+The bounds: `FILTER_VALUES_MAX` (50) in the schema, because a repeated param is the one place a single filter can grow without limit and every value becomes a term of an `IN (…)`; and the codec caps and deduplicates independently, because it also runs client-side over an unvalidated `route.query`.
 
 ### Multi-value is a per-field flag, not a pair of new field types
 

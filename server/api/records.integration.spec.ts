@@ -4,7 +4,7 @@ import recordsPost from '#server/api/tables/[tableId]/records/index.post'
 import recordGet from '#server/api/tables/[tableId]/records/[recordId].get'
 import recordPatch from '#server/api/tables/[tableId]/records/[recordId].patch'
 import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
-import { RECORD_LIST_MAX, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
+import { MULTI_VALUE_MAX_ITEMS, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
@@ -225,13 +225,13 @@ describe('writing through the endpoint', () => {
       expect(await companies({})).toEqual(['Beta', 'Acme'])
     })
 
-    it(`400s past ${RECORD_LIST_MAX} values, and accepts exactly that many`, async () => {
+    it(`400s past ${MULTI_VALUE_MAX_ITEMS} values, and accepts exactly that many`, async () => {
       await createField(tableId, {
         key: 'many',
         type: 'SELECT',
         order: 5,
         options: {
-          choices: Array.from({ length: RECORD_LIST_MAX + 1 }, (_, index) => ({
+          choices: Array.from({ length: MULTI_VALUE_MAX_ITEMS + 1 }, (_, index) => ({
             value: `c${index}`,
             color: 'gray' as const,
           })),
@@ -239,7 +239,7 @@ describe('writing through the endpoint', () => {
         },
       })
 
-      const values = Array.from({ length: RECORD_LIST_MAX + 1 }, (_, index) => `c${index}`)
+      const values = Array.from({ length: MULTI_VALUE_MAX_ITEMS + 1 }, (_, index) => `c${index}`)
 
       await expect(write({ company: 'TooMany', many: values })).rejects.toMatchObject({
         statusCode: 400,
@@ -248,9 +248,9 @@ describe('writing through the endpoint', () => {
       // The cap itself is allowed, or the test would pass against an off-by-one floor
       const { record } = await write({
         company: 'AtTheCap',
-        many: values.slice(0, RECORD_LIST_MAX),
+        many: values.slice(0, MULTI_VALUE_MAX_ITEMS),
       })
-      expect(record.data.many).toHaveLength(RECORD_LIST_MAX)
+      expect(record.data.many).toHaveLength(MULTI_VALUE_MAX_ITEMS)
     })
   })
 

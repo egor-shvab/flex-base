@@ -1,4 +1,4 @@
-import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, FILTER_LIST_MAX } from '#shared/constants/filter'
+import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, FILTER_VALUES_MAX } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterParamRole, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import type { TQueryParams } from '#shared/types/query'
@@ -64,7 +64,7 @@ function toList(field: IField, query: Record<string, unknown>, name: string): st
     if (parsed.success && typeof parsed.data === 'string') decoded.add(parsed.data)
   }
 
-  return [...decoded].slice(0, FILTER_LIST_MAX)
+  return [...decoded].slice(0, FILTER_VALUES_MAX)
 }
 
 /**
