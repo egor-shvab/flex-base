@@ -242,7 +242,7 @@ test.describe('a relation picker', () => {
 
     const option = page.getByRole('option', { name: /Ada Lovelace/ })
     await expect(option).toHaveText(/^#\d+ Ada Lovelace$/)
-    await expect(option.locator('.record-ref__number')).toHaveText(/^#\d+$/)
+    await expect(option.locator('.linked-record__number')).toHaveText(/^#\d+$/)
   })
 
   test('returns to the seed when the term is cleared, with no stale result winning', async ({

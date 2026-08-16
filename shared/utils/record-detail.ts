@@ -1,6 +1,6 @@
 import { DETAIL_PARAM } from '#shared/constants/filter'
 import type { TUrlQuery } from '#shared/types/query'
-import type { IRecordDetailRef } from '#shared/types/record'
+import type { IOpenRecord } from '#shared/types/record'
 import { singleParam } from '#shared/utils/query-param'
 
 /**
@@ -12,10 +12,10 @@ import { singleParam } from '#shared/utils/query-param'
  * Both separators are outside the cuid alphabet, so neither can appear inside an id.
  */
 const CHAIN_SEPARATOR = ','
-const REF_SEPARATOR = '.'
+const RECORD_SEPARATOR = '.'
 
-function parseRef(raw: string): IRecordDetailRef | null {
-  const parts = raw.split(REF_SEPARATOR)
+function parseOpenRecord(raw: string): IOpenRecord | null {
+  const parts = raw.split(RECORD_SEPARATOR)
   const [tableId, recordId] = parts
 
   if (parts.length !== 2 || !tableId || !recordId) return null
@@ -27,35 +27,37 @@ function parseRef(raw: string): IRecordDetailRef | null {
  * chain **stops** at a bad entry instead of skipping it — a Back that silently jumped over a
  * record would be worse than a shorter trail.
  */
-export function parseDetailChain(query: TUrlQuery): IRecordDetailRef[] {
+export function parseDetailChain(query: TUrlQuery): IOpenRecord[] {
   const raw = singleParam(query[DETAIL_PARAM])
   if (raw === undefined) return []
 
-  const chain: IRecordDetailRef[] = []
+  const chain: IOpenRecord[] = []
 
   for (const entry of raw.split(CHAIN_SEPARATOR)) {
-    const ref = parseRef(entry)
-    if (ref === null) break
-    chain.push(ref)
+    const openRecord = parseOpenRecord(entry)
+    if (openRecord === null) break
+    chain.push(openRecord)
   }
 
   return chain
 }
 
 /** The inverse. An empty chain has no param at all, keeping a closed dialog a clean link. */
-export function toDetailParam(chain: IRecordDetailRef[]): string | undefined {
+export function toDetailParam(chain: IOpenRecord[]): string | undefined {
   if (chain.length === 0) return undefined
 
-  return chain.map((ref) => `${ref.tableId}${REF_SEPARATOR}${ref.recordId}`).join(CHAIN_SEPARATOR)
+  return chain
+    .map((entry) => `${entry.tableId}${RECORD_SEPARATOR}${entry.recordId}`)
+    .join(CHAIN_SEPARATOR)
 }
 
 /** Drilling into a relation keeps the trail behind it. */
-export function pushDetail(chain: IRecordDetailRef[], ref: IRecordDetailRef): IRecordDetailRef[] {
-  return [...chain, ref]
+export function pushDetail(chain: IOpenRecord[], target: IOpenRecord): IOpenRecord[] {
+  return [...chain, target]
 }
 
 /** Going back one level; from the outermost record this closes the dialog. */
-export function popDetail(chain: IRecordDetailRef[]): IRecordDetailRef[] {
+export function popDetail(chain: IOpenRecord[]): IOpenRecord[] {
   return chain.slice(0, -1)
 }
 
@@ -64,6 +66,6 @@ export function popDetail(chain: IRecordDetailRef[]): IRecordDetailRef[] {
  * feature is built from, so the list query it is layered onto always survives. An empty chain
  * yields `undefined`, which the router drops, so closing the dialog leaves no empty param.
  */
-export function withDetailChain(query: TUrlQuery, chain: IRecordDetailRef[]): TUrlQuery {
+export function withDetailChain(query: TUrlQuery, chain: IOpenRecord[]): TUrlQuery {
   return { ...query, [DETAIL_PARAM]: toDetailParam(chain) }
 }

@@ -114,13 +114,13 @@ describe('listRecords', () => {
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2)
   })
 
-  it('resolves relation refs for the ids on this page alone', async () => {
+  it('resolves linked records for the ids on this page alone', async () => {
     stubPage([row({ data: { owner: 'rec_9' } })], 1)
     prismaMock.record.findMany.mockResolvedValue([{ id: 'rec_9', number: 3, data: {} }])
 
     const page = await listRecords(TABLE_ID, [relationField()], query())
 
-    expect(page.relationRefs).toEqual({ fld_owner: { rec_9: { number: 3, label: null } } })
+    expect(page.linkedRecords).toEqual({ fld_owner: { rec_9: { number: 3, label: null } } })
   })
 })
 

@@ -1,5 +1,5 @@
 <template>
-  <BaseRecordRef :number="Number(value)" />
+  <BaseLinkedRecord :number="Number(value)" />
 </template>
 
 <script setup lang="ts">

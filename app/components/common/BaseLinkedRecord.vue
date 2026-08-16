@@ -1,6 +1,6 @@
 <template>
-  <span class="record-ref"
-    ><span class="record-ref__number">#{{ number }}</span
+  <span class="linked-record"
+    ><span class="linked-record__number">#{{ number }}</span
     >{{ labelText }}</span
   >
 </template>
@@ -32,7 +32,7 @@ const labelText = computed(() => (props.label === null ? '' : ` ${props.label}`)
 // `inline`, deliberately: this renders inside `MultiValueCell`, and an atomic inline box is the
 // one thing `text-overflow: ellipsis` cannot reach into (`docs/decisions.md`). It carries no
 // truncation of its own either — the box that clips is the option label or the table cell.
-.record-ref {
+.linked-record {
   display: inline;
 
   &__number {

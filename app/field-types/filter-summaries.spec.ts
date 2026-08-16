@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
-import type { IRecordRef } from '#shared/types/record'
+import type { ILinkedRecord } from '#shared/types/record'
 import { FILTER_SUMMARIES, summaryFor } from '~/field-types/filter-summaries'
 import type { IFilterSummaryContext } from '~/field-types/filter-summaries'
 import {
@@ -14,14 +14,14 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-const REFS: Record<string, IRecordRef> = {
+const REFS: Record<string, ILinkedRecord> = {
   rec_ada: { number: 7, label: 'Ada Lovelace' },
   rec_grace: { number: 9, label: 'Grace Hopper' },
   rec_blank: { number: 11, label: null },
 }
 
 const ctx: IFilterSummaryContext = {
-  refFor: (_fieldId, recordId) => REFS[recordId],
+  linkedRecordFor: (_fieldId, recordId) => REFS[recordId],
 }
 
 /** How one field's active filter actually reads — the resolver, not the raw registry entry. */

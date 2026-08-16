@@ -21,7 +21,10 @@
     empty-label="No records to link to"
   >
     <template #option-label="{ option }">
-      <BaseRecordRef v-if="refOf(option.value)" v-bind="refOf(option.value)!" />
+      <BaseLinkedRecord
+        v-if="linkedRecordOf(option.value)"
+        v-bind="linkedRecordOf(option.value)!"
+      />
       <template v-else>{{ option.label }}</template>
     </template>
   </BaseSelect>
@@ -39,7 +42,10 @@
     empty-label="No records to link to"
   >
     <template #option-label="{ option }">
-      <BaseRecordRef v-if="refOf(option.value)" v-bind="refOf(option.value)!" />
+      <BaseLinkedRecord
+        v-if="linkedRecordOf(option.value)"
+        v-bind="linkedRecordOf(option.value)!"
+      />
       <template v-else>{{ option.label }}</template>
     </template>
   </BaseSelect>
@@ -48,8 +54,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
-import type { IRecordRef } from '#shared/types/record'
-import { formatRecordRef } from '#shared/utils/record-label'
+import type { ILinkedRecord } from '#shared/types/record'
+import { formatLinkedRecord } from '#shared/utils/record-label'
 import { useRelationsStore } from '~/stores/relations'
 import type { ISelectOption } from '~/types/select'
 
@@ -106,8 +112,8 @@ const singleModel = computed<string>({
 })
 
 /** How a candidate reads, for the slot below. `undefined` only for a target that is gone. */
-function refOf(recordId: string): IRecordRef | undefined {
-  return relations.refFor(props.fieldId, recordId)
+function linkedRecordOf(recordId: string): ILinkedRecord | undefined {
+  return relations.linkedRecordFor(props.fieldId, recordId)
 }
 
 /**
@@ -132,11 +138,17 @@ const options = computed<ISelectOption[]>(() => {
   const unlisted = linkedIds.value.filter((id) => !offered.has(id))
 
   return [
-    ...candidates.map((candidate) => ({ value: candidate.id, label: formatRecordRef(candidate) })),
+    ...candidates.map((candidate) => ({
+      value: candidate.id,
+      label: formatLinkedRecord(candidate),
+    })),
     ...unlisted.map((id) => {
-      const ref = refOf(id)
+      const ref = linkedRecordOf(id)
       // Nothing resolved: the target is gone, so there is no number to state either
-      return { value: id, label: ref === undefined ? UNKNOWN_RECORD_LABEL : formatRecordRef(ref) }
+      return {
+        value: id,
+        label: ref === undefined ? UNKNOWN_RECORD_LABEL : formatLinkedRecord(ref),
+      }
     }),
   ]
 })
@@ -144,6 +156,6 @@ const options = computed<ISelectOption[]>(() => {
 function search(term: string, signal: AbortSignal): Promise<ISelectOption[]> {
   return relations
     .searchOptions(props.fieldId, term, signal)
-    .then((rows) => rows.map((row) => ({ value: row.id, label: formatRecordRef(row) })))
+    .then((rows) => rows.map((row) => ({ value: row.id, label: formatLinkedRecord(row) })))
 }
 </script>

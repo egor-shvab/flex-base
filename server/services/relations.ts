@@ -4,7 +4,7 @@ import { buildRecordLabelOrderBy, buildRecordLabelSearch } from '#server/service
 import { prisma } from '#server/utils/prisma'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
-import type { IRecord, IRecordOption, IRecordRef, TRecordData } from '#shared/types/record'
+import type { ILinkedRecord, IRecord, IRecordOption, TRecordData } from '#shared/types/record'
 import { buildRecordLabel } from '#shared/utils/record-label'
 
 /**
@@ -32,7 +32,10 @@ function toLabelSource(row: ITargetRow): Pick<IRecord, 'number' | 'data'> {
 }
 
 /** The one mapping from a stored row to how it reads — both producers below go through it. */
-function toRecordRef(source: Pick<IRecord, 'number' | 'data'>, labelFieldKey?: string): IRecordRef {
+function toLinkedRecord(
+  source: Pick<IRecord, 'number' | 'data'>,
+  labelFieldKey?: string,
+): ILinkedRecord {
   return { number: source.number, label: buildRecordLabel(source, labelFieldKey) }
 }
 
@@ -98,10 +101,10 @@ async function fetchTargetRecords(
  * target record id. An id that no longer resolves is simply absent, so a deleted target
  * degrades to a placeholder in the cell rather than breaking the list.
  */
-export async function resolveRelationRefs(
+export async function resolveLinkedRecords(
   fields: IField[],
   records: IRecord[],
-): Promise<Record<string, Record<string, IRecordRef>>> {
+): Promise<Record<string, Record<string, ILinkedRecord>>> {
   const targets = collectRelationTargets(
     fields,
     records.map((record) => record.data),
@@ -109,21 +112,21 @@ export async function resolveRelationRefs(
   if (targets.length === 0) return {}
 
   const recordsByTable = await fetchTargetRecords(targets)
-  const refs: Record<string, Record<string, IRecordRef>> = {}
+  const byField: Record<string, Record<string, ILinkedRecord>> = {}
 
   for (const { field, targetTableId, ids } of targets) {
     const found = recordsByTable.get(targetTableId)
-    const fieldRefs: Record<string, IRecordRef> = {}
+    const byRecordId: Record<string, ILinkedRecord> = {}
 
     for (const id of ids) {
       const target = found?.get(id)
-      if (target) fieldRefs[id] = toRecordRef(target, field.options?.labelFieldKey)
+      if (target) byRecordId[id] = toLinkedRecord(target, field.options?.labelFieldKey)
     }
 
-    refs[field.id] = fieldRefs
+    byField[field.id] = byRecordId
   }
 
-  return refs
+  return byField
 }
 
 /**
@@ -174,5 +177,5 @@ export async function listRelationOptions(field: IField, search = ''): Promise<I
     LIMIT ${RELATION_OPTIONS_LIMIT}
   `
 
-  return rows.map((row) => ({ id: row.id, ...toRecordRef(toLabelSource(row), labelFieldKey) }))
+  return rows.map((row) => ({ id: row.id, ...toLinkedRecord(toLabelSource(row), labelFieldKey) }))
 }

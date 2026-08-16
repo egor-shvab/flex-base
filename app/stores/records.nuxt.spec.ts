@@ -97,7 +97,7 @@ function page(overrides: Partial<IRecordPage> = {}): IRecordPage {
     total: 2,
     page: 1,
     pageSize: RECORD_PAGE_SIZE,
-    relationRefs: {},
+    linkedRecords: {},
     ...overrides,
   }
 }
@@ -139,15 +139,15 @@ describe('useRecordsStore', () => {
     })
 
     /** Relation cells read how a link reads from the store, not from the record's own data. */
-    it('caches the relation refs the page came with', async () => {
+    it('caches the linked records the page came with', async () => {
       response = page({
-        relationRefs: { fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } },
+        linkedRecords: { fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } },
       })
       const store = useRecordsStore()
 
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
 
-      expect(useRelationsStore().refFor('fld_owner', 'rec_ada')).toEqual({
+      expect(useRelationsStore().linkedRecordFor('fld_owner', 'rec_ada')).toEqual({
         number: 1,
         label: 'Ada Lovelace',
       })

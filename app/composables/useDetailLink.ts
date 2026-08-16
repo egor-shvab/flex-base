@@ -1,6 +1,6 @@
 import { useRoute } from '#imports'
 import type { TUrlQuery } from '#shared/types/query'
-import type { IRecordDetailRef } from '#shared/types/record'
+import type { IOpenRecord } from '#shared/types/record'
 import { parseDetailChain, pushDetail, withDetailChain } from '#shared/utils/record-detail'
 
 /**
@@ -17,7 +17,7 @@ import { parseDetailChain, pushDetail, withDetailChain } from '#shared/utils/rec
 export function useDetailLink() {
   const route = useRoute()
 
-  return (ref: IRecordDetailRef): { query: TUrlQuery } => ({
-    query: withDetailChain(route.query, pushDetail(parseDetailChain(route.query), ref)),
+  return (target: IOpenRecord): { query: TUrlQuery } => ({
+    query: withDetailChain(route.query, pushDetail(parseDetailChain(route.query), target)),
   })
 }

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import BaseRecordRef from '~/components/common/BaseRecordRef.vue'
+import BaseLinkedRecord from '~/components/common/BaseLinkedRecord.vue'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 const ref = (props: { number: number; label?: string | null }) =>
-  mountTracked(BaseRecordRef, { props })
+  mountTracked(BaseLinkedRecord, { props })
 
-describe('BaseRecordRef', () => {
+describe('BaseLinkedRecord', () => {
   afterEach(unmountAll)
 
   it('states the number before the label', async () => {
@@ -34,8 +34,8 @@ describe('BaseRecordRef', () => {
   it('gives the number an element of its own, and the label none', async () => {
     const wrapper = await ref({ number: 3, label: 'Example' })
 
-    expect(wrapper.get('.record-ref__number').text()).toBe('#3')
-    expect(wrapper.find('.record-ref__label').exists()).toBe(false)
+    expect(wrapper.get('.linked-record__number').text()).toBe('#3')
+    expect(wrapper.find('.linked-record__label').exists()).toBe(false)
   })
 
   /**
@@ -47,6 +47,6 @@ describe('BaseRecordRef', () => {
     const wrapper = await ref({ number: 3, label: 'Example' })
 
     expect(wrapper.element.tagName).toBe('SPAN')
-    expect(wrapper.element.className).toBe('record-ref')
+    expect(wrapper.element.className).toBe('linked-record')
   })
 })

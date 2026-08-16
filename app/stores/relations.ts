@@ -2,21 +2,21 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useApi } from '~/composables/useApi'
 import type { IField } from '#shared/types/field'
-import type { IRecordOption, IRecordRef } from '#shared/types/record'
+import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 
 /**
  * Everything a relation needs in order to read as something other than an id, keyed by the
  * relation field throughout — two fields may point at one table through different label
  * fields, so a field is the only key under which both halves are unambiguous.
  *
- * Refs arrive from two places that never disagree, because the server builds both from the
- * same rule: the candidates a picker offers, and the refs a page of records came with.
+ * Linked records arrive from two places that never disagree, because the server builds both
+ * from the same rule: the candidates a picker offers, and the ones a page of records came with.
  */
 export const useRelationsStore = defineStore('relations', () => {
   const api = useApi()
 
   const optionsByField = ref<Record<string, IRecordOption[]>>({})
-  const refsByField = ref<Record<string, Record<string, IRecordRef>>>({})
+  const linkedByField = ref<Record<string, Record<string, ILinkedRecord>>>({})
 
   /**
    * Which table's endpoint answers for a relation field. Remembered here rather than added to
@@ -26,14 +26,14 @@ export const useRelationsStore = defineStore('relations', () => {
    */
   const tableIdByField = ref<Record<string, string>>({})
 
-  function cacheRefs(refs: Record<string, Record<string, IRecordRef>>) {
-    for (const [fieldId, fieldRefs] of Object.entries(refs)) {
-      refsByField.value[fieldId] = { ...refsByField.value[fieldId], ...fieldRefs }
+  function cacheLinkedRecords(incoming: Record<string, Record<string, ILinkedRecord>>) {
+    for (const [fieldId, byRecordId] of Object.entries(incoming)) {
+      linkedByField.value[fieldId] = { ...linkedByField.value[fieldId], ...byRecordId }
     }
   }
 
-  /** An option already carries everything a ref does; the id is the key it is filed under. */
-  function refsFromOptions(options: IRecordOption[]): Record<string, IRecordRef> {
+  /** An option already carries everything a linked record does; the id is the key it is filed under. */
+  function linkedRecordsFromOptions(options: IRecordOption[]): Record<string, ILinkedRecord> {
     return Object.fromEntries(
       options.map((option) => [option.id, { number: option.number, label: option.label }]),
     )
@@ -54,7 +54,7 @@ export const useRelationsStore = defineStore('relations', () => {
         )
         tableIdByField.value[field.id] = tableId
         optionsByField.value[field.id] = response.options
-        cacheRefs({ [field.id]: refsFromOptions(response.options) })
+        cacheLinkedRecords({ [field.id]: linkedRecordsFromOptions(response.options) })
       }),
     )
   }
@@ -63,8 +63,8 @@ export const useRelationsStore = defineStore('relations', () => {
     return optionsByField.value[fieldId] ?? []
   }
 
-  function refFor(fieldId: string, recordId: string): IRecordRef | undefined {
-    return refsByField.value[fieldId]?.[recordId]
+  function linkedRecordFor(fieldId: string, recordId: string): ILinkedRecord | undefined {
+    return linkedByField.value[fieldId]?.[recordId]
   }
 
   /**
@@ -73,7 +73,7 @@ export const useRelationsStore = defineStore('relations', () => {
    *
    * It deliberately does **not** write `optionsByField`: that is the seed every other
    * consumer of `optionsFor()` reads, and a search result would clobber it. It does cache
-   * the refs, so a record found only through a search still reads as itself in a cell
+   * the linked records, so one found only through a search still reads as itself in a cell
    * afterwards without a second round trip.
    */
   async function searchOptions(
@@ -90,19 +90,19 @@ export const useRelationsStore = defineStore('relations', () => {
       { query: { q: term }, signal },
     )
 
-    cacheRefs({ [fieldId]: refsFromOptions(response.options) })
+    cacheLinkedRecords({ [fieldId]: linkedRecordsFromOptions(response.options) })
 
     return response.options
   }
 
   return {
     optionsByField,
-    refsByField,
+    linkedByField,
     tableIdByField,
-    cacheRefs,
+    cacheLinkedRecords,
     loadOptions,
     searchOptions,
     optionsFor,
-    refFor,
+    linkedRecordFor,
   }
 })

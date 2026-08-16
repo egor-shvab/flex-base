@@ -1,7 +1,7 @@
 import { computed } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
 import type { TUrlQuery } from '#shared/types/query'
-import type { IRecordDetail, IRecordDetailRef } from '#shared/types/record'
+import type { IOpenRecord, IRecordDetail } from '#shared/types/record'
 import { parseDetailChain, popDetail, withDetailChain } from '#shared/utils/record-detail'
 import { useApi } from '~/composables/useApi'
 import { useRelationsStore } from '~/stores/relations'
@@ -28,7 +28,7 @@ export function useRecordDetail() {
   const current = computed(() => chain.value.at(-1))
 
   /**
-   * A string, not the ref object: `parseDetailChain` returns fresh objects on every query
+   * A string, not the object itself: `parseDetailChain` returns fresh objects on every query
    * change, so watching the object would refetch when an unrelated param moved.
    */
   const currentKey = computed(() =>
@@ -38,13 +38,15 @@ export function useRecordDetail() {
   const { data, status, error, refresh } = useAsyncData<IRecordDetail | null>(
     'record-detail',
     async () => {
-      const ref = current.value
-      if (ref === undefined) return null
+      const openRecord = current.value
+      if (openRecord === undefined) return null
 
-      const detail = await api<IRecordDetail>(`/api/tables/${ref.tableId}/records/${ref.recordId}`)
+      const detail = await api<IRecordDetail>(
+        `/api/tables/${openRecord.tableId}/records/${openRecord.recordId}`,
+      )
       // The same merge-only cache the list feeds, so a relation *inside* the dialog resolves
-      // to a ref and can link on again
-      relations.cacheRefs(detail.relationRefs)
+      // to a linked record and can link on again
+      relations.cacheLinkedRecords(detail.linkedRecords)
       return detail
     },
     // `null` rather than `undefined` while it loads: "no record open" is a state the dialog
@@ -60,7 +62,7 @@ export function useRecordDetail() {
     return notFound.value ? 'This record no longer exists.' : getApiErrorMessage(error.value)
   })
 
-  function queryWith(next: IRecordDetailRef[]): { query: TUrlQuery } {
+  function queryWith(next: IOpenRecord[]): { query: TUrlQuery } {
     return { query: withDetailChain(route.query, next) }
   }
 

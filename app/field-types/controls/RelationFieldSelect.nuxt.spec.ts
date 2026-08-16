@@ -62,7 +62,7 @@ describe('RelationFieldSelect', () => {
 
     const relations = useRelationsStore()
     relations.optionsByField = { [FIELD_ID]: [...SEED] }
-    relations.refsByField = {
+    relations.linkedByField = {
       [FIELD_ID]: Object.fromEntries(
         SEED.map((option) => [option.id, { number: option.number, label: option.label }]),
       ),
@@ -161,7 +161,7 @@ describe('RelationFieldSelect', () => {
 
       const first = document.querySelector<HTMLElement>('[role="option"]')
 
-      expect(first?.querySelector('.record-ref__number')?.textContent).toBe('#1')
+      expect(first?.querySelector('.linked-record__number')?.textContent).toBe('#1')
     })
 
     it('shows the same flat text in the trigger', async () => {
@@ -179,7 +179,7 @@ describe('RelationFieldSelect', () => {
   describe('a link the seed list does not offer', () => {
     it('is still offered, read from the cache', async () => {
       const relations = useRelationsStore()
-      relations.refsByField[FIELD_ID]!.rec_katherine = { number: 12, label: 'Katherine Johnson' }
+      relations.linkedByField[FIELD_ID]!.rec_katherine = { number: 12, label: 'Katherine Johnson' }
 
       const wrapper = await mountControl({ modelValue: 'rec_katherine' })
       await open(wrapper)
@@ -202,7 +202,7 @@ describe('RelationFieldSelect', () => {
     /** Every link is checked, not just the first: dropping one of three is as lossy as one. */
     it('offers every unlisted link, not merely the first', async () => {
       const relations = useRelationsStore()
-      Object.assign(relations.refsByField[FIELD_ID]!, {
+      Object.assign(relations.linkedByField[FIELD_ID]!, {
         rec_katherine: { number: 12, label: 'Katherine Johnson' },
         rec_dorothy: { number: 13, label: 'Dorothy Vaughan' },
       })

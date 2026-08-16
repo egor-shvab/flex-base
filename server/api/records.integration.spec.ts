@@ -103,12 +103,12 @@ describe('reading a list query off the URL', () => {
     expect(await companies({ ghost: 'x' })).toEqual(['Beta', 'Acme'])
   })
 
-  it('resolves relation refs for the rows on the page', async () => {
+  it('resolves linked records for the rows on the page', async () => {
     const ada2 = await createRecord(peopleId, { full_name: 'Ada' })
     await createRecord(tableId, { company: 'Gamma', owner: ada2.id })
 
     const page = await list({ search: 'gamma' })
-    const refs = Object.values(page.relationRefs)[0]
+    const refs = Object.values(page.linkedRecords)[0]
 
     expect(refs).toEqual({ [ada2.id]: { number: ada2.number, label: 'Ada' } })
   })

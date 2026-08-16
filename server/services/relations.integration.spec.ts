@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   assertRelationTargets,
   listRelationOptions,
-  resolveRelationRefs,
+  resolveLinkedRecords,
 } from '#server/services/relations'
 import { createRecord as createRecordService } from '#server/services/records'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
@@ -14,7 +14,7 @@ let userId: string
 let peopleId: string
 let owner: IField
 
-/** The shape `resolveRelationRefs` reads; only these two fields matter to it. */
+/** The shape `resolveLinkedRecords` reads; only these two fields matter to it. */
 const asRecord = (data: TRecordData): IRecord => ({
   id: 'rec',
   number: 1,
@@ -39,11 +39,11 @@ beforeEach(async () => {
   })
 })
 
-describe('resolving refs', () => {
+describe('resolving linked records', () => {
   it('reads the number and the label field of the linked record', async () => {
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
-    const refs = await resolveRelationRefs([owner], [asRecord({ owner: ada.id })])
+    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: ada.id })])
 
     expect(refs[owner.id]).toEqual({ [ada.id]: { number: ada.number, label: 'Ada' } })
   })
@@ -52,14 +52,14 @@ describe('resolving refs', () => {
   it('resolves a blank label field to a null label', async () => {
     const blank = await createRecord(peopleId, { full_name: '' })
 
-    const refs = await resolveRelationRefs([owner], [asRecord({ owner: blank.id })])
+    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: blank.id })])
 
     expect(refs[owner.id]?.[blank.id]).toEqual({ number: blank.number, label: null })
   })
 
   /** A deleted target degrades to a placeholder in the cell rather than breaking the list. */
   it('leaves an id that no longer resolves absent', async () => {
-    const refs = await resolveRelationRefs([owner], [asRecord({ owner: 'rec_gone' })])
+    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: 'rec_gone' })])
 
     expect(refs[owner.id]).toEqual({})
   })
@@ -68,7 +68,7 @@ describe('resolving refs', () => {
     const elsewhere = await createTable(userId, 'Elsewhere')
     const stranger = await createRecord(elsewhere.id, { full_name: 'Not Ada' })
 
-    const refs = await resolveRelationRefs([owner], [asRecord({ owner: stranger.id })])
+    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: stranger.id })])
 
     expect(refs[owner.id]).toEqual({})
   })
@@ -78,7 +78,7 @@ describe('resolving refs', () => {
     const grace = await createRecord(peopleId, { full_name: 'Grace' })
     const multi = { ...owner, options: { ...owner.options, multiple: true } }
 
-    const refs = await resolveRelationRefs([multi], [asRecord({ owner: [ada.id, grace.id] })])
+    const refs = await resolveLinkedRecords([multi], [asRecord({ owner: [ada.id, grace.id] })])
 
     expect(refs[owner.id]).toEqual({
       [ada.id]: { number: ada.number, label: 'Ada' },

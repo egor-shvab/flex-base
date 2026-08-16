@@ -171,9 +171,9 @@ A filter's **value** is the whole contract. How a value is compared is the field
 
 ### A record reference is a number plus a nullable label, never a pre-flattened string
 
-A relation travels as `IRecordRef` — `{ number, label: string | null }` — because a renderer is the only layer that knows whether it can style the two apart, and a flattened `#3 Example` can never be taken back apart. `buildRecordLabel` therefore returns `null` for a record with nothing to name it by; it used to return `#<number>`, which made the number unrecoverable from the label and turned "state the number too" into `#3 #3`.
+A relation travels as `ILinkedRecord` — `{ number, label: string | null }` — because a renderer is the only layer that knows whether it can style the two apart, and a flattened `#3 Example` can never be taken back apart. `buildRecordLabel` therefore returns `null` for a record with nothing to name it by; it used to return `#<number>`, which made the number unrecoverable from the label and turned "state the number too" into `#3 #3`.
 
-**Only `formatRecordRef` and `BaseRecordRef` write a `#`, and both require a real number.** That is what makes the doubling structurally impossible, and it also settles the deleted-target case: an unresolvable id has no ref at all, so it degrades to `UNKNOWN_RECORD_LABEL` with no number — the app genuinely does not know one.
+**Only `formatLinkedRecord` and `BaseLinkedRecord` write a `#`, and both require a real number.** That is what makes the doubling structurally impossible, and it also settles the deleted-target case: an unresolvable id resolves to nothing at all, so it degrades to `UNKNOWN_RECORD_LABEL` with no number — the app genuinely does not know one.
 
 The visible `#N` is **not** the sort key: `targetLabel` orders by the target's label field, blanks last, so a column of blank-labelled records shows numbers in no particular order. Sorting by number instead would reorder every existing picker and every relation column to match a tiebreaker rather than a name.
 
@@ -392,7 +392,7 @@ The View action in a row could have been a button emitting `view`, as every othe
 
 ### The detail endpoint returns an aggregate, not just the record
 
-`GET /api/tables/:tableId/records/:recordId` answers with the record **plus** its table's name, its fields and its relation refs. Strictly three resources — but the dialog needs all three at once, and `resolveRelationRefs` needs the fields server-side regardless, so returning them costs nothing while saving two round trips and two more loading states.
+`GET /api/tables/:tableId/records/:recordId` answers with the record **plus** its table's name, its fields and its linked records. Strictly three resources — but the dialog needs all three at once, and `resolveLinkedRecords` needs the fields server-side regardless, so returning them costs nothing while saving two round trips and two more loading states.
 
 ### The dialog's title is static
 

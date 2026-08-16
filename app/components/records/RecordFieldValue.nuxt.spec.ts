@@ -40,7 +40,7 @@ describe('RecordFieldValue', () => {
   // outlives the case — so its cache is cleared rather than re-created
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
-    useRelationsStore().refsByField = {}
+    useRelationsStore().linkedByField = {}
   })
 
   /**
@@ -160,7 +160,7 @@ describe('RecordFieldValue', () => {
     /** The same cell the detail dialog draws, so this covers both surfaces. */
     it('resolves a RELATION to its number and label through the relations store', async () => {
       const column = relationField()
-      useRelationsStore().cacheRefs({
+      useRelationsStore().cacheLinkedRecords({
         [column.id]: { rec_ada: { number: 7, label: 'Ada Lovelace' } },
       })
 
@@ -172,7 +172,9 @@ describe('RecordFieldValue', () => {
     /** Nothing names it, so the number is the whole reference — stated once. */
     it('reads a RELATION whose target has no label as its number alone', async () => {
       const column = relationField()
-      useRelationsStore().cacheRefs({ [column.id]: { rec_blank: { number: 8, label: null } } })
+      useRelationsStore().cacheLinkedRecords({
+        [column.id]: { rec_blank: { number: 8, label: null } },
+      })
 
       const wrapper = await cell(column, rowWith(column, 'rec_blank'))
 

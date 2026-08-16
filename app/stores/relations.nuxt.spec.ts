@@ -57,13 +57,19 @@ describe('useRelationsStore', () => {
     })
 
     /** An option already carries a ref; caching it is what lets a cell read without a fetch. */
-    it('caches a ref for every option it loaded', async () => {
+    it('caches a linked record for every option it loaded', async () => {
       const store = useRelationsStore()
 
       await store.loadOptions('tbl_deals', [OWNER])
 
-      expect(store.refFor('fld_owner', 'rec_ada')).toEqual({ number: 1, label: 'Ada Lovelace' })
-      expect(store.refFor('fld_owner', 'rec_grace')).toEqual({ number: 2, label: 'Grace Hopper' })
+      expect(store.linkedRecordFor('fld_owner', 'rec_ada')).toEqual({
+        number: 1,
+        label: 'Ada Lovelace',
+      })
+      expect(store.linkedRecordFor('fld_owner', 'rec_grace')).toEqual({
+        number: 2,
+        label: 'Grace Hopper',
+      })
     })
 
     /** `optionsFor` is read by pickers on every render; an unloaded field must not be a crash. */
@@ -71,7 +77,7 @@ describe('useRelationsStore', () => {
       const store = useRelationsStore()
 
       expect(store.optionsFor('fld_unknown')).toEqual([])
-      expect(store.refFor('fld_unknown', 'rec_1')).toBeUndefined()
+      expect(store.linkedRecordFor('fld_unknown', 'rec_1')).toBeUndefined()
     })
 
     it('remembers which table answers for each field', async () => {
@@ -83,50 +89,50 @@ describe('useRelationsStore', () => {
     })
   })
 
-  describe('cacheRefs', () => {
+  describe('cacheLinkedRecords', () => {
     /**
      * Merged per field rather than replaced: refs arrive from two places — the candidates a
      * picker offers, and the refs a page of records came with — and neither is the whole set.
      */
-    it('merges into a field’s existing refs instead of replacing them', () => {
+    it('merges into a field’s existing linked records instead of replacing them', () => {
       const store = useRelationsStore()
 
-      store.cacheRefs({ fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } })
-      store.cacheRefs({ fld_owner: { rec_grace: { number: 2, label: 'Grace Hopper' } } })
+      store.cacheLinkedRecords({ fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } })
+      store.cacheLinkedRecords({ fld_owner: { rec_grace: { number: 2, label: 'Grace Hopper' } } })
 
-      expect(store.refFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
-      expect(store.refFor('fld_owner', 'rec_grace')?.label).toBe('Grace Hopper')
+      expect(store.linkedRecordFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
+      expect(store.linkedRecordFor('fld_owner', 'rec_grace')?.label).toBe('Grace Hopper')
     })
 
-    it('overwrites the ref for the same record', () => {
+    it('overwrites the linked record for the same id', () => {
       const store = useRelationsStore()
 
-      store.cacheRefs({ fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } })
-      store.cacheRefs({ fld_owner: { rec_ada: { number: 1, label: 'Ada L.' } } })
+      store.cacheLinkedRecords({ fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } })
+      store.cacheLinkedRecords({ fld_owner: { rec_ada: { number: 1, label: 'Ada L.' } } })
 
-      expect(store.refFor('fld_owner', 'rec_ada')).toEqual({ number: 1, label: 'Ada L.' })
+      expect(store.linkedRecordFor('fld_owner', 'rec_ada')).toEqual({ number: 1, label: 'Ada L.' })
     })
 
     /** Two fields may point at one table through different label fields. */
-    it('keeps each field’s refs separate', () => {
+    it('keeps each field’s linked records separate', () => {
       const store = useRelationsStore()
 
-      store.cacheRefs({
+      store.cacheLinkedRecords({
         fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } },
         fld_reviewer: { rec_ada: { number: 1, label: 'A. Lovelace' } },
       })
 
-      expect(store.refFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
-      expect(store.refFor('fld_reviewer', 'rec_ada')?.label).toBe('A. Lovelace')
+      expect(store.linkedRecordFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
+      expect(store.linkedRecordFor('fld_reviewer', 'rec_ada')?.label).toBe('A. Lovelace')
     })
 
     /** A record with nothing to name it by still has a number, which is the whole reference. */
     it('keeps a null label rather than treating it as unresolved', () => {
       const store = useRelationsStore()
 
-      store.cacheRefs({ fld_owner: { rec_blank: { number: 8, label: null } } })
+      store.cacheLinkedRecords({ fld_owner: { rec_blank: { number: 8, label: null } } })
 
-      expect(store.refFor('fld_owner', 'rec_blank')).toEqual({ number: 8, label: null })
+      expect(store.linkedRecordFor('fld_owner', 'rec_blank')).toEqual({ number: 8, label: null })
     })
   })
 
@@ -169,19 +175,19 @@ describe('useRelationsStore', () => {
     })
 
     /** So a record found only through a search still reads as itself, with no second trip. */
-    it('caches the refs it found', async () => {
+    it('caches the linked records it found', async () => {
       const store = useRelationsStore()
       await store.loadOptions('tbl_deals', [OWNER])
 
       responses.fld_owner = [{ id: 'rec_late', number: 9, label: 'Found by searching' }]
       await store.searchOptions('fld_owner', 'found', new AbortController().signal)
 
-      expect(store.refFor('fld_owner', 'rec_late')).toEqual({
+      expect(store.linkedRecordFor('fld_owner', 'rec_late')).toEqual({
         number: 9,
         label: 'Found by searching',
       })
       // …without losing what the seed already taught it
-      expect(store.refFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
+      expect(store.linkedRecordFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
     })
   })
 })

@@ -1,17 +1,17 @@
 <template>
   <!-- A link is the most widely understood control there is, so a relation is one -->
-  <NuxtLink v-if="detailTo && recordRef" class="relation-cell__link" :to="detailTo">
-    <BaseRecordRef :number="recordRef.number" :label="recordRef.label" />
+  <NuxtLink v-if="detailTo && linkedRecord" class="relation-cell__link" :to="detailTo">
+    <BaseLinkedRecord :number="linkedRecord.number" :label="linkedRecord.label" />
   </NuxtLink>
   <!-- Nothing to open: the target is gone, so this is a statement rather than a control -->
   <span
-    v-else-if="recordRef === undefined"
+    v-else-if="linkedRecord === undefined"
     class="relation-cell__dead"
     title="This record was deleted"
   >
     {{ UNKNOWN_RECORD_LABEL }}
   </span>
-  <BaseRecordRef v-else :number="recordRef.number" :label="recordRef.label" />
+  <BaseLinkedRecord v-else :number="linkedRecord.number" :label="linkedRecord.label" />
 </template>
 
 <script setup lang="ts">
@@ -30,8 +30,10 @@ const recordId = computed(() => (typeof props.value === 'string' ? props.value :
 
 // Refs come from the page the records were fetched with, so a cell is correct however
 // large the target table is — an id that resolves to nothing means the target was deleted
-const recordRef = computed(() =>
-  recordId.value === undefined ? undefined : relations.refFor(props.field.id, recordId.value),
+const linkedRecord = computed(() =>
+  recordId.value === undefined
+    ? undefined
+    : relations.linkedRecordFor(props.field.id, recordId.value),
 )
 
 /** `undefined` when there is nothing to open, so the template falls through to plain text. */
@@ -39,7 +41,7 @@ const detailTo = computed(() => {
   const targetTableId = props.field.options?.targetTableId
 
   if (
-    recordRef.value === undefined ||
+    linkedRecord.value === undefined ||
     targetTableId === undefined ||
     recordId.value === undefined
   ) {

@@ -49,7 +49,7 @@ describe('RecordsFilterSummary', () => {
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     // That store outlives the case, so its cache is cleared rather than re-created
-    useRelationsStore().refsByField = {}
+    useRelationsStore().linkedByField = {}
   })
 
   describe('the chips it builds from the registry', () => {
@@ -80,7 +80,7 @@ describe('RecordsFilterSummary', () => {
 
     /** The one summariser needing state beyond its own value. */
     it('resolves a RELATION filter through the relations store', async () => {
-      useRelationsStore().cacheRefs({
+      useRelationsStore().cacheLinkedRecords({
         fld_owner: { rec_ada: { number: 7, label: 'Ada Lovelace' } },
       })
 

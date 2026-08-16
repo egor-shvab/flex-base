@@ -48,7 +48,7 @@ export interface IRecordPage {
    * target table is; keyed per field, because two relation fields may point at one table
    * through different label fields.
    */
-  relationRefs: Record<string, Record<string, IRecordRef>>
+  linkedRecords: Record<string, Record<string, ILinkedRecord>>
 }
 
 /**
@@ -56,22 +56,23 @@ export interface IRecordPage {
  * apart rather than pre-joined, because only a renderer knows whether it can style them
  * differently — and a flattened `#3 Example` can never be taken apart again.
  */
-export interface IRecordRef {
+export interface ILinkedRecord {
   number: number
   /** The label field's value — `null` when blank, missing, or an empty list. Never `#N`. */
   label: string | null
 }
 
 /** A target record as a relation picker offers it — the id it stores, and how it reads. */
-export interface IRecordOption extends IRecordRef {
+export interface IRecordOption extends ILinkedRecord {
   id: string
 }
 
 /**
  * One record addressed from anywhere: a relation only stores the target's id, so the table it
- * belongs to has to travel with it. This is what the `detail` URL param encodes.
+ * belongs to has to travel with it. This is what the `detail` URL param encodes — the trail of
+ * records the dialog has open, and the one it is being asked to open next.
  */
-export interface IRecordDetailRef {
+export interface IOpenRecord {
   tableId: string
   recordId: string
 }
@@ -87,7 +88,7 @@ export interface IRecordDetail {
   fields: IField[]
   record: IRecord
   /** Keyed exactly like `IRecordPage`'s, so the same client cache ingests both. */
-  relationRefs: Record<string, Record<string, IRecordRef>>
+  linkedRecords: Record<string, Record<string, ILinkedRecord>>
 }
 
 /**

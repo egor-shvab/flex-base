@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRecordLabel, formatRecordRef } from '#shared/utils/record-label'
+import { buildRecordLabel, formatLinkedRecord } from '#shared/utils/record-label'
 
 const record = (data: Record<string, unknown>, number = 42) =>
   ({ number, data }) as Parameters<typeof buildRecordLabel>[0]
@@ -40,19 +40,21 @@ describe('buildRecordLabel', () => {
   })
 })
 
-describe('formatRecordRef', () => {
+describe('formatLinkedRecord', () => {
   it('states the number before the label', () => {
-    expect(formatRecordRef({ number: 3, label: 'Example' })).toBe('#3 Example')
+    expect(formatLinkedRecord({ number: 3, label: 'Example' })).toBe('#3 Example')
   })
 
   it('states the number alone when nothing names the record', () => {
-    expect(formatRecordRef({ number: 3, label: null })).toBe('#3')
+    expect(formatLinkedRecord({ number: 3, label: null })).toBe('#3')
   })
 
   /** The regression this split fixes: a blank label used to arrive already carrying `#3`. */
   it('states the number once for a record with no label field value', () => {
     const blank = record({ full_name: '' }, 3)
 
-    expect(formatRecordRef({ number: 3, label: buildRecordLabel(blank, 'full_name') })).toBe('#3')
+    expect(formatLinkedRecord({ number: 3, label: buildRecordLabel(blank, 'full_name') })).toBe(
+      '#3',
+    )
   })
 })

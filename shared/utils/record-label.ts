@@ -1,12 +1,12 @@
-import type { IRecord, IRecordRef } from '#shared/types/record'
+import type { ILinkedRecord, IRecord } from '#shared/types/record'
 
 /**
  * What names a record when something links to it. The label field is named by the relation
  * field's own `options.labelFieldKey`, so resolving one needs no metadata beyond the record
  * itself — and a record with nothing to name it by reads as `null` rather than as its number.
  *
- * **This function never writes a `#`.** The number travels beside the label as `IRecordRef` and
- * is composed in by `formatRecordRef` or `BaseRecordRef`, the only two places that write one.
+ * **This function never writes a `#`.** The number travels beside the label as `ILinkedRecord`
+ * and is composed in by `formatLinkedRecord` or `BaseLinkedRecord`, the only two that write one.
  * Folding it in here is what used to make it unrecoverable, so appending it produced `#3 #3`.
  */
 export function buildRecordLabel(
@@ -29,10 +29,10 @@ export function buildRecordLabel(
 }
 
 /**
- * A reference as one line of text — `#3 Example`, or `#3` alone when nothing names the record.
+ * A linked record as one line of text — `#3 Example`, or `#3` alone when nothing names it.
  * For the places that can only hold a string: a filter chip's phrase, and the flat `label` a
  * `BaseSelect` option carries for its trigger, its type-ahead and its accessible name.
  */
-export function formatRecordRef(ref: IRecordRef): string {
-  return ref.label === null ? `#${ref.number}` : `#${ref.number} ${ref.label}`
+export function formatLinkedRecord(linked: ILinkedRecord): string {
+  return linked.label === null ? `#${linked.number}` : `#${linked.number} ${linked.label}`
 }
