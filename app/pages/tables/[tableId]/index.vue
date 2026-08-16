@@ -31,7 +31,7 @@
           v-if="hasFields"
           id="records-search"
           class="records-page__search"
-          :model-value="queryParams.search"
+          :model-value="queryState.search"
           type="text"
           icon="mdi:magnify"
           aria-label="Search this table"
@@ -49,7 +49,7 @@
       v-if="hasFields && isNarrowed"
       :fields="fieldsStore.fields"
       :filters="filters"
-      :search="queryParams.search"
+      :search="queryState.search"
       :total="recordsStore.total"
       :pending="recordsStore.pending"
       @update:filters="applyFilters"
@@ -108,7 +108,7 @@
             :table-id="tableId"
             :fields="fieldsStore.fields"
             :records="recordsStore.records"
-            :sort="queryParams.sort"
+            :sort="queryState.sort"
             @edit="openEditRecord"
             @delete="deleteTarget = $event"
             @sort="applySort"
@@ -202,7 +202,7 @@ const tableId = route.params.tableId as string
 
 /** The URL is the source of truth for the list query, so a filtered view is shareable. */
 const {
-  queryParams,
+  queryState,
   filters,
   isNarrowed,
   emptyTitle,
@@ -224,7 +224,7 @@ const { data, error } = await useAsyncData(`table-records-${tableId}`, async () 
   // Filters decode against field metadata, so these wait rather than running in parallel —
   // otherwise a shared filter URL would render unfiltered on first load.
   await Promise.all([
-    recordsStore.fetchRecords(tableId, queryParams.value),
+    recordsStore.fetchRecords(tableId, queryState.value),
     // A relation filter is a picker over the target's records, so its candidates have to be
     // there on first paint for a shared link to show what it is filtered by
     relationsStore.loadOptions(tableId, fieldsStore.fields),
@@ -238,7 +238,7 @@ const { data, error } = await useAsyncData(`table-records-${tableId}`, async () 
 // rows that no longer match the URL.
 watch(queryKey, async () => {
   try {
-    await recordsStore.fetchRecords(tableId, queryParams.value)
+    await recordsStore.fetchRecords(tableId, queryState.value)
   } catch {
     // surfaced through `recordsStore.failed`
   }
@@ -282,14 +282,14 @@ function openEditRecord(record: IRecord) {
 // Throws (400/404) propagate into RecordFormModal's useForm, which shows the error
 async function submitRecord(data: TRecordData) {
   if (recordModal.value?.mode === 'edit') {
-    await recordsStore.updateRecord(tableId, recordModal.value.record.id, data, queryParams.value)
+    await recordsStore.updateRecord(tableId, recordModal.value.record.id, data, queryState.value)
     return
   }
 
   // A new record lands on page 1 of the default view; keep the URL in step rather than
   // letting the store show a page the address bar disagrees with
-  const nextPage = await recordsStore.createRecord(tableId, data, queryParams.value)
-  if (nextPage !== queryParams.value.page) {
+  const nextPage = await recordsStore.createRecord(tableId, data, queryState.value)
+  if (nextPage !== queryState.value.page) {
     await goToPage(nextPage, true)
   }
 }
@@ -321,7 +321,7 @@ const {
   confirm: confirmDeleteRecord,
   cancel: cancelDelete,
 } = useDeleteConfirm((record: IRecord) =>
-  recordsStore.deleteRecord(tableId, record.id, queryParams.value),
+  recordsStore.deleteRecord(tableId, record.id, queryState.value),
 )
 </script>
 

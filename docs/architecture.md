@@ -305,7 +305,7 @@ Only the modules whose contract is not obvious from their name.
 
 ### The records page
 
-**The URL query is the single source of truth** for filter/sort/page. `queryParams` is `parseRecordQueryState(fields, route.query)` — page, sort and filters in one shot, so the page parses nothing itself. Every control writes back through `useRecordListQuery`, and one watcher refetches — keyed on `recordQueryKey(queryParams)` rather than on `queryParams` itself, because that computed is a fresh object whenever **any** param moves and the list must not refetch because a dialog opened. Records and relation options are fetched **after** fields resolve, in parallel with each other — filters decode against field metadata, so a shared filter URL would otherwise render unfiltered on first paint.
+**The URL query is the single source of truth** for filter/sort/page. `queryState` is `parseRecordQueryState(fields, route.query)` — page, sort and filters in one shot, so the page parses nothing itself. Every control writes back through `useRecordListQuery`, and one watcher refetches — keyed on `recordQueryKey(queryState)` rather than on `queryState` itself, because that computed is a fresh object whenever **any** param moves and the list must not refetch because a dialog opened. Records and relation options are fetched **after** fields resolve, in parallel with each other — filters decode against field metadata, so a shared filter URL would otherwise render unfiltered on first paint.
 
 ---
 

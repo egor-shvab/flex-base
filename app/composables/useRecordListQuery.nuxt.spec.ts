@@ -51,9 +51,9 @@ beforeEach(() => {
 
 describe('reading the URL', () => {
   it('decodes the list query against the field metadata it is given', () => {
-    const { queryParams } = setup({ company: 'acme', page: '2', sort: 'company', dir: 'desc' })
+    const { queryState } = setup({ company: 'acme', page: '2', sort: 'company', dir: 'desc' })
 
-    expect(queryParams.value).toMatchObject({
+    expect(queryState.value).toMatchObject({
       page: 2,
       sort: { key: 'company', dir: 'desc' },
       filters: { company: 'acme' },

@@ -32,34 +32,32 @@ interface IRecordListQueryInput {
 export function useRecordListQuery({ fields }: IRecordListQueryInput) {
   const route = useRoute()
 
-  const queryParams = computed<IRecordQueryState>(() =>
-    parseRecordQueryState(fields(), route.query),
-  )
+  const queryState = computed<IRecordQueryState>(() => parseRecordQueryState(fields(), route.query))
 
-  const filters = computed(() => queryParams.value.filters)
+  const filters = computed(() => queryState.value.filters)
 
   /** One filtered field counts once, however many conditions its control implies. */
   const activeFilterCount = computed(() => Object.keys(filters.value).length)
 
   /** Whether the list is showing less than the whole table, by filter or by search. */
-  const isNarrowed = computed(() => activeFilterCount.value > 0 || queryParams.value.search !== '')
+  const isNarrowed = computed(() => activeFilterCount.value > 0 || queryState.value.search !== '')
 
   const emptyTitle = computed(() => {
     if (!isNarrowed.value) return 'No records yet'
-    if (queryParams.value.search && activeFilterCount.value === 0) {
-      return `Nothing matches “${queryParams.value.search}”`
+    if (queryState.value.search && activeFilterCount.value === 0) {
+      return `Nothing matches “${queryState.value.search}”`
     }
-    return activeFilterCount.value === 1 && !queryParams.value.search
+    return activeFilterCount.value === 1 && !queryState.value.search
       ? 'No records match this filter'
       : 'No records match what you are looking for'
   })
 
   const emptyMessage = computed(() => {
     if (!isNarrowed.value) return 'Add your first record to see it here.'
-    if (queryParams.value.search && activeFilterCount.value === 0) {
+    if (queryState.value.search && activeFilterCount.value === 0) {
       return 'Check the spelling, or try a shorter word.'
     }
-    return queryParams.value.search
+    return queryState.value.search
       ? 'This table has records, but none match both your search and your filters.'
       : 'This table has records, but none match all of these filters at once.'
   })
@@ -77,18 +75,18 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
 
   /** `replace` for a move the user did not ask for — the page-1 hop after creating a record. */
   function goToPage(nextPage: number, replace = false) {
-    return applyQuery({ ...queryParams.value, page: nextPage }, replace)
+    return applyQuery({ ...queryState.value, page: nextPage }, replace)
   }
 
   /** Re-clicking the sorted column flips it; a new column starts ascending. */
   function applySort(key: string) {
-    const { sort } = queryParams.value
+    const { sort } = queryState.value
     const dir = sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc'
-    return applyQuery({ ...queryParams.value, page: 1, sort: { key, dir } })
+    return applyQuery({ ...queryState.value, page: 1, sort: { key, dir } })
   }
 
   function applyFilters(next: TRecordFilterValues) {
-    return applyQuery({ ...queryParams.value, page: 1, filters: next }, true)
+    return applyQuery({ ...queryState.value, page: 1, filters: next }, true)
   }
 
   /**
@@ -97,28 +95,28 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
    */
   function applySearch(next: string) {
     const search = next.trim().length >= SEARCH_MIN_LENGTH ? next.trim() : ''
-    if (search === queryParams.value.search) return
+    if (search === queryState.value.search) return
 
-    return applyQuery({ ...queryParams.value, page: 1, search }, true)
+    return applyQuery({ ...queryState.value, page: 1, search }, true)
   }
 
   function clearNarrowing() {
-    return applyQuery({ ...queryParams.value, page: 1, filters: {}, search: '' }, true)
+    return applyQuery({ ...queryState.value, page: 1, filters: {}, search: '' }, true)
   }
 
   return {
-    queryParams,
+    queryState,
     filters,
     isNarrowed,
     emptyTitle,
     emptyMessage,
     emptyIcon,
     /**
-     * A stable string for a watcher to key on. `queryParams` is a fresh object whenever *any*
+     * A stable string for a watcher to key on. `queryState` is a fresh object whenever *any*
      * param moves — including the detail dialog's — and the list must not refetch because a
      * dialog opened.
      */
-    queryKey: computed(() => recordQueryKey(queryParams.value)),
+    queryKey: computed(() => recordQueryKey(queryState.value)),
     goToPage,
     applySort,
     applyFilters,

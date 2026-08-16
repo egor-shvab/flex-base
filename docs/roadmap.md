@@ -12,7 +12,7 @@ Renames only — no behaviour changes, no new tests beyond the ones a moved iden
 
 Ordered by value per unit of risk. Items 1–2 are self-contained; 3–5 each need the decision noted against them before they start.
 
-- [~] 1. Names that assert something false: `queryParams` → `queryState`; `RECORD_LIST_MAX` → `MULTI_VALUE_MAX_ITEMS` and `FILTER_LIST_MAX` → `FILTER_VALUES_MAX`; `cellValue` / `cellValues` / `cellSingleValue` → `readCellValue` / `toCellValueList` / `toCellSingleValue`; `toRecordDto` and `toFieldMetadata` onto one vocabulary.
+- [x] 1. Names that assert something false: `queryParams` → `queryState`; `RECORD_LIST_MAX` → `MULTI_VALUE_MAX_ITEMS` and `FILTER_LIST_MAX` → `FILTER_VALUES_MAX`; `cellValue` / `cellValues` / `cellSingleValue` → `readCellValue` / `toCellValueList` / `toCellSingleValue`; `toRecordDto` / `toFieldMetadata` → `toSharedRecord` / `toSharedField`.
 - [ ] 2. Homonyms with a small footprint: filter-param `slot` → `claim`; the `*Spec` registry-entry types → `*Rules`; `TFilterParamRole` → `TFilterParamPart`.
 - [ ] 3. The `detail` collision — rename the **field-configuration** cluster only (`field-types/details.ts`, `FIELD_DETAILS`, `IFieldDetailProps`, `*FieldDetail.vue`) to `*Summary`. The record-detail cluster keeps the word; it owns the `?detail=` param.
 - [ ] 4. The `ref` collision — `IRecordRef` and its `refFor` / `cacheRefs` / `refsByField` family. **One atomic commit**: `relationRefs` is an HTTP body key, so client and server move together. Decide the target name (`IRecordLabelRef` or `IRecordSummary`) before starting.
