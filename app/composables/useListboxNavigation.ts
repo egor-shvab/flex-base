@@ -139,7 +139,6 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
   return {
     activeIndex: readonly(activeIndex) as Readonly<Ref<number>>,
     PAGE_STEP,
-    nextEnabledIndex,
     setActive,
     scrollIntoView,
     moveBy,
