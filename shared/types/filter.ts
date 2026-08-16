@@ -57,4 +57,4 @@ export interface IFilterValueRules<TValue extends TFilterValue> {
 }
 
 /** Which part of a field's value a claimed query param carries. */
-export type TFilterParamRole = 'value' | 'from' | 'to'
+export type TFilterParamPart = 'value' | 'from' | 'to'

@@ -1,6 +1,6 @@
 import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY, FILTER_VALUES_MAX } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
-import type { TFilterParamRole, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import type { TFilterParamPart, TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import type { TQueryParams } from '#shared/types/query'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IRecordQueryState, TRecordSingleValue } from '#shared/types/record'
@@ -76,15 +76,15 @@ function toList(field: IField, query: Record<string, unknown>, name: string): st
 function parseFilterValues(fields: IField[], query: Record<string, unknown>): TRecordFilterValues {
   // One decoded value per claimed param — a repeat is only read by a list shape, which
   // collects into `listsByKey` instead, so nothing here is ever an array
-  const partsByKey = new Map<string, Partial<Record<TFilterParamRole, TRecordSingleValue>>>()
+  const partsByKey = new Map<string, Partial<Record<TFilterParamPart, TRecordSingleValue>>>()
   const listsByKey = new Map<string, string[]>()
   // The record's own columns filter alongside its table's fields, so the seam is applied
   // here rather than by each caller — the page and the endpoint decode a link identically
   const columns = queryFields(fields)
 
-  for (const { field, role, name } of claimFilterParams(columns)) {
+  for (const { field, part, name } of claimFilterParams(columns)) {
     // A list claims one param name and reads every repeat of it, so it collects whole
-    // rather than by role — there is only ever one slot
+    // rather than by part — there is only ever one claim
     if (filterShapeFor(field) === 'list') {
       listsByKey.set(field.key, toList(field, query, name))
       continue
@@ -97,7 +97,7 @@ function parseFilterValues(fields: IField[], query: Record<string, unknown>): TR
     if (!parsed.success) continue
 
     const parts = partsByKey.get(field.key) ?? {}
-    parts[role] = parsed.data
+    parts[part] = parsed.data
     partsByKey.set(field.key, parts)
   }
 
@@ -192,7 +192,7 @@ export function toRecordQueryParams(state: IRecordQueryState): TQueryParams {
 
   // A filter never writes a reserved param — the exact counterpart of `claimFilterParams`
   // never reading one back, so a legacy field keyed `search` or `detail` can neither leak its
-  // value into the reserved slot nor claim one. Dropped rather than left to be overwritten by
+  // value into the reserved param nor claim one. Dropped rather than left to be overwritten by
   // the assignments below: those only fire when the value differs from its default, so on the
   // default view (`search: ''`, `page: 1`) there is nothing to overwrite it with.
   for (const [name, value] of Object.entries(toFilterParams(state.filters))) {

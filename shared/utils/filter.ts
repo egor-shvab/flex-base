@@ -7,7 +7,7 @@ import {
 } from '#shared/constants/filter'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IField, TFieldType } from '#shared/types/field'
-import type { IFilterValueRules, TFilterParamRole, TFilterValue } from '#shared/types/filter'
+import type { IFilterValueRules, TFilterParamPart, TFilterValue } from '#shared/types/filter'
 import { isMultiValue } from '#shared/utils/field'
 
 /**
@@ -75,28 +75,28 @@ export function rangeParamName(fieldKey: string, bound: keyof INumberRange): str
  *
  * **Keyed by type rather than by field on purpose, and multi-value does not change that.**
  * `scalar` and `list` already claim the same single param name (a list is that name repeated),
- * and no type `MULTI_VALUE_BY_TYPE` allows is `range` — so the slots a field claims are the
+ * and no type `MULTI_VALUE_BY_TYPE` allows is `range` — so the claims a field makes are the
  * same whether it holds one value or several. That is what keeps `filterParamNames` callable
  * from `createField`, where the field row does not exist yet and only its type is known.
  */
-function filterParamSlots(
+function filterParamClaims(
   fieldKey: string,
   type: TFieldType,
-): { role: TFilterParamRole; name: string }[] {
+): { part: TFilterParamPart; name: string }[] {
   if (FILTER_VALUE_BY_TYPE[type].shape === 'range') {
     return [
-      { role: 'from', name: rangeParamName(fieldKey, 'from') },
-      { role: 'to', name: rangeParamName(fieldKey, 'to') },
+      { part: 'from', name: rangeParamName(fieldKey, 'from') },
+      { part: 'to', name: rangeParamName(fieldKey, 'to') },
     ]
   }
 
   // `scalar` and `list` share this: a list is the same param, repeated
-  return [{ role: 'value', name: fieldKey }]
+  return [{ part: 'value', name: fieldKey }]
 }
 
 /** Just the names — what the field-key collision guard needs. */
 export function filterParamNames(fieldKey: string, type: TFieldType): string[] {
-  return filterParamSlots(fieldKey, type).map((slot) => slot.name)
+  return filterParamClaims(fieldKey, type).map((claim) => claim.name)
 }
 
 const RESERVED_PARAM_NAMES: ReadonlySet<string> = new Set(RESERVED_QUERY_PARAMS)
@@ -116,19 +116,19 @@ export function isReservedParam(name: string): boolean {
  */
 export function claimFilterParams(
   fields: IField[],
-): { field: IField; role: TFilterParamRole; name: string }[] {
-  const claimed = new Set<string>(RESERVED_PARAM_NAMES)
-  const slots = []
+): { field: IField; part: TFilterParamPart; name: string }[] {
+  const takenNames = new Set<string>(RESERVED_PARAM_NAMES)
+  const claims = []
 
   for (const field of fields) {
-    for (const { role, name } of filterParamSlots(field.key, field.type)) {
-      if (claimed.has(name)) continue
-      claimed.add(name)
-      slots.push({ field, role, name })
+    for (const { part, name } of filterParamClaims(field.key, field.type)) {
+      if (takenNames.has(name)) continue
+      takenNames.add(name)
+      claims.push({ field, part, name })
     }
   }
 
-  return slots
+  return claims
 }
 
 /**
@@ -146,9 +146,9 @@ export function claimFilterParams(
 export function filterableFields(fields: IField[]): IField[] {
   // By identity rather than by key: two legacy fields can share a key, and `claimFilterParams`
   // resolves that to the *first* of them — which is the one that must keep its control
-  const claimed = new Set(claimFilterParams(fields).map((slot) => slot.field))
+  const claimingFields = new Set(claimFilterParams(fields).map((claim) => claim.field))
 
-  return fields.filter((field) => claimed.has(field))
+  return fields.filter((field) => claimingFields.has(field))
 }
 
 /**

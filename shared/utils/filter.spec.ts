@@ -110,33 +110,33 @@ describe('claimFilterParams', () => {
   it('tags each claimed param with the part of the value it carries', () => {
     expect(
       claimFilterParams([textField('company'), numberField('contract_value')]).map(
-        ({ role, name }) => ({ role, name }),
+        ({ part, name }) => ({ part, name }),
       ),
     ).toEqual([
-      { role: 'value', name: 'company' },
-      { role: 'from', name: 'contract_value_from' },
-      { role: 'to', name: 'contract_value_to' },
+      { part: 'value', name: 'company' },
+      { part: 'from', name: 'contract_value_from' },
+      { part: 'to', name: 'contract_value_to' },
     ])
   })
 
   it('refuses every reserved param', () => {
-    const claimed = claimFilterParams(RESERVED_QUERY_PARAMS.map((key) => textField(key)))
-    expect(claimed).toEqual([])
+    const claims = claimFilterParams(RESERVED_QUERY_PARAMS.map((key) => textField(key)))
+    expect(claims).toEqual([])
   })
 
   it('gives a colliding key to the first field and skips the later one entirely', () => {
     // A legacy key created before the param format landed — deterministic rather than shared
     const first = textField('company', { id: 'fld_first' })
     const second = textField('company', { id: 'fld_second' })
-    const claimed = claimFilterParams([first, second])
+    const claims = claimFilterParams([first, second])
 
-    expect(claimed).toHaveLength(1)
-    expect(claimed[0]?.field.id).toBe('fld_first')
+    expect(claims).toHaveLength(1)
+    expect(claims[0]?.field.id).toBe('fld_first')
   })
 
   it('lets a range field keep the bound that did not collide', () => {
-    const claimed = claimFilterParams([textField('value_from'), numberField('value')])
-    expect(claimed.map(({ name }) => name)).toEqual(['value_from', 'value_to'])
+    const claims = claimFilterParams([textField('value_from'), numberField('value')])
+    expect(claims.map(({ name }) => name)).toEqual(['value_from', 'value_to'])
   })
 
   it('claims nothing for a field whose only name is reserved', () => {

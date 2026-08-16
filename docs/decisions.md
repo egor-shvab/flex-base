@@ -181,7 +181,7 @@ The visible `#N` is **not** the sort key: `targetLabel` orders by the target's l
 
 `?stage=Won&stage=Lost`. Comma-joining was rejected: a choice's value is free user text and may contain any character, so any delimiter needs escaping, and escaping user text into a separator is a silent-corruption failure mode rather than a loud one.
 
-This does not overturn "a repeated param is a 400" — it makes it a **per-shape** rule. A scalar or range slot given an array is still malformed and still 400s; only a `list` slot reads repeats. Values are **sorted on serialize**, so one selection always writes one URL and `recordQueryKey` cannot report a change nobody made.
+This does not overturn "a repeated param is a 400" — it makes it a **per-shape** rule. A scalar or range claim given an array is still malformed and still 400s; only a `list` claim reads repeats. Values are **sorted on serialize**, so one selection always writes one URL and `recordQueryKey` cannot report a change nobody made.
 
 The bounds: `FILTER_VALUES_MAX` (50) in the schema, because a repeated param is the one place a single filter can grow without limit and every value becomes a term of an `IN (…)`; and the codec caps and deduplicates independently, because it also runs client-side over an unvalidated `route.query`.
 

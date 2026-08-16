@@ -189,7 +189,7 @@ const baseQueryParamsSchema = z.object({
   dir: z.enum(['asc', 'desc']).default(DEFAULT_SORT_DIR),
   // Declared on the base rather than left to the loose object: this is what caps the length
   // and enforces the floor, so an unanchored scan can never be triggered by one character.
-  // The `superRefine` below cannot serve it — that loop is driven by the filter param slots.
+  // The `superRefine` below cannot serve it — that loop is driven by the filter param claims.
   //
   // A blank param is *absent*, not a term of length zero — the same reading every filter param
   // gets, and the one `parseRecordQueryState` already has. Without the preprocess a present
@@ -214,7 +214,7 @@ export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQuery
   // The record's own columns sort and filter like fields, so they judge the params too
   const columns = queryFields(fields)
   const fieldByKey = new Map(columns.map((field) => [field.key, field]))
-  const slots = claimFilterParams(columns)
+  const claims = claimFilterParams(columns)
 
   // Loose, so the refinement sees the filter params without widening the base ones
   return baseQueryParamsSchema.loose().superRefine((params, ctx) => {
@@ -224,7 +224,7 @@ export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQuery
       }
     }
 
-    for (const { field, name } of slots) {
+    for (const { field, name } of claims) {
       const raw = params[name]
       if (raw === undefined) continue
 
