@@ -10,7 +10,7 @@
     :is="cellComponent(column)"
     v-else-if="isList"
     :field="column"
-    :value="toCellValueList(value)"
+    :value="toValueList(value)"
   />
   <component :is="cellComponent(column)" v-else :field="column" :value="toCellSingleValue(value)" />
 </template>
@@ -20,12 +20,8 @@ import { computed } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
 import { isMultiValue } from '#shared/utils/field'
-import {
-  cellComponent,
-  toCellSingleValue,
-  readCellValue,
-  toCellValueList,
-} from '~/utils/record-cells'
+import { cellComponent, readCellValue, toCellSingleValue } from '~/utils/record-cells'
+import { toValueList } from '~/utils/record-value'
 
 const props = defineProps<{
   record: IRecord
@@ -41,9 +37,7 @@ const isList = computed(() => isMultiValue(props.column))
 // An empty list is as blank as a null — without this a cleared multi-value field would render
 // as nothing at all rather than saying so
 const isBlank = computed(() =>
-  isList.value
-    ? toCellValueList(value.value).length === 0
-    : toCellSingleValue(value.value) === null,
+  isList.value ? toValueList(value.value).length === 0 : toCellSingleValue(value.value) === null,
 )
 </script>
 

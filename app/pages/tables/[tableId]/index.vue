@@ -37,7 +37,7 @@
           aria-label="Search this table"
           placeholder="Search…"
           trim
-          :debounce="SEARCH_DEBOUNCE_MS"
+          :debounce="QUERY_DEBOUNCE_MS"
           @update:model-value="applySearch"
         />
       </div>
@@ -177,6 +177,7 @@
 import { computed, ref, watch } from 'vue'
 import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useApi } from '~/composables/useApi'
+import { QUERY_DEBOUNCE_MS } from '~/composables/useDebouncedModel'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useRecordListQuery } from '~/composables/useRecordListQuery'
@@ -189,9 +190,6 @@ import type { ITable } from '#shared/types/table'
 import type { IRecord, TRecordData } from '#shared/types/record'
 
 type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
-
-/** The same hold the filter controls use — a keystroke must not hit the API. */
-const SEARCH_DEBOUNCE_MS = 300
 
 const route = useRoute()
 const api = useApi()

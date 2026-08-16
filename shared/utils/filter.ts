@@ -7,7 +7,12 @@ import {
 } from '#shared/constants/filter'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IField, TFieldType } from '#shared/types/field'
-import type { IFilterValueRules, TFilterParamPart, TFilterValue } from '#shared/types/filter'
+import type {
+  IFilterValueRules,
+  TFilterParamPart,
+  TFilterValue,
+  TRecordFilterValues,
+} from '#shared/types/filter'
 import { isMultiValue } from '#shared/utils/field'
 
 /**
@@ -181,4 +186,29 @@ export function isFilterValueEmpty(value: TFilterValue): boolean {
   if (isListFilterValue(value)) return value.length === 0
   if (isRangeFilterValue(value)) return value.from === null && value.to === null
   return typeof value === 'string' ? value.trim() === '' : false
+}
+
+/**
+ * The filter map with one column's value replaced — **rebuilt in column order rather than patched
+ * per key**, which is the whole point: the URL a filter serializes to is then stable whichever
+ * control the user touched, so two people narrowing the same way share the same link.
+ *
+ * Anything `isFilterValueEmpty` is dropped rather than stored, so the map only ever holds active
+ * filters and "clear this one" needs no separate path — passing `emptyFilterValueFor(field)`
+ * removes it. Both filter surfaces go through here, so neither can lose the ordering on its own.
+ */
+export function withFilterValue(
+  columns: IField[],
+  filters: TRecordFilterValues,
+  key: string,
+  value: TFilterValue,
+): TRecordFilterValues {
+  const next: TRecordFilterValues = {}
+
+  for (const column of columns) {
+    const candidate = column.key === key ? value : filters[column.key]
+    if (candidate !== undefined && !isFilterValueEmpty(candidate)) next[column.key] = candidate
+  }
+
+  return next
 }

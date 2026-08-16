@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatDateProse, formatNumber, formatTimestamp } from '~/utils/format'
+import {
+  formatDate,
+  formatDateProse,
+  formatMatchingRecords,
+  formatNumber,
+  formatTimestamp,
+} from '~/utils/format'
 
 /**
  * ICU has moved en-GB's separators between versions — a narrow no-break space (U+202F) or a
@@ -74,5 +80,25 @@ describe('formatTimestamp', () => {
 
   it('returns an unparseable value unchanged', () => {
     expect(formatTimestamp('whenever')).toBe('whenever')
+  })
+})
+
+describe('formatMatchingRecords', () => {
+  it('singularises exactly one match', () => {
+    expect(formatMatchingRecords(1)).toBe('1 matching record')
+  })
+
+  it('pluralises none and many alike', () => {
+    expect(formatMatchingRecords(0)).toBe('0 matching records')
+    expect(formatMatchingRecords(12)).toBe('12 matching records')
+  })
+
+  /**
+   * The count is deliberately unseparated — `formatNumber` is not applied here, because routing
+   * it through the thousands formatter would change user-visible copy. Pinned so that stays a
+   * decision rather than a drift.
+   */
+  it('leaves a large count unseparated', () => {
+    expect(formatMatchingRecords(1284)).toBe('1284 matching records')
   })
 })

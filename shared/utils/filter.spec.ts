@@ -20,6 +20,7 @@ import {
   isScalarFilterValue,
   queryColumns,
   rangeParamName,
+  withFilterValue,
 } from '#shared/utils/filter'
 import {
   ALL_TYPE_FIELDS,
@@ -226,5 +227,57 @@ describe('isFilterValueEmpty', () => {
   it('keeps a non-empty list and a non-blank string', () => {
     expect(isFilterValueEmpty(['Won'])).toBe(false)
     expect(isFilterValueEmpty('acme')).toBe(false)
+  })
+})
+
+describe('withFilterValue', () => {
+  const columns = [textField('company'), selectField(['Won', 'Lost']), numberField('budget')]
+
+  it('replaces the named column’s value and keeps the rest', () => {
+    const next = withFilterValue(columns, { company: 'acme', stage: ['Won'] }, 'company', 'globex')
+
+    expect(next).toEqual({ company: 'globex', stage: ['Won'] })
+  })
+
+  /**
+   * The load-bearing property: the map is rebuilt in **column order**, not patched, so the same
+   * selection always serializes to the same URL however it was clicked together.
+   */
+  it('rebuilds in column order rather than in the order keys were touched', () => {
+    const touchedLast = withFilterValue(columns, { stage: ['Won'] }, 'company', 'acme')
+
+    expect(Object.keys(touchedLast)).toEqual(['company', 'stage'])
+  })
+
+  it('drops the value when it is empty, which is how a filter is cleared', () => {
+    const next = withFilterValue(columns, { company: 'acme', stage: ['Won'] }, 'stage', [])
+
+    expect(next).toEqual({ company: 'acme' })
+  })
+
+  /** Blanking through `emptyFilterValueFor` is exactly what the summary's remove ✕ does. */
+  it('clears a column given its type’s own empty value', () => {
+    const stage = selectField(['Won', 'Lost'])
+    const next = withFilterValue(columns, { stage: ['Won'] }, stage.key, emptyFilterValueFor(stage))
+
+    expect(next).toEqual({})
+  })
+
+  it('drops every other empty value too, not only the one being changed', () => {
+    const next = withFilterValue(
+      columns,
+      { company: '   ', budget: { from: null, to: null } },
+      'stage',
+      ['Lost'],
+    )
+
+    expect(next).toEqual({ stage: ['Lost'] })
+  })
+
+  /** A key the table does not own cannot be smuggled in — the walk is over the columns. */
+  it('ignores a key no column claims', () => {
+    expect(withFilterValue(columns, { company: 'acme' }, 'utm_source', 'x')).toEqual({
+      company: 'acme',
+    })
   })
 })

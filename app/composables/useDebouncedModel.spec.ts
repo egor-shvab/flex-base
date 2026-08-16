@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import type { Ref } from 'vue'
-import { useDebouncedModel } from '~/composables/useDebouncedModel'
+import { QUERY_DEBOUNCE_MS, useDebouncedModel } from '~/composables/useDebouncedModel'
 
 interface IOptions {
   delay?: number
@@ -48,20 +48,24 @@ describe('useDebouncedModel', () => {
         vi.advanceTimersByTime(100)
       }
 
-      // 300ms of typing, but every keystroke restarted the timer
+      // Three keystrokes' worth of typing, but every one of them restarted the timer
       expect(model.value).toBe('')
 
-      vi.advanceTimersByTime(300)
+      vi.advanceTimersByTime(QUERY_DEBOUNCE_MS)
       expect(model.value).toBe('abc')
     })
   })
 
-  it('defaults to a 300ms delay', async () => {
+  /**
+   * Expressed in terms of the constant rather than `300`, so moving the house figure moves the
+   * boundary with it instead of turning a design decision into a broken build.
+   */
+  it('defaults to the house query delay', async () => {
     await withModel('', {}, async (model, draft) => {
       draft.value = 'typed'
       await nextTick()
 
-      vi.advanceTimersByTime(299)
+      vi.advanceTimersByTime(QUERY_DEBOUNCE_MS - 1)
       expect(model.value).toBe('')
 
       vi.advanceTimersByTime(1)

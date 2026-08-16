@@ -66,3 +66,15 @@ export function formatTimestamp(value: string): string {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : TIMESTAMP_FORMAT.format(date)
 }
+
+/**
+ * How many records a narrowed list is showing — the filter drawer's footer and the summary line
+ * above the table both state it, and they used to build the sentence separately.
+ *
+ * Deliberately **not** through `formatNumber`: the count is unseparated today (`1284 matching
+ * records`), and routing it through the thousands formatter here would change user-visible copy
+ * under the guise of removing a duplicate. A separate decision, if it is ever wanted.
+ */
+export function formatMatchingRecords(total: number): string {
+  return `${total} matching ${total === 1 ? 'record' : 'records'}`
+}

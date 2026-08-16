@@ -1,6 +1,7 @@
-import { createError, defineEventHandler, getRouterParam, getValidatedQuery } from 'h3'
+import { createError, defineEventHandler, getValidatedQuery } from 'h3'
 import { requireUser } from '#server/utils/auth'
 import { requireOwnedTableFields } from '#server/utils/ownership'
+import { routeParam } from '#server/utils/route'
 import { listRelationOptions } from '#server/services/relations'
 import { relationOptionsQuerySchema } from '#shared/validation/relation'
 
@@ -11,8 +12,8 @@ import { relationOptionsQuerySchema } from '#shared/validation/relation'
  */
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)
-  const tableId = getRouterParam(event, 'tableId') ?? ''
-  const fieldId = getRouterParam(event, 'fieldId') ?? ''
+  const tableId = routeParam(event, 'tableId')
+  const fieldId = routeParam(event, 'fieldId')
 
   const { q } = await getValidatedQuery(event, relationOptionsQuerySchema.parse)
 

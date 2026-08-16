@@ -15,7 +15,7 @@
     <template #footer>
       <div class="filter-panel__footer">
         <span class="filter-panel__count">
-          {{ pending ? 'Filtering…' : `${total} matching ${total === 1 ? 'record' : 'records'}` }}
+          {{ pending ? 'Filtering…' : formatMatchingRecords(total) }}
         </span>
         <BaseButton
           v-if="activeFilterCount > 0"
@@ -35,12 +35,13 @@ import { computed, useId } from 'vue'
 import {
   emptyFilterValueFor,
   filterableFields,
-  isFilterValueEmpty,
   queryColumns,
+  withFilterValue,
 } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import { filterFor } from '~/field-types/filters'
+import { formatMatchingRecords } from '~/utils/format'
 
 const props = defineProps<{
   fields: IField[]
@@ -94,20 +95,9 @@ function filterValue(field: IField, model: TFilterValue): TFilterValue {
   return fromControl ? fromControl(model) : model
 }
 
-/**
- * Replaces one field's value, rebuilding the map in field order so the URL stays stable no
- * matter which control the user touched. A value that means "not filtered" is dropped, so
- * the map only ever holds active filters.
- */
+/** Replaces one field's value; `withFilterValue` owns the field-order rebuild and the dropping. */
 function applyFieldValue(changed: IField, value: TFilterValue) {
-  const next: TRecordFilterValues = {}
-
-  for (const field of columns.value) {
-    const candidate = field.key === changed.key ? value : props.filters[field.key]
-    if (candidate !== undefined && !isFilterValueEmpty(candidate)) next[field.key] = candidate
-  }
-
-  emit('update:filters', next)
+  emit('update:filters', withFilterValue(columns.value, props.filters, changed.key, value))
 }
 </script>
 

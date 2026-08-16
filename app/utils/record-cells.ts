@@ -33,20 +33,11 @@ export function cellComponent(column: IField): Component {
 }
 
 /**
- * The list a multi-value column renders, normalised — **the one place a stored value that is
- * not yet an array is accounted for.** `updateField` migrates a field's rows when it is
- * widened, so a bare scalar only survives in a page drawn before that ran; handling it here
- * rather than in the cell is what lets `IMultiValueCellProps.value` be a plain `string[]`.
+ * The counterpart for every other cell, which renders exactly one value.
  *
- * Pairs with `cellComponent`: whenever that returns `MultiValueCell`, this is the value.
+ * Its list-shaped sibling is `toValueList` (`~/utils/record-value`), which the form control shares:
+ * whenever `cellComponent` returns `MultiValueCell`, that is the value.
  */
-export function toCellValueList(value: TRecordValue): string[] {
-  if (Array.isArray(value)) return value
-
-  return typeof value === 'string' && value !== '' ? [value] : []
-}
-
-/** The counterpart for every other cell, which renders exactly one value. */
 export function toCellSingleValue(value: TRecordValue): TRecordSingleValue {
   return Array.isArray(value) ? (value[0] ?? null) : value
 }

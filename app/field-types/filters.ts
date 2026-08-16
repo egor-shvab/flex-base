@@ -7,16 +7,33 @@ import { BOOLEAN_LABELS } from '#shared/constants/field'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { IFilterValueByType, TFilterValue } from '#shared/types/filter'
 import { choiceOptions, isMultiValue } from '#shared/utils/field'
+import { QUERY_DEBOUNCE_MS } from '~/composables/useDebouncedModel'
 import { shouldSearch } from '~/utils/select'
 import type { IFieldControl } from '~/field-types/types'
-
-/** A typed query input must not hit the API on every keystroke. */
-const FILTER_DEBOUNCE_MS = 300
 
 const BOOLEAN_FILTER_OPTIONS = [
   { value: 'true', label: BOOLEAN_LABELS.true },
   { value: 'false', label: BOOLEAN_LABELS.false },
 ]
+
+/**
+ * The relation picker, whether the field it filters holds one value or several. The two entries
+ * differ by `multiple` alone — omitted rather than `false` for a single-value field, because
+ * `BaseSelect` ties the prop to its model's type.
+ *
+ * Local to this file rather than shared with `inputs.ts`: the placeholder is the difference that
+ * matters ("All" narrows a list, "— Select —" fills a field), and folding the two together would
+ * mean passing it in at every call site to say the same thing.
+ */
+function relationProps(field: IField, multiple = false): Record<string, unknown> {
+  return {
+    label: field.name,
+    fieldId: field.id,
+    placeholder: 'All',
+    clearable: true,
+    ...(multiple ? { multiple: true } : {}),
+  }
+}
 
 /**
  * The per-field-type branch point for filtering, and the only place the filter panel
@@ -33,13 +50,13 @@ export const FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByTyp
     props: (field) => ({
       label: field.name,
       placeholder: 'Contains…',
-      debounce: FILTER_DEBOUNCE_MS,
+      debounce: QUERY_DEBOUNCE_MS,
       trim: true,
     }),
   },
   NUMBER: {
     component: markRaw(BaseRange),
-    props: (field) => ({ label: field.name, type: 'number', debounce: FILTER_DEBOUNCE_MS }),
+    props: (field) => ({ label: field.name, type: 'number', debounce: QUERY_DEBOUNCE_MS }),
   },
   BOOLEAN: {
     component: markRaw(BaseSelect),
@@ -57,34 +74,33 @@ export const FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByTyp
   },
   DATE: {
     component: markRaw(BaseRange),
-    props: (field) => ({ label: field.name, type: 'date', debounce: FILTER_DEBOUNCE_MS }),
+    props: (field) => ({ label: field.name, type: 'date', debounce: QUERY_DEBOUNCE_MS }),
   },
   // The only list-shaped filter: several choices at once, ORed. No adapters, because the
   // control's model already *is* the filter value — `string[]` on both sides.
   SELECT: {
     component: markRaw(BaseSelect),
-    props: (field) => ({
-      label: field.name,
-      // The choices come from the field's own metadata, so the list needs no extra request
-      options: choiceOptions(field),
-      // The registry knows how many choices there are, so the search box is its decision
-      searchable: shouldSearch(choiceOptions(field).length),
-      multiple: true,
-      placeholder: 'All',
-      clearable: true,
-      emptyLabel: 'No choices defined',
-    }),
+    props: (field) => {
+      // The choices come from the field's own metadata, so the list needs no extra request —
+      // and it is resolved once, for the options and for the count that decides the search box
+      const options = choiceOptions(field)
+
+      return {
+        label: field.name,
+        options,
+        searchable: shouldSearch(options.length),
+        multiple: true,
+        placeholder: 'All',
+        clearable: true,
+        emptyLabel: 'No choices defined',
+      }
+    },
   },
   // The same picker the form uses, so a filter offers exactly what a record can link to.
   // Its model is already the filter value — the target record's id — so no adapters.
   RELATION: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => ({
-      label: field.name,
-      fieldId: field.id,
-      placeholder: 'All',
-      clearable: true,
-    }),
+    props: (field) => relationProps(field),
   },
 }
 
@@ -105,13 +121,7 @@ const MULTI_FILTERS: Record<TFieldType, IFieldControl<TFilterValue> | null> = {
   SELECT: null,
   RELATION: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => ({
-      label: field.name,
-      fieldId: field.id,
-      multiple: true,
-      placeholder: 'All',
-      clearable: true,
-    }),
+    props: (field) => relationProps(field, true),
   },
 }
 

@@ -1,10 +1,7 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
-import { useDebouncedModel } from '~/composables/useDebouncedModel'
+import { QUERY_DEBOUNCE_MS, useDebouncedModel } from '~/composables/useDebouncedModel'
 import type { ISelectOption, TLoadSelectOptions } from '~/types/select'
-
-/** A query-driven control must not hit the API on every keystroke — the house figure. */
-const SEARCH_DEBOUNCE_MS = 300
 
 /**
  * Where the visible options are in their lifecycle. `idle` covers both "local, nothing to
@@ -41,7 +38,7 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
   // The draft drives local filtering instantly; only the model behind it is debounced, and
   // only the model triggers a request. One debounce, reused rather than rewritten.
   const searchDraft = useDebouncedModel(committedTerm, {
-    delay: SEARCH_DEBOUNCE_MS,
+    delay: QUERY_DEBOUNCE_MS,
     normalize: (value) => value.trim(),
   })
 

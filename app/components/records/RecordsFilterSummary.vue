@@ -44,11 +44,12 @@ import type { TRecordFilterValues } from '#shared/types/filter'
 import {
   emptyFilterValueFor,
   filterableFields,
-  isFilterValueEmpty,
   queryColumns,
+  withFilterValue,
 } from '#shared/utils/filter'
 import { summaryFor } from '~/field-types/filter-summaries'
 import { useRelationsStore } from '~/stores/relations'
+import { formatMatchingRecords } from '~/utils/format'
 
 const props = defineProps<{
   fields: IField[]
@@ -85,20 +86,14 @@ const entries = computed(() =>
   }),
 )
 
-const countLabel = computed(() =>
-  props.total === 1 ? '1 matching record' : `${props.total} matching records`,
-)
+const countLabel = computed(() => formatMatchingRecords(props.total))
 
-/** Clearing one filter is the same rebuild the drawer does: blank it, then drop the empties. */
+/** Clearing one filter is the same rebuild the drawer does — blanking it is what drops it. */
 function remove(field: IField) {
-  const next: TRecordFilterValues = {}
-
-  for (const column of columns.value) {
-    const value = column.key === field.key ? emptyFilterValueFor(column) : props.filters[column.key]
-    if (value !== undefined && !isFilterValueEmpty(value)) next[column.key] = value
-  }
-
-  emit('update:filters', next)
+  emit(
+    'update:filters',
+    withFilterValue(columns.value, props.filters, field.key, emptyFilterValueFor(field)),
+  )
 }
 </script>
 

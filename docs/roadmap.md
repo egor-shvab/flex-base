@@ -28,12 +28,12 @@ Phases run in order; tasks within one are independent unless the plan says other
 
 ### Phase 2 — Single-source constants and shared helpers
 
-- [ ] 2.1 One debounce constant, replacing three declarations and a default
-- [ ] 2.2 One scalar→list normaliser, replacing `toList` and `toCellValueList`
-- [ ] 2.3 One route-param reader for the 13 API handlers
-- [ ] 2.4 One filter-map rebuild, shared by the filter drawer and the summary
-- [ ] 2.5 Deduplicate the four registry `props(field)` factories
-- [ ] 2.6 One "N matching records" phrase, and one "Delete table" confirmation
+- [x] 2.1 One debounce constant, replacing three declarations and a default
+- [x] 2.2 One scalar→list normaliser, replacing `toList` and `toCellValueList`
+- [x] 2.3 One route-param reader for the 13 API handlers
+- [x] 2.4 One filter-map rebuild, shared by the filter drawer and the summary
+- [x] 2.5 Deduplicate the four registry `props(field)` factories
+- [x] 2.6 One "N matching records" phrase — the duplicated "Delete table" dialog body was left alone, being markup rather than a string
 
 ### Phase 3 — Duplication in the render layer
 

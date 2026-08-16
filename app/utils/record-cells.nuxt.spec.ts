@@ -4,12 +4,7 @@ import { FIELD_TYPES } from '#shared/constants/field'
 import { RECORD_COLUMNS } from '~/field-types/record-columns'
 import { FIELD_CELLS } from '~/field-types/cells'
 import MultiValueCell from '~/field-types/cells/MultiValueCell.vue'
-import {
-  cellComponent,
-  toCellSingleValue,
-  readCellValue,
-  toCellValueList,
-} from '~/utils/record-cells'
+import { cellComponent, toCellSingleValue, readCellValue } from '~/utils/record-cells'
 import {
   ALL_TYPE_FIELDS,
   asMultiple,
@@ -88,28 +83,6 @@ describe('cellComponent', () => {
 
   it('ignores multiple on a type that cannot hold several', () => {
     expect(cellComponent(asMultiple(textField()))).toBe(FIELD_CELLS.TEXT)
-  })
-})
-
-/**
- * The one place a stored value that is not yet an array is accounted for — which is what lets
- * `IMultiValueCellProps.value` be a plain `string[]`.
- */
-describe('toCellValueList', () => {
-  it('passes a list through', () => {
-    expect(toCellValueList(['a', 'b'])).toEqual(['a', 'b'])
-    expect(toCellValueList([])).toEqual([])
-  })
-
-  it('wraps a bare string from before the field was widened', () => {
-    expect(toCellValueList('a')).toEqual(['a'])
-  })
-
-  it('reads anything blank or unrenderable as an empty list', () => {
-    expect(toCellValueList('')).toEqual([])
-    expect(toCellValueList(null)).toEqual([])
-    expect(toCellValueList(42)).toEqual([])
-    expect(toCellValueList(true)).toEqual([])
   })
 })
 

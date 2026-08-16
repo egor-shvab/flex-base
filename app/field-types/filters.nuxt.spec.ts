@@ -6,6 +6,7 @@ import { FIELD_TYPES } from '#shared/constants/field'
 import type { TFieldType } from '#shared/types/field'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { FIELD_FILTERS, filterFor } from '~/field-types/filters'
+import { QUERY_DEBOUNCE_MS } from '~/composables/useDebouncedModel'
 import { shouldSearch } from '~/utils/select'
 import {
   ALL_TYPE_FIELDS,
@@ -165,9 +166,13 @@ describe('the props each control is handed', () => {
     },
   )
 
-  /** A typed query input must not hit the API on every keystroke. */
+  /**
+   * A typed query input must not hit the API on every keystroke. Asserted against the constant
+   * rather than against `300`, for the reason the `shouldSearch` case below states: a restated
+   * literal turns a design decision into a broken build the day the figure moves.
+   */
   it.each([textField(), numberField(), dateField()])('debounces a typed filter', (field) => {
-    expect(filterFor(field).props(field).debounce).toBe(300)
+    expect(filterFor(field).props(field).debounce).toBe(QUERY_DEBOUNCE_MS)
   })
 
   it('leaves a picker undebounced, since a choice is not typed', () => {

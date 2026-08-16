@@ -4,8 +4,8 @@ import BaseInput from '~/components/common/BaseInput.vue'
 import BaseSelect from '~/components/common/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import type { IField, TFieldType } from '#shared/types/field'
-import type { TFilterValue } from '#shared/types/filter'
 import { choiceOptions, isMultiValue } from '#shared/utils/field'
+import { toValueList } from '~/utils/record-value'
 import { shouldSearch } from '~/utils/select'
 import type { TRecordFieldControl } from '~/field-types/types'
 
@@ -20,29 +20,52 @@ const blankIsNull: Pick<TRecordFieldControl, 'toControl' | 'fromControl'> = {
 
 /**
  * The multi-value counterpart, shared by every list control: the model is the stored array
- * itself, so both directions are a shape guard rather than a conversion.
- *
- * `toControl` also accepts a bare string, which is what a record written **before** its field
- * was widened still holds — the migration in `updateField` rewrites those rows, but a form
- * opened from a stale page must not drop the value it is about to save back.
+ * itself, so both directions are a shape guard rather than a conversion — `toValueList` is where
+ * the pre-migration scalar case is accounted for, for the cell and this control alike.
  */
 const listValue: Pick<TRecordFieldControl, 'toControl' | 'fromControl'> = {
-  toControl: (value) => toList(value),
+  toControl: (value) => toValueList(value),
   // Symmetric with `toControl` rather than `Array.isArray(model) ? model : []`. A control that
   // hands back a bare string is misconfigured, but discarding the value is the worst possible
   // response to that — it loses the user's edit with nothing on screen to show for it.
-  fromControl: (model) => toList(model),
+  fromControl: (model) => toValueList(model),
 }
 
 /**
- * The stored array, however the value arrives. A bare string is what a record written **before**
- * its field was widened still holds — the migration in `updateField` rewrites those rows, but a
- * form opened from a stale page must not drop the value it is about to save back.
+ * What a SELECT offers, whether it holds one value or several. The two entries differ by
+ * `multiple` alone, so they share this rather than restating six keys — and `choiceOptions` is
+ * resolved **once** here, where each entry used to call it twice (for the list and for its length).
+ *
+ * `multiple` is omitted rather than set to `false` when a field holds one value: `BaseSelect` ties
+ * the prop to its model's type, and an explicit `false` is a different claim from saying nothing.
  */
-function toList(value: TFilterValue): string[] {
-  if (Array.isArray(value)) return value
+function selectProps(field: IField, multiple = false): Record<string, unknown> {
+  const options = choiceOptions(field)
 
-  return typeof value === 'string' && value !== '' ? [value] : []
+  return {
+    label: field.name,
+    // The choices carry their colour, so an option row can be tinted where an `<option>` could not
+    options,
+    // The registry knows how many choices there are, so the search box is its decision
+    searchable: shouldSearch(options.length),
+    // No blank option: a placeholder says "nothing chosen" without pretending to be a choice, and
+    // `clearable` is how a value is taken back. A required field still relies on the schema.
+    placeholder: '— Select —',
+    clearable: true,
+    emptyLabel: 'No choices defined',
+    ...(multiple ? { multiple: true } : {}),
+  }
+}
+
+/** The same for a relation picker, whose candidates the control fetches for itself. */
+function relationProps(field: IField, multiple = false): Record<string, unknown> {
+  return {
+    label: field.name,
+    fieldId: field.id,
+    placeholder: '— Select —',
+    clearable: true,
+    ...(multiple ? { multiple: true } : {}),
+  }
 }
 
 /**
@@ -89,32 +112,14 @@ export const FIELD_INPUTS: Record<TFieldType, TRecordFieldControl> = {
   },
   SELECT: {
     component: markRaw(BaseSelect),
-    props: (field) => ({
-      label: field.name,
-      // No blank option: a placeholder says "nothing chosen" without pretending to be a
-      // choice, and `clearable` is how a value is taken back. A required field still relies
-      // on the schema to reject the empty case.
-      // The choices carry their colour now — an option row can be tinted where an
-      // `<option>` could not be.
-      options: choiceOptions(field),
-      // The registry knows how many choices there are, so the search box is its decision
-      searchable: shouldSearch(choiceOptions(field).length),
-      placeholder: '— Select —',
-      clearable: true,
-      emptyLabel: 'No choices defined',
-    }),
+    props: (field) => selectProps(field),
     ...blankIsNull,
   },
   // The candidates come from the target table, so this one control fetches rather than
   // reading the field's metadata — the only entry whose component is not a `Base*` atom
   RELATION: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => ({
-      label: field.name,
-      fieldId: field.id,
-      placeholder: '— Select —',
-      clearable: true,
-    }),
+    props: (field) => relationProps(field),
     ...blankIsNull,
   },
 }
@@ -136,26 +141,12 @@ const MULTI_INPUTS: Record<TFieldType, TRecordFieldControl | null> = {
   DATE: null,
   SELECT: {
     component: markRaw(BaseSelect),
-    props: (field) => ({
-      label: field.name,
-      options: choiceOptions(field),
-      searchable: shouldSearch(choiceOptions(field).length),
-      multiple: true,
-      placeholder: '— Select —',
-      clearable: true,
-      emptyLabel: 'No choices defined',
-    }),
+    props: (field) => selectProps(field, true),
     ...listValue,
   },
   RELATION: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => ({
-      label: field.name,
-      fieldId: field.id,
-      multiple: true,
-      placeholder: '— Select —',
-      clearable: true,
-    }),
+    props: (field) => relationProps(field, true),
     ...listValue,
   },
 }

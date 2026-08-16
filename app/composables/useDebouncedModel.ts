@@ -1,5 +1,17 @@
 import { ref, watch, type Ref } from 'vue'
 
+/**
+ * The house figure for holding a user-driven query input before it reaches the API — a typed
+ * filter, the records search box, a relation picker's server search. It lives beside the
+ * mechanism because `CLAUDE.md` §7 already routes the reader here for the rule ("Debounce
+ * user-driven query inputs ~300 ms before hitting the API"), and because a registry, a composable
+ * and a page each used to declare it separately.
+ *
+ * A **number**, not a predicate — unlike `shouldSearch`, where what the call sites would otherwise
+ * duplicate is the comparison. Here it is the literal.
+ */
+export const QUERY_DEBOUNCE_MS = 300
+
 interface IDebouncedModelOptions<TValue> {
   /** Milliseconds to wait before writing to the model; `0` writes through synchronously. */
   delay?: number
@@ -26,7 +38,7 @@ export function useDebouncedModel<TValue>(
   model: Ref<TValue>,
   options: IDebouncedModelOptions<TValue> = {},
 ): Ref<TValue> {
-  const { delay = 300, normalize } = options
+  const { delay = QUERY_DEBOUNCE_MS, normalize } = options
 
   const draft = ref(model.value) as Ref<TValue>
 
