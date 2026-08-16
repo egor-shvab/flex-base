@@ -31,7 +31,7 @@ export function useAnchoredPosition(
 
   const style = ref<Record<string, string>>({})
 
-  let frame: number | undefined
+  let pendingFrame: number | undefined
 
   function measure() {
     const rect = anchor.value?.getBoundingClientRect()
@@ -59,37 +59,37 @@ export function useAnchoredPosition(
     }
   }
 
-  function schedule() {
-    if (frame !== undefined) cancelAnimationFrame(frame)
-    frame = requestAnimationFrame(() => {
-      frame = undefined
+  function scheduleMeasure() {
+    if (pendingFrame !== undefined) cancelAnimationFrame(pendingFrame)
+    pendingFrame = requestAnimationFrame(() => {
+      pendingFrame = undefined
       measure()
     })
   }
 
-  function listen(active: boolean) {
+  function toggleReflowListeners(active: boolean) {
     const method = active ? 'addEventListener' : 'removeEventListener'
-    window[method]('resize', schedule)
+    window[method]('resize', scheduleMeasure)
     // Capture, because scroll does not bubble: a capturing listener on `window` sees a
     // scroll in *any* descendant, which is what keeps the panel pinned to a trigger inside
     // the filter drawer's own scroll container.
-    window[method]('scroll', schedule, true)
+    window[method]('scroll', scheduleMeasure, true)
   }
 
   watch(open, (isOpen) => {
     if (!isOpen) {
-      listen(false)
+      toggleReflowListeners(false)
       return
     }
 
     // After the panel has mounted, so its width is measurable when `matchWidth` is off
     void nextTick(measure)
-    listen(true)
+    toggleReflowListeners(true)
   })
 
   onBeforeUnmount(() => {
-    listen(false)
-    if (frame !== undefined) cancelAnimationFrame(frame)
+    toggleReflowListeners(false)
+    if (pendingFrame !== undefined) cancelAnimationFrame(pendingFrame)
   })
 
   return readonly(style) as Readonly<Ref<Record<string, string>>>

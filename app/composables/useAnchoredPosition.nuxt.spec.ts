@@ -269,7 +269,7 @@ describe('useAnchoredPosition', () => {
       return { element, measured }
     }
 
-    /** Lets one real animation frame elapse, running whatever `schedule` queued. */
+    /** Lets one real animation frame elapse, running whatever `scheduleMeasure` queued. */
     function frame() {
       return new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
     }
