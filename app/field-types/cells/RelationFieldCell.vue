@@ -28,8 +28,8 @@ const relations = useRelationsStore()
 
 const recordId = computed(() => (typeof props.value === 'string' ? props.value : undefined))
 
-// Refs come from the page the records were fetched with, so a cell is correct however
-// large the target table is — an id that resolves to nothing means the target was deleted
+// Linked records come from the page the records were fetched with, so a cell is correct
+// however large the target table is — an id resolving to nothing means the target was deleted
 const linkedRecord = computed(() =>
   recordId.value === undefined
     ? undefined

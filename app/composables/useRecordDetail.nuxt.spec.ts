@@ -20,12 +20,12 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 const route = vi.hoisted(() => ({ current: { query: {} as TUrlQuery } }))
 mockNuxtImport('useRoute', () => () => route.current)
 
-function detail(recordId: string, refs: IRecordDetail['linkedRecords'] = {}): IRecordDetail {
+function detail(recordId: string, linked: IRecordDetail['linkedRecords'] = {}): IRecordDetail {
   return {
     table: { id: 'tbl_deals', name: 'Deals' },
     fields: [textField('company'), relationField()],
     record: record({ id: recordId, number: 1, data: { company: 'Acme' } }),
-    linkedRecords: refs,
+    linkedRecords: linked,
   }
 }
 

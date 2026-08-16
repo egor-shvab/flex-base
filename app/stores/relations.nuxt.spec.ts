@@ -91,8 +91,9 @@ describe('useRelationsStore', () => {
 
   describe('cacheLinkedRecords', () => {
     /**
-     * Merged per field rather than replaced: refs arrive from two places — the candidates a
-     * picker offers, and the refs a page of records came with — and neither is the whole set.
+     * Merged per field rather than replaced: linked records arrive from two places — the
+     * candidates a picker offers, and the ones a page of records came with — and neither is
+     * the whole set.
      */
     it('merges into a field’s existing linked records instead of replacing them', () => {
       const store = useRelationsStore()
