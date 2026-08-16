@@ -345,17 +345,17 @@ const {
   PAGE_STEP,
   setActive,
   scrollIntoView,
-  move,
-  first,
-  last,
+  moveBy,
+  moveToFirst,
+  moveToLast,
   typeAhead,
   reset: resetCursor,
 } = useListboxNavigation({
   options: () => visibleOptions.value,
   listRef,
-  active: open,
+  isOpen: open,
   // Typing is the user placing the cursor; options merely arriving is not
-  seedCursor: () => props.searchable && draft.value !== '',
+  shouldSeedCursor: () => props.searchable && draft.value !== '',
 })
 
 /**
@@ -495,7 +495,7 @@ function moveCursor(delta: number) {
     }
   }
 
-  move(delta)
+  moveBy(delta)
 }
 
 /**
@@ -724,11 +724,11 @@ function onListKeydown(event: KeyboardEvent) {
       return
     case 'Home':
       event.preventDefault()
-      first()
+      moveToFirst()
       return
     case 'End':
       event.preventDefault()
-      last()
+      moveToLast()
       return
     case 'Enter':
     case ' ':

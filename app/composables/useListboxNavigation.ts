@@ -11,13 +11,13 @@ interface IUseListboxNavigationInput {
   /** The scrolling `role="listbox"` element, so the active option can be kept in view. */
   listRef: Ref<HTMLElement | undefined>
   /** `usePopover`'s `open` — the re-clamp below must not fire while the list is closed. */
-  active: Readonly<Ref<boolean>>
+  isOpen: Readonly<Ref<boolean>>
   /**
    * Whether a list that changed underneath *no* cursor should take one. True exactly when the
    * change is the user's own typing narrowing the list, so `Enter` commits the top match; false
    * for options merely arriving, which would otherwise light a row up on their own.
    */
-  seedCursor: () => boolean
+  shouldSeedCursor: () => boolean
 }
 
 /**
@@ -42,7 +42,7 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
   }
 
   /** The first option at or beyond `from` that can actually be chosen, walking in `step`. */
-  function nextEnabled(from: number, step: number): number {
+  function nextEnabledIndex(from: number, step: number): number {
     const options = input.options()
 
     for (let index = from; index >= 0 && index < options.length; index += step) {
@@ -60,7 +60,7 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
   }
 
   /** No wrap: a listbox that loops has no felt end, and Home/End are the way to the extremes. */
-  function move(delta: number) {
+  function moveBy(delta: number) {
     const options = input.options()
     if (options.length === 0) return
 
@@ -73,16 +73,16 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
         : Math.max(0, Math.min(options.length - 1, activeIndex.value + delta))
 
     // Looking back the other way covers walking into a run of disabled options at either end
-    const found = nextEnabled(from, step)
-    setActive(found >= 0 ? found : nextEnabled(from, -step))
+    const found = nextEnabledIndex(from, step)
+    setActive(found >= 0 ? found : nextEnabledIndex(from, -step))
   }
 
-  function first() {
-    setActive(nextEnabled(0, 1))
+  function moveToFirst() {
+    setActive(nextEnabledIndex(0, 1))
   }
 
-  function last() {
-    setActive(nextEnabled(input.options().length - 1, -1))
+  function moveToLast() {
+    setActive(nextEnabledIndex(input.options().length - 1, -1))
   }
 
   let typeBuffer = ''
@@ -118,18 +118,18 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
   //
   // `flush: 'post'` for an ordering that is otherwise invisible: a typed term narrows the list
   // in the same tick that opens the panel, and this watcher is created before the one that
-  // opens it — a pre-flush run would see `active` still false and skip the seed that term is
-  // owed. Keying on `active` instead would make *opening* re-clamp a cursor a printable key had
+  // opens it — a pre-flush run would see `isOpen` still false and skip the seed that term is
+  // owed. Keying on `isOpen` instead would make *opening* re-clamp a cursor a printable key had
   // just placed, which is the same bug from the other side.
   watch(
     () => JSON.stringify(input.options().map((option) => option.value)),
     () => {
-      if (!input.active.value) return
+      if (!input.isOpen.value) return
       // A changed list re-clamps a cursor; it does not *create* one. Without this an async
       // select highlights a row the moment its options land, which no one asked it to do.
-      if (activeIndex.value < 0 && !input.seedCursor()) return
+      if (activeIndex.value < 0 && !input.shouldSeedCursor()) return
 
-      activeIndex.value = input.options().length === 0 ? -1 : nextEnabled(0, 1)
+      activeIndex.value = input.options().length === 0 ? -1 : nextEnabledIndex(0, 1)
     },
     { flush: 'post' },
   )
@@ -139,12 +139,12 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
   return {
     activeIndex: readonly(activeIndex) as Readonly<Ref<number>>,
     PAGE_STEP,
-    nextEnabled,
+    nextEnabledIndex,
     setActive,
     scrollIntoView,
-    move,
-    first,
-    last,
+    moveBy,
+    moveToFirst,
+    moveToLast,
     typeAhead,
     reset,
   }

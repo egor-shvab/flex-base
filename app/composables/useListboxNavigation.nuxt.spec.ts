@@ -27,12 +27,12 @@ function option(value: string, label: string, disabled = false): ISelectOption {
  * The composable's return is captured out of `setup` rather than read back off `wrapper.vm`,
  * which unwraps refs and would make `activeIndex` a number the declared type says is a `Ref`.
  */
-function setup(initial: ISelectOption[] = OPTIONS, initiallyActive = true) {
+function setup(initial: ISelectOption[] = OPTIONS, initiallyOpen = true) {
   const options = shallowRef(initial)
-  const active = ref(initiallyActive)
+  const isOpen = ref(initiallyOpen)
   const listRef = ref<HTMLElement>()
   /** What a typed term would say. False here, which is the plain case: no term, no seeding. */
-  const seedCursor = ref(false)
+  const shouldSeedCursor = ref(false)
 
   let nav!: ReturnType<typeof useListboxNavigation>
 
@@ -41,8 +41,8 @@ function setup(initial: ISelectOption[] = OPTIONS, initiallyActive = true) {
       nav = useListboxNavigation({
         options: () => options.value,
         listRef,
-        active,
-        seedCursor: () => seedCursor.value,
+        isOpen,
+        shouldSeedCursor: () => shouldSeedCursor.value,
       })
       return () => h('div')
     },
@@ -51,7 +51,7 @@ function setup(initial: ISelectOption[] = OPTIONS, initiallyActive = true) {
   // `mount` runs setup synchronously, so `nav` is assigned by the time this returns
   const wrapper = track(mount(Host))
 
-  return { wrapper, options, active, seedCursor, nav }
+  return { wrapper, options, isOpen, shouldSeedCursor, nav }
 }
 
 describe('useListboxNavigation', () => {
@@ -68,12 +68,12 @@ describe('useListboxNavigation', () => {
   describe('move', () => {
     it('starts at the top going down and at the bottom going up', () => {
       const down = setup()
-      down.nav.move(1)
+      down.nav.moveBy(1)
       expect(down.nav.activeIndex.value).toBe(0)
       down.wrapper.unmount()
 
       const up = setup()
-      up.nav.move(-1)
+      up.nav.moveBy(-1)
       expect(up.nav.activeIndex.value).toBe(OPTIONS.length - 1)
       up.wrapper.unmount()
     })
@@ -82,10 +82,10 @@ describe('useListboxNavigation', () => {
       const { nav } = setup()
 
       nav.setActive(2)
-      nav.move(1)
+      nav.moveBy(1)
       expect(nav.activeIndex.value).toBe(3)
 
-      nav.move(-1)
+      nav.moveBy(-1)
       expect(nav.activeIndex.value).toBe(2)
     })
 
@@ -94,18 +94,18 @@ describe('useListboxNavigation', () => {
       const { nav } = setup()
 
       nav.setActive(OPTIONS.length - 1)
-      nav.move(1)
+      nav.moveBy(1)
       expect(nav.activeIndex.value).toBe(OPTIONS.length - 1)
 
       nav.setActive(0)
-      nav.move(-1)
+      nav.moveBy(-1)
       expect(nav.activeIndex.value).toBe(0)
     })
 
     it('does nothing at all with an empty list', () => {
       const { nav } = setup([])
 
-      nav.move(1)
+      nav.moveBy(1)
       expect(nav.activeIndex.value).toBe(-1)
     })
   })
@@ -119,15 +119,15 @@ describe('useListboxNavigation', () => {
       ])
 
       nav.setActive(0)
-      nav.move(1)
+      nav.moveBy(1)
       expect(nav.activeIndex.value).toBe(2)
 
-      nav.move(-1)
+      nav.moveBy(-1)
       expect(nav.activeIndex.value).toBe(0)
     })
 
     /**
-     * The case `nextEnabled(from, -step)` exists for: walking forward into a run of disabled
+     * The case `nextEnabledIndex(from, -step)` exists for: walking forward into a run of disabled
      * options finds nothing ahead, so the search turns round rather than leaving the cursor
      * on an unselectable row.
      */
@@ -140,7 +140,7 @@ describe('useListboxNavigation', () => {
       ])
 
       nav.setActive(1)
-      nav.move(1)
+      nav.moveBy(1)
 
       expect(nav.activeIndex.value).toBe(1)
     })
@@ -154,7 +154,7 @@ describe('useListboxNavigation', () => {
       ])
 
       nav.setActive(2)
-      nav.move(-1)
+      nav.moveBy(-1)
 
       expect(nav.activeIndex.value).toBe(2)
     })
@@ -166,7 +166,7 @@ describe('useListboxNavigation', () => {
         option('c', 'Charlie'),
       ])
 
-      nav.move(1)
+      nav.moveBy(1)
 
       expect(nav.activeIndex.value).toBe(2)
     })
@@ -174,7 +174,7 @@ describe('useListboxNavigation', () => {
     it('leaves the cursor alone when every option is disabled', () => {
       const { nav } = setup([option('a', 'Alpha', true), option('b', 'Bravo', true)])
 
-      nav.move(1)
+      nav.moveBy(1)
 
       expect(nav.activeIndex.value).toBe(-1)
     })
@@ -184,10 +184,10 @@ describe('useListboxNavigation', () => {
     it('land on the extremes', () => {
       const { nav } = setup()
 
-      nav.last()
+      nav.moveToLast()
       expect(nav.activeIndex.value).toBe(OPTIONS.length - 1)
 
-      nav.first()
+      nav.moveToFirst()
       expect(nav.activeIndex.value).toBe(0)
     })
 
@@ -199,10 +199,10 @@ describe('useListboxNavigation', () => {
         option('d', 'Delta', true),
       ])
 
-      nav.first()
+      nav.moveToFirst()
       expect(nav.activeIndex.value).toBe(1)
 
-      nav.last()
+      nav.moveToLast()
       expect(nav.activeIndex.value).toBe(2)
     })
   })
@@ -213,10 +213,10 @@ describe('useListboxNavigation', () => {
       const { nav } = setup(long)
 
       nav.setActive(0)
-      nav.move(nav.PAGE_STEP)
+      nav.moveBy(nav.PAGE_STEP)
       expect(nav.activeIndex.value).toBe(10)
 
-      nav.move(-nav.PAGE_STEP)
+      nav.moveBy(-nav.PAGE_STEP)
       expect(nav.activeIndex.value).toBe(0)
     })
 
@@ -224,10 +224,10 @@ describe('useListboxNavigation', () => {
       const { nav } = setup()
 
       nav.setActive(1)
-      nav.move(nav.PAGE_STEP)
+      nav.moveBy(nav.PAGE_STEP)
       expect(nav.activeIndex.value).toBe(OPTIONS.length - 1)
 
-      nav.move(-nav.PAGE_STEP)
+      nav.moveBy(-nav.PAGE_STEP)
       expect(nav.activeIndex.value).toBe(0)
     })
   })
@@ -348,10 +348,10 @@ describe('useListboxNavigation', () => {
     })
 
     it('leaves a closed listbox alone', async () => {
-      const { nav, options, active } = setup()
+      const { nav, options, isOpen } = setup()
 
       nav.setActive(4)
-      active.value = false
+      isOpen.value = false
       options.value = [option('x', 'Xray')]
       await nextTick()
 
@@ -361,7 +361,7 @@ describe('useListboxNavigation', () => {
     /**
      * The difference between validating a cursor and inventing one. An async select's options
      * land while it is open and no key has been pressed; re-seating to the first enabled option
-     * there would light a row up on its own, which is what `seedCursor` gates.
+     * there would light a row up on its own, which is what `shouldSeedCursor` gates.
      */
     it('creates no cursor for a list that changes under none', async () => {
       const { nav, options } = setup()
@@ -373,9 +373,9 @@ describe('useListboxNavigation', () => {
     })
 
     it('creates one when the change is a term narrowing the list', async () => {
-      const { nav, options, seedCursor } = setup()
+      const { nav, options, shouldSeedCursor } = setup()
 
-      seedCursor.value = true
+      shouldSeedCursor.value = true
       options.value = [option('x', 'Xray', true), option('y', 'Yankee')]
       await nextTick()
 
