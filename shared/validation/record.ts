@@ -23,7 +23,7 @@ import { claimFilterParams, filterShapeFor, queryFields } from '#shared/utils/fi
 const TEXT_MAX_LENGTH = 1000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-interface IValueSchemaSpec {
+interface IValueSchemaRules {
   /** Schema for a filled-in value of this type; nullability is layered on top. */
   base: (field: IField) => z.ZodType<TRecordSingleValue>
   /**
@@ -56,7 +56,7 @@ function relationId(): z.ZodType<string> {
  * The single per-field-type branch point for record values. A new field type adds
  * one entry here and one entry in the component registry — nothing else changes.
  */
-const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaSpec> = {
+const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaRules> = {
   TEXT: {
     base: () =>
       z.string().trim().max(TEXT_MAX_LENGTH, `Must be at most ${TEXT_MAX_LENGTH} characters`),
@@ -138,20 +138,20 @@ function buildMultiValueSchema(
 }
 
 function buildValueSchema(field: IField): z.ZodType<TRecordValue> {
-  const spec = VALUE_SCHEMA_BY_TYPE[field.type]
+  const rules = VALUE_SCHEMA_BY_TYPE[field.type]
 
   // Both halves are per-type declarations, so testing them together is what proves to the
   // compiler that a multi-value field really does have an element schema
-  if (isMultiValue(field) && spec.listBase) return buildMultiValueSchema(field, spec.listBase)
+  if (isMultiValue(field) && rules.listBase) return buildMultiValueSchema(field, rules.listBase)
 
-  const nullable = spec.base(field).nullable()
+  const nullable = rules.base(field).nullable()
 
   // Only a type whose blank value is null can actually be missing, so `required`
   // is enforced for those alone — no field-type check needed here.
-  const enforceRequired = field.required && spec.blank === null
+  const enforceRequired = field.required && rules.blank === null
 
   return z.preprocess(
-    (value) => (value === '' || value === undefined ? spec.blank : value),
+    (value) => (value === '' || value === undefined ? rules.blank : value),
     enforceRequired
       ? nullable.refine((value) => value !== null, { error: `${field.name} is required` })
       : nullable,
@@ -173,11 +173,11 @@ export function buildRecordSchema(fields: IField[]): z.ZodType<TRecordData> {
  * same schema the query validation uses.
  */
 export function buildFilterValueSchema(field: IField): z.ZodType<TRecordSingleValue> {
-  const spec = VALUE_SCHEMA_BY_TYPE[field.type]
+  const rules = VALUE_SCHEMA_BY_TYPE[field.type]
 
   return z.preprocess(
-    (value) => (typeof value === 'string' ? spec.fromQuery(value) : value),
-    spec.base(field),
+    (value) => (typeof value === 'string' ? rules.fromQuery(value) : value),
+    rules.base(field),
   )
 }
 

@@ -42,7 +42,7 @@ export interface IFilterValueByType extends Record<TFieldType, TFilterValue> {
 export type TRecordFilterValues = Record<string, TFilterValue>
 
 /** What `FILTER_VALUE_BY_TYPE` declares for one field type. */
-export interface IFilterValueSpec<TValue extends TFilterValue> {
+export interface IFilterValueRules<TValue extends TFilterValue> {
   /**
    * One param named after the field (`scalar`), that same param repeated once per value
    * (`list`), or a `_from` / `_to` pair (`range`). Drives both the params the field claims

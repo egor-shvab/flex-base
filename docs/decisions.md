@@ -209,7 +209,7 @@ Those guards are load-bearing on both sides now. `isRangeFilterValue` narrowed o
 
 **`TRecordSingleValue` is the narrow half, and it is not a lint-level preference.** `defineProps<T>()` compiles to a _runtime_ prop declaration, so widening `IFieldCellProps.value` would add `Array` to the accepted types of every per-type cell that can never legitimately receive one — turning off a check that would otherwise catch a real routing bug. `MultiValueCell` takes its own `IMultiValueCellProps` with a plain `string[]`: a separate interface, not a widening, because the two contracts are opposites. The same reasoning narrowed `RECORD_COLUMNS.value`, `VALUE_SCHEMA_BY_TYPE.base` / `blank`, `buildFilterValueSchema` and `toRange`.
 
-`IValueSchemaSpec.listBase` came out of the same pass: `z.array(base)` over a `ZodType<TRecordSingleValue>` yields `TRecordSingleValue[]`, not `string[]`, and the cast that hid the gap was hiding a real one — only a type whose values are strings _can_ be stored as a JSON array, and nothing said which those were.
+`IValueSchemaRules.listBase` came out of the same pass: `z.array(base)` over a `ZodType<TRecordSingleValue>` yields `TRecordSingleValue[]`, not `string[]`, and the cast that hid the gap was hiding a real one — only a type whose values are strings _can_ be stored as a JSON array, and nothing said which those were.
 
 The other place it bites is blankness: `RecordFieldValue` had `value === null || value === undefined`, and an empty array passes neither. Without the array case a cleared multi field renders as an empty cell rather than "Not set" — a silent difference between "no value" and "we did not draw anything".
 

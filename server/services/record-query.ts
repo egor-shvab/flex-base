@@ -155,7 +155,7 @@ function matchesAnyElement(key: string, pattern: string): Prisma.Sql {
   )`
 }
 
-interface IFieldSqlSpec {
+interface IFieldSqlRules {
   /** Projects the stored JSONB value to a comparable expression — what a filter compares against. */
   expr: (key: string) => Prisma.Sql
   /** How the column orders, for a type that reads as something other than the value it stores. */
@@ -179,7 +179,7 @@ interface IFieldSqlSpec {
  * it projects, how it compares and whether it is searchable. There is no operator to look up:
  * the field type says how it compares, and the value's shape says with how many bounds.
  */
-const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
+const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlRules> = {
   TEXT: { expr: jsonText, searchPredicate: matchesText, filter: matchesPartially },
   // Without the cast, `"10" < "9"` would compare as text — but search matches the un-cast
   // text, so typing `100` also finds `1000`, which is what a substring search should do
@@ -222,7 +222,7 @@ const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlSpec> = {
  * `null` means the type has no multi form, which `MULTI_VALUE_BY_TYPE` already refuses to
  * configure — the two agree by construction, and this one is where that agreement is spent.
  */
-const MULTI_SQL: Record<TFieldType, IFieldSqlSpec | null> = {
+const MULTI_SQL: Record<TFieldType, IFieldSqlRules | null> = {
   TEXT: null,
   NUMBER: null,
   BOOLEAN: null,
@@ -248,7 +248,7 @@ const MULTI_SQL: Record<TFieldType, IFieldSqlSpec | null> = {
  * The one place a field's cardinality is resolved into SQL behaviour. Every projection,
  * comparison and ordering below goes through it, so no builder branches on `multiple` itself.
  */
-function sqlFor(field: IField): IFieldSqlSpec {
+function sqlFor(field: IField): IFieldSqlRules {
   return (isMultiValue(field) ? MULTI_SQL[field.type] : null) ?? FIELD_SQL_BY_TYPE[field.type]
 }
 
@@ -278,9 +278,9 @@ function sortExpr(field: IField): Prisma.Sql {
   const column = RECORD_COLUMN_SQL[field.key]
   if (column) return column.sortExpr
 
-  const spec = sqlFor(field)
+  const rules = sqlFor(field)
 
-  return spec.sortExpr ? spec.sortExpr(field) : spec.expr(field.key)
+  return rules.sortExpr ? rules.sortExpr(field) : rules.expr(field.key)
 }
 
 /**

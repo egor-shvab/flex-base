@@ -7,7 +7,7 @@ import {
 } from '#shared/constants/filter'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IField, TFieldType } from '#shared/types/field'
-import type { IFilterValueSpec, TFilterParamRole, TFilterValue } from '#shared/types/filter'
+import type { IFilterValueRules, TFilterParamRole, TFilterValue } from '#shared/types/filter'
 import { isMultiValue } from '#shared/utils/field'
 
 /**
@@ -48,7 +48,7 @@ export function queryFields(fields: IField[]): IField[] {
  * The shape a field type declares in `FILTER_VALUE_BY_TYPE` is the single-value case; this is
  * the one place multi overrides it, and every caller that has an `IField` reads it here.
  */
-export function filterShapeFor(field: IField): IFilterValueSpec<TFilterValue>['shape'] {
+export function filterShapeFor(field: IField): IFilterValueRules<TFilterValue>['shape'] {
   return isMultiValue(field) ? 'list' : FILTER_VALUE_BY_TYPE[field.type].shape
 }
 

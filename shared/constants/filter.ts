@@ -1,5 +1,5 @@
 import type { TFieldType } from '#shared/types/field'
-import type { IFilterValueByType, IFilterValueSpec, TSortDirection } from '#shared/types/filter'
+import type { IFilterValueByType, IFilterValueRules, TSortDirection } from '#shared/types/filter'
 
 /**
  * The record's own columns, which sort and filter alongside a table's fields. Their keys are
@@ -64,7 +64,7 @@ export const RESERVED_FIELD_KEYS = [RECORD_NUMBER_KEY, CREATED_AT_KEY, UPDATED_A
  * params, and the server derives the comparison from the type and the same shape.
  */
 export const FILTER_VALUE_BY_TYPE: {
-  [K in TFieldType]: IFilterValueSpec<IFilterValueByType[K]>
+  [K in TFieldType]: IFilterValueRules<IFilterValueByType[K]>
 } = {
   TEXT: { shape: 'scalar', empty: '' },
   NUMBER: { shape: 'range', empty: { from: null, to: null } },

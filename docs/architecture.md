@@ -33,7 +33,7 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 - **`color.ts`** — `TBadgeColor` — the closed badge palette, a design-system concept rather than a field one, so an atom can consume it without importing field metadata
 - **`record.ts`** — `TRecordSingleValue` (**one** value — what a per-type cell renders, what a record column holds, what a decoded filter bound is), `TRecordValue` (that plus `string[]`), `TRecordData`, `IRecord`, `IRecordPage` (records + paging + `relationRefs`), `IRecordRef` (`number` + a nullable `label` — how a linked record reads), `IRecordOption` (that plus the `id` it stores), `IRecordDetailRef` (`tableId` + `recordId`), `IRecordDetail` (that record plus its table, fields and refs), `IRecordQueryState` (page + sort + filters), `IRecordQuery` (the same plus the resolved `pageSize`), `IRecordQueryParams`
 - **`range.ts`** — `INumberRange`, `IDateRange` — the two-bound shapes shared by `BaseRange` and the filter codec
-- **`filter.ts`** — `TFilterValue` (`TRecordValue` is a subset of this union), `IFilterValueByType`, `TRecordFilterValues`, the shape union (`scalar`/`list`/`range`), `IFilterValueSpec`, `TFilterParamRole` (`value`/`from`/`to`), `IRecordSort`, `TSortDirection`
+- **`filter.ts`** — `TFilterValue` (`TRecordValue` is a subset of this union), `IFilterValueByType`, `TRecordFilterValues`, the shape union (`scalar`/`list`/`range`), `IFilterValueRules`, `TFilterParamRole` (`value`/`from`/`to`), `IRecordSort`, `TSortDirection`
 
 `TRecordFilterValues` is **the filter model of every layer**: typed values keyed by `Field.key`, sparse — an absent key is unfiltered, and the count of filtered fields is `Object.keys(…).length`.
 
