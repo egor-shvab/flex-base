@@ -6,15 +6,21 @@ This file says only _what_ and _in what order_ — contracts belong in `docs/arc
 
 ---
 
-## Current phase — none scheduled
+## Current phase — naming clarity
 
-- [x] `BaseBadge` declares its own height, so a container's line-height no longer resizes it.
-- [x] A field caption shrink-wraps to its text, so the empty space beside it is no longer a click target for the control.
-- [x] `BaseButton` gains a `size` step, and the two 24×24 icon buttons that were hand-rolled around it — the select's clear ✕ and the filter chip's remove ✕ — are `BaseButton`s.
+Renames only — no behaviour changes, no new tests beyond the ones a moved identifier already has. Each item ships on its own and updates every passage in `CLAUDE.md`, `docs/architecture.md` and `docs/decisions.md` that names an identifier it moves.
 
-**Nothing else is in progress.** The feature set and the test suite are done, and the Open-limitations phase is finished: one **Open** row is left in `docs/decisions.md`, and it is the parked item below rather than a stage.
+Ordered by value per unit of risk. Items 1–2 are self-contained; 3–5 each need the decision noted against them before they start.
 
-The next phase is a decision, not a backlog. It would be drawn from the parked item, or from the register when a row's "revisit" condition comes true.
+- [~] 1. Names that assert something false: `queryParams` → `queryState`; `RECORD_LIST_MAX` → `MULTI_VALUE_MAX_ITEMS` and `FILTER_LIST_MAX` → `FILTER_VALUES_MAX`; `cellValue` / `cellValues` / `cellSingleValue` → `readCellValue` / `toCellValueList` / `toCellSingleValue`; `toRecordDto` and `toFieldMetadata` onto one vocabulary.
+- [ ] 2. Homonyms with a small footprint: filter-param `slot` → `claim`; the `*Spec` registry-entry types → `*Rules`; `TFilterParamRole` → `TFilterParamPart`.
+- [ ] 3. The `detail` collision — rename the **field-configuration** cluster only (`field-types/details.ts`, `FIELD_DETAILS`, `IFieldDetailProps`, `*FieldDetail.vue`) to `*Summary`. The record-detail cluster keeps the word; it owns the `?detail=` param.
+- [ ] 4. The `ref` collision — `IRecordRef` and its `refFor` / `cacheRefs` / `refsByField` family. **One atomic commit**: `relationRefs` is an HTTP body key, so client and server move together. Decide the target name (`IRecordLabelRef` or `IRecordSummary`) before starting.
+- [ ] 5. Opportunistic, one module at a time: the `useListboxNavigation` / `useSelectOptions` / `useAnchoredPosition` internals, `queryFields` → `queryColumns`, `bumpCount`, `storeRow`, `IRecordSort.dir` → `direction`, `fieldSchema` / `tableSchema` → `*InputSchema`. `expr` → `expression` is deferred, not scheduled.
+
+**Out of scope, and must not be swept up:** URL query-param literals (`page`, `sort`, `dir`, `search`, `detail`, `q`) — renaming one breaks every shared link; Prisma columns and `FieldType` members; SCSS/BEM class names; user-visible labels, which the e2e suite selects by. The `*For(field)` resolver family stays as it is.
+
+- [ ] 6. Write the naming rules into `CLAUDE.md` §6, so a new identifier is judged against them rather than against precedent: what makes a name descriptive here, the one-meaning-per-word rule the phase above exists to repay, and which vocabularies are closed (wire formats, URL params, the resolver family).
 
 ---
 
