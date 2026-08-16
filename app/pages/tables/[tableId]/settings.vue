@@ -215,13 +215,13 @@ if (error.value) {
  * page's `data`, so reading the name from here is what keeps the heading and the breadcrumbs
  * in step without a refetch.
  */
-const storeRow = computed(() => tablesStore.tables.find((table) => table.id === tableId))
+const cachedTableRow = computed(() => tablesStore.tables.find((table) => table.id === tableId))
 
 /**
  * Preferred over the fetched table, and falling back to it: `ensureTables` never throws, so
  * the store may legitimately hold nothing at all and the page must still render.
  */
-const table = computed(() => storeRow.value ?? data.value?.table)
+const table = computed(() => cachedTableRow.value ?? data.value?.table)
 
 useSeoMeta({ title: () => table.value?.name ?? 'Table' })
 
@@ -235,7 +235,7 @@ const createdAt = computed(() => (table.value ? formatTimestamp(table.value.crea
 
 /** `null` when the store has no row for this table — see the template. */
 const recordCount = computed(() =>
-  storeRow.value ? formatNumber(storeRow.value._count.records) : null,
+  cachedTableRow.value ? formatNumber(cachedTableRow.value._count.records) : null,
 )
 
 const fieldCount = computed(() => fieldsStore.fields.length)

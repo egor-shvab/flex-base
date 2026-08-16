@@ -25,7 +25,7 @@ export const useFieldsStore = defineStore('fields', () => {
       body: input,
     })
     fields.value = [...fields.value, response.field]
-    tables.bumpCount(tableId, 'fields', 1)
+    tables.adjustCachedCount(tableId, 'fields', 1)
   }
 
   async function updateField(tableId: string, fieldId: string, input: TFieldInput) {
@@ -39,7 +39,7 @@ export const useFieldsStore = defineStore('fields', () => {
   async function deleteField(tableId: string, fieldId: string) {
     await api(`/api/tables/${tableId}/fields/${fieldId}`, { method: 'DELETE' })
     fields.value = fields.value.filter((field) => field.id !== fieldId)
-    tables.bumpCount(tableId, 'fields', -1)
+    tables.adjustCachedCount(tableId, 'fields', -1)
   }
 
   return { fields, fetchFields, createField, updateField, deleteField }

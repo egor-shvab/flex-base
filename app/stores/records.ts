@@ -81,7 +81,7 @@ export const useRecordsStore = defineStore('records', () => {
     query: IRecordQueryState,
   ): Promise<number> {
     await api<{ record: IRecord }>(`/api/tables/${tableId}/records`, { method: 'POST', body: data })
-    tables.bumpCount(tableId, 'records', 1)
+    tables.adjustCachedCount(tableId, 'records', 1)
 
     const nextPage = isDefaultView(query) ? 1 : query.page
     if (nextPage === query.page) await fetchRecords(tableId, query)
@@ -114,7 +114,7 @@ export const useRecordsStore = defineStore('records', () => {
   /** Refetches rather than splicing — under server-side pagination the page shifts. */
   async function deleteRecord(tableId: string, recordId: string, query: IRecordQueryState) {
     await api(`/api/tables/${tableId}/records/${recordId}`, { method: 'DELETE' })
-    tables.bumpCount(tableId, 'records', -1)
+    tables.adjustCachedCount(tableId, 'records', -1)
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
     await fetchRecords(tableId, { ...query, page: Math.min(page.value, lastPage) })
   }

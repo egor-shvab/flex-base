@@ -289,7 +289,7 @@ Only the modules whose contract is not obvious from their name.
 - **`utils/api-error.ts`** — `getApiErrorMessage` reads Nitro's message off `FetchError.data`; `toPageError` asserts a cause only for a 404
 - **`utils/safe-redirect.ts`** — `resolveSafeRedirect` restricts `?redirect` to internal paths
 - **`stores/records.ts`** — **Every action takes the query params from the caller** — the store never mirrors them. `createRecord` returns the page the new record landed on and only refetches when that equals the current page. An edit refetches rather than splicing. State is cleared when `fetchRecords` is called for a different table. `fetchRecords` sets `failed` **and rethrows**
-- **`stores/tables.ts`** — `loaded`/`failed` flags + `ensureTables()`, which **never throws** — it sets `failed` and the sidebar reports it inline with a Retry. Also owns `bumpCount(tableId, key, delta)`, the one way the cached `_count` moves without a refetch: **`stores/records.ts` and `stores/fields.ts` are its only callers**
+- **`stores/tables.ts`** — `loaded`/`failed` flags + `ensureTables()`, which **never throws** — it sets `failed` and the sidebar reports it inline with a Retry. Also owns `adjustCachedCount(tableId, key, delta)`, the one way the cached `_count` moves without a refetch: **`stores/records.ts` and `stores/fields.ts` are its only callers**
 - **`stores/relations.ts`** — `loadOptions(tableId, fields)` fetches every relation field's candidates in parallel and makes no request at all for a table without relations. `searchOptions` never writes `optionsByField` (`decisions.md`)
 - **`error.vue`** — the whole-app error boundary. Deliberately **store-free** — it has to render when data fetching is exactly what failed
 
@@ -393,7 +393,7 @@ Below `below-shell` the grid collapses to one column and the sidebar becomes `po
 
 **The records page fills the pane rather than scrolling it.** `.records-page` is `display: flex; flex-direction: column; height: 100%`; breadcrumbs, the header row, the filter summary and the failure banner are the fixed band; `&__body` is `flex: 1; min-height: 0`. `DynamicTable` takes `flex: 0 1 auto; min-height: 0`, so it sizes to its rows and stops — a short result ends at its last row with the pager directly beneath, a long one shrinks to the pane and scrolls inside itself. Only the rows scroll. The empty states are centred by `margin-block: auto`, not by a `justify-content` on `&__body`; the skeleton is `flex: none` instead — it stands in for the table, so it takes the table's place rather than the middle of the pane.
 
-The table list is fetched **by the layout, once per session**, via `ensureTables()` under the key `app-tables`. The dashboard fetches nothing of its own — it renders the same list, and the `_count` on it is kept current by `bumpCount` rather than by a second request. A page that does fetch keys on what it fetches; a layout and a page must **never** share a key (`decisions.md`).
+The table list is fetched **by the layout, once per session**, via `ensureTables()` under the key `app-tables`. The dashboard fetches nothing of its own — it renders the same list, and the `_count` on it is kept current by `adjustCachedCount` rather than by a second request. A page that does fetch keys on what it fetches; a layout and a page must **never** share a key (`decisions.md`).
 
 ---
 

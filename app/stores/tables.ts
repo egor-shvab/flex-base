@@ -66,7 +66,7 @@ export const useTablesStore = defineStore('tables', () => {
    * and an in-place edit would not be seen. Floored at 0 — a count can only be wrong downward
    * if two tabs disagree, and a negative one would render as nonsense.
    */
-  function bumpCount(tableId: string, key: keyof ITableListItem['_count'], delta: number) {
+  function adjustCachedCount(tableId: string, key: keyof ITableListItem['_count'], delta: number) {
     tables.value = tables.value.map((table) =>
       table.id === tableId
         ? { ...table, _count: { ...table._count, [key]: Math.max(0, table._count[key] + delta) } }
@@ -88,6 +88,6 @@ export const useTablesStore = defineStore('tables', () => {
     createTable,
     renameTable,
     deleteTable,
-    bumpCount,
+    adjustCachedCount,
   }
 })

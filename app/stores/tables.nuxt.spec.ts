@@ -162,7 +162,7 @@ describe('useTablesStore', () => {
    * the records and fields ones. Without this the sidebar and the dashboard keep showing the
    * number the list arrived with for the rest of the session.
    */
-  describe('bumpCount', () => {
+  describe('adjustCachedCount', () => {
     beforeEach(() => {
       listing = [
         table('tbl_1', 'Deals', { fields: 3, records: 7 }),
@@ -174,7 +174,7 @@ describe('useTablesStore', () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      store.bumpCount('tbl_1', 'records', 1)
+      store.adjustCachedCount('tbl_1', 'records', 1)
 
       expect(store.tables).toEqual([
         table('tbl_1', 'Deals', { fields: 3, records: 8 }),
@@ -186,7 +186,7 @@ describe('useTablesStore', () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      store.bumpCount('tbl_2', 'fields', -1)
+      store.adjustCachedCount('tbl_2', 'fields', -1)
 
       expect(store.tables[1]?._count).toEqual({ fields: 1, records: 4 })
     })
@@ -196,7 +196,7 @@ describe('useTablesStore', () => {
       await store.fetchTables()
       const before = store.tables
 
-      store.bumpCount('tbl_1', 'records', 1)
+      store.adjustCachedCount('tbl_1', 'records', 1)
 
       // shallowRef: an in-place edit would leave the sidebar drawing the old number
       expect(store.tables).not.toBe(before)
@@ -209,7 +209,7 @@ describe('useTablesStore', () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      store.bumpCount('tbl_1', 'records', -100)
+      store.adjustCachedCount('tbl_1', 'records', -100)
 
       expect(store.tables[0]?._count.records).toBe(0)
     })
@@ -219,7 +219,7 @@ describe('useTablesStore', () => {
       await store.fetchTables()
       calls.length = 0
 
-      store.bumpCount('tbl_missing', 'records', 1)
+      store.adjustCachedCount('tbl_missing', 'records', 1)
 
       expect(store.tables).toEqual(listing)
       expect(calls).toHaveLength(0)
@@ -229,7 +229,7 @@ describe('useTablesStore', () => {
     it('is a no-op before the list has loaded', () => {
       const store = useTablesStore()
 
-      store.bumpCount('tbl_1', 'records', 1)
+      store.adjustCachedCount('tbl_1', 'records', 1)
 
       expect(store.tables).toEqual([])
     })
