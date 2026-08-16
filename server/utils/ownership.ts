@@ -1,5 +1,5 @@
 import { createError } from 'h3'
-import { fieldSelect, toFieldMetadata } from '#server/services/fields'
+import { fieldSelect, toSharedField } from '#server/services/fields'
 import { tableSelect } from '#server/services/tables'
 import { prisma } from '#server/utils/prisma'
 import type { IField } from '#shared/types/field'
@@ -40,7 +40,7 @@ export async function requireOwnedTableFields(userId: string, tableId: string): 
     throw tableNotFound()
   }
 
-  return table.fields.map(toFieldMetadata)
+  return table.fields.map(toSharedField)
 }
 
 /**
@@ -58,7 +58,7 @@ export async function requireOwnedTableWithFields(userId: string, tableId: strin
     throw tableNotFound()
   }
 
-  return { table, fields: table.fields.map(toFieldMetadata) }
+  return { table, fields: table.fields.map(toSharedField) }
 }
 
 /**

@@ -32,7 +32,7 @@ function toFieldOptions(options: TFieldRow['options']): IFieldOptions | null {
 }
 
 /** The same, for a whole row: the shape every layer above the database speaks. */
-export function toFieldMetadata(field: TFieldRow): IField {
+export function toSharedField(field: TFieldRow): IField {
   return { ...field, options: toFieldOptions(field.options) }
 }
 
@@ -79,7 +79,7 @@ export async function listFields(tableId: string): Promise<IField[]> {
     orderBy: { order: 'asc' },
     select: fieldSelect,
   })
-  return fields.map(toFieldMetadata)
+  return fields.map(toSharedField)
 }
 
 export async function createField(tableId: string, input: TFieldInput): Promise<IField> {
@@ -102,7 +102,7 @@ export async function createField(tableId: string, input: TFieldInput): Promise<
       },
       select: fieldSelect,
     })
-    return toFieldMetadata(field)
+    return toSharedField(field)
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }
@@ -165,7 +165,7 @@ export async function updateField(
       return row
     })
 
-    return toFieldMetadata(updated)
+    return toSharedField(updated)
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }

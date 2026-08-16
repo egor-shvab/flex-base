@@ -5,7 +5,7 @@ import {
   deleteRecord,
   getRecordDetail,
   listRecords,
-  toRecordDto,
+  toSharedRecord,
   updateRecord,
 } from '#server/services/records'
 import { DEFAULT_SORT_DIR, DEFAULT_SORT_KEY } from '#shared/constants/filter'
@@ -52,20 +52,20 @@ function stubPage(rows: unknown[], total: number) {
 
 beforeEach(resetPrismaMock)
 
-describe('toRecordDto', () => {
+describe('toSharedRecord', () => {
   it('renders the timestamps as ISO strings, which is what the wire carries', () => {
-    expect(toRecordDto(row())).toMatchObject({
+    expect(toSharedRecord(row())).toMatchObject({
       createdAt: '2026-01-05T09:14:00.000Z',
       updatedAt: '2026-02-11T16:30:00.000Z',
     })
   })
 
   it('reads a JSON null column as an empty record rather than passing null on', () => {
-    expect(toRecordDto(row({ data: null })).data).toEqual({})
+    expect(toSharedRecord(row({ data: null })).data).toEqual({})
   })
 
   it('keeps the stored data otherwise', () => {
-    expect(toRecordDto(row()).data).toEqual({ company: 'Acme' })
+    expect(toSharedRecord(row()).data).toEqual({ company: 'Acme' })
   })
 })
 

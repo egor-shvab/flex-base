@@ -27,7 +27,7 @@ type TRecordRow = Prisma.RecordGetPayload<{ select: typeof recordSelect }>
 const recordErrors = { notFound: 'Record not found' }
 
 /** Narrows Prisma's untyped JSONB column onto the shared record shape. */
-export function toRecordDto(record: TRecordRow): IRecord {
+export function toSharedRecord(record: TRecordRow): IRecord {
   return {
     id: record.id,
     number: record.number,
@@ -67,7 +67,7 @@ export async function listRecords(
     prisma.$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int AS count FROM "Record" ${where}`,
   ])
 
-  const records = rows.map(toRecordDto)
+  const records = rows.map(toSharedRecord)
 
   return {
     records,
@@ -101,7 +101,7 @@ export async function getRecordDetail(
     throw createError({ statusCode: 404, statusMessage: recordErrors.notFound })
   }
 
-  const record = toRecordDto(row)
+  const record = toSharedRecord(row)
 
   return {
     table,
@@ -138,7 +138,7 @@ export async function createRecord(
       })
     })
 
-    return toRecordDto(record)
+    return toSharedRecord(record)
   } catch (error) {
     throw toHttpError(error, recordErrors)
   }
@@ -159,7 +159,7 @@ export async function updateRecord(
       data: { data: toJsonData(data) },
       select: recordSelect,
     })
-    return toRecordDto(record)
+    return toSharedRecord(record)
   } catch (error) {
     throw toHttpError(error, recordErrors)
   }
