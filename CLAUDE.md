@@ -83,6 +83,8 @@ A change is finished only when, in order:
 8. documentation is updated **only where a rule, contract, or limitation changed** — §12 governs what belongs where and what must never be written;
 9. `docs/roadmap.md` reflects reality — the task is marked `[x]`, and anything the work revealed or made obsolete is added, updated, or removed.
 
+**A finished change is left uncommitted.** Never run `git commit` unless the user asks for a commit in that message — not after a task completes, not when the suite is green, not because a plan or a roadmap item said a commit would happen. Approving a plan is approval to make the change, never to commit it. Leave the work in the tree and say what is there; the user decides when it lands.
+
 ---
 
 ## 3. Directory structure
