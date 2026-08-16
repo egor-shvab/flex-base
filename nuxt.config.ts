@@ -40,5 +40,5 @@ export default defineNuxtConfig({
     typeCheck: 'build',
   },
 
-  modules: ['@nuxt/eslint', '@nuxt/icon', '@nuxt/image', '@pinia/nuxt'],
+  modules: ['@nuxt/eslint', '@nuxt/icon', '@pinia/nuxt'],
 })

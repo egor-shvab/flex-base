@@ -165,9 +165,7 @@
   --z-popover: 110;
 
   // ── Type ──────────────────────────────────────────────────────────────────
-  // The full scale ships now because a ramp is only reviewable as a whole; only
-  // `md` is applied in this phase (every interactive control), the rest land with
-  // the pages that consume them.
+  // The scale ships as a set, because a ramp is only reviewable as a whole.
   --font-size-xs: #{rem(12)};
   --font-size-sm: #{rem(14)};
   --font-size-md: #{rem(16)};

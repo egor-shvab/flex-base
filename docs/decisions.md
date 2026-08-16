@@ -36,9 +36,11 @@ Nuxt's import protection rejects it in app and shared code. The Vue layer reache
 
 No `icon: { … }` block in `nuxt.config.ts`: `serverBundle: 'local'` would only restate what `auto` already resolves to, and would not keep the remote fallback away if the package were ever dropped.
 
-### `@nuxt/fonts` was removed
+### `@nuxt/fonts` and `@nuxt/image` were removed
 
-The app ships no webfonts, and the module tries to resolve the `Segoe UI` / `Roboto` names in `_reset.scss`'s system stack from font providers. Re-add it if and when a real webfont exists — not before.
+Neither had anything to work on. The app ships no webfonts, and `@nuxt/fonts` tries to resolve the `Segoe UI` / `Roboto` names in `_reset.scss`'s system stack from font providers. It renders no images either — no `<NuxtImg>`, no `<img>`, and `public/` holds only a favicon — so `@nuxt/image` was a module in the build graph and a runtime dependency paying for nothing.
+
+Re-add either if and when there is a real webfont or a real image, and the rule it carried in `CLAUDE.md` comes back with it — not before. Contrast `@iconify-json/mdi` above, which nothing imports and which is kept precisely because dropping it changes what ships.
 
 ### The built output is started by one launcher, and its import must stay dynamic
 
@@ -233,7 +235,7 @@ Single → multi runs `widenToList` — one scoped `UPDATE` wrapping each stored
 
 Multi → single is a 400, in the same shape as `Relation target cannot be changed`. It is lossy, and there is no non-arbitrary answer to which of several values survives. A softer rule — allow it when no record holds more than one — costs a JSONB scan of the table on every field save to buy a case nobody has asked for.
 
-The consequence, and the reason the migration exists: a value written **before** the flip is a bare scalar. Three places tolerate one where a list is expected — `listValue.toControl` in `inputs.ts`, `collectRelationTargets`, and `MultiValueCell` — not as defensive padding but because a form opened from a stale page must not drop the value it is about to save back.
+The consequence, and the reason the migration exists: a value written **before** the flip is a bare scalar. Three places tolerate one where a list is expected — `listValue.toControl` in `inputs.ts`, `collectRelationTargets`, and `toCellValueList` in `app/utils/record-cells.ts` — not as defensive padding but because a form opened from a stale page must not drop the value it is about to save back.
 
 **Sorting by the first value** is a choice, since a list has no intrinsic order. Opting out of sorting is the most honest and was rejected on cost: `DynamicTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy`. `jsonb_array_length` orders by how many, which nobody asked. The first value wins because it is explicable from the screen — it is the one already visible in the cell.
 
@@ -495,7 +497,11 @@ This is also why `ISelectOption` did not grow a `number`: the only caller that n
 
 ### Escape is swallowed only while something of ours is open
 
-`BaseModal` owns the sole `document`-level Escape listener, so a popover must never eat an Escape that belongs to the dialog around it. **`usePopover` registers no Escape listener and must never grow one** — the key is the caller's, in one of two spellings:
+**Two `document`-level Escape listeners exist, and no more** — `BaseModal`'s, and the shell's for the off-canvas sidebar. One keypress must dismiss one thing, which puts a rule on each of them.
+
+The shell's returns early while it finds itself inside an `inert` subtree, which is what `BaseModal` marks `#__nuxt` with while a dialog is open — so the layout answers "a dialog owns this key" without knowing what a dialog is, and without restating an id that is not its own. Reachable rather than theoretical: the sidebar's own "Add a table" opens a dialog over the open panel, and one press closed both until the guard landed.
+
+A popover must never eat an Escape that belongs to the dialog around it either. **`usePopover` registers no Escape listener and must never grow one** — the key is the caller's, in one of two spellings:
 
 - **Where focus lives inside the panel, `@keydown.esc.stop` on the panel says so structurally** — the panel only exists while open, so the handler cannot fire otherwise. That is `BaseColorPicker` and `BaseSelect`'s non-searchable branch. Two document-level listeners could not be ordered instead: `stopPropagation` between listeners on the _same_ node does nothing, and registration order is an accident of mount order.
 - **Where the control keeps focus outside its panel, the modifier is actively wrong.** A combobox holds focus in its input whether the list is open or shut, so an unconditional `.stop` would mean _the filter drawer can never be closed by keyboard while any searchable select has focus_. The condition is not expressible as a modifier, so that branch handles the key in JS and calls `stopPropagation()` only when `open`.

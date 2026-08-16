@@ -1,4 +1,3 @@
-+
 <template>
   <div class="base-checkbox">
     <label class="base-checkbox__control" :class="{ 'base-checkbox__control--disabled': disabled }">

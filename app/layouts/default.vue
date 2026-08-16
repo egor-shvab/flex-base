@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout" :class="{ 'app-layout--nav-open': navOpen }">
+  <div ref="shell" class="app-layout" :class="{ 'app-layout--nav-open': navOpen }">
     <header class="app-layout__header">
       <button
         type="button"
@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
 import { useAuthStore } from '~/stores/auth'
 import { useTablesStore } from '~/stores/tables'
@@ -59,9 +59,25 @@ watch(
   () => (navOpen.value = false),
 )
 
-// Same shape as BaseModal's — anything covering the page closes on Escape
+const shell = useTemplateRef<HTMLElement>('shell')
+
+/**
+ * The off-canvas sidebar is the second thing on the page that covers it, so it takes Escape too —
+ * and this is the **second** `document`-level listener in the app, `BaseModal`'s being the other.
+ *
+ * The guard is what keeps them from both firing on one press. `BaseModal` marks `#__nuxt` `inert`
+ * while a dialog is open, and this shell is inside that subtree, so the dialog's key is not ours to
+ * read. Reachable rather than theoretical: the sidebar's own "Add a table" button opens a dialog
+ * over the open sidebar, and one press used to close both.
+ *
+ * `closest('[inert]')` rather than a lookup of `#__nuxt` — it states the real condition, that this
+ * shell is not interactive right now, and does not restate an id that belongs to another component.
+ */
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') navOpen.value = false
+  if (event.key !== 'Escape') return
+  if (shell.value?.closest('[inert]')) return
+
+  navOpen.value = false
 }
 
 onMounted(() => document.addEventListener('keydown', onKeydown))

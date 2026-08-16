@@ -10,6 +10,8 @@ Three companion documents carry the detail this file deliberately omits. Read th
 
 How all four are maintained — what belongs where, and what must never be written — is §12.
 
+One further file exists **only while the current refactoring phase runs**: `docs/refactor-plan.md`, the audit detail behind the roadmap's task list. Read a task's entry there before starting it; it is deleted when the phase closes.
+
 ---
 
 ## 1. Project & current phase
@@ -33,7 +35,7 @@ Two more that shape every change: **full TypeScript coverage**, with zod schemas
 
 ```bash
 npm run dev          # start dev server at http://localhost:3000
-npm run typecheck    # vue-tsc only (~7s) — the fast inner-loop type gate
+npm run typecheck    # vue-tsc over the app, then tsc over the e2e specs — the inner-loop type gate
 npm run test          # vitest run — the unit + nuxt projects; no database, no browser
 npm run test:unit     # the node project only (~1s) — the inner loop
 npm run test:nuxt     # the Nuxt-environment project only
@@ -57,7 +59,7 @@ npx prisma migrate dev --name <name>  # create & apply a migration
 npx prisma generate                   # regenerate the client into server/generated/prisma (gitignored)
 ```
 
-`typecheck` is the one to reach for while iterating: same `vue-tsc` errors as the build at a quarter of the time, and it never rewrites `.output`. Keep `build` as the pre-commit gate — it is the only step that exercises Vite/Nitro bundling, and its second step (`tsc -p test/e2e/tsconfig.json`) is the **only** thing checking the Playwright specs.
+`typecheck` is the one to reach for while iterating: the same `vue-tsc` errors as the build at a fraction of the time, it never rewrites `.output`, and its second step (`tsc -p test/e2e/tsconfig.json`) is the **only** thing checking the Playwright specs. Keep `build` as the pre-commit gate — it is the only step that exercises Vite/Nitro bundling.
 
 **In CI, call the tools rather than these scripts.** `test:integration`, `test:e2e` and `test:coverage` each begin with `db:up`, which is right on a developer machine and wrong on a runner that already has PostgreSQL on 5432. `.github/workflows/ci.yml` invokes `vitest`/`playwright`/`coverage:collect` directly for that reason.
 
@@ -194,7 +196,7 @@ Rationale for all three: `docs/decisions.md`.
 - Forms use the `useForm` composable — reactive fields, per-field zod errors that clear on edit, form-level server error, `pending`, `submit`, `reset`.
 - Deleting anything from a list page goes through `useDeleteConfirm`, not a hand-rolled pending flag.
 - A popover goes through `usePopover` (+ `useAnchoredPosition` where it must escape a clipping ancestor), never a hand-rolled open/outside-click/focus-restore trio.
-- **A popover swallows Escape only while it has something open.** `BaseModal` owns the sole `document` listener, so one keypress must never close both. Two spellings, and the difference matters: `@keydown.esc.stop` on the panel where focus lives inside it; the key handled in JS with `stopPropagation()` guarded on `open` where the control keeps focus **outside** its panel (a combobox), since an unconditional modifier there would make a _closed_ control eat the surrounding dialog's Escape. See `docs/decisions.md`.
+- **A popover swallows Escape only while it has something open**, because one keypress must never close two things. There are exactly two `document`-level Escape listeners — `BaseModal`'s, and the shell's for the off-canvas sidebar, which stands down while the shell is `inert`. A popover adds none. Two spellings, and the difference matters: `@keydown.esc.stop` on the panel where focus lives inside it; the key handled in JS with `stopPropagation()` guarded on `open` where the control keeps focus **outside** its panel (a combobox), since an unconditional modifier there would make a _closed_ control eat the surrounding dialog's Escape. See `docs/decisions.md`.
 - **Every async surface states its condition.** Loading, empty, and error are distinct states with distinct copy — never infer "empty" from "unknown". A failed fetch is visible (banner + retry), never a silently stale view.
 - **Never ship a dead control.** A visible input or button that cannot do anything yet is worse than its absence.
 
@@ -207,7 +209,7 @@ Rationale for all three: `docs/decisions.md`.
 - Derive state with `computed`, don't sync it with watchers; never deep-`watch` large arrays/objects.
 - **Debounce** user-driven query inputs ~300 ms before hitting the API (`useDebouncedModel`).
 - Fetch page data through `useAsyncData` with an explicit key so the SSR result transfers in the payload; never re-fetch in `onMounted` what SSR already loaded. A layout and a page must never share a key.
-- Render real images via `<NuxtImg>`, not raw `<img>`.
+- **No image pipeline ships.** `@nuxt/image` was removed because the app renders none — re-add it, and this rule, when a real image exists (`docs/decisions.md`).
 
 These rules target collections that grow with user data. Static UI — auth pages, layout chrome — does not warrant `shallowRef`/lazy machinery; KISS wins there.
 

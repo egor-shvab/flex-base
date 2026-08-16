@@ -114,6 +114,50 @@ test('the scrim behind it dismisses it without navigating', async ({ page }) => 
   await expect(page).toHaveURL('/')
 })
 
+/** The plain path, so the guard below cannot be "fixed" by dropping the listener altogether. */
+test('Escape dismisses it when nothing covers it', async ({ page }) => {
+  await page.goto('/')
+  await toggle(page).click()
+  await expect(sidebar(page)).toBeVisible()
+
+  await page.keyboard.press('Escape')
+
+  await expect(sidebar(page)).toBeHidden()
+  await expect(page).toHaveURL('/')
+})
+
+/**
+ * The panel takes Escape because it covers the page — which makes it the **second**
+ * `document`-level Escape listener in the app, `BaseModal`'s being the other. Nothing else says
+ * the two do not both fire on one press, and the overlap is reachable rather than theoretical:
+ * the sidebar's own "Add a table" opens a dialog over the still-open panel.
+ *
+ * The middle pair of assertions is the whole case. Drop them and this passes against an
+ * unguarded handler that closes the dialog and the panel under it together.
+ */
+test('Escape closes a dialog over it without also closing it', async ({ page }) => {
+  await page.goto('/')
+  await toggle(page).click()
+  await sidebar(page).getByRole('button', { name: 'Add a table' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'New table' })
+  await expect(dialog).toBeVisible()
+
+  await page.keyboard.press('Escape')
+
+  await expect(dialog).toBeHidden()
+  // Still open: while the shell is `inert` the dialog's key is not the sidebar's to read.
+  // `aria-expanded` before `toBeVisible`, and that order matters — the panel closes behind a
+  // 0.2s transition, so the visibility assertion resolves true mid-slide and reports nothing.
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true')
+  await expect(sidebar(page)).toBeVisible()
+
+  await page.keyboard.press('Escape')
+
+  await expect(sidebar(page)).toBeHidden()
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false')
+})
+
 /**
  * A table is the one thing that cannot simply reflow to 375px. The rule is that it scrolls
  * inside its own container — the page body must never scroll sideways, or every screen in the
