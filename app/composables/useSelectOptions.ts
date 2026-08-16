@@ -36,11 +36,11 @@ interface IUseSelectOptionsInput<TValue extends string> {
  */
 export function useSelectOptions<TValue extends string>(input: IUseSelectOptionsInput<TValue>) {
   /** The term the last request was made for — the draft's debounced shadow. */
-  const term = ref('')
+  const committedTerm = ref('')
 
   // The draft drives local filtering instantly; only the model behind it is debounced, and
   // only the model triggers a request. One debounce, reused rather than rewritten.
-  const draft = useDebouncedModel(term, {
+  const searchDraft = useDebouncedModel(committedTerm, {
     delay: SEARCH_DEBOUNCE_MS,
     normalize: (value) => value.trim(),
   })
@@ -61,7 +61,7 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
     controller = undefined
   }
 
-  async function run(value: string) {
+  async function runOptionsRequest(value: string) {
     const load = input.loadOptions()
 
     if (load === undefined || value === '') {
@@ -93,13 +93,13 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
     }
   }
 
-  watch(term, (value) => void run(value))
+  watch(committedTerm, (value) => void runOptionsRequest(value))
 
   const visibleOptions: ComputedRef<ISelectOption<TValue>[]> = computed(() => {
     const seed = input.options()
 
     if (input.loadOptions() === undefined) {
-      const needle = draft.value.trim().toLowerCase()
+      const needle = searchDraft.value.trim().toLowerCase()
       if (needle === '') return seed
 
       return seed.filter((option) => option.label.toLowerCase().includes(needle))
@@ -107,28 +107,28 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
 
     // Stale-while-revalidating: the previous answer stays under the `Searching…` row rather
     // than blanking on every debounce window, which would flicker for no information gained
-    if (term.value === '' && status.value !== 'loading') return seed
+    if (committedTerm.value === '' && status.value !== 'loading') return seed
 
     return status.value === 'idle' ? seed : remote.value
   })
 
   function retry() {
-    void run(term.value)
+    void runOptionsRequest(committedTerm.value)
   }
 
   /** Called when the panel closes, so reopening never shows the last search. */
   function reset() {
     abort()
     requestId += 1
-    draft.value = ''
-    term.value = ''
+    searchDraft.value = ''
+    committedTerm.value = ''
     remote.value = []
     status.value = 'idle'
   }
 
   return {
-    draft: draft as Ref<string>,
-    term: term as Readonly<Ref<string>>,
+    searchDraft: searchDraft as Ref<string>,
+    committedTerm: committedTerm as Readonly<Ref<string>>,
     visibleOptions,
     status: status as Readonly<Ref<TSelectStatus>>,
     retry,

@@ -12,7 +12,7 @@
         v-if="searchable"
         :id="id"
         ref="triggerRef"
-        v-model="draft"
+        v-model="searchDraft"
         class="base-select__input"
         :class="{
           'base-select__input--invalid': error,
@@ -319,7 +319,7 @@ const { open, containerRef, triggerRef, panelRef, panelId, show, dismiss } = use
 
 const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { matchWidth: true })
 
-const { draft, visibleOptions, status, retry, reset } = useSelectOptions({
+const { searchDraft, visibleOptions, status, retry, reset } = useSelectOptions({
   options: () => props.options,
   // Inert unless the user can actually type: handing this a loader nothing can call would
   // leave a half-built async machine — `status` pinned at `idle`, `retry` unreachable, and
@@ -355,7 +355,7 @@ const {
   listRef,
   isOpen: open,
   // Typing is the user placing the cursor; options merely arriving is not
-  shouldSeedCursor: () => props.searchable && draft.value !== '',
+  shouldSeedCursor: () => props.searchable && searchDraft.value !== '',
 })
 
 /**
@@ -401,7 +401,7 @@ const selectedOptions = computed<ISelectOption[]>(() =>
 
 /** The overlay yields to the term the moment the user types; there is nothing to hide behind. */
 const showValue = computed(
-  () => selectedOptions.value.length > 0 && (!props.searchable || draft.value === ''),
+  () => selectedOptions.value.length > 0 && (!props.searchable || searchDraft.value === ''),
 )
 
 /** One selection reads as itself; several read as a count — a 36px control cannot list them. */
@@ -444,7 +444,7 @@ const statusText = computed(() => {
   if (status.value === 'loading') return 'Searching…'
   if (visibleOptions.value.length > 0) return ''
 
-  const typed = draft.value.trim()
+  const typed = searchDraft.value.trim()
 
   return typed === '' ? props.emptyLabel : `No results for “${typed}”`
 })
@@ -508,7 +508,7 @@ function moveCursor(delta: number) {
  * does not repeat `BaseInput`'s hand-rolled composition guard — that one exists only because
  * it binds `:value` + `@input` to dodge the `type="number"` cast.
  */
-watch(draft, (value) => {
+watch(searchDraft, (value) => {
   if (props.searchable && !props.disabled && value !== '' && !open.value) openPanel()
 })
 
@@ -655,7 +655,7 @@ function onComboboxKeydown(event: KeyboardEvent) {
       // Only once the term is gone, or backspacing through a search would eat the selection
       // behind it. `repeat` is guarded for the same reason: holding the key to erase a term
       // must stop at the end of the text rather than running on into the values.
-      if (draft.value !== '' || !props.clearable || event.repeat) return
+      if (searchDraft.value !== '' || !props.clearable || event.repeat) return
       if (selected.value.length === 0) return
       event.preventDefault()
       commit(selected.value.slice(0, -1))

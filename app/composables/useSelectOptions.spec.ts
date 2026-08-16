@@ -42,7 +42,7 @@ function setup(loadOptions: TLoadSelectOptions | undefined, options: ISelectOpti
   return { ...composable, stop: () => scope.stop() }
 }
 
-/** Commits the draft to `term`, which is the only thing that starts a request. */
+/** Commits the draft to `committedTerm`, which is the only thing that starts a request. */
 async function type(draft: { value: string }, value: string) {
   draft.value = value
   await nextTick()
@@ -68,7 +68,7 @@ describe('useSelectOptions', () => {
       const select = setup(undefined)
 
       // The draft filters instantly — only the model behind it is debounced
-      select.draft.value = 'aLaN'
+      select.searchDraft.value = 'aLaN'
       await nextTick()
 
       expect(select.visibleOptions.value).toEqual([{ value: 'alan', label: 'Alan Turing' }])
@@ -79,7 +79,7 @@ describe('useSelectOptions', () => {
     it('matches anywhere in the label, not just the start', async () => {
       const select = setup(undefined)
 
-      select.draft.value = 'hopper'
+      select.searchDraft.value = 'hopper'
       await nextTick()
 
       expect(select.visibleOptions.value.map((entry) => entry.value)).toEqual(['grace'])
@@ -90,7 +90,7 @@ describe('useSelectOptions', () => {
     it('never leaves idle, however much is typed', async () => {
       const select = setup(undefined)
 
-      await type(select.draft, 'ada')
+      await type(select.searchDraft, 'ada')
       expect(select.status.value).toBe('idle')
 
       select.stop()
@@ -113,7 +113,7 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'tur')
+      await type(select.searchDraft, 'tur')
       expect(select.status.value).toBe('loading')
       expect(calls).toHaveLength(1)
       expect(calls[0]!.term).toBe('tur')
@@ -131,11 +131,11 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
       calls[0]!.resolve([option('ada')])
       await nextTick()
 
-      await type(select.draft, 'ab')
+      await type(select.searchDraft, 'ab')
 
       // Stale-while-revalidating: blanking on every debounce window would flicker for nothing
       expect(select.status.value).toBe('loading')
@@ -148,11 +148,11 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
       calls[0]!.resolve([option('ada')])
       await nextTick()
 
-      await type(select.draft, '')
+      await type(select.searchDraft, '')
 
       expect(select.status.value).toBe('idle')
       expect(select.visibleOptions.value).toEqual(SEED)
@@ -164,7 +164,7 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
       calls[0]!.reject(new Error('offline'))
       await nextTick()
 
@@ -177,7 +177,7 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
       calls[0]!.reject(new Error('offline'))
       await nextTick()
       expect(select.status.value).toBe('failed')
@@ -198,10 +198,10 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
       expect(calls[0]!.signal.aborted).toBe(false)
 
-      await type(select.draft, 'ab')
+      await type(select.searchDraft, 'ab')
 
       expect(calls[0]!.signal.aborted).toBe(true)
       expect(calls[1]!.signal.aborted).toBe(false)
@@ -213,8 +213,8 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
-      await type(select.draft, 'ab')
+      await type(select.searchDraft, 'a')
+      await type(select.searchDraft, 'ab')
 
       // The newer request answers first
       calls[1]!.resolve([option('newer')])
@@ -235,8 +235,8 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
-      await type(select.draft, 'ab')
+      await type(select.searchDraft, 'a')
+      await type(select.searchDraft, 'ab')
 
       calls[1]!.resolve([option('newer')])
       await nextTick()
@@ -255,7 +255,7 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
 
       // Rejected on its own id, so the guard lets it through — the DOMException check is
       // the only thing standing between an abort and a visible error state
@@ -271,7 +271,7 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
       select.reset()
 
       calls[0]!.resolve([option('too late')])
@@ -287,15 +287,15 @@ describe('useSelectOptions', () => {
       const { load, calls } = deferredLoad()
       const select = setup(load)
 
-      await type(select.draft, 'a')
+      await type(select.searchDraft, 'a')
       calls[0]!.resolve([option('ada')])
       await nextTick()
 
       select.reset()
       await nextTick()
 
-      expect(select.draft.value).toBe('')
-      expect(select.term.value).toBe('')
+      expect(select.searchDraft.value).toBe('')
+      expect(select.committedTerm.value).toBe('')
       expect(select.status.value).toBe('idle')
       expect(select.visibleOptions.value).toEqual(SEED)
 
