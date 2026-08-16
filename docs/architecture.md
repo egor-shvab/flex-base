@@ -79,7 +79,7 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 | `filter-summaries.ts` | `FILTER_SUMMARIES`                                                           | how an active filter reads above the table |
 | `record-columns.ts`   | `RECORD_COLUMNS`                                                             | the record's own columns (§5)              |
 | `icons.ts`            | `FIELD_TYPE_ICONS: Record<TFieldType, string>`                               | the glyph beside a type's word             |
-| `details.ts`          | `FIELD_DETAILS: Record<TFieldType, Component \| null>`                       | how a field's configuration reads          |
+| `config-summaries.ts` | `FIELD_CONFIG_SUMMARIES: Record<TFieldType, Component \| null>`              | how a field's configuration reads          |
 
 **Cardinality is the second axis, and it is a property of the field rather than of its type.** Each of the four control registries keeps its flat per-type entries and gains a total `Record<TFieldType, X | null>` override table — `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`, and `MULTI_SQL` on the server — plus one resolver every consumer calls instead of indexing:
 
@@ -94,7 +94,7 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 
 Only two entries are non-`null` anywhere: `MULTI_FILTERS` and `MULTI_SUMMARIES` leave **SELECT** `null`, because a SELECT filter has always been list-shaped, so nothing about filtering it changes when the stored value becomes a list.
 
-**`FIELD_DETAILS` is the one control-adjacent registry with no `MULTI_*` counterpart**, and its `null` means something different from theirs: not "this type has no list form" but "this type is fully described by its own word" — TEXT configures nothing. Cardinality stays out of it because `isMultiValue(field)` already answers for every type, so the field manager renders that part itself rather than two components repeating it. That is also why callers index it directly instead of through a resolver: there is no override for one to consult. `FIELD_TYPE_ICONS` is a plain string map for the same reason — nothing about a glyph changes when a field is widened.
+**`FIELD_CONFIG_SUMMARIES` is the one control-adjacent registry with no `MULTI_*` counterpart**, and its `null` means something different from theirs: not "this type has no list form" but "this type is fully described by its own word" — TEXT configures nothing. Cardinality stays out of it because `isMultiValue(field)` already answers for every type, so the field manager renders that part itself rather than two components repeating it. That is also why callers index it directly instead of through a resolver: there is no override for one to consult. `FIELD_TYPE_ICONS` is a plain string map for the same reason — nothing about a glyph changes when a field is widened.
 
 Multi-value **cells** need no override table at all. `cellComponent` returns one shared `MultiValueCell`, which renders each entry through `FIELD_CELLS[field.type]` — a list of values is the list of how each value renders, so a future multi-capable type is covered without a component of its own. It renders **inline** rather than as a flex row, which is load-bearing (`decisions.md`); nothing about the cell puts it on a line — `DynamicTable`'s `white-space: nowrap` does that, and `RecordDetail` simply does not impose it.
 

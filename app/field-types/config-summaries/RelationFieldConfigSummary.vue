@@ -5,9 +5,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTablesStore } from '~/stores/tables'
-import type { IFieldDetailProps } from '~/field-types/types'
+import type { IFieldConfigSummaryProps } from '~/field-types/types'
 
-const props = defineProps<IFieldDetailProps>()
+const props = defineProps<IFieldConfigSummaryProps>()
 
 const tablesStore = useTablesStore()
 

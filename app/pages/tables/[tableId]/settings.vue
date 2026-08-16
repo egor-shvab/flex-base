@@ -88,9 +88,9 @@
                      which would space one separator differently from the next. -->
                 <p class="field-row__meta">
                   <span>{{ FIELD_TYPE_LABELS[field.type] }}</span>
-                  <template v-if="FIELD_DETAILS[field.type]">
+                  <template v-if="FIELD_CONFIG_SUMMARIES[field.type]">
                     <span class="field-row__sep" aria-hidden="true">·</span>
-                    <component :is="FIELD_DETAILS[field.type]" :field="field" />
+                    <component :is="FIELD_CONFIG_SUMMARIES[field.type]" :field="field" />
                   </template>
                   <template v-if="isMultiValue(field)">
                     <span class="field-row__sep" aria-hidden="true">·</span>
@@ -180,7 +180,7 @@ import { useFieldsStore } from '~/stores/fields'
 import { useTablesStore } from '~/stores/tables'
 import { toPageError } from '~/utils/api-error'
 import { formatNumber, formatTimestamp } from '~/utils/format'
-import { FIELD_DETAILS } from '~/field-types/details'
+import { FIELD_CONFIG_SUMMARIES } from '~/field-types/config-summaries'
 import { FIELD_TYPE_ICONS } from '~/field-types/icons'
 import { FIELD_TYPE_LABELS } from '#shared/constants/field'
 import { isMultiValue } from '#shared/utils/field'

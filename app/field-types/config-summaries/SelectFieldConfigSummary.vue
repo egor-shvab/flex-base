@@ -4,10 +4,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { IFieldDetailProps } from '~/field-types/types'
+import type { IFieldConfigSummaryProps } from '~/field-types/types'
 import { choiceValues } from '#shared/utils/field'
 
-const props = defineProps<IFieldDetailProps>()
+const props = defineProps<IFieldConfigSummaryProps>()
 
 // Through `choiceValues` rather than `options?.choices?.length`, so a field whose options are
 // missing or malformed counts 0 instead of rendering nothing
