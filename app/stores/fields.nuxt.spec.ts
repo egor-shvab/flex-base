@@ -3,7 +3,7 @@ import { registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError } from 'h3'
 import { createPinia, setActivePinia } from 'pinia'
 import type { IField } from '#shared/types/field'
-import { fieldSchema } from '#shared/validation/field'
+import { fieldInputSchema } from '#shared/validation/field'
 import { useFieldsStore } from '~/stores/fields'
 import { useTablesStore } from '~/stores/tables'
 import { numberField, textField } from '~~/test/fixtures'
@@ -71,7 +71,7 @@ async function loadedTables() {
  * Built through the schema rather than by hand: `TFieldInput` is the schema's *output*, so
  * every default is required on the type, and this is exactly the shape `useForm` hands over.
  */
-const INPUT = fieldSchema.parse({ name: 'Company', type: 'TEXT' })
+const INPUT = fieldInputSchema.parse({ name: 'Company', type: 'TEXT' })
 
 describe('useFieldsStore', () => {
   beforeEach(() => {

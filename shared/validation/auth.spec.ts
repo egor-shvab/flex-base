@@ -1,26 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { credentialsSchema, registerSchema } from '#shared/validation/auth'
+import { credentialsInputSchema, registerSchema } from '#shared/validation/auth'
 
 const credentials = { email: 'ada@example.com', password: 'correct-horse' }
 
-describe('credentialsSchema', () => {
+describe('credentialsInputSchema', () => {
   it('accepts a valid pair', () => {
-    expect(credentialsSchema.parse(credentials)).toEqual(credentials)
+    expect(credentialsInputSchema.parse(credentials)).toEqual(credentials)
   })
 
   it('rejects a malformed email', () => {
     for (const email of ['ada', 'ada@', '@example.com', '']) {
-      expect(credentialsSchema.safeParse({ ...credentials, email }).success).toBe(false)
+      expect(credentialsInputSchema.safeParse({ ...credentials, email }).success).toBe(false)
     }
   })
 
   it('enforces the 8-character password floor', () => {
-    expect(credentialsSchema.safeParse({ ...credentials, password: '1234567' }).success).toBe(false)
-    expect(credentialsSchema.safeParse({ ...credentials, password: '12345678' }).success).toBe(true)
+    expect(credentialsInputSchema.safeParse({ ...credentials, password: '1234567' }).success).toBe(
+      false,
+    )
+    expect(credentialsInputSchema.safeParse({ ...credentials, password: '12345678' }).success).toBe(
+      true,
+    )
   })
 
   it('does not trim or otherwise touch the password', () => {
-    expect(credentialsSchema.parse({ ...credentials, password: '  spaced  ' }).password).toBe(
+    expect(credentialsInputSchema.parse({ ...credentials, password: '  spaced  ' }).password).toBe(
       '  spaced  ',
     )
   })

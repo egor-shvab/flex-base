@@ -8,7 +8,7 @@ import {
   listFields,
   updateField,
 } from '#server/services/fields'
-import { fieldSchema, type TFieldInput } from '#shared/validation/field'
+import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { textField } from '~~/test/fixtures'
 
@@ -23,10 +23,10 @@ const FIELD_ID = 'fld_owner'
  * The schema's *input* type, not its output: a spec writes a choice without a colour and lets
  * the default land, which is the wire shape a client actually sends.
  */
-type TFieldDraft = z.input<typeof fieldSchema>
+type TFieldDraft = z.input<typeof fieldInputSchema>
 
 function input(overrides: Partial<TFieldDraft> & Pick<TFieldDraft, 'type'>): TFieldInput {
-  return fieldSchema.parse({ name: 'Owner', ...overrides })
+  return fieldInputSchema.parse({ name: 'Owner', ...overrides })
 }
 
 const relation = (overrides: Partial<TFieldDraft> = {}) =>

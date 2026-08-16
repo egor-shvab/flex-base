@@ -109,7 +109,7 @@ export function blankValueFor(field: IField): TRecordValue {
  * type still says what one value is, and cardinality says how many of them there may be. That
  * is the whole of what multi costs the validation layer: no type declares a second schema.
  *
- * Duplicates are rejected rather than deduplicated, matching how `fieldSchema` judges repeated
+ * Duplicates are rejected rather than deduplicated, matching how `fieldInputSchema` judges repeated
  * SELECT choices — a control cannot produce them (picking a chosen option toggles it off), so
  * a repeat is a crafted payload and should be answered rather than quietly cleaned up. It also
  * keeps a `.transform()` out of a layer that only judges.

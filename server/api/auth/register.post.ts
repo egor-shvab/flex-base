@@ -2,10 +2,10 @@ import { createError, defineEventHandler, readValidatedBody } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 import { prisma } from '#server/utils/prisma'
 import { hashPassword, setAuthCookie, signAuthToken } from '#server/utils/auth'
-import { credentialsSchema } from '#shared/validation/auth'
+import { credentialsInputSchema } from '#shared/validation/auth'
 
 export default defineEventHandler(async (event) => {
-  const { email, password } = await readValidatedBody(event, credentialsSchema.parse)
+  const { email, password } = await readValidatedBody(event, credentialsInputSchema.parse)
 
   const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } })
   if (existing) {

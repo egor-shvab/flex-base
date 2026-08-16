@@ -6,7 +6,7 @@ import {
   requireOwnedTableWithFields,
   requireRecordFields,
 } from '#server/utils/ownership'
-import { fieldSchema, type TFieldInput } from '#shared/validation/field'
+import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { textField } from '~~/test/fixtures'
 
@@ -20,7 +20,7 @@ const TABLE_ID = 'tbl_deals'
 const table = { id: TABLE_ID, name: 'Deals', createdAt: new Date(), updatedAt: new Date() }
 
 function relationInput(overrides: Partial<TFieldInput> = {}): TFieldInput {
-  return fieldSchema.parse({
+  return fieldInputSchema.parse({
     name: 'Owner',
     type: 'RELATION',
     targetTableId: 'tbl_people',
@@ -145,7 +145,7 @@ describe('what the helpers return', () => {
 
 describe('requireFieldTarget', () => {
   it('has nothing to check for a type that stores no target', async () => {
-    await requireFieldTarget(USER_ID, fieldSchema.parse({ name: 'Company', type: 'TEXT' }))
+    await requireFieldTarget(USER_ID, fieldInputSchema.parse({ name: 'Company', type: 'TEXT' }))
 
     expect(prismaMock.table.findUnique).not.toHaveBeenCalled()
   })

@@ -23,7 +23,7 @@
 <script setup lang="ts">
 import { useId } from 'vue'
 import { useForm } from '~/composables/useForm'
-import { tableSchema } from '#shared/validation/table'
+import { tableInputSchema } from '#shared/validation/table'
 
 const props = withDefaults(
   defineProps<{
@@ -39,7 +39,7 @@ const emit = defineEmits<{ saved: []; close: [] }>()
 const inputId = useId()
 
 const { form, errors, serverError, pending, submit } = useForm({
-  schema: tableSchema,
+  schema: tableInputSchema,
   initial: { name: props.initialName },
   onSubmit: async ({ name }) => {
     await props.submitHandler(name)

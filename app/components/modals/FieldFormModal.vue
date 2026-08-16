@@ -112,7 +112,7 @@ import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import { FIELD_TYPES, FIELD_TYPE_LABELS, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
-import { fieldSchema, type TFieldInput } from '#shared/validation/field'
+import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import type { IField, TFieldType } from '#shared/types/field'
 import { isMultiValue } from '#shared/utils/field'
 
@@ -144,7 +144,7 @@ const typeOptions: { value: TFieldType; label: string }[] = FIELD_TYPES.map((typ
 const initialChoices = (props.field?.options?.choices ?? []).map((choice) => ({ ...choice }))
 
 const { form, errors, serverError, pending, submit } = useForm({
-  schema: fieldSchema,
+  schema: fieldInputSchema,
   initial: {
     name: props.field?.name ?? '',
     type: (props.field?.type ?? 'TEXT') as TFieldType,

@@ -41,7 +41,7 @@ import { definePageMeta, navigateTo, useRoute, useSeoMeta } from '#imports'
 import { useForm } from '~/composables/useForm'
 import { useAuthStore } from '~/stores/auth'
 import { resolveSafeRedirect } from '~/utils/safe-redirect'
-import { credentialsSchema } from '#shared/validation/auth'
+import { credentialsInputSchema } from '#shared/validation/auth'
 
 definePageMeta({ layout: 'auth' })
 useSeoMeta({ title: 'Log in', description: 'Log in to your FlexBase account.' })
@@ -50,7 +50,7 @@ const auth = useAuthStore()
 const route = useRoute()
 
 const { form, errors, serverError, pending, submit } = useForm({
-  schema: credentialsSchema,
+  schema: credentialsInputSchema,
   initial: { email: '', password: '' },
   onSubmit: async (values) => {
     await auth.login(values)

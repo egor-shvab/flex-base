@@ -57,10 +57,10 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 
 **`shared/validation/`**
 
-- `auth.ts` — `credentialsSchema` (login and register share it), `registerSchema`.
+- `auth.ts` — `credentialsInputSchema` (login and register share it), `registerSchema`.
 - `name.ts` — `nameSchema`, the one rule for every user-visible name (1–100 chars); tables and fields build on it so they cannot drift.
-- `table.ts` — `tableSchema`.
-- `field.ts` — flat `fieldSchema` with a per-type `superRefine`, one schema for client and server. `multiple` is judged against `MULTI_VALUE_BY_TYPE` rather than a hardcoded type pair. Flat at the top level only: a SELECT choice is `{ value, color }`, and uniqueness is judged on `value` alone, since two choices differing only by colour are the same choice. Whether a RELATION's target exists and is owned is a database question, so the server layers `requireFieldTarget` on top.
+- `table.ts` — `tableInputSchema`.
+- `field.ts` — flat `fieldInputSchema` with a per-type `superRefine`, one schema for client and server. `multiple` is judged against `MULTI_VALUE_BY_TYPE` rather than a hardcoded type pair. Flat at the top level only: a SELECT choice is `{ value, color }`, and uniqueness is judged on `value` alone, since two choices differing only by colour are the same choice. Whether a RELATION's target exists and is owned is a database question, so the server layers `requireFieldTarget` on top.
 - `record.ts` — `VALUE_SCHEMA_BY_TYPE` (per type: `base` schema + `blank` value + `fromQuery` decoder + `listBase`), `buildRecordSchema(fields)` (strips unknown keys), `blankValueFor(field)`, `buildFilterValueSchema(field)`, `buildRecordQuerySchema(fields)` (page + pageSize + sort/dir + the filter params the table's fields claim; a **loose** object so the refinement can read filter params without widening the base ones). Required is enforced only where `blank` is `null`, so a BOOLEAN's `false` counts as a value.
 
   **A multi-value field's schema is its type's own `base` lifted into `z.array`** — the type still says what one value is, cardinality says how many. `blank` becomes `[]`, `required` becomes "at least one", the cap is `MULTI_VALUE_MAX_ITEMS`, and duplicates are rejected rather than deduplicated (`decisions.md`). No type declares a second schema.

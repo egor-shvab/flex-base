@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
-import { fieldSchema } from '#shared/validation/field'
+import { fieldInputSchema } from '#shared/validation/field'
 
 const select = (overrides: Record<string, unknown> = {}) => ({
   name: 'Stage',
@@ -20,14 +20,14 @@ const relation = (overrides: Record<string, unknown> = {}) => ({
 
 /** The paths of every issue a failed parse reports. */
 function issuePaths(value: unknown): string[] {
-  const result = fieldSchema.safeParse(value)
+  const result = fieldInputSchema.safeParse(value)
   expect(result.success).toBe(false)
   return result.error?.issues.map((issue) => issue.path.join('.')) ?? []
 }
 
-describe('fieldSchema — defaults', () => {
+describe('fieldInputSchema — defaults', () => {
   it('fills in everything a plain TEXT field leaves out', () => {
-    expect(fieldSchema.parse({ name: 'Company', type: 'TEXT' })).toEqual({
+    expect(fieldInputSchema.parse({ name: 'Company', type: 'TEXT' })).toEqual({
       name: 'Company',
       type: 'TEXT',
       required: false,
@@ -39,7 +39,7 @@ describe('fieldSchema — defaults', () => {
   })
 
   it('trims the name and rejects a blank or over-long one', () => {
-    expect(fieldSchema.parse({ name: '  Company  ', type: 'TEXT' }).name).toBe('Company')
+    expect(fieldInputSchema.parse({ name: '  Company  ', type: 'TEXT' }).name).toBe('Company')
     expect(issuePaths({ name: '   ', type: 'TEXT' })).toEqual(['name'])
     expect(issuePaths({ name: 'x'.repeat(101), type: 'TEXT' })).toEqual(['name'])
   })
@@ -49,7 +49,7 @@ describe('fieldSchema — defaults', () => {
   })
 })
 
-describe('fieldSchema — cardinality', () => {
+describe('fieldInputSchema — cardinality', () => {
   it('accepts `multiple` on exactly the types the registry allows', () => {
     for (const type of FIELD_TYPES) {
       const base =
@@ -59,7 +59,7 @@ describe('fieldSchema — cardinality', () => {
             ? relation({ multiple: true })
             : { name: 'F', type, multiple: true }
 
-      expect(fieldSchema.safeParse(base).success).toBe(MULTI_VALUE_BY_TYPE[type])
+      expect(fieldInputSchema.safeParse(base).success).toBe(MULTI_VALUE_BY_TYPE[type])
     }
   })
 
@@ -69,20 +69,21 @@ describe('fieldSchema — cardinality', () => {
   })
 })
 
-describe('fieldSchema — SELECT', () => {
+describe('fieldInputSchema — SELECT', () => {
   it('requires at least one choice', () => {
     expect(issuePaths(select({ choices: [] }))).toEqual(['choices'])
   })
 
   it('defaults a choice colour and trims its value', () => {
-    expect(fieldSchema.parse(select({ choices: [{ value: '  Won  ' }] })).choices).toEqual([
+    expect(fieldInputSchema.parse(select({ choices: [{ value: '  Won  ' }] })).choices).toEqual([
       { value: 'Won', color: DEFAULT_BADGE_COLOR },
     ])
   })
 
   it('keeps an explicit colour and rejects one outside the palette', () => {
     expect(
-      fieldSchema.parse(select({ choices: [{ value: 'Won', color: 'green' }] })).choices[0]?.color,
+      fieldInputSchema.parse(select({ choices: [{ value: 'Won', color: 'green' }] })).choices[0]
+        ?.color,
     ).toBe('green')
     expect(issuePaths(select({ choices: [{ value: 'Won', color: 'chartreuse' }] }))).toEqual([
       'choices.0.color',
@@ -108,13 +109,15 @@ describe('fieldSchema — SELECT', () => {
   })
 
   it('does not apply its rules to another type', () => {
-    expect(fieldSchema.safeParse({ name: 'Company', type: 'TEXT', choices: [] }).success).toBe(true)
+    expect(fieldInputSchema.safeParse({ name: 'Company', type: 'TEXT', choices: [] }).success).toBe(
+      true,
+    )
   })
 })
 
-describe('fieldSchema — RELATION', () => {
+describe('fieldInputSchema — RELATION', () => {
   it('accepts a fully configured relation', () => {
-    expect(fieldSchema.safeParse(relation()).success).toBe(true)
+    expect(fieldInputSchema.safeParse(relation()).success).toBe(true)
   })
 
   it('requires both a target table and a label field', () => {

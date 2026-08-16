@@ -15,7 +15,7 @@ import { nameSchema } from '#shared/validation/name'
  * A RELATION's target can only be checked against the database, so the server layers
  * `requireFieldTarget` on top of what is knowable here.
  */
-export const fieldSchema = z
+export const fieldInputSchema = z
   .object({
     name: nameSchema,
     type: z.enum(FIELD_TYPES),
@@ -68,4 +68,4 @@ export const fieldSchema = z
     }
   })
 
-export type TFieldInput = z.infer<typeof fieldSchema>
+export type TFieldInput = z.infer<typeof fieldInputSchema>

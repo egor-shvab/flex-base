@@ -2,16 +2,16 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createField as createFieldService, updateField } from '#server/services/fields'
 import { prisma } from '#server/utils/prisma'
 import type { TRecordData } from '#shared/types/record'
-import { fieldSchema, type TFieldInput } from '#shared/validation/field'
+import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 let tableId: string
 
 const input = (overrides: Partial<TFieldInput> & Pick<TFieldInput, 'type'>): TFieldInput =>
-  fieldSchema.parse({ name: 'Stage', ...overrides })
+  fieldInputSchema.parse({ name: 'Stage', ...overrides })
 
 const selectInput = (multiple: boolean) =>
-  fieldSchema.parse({
+  fieldInputSchema.parse({
     name: 'Stage',
     type: 'SELECT',
     choices: [{ value: 'Won' }, { value: 'Lost' }],
