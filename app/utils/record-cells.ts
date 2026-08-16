@@ -16,7 +16,7 @@ const MULTI_VALUE_CELL = markRaw(MultiValueCell)
  */
 
 /** A record's own column reads from the record; everything else from its data. */
-export function cellValue(record: IRecord, column: IField): TRecordValue {
+export function readCellValue(record: IRecord, column: IField): TRecordValue {
   return RECORD_COLUMNS[column.key]?.value(record) ?? record.data[column.key] ?? null
 }
 
@@ -40,13 +40,13 @@ export function cellComponent(column: IField): Component {
  *
  * Pairs with `cellComponent`: whenever that returns `MultiValueCell`, this is the value.
  */
-export function cellValues(value: TRecordValue): string[] {
+export function toCellValueList(value: TRecordValue): string[] {
   if (Array.isArray(value)) return value
 
   return typeof value === 'string' && value !== '' ? [value] : []
 }
 
 /** The counterpart for every other cell, which renders exactly one value. */
-export function cellSingleValue(value: TRecordValue): TRecordSingleValue {
+export function toCellSingleValue(value: TRecordValue): TRecordSingleValue {
   return Array.isArray(value) ? (value[0] ?? null) : value
 }

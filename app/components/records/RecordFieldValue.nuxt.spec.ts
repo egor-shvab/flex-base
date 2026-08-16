@@ -118,7 +118,7 @@ describe('RecordFieldValue', () => {
       expect(list.props('value')).toEqual(['Won', 'Lost'])
     })
 
-    /** `cellValues` normalises at the seam, so a pre-migration scalar still renders as a list. */
+    /** `toCellValueList` normalises at the seam, so a pre-migration scalar still renders as a list. */
     it('normalises a bare string left over from before the field was widened', async () => {
       const column = asMultiple(selectField())
       const wrapper = await cell(column, rowWith(column, 'Won'))
