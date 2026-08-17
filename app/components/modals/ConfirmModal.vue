@@ -9,7 +9,7 @@
         still pointed at by a relation names the field to remove first. Rendered here rather
         than left to each page, because `useDeleteConfirm` already holds it for all three.
       -->
-      <p v-if="error" class="confirm-modal__error" role="alert">{{ error }}</p>
+      <BaseErrorBanner class="confirm-modal__error" :message="error" />
       <div class="confirm-modal__actions">
         <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">
           Cancel
@@ -53,9 +53,9 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
     margin: 0 0 rem(16);
   }
 
+  // Placement only — `BaseErrorBanner` owns the look. The rule still reaches it because a child
+  // component's root carries the parent's scope id.
   &__error {
-    @include error-banner;
-
     margin: 0 0 rem(16);
   }
 

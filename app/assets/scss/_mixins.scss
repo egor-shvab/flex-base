@@ -83,6 +83,32 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   background: var(--color-surface);
 }
 
+/// A page that is nothing but one centred card on the canvas — the auth screens and the error
+/// boundary, both of which render outside the shell and so have to own the viewport themselves.
+///
+/// `dvh`, not `vh`, for the reason the shell states: on mobile a collapsing URL bar leaves a
+/// `100vh` box overhanging the visible area.
+@mixin centred-viewport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: rem(16);
+  background: var(--color-canvas);
+}
+
+/// The card such a page centres. Wider than `surface-card`'s job — this one is the whole content,
+/// so it carries its own padding and lift rather than only an edge. The measure is a parameter
+/// because it is the one thing the two callers disagree about.
+@mixin centred-card($max-width) {
+  width: 100%;
+  max-width: $max-width;
+  padding: rem(32);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
 /// The caption above a form control.
 ///
 /// `align-self` is load-bearing: the caption is the first item of a `stack`, so the

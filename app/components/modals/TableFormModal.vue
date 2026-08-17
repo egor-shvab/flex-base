@@ -3,7 +3,7 @@
     <form class="table-form" novalidate @submit.prevent="submit">
       <!-- A form-level error is a banner, as in every other form — routing it into the field's
            inline message attributed a duplicate-name 409 to the input and skipped `role="alert"` -->
-      <p v-if="serverError" class="table-form__server-error" role="alert">{{ serverError }}</p>
+      <BaseErrorBanner :message="serverError" />
 
       <BaseInput
         :id="inputId"
@@ -51,9 +51,5 @@ const { form, errors, serverError, pending, submit } = useForm({
 <style lang="scss" scoped>
 .table-form {
   @include stack;
-
-  &__server-error {
-    @include error-banner;
-  }
 }
 </style>

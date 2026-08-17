@@ -84,6 +84,23 @@ function retry() {
 </script>
 
 <style lang="scss" scoped>
+// The geometry every row in this sidebar shares — a table link, Home, and the "Add a table"
+// button, which is a `<button>` rather than a link and so cannot simply take `&__item`.
+//
+// Local rather than in `_mixins.scss`: §8 sends a second copy to the global sheet, but that is for
+// fragments crossing components, and nothing outside this file draws a sidebar row.
+@mixin sidebar-row {
+  display: flex;
+  align-items: center;
+  gap: rem(12);
+  min-height: var(--control-height);
+  padding: 0 rem(12);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+
+  @include focus-ring;
+}
+
 .app-sidebar {
   display: flex;
   flex-direction: column;
@@ -99,17 +116,10 @@ function retry() {
   }
 
   &__item {
-    display: flex;
-    align-items: center;
-    gap: rem(12);
-    min-height: var(--control-height);
-    padding: 0 rem(12);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-md);
+    @include sidebar-row;
+
     color: var(--color-text);
     text-decoration: none;
-
-    @include focus-ring;
 
     &:hover {
       background: var(--color-surface-hover);
@@ -145,22 +155,16 @@ function retry() {
   }
 
   &__add {
-    display: flex;
-    align-items: center;
-    gap: rem(12);
-    min-height: var(--control-height);
+    @include sidebar-row;
+
     margin-top: rem(4);
-    padding: 0 rem(12);
+    // A `<button>`, so the UA chrome has to be cleared where the link above brings none
     border: none;
-    border-radius: var(--radius-md);
     background: none;
-    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-accent);
     text-align: left;
     cursor: pointer;
-
-    @include focus-ring;
 
     &:hover {
       background: var(--color-accent-tint);

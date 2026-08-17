@@ -96,7 +96,7 @@
         />
       </template>
 
-      <p v-if="serverError" role="alert" class="field-form__server-error">{{ serverError }}</p>
+      <BaseErrorBanner :message="serverError" />
 
       <BaseButton type="submit" :disabled="pending">
         {{ mode === 'create' ? 'Create field' : 'Save' }}
@@ -303,10 +303,6 @@ watch(
 
   &__error {
     @include field-error;
-  }
-
-  &__server-error {
-    @include error-banner;
   }
 }
 </style>

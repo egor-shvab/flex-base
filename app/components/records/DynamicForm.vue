@@ -7,8 +7,8 @@
       :key="control.field.key"
       v-bind="control.props"
       :error="errors[control.field.key]"
-      :model-value="controlValue(control.field)"
-      @update:model-value="applyValue(control.field, $event)"
+      :model-value="controlValue(control)"
+      @update:model-value="applyValue(control, $event)"
     />
   </div>
 </template>
@@ -32,23 +32,29 @@ const emit = defineEmits<{ update: [key: string, value: TRecordValue] }>()
 
 const formId = useId()
 
-/** Resolved once per field rather than per render, since `props` is a factory. */
+/**
+ * Each field's control, resolved **once** rather than per render — `props` is a factory, and the
+ * adapters are part of the same answer. A record input always adapts, so both are required here
+ * and neither call site branches.
+ */
 const controls = computed(() =>
   props.fields.map((field) => {
-    const input = inputFor(field)
+    const { component, props: propsFor, toControl, fromControl } = inputFor(field)
 
-    return { field, component: input.component, props: input.props(field) }
+    return { field, component, props: propsFor(field), toControl, fromControl }
   }),
 )
 
+type TRecordControl = (typeof controls.value)[number]
+
 /** The record's value as the control's own model. */
-function controlValue(field: IField): TFilterValue {
-  return inputFor(field).toControl(props.values[field.key] ?? null)
+function controlValue(control: TRecordControl): TFilterValue {
+  return control.toControl(props.values[control.field.key] ?? null)
 }
 
 /** The inverse: what the control just emitted, back as a record value. */
-function applyValue(field: IField, model: TFilterValue) {
-  emit('update', field.key, inputFor(field).fromControl(model))
+function applyValue(control: TRecordControl, model: TFilterValue) {
+  emit('update', control.field.key, control.fromControl(model))
 }
 </script>
 

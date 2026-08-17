@@ -45,20 +45,11 @@ function goHome() {
 
 <style lang="scss" scoped>
 .error-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: rem(16);
-  background: var(--color-canvas);
+  @include centred-viewport;
 
   &__card {
-    width: 100%;
-    max-width: rem(440);
-    padding: rem(32);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-sm);
+    @include centred-card(rem(440));
+
     text-align: center;
   }
 

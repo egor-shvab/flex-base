@@ -9,7 +9,7 @@
       <p v-if="pending" class="record-detail-modal__status" role="status">Loading record…</p>
 
       <div v-else-if="errorMessage" class="record-detail-modal__error">
-        <p role="alert" class="record-detail-modal__error-text">{{ errorMessage }}</p>
+        <BaseErrorBanner class="record-detail-modal__error-text" :message="errorMessage" />
         <BaseButton v-if="canRetry" variant="secondary" @click="emit('retry')"
           >Try again</BaseButton
         >
@@ -111,9 +111,9 @@ const openInTableTo = computed(() => {
     align-items: flex-start;
   }
 
+  // Placement only — `BaseErrorBanner` owns the look. The parent is a `stack` with
+  // `align-items: flex-start`, so the banner has to opt back into the full width.
   &__error-text {
-    @include error-banner;
-
     align-self: stretch;
   }
 

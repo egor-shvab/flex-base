@@ -37,10 +37,10 @@ Phases run in order; tasks within one are independent unless the plan says other
 
 ### Phase 3 — Duplication in the render layer
 
-- [ ] 3.1 Collapse `RelationFieldSelect`'s duplicated template
-- [ ] 3.2 Resolve each field's control once per render, not three times
-- [ ] 3.3 One server-error banner, replacing five hand-written copies
-- [ ] 3.4 Two duplicated SCSS blocks: the centred card, and the sidebar item
+- [x] 3.1 Collapse `RelationFieldSelect`'s duplicated template
+- [x] 3.2 Resolve each field's control once per render, not three times
+- [x] 3.3 One error banner (`BaseErrorBanner`), replacing six hand-written copies
+- [x] 3.4 Two duplicated SCSS blocks: the centred card — which also moved `100vh` to `100dvh` — and the sidebar row
 
 ### Phase 4 — Module boundaries
 

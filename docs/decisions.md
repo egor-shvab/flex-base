@@ -698,7 +698,7 @@ It had three `@include`s and no per-site variation, which is a shared block, not
 
 `app/layouts/default.vue` is `height: 100dvh; overflow: hidden`, and the sidebar and main region scroll their own content. The alternative — leaving the shell in document flow and giving the records page a `height: calc(100vh - …)` — was rejected on two counts: the page would have to restate the shell's own padding and header height and stay in step with them by hand, and it would still let the brand bar scroll away above the table. It also deleted the sidebar's `position: sticky` + `calc()`, which existed only to fake the height the fixed shell now supplies.
 
-`dvh`, not `vh`: on mobile a collapsing URL bar leaves a `100vh` shell overhanging the visible area, which is exactly where the pager lives.
+`dvh`, not `vh`: on mobile a collapsing URL bar leaves a `100vh` shell overhanging the visible area, which is exactly where the pager lives. **That holds app-wide, not just here** — the auth layout and `error.vue` render outside the shell and own the viewport themselves, through `centred-viewport`, which takes the same unit. A `100vh` anywhere in this project is now the anomaly.
 
 **`min-width: 0` and `min-height: 0` on the panes are load-bearing.** A grid or flex item's automatic minimum is its content, so without them the main column's min-content width is `DynamicTable`'s full intrinsic width (the table's `overflow-x` never engages and the document scrolls sideways), and a pane holding 50 rows grows past its row so the `overflow-y: auto` beside it never fires. Both read like redundant lines and are not.
 

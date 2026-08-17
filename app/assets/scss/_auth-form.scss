@@ -14,10 +14,6 @@
     text-align: center;
   }
 
-  &__server-error {
-    @include error-banner;
-  }
-
   &__footer {
     margin: 0;
     font-size: var(--font-size-sm);

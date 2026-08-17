@@ -6,47 +6,14 @@
     `multiple` comes from field metadata and is fixed for this control's lifetime, so the
     branch never swaps the focused element out from under the user.
   -->
-  <BaseSelect
-    v-if="multiple"
-    :id="id"
-    v-model="listModel"
-    :label="label"
-    :options="options"
-    searchable
-    :load-options="search"
-    :multiple="true"
-    :placeholder="placeholder"
-    :clearable="clearable"
-    :error="error"
-    empty-label="No records to link to"
-  >
+  <BaseSelect v-if="multiple" v-bind="selectProps" v-model="listModel" :multiple="true">
     <template #option-label="{ option }">
-      <BaseLinkedRecord
-        v-if="linkedRecordOf(option.value)"
-        v-bind="linkedRecordOf(option.value)!"
-      />
-      <template v-else>{{ option.label }}</template>
+      <RelationOptionLabel :field-id="fieldId" :option="option" />
     </template>
   </BaseSelect>
-  <BaseSelect
-    v-else
-    :id="id"
-    v-model="singleModel"
-    :label="label"
-    :options="options"
-    searchable
-    :load-options="search"
-    :placeholder="placeholder"
-    :clearable="clearable"
-    :error="error"
-    empty-label="No records to link to"
-  >
+  <BaseSelect v-else v-bind="selectProps" v-model="singleModel">
     <template #option-label="{ option }">
-      <BaseLinkedRecord
-        v-if="linkedRecordOf(option.value)"
-        v-bind="linkedRecordOf(option.value)!"
-      />
-      <template v-else>{{ option.label }}</template>
+      <RelationOptionLabel :field-id="fieldId" :option="option" />
     </template>
   </BaseSelect>
 </template>
@@ -56,6 +23,9 @@ import { computed } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import type { ILinkedRecord } from '#shared/types/record'
 import { formatLinkedRecord } from '#shared/utils/record-label'
+// Explicit, because `field-types/` sits outside `~/components` on purpose — nothing here is
+// globally registered, so an unimported tag would silently render nothing
+import RelationOptionLabel from '~/field-types/controls/RelationOptionLabel.vue'
 import { useRelationsStore } from '~/stores/relations'
 import type { ISelectOption } from '~/types/select'
 
@@ -111,10 +81,29 @@ const singleModel = computed<string>({
   set: (value) => (model.value = value),
 })
 
-/** How a candidate reads, for the slot below. `undefined` only for a target that is gone. */
+/** How a candidate reads, for the options below. `undefined` only for a target that is gone. */
 function linkedRecordOf(recordId: string): ILinkedRecord | undefined {
   return relations.linkedRecordFor(props.fieldId, recordId)
 }
+
+/**
+ * Everything the two branches agree on. They differ by their model's **type** and nothing else —
+ * `multiple` is tied to it on purpose (`docs/decisions.md`), which is why the branch exists — so
+ * the rest is bound once here rather than written out twice.
+ */
+const selectProps = computed(() => ({
+  id: props.id,
+  label: props.label,
+  options: options.value,
+  // The seed is capped, so anything past it is reached by searching the target table, whatever
+  // the option count says — unconditional here rather than counted like a SELECT's choices
+  searchable: true,
+  loadOptions: search,
+  placeholder: props.placeholder,
+  clearable: props.clearable,
+  error: props.error,
+  emptyLabel: 'No records to link to',
+}))
 
 /**
  * The seed `BaseSelect` shows before anything is typed. Still capped by the endpoint, which

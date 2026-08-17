@@ -7,8 +7,8 @@
         :id="`${panelId}-${control.field.key}`"
         :key="control.field.key"
         v-bind="control.props"
-        :model-value="controlValue(control.field)"
-        @update:model-value="applyFieldValue(control.field, filterValue(control.field, $event))"
+        :model-value="controlValue(control)"
+        @update:model-value="applyFieldValue(control.field, filterValue(control, $event))"
       />
     </div>
 
@@ -66,33 +66,35 @@ const activeFilterCount = computed(() => Object.keys(props.filters).length)
  */
 const columns = computed(() => filterableFields(queryColumns(props.fields)))
 
-/** Resolved once per field rather than per render, since `props` is a factory. */
+/**
+ * Each field's control, resolved **once** rather than per render — `props` is a factory, and the
+ * adapters are part of the same answer, so they ride along instead of being looked up again.
+ */
 const controls = computed(() =>
   columns.value.map((field) => {
-    const filter = filterFor(field)
+    const { component, props: propsFor, toControl, fromControl } = filterFor(field)
 
-    return { field, component: filter.component, props: filter.props(field) }
+    return { field, component, props: propsFor(field), toControl, fromControl }
   }),
 )
+
+type TFilterControl = (typeof controls.value)[number]
 
 /** Every control is always rendered, so an unfiltered field shows its own empty value. */
 function valueFor(field: IField): TFilterValue {
   return props.filters[field.key] ?? emptyFilterValueFor(field)
 }
 
-/** The field's filter value as the control's own model. */
-function controlValue(field: IField): TFilterValue {
-  const { toControl } = filterFor(field)
-  const value = valueFor(field)
+/** The field's filter value as the control's own model. A filter adapts only where it must. */
+function controlValue(control: TFilterControl): TFilterValue {
+  const value = valueFor(control.field)
 
-  return toControl ? toControl(value) : value
+  return control.toControl ? control.toControl(value) : value
 }
 
 /** The inverse: what the control just emitted, back as a filter value. */
-function filterValue(field: IField, model: TFilterValue): TFilterValue {
-  const { fromControl } = filterFor(field)
-
-  return fromControl ? fromControl(model) : model
+function filterValue(control: TFilterControl, model: TFilterValue): TFilterValue {
+  return control.fromControl ? control.fromControl(model) : model
 }
 
 /** Replaces one field's value; `withFilterValue` owns the field-order rebuild and the dropping. */
