@@ -176,23 +176,22 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
-import { useApi } from '~/composables/useApi'
 import { QUERY_DEBOUNCE_MS } from '~/composables/useDebouncedModel'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useRecordListQuery } from '~/composables/useRecordListQuery'
+import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
 import { toPageError } from '~/utils/api-error'
 import type { IBreadcrumb } from '~/types/breadcrumb'
-import type { ITable } from '#shared/types/table'
 import type { IRecord, TRecordData } from '#shared/types/record'
 
 type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
 
 const route = useRoute()
-const api = useApi()
+const loadTable = useTableLoader()
 const fieldsStore = useFieldsStore()
 const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
@@ -214,20 +213,18 @@ const {
   clearNarrowing,
 } = useRecordListQuery({ fields: () => fieldsStore.fields })
 
+// Its own key, never the settings page's — a layout and a page must not share one (`decisions.md`)
 const { data, error } = await useAsyncData(`table-records-${tableId}`, async () => {
-  const [tableResponse] = await Promise.all([
-    api<{ table: ITable }>(`/api/tables/${tableId}`),
-    fieldsStore.fetchFields(tableId),
-  ])
-  // Filters decode against field metadata, so these wait rather than running in parallel —
-  // otherwise a shared filter URL would render unfiltered on first load.
+  const table = await loadTable(tableId)
+  // Filters decode against field metadata, so these wait for the loader rather than running
+  // beside it — otherwise a shared filter URL would render unfiltered on first load.
   await Promise.all([
     recordsStore.fetchRecords(tableId, queryState.value),
     // A relation filter is a picker over the target's records, so its candidates have to be
     // there on first paint for a shared link to show what it is filtered by
     relationsStore.loadOptions(tableId, fieldsStore.fields),
   ])
-  return tableResponse
+  return table
 })
 
 // Every list change goes through the URL, so one watcher covers filtering, sorting and paging.
@@ -246,7 +243,7 @@ if (error.value) {
   throw createError(toPageError(error.value))
 }
 
-const table = computed(() => data.value?.table)
+const table = computed(() => data.value)
 useSeoMeta({ title: () => table.value?.name ?? 'Records' })
 
 const breadcrumbs = computed<IBreadcrumb[]>(() => [

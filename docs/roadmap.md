@@ -49,9 +49,9 @@ Phases run in order; tasks within one are independent unless the plan says other
 
 ### Phase 5 — Page decomposition
 
-- [ ] 5.1 Extract the shared table-page bootstrap into `useTablePage`
-- [ ] 5.2 Extract the field list from `settings.vue`
-- [ ] 5.3 Reassess `pages/tables/[tableId]/index.vue` once 5.1 has landed
+- [x] 5.1 Extract the shared table fetch into `useTableLoader` — narrower than planned; each page keeps its own `useAsyncData`, key and error throw
+- [x] 5.2 Extract the field list into `components/fields/TableFieldList.vue` (`settings.vue` 516 → 327)
+- [x] 5.3 Reassessed `pages/tables/[tableId]/index.vue` — **not split**, and the reason is recorded in `decisions.md`
 
 ### Phase 6 — Deferred, and final validation
 

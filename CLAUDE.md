@@ -97,6 +97,7 @@ app/                         # Nuxt 4 frontend (client)
   components/
     app/                     # the shell — AppSidebar, AppBreadcrumbs
     common/                  # generic UI atoms, all `Base*`
+    fields/                  # surfaces that render field *metadata* rather than records
     modals/                  # dialogs built on BaseModal
     records/                 # the metadata renderers — DynamicForm, DynamicTable, the filter panel & summary
   field-types/               # EVERYTHING per-field-type: the input/filter/cell registries + the cell components

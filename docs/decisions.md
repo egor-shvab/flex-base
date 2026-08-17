@@ -362,6 +362,18 @@ A rejection in the layout's async setup would replace the page with an error bou
 
 This is the opposite call from `useDeleteConfirm`. The rule is not "swallow" or "throw"; it is whether anyone is listening.
 
+### The records page is not split further, and its length is not the reason to
+
+At ~420 lines it is the second-largest file in the app, and every candidate seam was rejected on the
+same ground: each would trade markup for plumbing. Its header needs six bindings to stand alone; its
+four dialogs need fifteen props and eight emits between them; and its body — skeleton, fieldless,
+empty, table — is **one decision about four states**, described across three entries here, which
+scattering across files would only hide.
+
+What the page is left holding is wiring, and wiring is what a page is for. Contrast the field list
+that came out of the settings page: self-contained markup, its own stylesheet, and one prop. That is
+the test a split has to pass here, not the line count.
+
 ### `useDeleteConfirm` catches instead of re-throwing
 
 **Every call site binds `confirm` directly to a template's `@confirm`**, so there was no caller to catch anything — a refused delete became an unhandled promise rejection while the dialog sat open saying nothing. Re-throwing is only a contract worth keeping where someone is positioned to honour it.

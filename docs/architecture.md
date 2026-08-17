@@ -308,9 +308,18 @@ Only the modules whose contract is not obvious from their name.
 - **`RecordsTableSkeleton.vue`** — the body's third state, standing where the rows will be while a fetch is in flight with none to show. A `role="status"` naming itself through `.visually-hidden`, over `aria-hidden` bars. Its row and bar counts are **fixed constants**, never derived from `fields`: mid-navigation those still belong to the table being left, and this is a placeholder rather than a preview of what is coming.
 - **`RecordsFilterSummary.vue`** — the active filters stated **above** the data. Iterates `queryColumns(fields)` and looks each key up in the filter map — never `Object.entries(filters)`, which would surface a key with no field to pair it with — so chip order matches the drawer and the URL.
 
-### The records page
+### `app/components/fields/`
 
-**The URL query is the single source of truth** for filter/sort/page. `queryState` is `parseRecordQueryState(fields, route.query)` — page, sort and filters in one shot, so the page parses nothing itself. Every control writes back through `useRecordListQuery`, and one watcher refetches — keyed on `recordQueryKey(queryState)` rather than on `queryState` itself, because that computed is a fresh object whenever **any** param moves and the list must not refetch because a dialog opened. Records and relation options are fetched **after** fields resolve, in parallel with each other — filters decode against field metadata, so a shared filter URL would otherwise render unfiltered on first paint.
+Surfaces that render field **metadata** rather than records, which is what keeps them out of the
+directory above.
+
+- **`TableFieldList.vue`** — the settings page's field rows: type, configuration and key per row, so a table's shape reads without opening a dialog per field. Nothing branches on a type — the word, the glyph and the configuration line all come from registries, the cardinality from `isMultiValue`. It emits `create`/`edit`/`delete`; the section heading, the count and the primary "Add field" stay on the page, because `.section-head` is shared with the Table section above it.
+
+### The two table pages
+
+Both open with **`useTableLoader`** — the table and its fields, fetched together because neither screen draws anything without both. It owns neither the `useAsyncData` nor the error: the keys must differ (`table-…` vs `table-records-…`, since a layout and a page must never share one) and the 404 is the page's own answer, so both stay at the call site.
+
+**On the records page the URL query is the single source of truth** for filter/sort/page. `queryState` is `parseRecordQueryState(fields, route.query)` — page, sort and filters in one shot, so the page parses nothing itself. Every control writes back through `useRecordListQuery`, and one watcher refetches — keyed on `recordQueryKey(queryState)` rather than on `queryState` itself, because that computed is a fresh object whenever **any** param moves and the list must not refetch because a dialog opened. Records and relation options are fetched **after** the loader resolves, in parallel with each other — filters decode against field metadata, so a shared filter URL would otherwise render unfiltered on first paint.
 
 ---
 

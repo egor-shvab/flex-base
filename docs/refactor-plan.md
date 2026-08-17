@@ -49,50 +49,6 @@ and the root configs was read.
 
 ---
 
-## Phase 5 — Page decomposition
-
-The two largest pages. Last, because they touch the most and Phases 2–3 shrink them first.
-
-### 5.1 — Extract the shared table-page bootstrap
-
-- _Problem:_ `app/pages/tables/[tableId]/index.vue` and `.../settings.vue` open with the same twelve
-  lines: `route.params.tableId as string`, a `useAsyncData` whose body is
-  `Promise.all([api<{ table }>(…), fieldsStore.fetchFields(tableId)])` returning the table response,
-  then `if (error.value) throw createError(toPageError(error.value))`, then a `breadcrumbs` computed
-  starting `{ label: 'Home', to: '/' }`.
-- _Change:_ a `useTablePage({ key })` composable returning `tableId`, `table` and the fetch's `error`
-  already thrown. **The key must stay a parameter** — `table-records-${id}` and `table-${id}` are
-  deliberately different, and `decisions.md` forbids a shared key. The settings page's `table`
-  additionally prefers the tables-store row over the fetched one so a rename moves the heading
-  without a refetch; that preference is the settings page's, not the composable's, so it stays where
-  it is or arrives as an option.
-- _Why:_ the 404 behaviour of both table screens is one rule written twice.
-- _Risk:_ **medium.** The `useAsyncData` key rule and the settings page's store-preference are both
-  load-bearing and easy to flatten by accident. Read the two `decisions.md` entries first.
-
-### 5.2 — Extract the field list from `settings.vue`
-
-- _Problem:_ `app/pages/tables/[tableId]/settings.vue` is 516 lines and holds three unrelated things:
-  the page shell, the table detail card, and the field list. The field list is a self-contained
-  unit — ~50 lines of markup plus ~110 lines of `.field-list` / `.field-row` SCSS, with its own
-  icon/type/config-summary/key composition and its own responsive rules.
-- _Change:_ a `TableFieldList.vue` (or a `FieldRow.vue` under a new `app/components/fields/`) taking
-  `fields` and emitting `edit`/`delete`. Everything else stays on the page.
-- _Why:_ SRP — the page currently changes for a table-rename reason and a field-row-rendering reason.
-- _Depends on:_ 5.1 (same file). _Risk:_ **medium.** `test/e2e/table-setup.spec.ts` drives this
-  surface by accessible name and asserts the 375px stacking; the names and the SCSS must move intact.
-  Run `test:e2e`.
-
-### 5.3 — Reassess `pages/tables/[tableId]/index.vue` after 5.1
-
-- _Problem:_ 425 lines, five inline `Lazy*` dialogs, four composables wired up. Whether it is still
-  too big is only answerable once 5.1 has taken the bootstrap out.
-- _Change:_ **decide, do not pre-plan.** If it warrants a split, the record-form / confirm / detail
-  dialog trio is the natural seam.
-- _Depends on:_ 5.1. _Risk:_ **medium**, if done at all.
-
----
-
 ## Phase 6 — Deferred, and final validation
 
 ### 6.1 — `BaseSelect.vue` (1005 lines): evaluate, do not split on sight
