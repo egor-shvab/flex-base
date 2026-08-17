@@ -42,6 +42,15 @@ export interface ITableResponse {
   table: ITable
 }
 
+/**
+ * A write that moved one of a table's counts answers with the table's refreshed list row, so the
+ * client stores what it was told instead of computing a delta against what it last saw. Only the
+ * four writes that change a count carry it — an edit moves neither, so its response does not.
+ */
+export interface ITableCountsResponse {
+  table: ITableListItem
+}
+
 export interface IFieldsResponse {
   fields: IField[]
 }
@@ -50,8 +59,24 @@ export interface IFieldResponse {
   field: IField
 }
 
+export interface IFieldCreatedResponse extends ITableCountsResponse {
+  field: IField
+}
+
+export interface IFieldDeletedResponse extends ITableCountsResponse {
+  ok: true
+}
+
 export interface IRecordResponse {
   record: IRecord
+}
+
+export interface IRecordCreatedResponse extends ITableCountsResponse {
+  record: IRecord
+}
+
+export interface IRecordDeletedResponse extends ITableCountsResponse {
+  ok: true
 }
 
 export interface IRelationOptionsResponse {

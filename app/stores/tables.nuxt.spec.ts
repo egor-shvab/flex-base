@@ -158,11 +158,12 @@ describe('useTablesStore', () => {
   })
 
   /**
-   * The cached `_count` is read on two always-visible surfaces, and the stores that move it are
-   * the records and fields ones. Without this the sidebar and the dashboard keep showing the
-   * number the list arrived with for the rest of the session.
+   * The cached `_count` is read on two always-visible surfaces, and the writes that move it
+   * belong to the records and fields stores. Those endpoints answer with the table's refreshed
+   * row, so this stores what it was told — it does no arithmetic of its own, which is what the
+   * delta it replaced was doing over a number only the database knows.
    */
-  describe('adjustCachedCount', () => {
+  describe('applyTableRow', () => {
     beforeEach(() => {
       listing = [
         table('tbl_1', 'Deals', { fields: 3, records: 7 }),
@@ -170,11 +171,11 @@ describe('useTablesStore', () => {
       ]
     })
 
-    it('moves one count on one table and leaves every other number alone', async () => {
+    it('replaces one row and leaves every other one alone', async () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      store.adjustCachedCount('tbl_1', 'records', 1)
+      store.applyTableRow(table('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
       expect(store.tables).toEqual([
         table('tbl_1', 'Deals', { fields: 3, records: 8 }),
@@ -182,13 +183,15 @@ describe('useTablesStore', () => {
       ])
     })
 
-    it('counts down as well as up, and counts fields as well as records', async () => {
+    it('takes the row as given rather than deriving anything from what it held', async () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      store.adjustCachedCount('tbl_2', 'fields', -1)
+      // A row the client could not have arrived at by a delta — both counts moved, and the
+      // name changed with them. Whatever the server says is what the sidebar draws.
+      store.applyTableRow(table('tbl_2', 'Renamed', { fields: 9, records: 0 }))
 
-      expect(store.tables[1]?._count).toEqual({ fields: 1, records: 4 })
+      expect(store.tables[1]).toEqual(table('tbl_2', 'Renamed', { fields: 9, records: 0 }))
     })
 
     it('replaces the array rather than mutating the cached item', async () => {
@@ -196,22 +199,11 @@ describe('useTablesStore', () => {
       await store.fetchTables()
       const before = store.tables
 
-      store.adjustCachedCount('tbl_1', 'records', 1)
+      store.applyTableRow(table('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
       // shallowRef: an in-place edit would leave the sidebar drawing the old number
       expect(store.tables).not.toBe(before)
       expect(store.tables[0]).not.toBe(before[0])
-    })
-
-    // Only reachable if two tabs disagree about the same table; a negative count would render
-    // as nonsense, and the next full fetch corrects it either way
-    it('floors a count at zero', async () => {
-      const store = useTablesStore()
-      await store.fetchTables()
-
-      store.adjustCachedCount('tbl_1', 'records', -100)
-
-      expect(store.tables[0]?._count.records).toBe(0)
     })
 
     it('is a no-op for a table the list does not hold, and never fetches', async () => {
@@ -219,17 +211,21 @@ describe('useTablesStore', () => {
       await store.fetchTables()
       calls.length = 0
 
-      store.adjustCachedCount('tbl_missing', 'records', 1)
+      store.applyTableRow(table('tbl_missing', 'Ghost', { fields: 1, records: 1 }))
 
       expect(store.tables).toEqual(listing)
       expect(calls).toHaveLength(0)
     })
 
-    // The list not being loaded yet is the ordinary case on a record page reached by URL
+    /**
+     * The list not being loaded yet is the ordinary case on a record page reached by URL —
+     * `ensureTables` may also have failed, which it does silently. Inserting the row instead
+     * would leave the sidebar listing only the table just written to.
+     */
     it('is a no-op before the list has loaded', () => {
       const store = useTablesStore()
 
-      store.adjustCachedCount('tbl_1', 'records', 1)
+      store.applyTableRow(table('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
       expect(store.tables).toEqual([])
     })

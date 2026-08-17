@@ -27,6 +27,17 @@ let listShouldFail = false
 const requests: { tableId: string; page: string | undefined }[] = []
 const writes: string[] = []
 
+/** The list row the count-moving endpoints answer with — what the store applies verbatim. */
+function tableRow(counts: { fields: number; records: number }) {
+  return {
+    id: 'tbl_1',
+    name: 'Deals',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    _count: counts,
+  }
+}
+
 for (const tableId of ['tbl_1', 'tbl_2']) {
   registerEndpoint(`/api/tables/${tableId}/records`, {
     method: 'GET',
@@ -43,7 +54,10 @@ for (const tableId of ['tbl_1', 'tbl_2']) {
     method: 'POST',
     handler: () => {
       writes.push(`POST ${tableId}`)
-      return { record: record({ id: 'rec_new', number: 3 }) }
+      return {
+        record: record({ id: 'rec_new', number: 3 }),
+        table: tableRow({ fields: 2, records: 8 }),
+      }
     },
   })
 }
@@ -60,30 +74,20 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   method: 'DELETE',
   handler: () => {
     writes.push('DELETE rec_1')
-    return { ok: true }
+    return { ok: true, table: tableRow({ fields: 2, records: 6 }) }
   },
 })
 
 /**
- * The tables store's own list, so a write can be seen moving the cached `_count` the sidebar
- * and the dashboard draw. Registered here because `registerEndpoint` is per file.
+ * The tables store's own list, so a write can be seen replacing the cached row the sidebar and
+ * the dashboard draw their `_count` from. Registered here because `registerEndpoint` is per file.
  */
 registerEndpoint('/api/tables', {
   method: 'GET',
-  handler: () => ({
-    tables: [
-      {
-        id: 'tbl_1',
-        name: 'Deals',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-        _count: { fields: 2, records: 7 },
-      },
-    ],
-  }),
+  handler: () => ({ tables: [tableRow({ fields: 2, records: 7 })] }),
 })
 
-/** The tables store loaded, so a bump has something to land on. */
+/** The tables store loaded, so an applied row has something to land on. */
 async function loadedTables() {
   const tables = useTablesStore()
   await tables.fetchTables()

@@ -50,22 +50,22 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   /**
-   * Moves a cached count by `delta`, because the store that writes the thing being counted is
-   * not this one. `_count` arrives with the list and is read on two always-visible surfaces —
-   * the sidebar and the dashboard — so without this a created record leaves both wrong until
-   * the next full fetch, which in a single-page session may never come.
+   * Replaces one cached row with the one the server just answered with. `_count` is read on two
+   * always-visible surfaces — the sidebar and the dashboard — so a write to a table's fields or
+   * records has to reach them, and the endpoints that move a count return the refreshed row for
+   * exactly that.
    *
-   * A delta rather than a refetch: every write goes through these stores, so the arithmetic is
-   * exact and costs no request. Rebuilt rather than mutated, because `tables` is a `shallowRef`
-   * and an in-place edit would not be seen. Floored at 0 — a count can only be wrong downward
-   * if two tabs disagree, and a negative one would render as nonsense.
+   * **The count is received, not computed.** This replaced a delta the client applied itself,
+   * which was arithmetic over a number only the database knows: it needed a floor at zero to
+   * stay presentable, and it drifted the moment a second tab wrote. Rebuilt rather than mutated,
+   * because `tables` is a `shallowRef` and an in-place edit would not be seen.
+   *
+   * A row for a table the list does not hold is ignored — `ensureTables` never throws, so the
+   * list may legitimately be empty, and inserting one row into an unloaded list would render a
+   * sidebar holding only the table just written to.
    */
-  function adjustCachedCount(tableId: string, key: keyof ITableListItem['_count'], delta: number) {
-    tables.value = tables.value.map((table) =>
-      table.id === tableId
-        ? { ...table, _count: { ...table._count, [key]: Math.max(0, table._count[key] + delta) } }
-        : table,
-    )
+  function applyTableRow(row: ITableListItem) {
+    tables.value = tables.value.map((table) => (table.id === row.id ? row : table))
   }
 
   async function deleteTable(tableId: string) {
@@ -82,6 +82,6 @@ export const useTablesStore = defineStore('tables', () => {
     createTable,
     renameTable,
     deleteTable,
-    adjustCachedCount,
+    applyTableRow,
   }
 })

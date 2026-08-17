@@ -28,11 +28,12 @@ obtained from a handler factory rather than remembered, and the client/server co
 
 1. **The extension axis is scattered.** A field type is the one thing this platform is designed to
    be extended by, and defining one means editing thirteen places across three roots (P4).
-2. **One client-side cache duplicates a framework the app already runs** (P5, P6).
+2. **One client-side cache duplicates a framework the app already runs** (P5). Its other half — a
+   server-derived count maintained by client-side arithmetic — is closed.
 
 Everything after P7 is either taste, deferred, or gated behind a trigger — labelled as such.
 
-**Ranked by value ÷ risk:** P6, P4, P10, P9, P5, P8, P11. (P1, P2, P3 and P7 have landed.)
+**Ranked by value ÷ risk:** P4, P10, P9, P5, P8, P11. (P1, P2, P3, P6 and P7 have landed — the whole first pass.)
 
 ---
 
@@ -158,36 +159,6 @@ cleanly the correct outcome is to abandon this proposal, not to weaken them.
 **Complexity.** Medium, with a high chance of being fiddly at the end rather than the start.
 
 **Depends on.** Nothing — P3 has landed, so `app/api/records.ts` is where the write calls go. Should not be attempted before the e2e suite is green and being run.
-
----
-
-## P6 — Counts come from the server, not from client-side arithmetic
-
-**Problem.** `tablesStore.adjustCachedCount(tableId, key, delta)` maintains a server-derived
-projection by hand on the client. `stores/fields.ts` and `stores/records.ts` both write into the
-tables store after their own writes succeed — a cross-domain write in both directions, plus a
-`Math.max(0, …)` floor whose own comment admits the count can be wrong when two tabs disagree.
-
-**Proposed shape.** The endpoints that change a count return the affected table's counts, and the
-client stores what it was told:
-
-- `POST/DELETE /api/tables/:id/records` and `.../fields` return `{ …, table: ITableListItem }`
-  (or just `{ counts }`), and the tables store gets one `applyTableCounts(row)` action.
-
-**Affected.** Four handlers, `server/services/{fields,records}.ts`, `shared/types/api.ts` (P3),
-`app/stores/{tables,fields,records}.ts`.
-
-**Why it is an improvement.** Removes two cross-store writes and the only place in the client where
-a server-owned number is computed rather than received. The floor, the delta arithmetic and the
-"two tabs disagree" caveat all go away because the client stops guessing.
-
-**Risks / downsides.** One extra `COUNT` per write, on a table already being written — negligible,
-and it can ride the same transaction. If P3 has not landed, the response shape change has no
-contract to be declared in.
-
-**Complexity.** Small.
-
-**Depends on.** Nothing — P3 has landed, so the new shapes are declared in `shared/types/api.ts`.
 
 ---
 
@@ -382,12 +353,13 @@ sub-note are the parts that do pay, and neither is the split those entries rejec
 ## Sequencing
 
 ```
-P5, P6   — independent, any time
+P5       — independent, any time (the riskiest entry here)
 P8       — defer (see its entry)
 P4       — gated on a new field type
 P9, P10  — independent, any time
 P11      — gated on measurement
 ```
 
-The first pass has **P6** left. Everything after that is a judgement call, and
+**The first pass is complete.** Everything left is a judgement call, and P4, P5, P8 and P11 each
+carry an explicit gate above. Everything after that is a judgement call, and
 P4, P5, P8 and P11 each carry an explicit gate above.

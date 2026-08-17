@@ -1,6 +1,10 @@
 import { useApi } from '~/api/client'
 import { apiPath } from '~/api/paths'
-import type { IOkResponse, IRecordResponse } from '#shared/types/api'
+import type {
+  IRecordCreatedResponse,
+  IRecordDeletedResponse,
+  IRecordResponse,
+} from '#shared/types/api'
 import type {
   IRecordDetail,
   IRecordPage,
@@ -25,10 +29,10 @@ export function useRecordsApi() {
     detail: (tableId: string, recordId: string) =>
       api<IRecordDetail>(apiPath.record(tableId, recordId)),
     create: (tableId: string, data: TRecordData) =>
-      api<IRecordResponse>(apiPath.records(tableId), { method: 'POST', body: data }),
+      api<IRecordCreatedResponse>(apiPath.records(tableId), { method: 'POST', body: data }),
     update: (tableId: string, recordId: string, data: TRecordData) =>
       api<IRecordResponse>(apiPath.record(tableId, recordId), { method: 'PATCH', body: data }),
     remove: (tableId: string, recordId: string) =>
-      api<IOkResponse>(apiPath.record(tableId, recordId), { method: 'DELETE' }),
+      api<IRecordDeletedResponse>(apiPath.record(tableId, recordId), { method: 'DELETE' }),
   }
 }

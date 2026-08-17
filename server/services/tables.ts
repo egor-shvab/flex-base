@@ -19,6 +19,25 @@ export async function listTables(userId: string): Promise<ITableListItem[]> {
   return tables.map(toSharedTableListItem)
 }
 
+/**
+ * The table's list row as it stands now — what a write to its fields or its records answers
+ * with, so the counts the sidebar and the dashboard draw are **received rather than computed**.
+ * The client used to move them by a delta of its own, which is arithmetic over a number only
+ * the database knows.
+ *
+ * Unscoped by owner on purpose: every caller reaches it through a handler factory that has
+ * already proven ownership of this table, the same contract `listFields(tableId)` works under.
+ */
+export async function getTableListRow(tableId: string): Promise<ITableListItem> {
+  try {
+    return toSharedTableListItem(
+      await prisma.table.findUniqueOrThrow({ where: { id: tableId }, select: tableListSelect }),
+    )
+  } catch (error) {
+    throw toHttpError(error, tableErrors)
+  }
+}
+
 export async function createTable(userId: string, name: string): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(

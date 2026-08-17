@@ -7,8 +7,8 @@ import type { TFieldInput } from '#shared/validation/field'
 
 export const useFieldsStore = defineStore('fields', () => {
   const api = useFieldsApi()
-  // The dashboard draws this table's field count from the list the tables store holds, and
-  // nothing else would tell it that a write moved one
+  // A write returns the table's refreshed list row, and the dashboard draws its field count
+  // from the list this store holds
   const tables = useTablesStore()
 
   // shallowRef: the collection is replaced wholesale, never mutated item-by-item
@@ -22,7 +22,7 @@ export const useFieldsStore = defineStore('fields', () => {
   async function createField(tableId: string, input: TFieldInput) {
     const response = await api.create(tableId, input)
     fields.value = [...fields.value, response.field]
-    tables.adjustCachedCount(tableId, 'fields', 1)
+    tables.applyTableRow(response.table)
   }
 
   async function updateField(tableId: string, fieldId: string, input: TFieldInput) {
@@ -31,9 +31,9 @@ export const useFieldsStore = defineStore('fields', () => {
   }
 
   async function deleteField(tableId: string, fieldId: string) {
-    await api.remove(tableId, fieldId)
+    const response = await api.remove(tableId, fieldId)
     fields.value = fields.value.filter((field) => field.id !== fieldId)
-    tables.adjustCachedCount(tableId, 'fields', -1)
+    tables.applyTableRow(response.table)
   }
 
   return { fields, fetchFields, createField, updateField, deleteField }

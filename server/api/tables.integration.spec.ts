@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import tablesGet from '#server/api/tables/index.get'
 import tablesPost from '#server/api/tables/index.post'
+import fieldsPost from '#server/api/tables/[tableId]/fields/index.post'
+import fieldDelete from '#server/api/tables/[tableId]/fields/[fieldId].delete'
+import recordsPost from '#server/api/tables/[tableId]/records/index.post'
+import recordDelete from '#server/api/tables/[tableId]/records/[recordId].delete'
 import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createTable, createUser } from '~~/test/integration/seed'
@@ -81,5 +85,92 @@ describe('creating a table', () => {
         table: { name: 'Deals' },
       })
     })
+  })
+})
+
+/**
+ * The counts the sidebar and the dashboard draw are **received, not computed**: each write that
+ * moves one answers with the table's refreshed list row, and the client stores what it was told.
+ * That only holds if the number is read after the write lands, which is a database question —
+ * a stub would happily return whatever it was handed.
+ *
+ * These also drive the four write handlers on their **happy** path. `ownership.integration.spec.ts`
+ * runs every endpoint as a stranger and anonymously, but its owner pass is read-only, so until
+ * now nothing exercised what these four actually return.
+ */
+describe('a write answers with the counts it caused', () => {
+  let tableId: string
+
+  const params = () => ({ tableId })
+
+  beforeEach(async () => {
+    const table = await createTable(ada.id, 'Deals')
+    tableId = table.id
+  })
+
+  it('counts the field it just created, and stops counting a deleted one', async () => {
+    const created = await fieldsPost(
+      testEvent({
+        user: ada,
+        params: params(),
+        method: 'POST',
+        body: { name: 'Company', type: 'TEXT' },
+      }),
+    )
+
+    expect(created.table._count).toMatchObject({ fields: 1, records: 0 })
+
+    const removed = await fieldDelete(
+      testEvent({
+        user: ada,
+        params: { tableId, fieldId: created.field.id },
+        method: 'DELETE',
+      }),
+    )
+
+    expect(removed.table._count).toMatchObject({ fields: 0, records: 0 })
+  })
+
+  it('counts the record it just created, and stops counting a deleted one', async () => {
+    await fieldsPost(
+      testEvent({
+        user: ada,
+        params: params(),
+        method: 'POST',
+        body: { name: 'Company', type: 'TEXT' },
+      }),
+    )
+
+    const created = await recordsPost(
+      testEvent({ user: ada, params: params(), method: 'POST', body: { company: 'Acme' } }),
+    )
+
+    // The count is read after the insert's own transaction, so it includes the row just written
+    expect(created.table._count).toMatchObject({ fields: 1, records: 1 })
+
+    const removed = await recordDelete(
+      testEvent({
+        user: ada,
+        params: { tableId, recordId: created.record.id },
+        method: 'DELETE',
+      }),
+    )
+
+    expect(removed.table._count).toMatchObject({ fields: 1, records: 0 })
+  })
+
+  /** The row is the whole list row, so the surfaces reading it need nothing else. */
+  it('answers with the table itself, not only its counts', async () => {
+    const created = await fieldsPost(
+      testEvent({
+        user: ada,
+        params: params(),
+        method: 'POST',
+        body: { name: 'Company', type: 'TEXT' },
+      }),
+    )
+
+    expect(created.table).toMatchObject({ id: tableId, name: 'Deals' })
+    expect(typeof created.table.createdAt).toBe('string')
   })
 })

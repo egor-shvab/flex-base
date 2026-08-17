@@ -6,33 +6,31 @@ This file says only _what_ and _in what order_ — contracts belong in `docs/arc
 
 ---
 
-## Current phase — architectural restructuring (proposed, not approved)
+## Current phase — architectural restructuring
 
-Every item below is a proposal from `docs/architecture-review.md`, which carries the problem, the
-shape, the affected modules, the risks and the gate for each. **Nothing here is approved yet**; the
-order is the recommended one, not a commitment. An item that is accepted keeps its line here and
+Every item below comes from `docs/architecture-review.md`, which carries the problem, the shape,
+the affected modules, the risks and the gate for each. An item that lands keeps its line here and
 loses its entry there; an item that is rejected leaves both.
 
-### First pass — structural, no behaviour change
+### First pass — structural, no behaviour change (done)
 
 - [x] **P1** — Name the server's three layers: `api/` → `services/` → `db/`, ending the
       `utils → services` edge and re-shelving `record-query.ts` as SQL rather than as a service.
 - [x] **P2** — Ownership-bound handler factories, so a table-scoped request cannot reach its data
       without having proven ownership of it.
 - [x] **P7** — Component-private composables move next to their component (`BaseSelect/`).
-- [ ] **P6** — Record and field counts are returned by the server instead of computed on the client;
+- [x] **P6** — Record and field counts are returned by the server instead of computed on the client;
       `adjustCachedCount` goes.
 - [x] **P3** — A declared client↔server contract and one API client module per resource; stores and
       components stop holding URLs and asserting response shapes.
 
 ### Discovered
 
-- [ ] **The write handlers' happy paths are never driven through the handler**, only through their
-      services. `ownership.integration.spec.ts` runs every endpoint as a stranger (404) and
-      anonymous (401), but its owner pass is read-only on purpose — a delete mid-loop would pull
-      rows out from under it. Add an owner-write pass over its own rows, so a handler that passed
-      the wrong id or param name to a service would be caught. Surfaced by P2: the preamble those
-      files used to share now lives in the factory, so what is left reads 0% instead of ~60%.
+- [ ] **Two write handlers are still never driven on their happy path** — `fields/[fieldId].patch`
+      and `records/[recordId].patch`. `ownership.integration.spec.ts` runs every endpoint as a
+      stranger (404) and anonymously (401), but its owner pass is read-only on purpose, so an
+      update handler passing the wrong id or param name to its service would not be caught. The
+      four count-moving writes gained this cover with P6; these two are what is left.
 
 ### Second pass — each behind a stated judgement call
 

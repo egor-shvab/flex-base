@@ -382,6 +382,16 @@ Widening `TRecordValue` changed no runtime module: `app/field-types/types.ts` im
 
 A rejection in the layout's async setup would replace the page with an error boundary for what is chrome, not content — the sidebar failing to list tables should not take down a records page that loaded fine. It sets `failed` instead, and the sidebar reports it inline with a Retry.
 
+### A cached count is received, not computed
+
+`_count` arrives with the table list and is read on two always-visible surfaces, so a write to a table's fields or records has to reach them. The client used to move the number itself by a delta, which is arithmetic over a value only the database holds: it needed a floor at zero to stay presentable, it drifted the moment a second tab wrote, and it put a **cross-domain write** in two stores — records and fields each reaching into the tables store.
+
+The four writes that move a count now answer with the table's refreshed list row, and `applyTableRow` stores what it was told. The cost is one `COUNT` per write, on a table already being written; the floor and the drift are gone with the arithmetic.
+
+**Only those four carry it.** An edit moves neither count, so `PATCH` on a field or a record answers as it did — the envelope says which writes are count-moving, rather than every write paying for a number that did not change.
+
+**A row for a table the list does not hold is ignored, never inserted.** `ensureTables` never throws, so an empty list is a legitimate state (a record page reached by URL, or a failed sidebar fetch); inserting would leave the sidebar listing only the table just written to.
+
 ### A failed refetch is visible, not silent
 
 `records.ts` sets `failed` in a `catch` that **rethrows**; the page's `watch` swallows the rejection and shows a banner. Both halves are needed: an unhandled rejection in a watcher left the table showing rows that no longer matched the URL, and the initial load still needs the rejection for `useAsyncData` to produce the 404. **The empty state is suppressed while `failed`** — an empty result and an unknown result are indistinguishable in the store, and "No records yet" would be a guess.
