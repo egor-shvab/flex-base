@@ -83,12 +83,14 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 
 **Cardinality is the second axis, and it is a property of the field rather than of its type.** Each of the four control registries keeps its flat per-type entries and gains a total `Record<TFieldType, X | null>` override table — `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`, and `MULTI_SQL` on the server — plus one resolver every consumer calls instead of indexing:
 
-| Registry              | Resolver                      | Consumer               |
-| --------------------- | ----------------------------- | ---------------------- |
-| `inputs.ts`           | `inputFor(field)`             | `DynamicForm`          |
-| `filters.ts`          | `filterFor(field)`            | `RecordsFilterPanel`   |
-| `filter-summaries.ts` | `summaryFor(field)`           | `RecordsFilterSummary` |
-| `cells.ts`            | `cellComponent(column)` (§10) | `RecordFieldValue`     |
+| Registry              | Resolver                  | Consumer               |
+| --------------------- | ------------------------- | ---------------------- |
+| `inputs.ts`           | `inputFor(field)`         | `DynamicForm`          |
+| `filters.ts`          | `filterFor(field)`        | `RecordsFilterPanel`   |
+| `filter-summaries.ts` | `summaryFor(field)`       | `RecordsFilterSummary` |
+| `cells.ts`            | `cellComponent(column)`\* | `RecordFieldValue`     |
+
+\* The three others sit in the registry file they resolve; `cellComponent` cannot, and lives in `cell-resolver.ts` — see below.
 
 `null` means "this type has no list form", which `MULTI_VALUE_BY_TYPE` already refuses to configure — the two agree by construction. Because the override tables are total, a new field type still cannot ship without stating its position.
 
@@ -98,7 +100,9 @@ Only two entries are non-`null` anywhere: `MULTI_FILTERS` and `MULTI_SUMMARIES` 
 
 Multi-value **cells** need no override table at all. `cellComponent` returns one shared `MultiValueCell`, which renders each entry through `FIELD_CELLS[field.type]` — a list of values is the list of how each value renders, so a future multi-capable type is covered without a component of its own. It renders **inline** rather than as a flex row, which is load-bearing (`decisions.md`); nothing about the cell puts it on a line — `DynamicTable`'s `white-space: nowrap` does that, and `RecordDetail` simply does not impose it.
 
-`cellComponent` is paired with **`toValueList`** (`app/utils/record-value.ts`) / **`toCellSingleValue`** (`app/utils/record-cells.ts`): whenever the first returns `MultiValueCell`, the value is `toValueList`, otherwise it is `toCellSingleValue`. `RecordFieldValue` branches on the same `isMultiValue` question to pick the pair. That is what lets each cell declare the exact shape it renders instead of the union of both — and `toValueList` is **the one place** a stored value that is not yet an array is accounted for (a row drawn before `updateField`'s migration ran). It sits outside the cell registry because the multi-value **form control** normalises through the same function.
+`cellComponent` lives in **`app/field-types/cell-resolver.ts`** alongside `readCellValue` — the two halves that read the registries. It is the one resolver not folded into its own registry file, because `MultiValueCell` imports `FIELD_CELLS` back out of `cells.ts` and merging would make the two import each other (`decisions.md`).
+
+It is paired with **`toValueList`** / **`toCellSingleValue`** (both `app/utils/record-value.ts`, since both are pure shape): whenever the first returns `MultiValueCell`, the value is `toValueList`, otherwise it is `toCellSingleValue`. `RecordFieldValue` branches on the same `isMultiValue` question to pick the pair. That is what lets each cell declare the exact shape it renders instead of the union of both — and `toValueList` is **the one place** a stored value that is not yet an array is accounted for (a row drawn before `updateField`'s migration ran). It sits outside the cell registry because the multi-value **form control** normalises through the same function.
 
 `types.ts` defines the shape both control tables share:
 
@@ -298,7 +302,7 @@ Only the modules whose contract is not obvious from their name.
 
 - **`DynamicForm.vue`** — renders a form from `IField[]` by walking `FIELD_INPUTS`: `v-bind`s each entry's `props(field)`, passes the value through `toControl`, pushes what the control emits back through `fromControl`. Values flow down as props and changes back up via `update: [key, value]`, so **the parent's `useForm` object is never mutated**.
 - **`DynamicTable.vue`** — renders from `queryColumns(fields)` + `IRecord[]`, so **one** `columns` list drives header and body alike. Each cell is a `RecordFieldValue`. No branch on a key or a type anywhere in the template. Emits `edit`/`delete`/`sort`; the optional `sort` prop drives `aria-sort` and the header arrow. The row's **View** action emits nothing — it is a `<NuxtLink>` through `useDetailLink`, which is why the component takes a `tableId` prop: a generic renderer must not read that off the route itself.
-- **`RecordFieldValue.vue`** — one column of one record: `Not set`, or the cell component for that column, resolved through `app/utils/record-cells.ts` (`readCellValue` reads `RECORD_COLUMNS` first and falls through to `record.data`; `cellComponent` likewise falls through to `FIELD_CELLS`). The seam that keeps the table and the detail dialog rendering a value the same way. An **empty array is blank** alongside `null` — without that a cleared multi-value field would render as nothing rather than say so.
+- **`RecordFieldValue.vue`** — one column of one record: `Not set`, or the cell component for that column, resolved through `app/field-types/cell-resolver.ts` (`readCellValue` reads `RECORD_COLUMNS` first and falls through to `record.data`; `cellComponent` likewise falls through to `FIELD_CELLS`). The seam that keeps the table and the detail dialog rendering a value the same way. An **empty array is blank** alongside `null` — without that a cleared multi-value field would render as nothing rather than say so.
 - **`RecordDetail.vue`** — the detail dialog's body: a `<dl>` over `queryColumns(fields)`, minus the record number (which names the dialog in its own heading). Values wrap instead of truncating — reading one in full is the point of the dialog. It does that by **not** declaring the table's `white-space: nowrap`, not by overriding a cell.
 - **`RecordsFilterPanel.vue`** — the filter drawer. One control per `queryColumns(fields)` entry from `FIELD_FILTERS`, bound to `filters[field.key]` falling back to the type's empty value. Rebuilt **in field order** rather than patched per key, so a shared URL is stable whichever control was touched, dropping anything `isFilterValueEmpty`.
 - **`RecordsTableSkeleton.vue`** — the body's third state, standing where the rows will be while a fetch is in flight with none to show. A `role="status"` naming itself through `.visually-hidden`, over `aria-hidden` bars. Its row and bar counts are **fixed constants**, never derived from `fields`: mid-navigation those still belong to the table being left, and this is a placeholder rather than a preview of what is coming.

@@ -20,8 +20,8 @@ import { computed } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
 import { isMultiValue } from '#shared/utils/field'
-import { cellComponent, readCellValue, toCellSingleValue } from '~/utils/record-cells'
-import { toValueList } from '~/utils/record-value'
+import { cellComponent, readCellValue } from '~/field-types/cell-resolver'
+import { toCellSingleValue, toValueList } from '~/utils/record-value'
 
 const props = defineProps<{
   record: IRecord

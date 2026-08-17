@@ -1,4 +1,5 @@
 import type { TFilterValue } from '#shared/types/filter'
+import type { TRecordSingleValue, TRecordValue } from '#shared/types/record'
 
 /**
  * A stored value as the **list** a multi-value field holds.
@@ -19,4 +20,15 @@ export function toValueList(value: TFilterValue): string[] {
   if (Array.isArray(value)) return value
 
   return typeof value === 'string' && value !== '' ? [value] : []
+}
+
+/**
+ * The counterpart for every other cell, which renders exactly one value.
+ *
+ * The two are a pair: whenever `cellComponent` returns `MultiValueCell` the value is
+ * `toValueList`, and otherwise it is this. They live together because both are pure shape —
+ * resolving *which* cell draws a column reads the registries, and is `~/field-types/cell-resolver`.
+ */
+export function toCellSingleValue(value: TRecordValue): TRecordSingleValue {
+  return Array.isArray(value) ? (value[0] ?? null) : value
 }

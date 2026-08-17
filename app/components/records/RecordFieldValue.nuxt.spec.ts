@@ -4,25 +4,23 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
-import { CREATED_AT_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
-import { RECORD_NUMBER_FIELD } from '#shared/utils/filter'
 import RecordFieldValue from '~/components/records/RecordFieldValue.vue'
 import MultiValueCell from '~/field-types/cells/MultiValueCell.vue'
 import { useRelationsStore } from '~/stores/relations'
 import {
   asMultiple,
   booleanField,
+  createdAtColumn,
   dateField,
   numberField,
   record,
+  recordNumberColumn,
   relationField,
   selectField,
   textField,
 } from '~~/test/fixtures'
-
-const createdAtColumn: IField = { ...RECORD_NUMBER_FIELD, key: CREATED_AT_KEY, name: 'Created at' }
 
 function cell(column: IField, row: IRecord = record()) {
   return mountTracked(RecordFieldValue, { props: { record: row, column } })
@@ -118,7 +116,7 @@ describe('RecordFieldValue', () => {
       expect(list.props('value')).toEqual(['Won', 'Lost'])
     })
 
-    /** `toCellValueList` normalises at the seam, so a pre-migration scalar still renders as a list. */
+    /** `toValueList` normalises at the seam, so a pre-migration scalar still renders as a list. */
     it('normalises a bare string left over from before the field was widened', async () => {
       const column = asMultiple(selectField())
       const wrapper = await cell(column, rowWith(column, 'Won'))
@@ -194,7 +192,7 @@ describe('RecordFieldValue', () => {
   /** A record's own columns read from the record, not from its data, and draw their own cells. */
   describe('the record’s own columns', () => {
     it('renders the record number', async () => {
-      const wrapper = await cell(RECORD_NUMBER_FIELD, record({ number: 42 }))
+      const wrapper = await cell(recordNumberColumn, record({ number: 42 }))
 
       expect(wrapper.text()).toContain('42')
     })

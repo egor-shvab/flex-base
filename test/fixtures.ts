@@ -1,6 +1,7 @@
 import type { TBadgeColor } from '#shared/types/color'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
+import { queryColumns } from '#shared/utils/filter'
 
 /**
  * Metadata and record builders for both suites. Several spec files need an `IField` or an
@@ -71,6 +72,22 @@ export function relationField(
 export function asMultiple(source: IField): IField {
   return { ...source, options: { ...source.options, multiple: true } }
 }
+
+/**
+ * The record's own columns, exactly as `queryColumns` wraps them around a table's fields.
+ *
+ * **Derived, never hand-written.** Two specs used to build the timestamps by spreading the record
+ * number and overriding its key, which silently gave them `type: 'TEXT'` where the app builds them
+ * `'DATE'` — a fixture asserting against a column the app never produces. This is also why
+ * `shared/utils/filter.ts` need not export any of the three.
+ *
+ * The tuple assertion is `noUncheckedIndexedAccess`; `queryColumns` always yields these three.
+ */
+export const [recordNumberColumn, createdAtColumn, updatedAtColumn] = queryColumns([]) as [
+  IField,
+  IField,
+  IField,
+]
 
 /** One field of every type, in registry order — for tests that must cover the whole matrix. */
 export const ALL_TYPE_FIELDS: Record<TFieldType, IField> = {

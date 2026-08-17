@@ -44,8 +44,8 @@ Phases run in order; tasks within one are independent unless the plan says other
 
 ### Phase 4 — Module boundaries
 
-- [ ] 4.1 Move `app/utils/record-cells.ts` into `app/field-types/`
-- [ ] 4.2 Move `RECORD_NUMBER_FIELD` out of shipped code into `test/fixtures.ts`
+- [x] 4.1 Split `app/utils/record-cells.ts` — the registry-reading half into `app/field-types/cell-resolver.ts`, the pure value shaper in beside `toValueList`
+- [x] 4.2 Un-export `RECORD_NUMBER_FIELD`; the record columns are now derived from `queryColumns` in `test/fixtures.ts`
 
 ### Phase 5 — Page decomposition
 

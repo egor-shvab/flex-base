@@ -27,7 +27,7 @@ function recordColumn(key: string, name: string, type: TFieldType): IField {
 }
 
 /** A partial match, so typing `4` finds `#4`, `#14` and `#42` alike. */
-export const RECORD_NUMBER_FIELD = recordColumn(RECORD_NUMBER_KEY, 'Record #', 'TEXT')
+const RECORD_NUMBER_FIELD = recordColumn(RECORD_NUMBER_KEY, 'Record #', 'TEXT')
 
 /** Timestamps filter as `DATE`, which gives each one an inclusive from/to range of days. */
 const CREATED_AT_FIELD = recordColumn(CREATED_AT_KEY, 'Created at', 'DATE')

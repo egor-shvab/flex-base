@@ -300,6 +300,12 @@ Read the reason the floor exists rather than the name of the constant. Not one h
 
 There is a real UX cost too: with a floor, typing one character either shows the unfiltered seed (a lie — it looks like the search did nothing) or needs a third "keep typing" state. The bound that applies here is `max(100)` on the term. Stated explicitly so nobody later harmonises the two on the strength of the shared word "search".
 
+### `cellComponent` is the one resolver that does not live in its registry file
+
+`inputFor` sits in `inputs.ts`, `filterFor` in `filters.ts`, `summaryFor` in `filter-summaries.ts`. `cellComponent` sits in `cell-resolver.ts`, and folding it into `cells.ts` to match — which looks like the obvious tidy-up, and which `architecture.md` §3's table appears to invite — creates a **cycle**: it returns `MultiValueCell` for a multi-value field, and that component imports `FIELD_CELLS` back out of `cells.ts` to render each entry.
+
+`cells.ts` naming only the six per-type cells, and never the shared one, is what keeps the directory acyclic. The split is by what each half reads: `cell-resolver.ts` for the two functions that consult the registries, `~/utils/record-value` for the two that only shape a value.
+
 ### Inputs and filters are data; only cells are components
 
 A cell carries markup and scoped styles (an icon, tabular figures), not just a value, so a `format | component` union would be worse than one uniform contract. Inputs and filters carry neither — they name a `Base*` control plus adapters, so they stay rows in a table.

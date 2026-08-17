@@ -49,37 +49,6 @@ and the root configs was read.
 
 ---
 
-## Phase 4 — Module boundaries
-
-Relocation, no logic change.
-
-### 4.1 — Move `app/utils/record-cells.ts` into `app/field-types/`
-
-- _Problem:_ `CLAUDE.md` §9 and `architecture.md` §3 both say `app/field-types/` holds **everything**
-  per-field-type. `app/utils/record-cells.ts` imports `FIELD_CELLS`, `RECORD_COLUMNS` and
-  `MultiValueCell`, is about nothing but resolving a column to a cell and a value, and is imported by
-  exactly one component (`RecordFieldValue.vue`). It is the field-type layer's resolver sitting one
-  directory outside it — the same relationship `inputFor` / `filterFor` / `summaryFor` have to their
-  registries, and those all live inside.
-- _Change:_ move to `app/field-types/` (its own module, beside `cells.ts` — do not merge, the
-  registry and its resolver are different reasons to change). Update the one importer, the spec
-  (`record-cells.nuxt.spec.ts` moves with it), and the `architecture.md` §3/§10 references.
-- _Why:_ the stated rule is what makes "adding a field type touches exactly these places" checkable.
-  One resolver living elsewhere breaks the guarantee by a directory.
-- _Depends on:_ 2.2 (same file). _Risk:_ **low.** Aliased imports, so nothing relative breaks.
-
-### 4.2 — Consider moving `RECORD_NUMBER_FIELD` out of shipped code
-
-- _Problem:_ `shared/utils/filter.ts:25` exports `RECORD_NUMBER_FIELD`; `queryColumns` is its only
-  non-spec reader, and the export exists because two specs use it as a fixture. Its two siblings
-  (`CREATED_AT_FIELD`, `UPDATED_AT_FIELD`) are correctly private.
-- _Change:_ un-export it and add a builder to `test/fixtures.ts`, which is where field fixtures
-  belong (`CLAUDE.md` §10).
-- _Why:_ small, but it is the only place a shipped module widened its surface for a test.
-- _Risk:_ **low.** Optional — skip if the phase is running long.
-
----
-
 ## Phase 5 — Page decomposition
 
 The two largest pages. Last, because they touch the most and Phases 2–3 shrink them first.

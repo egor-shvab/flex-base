@@ -1,23 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { CREATED_AT_KEY, RECORD_NUMBER_KEY, UPDATED_AT_KEY } from '#shared/constants/filter'
 import { FIELD_TYPES } from '#shared/constants/field'
-import { RECORD_COLUMNS } from '~/field-types/record-columns'
+import { cellComponent, readCellValue } from '~/field-types/cell-resolver'
 import { FIELD_CELLS } from '~/field-types/cells'
 import MultiValueCell from '~/field-types/cells/MultiValueCell.vue'
-import { cellComponent, toCellSingleValue, readCellValue } from '~/utils/record-cells'
+import { RECORD_COLUMNS } from '~/field-types/record-columns'
 import {
   ALL_TYPE_FIELDS,
   asMultiple,
+  createdAtColumn,
   record,
+  recordNumberColumn,
   relationField,
   selectField,
   textField,
+  updatedAtColumn,
 } from '~~/test/fixtures'
-import { RECORD_NUMBER_FIELD } from '#shared/utils/filter'
-
-/** The record's own columns, as `queryColumns` presents them. */
-const createdAtColumn = { ...RECORD_NUMBER_FIELD, key: CREATED_AT_KEY, name: 'Created at' }
-const updatedAtColumn = { ...RECORD_NUMBER_FIELD, key: UPDATED_AT_KEY, name: 'Updated at' }
 
 describe('readCellValue', () => {
   it('reads a table’s own field from the record’s data', () => {
@@ -29,7 +27,7 @@ describe('readCellValue', () => {
   it('reads the record’s own columns from the record itself', () => {
     const row = record({ number: 42 })
 
-    expect(readCellValue(row, RECORD_NUMBER_FIELD)).toBe(42)
+    expect(readCellValue(row, recordNumberColumn)).toBe(42)
     expect(readCellValue(row, createdAtColumn)).toBe(row.createdAt)
     expect(readCellValue(row, updatedAtColumn)).toBe(row.updatedAt)
   })
@@ -42,7 +40,7 @@ describe('readCellValue', () => {
   it('prefers the record’s own column over a data key of the same name', () => {
     const row = record({ number: 42, data: { [RECORD_NUMBER_KEY]: 'from data' } })
 
-    expect(readCellValue(row, RECORD_NUMBER_FIELD)).toBe(42)
+    expect(readCellValue(row, recordNumberColumn)).toBe(42)
   })
 
   /** Blank is handled once, in `RecordFieldValue` — so an absent key must be null, not undefined. */
@@ -63,7 +61,7 @@ describe('readCellValue', () => {
 /** Key, then cardinality, then type — asserted as identity, so reordering the branches fails. */
 describe('cellComponent', () => {
   it('draws a record’s own column with its own cell', () => {
-    expect(cellComponent(RECORD_NUMBER_FIELD)).toBe(RECORD_COLUMNS[RECORD_NUMBER_KEY]?.cell)
+    expect(cellComponent(recordNumberColumn)).toBe(RECORD_COLUMNS[RECORD_NUMBER_KEY]?.cell)
     expect(cellComponent(createdAtColumn)).toBe(RECORD_COLUMNS[CREATED_AT_KEY]?.cell)
     expect(cellComponent(updatedAtColumn)).toBe(RECORD_COLUMNS[UPDATED_AT_KEY]?.cell)
   })
@@ -83,24 +81,5 @@ describe('cellComponent', () => {
 
   it('ignores multiple on a type that cannot hold several', () => {
     expect(cellComponent(asMultiple(textField()))).toBe(FIELD_CELLS.TEXT)
-  })
-})
-
-describe('toCellSingleValue', () => {
-  it('passes a scalar through', () => {
-    expect(toCellSingleValue('Acme')).toBe('Acme')
-    expect(toCellSingleValue(42)).toBe(42)
-    expect(toCellSingleValue(null)).toBeNull()
-  })
-
-  /** Neither is blank, and treating them as such is the obvious way to get a cell wrong. */
-  it('keeps a false and a zero', () => {
-    expect(toCellSingleValue(false)).toBe(false)
-    expect(toCellSingleValue(0)).toBe(0)
-  })
-
-  it('takes the first entry of a list, and null from an empty one', () => {
-    expect(toCellSingleValue(['a', 'b'])).toBe('a')
-    expect(toCellSingleValue([])).toBeNull()
   })
 })
