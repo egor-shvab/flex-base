@@ -1,8 +1,9 @@
 import { createError } from 'h3'
 import { fieldSelect, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
-import { tableSelect } from '#server/db/tables'
+import { tableSelect, toSharedTable } from '#server/db/tables'
 import type { IField } from '#shared/types/field'
+import type { ITable } from '#shared/types/table'
 import type { TFieldInput } from '#shared/validation/field'
 
 /** Another user's table must be indistinguishable from a missing one — never 403. */
@@ -11,9 +12,11 @@ function tableNotFound() {
 }
 
 /**
- * Asserts the table exists AND belongs to the user in a single scoped query.
+ * Asserts the table exists AND belongs to the user in a single scoped query. Answers in the
+ * shape every layer above the database speaks, like its `Fields` sibling below — a helper that
+ * handed back a Prisma row would leak `Date`s into a response typed on ISO strings.
  */
-export async function requireOwnedTable(userId: string, tableId: string) {
+export async function requireOwnedTable(userId: string, tableId: string): Promise<ITable> {
   const table = await prisma.table.findUnique({
     where: { id: tableId, userId },
     select: tableSelect,
@@ -23,7 +26,7 @@ export async function requireOwnedTable(userId: string, tableId: string) {
     throw tableNotFound()
   }
 
-  return table
+  return toSharedTable(table)
 }
 
 /**
@@ -58,7 +61,7 @@ export async function requireOwnedTableWithFields(userId: string, tableId: strin
     throw tableNotFound()
   }
 
-  return { table, fields: table.fields.map(toSharedField) }
+  return { table: toSharedTable(table), fields: table.fields.map(toSharedField) }
 }
 
 /**

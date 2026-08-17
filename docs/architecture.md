@@ -9,7 +9,7 @@ How the metadata layer works. Rules live in `CLAUDE.md`; rationale and rejected 
 - **Frontend:** Nuxt 4, Vue 3, TypeScript, Pinia, SCSS (`sass-embedded`).
 - **Backend:** Nitro via `server/api` routes.
 - **Database:** PostgreSQL 17 (Docker) through Prisma 7 (`@prisma/client` + `@prisma/adapter-pg`).
-- **Auth:** manual — bcrypt for password hashing, `jsonwebtoken` for tokens, no auth library. The JWT (`{ sub: userId }`, HS256, 7 days) lives in an httpOnly `auth_token` cookie. `server/middleware/auth.ts` resolves it to `event.context.user` on every request and **never rejects**; handlers call `requireUser(event)` to enforce 401. Client side: `app/stores/auth.ts` + `app/middleware/auth.global.ts` handle session restore and redirects both ways; requests go through `useApi()` so cookies are forwarded during SSR.
+- **Auth:** manual — bcrypt for password hashing, `jsonwebtoken` for tokens, no auth library. The JWT (`{ sub: userId }`, HS256, 7 days) lives in an httpOnly `auth_token` cookie. `server/middleware/auth.ts` resolves it to `event.context.user` on every request and **never rejects**; handlers call `requireUser(event)` to enforce 401. Client side: `app/stores/auth.ts` + `app/middleware/auth.global.ts` handle session restore and redirects both ways; requests go through `app/api/` and its `useApi()` seam, so cookies are forwarded during SSR.
 - **Validation:** zod, shared between client and server.
 
 ---
@@ -284,7 +284,7 @@ Three layers, dependencies pointing one way — `api` → `services` → `db` �
 
 ### `app/`
 
-- **`composables/useApi.ts`** — the `useRequestFetch` seam — its one job is keeping callers off bare `$fetch`
+- **`api/`** — the transport layer. `client.ts` is the `useRequestFetch` seam, whose one job is keeping callers off bare `$fetch`; `paths.ts` is every route the client calls; and one `use*Api()` per resource returns a function per endpoint, typed from `#shared/types/api`. Each is a **factory** rather than plain functions because `useApi()` wraps `useRequestFetch()` and must be called during setup. They hold no state and no reactivity — that is what keeps them transport rather than a second store layer
 - **`composables/useTableLoader.ts`** — the table and its fields, fetched together, which is what both table screens open with. It owns **neither the `useAsyncData` nor the error**: the two pages must key differently (a layout and a page must never share one) and the 404 is each page's own answer, so both stay at the call site
 - **`composables/useForm.ts`** — form state keyed `Record<string, unknown>`; its dynamic key handling is what lets one composable drive metadata-generated forms
 - **`composables/useDetailLink.ts`** — the route target that opens a record in the detail dialog, layered onto the current query. Every way in is this one function — a row's View action and a relation cell alike — and each appends to whatever chain it renders under, so a caller never has to know whether it is opening or drilling

@@ -48,6 +48,7 @@ export const SERVER_INCLUDE = [
  * would drown the signal from the modules that matter.
  */
 export const APP_INCLUDE = [
+  'app/api/**/*.ts',
   'app/composables/**/*.ts',
   'app/middleware/**/*.ts',
   'app/stores/**/*.ts',

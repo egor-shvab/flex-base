@@ -1,4 +1,4 @@
-import { useApi } from '~/composables/useApi'
+import { useTablesApi } from '~/api/tables'
 import { useFieldsStore } from '~/stores/fields'
 import type { ITable } from '#shared/types/table'
 
@@ -17,14 +17,11 @@ import type { ITable } from '#shared/types/table'
  * the caller's fetch does.
  */
 export function useTableLoader() {
-  const api = useApi()
+  const api = useTablesApi()
   const fieldsStore = useFieldsStore()
 
   return async (tableId: string): Promise<ITable> => {
-    const [response] = await Promise.all([
-      api<{ table: ITable }>(`/api/tables/${tableId}`),
-      fieldsStore.fetchFields(tableId),
-    ])
+    const [response] = await Promise.all([api.get(tableId), fieldsStore.fetchFields(tableId)])
 
     return response.table
   }

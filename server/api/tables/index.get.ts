@@ -1,8 +1,9 @@
 import { defineEventHandler } from 'h3'
 import { requireUser } from '#server/utils/auth'
 import { listTables } from '#server/services/tables'
+import type { ITablesResponse } from '#shared/types/api'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event): Promise<ITablesResponse> => {
   const user = requireUser(event)
   const tables = await listTables(user.id)
   return { tables }

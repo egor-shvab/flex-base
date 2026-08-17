@@ -17,7 +17,13 @@ vi.mock('#server/db/prisma', async () => ({
 const USER_ID = 'usr_1'
 const TABLE_ID = 'tbl_deals'
 
-const table = { id: TABLE_ID, name: 'Deals', createdAt: new Date(), updatedAt: new Date() }
+/** A row as Prisma returns it — timestamps are `Date`s until a mapper turns them into the wire's. */
+const table = {
+  id: TABLE_ID,
+  name: 'Deals',
+  createdAt: new Date('2026-01-05T09:14:00.000Z'),
+  updatedAt: new Date('2026-02-11T16:30:00.000Z'),
+}
 
 function relationInput(overrides: Partial<TFieldInput> = {}): TFieldInput {
   return fieldInputSchema.parse({
@@ -116,9 +122,21 @@ describe('another user’s row is indistinguishable from a missing one', () => {
 })
 
 describe('what the helpers return', () => {
-  it('hands back the table itself', async () => {
+  /**
+   * It answers in the shape every layer above the database speaks, not in the row's — the
+   * timestamps are ISO strings here and `Date`s in the stub above. Handing the row back
+   * type-checked only because `JSON.stringify` happened to produce the same text the response
+   * type promised; asserting the strings is what stops that agreement being a coincidence.
+   */
+  it('hands the table back in the shape the wire carries, timestamps included', async () => {
     prismaMock.table.findUnique.mockResolvedValue(table)
-    await expect(requireOwnedTable(USER_ID, TABLE_ID)).resolves.toEqual(table)
+
+    await expect(requireOwnedTable(USER_ID, TABLE_ID)).resolves.toEqual({
+      id: TABLE_ID,
+      name: 'Deals',
+      createdAt: '2026-01-05T09:14:00.000Z',
+      updatedAt: '2026-02-11T16:30:00.000Z',
+    })
   })
 
   it('narrows each field’s JSON options on the way out', async () => {

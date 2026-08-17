@@ -3,7 +3,7 @@ import { useAsyncData, useRoute } from '#imports'
 import type { TUrlQuery } from '#shared/types/query'
 import type { IOpenRecord, IRecordDetail } from '#shared/types/record'
 import { parseDetailChain, popDetail, withDetailChain } from '#shared/utils/record-detail'
-import { useApi } from '~/composables/useApi'
+import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { getApiErrorMessage } from '~/utils/api-error'
 
@@ -19,7 +19,7 @@ import { getApiErrorMessage } from '~/utils/api-error'
  */
 export function useRecordDetail() {
   const route = useRoute()
-  const api = useApi()
+  const api = useRecordsApi()
   const relations = useRelationsStore()
 
   const chain = computed(() => parseDetailChain(route.query))
@@ -41,9 +41,7 @@ export function useRecordDetail() {
       const openRecord = current.value
       if (openRecord === undefined) return null
 
-      const detail = await api<IRecordDetail>(
-        `/api/tables/${openRecord.tableId}/records/${openRecord.recordId}`,
-      )
+      const detail = await api.detail(openRecord.tableId, openRecord.recordId)
       // The same merge-only cache the list feeds, so a relation *inside* the dialog resolves
       // to a linked record and can link on again
       relations.cacheLinkedRecords(detail.linkedRecords)

@@ -3,8 +3,9 @@ import { useRuntimeConfig } from 'nitropack/runtime'
 import { prisma } from '#server/db/prisma'
 import { setAuthCookie, signAuthToken, verifyPassword } from '#server/utils/auth'
 import { credentialsInputSchema } from '#shared/validation/auth'
+import type { IAuthUserResponse } from '#shared/types/api'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event): Promise<IAuthUserResponse> => {
   const { email, password } = await readValidatedBody(event, credentialsInputSchema.parse)
 
   // Same generic error for unknown email and wrong password — no user enumeration

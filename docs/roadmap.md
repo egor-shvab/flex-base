@@ -22,7 +22,7 @@ loses its entry there; an item that is rejected leaves both.
 - [x] **P7** — Component-private composables move next to their component (`BaseSelect/`).
 - [ ] **P6** — Record and field counts are returned by the server instead of computed on the client;
       `adjustCachedCount` goes.
-- [ ] **P3** — A declared client↔server contract and one API client module per resource; stores and
+- [x] **P3** — A declared client↔server contract and one API client module per resource; stores and
       components stop holding URLs and asserting response shapes.
 
 ### Discovered

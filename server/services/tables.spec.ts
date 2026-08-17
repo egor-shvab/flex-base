@@ -10,6 +10,19 @@ vi.mock('#server/db/prisma', async () => ({
 const USER_ID = 'usr_1'
 const TABLE_ID = 'tbl_deals'
 
+/**
+ * A row as `tableListSelect` returns one. Complete rather than `{ id }`: the service maps its
+ * result onto `ITableListItem` now, so a stub standing in for that select has to carry what the
+ * select actually asks for.
+ */
+const tableRow = {
+  id: TABLE_ID,
+  name: 'Deals',
+  createdAt: new Date('2026-01-05T09:14:00.000Z'),
+  updatedAt: new Date('2026-02-11T16:30:00.000Z'),
+  _count: { fields: 0, records: 0 },
+}
+
 const conflict = () =>
   new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: '7.9.0' })
 
@@ -46,7 +59,7 @@ describe('listTables', () => {
 
 describe('createTable', () => {
   it('stamps the owner onto the row', async () => {
-    prismaMock.table.create.mockResolvedValue({ id: TABLE_ID })
+    prismaMock.table.create.mockResolvedValue(tableRow)
 
     await createTable(USER_ID, 'Deals')
 
@@ -67,7 +80,7 @@ describe('createTable', () => {
 
 describe('renameTable', () => {
   it('scopes the update by owner, so an id alone cannot reach another account’s table', async () => {
-    prismaMock.table.update.mockResolvedValue({ id: TABLE_ID })
+    prismaMock.table.update.mockResolvedValue(tableRow)
 
     await renameTable(USER_ID, TABLE_ID, 'Renamed')
 

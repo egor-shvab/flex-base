@@ -1,12 +1,11 @@
 import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
-import { useApi } from '~/composables/useApi'
+import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
-import type { IRecord, IRecordPage, IRecordQueryState, TRecordData } from '#shared/types/record'
-import { toRecordQueryParams } from '#shared/utils/record-query'
+import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
 
 /** Only the unfiltered, unsearched, newest-first view has a predictable place for a new record. */
 function isDefaultView(query: IRecordQueryState): boolean {
@@ -19,7 +18,7 @@ function isDefaultView(query: IRecordQueryState): boolean {
 }
 
 export const useRecordsStore = defineStore('records', () => {
-  const api = useApi()
+  const api = useRecordsApi()
   const relations = useRelationsStore()
   // The sidebar and the dashboard both draw this table's record count from the list the tables
   // store holds, and nothing else would tell it that a write moved one
@@ -48,9 +47,7 @@ export const useRecordsStore = defineStore('records', () => {
     failed.value = false
 
     try {
-      const response = await api<IRecordPage>(`/api/tables/${tableId}/records`, {
-        query: toRecordQueryParams(query),
-      })
+      const response = await api.list(tableId, query)
       records.value = response.records
       total.value = response.total
       page.value = response.page
@@ -80,7 +77,7 @@ export const useRecordsStore = defineStore('records', () => {
     data: TRecordData,
     query: IRecordQueryState,
   ): Promise<number> {
-    await api<{ record: IRecord }>(`/api/tables/${tableId}/records`, { method: 'POST', body: data })
+    await api.create(tableId, data)
     tables.adjustCachedCount(tableId, 'records', 1)
 
     const nextPage = isDefaultView(query) ? 1 : query.page
@@ -95,10 +92,7 @@ export const useRecordsStore = defineStore('records', () => {
     data: TRecordData,
     query: IRecordQueryState,
   ) {
-    const response = await api<{ record: IRecord }>(`/api/tables/${tableId}/records/${recordId}`, {
-      method: 'PATCH',
-      body: data,
-    })
+    const response = await api.update(tableId, recordId, data)
 
     // An edit can move a record out of a filtered or sorted view, so that view is refetched
     if (!isDefaultView(query)) {
@@ -113,7 +107,7 @@ export const useRecordsStore = defineStore('records', () => {
 
   /** Refetches rather than splicing — under server-side pagination the page shifts. */
   async function deleteRecord(tableId: string, recordId: string, query: IRecordQueryState) {
-    await api(`/api/tables/${tableId}/records/${recordId}`, { method: 'DELETE' })
+    await api.remove(tableId, recordId)
     tables.adjustCachedCount(tableId, 'records', -1)
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
     await fetchRecords(tableId, { ...query, page: Math.min(page.value, lastPage) })

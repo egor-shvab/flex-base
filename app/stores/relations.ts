@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { useApi } from '~/composables/useApi'
+import { useRelationsApi } from '~/api/relations'
 import type { IField } from '#shared/types/field'
 import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 
@@ -13,7 +13,7 @@ import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
  * from the same rule: the candidates a picker offers, and the ones a page of records came with.
  */
 export const useRelationsStore = defineStore('relations', () => {
-  const api = useApi()
+  const api = useRelationsApi()
 
   const optionsByField = ref<Record<string, IRecordOption[]>>({})
   const linkedByField = ref<Record<string, Record<string, ILinkedRecord>>>({})
@@ -49,9 +49,7 @@ export const useRelationsStore = defineStore('relations', () => {
 
     await Promise.all(
       relationFields.map(async (field) => {
-        const response = await api<{ options: IRecordOption[] }>(
-          `/api/tables/${tableId}/fields/${field.id}/options`,
-        )
+        const response = await api.options(tableId, field.id)
         tableIdByField.value[field.id] = tableId
         optionsByField.value[field.id] = response.options
         cacheLinkedRecords({ [field.id]: linkedRecordsFromOptions(response.options) })
@@ -85,10 +83,7 @@ export const useRelationsStore = defineStore('relations', () => {
     // Never seeded — nothing has told this store which table answers for the field
     if (tableId === undefined) return []
 
-    const response = await api<{ options: IRecordOption[] }>(
-      `/api/tables/${tableId}/fields/${fieldId}/options`,
-      { query: { q: term }, signal },
-    )
+    const response = await api.search(tableId, fieldId, term, signal)
 
     cacheLinkedRecords({ [fieldId]: linkedRecordsFromOptions(response.options) })
 

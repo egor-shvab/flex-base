@@ -107,7 +107,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef, useId, watch } from 'vue'
-import { useApi } from '~/composables/useApi'
+import { useFieldsApi } from '~/api/fields'
 import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
@@ -185,7 +185,7 @@ function removeChoice(index: number) {
   rowIds.value.splice(index, 1)
 }
 
-const api = useApi()
+const fieldsApi = useFieldsApi()
 const tablesStore = useTablesStore()
 
 // A relation may point at any of the user's tables, its own included — "parent task" is a
@@ -231,7 +231,7 @@ watch(
     targetFields.value = []
     if (targetTableId === '') return
 
-    const response = await api<{ fields: IField[] }>(`/api/tables/${targetTableId}/fields`)
+    const response = await fieldsApi.list(targetTableId)
     targetFields.value = response.fields
 
     // Keep a choice that still exists, otherwise fall back to the target's first field

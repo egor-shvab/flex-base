@@ -195,6 +195,20 @@ Two things in `utils/error-log-file.ts` look like tidying opportunities and are 
 
 ## The metadata layer
 
+### The client/server contract is declared, not inferred
+
+`shared/types/api.ts` names each endpoint's response envelope; a handler annotates its return type with one, and the matching function in `app/api/` reads the same one. Before it, 21 call sites asserted `api<{ tables: … }>('/api/tables')` — a claim about a handler the compiler never looked at, so renaming a response key compiled everywhere and broke at runtime.
+
+**Nitro's own route-type inference was the alternative, and it was rejected.** It cannot type the path builders, it does not carry reliably through the `useRequestFetch` cookie-forwarding seam, and it leaves the client nothing to read: the declaration is the point, not the checking. The cost is that a shape is written in two places, paid down by the annotation on all 19 handlers — without those the file is documentation rather than a contract.
+
+**The envelopes are the only thing declared there.** `IRecordPage` and `IRecordDetail` are whole responses already, so aliasing either would be a second name for one thing.
+
+**`registerEndpoint` stays the way store specs stub the API.** The modules in `app/api/` are transport, not a seam to mock: stubbing them would take the fetch path out of the test and give the specs a second source of truth able to drift, which is what `CLAUDE.md` §10 refuses. `apiPath` emits the same strings the specs already register, so none of them changed.
+
+### A row's timestamps are mapped, not left to `JSON.stringify`
+
+`ITable` declares ISO strings; Prisma returns `Date`s. The two agreed only because `JSON.stringify` calls `toJSON` and produces exactly the text the type promised — an agreement no type checker was watching, and one that only held at the moment of serialization. `db/tables.ts` now maps them, as `toSharedRecord` always did for records; the asymmetry between the two was the tell. **The wire output is byte-identical** — this buys the contract its annotation, not a behaviour change.
+
 ### There are no operators, anywhere
 
 A filter's **value** is the whole contract. How a value is compared is the field type's business, declared once in `FIELD_SQL_BY_TYPE` on the server — it never travels in the URL, no control knows it, and no user can pick one. This is what keeps the filter drawer, the URL codec, the summary chips and the SQL builder from each needing a per-operator branch.

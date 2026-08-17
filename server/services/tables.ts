@@ -1,36 +1,47 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { toHttpError } from '#server/db/prisma-errors'
-import { tableListSelect } from '#server/db/tables'
+import { tableListSelect, toSharedTableListItem } from '#server/db/tables'
+import type { ITableListItem } from '#shared/types/table'
 
 const tableErrors = {
   conflict: 'A table with this name already exists',
   notFound: 'Table not found',
 }
 
-export function listTables(userId: string) {
-  return prisma.table.findMany({
+export async function listTables(userId: string): Promise<ITableListItem[]> {
+  const tables = await prisma.table.findMany({
     where: { userId },
     orderBy: { createdAt: 'asc' },
     select: tableListSelect,
   })
+
+  return tables.map(toSharedTableListItem)
 }
 
-export async function createTable(userId: string, name: string) {
+export async function createTable(userId: string, name: string): Promise<ITableListItem> {
   try {
-    return await prisma.table.create({ data: { userId, name }, select: tableListSelect })
+    return toSharedTableListItem(
+      await prisma.table.create({ data: { userId, name }, select: tableListSelect }),
+    )
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }
 }
 
-export async function renameTable(userId: string, tableId: string, name: string) {
+export async function renameTable(
+  userId: string,
+  tableId: string,
+  name: string,
+): Promise<ITableListItem> {
   try {
-    return await prisma.table.update({
-      where: { id: tableId, userId },
-      data: { name },
-      select: tableListSelect,
-    })
+    return toSharedTableListItem(
+      await prisma.table.update({
+        where: { id: tableId, userId },
+        data: { name },
+        select: tableListSelect,
+      }),
+    )
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }

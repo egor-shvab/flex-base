@@ -1,11 +1,11 @@
 import { ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
-import { useApi } from '~/composables/useApi'
+import { useTablesApi } from '~/api/tables'
 import type { ITableListItem } from '#shared/types/table'
 import type { TTableInput } from '#shared/validation/table'
 
 export const useTablesStore = defineStore('tables', () => {
-  const api = useApi()
+  const api = useTablesApi()
 
   // shallowRef: the collection is replaced wholesale, never mutated item-by-item
   const tables = shallowRef<ITableListItem[]>([])
@@ -17,7 +17,7 @@ export const useTablesStore = defineStore('tables', () => {
   const failed = ref(false)
 
   async function fetchTables() {
-    const response = await api<{ tables: ITableListItem[] }>('/api/tables')
+    const response = await api.list()
     tables.value = response.tables
     loaded.value = true
     failed.value = false
@@ -39,19 +39,13 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   async function createTable(input: TTableInput) {
-    const response = await api<{ table: ITableListItem }>('/api/tables', {
-      method: 'POST',
-      body: input,
-    })
+    const response = await api.create(input)
     tables.value = [...tables.value, response.table]
     return response.table
   }
 
   async function renameTable(tableId: string, input: TTableInput) {
-    const response = await api<{ table: ITableListItem }>(`/api/tables/${tableId}`, {
-      method: 'PATCH',
-      body: input,
-    })
+    const response = await api.rename(tableId, input)
     tables.value = tables.value.map((table) => (table.id === tableId ? response.table : table))
   }
 
@@ -75,7 +69,7 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   async function deleteTable(tableId: string) {
-    await api(`/api/tables/${tableId}`, { method: 'DELETE' })
+    await api.remove(tableId)
     tables.value = tables.value.filter((table) => table.id !== tableId)
   }
 

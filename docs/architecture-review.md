@@ -24,93 +24,15 @@ So the honest answer to "what would we decide differently from the beginning" is
 mostly about **where things live rather than how they work**. The first theme — three server layers
 present but only two named — is closed: `server/db/` now holds persistence and the direction
 `api → services → db` is lint-enforced. So is the second half of the next one: ownership is now
-obtained from a handler factory rather than remembered. Three remain:
+obtained from a handler factory rather than remembered, and the client/server contract is now declared in `shared/types/api.ts` and annotated on every handler. Two remain:
 
-1. **The client/server contract is a convention, not a structure.** It is currently correct at
-   every one of ~21 client call sites, and nothing but review keeps it that way (P3).
-2. **The extension axis is scattered.** A field type is the one thing this platform is designed to
+1. **The extension axis is scattered.** A field type is the one thing this platform is designed to
    be extended by, and defining one means editing thirteen places across three roots (P4).
-3. **One client-side cache duplicates a framework the app already runs** (P5, P6).
+2. **One client-side cache duplicates a framework the app already runs** (P5, P6).
 
 Everything after P7 is either taste, deferred, or gated behind a trigger — labelled as such.
 
-**Ranked by value ÷ risk:** P6, P3, P4, P10, P9, P5, P8, P11. (P1, P2 and P7 have landed.)
-
----
-
-## P3 — A declared client↔server contract, and one API client module per resource
-
-**Problem.** There is no contract between the two halves of the app. There are 21 hand-written
-pairs of a URL string and an asserted response type, spread over seven client files:
-
-```
-app/stores/tables.ts        4    app/stores/relations.ts      2
-app/stores/fields.ts        4    app/composables/useTableLoader.ts   1
-app/stores/records.ts       4    app/composables/useRecordDetail.ts  1
-app/stores/auth.ts          4    app/components/modals/FieldFormModal.vue  1
-```
-
-Three distinct problems ride on that:
-
-1. **The response type is asserted, not derived.** `api<{ tables: ITableListItem[] }>('/api/tables')`
-   is a claim about a handler the compiler never looks at. Change `index.get.ts` to return
-   `{ items }` and everything still compiles; the page breaks at runtime.
-2. **The route shape is duplicated.** `/api/tables/${tableId}/fields/${fieldId}/options` is written
-   in two stores, and the whole route tree is restated across seven client files plus the e2e
-   specs. A route rename is a find-and-replace across layers.
-3. **A component performs transport.** `FieldFormModal.vue` calls `useApi()` and fetches another
-   table's fields directly. `decisions.md` explains _why_ it bypasses the fields store — that
-   reasoning is sound — but the conclusion drawn was "fetch from the component", when the actual
-   gap is that there is no transport layer below the stores to reach for.
-
-**Proposed shape.** A thin API layer, and stores that hold only state.
-
-```
-shared/types/api.ts     the response shapes, one per endpoint — the contract both sides satisfy
-app/api/
-  client.ts             useApi()'s current job (the useRequestFetch seam)
-  paths.ts              every route as a function: tables(), table(id), fieldOptions(tableId, fieldId)
-  tables.ts  fields.ts  records.ts  relations.ts  auth.ts
-```
-
-Each resource module exports one function per endpoint, typed from `shared/types/api.ts`:
-
-```ts
-export const listFields = (tableId: string) => api<IFieldsResponse>(paths.fields(tableId))
-```
-
-Handlers assert against the same declaration — `satisfies IFieldsResponse` on the returned object,
-or an explicit return type — so a handler and its caller cannot drift without a compile error.
-Stores lose every URL and every response generic; `FieldFormModal` calls `listFields(targetTableId)`
-and no longer knows a route exists.
-
-**Alternative considered.** Nitro already infers route types for `$fetch`, so a leaner variant is to
-delete the explicit generics and let inference do the work. Rejected as the primary route: it does
-not cover the path builders, `useRequestFetch()`'s typing does not carry the inference reliably
-through the cookie-forwarding seam, and inference gives the client no declaration to test or read.
-The declaration is the point.
-
-**Affected.** New `app/api/*` (~6 files) and `shared/types/api.ts`; all five stores;
-`useTableLoader`, `useRecordDetail`; `FieldFormModal.vue`; `useApi.ts` folds into `app/api/client.ts`;
-all 19 handlers gain a `satisfies` or a return type. Store specs stop stubbing URLs and stub the
-API module instead — which is the seam they wanted all along.
-
-**Why it is an improvement.** The frontend/backend boundary becomes a thing that exists in one file
-rather than an agreement re-made at each call site. Route renames become one edit. Components stop
-doing transport. And the store specs' current dependence on `registerEndpoint` with a literal path
-turns into a typed stub.
-
-**Risks / downsides.** `shared/types/api.ts` is a second place a response shape is written, so it
-can drift from the handler unless the `satisfies` is actually applied at all 19 — a mechanical but
-real discipline. It also makes `shared/` the home of a boundary contract, which is a new job for
-that directory and should be stated in `CLAUDE.md` §3 rather than left implicit. Mild risk of the
-API modules turning into a second store layer; the guard is that they hold no state and no
-reactivity — they are functions over `$fetch` and nothing else.
-
-**Complexity.** Medium. Wide but shallow; no logic changes.
-
-**Depends on.** Nothing — P2 has landed, so handler return types are already clean. Should land before P5, which
-needs a transport seam to move the record writes to.
+**Ranked by value ÷ risk:** P6, P4, P10, P9, P5, P8, P11. (P1, P2, P3 and P7 have landed.)
 
 ---
 
@@ -235,8 +157,7 @@ cleanly the correct outcome is to abandon this proposal, not to weaken them.
 
 **Complexity.** Medium, with a high chance of being fiddly at the end rather than the start.
 
-**Depends on.** P3 (needs somewhere for the write calls to go). Should not be attempted before the
-e2e suite is green and being run.
+**Depends on.** Nothing — P3 has landed, so `app/api/records.ts` is where the write calls go. Should not be attempted before the e2e suite is green and being run.
 
 ---
 
@@ -266,8 +187,7 @@ contract to be declared in.
 
 **Complexity.** Small.
 
-**Depends on.** P3 (naturally; can be done without it at the cost of two more hand-written response
-types).
+**Depends on.** Nothing — P3 has landed, so the new shapes are declared in `shared/types/api.ts`.
 
 ---
 
@@ -309,7 +229,7 @@ than either end state.
 
 **Complexity.** Large, and almost entirely in review rather than in code.
 
-**Depends on.** P3, P4, P5. Revisit **only** once those have landed, or when a fourth domain appears. P7 has already taken the cheap half of it — a component's private modules now sit with the component.
+**Depends on.** P4, P5. Revisit **only** once those have landed, or when a fourth domain appears. P7 has already taken the cheap half of it — a component's private modules now sit with the component.
 
 ---
 
@@ -462,14 +382,12 @@ sub-note are the parts that do pay, and neither is the split those entries rejec
 ## Sequencing
 
 ```
-P3 ─┬─ P5
-    ├─ P6
-    └─ P8 (defer)
-
-P4  — gated on a new field type
+P5, P6   — independent, any time
+P8       — defer (see its entry)
+P4       — gated on a new field type
 P9, P10  — independent, any time
 P11      — gated on measurement
 ```
 
-The first pass in flight is **P3 → P6**. Everything after that is a judgement call, and
+The first pass has **P6** left. Everything after that is a judgement call, and
 P4, P5, P8 and P11 each carry an explicit gate above.

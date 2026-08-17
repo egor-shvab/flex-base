@@ -9,6 +9,7 @@ import { requireUser } from '#server/utils/auth'
 import { routeParam } from '#server/utils/route'
 import type { IAuthUser } from '#shared/types/auth'
 import type { IField } from '#shared/types/field'
+import type { ITable } from '#shared/types/table'
 
 /**
  * Handler factories for the table-scoped routes: **the ownership check is how the context comes
@@ -39,15 +40,12 @@ interface IHandlerContext {
   user: IAuthUser
 }
 
-/** The table itself, as `tableSelect` returns it — `Date`s, not the wire's ISO strings. */
-type TOwnedTable = Awaited<ReturnType<typeof requireOwnedTable>>
-
 /**
  * The table, proven to exist and to belong to the caller. A missing or foreign one is a 404
  * from `requireOwnedTable` before the body below ever runs.
  */
 export function defineTableHandler<T>(
-  handler: (context: IHandlerContext & { table: TOwnedTable }) => Promise<T>,
+  handler: (context: IHandlerContext & { table: ITable }) => Promise<T>,
 ) {
   return defineEventHandler(async (event): Promise<T> => {
     const user = requireUser(event)
@@ -79,7 +77,7 @@ export function defineFieldsHandler<T>(
  * it opened from is not about.
  */
 export function defineTableWithFieldsHandler<T>(
-  handler: (context: IHandlerContext & { table: TOwnedTable; fields: IField[] }) => Promise<T>,
+  handler: (context: IHandlerContext & { table: ITable; fields: IField[] }) => Promise<T>,
 ) {
   return defineEventHandler(async (event): Promise<T> => {
     const user = requireUser(event)

@@ -99,7 +99,8 @@ app/                         # Nuxt 4 frontend (client)
     modals/                  # dialogs built on BaseModal
     records/                 # the metadata renderers — DynamicForm, DynamicTable, the filter panel & summary
   field-types/               # EVERYTHING per-field-type: the input/filter/cell registries + the cell components
-  composables/               # useApi, useForm, useDeleteConfirm, … (imported explicitly — see §4)
+  api/                       # the transport layer: paths.ts + one use*Api() per resource
+  composables/               # useForm, useDeleteConfirm, … (imported explicitly — see §4)
   layouts/                   # default + auth layouts
   middleware/                # route guards (auth)
   pages/                     # file-based routing
@@ -196,7 +197,8 @@ Rationale for all three: `docs/decisions.md`.
 - **A composable belonging to exactly one component lives in that component's own folder**, not in `app/composables/` — `Foo.vue` becomes `Foo/Foo.vue` beside `Foo/useThing.ts`, its specs and any rig they share. `app/composables/` is for what the whole app may reach for; scope is stated by location, not by a warning in a doc comment. `BaseSelect/` is the one today. Auto-import is unaffected (`pathPrefix: false` names by filename), and `nuxt.config.ts` pins `extensions: ['.vue']` so a `.ts` sitting there is **not** registered as a component.
 - Props and emits are typed via generics — `defineProps<{ … }>()` / `defineEmits<{ … }>()`; no runtime prop declarations.
 - DTO/request types are derived with `z.infer` from the shared zod schemas — never hand-write a parallel interface that can drift.
-- Data fetching chain: page/component → `useAsyncData`/store action → `useApi()`. **Never bare `$fetch`** — it drops cookies during SSR. Surface request errors with `getApiErrorMessage`.
+- Data fetching chain: page/component → `useAsyncData`/store action → **`app/api/`** → `useApi()`. **Never bare `$fetch`** — it drops cookies during SSR. Surface request errors with `getApiErrorMessage`.
+- **A URL and a response type live only in `app/api/`.** Routes are built from `apiPath` (`app/api/paths.ts`), responses are declared in `shared/types/api.ts`, and every handler annotates its return type with one of those declarations — so a shape that moves on the server fails to compile on the client. A store, a composable or a component that writes `/api/…` or an `api<{ … }>` generic is reaching past the layer that exists to hold them.
 - Forms use the `useForm` composable — reactive fields, per-field zod errors that clear on edit, form-level server error, `pending`, `submit`, `reset`.
 - Deleting anything from a list page goes through `useDeleteConfirm`, not a hand-rolled pending flag.
 - A popover goes through `usePopover` (+ `useAnchoredPosition` where it must escape a clipping ancestor), never a hand-rolled open/outside-click/focus-restore trio.
