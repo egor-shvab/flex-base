@@ -446,6 +446,14 @@ A mirrored copy would have to survive SSR hydration to stay correct. Every actio
 
 `createRecord` returns the page the new record landed on and only refetches when that equals the current page; the page navigates when it differs. Otherwise the URL would show one page while the table showed another, or the refetch would happen twice.
 
+### The records store is not a duplicated cache, and `useAsyncData` would not replace it
+
+It looks like one — it holds rows, a pending flag, a failure flag and a per-table guard, all of which `useAsyncData` offers. **Retiring it was proposed and rejected on the numbers.** Its spec pins 25 behaviours; about seven are that cache. The other eighteen are paging arithmetic and write orchestration `useAsyncData` has no opinion about: `isDefaultView`, the page a created record lands on, the `lastPage` step-back on delete, the in-place splice on an edit in the default view, "refetch the page it is actually on, not the one the query names". Those do not disappear with the store — they move to a composable that reads `total` and `page` out of `data.value` rather than from plain refs, which is the same logic made harder to read.
+
+**`useAsyncData` also discards data on error** — `asyncData.js`'s `.catch` sets `data.value` back to `options.default()`. A failed refetch here keeps its rows under the banner, and keeping them would need a `shallowRef` of the last good page: the state the change existed to remove, restored under another name.
+
+The seam that _would_ work is worth recording for anyone who revisits: key on the **`tableId`** and pass the query through `watch`, and the body's four states fall out for free — a key change swaps to a fresh entry, so switching tables shows the skeleton, while a watch-triggered refresh retains `data` until the new result lands, so an in-place refetch keeps its rows and says "Filtering…". That is the half that was never the problem.
+
 ### In `getApiErrorMessage`, blank counts as absent
 
 The chain was three `??`s, and `??` skips only `null`/`undefined` — so a response carrying `statusMessage: ''` won the chain and rendered an **empty** error box, the one failure mode worse than a generic message because it looks like the form simply did nothing. The candidates now go through a `nonBlank` guard, which also closes the hole from the other side: `data` is untyped at runtime, so a non-string `statusMessage` used to be returned unchanged from a `string`-typed function. `||` is wrong for the same reason it is usually wrong here — it is the explicit `typeof` check that makes a number or an object fall through rather than stringify.

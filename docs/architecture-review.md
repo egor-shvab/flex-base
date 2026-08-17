@@ -24,16 +24,19 @@ So the honest answer to "what would we decide differently from the beginning" is
 mostly about **where things live rather than how they work**. The first theme — three server layers
 present but only two named — is closed: `server/db/` now holds persistence and the direction
 `api → services → db` is lint-enforced. So is the second half of the next one: ownership is now
-obtained from a handler factory rather than remembered, and the client/server contract is now declared in `shared/types/api.ts` and annotated on every handler. Two remain:
+obtained from a handler factory rather than remembered, and the client/server contract is now declared in `shared/types/api.ts` and annotated on every handler. **One theme remains:**
 
-1. **The extension axis is scattered.** A field type is the one thing this platform is designed to
-   be extended by, and defining one means editing thirteen places across three roots (P4).
-2. **One client-side cache duplicates a framework the app already runs** (P5). Its other half — a
-   server-derived count maintained by client-side arithmetic — is closed.
+**The extension axis is scattered.** A field type is the one thing this platform is designed to be
+extended by, and defining one means editing thirteen places across three roots (P4).
 
-Everything after P7 is either taste, deferred, or gated behind a trigger — labelled as such.
+The last theme — a client-side cache said to duplicate a framework the app already runs — did not
+survive inspection. Half of it was real and is closed: a server-derived count maintained by
+client-side arithmetic. The other half was the records store, and counting what that store actually
+holds rejected it; see **Considered and recommended against**.
 
-**Ranked by value ÷ risk:** P4, P5, P8, P11. (P1, P2, P3, P6, P7, P9 and P10 have landed.)
+Everything left is gated behind a stated trigger — labelled as such.
+
+**Ranked by value ÷ risk:** P4, P8, P11 — all three gated. (P1, P2, P3, P6, P7, P9 and P10 have landed; P5 was rejected.)
 
 ---
 
@@ -43,15 +46,15 @@ Everything after P7 is either taste, deferred, or gated behind a trigger — lab
 currently spread across three roots and thirteen declaration sites. `CLAUDE.md` §9 lists them, which
 is itself the tell — the checklist exists because the structure does not carry the answer:
 
-| Where                             | What                                                                                                                                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prisma/schema.prisma`            | the enum member                                                                                                                                                                             |
-| `shared/constants/field.ts`       | `FIELD_TYPES`, `FIELD_TYPE_LABELS`, `MULTI_VALUE_BY_TYPE`                                                                                                                                   |
-| `shared/constants/filter.ts`      | `FILTER_VALUE_BY_TYPE`                                                                                                                                                                      |
-| `shared/validation/field.ts`      | the `superRefine` branch for its options                                                                                                                                                    |
-| `shared/validation/record.ts`     | `VALUE_SCHEMA_BY_TYPE`                                                                                                                                                                      |
-| `server/services/record-query.ts` | `FIELD_SQL_BY_TYPE`, `MULTI_SQL`                                                                                                                                                            |
-| `app/field-types/`                | `FIELD_INPUTS` + `MULTI_INPUTS`, `FIELD_FILTERS` + `MULTI_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES` + `MULTI_SUMMARIES`, `FIELD_TYPE_ICONS`, `FIELD_CONFIG_SUMMARIES`, one cell component |
+| Where                         | What                                                                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`        | the enum member                                                                                                                                                                             |
+| `shared/constants/field.ts`   | `FIELD_TYPES`, `FIELD_TYPE_LABELS`, `MULTI_VALUE_BY_TYPE`                                                                                                                                   |
+| `shared/constants/filter.ts`  | `FILTER_VALUE_BY_TYPE`                                                                                                                                                                      |
+| `shared/validation/field.ts`  | the `superRefine` branch for its options                                                                                                                                                    |
+| `shared/validation/record.ts` | `VALUE_SCHEMA_BY_TYPE`                                                                                                                                                                      |
+| `server/db/record-sql.ts`     | `FIELD_SQL_BY_TYPE`, `MULTI_SQL`                                                                                                                                                            |
+| `app/field-types/`            | `FIELD_INPUTS` + `MULTI_INPUTS`, `FIELD_FILTERS` + `MULTI_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES` + `MULTI_SUMMARIES`, `FIELD_TYPE_ICONS`, `FIELD_CONFIG_SUMMARIES`, one cell component |
 
 Totality makes this **safe** — every map is a total `Record<TFieldType, …>`, so a missing entry is a
 compile error, and that mechanism should be preserved exactly. What it does not make it is
@@ -90,7 +93,7 @@ constraint is worth writing into `CLAUDE.md` §9 whether or not this proposal la
 
 **Affected.** `app/field-types/*` (restructured, ~20 files), new `shared/field-types/` and
 `server/field-types/`; `shared/constants/{field,filter}.ts` and `shared/validation/record.ts` shrink
-to re-exports or disappear; `server/services/record-query.ts` keeps only the builders. Consumers:
+to re-exports or disappear; `server/db/record-sql.ts` keeps only the builders. Consumers:
 unchanged. Specs: the registry specs move with their registries; the two structural invariant specs
 (`MULTI_INPUTS` vs `MULTI_VALUE_BY_TYPE`, `MULTI_SQL` likewise) become **stronger**, because both
 halves now sit in one file per type.
@@ -115,50 +118,6 @@ if not, take P1–P3 and leave this.
 also the safety net that makes it feasible.
 
 **Depends on.** Nothing — the server slice lands in `server/field-types/`, beside `db/`.
-
----
-
-## P5 — Retire the records store; the list is `useAsyncData`'s job
-
-**Problem.** `app/stores/records.ts` is a global Pinia singleton used by exactly one page. It holds
-`records`, `total`, `page`, `pageSize`, `pending`, `failed` and a `loadedTableId` guard whose sole
-purpose is clearing state that leaked between tables — that is, it hand-rolls a keyed cache. Nuxt
-already ships one: `useAsyncData` keyed on the table and the query gives pending, error, refresh,
-SSR-payload transfer and per-key isolation for free, and the page already uses it for the table
-metadata and for the detail dialog.
-
-The consequence is visible in the page: an `await useAsyncData(...)` for the first load, plus a
-`watch(queryKey)` that re-invokes the store for every subsequent one, plus a deliberate
-rethrow-then-swallow dance so the two paths can report the same failure differently
-(`decisions.md` → "A failed refetch is visible, not silent"). That entry is careful and correct, and
-it is describing the seam between two caches doing one job.
-
-**Proposed shape.** A `useRecordList(tableId, queryState)` composable owning one
-`useAsyncData` keyed on `records-${tableId}-${queryKey}`, returning `records`, `total`, `page`,
-`pageCount`, `pending`, `failed`, `refresh`. Writes move to `app/api/records.ts` (P3) and the page
-calls them directly, refreshing afterwards. The store is deleted.
-
-**Affected.** `app/stores/records.ts` (deleted), new `app/composables/useRecordList.ts`,
-`app/pages/tables/[tableId]/index.vue` (the `useAsyncData` + watcher pair collapses into one call),
-`app/stores/records.nuxt.spec.ts` → a composable spec.
-
-**Why it is an improvement.** One cache instead of two. The watcher, the rethrow-and-swallow pair
-and the `loadedTableId` guard all disappear, and each of them exists only because a singleton store
-is holding page-scoped state. The four-state body (skeleton / fieldless / empty / table) reads off
-one source instead of correlating `pending` against `records.length` across two owners.
-
-**Risks / downsides.** This is the **riskiest proposal in the set**, and the risk is precise: three
-separate entries in `decisions.md` pin behaviour that depends on the exact interleaving of "rows
-cleared" and "fetch in flight" — the skeleton must appear while switching tables, an in-place
-refetch must keep its rows and say "Filtering…", and the empty state must be suppressed while
-`failed`. `useAsyncData` changing keys does not preserve previous data by default, so reproducing
-"keep the rows during an in-place refetch" needs deliberate work. Those behaviours are covered by
-e2e specs, so a regression will be caught — but they are the cost, and if they cannot be reproduced
-cleanly the correct outcome is to abandon this proposal, not to weaken them.
-
-**Complexity.** Medium, with a high chance of being fiddly at the end rather than the start.
-
-**Depends on.** Nothing — P3 has landed, so `app/api/records.ts` is where the write calls go. Should not be attempted before the e2e suite is green and being run.
 
 ---
 
@@ -200,7 +159,7 @@ than either end state.
 
 **Complexity.** Large, and almost entirely in review rather than in code.
 
-**Depends on.** P4, P5. Revisit **only** once those have landed, or when a fourth domain appears. P7 has already taken the cheap half of it — a component's private modules now sit with the component.
+**Depends on.** P4 (P5 was rejected). Revisit **only** once it has landed, or when a fourth domain appears. P7 has already taken the cheap half of it — a component's private modules now sit with the component.
 
 ---
 
@@ -213,12 +172,12 @@ a scan per relation-option search). The architectural question is not "is it slo
 **whether the current query layer can accommodate the fix**, because if it cannot, the fix arrives
 as a rewrite under load.
 
-**The good news, stated so it is not re-derived later:** it can. Because `record-query.ts` composes
+**The good news, stated so it is not re-derived later:** it can. Because `db/record-sql.ts` composes
 SQL per field from metadata rather than emitting one fixed query, every remedy below plugs into the
 existing per-type rules:
 
 - a **GIN index** on `data` helps exactly one comparison — `jsonb_exists_any`, the multi-value
-  filter, which `record-query.ts` already notes is the one GIN-indexable operator in the layer;
+  filter, which `db/record-sql.ts` already notes is the one GIN-indexable operator in the layer;
 - a **per-field expression index** (`CREATE INDEX … ON "Record" ((data ->> 'key'))`) is a
   `sortExpr`/`expr`-shaped decision the registry already owns;
 - a **maintained `tsvector` column** would replace `buildRecordSearch`'s OR group, which is already
@@ -269,6 +228,14 @@ transport, one database, no second consumer. Every seam it would add is availabl
 cost, and `CLAUDE.md` §1's YAGNI rule rules it out today. P9(a) is the one piece of it worth keeping
 on the table.
 
+**Retiring the records store for `useAsyncData`** (this was P5). The premise — that the store
+duplicates a framework the app already runs — is about a third true. Its spec pins 25 behaviours, of
+which roughly seven are that cache; the rest are paging arithmetic and write orchestration
+`useAsyncData` has no opinion about, and they would relocate to a composable reading `total` and
+`page` out of `data.value` rather than disappear. `useAsyncData` additionally discards `data` on
+error, so keeping the rows under a failure banner would need a shadow ref — the state the change
+existed to delete. Recorded in `decisions.md`, including the one seam that _would_ have worked.
+
 **Splitting `BaseSelect.vue` or the records page further.** Both rejections in `decisions.md` were
 re-examined and both hold: the panel's Escape handling, `aria-activedescendant` IDREFs, teleport and
 sole focusable are coupled to the parent's keyboard dispatchers, and the records page's four body
@@ -280,12 +247,10 @@ sub-note are the parts that do pay, and neither is the split those entries rejec
 ## Sequencing
 
 ```
-P5   — independent, any time (the riskiest entry here)
-P8   — defer (see its entry)
 P4   — gated on a new field type
+P8   — gated on P4, or on a fourth domain
 P11  — gated on measurement
 ```
 
-**The first pass is complete.** Everything left is a judgement call, and P4, P5, P8 and P11 each
-carry an explicit gate above. Everything after that is a judgement call, and
-P4, P5, P8 and P11 each carry an explicit gate above.
+**Nothing here is unblocked.** Every remaining entry carries an explicit gate above, so this register
+is now something to read when a gate opens rather than a queue to work through.

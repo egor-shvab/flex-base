@@ -32,7 +32,10 @@ loses its entry there; an item that is rejected leaves both.
       update handler passing the wrong id or param name to its service would not be caught. The
       four count-moving writes gained this cover with P6; these two are what is left.
 
-### Second pass — each behind a stated judgement call
+### Second pass — everything left is gated
+
+Nothing below is unblocked. Each open item names the trigger that would start it; until one comes
+true there is no architectural work queued, and the next phase is a decision rather than a backlog.
 
 - [x] **P9** — `server/db/` stops speaking HTTP: it classifies a Prisma fault, `utils/http-errors.ts`
       maps it, and a lint rule holds the boundary. **Shape changed on inspection** — the central
@@ -42,9 +45,12 @@ loses its entry there; an item that is rejected leaves both.
       contract. No sink port: one shared write path, since there is one destination.
 - [ ] **P4** — A field type becomes three co-located modules instead of thirteen registry entries.
       _Gate: do this when the next field type is scheduled, not before._
-- [ ] **P5** — Retire the records store; the list becomes one `useAsyncData` behind `useRecordList`.
-      _Gate: only with the e2e suite green — three `decisions.md` entries pin behaviour it touches._
-- [ ] **P8** — Feature folders for the frontend. _Gate: after P3/P4/P5, or at a fourth domain._
+- [~] **P5** — **Rejected on inspection, not deferred.** Of the 25 behaviours the records store's
+  spec pins, ~7 are the cache `useAsyncData` would replace; the rest are paging and write
+  orchestration that would only relocate. `useAsyncData` also discards data on error, so keeping
+  the rows under a failure banner needs back the state the change would remove. Reasoning in
+  `docs/decisions.md`; do not re-derive it.
+- [ ] **P8** — Feature folders for the frontend. _Gate: after P4, or at a fourth domain._
 - [ ] **P11** — Index strategy for the JSONB ceiling. _Gate: first table over ~100k records, or the
       first report of a slow filtered view._
 
