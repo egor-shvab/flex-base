@@ -30,4 +30,35 @@ export default withNuxt(
       ],
     },
   },
+
+  // The server's layers point one way — `api → services → db`, with `utils` cross-cutting and
+  // importing none of the three. Stated here rather than trusted, because the edge that was
+  // wrong before (`utils/ownership` reaching into `services/`) compiled perfectly well.
+  // Specs are exempt: a spec sits beside its subject and may reach wherever it needs to.
+  {
+    files: ['server/db/**/*.ts', 'server/utils/**/*.ts'],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['./*', './**', '../*', '../**'],
+              message: 'Use an alias (~/…, #shared/…, #server/…) instead of a relative import.',
+            },
+            {
+              // `regex`, not `group`. Group patterns are matched with gitignore syntax, where
+              // a leading `#` starts a **comment** — so `#server/services/*` matches nothing at
+              // all and the rule passes silently. Any alias-prefixed restriction has to be a
+              // regex; only the relative patterns above can be expressed as a group.
+              regex: '^#server/(services|api)/',
+              message:
+                'Dependencies point downward: db/ and utils/ may not import services/ or api/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ).append(eslintConfigPrettier)

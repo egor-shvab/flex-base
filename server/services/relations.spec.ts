@@ -9,7 +9,7 @@ import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { asMultiple, record, relationField, textField } from '~~/test/fixtures'
 
-vi.mock('#server/utils/prisma', async () => ({
+vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 

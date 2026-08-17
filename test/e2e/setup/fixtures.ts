@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 import { createField, createFields, createRecords, createTable } from '~~/test/integration/seed'

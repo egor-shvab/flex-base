@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, readValidatedBody } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import { setAuthCookie, signAuthToken, verifyPassword } from '#server/utils/auth'
 import { credentialsInputSchema } from '#shared/validation/auth'
 

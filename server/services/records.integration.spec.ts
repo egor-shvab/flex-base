@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createRecord, deleteRecord, listRecords, updateRecord } from '#server/services/records'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecordQuery } from '#shared/types/record'

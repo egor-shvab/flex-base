@@ -5,7 +5,6 @@ import {
   deleteRecord,
   getRecordDetail,
   listRecords,
-  toSharedRecord,
   updateRecord,
 } from '#server/services/records'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
@@ -13,7 +12,7 @@ import type { IRecordQuery } from '#shared/types/record'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { relationField, textField } from '~~/test/fixtures'
 
-vi.mock('#server/utils/prisma', async () => ({
+vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 
@@ -51,23 +50,6 @@ function stubPage(rows: unknown[], total: number) {
 }
 
 beforeEach(resetPrismaMock)
-
-describe('toSharedRecord', () => {
-  it('renders the timestamps as ISO strings, which is what the wire carries', () => {
-    expect(toSharedRecord(row())).toMatchObject({
-      createdAt: '2026-01-05T09:14:00.000Z',
-      updatedAt: '2026-02-11T16:30:00.000Z',
-    })
-  })
-
-  it('reads a JSON null column as an empty record rather than passing null on', () => {
-    expect(toSharedRecord(row({ data: null })).data).toEqual({})
-  })
-
-  it('keeps the stored data otherwise', () => {
-    expect(toSharedRecord(row()).data).toEqual({ company: 'Acme' })
-  })
-})
 
 describe('listRecords', () => {
   it('pages from the first row on page 1', async () => {

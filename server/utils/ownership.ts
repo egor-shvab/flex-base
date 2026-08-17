@@ -1,7 +1,7 @@
 import { createError } from 'h3'
-import { fieldSelect, toSharedField } from '#server/services/fields'
-import { tableSelect } from '#server/services/tables'
-import { prisma } from '#server/utils/prisma'
+import { fieldSelect, toSharedField } from '#server/db/fields'
+import { prisma } from '#server/db/prisma'
+import { tableSelect } from '#server/db/tables'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
 
@@ -63,8 +63,9 @@ export async function requireOwnedTableWithFields(userId: string, tableId: strin
 
 /**
  * A RELATION may only point at a table the same user owns, labelled by a field that table
- * actually has — neither is knowable to the shared schema, which has no database. Lives
- * here rather than in `services/fields`, which this module already imports.
+ * actually has — neither is knowable to the shared schema, which has no database. It is an
+ * ownership question about a *second* table, which is why it sits here and reads through the
+ * helper above rather than living in the field service.
  */
 export async function requireFieldTarget(userId: string, input: TFieldInput): Promise<void> {
   if (input.type !== 'RELATION') return

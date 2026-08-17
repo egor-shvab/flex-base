@@ -1,5 +1,5 @@
 import { Prisma } from '#server/generated/prisma/client'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 

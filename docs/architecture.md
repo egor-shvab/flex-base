@@ -144,7 +144,7 @@ Three columns of `Record` itself are shown on **every** table and are deliberate
 
 Because they look like ordinary fields, the filter controls, the URL format, the badge count and "Clear all" all work on them unchanged. Only two registries know better:
 
-- **`RECORD_COLUMN_SQL`** (`server/services/record-query.ts`) — the projection, since these live outside `data`. Every entry declares both an `expr` and a `sortExpr`: the number **filters as text** (`4` matches `#4`, `#14`, `#42`) but **orders as an integer** (`#9` before `#10`); a timestamp **filters as `::date`**, so an inclusive `to` bound covers that whole day instead of stopping at its midnight, but **orders as a timestamp**, so two records made on one day still order by time.
+- **`RECORD_COLUMN_SQL`** (`server/db/record-sql.ts`) — the projection, since these live outside `data`. Every entry declares both an `expr` and a `sortExpr`: the number **filters as text** (`4` matches `#4`, `#14`, `#42`) but **orders as an integer** (`#9` before `#10`); a timestamp **filters as `::date`**, so an inclusive `to` bound covers that whole day instead of stopping at its midnight, but **orders as a timestamp**, so two records made on one day still order by time.
 - **`RECORD_COLUMNS`** (`app/field-types/record-columns.ts`) — where the value comes from (`record.number` / `record.createdAt` / `record.updatedAt`, never `record.data`) and which cell renders it. `DynamicTable` consults it first and falls through to `FIELD_CELLS`, so it never learns which columns exist.
 
 Since `DEFAULT_SORT_KEY` is `createdAt`, the default view shows an active descending arrow on the Created at header — the table's default ordering is visible rather than implicit.
@@ -208,7 +208,7 @@ One reserved `?search=` param, ANDed with the filters. It is **free text ORed ac
 
 ## 8. The query layer
 
-`server/services/record-query.ts` is the only SQL in the project: `buildRecordWhere(tableId, fields, filters)`, `buildRecordSearch(...)`, `buildRecordOrderBy(fields, sort)`. Raw because Prisma cannot `orderBy` a JSON path.
+`server/db/record-sql.ts` is the only SQL in the project: `buildRecordWhere(tableId, fields, filters)`, `buildRecordSearch(...)`, `buildRecordOrderBy(fields, sort)`. Raw because Prisma cannot `orderBy` a JSON path.
 
 **One total map, `FIELD_SQL_BY_TYPE`**, gives each field type:
 
@@ -267,13 +267,17 @@ Only the modules whose contract is not obvious from their name.
 
 ### `server/`
 
+Three layers, dependencies pointing one way — `api` → `services` → `db` — with `utils/` cross-cutting (`CLAUDE.md` §3). `db/` is the only place a `select` shape, a row→domain mapper, the Prisma client or a `Prisma.Sql` fragment lives, which is what keeps a service readable as a rule rather than as a query.
+
+- **`db/tables.ts`** · **`db/fields.ts`** · **`db/records.ts`** — the `select` shapes and the row→domain mappers. `toSharedField` is the one place Prisma's untyped `options` JSON is narrowed to `IField`; `toSharedRecord` the one place its JSONB `data` column is; `toJsonData` the one cast back. `tableListSelect` spreads `tableSelect` and adds the counts only the dashboard needs
+- **`db/record-sql.ts`** — the SQL layer (§8). Named for what it is: `shared/utils/record-query.ts` is the URL codec, and the two used to share a name
+- **`db/prisma-errors.ts`** — `toHttpError(error, { conflict?, notFound })` — the shared `P2002` → 409 / `P2025` → 404 mapping used by all three services
 - **`utils/ownership.ts`** — `requireOwnedTable` (single scoped query; 404 when missing or foreign) · `requireOwnedTableFields` (same plus the table's field metadata in one round trip — reads need it to resolve sort/filter params) · `requireOwnedTableWithFields` (the table itself plus its fields, for the record-detail read, which has to **name** a table the page it opened from is not about) · `requireRecordFields` (the same plus a 400 when the table has no fields — **writes only**, since a field-less table must still list an empty page) · `requireFieldTarget` (a RELATION may only point at an owned table, labelled by a field that table has)
-- **`utils/prisma-errors.ts`** — `toHttpError(error, { conflict?, notFound })` — the shared `P2002` → 409 / `P2025` → 404 mapping used by all three services
 - **`utils/auth.ts`** — bcrypt hash/verify, JWT sign/verify, `auth_token` cookie helpers, `requireUser`. `verifyAuthToken` pins `algorithms: ['HS256']`, so the token cannot choose its own
 - **`utils/error-log.ts`** + **`utils/error-log-file.ts`** — the error sink `plugins/error-log.ts` wires to Nitro's `error` hook. The first is pure: `isLoggableServerError` (5xx and unclassified only), `readErrorLogRequest`, `buildErrorLogEntry` (timestamp injected), `formatErrorLogLine` (NDJSON). One entry carries timestamp · statusCode · name · message · stack · method · path · query **names** · userId, and **nothing else is ever read** — not headers, not the body, not query values, not `error.data`, not the user's email. The second appends to `logs/server-errors.log` and rotates it at 5 MB over 5 generations; it never throws, and switches itself off after a failure. Both contracts are in `decisions.md`
 - **`utils/field-key.ts`** — `slugify` (a display name → `^[a-z0-9_]+$`, `field` when nothing survives) + `buildFieldKey(name, type, existing)`. A key must be free for **every query param it would claim**, not only for itself: a field called "Page" becomes `page_2`, "Budget from" becomes `budget_from_2` next to a NUMBER `budget`. Server-only — nothing in the Vue layer derives a key
-- **`services/tables.ts`** — list/create/rename/delete scoped by `userId`. `deleteTable` refuses with 409 when another table's RELATION field targets it. Exports `tableSelect`; `tableListSelect` spreads it and adds the counts only the dashboard needs
-- **`services/fields.ts`** — list/create/update/delete scoped by `tableId`; derives `order` and the DB `options`, and takes the immutable `key` from `utils/field-key.ts`. Rejects type changes, RELATION retargeting, and narrowing a multi-value field (400 each); **widening** runs `widenToList` — one scoped, idempotent `UPDATE` — inside the same transaction as the metadata change. Exports `fieldSelect` + `toSharedField`, the one place Prisma's untyped `options` JSON is narrowed to `IField`
+- **`services/tables.ts`** — list/create/rename/delete scoped by `userId`. `deleteTable` refuses with 409 when another table's RELATION field targets it
+- **`services/fields.ts`** — list/create/update/delete scoped by `tableId`; derives `order` and the DB `options`, and takes the immutable `key` from `utils/field-key.ts`. Rejects type changes, RELATION retargeting, and narrowing a multi-value field (400 each); **widening** runs `widenToList` — one scoped, idempotent `UPDATE` — inside the same transaction as the metadata change
 - **`services/records.ts`** — paginated list (`$transaction` of two `$queryRaw`s sharing one WHERE fragment) + create/update/delete scoped by `tableId`. `data` is replaced wholesale on update; every write passes `assertRelationTargets` first. `getRecordDetail` returns one record as `IRecordDetail` — an aggregate on purpose (`decisions.md`); a missing row is a 404
 - **`api/tables/[tableId]/records/index.get.ts`** — validates with `buildRecordQuerySchema(fields)`, then composes `IRecordQuery` from `parseRecordQueryState(fields, params)` + the validated `pageSize` — **the schema judges, the codec decodes**
 
@@ -425,7 +429,7 @@ The table list is fetched **by the layout, once per session**, via `ensureTables
 
 Two badges appear below, and both mean the line is inventory but another suite is what would catch it:
 
-- **_(integration)_** — SQL semantics: a cast, a projection, an opt-out. A browser cannot answer them any better than a database round trip can, so they are proved in `server/services/record-query.integration.spec.ts`.
+- **_(integration)_** — SQL semantics: a cast, a projection, an opt-out. A browser cannot answer them any better than a database round trip can, so they are proved in `server/db/record-sql.integration.spec.ts`.
 - **_(unit)_** — logic a component spec pins in milliseconds. Where a keyboard cursor _lands_ is decided by the same code whatever renders it; only whether it is _painted_ needs a browser.
 
 **Four lines are approximated rather than proven** — hydration mismatches, a focus ring not clipped by its cell, Backspace held down, and a multi-value cell's ellipsis. Each spec says so where it sits, and the register in `decisions.md` carries the reason.

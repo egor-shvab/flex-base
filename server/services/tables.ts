@@ -1,20 +1,7 @@
 import { createError } from 'h3'
-import type { Prisma } from '#server/generated/prisma/client'
-import { prisma } from '#server/utils/prisma'
-import { toHttpError } from '#server/utils/prisma-errors'
-
-/** The table itself, without the counts only the dashboard needs. Shared with `requireOwnedTable`. */
-export const tableSelect = {
-  id: true,
-  name: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.TableSelect
-
-const tableListSelect = {
-  ...tableSelect,
-  _count: { select: { fields: true, records: true } },
-} satisfies Prisma.TableSelect
+import { prisma } from '#server/db/prisma'
+import { toHttpError } from '#server/db/prisma-errors'
+import { tableListSelect } from '#server/db/tables'
 
 const tableErrors = {
   conflict: 'A table with this name already exists',

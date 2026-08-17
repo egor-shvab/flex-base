@@ -22,6 +22,10 @@ The component scan (`components: [{ path: '~/components', pathPrefix: false }]`)
 
 Nuxt's import protection rejects it in app and shared code. The Vue layer reaches the server through `$fetch`/`useApi()`. `#server` is a Nuxt built-in alias (registered in `@nuxt/schema`'s alias defaults alongside `#shared`), so it resolves for `vue-tsc` and the Nitro bundler alike.
 
+### An alias-prefixed `no-restricted-imports` pattern must be a `regex`, not a `group`
+
+`group` patterns are matched with **gitignore syntax**, where a leading `#` starts a comment — so `#server/services/*` matches nothing, the rule reports no error, and the config reads as though a boundary is enforced when none is. Escaping the `#` does not help. Only the relative patterns (`./*`, `../**`) can be groups; the server's layer rule is a `regex` for this reason, and any future boundary over `~/…`, `#shared/…` or `#server/…` must be too. Verify a new rule by writing a file that violates it and watching ESLint fail — a rule that never fires is indistinguishable from one that passes.
+
 ### Relative imports are a lint error under `app/`, `server/`, `shared/`
 
 `no-restricted-imports` is scoped to those three directories specifically so the root config files can keep their own relative paths.
@@ -84,7 +88,7 @@ The one thing that does not fit inside a source directory is the shared `IField`
 
 ### The SQL builder is unit-testable because it never executes
 
-`server/services/record-query.ts` imports `Prisma` from the generated client for `Prisma.sql` / `Prisma.join` alone — no client instance. Its exports return `Prisma.Sql`, whose `.text` (numbered `$1…$n` placeholders) and `.values` can be asserted on with no connection. That is what lets the layer where a mistake is most expensive — a filter that silently widens, a wildcard that is not escaped — be pinned without a database. The suite therefore needs `prisma generate` to have run, which `postinstall` covers.
+`server/db/record-sql.ts` imports `Prisma` from the generated client for `Prisma.sql` / `Prisma.join` alone — no client instance. Its exports return `Prisma.Sql`, whose `.text` (numbered `$1…$n` placeholders) and `.values` can be asserted on with no connection. That is what lets the layer where a mistake is most expensive — a filter that silently widens, a wildcard that is not escaped — be pinned without a database. The suite therefore needs `prisma generate` to have run, which `postinstall` covers.
 
 ### A duplicated test is a cost, not insurance
 
@@ -139,7 +143,7 @@ A 403 confirms the resource exists. 401 comes only from `requireUser(event)`. Lo
 
 Fetch-then-check is a TOCTOU pattern and one forgotten branch away from a leak. Scoping inside the query makes "not yours" and "not there" the same code path — which is also what makes 404-not-403 free.
 
-Ownership assertions live in `server/utils/ownership.ts` rather than in the services because that module already imports the services' helpers; the reverse would be a cycle.
+Ownership assertions live in `server/utils/ownership.ts` rather than in the services because they are cross-cutting: every service is reached through one, and none of them may reach back. They read `db/` for the `select` shapes and the row mappers, which is the direction `CLAUDE.md` §3 fixes — the earlier version imported `services/tables` and `services/fields` for exactly those two things, which put a util above the layer it serves.
 
 ### Ownership is denormalized nowhere
 
@@ -324,7 +328,7 @@ The reserved keys are **camelCase**, a shape `slugify` can never emit, so no use
 
 ### A choice's identity is its own text
 
-`Record.data` stores the choice string, not an option id. That keeps the whole SQL layer, the filter constants and the URL codec out of the colour change — SELECT still filters, sorts and searches on the stored text. The cost is that renaming a choice orphans the records holding the old one, which is recorded in the register rather than fixed: a stable option id buys nothing for colour and rewrites `record-query.ts` to get there.
+`Record.data` stores the choice string, not an option id. That keeps the whole SQL layer, the filter constants and the URL codec out of the colour change — SELECT still filters, sorts and searches on the stored text. The cost is that renaming a choice orphans the records holding the old one, which is recorded in the register rather than fixed: a stable option id buys nothing for colour and rewrites `record-sql.ts` to get there.
 
 ### A SELECT choice is coloured from a closed palette, not a free colour picker
 

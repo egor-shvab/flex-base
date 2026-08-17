@@ -1,5 +1,5 @@
 import { afterAll, beforeEach } from 'vitest'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 
 /**
  * A clean database before every case. `TRUNCATE … CASCADE` rather than deleting per model:

@@ -3,7 +3,7 @@ import { Prisma } from '#server/generated/prisma/client'
 import { createTable, deleteTable, listTables, renameTable } from '#server/services/tables'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
-vi.mock('#server/utils/prisma', async () => ({
+vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 

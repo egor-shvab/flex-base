@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { request, type FullConfig } from '@playwright/test'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import { assertDisposableDatabase } from '~~/test/disposable-database'
 
 export const E2E_USER = { email: 'e2e@example.com', password: 'correct-horse-battery' }

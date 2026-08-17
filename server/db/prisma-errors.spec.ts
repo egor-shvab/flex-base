@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
-import { toHttpError } from '#server/utils/prisma-errors'
+import { toHttpError } from '#server/db/prisma-errors'
 
 const messages = { conflict: 'A table with this name already exists', notFound: 'Table not found' }
 

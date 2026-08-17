@@ -4,7 +4,7 @@ import {
   deleteTable,
   renameTable,
 } from '#server/services/tables'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 let userId: string

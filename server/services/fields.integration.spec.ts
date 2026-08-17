@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createField as createFieldService, updateField } from '#server/services/fields'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import type { TRecordData } from '#shared/types/record'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'

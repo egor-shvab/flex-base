@@ -107,10 +107,11 @@ app/                         # Nuxt 4 frontend (client)
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
 server/                      # Nitro backend
   api/                       # HTTP route handlers (thin: parse → check ownership → call service)
+  services/                  # generic, framework-agnostic business logic
+  db/                        # persistence: the client, the selects, the row mappers, the SQL
   middleware/                # server middleware (attach authenticated user to event.context)
   plugins/                   # Nitro plugins — the `error` hook that records server faults
-  services/                  # generic, framework-agnostic business logic
-  utils/                     # prisma singleton, auth helpers, ownership assertions, the error log
+  utils/                     # cross-cutting: auth, route params, ownership, field keys, error log
   generated/prisma/          # generated Prisma client (gitignored — never edit by hand)
 shared/                      # code used by BOTH client & server — one rule per folder
   types/                     # type & interface declarations ONLY (zero runtime exports)
@@ -122,6 +123,8 @@ test/                        # fixtures, mount/prisma helpers, the integration a
 docs/                        # roadmap.md, architecture.md, decisions.md + the design concept
 public/                      # static assets
 ```
+
+**`server/` is three layers and dependencies point one way — `api` → `services` → `db`** — with `utils/` cross-cutting: importable by all three and importing none of them. `db/` is the only place that touches the Prisma client, a `select` shape, a row→domain mapper or `Prisma.Sql`; a service composes those into a rule, and a handler composes services. The direction is enforced by `no-restricted-imports` in `eslint.config.mjs`. **An alias-prefixed restriction there must be a `regex` pattern, never a `group` one** — see `docs/decisions.md`.
 
 `shared/` is four layers with a strict dependency order — `types` → `constants` → `utils` → `validation`, each importing only from layers above it. A helper that fits none of `types`/`constants`/`validation` belongs in `utils/`, not in whichever folder is nearest.
 
@@ -160,7 +163,7 @@ Rationale for all three: `docs/decisions.md`.
 - **Ownership lives in the query, not around it:** scope every Prisma query on owned data inside the `where` clause (`where: { id: tableId, userId }`, or a relation filter through `table` for fields/records) — never fetch first and check ownership afterwards. Go through the `server/utils/ownership.ts` helpers.
 - **Status codes:** a resource that exists but belongs to another user returns **404, never 403**. 401 comes only from `requireUser(event)`; 409 for uniqueness conflicts (duplicate email, duplicate table name, duplicate field key); login failures always return the same generic 401 regardless of which credential was wrong.
 - `User` rows are always read with an explicit `select` (`id`, `email`) so `passwordHash` can never leak into a response.
-- Read secrets via `useRuntimeConfig(event)` — never `process.env` (sole exception: the Prisma singleton in `server/utils/prisma.ts`).
+- Read secrets via `useRuntimeConfig(event)` — never `process.env` (sole exception: the Prisma singleton in `server/db/prisma.ts`).
 - Record lists are **always paginated server-side** (`take`/`skip`, default 50, hard cap 100). An endpoint must never return an unbounded table.
 - **No queries in loops:** batch with `findMany` + `where: { id: { in: […] } }`, `createMany`, or a relation `include`. Relation-label resolution is the case to watch.
 - `select` only the columns a response needs. New query patterns must check existing `@@index` coverage first.
@@ -276,7 +279,7 @@ A new field type touches exactly these places — and nothing else:
 3. `shared/validation/field.ts` — one zod branch for its `options` (plus the matching branch in `buildOptions`, `server/services/fields.ts`, if it stores options); `shared/validation/record.ts` — one `VALUE_SCHEMA_BY_TYPE` entry (`base` schema + `blank` value + `fromQuery` decoder).
 4. `shared/constants/filter.ts` — one `FILTER_VALUE_BY_TYPE` entry (`shape`: `scalar`/`list`/`range`, and `empty` value), plus its shape in `IFilterValueByType` (`shared/types/filter.ts`).
 5. `app/field-types/` — one entry each in `FIELD_INPUTS`, `FIELD_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES`, `FIELD_TYPE_ICONS` (the glyph shown beside the type's word) and `FIELD_CONFIG_SUMMARIES` (`null` unless the type has configuration worth stating), plus **one** cell component in `cells/`.
-6. `server/services/record-query.ts` — one `FIELD_SQL_BY_TYPE` entry: its SQL projection (`expr`), how that projection is compared (`filter`), how free-text search matches it (`searchPredicate`, `null` to opt out), and `sortExpr` only if it orders differently from how it filters.
+6. `server/db/record-sql.ts` — one `FIELD_SQL_BY_TYPE` entry: its SQL projection (`expr`), how that projection is compared (`filter`), how free-text search matches it (`searchPredicate`, `null` to opt out), and `sortExpr` only if it orders differently from how it filters.
 7. `MULTI_VALUE_BY_TYPE` in `shared/constants/field.ts` — `true` only if the type has a list form. If it does, one entry in each `MULTI_*` override table (`MULTI_SQL`, `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`); if it does not, `null` in each.
 
 Every one of these registries is a total `Record<TFieldType, …>`, so adding an enum member is a compile error until all of them exist.
@@ -293,7 +296,7 @@ Full contracts for each registry: `docs/architecture.md` §3.
 
 ## 10. Testing
 
-**Step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one. `.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app.
+**Step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `server/db/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one. `.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app.
 
 ### The four projects
 
@@ -350,14 +353,14 @@ Rows are seeded through Prisma (`test/integration/seed.ts`), not through the ser
 - **Mount through `~~/test/mount`, never `mountSuspended` directly.** `mountTracked` registers the wrapper and `afterEach(unmountAll)` tears it down, so no spec ends a case with `wrapper.unmount()`. This is not tidiness: a case that _fails_ skips its own trailing unmount, and a composable leaked a window listener into the next case exactly that way. `track()` is the same seam for a plain `@vue/test-utils` host.
 - **Do not hand-stub what the Nuxt environment already provides** — `defineVitestConfig` boots the real app from `nuxt.config.ts`, so a stub is a second source of truth able to drift. In particular: `registerEndpoint` for an API a store calls, `mockNuxtImport` for `useRoute` and friends, `mountSuspended` for a component.
 - **A mounted component reads the Nuxt app's pinia, not a spec's.** `setActivePinia(createPinia())` is right for a store tested directly and wrong under `mountSuspended` — use `setActivePinia(useNuxtApp().$pinia as Pinia)` and clear the state it carries between cases.
-- **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/services/record-query.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute.
-- **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/utils/prisma', …)`. Not a preference — `server/utils/prisma.ts` constructs a real client at module load. **What the stub may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs.** That half is the integration suite's.
+- **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/db/record-sql.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute.
+- **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/db/prisma', …)`. Not a preference — `server/db/prisma.ts` constructs a real client at module load. **What the stub may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs.** That half is the integration suite's.
 - **Assert on structure and behaviour, never on computed styles.** Vitest's `test.css` stays `false`, so SCSS is stubbed rather than compiled; a component spec that reads a colour is testing nothing.
 - **A spec file that has grown past its concern is split over one shared rig**, not grown further — `BaseSelect` is four files over `~~/test/select-harness`. Add a case to the file whose concern it belongs to.
 
 **Coverage is one report merged from two runs**, because `server/api/` and `server/middleware/` are reachable only from the `integration` project, which stays out of `npm run test`. `npm run coverage:collect` writes a blob per run into `.vitest-reports/` and merges them. The constraints that hold it together are in `docs/decisions.md`; the one to remember is that **`.vitest-reports/` must contain nothing but the blob files**. **`e2e` contributes no coverage** — it drives a built server, not an instrumented one.
 
-**The SQL layer is verified twice, deliberately.** `record-query.spec.ts` asserts on `.text` and `.values` without a connection; `record-query.integration.spec.ts` runs the same builder against PostgreSQL and looks at which rows come back. Neither replaces the other — the first pins the shape and catches a change in intent, the second is the only thing that would catch a fragment the database rejects. The same split covers `widenToList` and the record counter (one transaction, vs. concurrent creates getting distinct numbers).
+**The SQL layer is verified twice, deliberately.** `record-sql.spec.ts` asserts on `.text` and `.values` without a connection; `record-sql.integration.spec.ts` runs the same builder against PostgreSQL and looks at which rows come back. Neither replaces the other — the first pins the shape and catches a change in intent, the second is the only thing that would catch a fragment the database rejects. The same split covers `widenToList` and the record counter (one transaction, vs. concurrent creates getting distinct numbers).
 
 Contracts the specs pin that are **invisible in the browser when broken**, and must not be "simplified" away, are documented where they belong — the renderer and store contracts in `docs/architecture.md` §10, the component and query-layer ones in `docs/decisions.md`. Two structural invariants live only in the specs, because they span files no type can join: **`MULTI_INPUTS` must be non-null at exactly the types `MULTI_VALUE_BY_TYPE` marks `true`** (a mismatch silently drops every value but the first), and **`MULTI_SQL` carries the same invariant** (a widened field routed through the scalar projection compares a JSON array against a scalar and simply never matches — nothing errors, the table just comes back empty). The second is probed through `ORDER BY` rather than `WHERE`, because a widened field's filter is list-shaped whatever its type declares.
 

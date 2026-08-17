@@ -10,7 +10,7 @@ import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { textField } from '~~/test/fixtures'
 
-vi.mock('#server/utils/prisma', async () => ({
+vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 

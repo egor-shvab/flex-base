@@ -23,7 +23,7 @@ export const COVERAGE_BASE = {
     'server/generated/**',
     // Environment wiring: reads `process.env` and constructs a client. Excluded rather
     // than carried as a file that would sit at 0% forever
-    'server/utils/prisma.ts',
+    'server/db/prisma.ts',
   ],
 }
 
@@ -36,6 +36,7 @@ export const COVERAGE_BASE = {
 export const SERVER_INCLUDE = [
   'shared/**/*.ts',
   'server/api/**/*.ts',
+  'server/db/**/*.ts',
   'server/middleware/**/*.ts',
   'server/services/**/*.ts',
   'server/utils/**/*.ts',

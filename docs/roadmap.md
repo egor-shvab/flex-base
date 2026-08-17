@@ -6,14 +6,38 @@ This file says only _what_ and _in what order_ — contracts belong in `docs/arc
 
 ---
 
-## Current phase — none scheduled
+## Current phase — architectural restructuring (proposed, not approved)
 
-The refactoring & cleanup phase is closed: its findings are in the code, and the constraints worth
-keeping moved into `docs/decisions.md` as they landed.
+Every item below is a proposal from `docs/architecture-review.md`, which carries the problem, the
+shape, the affected modules, the risks and the gate for each. **Nothing here is approved yet**; the
+order is the recommended one, not a commitment. An item that is accepted keeps its line here and
+loses its entry there; an item that is rejected leaves both.
 
-The next phase is a decision rather than a backlog — drawn from the parked item below, or from
-`docs/decisions.md` → **Accepted limitations** when a row's _revisit_ condition comes true. One
-**Open** row is left there, and it is the same one parked here.
+### First pass — structural, no behaviour change
+
+- [x] **P1** — Name the server's three layers: `api/` → `services/` → `db/`, ending the
+      `utils → services` edge and re-shelving `record-query.ts` as SQL rather than as a service.
+- [ ] **P2** — Ownership-bound handler factories, so a table-scoped request cannot reach its data
+      without having proven ownership of it.
+- [ ] **P7** — Component-private composables move next to their component (`BaseSelect/`).
+- [ ] **P6** — Record and field counts are returned by the server instead of computed on the client;
+      `adjustCachedCount` goes.
+- [ ] **P3** — A declared client↔server contract and one API client module per resource; stores and
+      components stop holding URLs and asserting response shapes.
+
+### Second pass — each behind a stated judgement call
+
+- [ ] **P9** — Consolidate the status-code policy into one file and make `CLAUDE.md` §3's
+      "framework-agnostic services" claim true or drop it. _Recommended variant: (b)._
+- [ ] **P10** — An error-sink port behind the file writer, plus a client-side error boundary
+      reporting through the same redaction contract.
+- [ ] **P4** — A field type becomes three co-located modules instead of thirteen registry entries.
+      _Gate: do this when the next field type is scheduled, not before._
+- [ ] **P5** — Retire the records store; the list becomes one `useAsyncData` behind `useRecordList`.
+      _Gate: only with the e2e suite green — three `decisions.md` entries pin behaviour it touches._
+- [ ] **P8** — Feature folders for the frontend. _Gate: after P3/P4/P5, or at a fourth domain._
+- [ ] **P11** — Index strategy for the JSONB ceiling. _Gate: first table over ~100k records, or the
+      first report of a slow filtered view._
 
 ---
 

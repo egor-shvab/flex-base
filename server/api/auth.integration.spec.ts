@@ -5,7 +5,7 @@ import me from '#server/api/auth/me.get'
 import register from '#server/api/auth/register.post'
 import authMiddleware from '#server/middleware/auth'
 import { AUTH_COOKIE, signAuthToken } from '#server/utils/auth'
-import { prisma } from '#server/utils/prisma'
+import { prisma } from '#server/db/prisma'
 import { cookieHeader, testEvent } from '~~/test/integration/event'
 import { createUser } from '~~/test/integration/seed'
 

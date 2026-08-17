@@ -1,9 +1,9 @@
 import { createError } from 'h3'
-import type { Prisma } from '#server/generated/prisma/client'
-import { buildRecordOrderBy, buildRecordWhere } from '#server/services/record-query'
+import { prisma } from '#server/db/prisma'
+import { toHttpError } from '#server/db/prisma-errors'
+import { recordSelect, toJsonData, toSharedRecord, type TRecordRow } from '#server/db/records'
+import { buildRecordOrderBy, buildRecordWhere } from '#server/db/record-sql'
 import { assertRelationTargets, resolveLinkedRecords } from '#server/services/relations'
-import { prisma } from '#server/utils/prisma'
-import { toHttpError } from '#server/utils/prisma-errors'
 import type { IField } from '#shared/types/field'
 import type {
   IRecord,
@@ -14,33 +14,7 @@ import type {
 } from '#shared/types/record'
 import type { ITable } from '#shared/types/table'
 
-const recordSelect = {
-  id: true,
-  number: true,
-  data: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.RecordSelect
-
-type TRecordRow = Prisma.RecordGetPayload<{ select: typeof recordSelect }>
-
 const recordErrors = { notFound: 'Record not found' }
-
-/** Narrows Prisma's untyped JSONB column onto the shared record shape. */
-export function toSharedRecord(record: TRecordRow): IRecord {
-  return {
-    id: record.id,
-    number: record.number,
-    data: (record.data as TRecordData | null) ?? {},
-    createdAt: record.createdAt.toISOString(),
-    updatedAt: record.updatedAt.toISOString(),
-  }
-}
-
-/** Validated payloads only ever contain declared field keys, so the cast is safe here. */
-function toJsonData(data: TRecordData): Prisma.InputJsonObject {
-  return data as Prisma.InputJsonObject
-}
 
 /**
  * Always paginated — a table's record set grows with user data and is never returned whole.

@@ -1,39 +1,15 @@
 import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
+import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
+import { prisma } from '#server/db/prisma'
+import { toHttpError } from '#server/db/prisma-errors'
 import { buildFieldKey } from '#server/utils/field-key'
-import { prisma } from '#server/utils/prisma'
-import { toHttpError } from '#server/utils/prisma-errors'
-import type { IField, IFieldOptions } from '#shared/types/field'
+import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
-
-export const fieldSelect = {
-  id: true,
-  name: true,
-  key: true,
-  type: true,
-  required: true,
-  options: true,
-  order: true,
-} satisfies Prisma.FieldSelect
-
-type TFieldRow = Prisma.FieldGetPayload<{ select: typeof fieldSelect }>
 
 const fieldErrors = {
   conflict: 'A field with this name already exists',
   notFound: 'Field not found',
-}
-
-/**
- * Narrows Prisma's untyped `options` JSON — the single place that cast is allowed, so no
- * call site has to trust the raw column.
- */
-function toFieldOptions(options: TFieldRow['options']): IFieldOptions | null {
-  return (options as IFieldOptions | null) ?? null
-}
-
-/** The same, for a whole row: the shape every layer above the database speaks. */
-export function toSharedField(field: TFieldRow): IField {
-  return { ...field, options: toFieldOptions(field.options) }
 }
 
 /**
