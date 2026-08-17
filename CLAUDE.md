@@ -157,7 +157,8 @@ Rationale for all three: `docs/decisions.md`.
 ## 5. API conventions
 
 - Route files are named by HTTP method suffix under `server/api/`: `index.get.ts`, `index.post.ts`, `[tableId].patch.ts`, `[tableId].delete.ts`, …
-- Handlers stay thin: validate input with the shared zod schema from `shared/validation/` → assert ownership via the `server/utils/` helpers → delegate all business logic to `server/services/`.
+- Handlers stay thin: validate input with the shared zod schema from `shared/validation/` → assert ownership → delegate all business logic to `server/services/`.
+- **A table-scoped route is declared with a factory from `server/utils/handler.ts`**, never with a bare `defineEventHandler` — `defineTableHandler` · `defineFieldsHandler` · `defineTableWithFieldsHandler` · `defineRecordWriteHandler`, one per `require*` helper in `utils/ownership.ts`. The check is what produces the context, so it cannot be skipped, and lint refuses `#server/utils/auth` under `server/api/tables/*/**` so nothing can go around it. A route needing a shape none of the four covers **adds a factory**; it does not resolve the user itself.
 - Validate request bodies with `readValidatedBody(event, schema.parse)` — invalid input automatically becomes a 400 carrying the zod issue details.
 - Throw errors with Nitro's `createError({ statusCode, statusMessage })`; never return password hashes or another user's data.
 - **Ownership lives in the query, not around it:** scope every Prisma query on owned data inside the `where` clause (`where: { id: tableId, userId }`, or a relation filter through `table` for fields/records) — never fetch first and check ownership afterwards. Go through the `server/utils/ownership.ts` helpers.

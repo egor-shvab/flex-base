@@ -31,6 +31,33 @@ export default withNuxt(
     },
   },
 
+  // A table-scoped route reaches its user through a handler factory, never by resolving one
+  // itself — the factory is what makes the ownership check unskippable, and it is only
+  // unskippable while nothing under here can go around it. The two sibling routes that do use
+  // `requireUser` (`[tableId].patch`, `[tableId].delete`) are files one level up, not in this
+  // directory, so they are outside this glob by construction rather than by exemption.
+  //
+  // `tables/*/**` rather than `tables/[tableId]/**`: minimatch reads `[tableId]` as a character
+  // class, so the literal spelling matches a one-character directory name and nothing else.
+  {
+    files: ['server/api/tables/*/**/*.ts'],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '^#server/utils/auth$',
+              message:
+                'Table-scoped routes take their user from a handler factory (#server/utils/handler), which proves ownership first.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // The server's layers point one way — `api → services → db`, with `utils` cross-cutting and
   // importing none of the three. Stated here rather than trusted, because the edge that was
   // wrong before (`utils/ownership` reaching into `services/`) compiled perfectly well.

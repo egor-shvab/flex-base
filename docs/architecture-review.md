@@ -23,89 +23,18 @@ _is_. Those are the right calls and none of the proposals below disturbs them.
 So the honest answer to "what would we decide differently from the beginning" is narrow, and it is
 mostly about **where things live rather than how they work**. The first theme — three server layers
 present but only two named — is closed: `server/db/` now holds persistence and the direction
-`api → services → db` is lint-enforced. Three remain:
+`api → services → db` is lint-enforced. So is the second half of the next one: ownership is now
+obtained from a handler factory rather than remembered. Three remain:
 
-1. **Ownership and the client/server contract are conventions, not structures.** Both are currently
-   correct at every one of ~19 handlers and ~21 client call sites, and nothing but review keeps
-   them that way (P2, P3).
+1. **The client/server contract is a convention, not a structure.** It is currently correct at
+   every one of ~21 client call sites, and nothing but review keeps it that way (P3).
 2. **The extension axis is scattered.** A field type is the one thing this platform is designed to
    be extended by, and defining one means editing thirteen places across three roots (P4).
 3. **One client-side cache duplicates a framework the app already runs** (P5, P6).
 
 Everything after P7 is either taste, deferred, or gated behind a trigger — labelled as such.
 
-**Ranked by value ÷ risk:** P2, P6, P7, P3, P4, P10, P9, P5, P8, P11. (P1 has landed.)
-
----
-
-## P2 — Make ownership structural: handler factories instead of a repeated preamble
-
-**Problem.** Fifteen of the nineteen route handlers open with the same three-to-five lines:
-
-```ts
-const user = requireUser(event)
-const tableId = routeParam(event, 'tableId')
-const fields = await requireOwnedTableFields(user.id, tableId)
-```
-
-The rule "every table-scoped request proves ownership first" is the app's central security
-invariant, and it is enforced by **nobody**. A new handler that forgets `requireOwnedTable`
-compiles, passes lint, passes typecheck, and returns another user's data. The only thing standing
-behind it is `server/api/ownership.integration.spec.ts`, which enumerates the routes it knows
-about — so a new route is unprotected _and_ untested by the same omission.
-
-`server/utils/route.ts` documents this directly: the `''` fallback exists because the reasoning was
-"previously restated at eighteen call sites with the reasoning at none of them". That is the same
-observation, one level down.
-
-**Proposed shape.** Two or three named factories in `server/utils/handler.ts`, each yielding a
-context that **cannot be obtained without the check**:
-
-```ts
-export const defineTableHandler = <T>(
-  handler: (ctx: { event: H3Event; user: IAuthUser; table: ITable }) => Promise<T>,
-) => defineEventHandler(async (event) => { /* requireUser → routeParam → requireOwnedTable */ })
-
-export const defineTableFieldsHandler = …   // + fields, for reads
-export const defineRecordWriteHandler = …   // + fields, 400 when the table has none
-```
-
-A handler then reads:
-
-```ts
-export default defineTableFieldsHandler(async ({ event, fields, table }) => {
-  const params = await getValidatedQuery(event, buildRecordQuerySchema(fields).parse)
-  return listRecords(table.id, fields, {
-    ...parseRecordQueryState(fields, params),
-    pageSize: params.pageSize,
-  })
-})
-```
-
-Keep exactly the shapes that exist today — the four `require*` helpers already enumerate them — and
-add none speculatively. Auth handlers keep plain `defineEventHandler`.
-
-**Affected.** New `server/utils/handler.ts`; 15 files under `server/api/tables/`;
-`server/utils/route.ts` loses most of its call sites (keep it — the `recordId`/`fieldId` params
-still need it); `test/integration/event.ts` and the integration specs, which invoke handlers
-directly and will now go through the factory (a gain: the factory itself gets covered).
-
-**Why it is an improvement.** The invariant moves from convention to type system — there is no way
-to reach `table` without having proven ownership of it. Handlers drop to their actual content.
-`requireUser` + `routeParam` + `require*` stop being three independent things a reviewer must check
-in the right order. And the ownership spec's job shrinks from "enumerate every route" to "prove the
-three factories".
-
-**Risks / downsides.** Wrapping `defineEventHandler` can obscure Nitro's response typing — the
-factory must stay generic in its return type or every handler's inferred response widens to
-`unknown`, which would silently degrade the client contract in P3. Over-generalising into one
-factory with an options bag would be worse than the repetition it replaces; the guard is "one
-factory per existing `require*` helper, no more". A handler needing a shape none of them covers must
-add a factory rather than reach past them.
-
-**Complexity.** Small–medium. High return per line changed.
-
-**Depends on.** Nothing — P1 has landed. Makes P3's response typing cleaner.
+**Ranked by value ÷ risk:** P6, P7, P3, P4, P10, P9, P5, P8, P11. (P1 and P2 have landed.)
 
 ---
 
@@ -180,7 +109,7 @@ reactivity — they are functions over `$fetch` and nothing else.
 
 **Complexity.** Medium. Wide but shallow; no logic changes.
 
-**Depends on.** P2 for clean handler return types (not blocking). Should land before P5, which
+**Depends on.** Nothing — P2 has landed, so handler return types are already clean. Should land before P5, which
 needs a transport seam to move the record writes to.
 
 ---
@@ -585,14 +514,14 @@ sub-note are the parts that do pay, and neither is the split those entries rejec
 ## Sequencing
 
 ```
-P2 ── P3 ─┬─ P5
- │        ├─ P6
- └─ P9    └─ P8 (defer)
+P3 ─┬─ P5
+    ├─ P6
+    └─ P8 (defer)
 
 P4  — gated on a new field type
-P7, P10  — independent, any time
-P11      — gated on measurement
+P7, P9, P10  — independent, any time
+P11          — gated on measurement
 ```
 
-The first pass in flight is **P2 → P7 → P3 → P6**. Everything after that is a judgement call, and
+The first pass in flight is **P7 → P3 → P6**. Everything after that is a judgement call, and
 P4, P5, P8 and P11 each carry an explicit gate above.

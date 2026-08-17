@@ -11,8 +11,9 @@ import type { H3Event } from 'h3'
  *
  * Nitro's routing means a handler under `[tableId]/` is only reached with that param bound, so the
  * fallback is unreachable in production. It is here because being unreachable is not the same as
- * being safe to omit, and because it was previously restated at eighteen call sites with the
- * reasoning at none of them.
+ * being safe to omit, and because it was once restated at every call site with the reasoning at
+ * none of them. The `tableId` reads now live in `utils/handler.ts`; what is left at a route is the
+ * second param — a `fieldId` or a `recordId`.
  */
 export function routeParam(event: H3Event, name: string): string {
   return getRouterParam(event, name) ?? ''

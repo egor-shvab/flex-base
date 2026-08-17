@@ -145,6 +145,16 @@ Fetch-then-check is a TOCTOU pattern and one forgotten branch away from a leak. 
 
 Ownership assertions live in `server/utils/ownership.ts` rather than in the services because they are cross-cutting: every service is reached through one, and none of them may reach back. They read `db/` for the `select` shapes and the row mappers, which is the direction `CLAUDE.md` §3 fixes — the earlier version imported `services/tables` and `services/fields` for exactly those two things, which put a util above the layer it serves.
 
+### Ownership is obtained, not remembered
+
+Every table-scoped route used to open with the same `requireUser` → `routeParam` → `require*` preamble, which made the app's central rule a habit: a route that skipped it compiled, linted, type-checked and served another user's rows, and the only thing watching was a spec that enumerates the routes it already knows about — so a new route would be unprotected and untested by the same omission. The factories in `server/utils/handler.ts` invert it: **the check is what produces the context**, so there is no way to reach a `table` or its `fields` without having proven ownership of them. Lint closes the way around, refusing `#server/utils/auth` under `server/api/tables/*/**`.
+
+There is one factory per `require*` helper and that is the entire list. A single factory behind an options bag was rejected: it would put the four-way branch back, one level further from the route, and each shape's guard (a 404 for a foreign table, a 400 for a field-less one on **writes only**) reads as a named thing rather than a flag.
+
+Each factory is **generic in its return type**. Flattening it to `unknown` would have been invisible — every route would still work, while every response type in the app quietly widened.
+
+`[tableId].patch` and `[tableId].delete` use no factory, and that is not an exemption. Their services take a `userId` and scope on it inside their own `where` clause, which is the form preferred above; a pre-check would be a second round trip for an answer the write already gives. Ownership cannot be forgotten there because the **signature requires the id** — which is exactly the property the factories add to the services that take only a `tableId`.
+
 ### Ownership is denormalized nowhere
 
 It lives only on `Table.userId`; fields and records reach the user through their table. A denormalized `userId` on `Field`/`Record` would be faster to filter and impossible to keep honest.

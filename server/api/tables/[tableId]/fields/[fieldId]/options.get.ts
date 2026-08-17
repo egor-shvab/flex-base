@@ -1,6 +1,5 @@
-import { createError, defineEventHandler, getValidatedQuery } from 'h3'
-import { requireUser } from '#server/utils/auth'
-import { requireOwnedTableFields } from '#server/utils/ownership'
+import { createError, getValidatedQuery } from 'h3'
+import { defineFieldsHandler } from '#server/utils/handler'
 import { routeParam } from '#server/utils/route'
 import { listRelationOptions } from '#server/services/relations'
 import { relationOptionsQuerySchema } from '#shared/validation/relation'
@@ -10,14 +9,10 @@ import { relationOptionsQuerySchema } from '#shared/validation/relation'
  * rather than by a target id from the client: the target is read from the field's own
  * metadata, and its ownership was proven when the field was created.
  */
-export default defineEventHandler(async (event) => {
-  const user = requireUser(event)
-  const tableId = routeParam(event, 'tableId')
+export default defineFieldsHandler(async ({ event, fields }) => {
   const fieldId = routeParam(event, 'fieldId')
-
   const { q } = await getValidatedQuery(event, relationOptionsQuerySchema.parse)
 
-  const fields = await requireOwnedTableFields(user.id, tableId)
   const field = fields.find((candidate) => candidate.id === fieldId)
 
   if (!field) {

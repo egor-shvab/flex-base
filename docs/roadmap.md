@@ -17,7 +17,7 @@ loses its entry there; an item that is rejected leaves both.
 
 - [x] **P1** — Name the server's three layers: `api/` → `services/` → `db/`, ending the
       `utils → services` edge and re-shelving `record-query.ts` as SQL rather than as a service.
-- [ ] **P2** — Ownership-bound handler factories, so a table-scoped request cannot reach its data
+- [x] **P2** — Ownership-bound handler factories, so a table-scoped request cannot reach its data
       without having proven ownership of it.
 - [ ] **P7** — Component-private composables move next to their component (`BaseSelect/`).
 - [ ] **P6** — Record and field counts are returned by the server instead of computed on the client;

@@ -1,14 +1,9 @@
-import { defineEventHandler } from 'h3'
-import { requireUser } from '#server/utils/auth'
-import { requireOwnedTableWithFields } from '#server/utils/ownership'
+import { defineTableWithFieldsHandler } from '#server/utils/handler'
 import { routeParam } from '#server/utils/route'
 import { getRecordDetail } from '#server/services/records'
 
-export default defineEventHandler(async (event) => {
-  const user = requireUser(event)
-  const tableId = routeParam(event, 'tableId')
+export default defineTableWithFieldsHandler(async ({ event, table, fields }) => {
   const recordId = routeParam(event, 'recordId')
-  const { table, fields } = await requireOwnedTableWithFields(user.id, tableId)
 
   return getRecordDetail({ id: table.id, name: table.name }, fields, recordId)
 })
