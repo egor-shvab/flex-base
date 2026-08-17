@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseRange from '~/components/common/BaseRange.vue'
-import BaseSelect from '~/components/common/BaseSelect.vue'
+import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
 import { FIELD_TYPES } from '#shared/constants/field'
 import type { TFieldType } from '#shared/types/field'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'

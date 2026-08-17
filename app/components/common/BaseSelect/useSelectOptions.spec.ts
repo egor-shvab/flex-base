@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick } from 'vue'
-import { useSelectOptions } from '~/composables/useSelectOptions'
+import { useSelectOptions } from '~/components/common/BaseSelect/useSelectOptions'
 import type { ISelectOption, TLoadSelectOptions } from '~/types/select'
 
 const SEED: ISelectOption[] = [

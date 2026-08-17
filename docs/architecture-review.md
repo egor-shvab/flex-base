@@ -34,7 +34,7 @@ obtained from a handler factory rather than remembered. Three remain:
 
 Everything after P7 is either taste, deferred, or gated behind a trigger — labelled as such.
 
-**Ranked by value ÷ risk:** P6, P7, P3, P4, P10, P9, P5, P8, P11. (P1 and P2 have landed.)
+**Ranked by value ÷ risk:** P6, P3, P4, P10, P9, P5, P8, P11. (P1, P2 and P7 have landed.)
 
 ---
 
@@ -271,58 +271,6 @@ types).
 
 ---
 
-## P7 — Scope by location: component-private composables live with their component
-
-**Problem.** `app/composables/` holds three different scopes in one flat directory:
-
-- genuinely app-wide: `useApi`, `useForm`, `useDeleteConfirm`, `useDebouncedModel`, `usePopover`,
-  `useAnchoredPosition`
-- **component-private**: `useListboxNavigation` and `useSelectOptions`, both of which carry an
-  explicit "**Decomposition of `BaseSelect`, not a general-purpose composable**" warning in their
-  own doc comments and in `architecture.md`
-- records-domain: `useRecordListQuery`, `useRecordDetail`, `useDetailLink`, `useTableLoader`
-
-The middle group's intended scope is stated only in prose. Anything in the app can import them, and
-nothing signals that doing so is a mistake.
-
-**Proposed shape.** Promote the component to a directory and put its private parts inside it:
-
-```
-app/components/common/BaseSelect/
-  BaseSelect.vue
-  useListboxNavigation.ts   useSelectOptions.ts
-  *.nuxt.spec.ts            (the four existing files)  select-harness.ts
-```
-
-Nuxt's `components: [{ path: '~/components', pathPrefix: false }]` resolves `BaseSelect.vue` inside
-a nested directory unchanged, so no template moves. `app/composables/` is then app-wide composables
-only, and the records-domain four either stay (if P8 is declined) or move with their feature.
-
-**Sub-note, not a separate proposal.** With the directory in place, one further seam inside
-`BaseSelect` becomes cheap: `selected` / `seen` / `commit` / `choose` / `clear` / `valueText` /
-`valueBadge` is ~60 lines of pure model logic that currently needs the Nuxt project to test because
-it lives in an SFC. Extracted as `useSelectSelection`, it is testable in the `unit` project in
-milliseconds. This is **not** the `BaseSelectPanel` split `decisions.md` rejected — that rejection
-stands and this review agrees with it; the panel's keyboard dispatchers, IDREFs and teleport are
-genuinely one cohesive unit.
-
-**Affected.** `app/components/common/BaseSelect.vue` → a directory; two composables and five spec
-files move; `test/select-harness.ts` moves; import paths in `field-types/{inputs,filters}.ts` and
-`controls/RelationFieldSelect.vue` update.
-
-**Why it is an improvement.** A file's directory states its scope, which is the only form of that
-statement a reader cannot skip. It also stops `composables/` reading as "twelve interchangeable
-things" when it is really three groups.
-
-**Risks / downsides.** Vitest include globs are `{app,shared}/**/*.nuxt.spec.ts`, so the moved specs
-stay in project — worth verifying rather than assuming. Nothing else.
-
-**Complexity.** Small.
-
-**Depends on.** Nothing.
-
----
-
 ## P8 — Feature folders for the frontend
 
 **Problem.** The records feature is spread across six top-level directories:
@@ -361,7 +309,7 @@ than either end state.
 
 **Complexity.** Large, and almost entirely in review rather than in code.
 
-**Depends on.** P3, P4, P5. Revisit **only** once those have landed, or when a fourth domain appears.
+**Depends on.** P3, P4, P5. Revisit **only** once those have landed, or when a fourth domain appears. P7 has already taken the cheap half of it — a component's private modules now sit with the component.
 
 ---
 
@@ -519,9 +467,9 @@ P3 ─┬─ P5
     └─ P8 (defer)
 
 P4  — gated on a new field type
-P7, P9, P10  — independent, any time
-P11          — gated on measurement
+P9, P10  — independent, any time
+P11      — gated on measurement
 ```
 
-The first pass in flight is **P7 → P3 → P6**. Everything after that is a judgement call, and
+The first pass in flight is **P3 → P6**. Everything after that is a judgement call, and
 P4, P5, P8 and P11 each carry an explicit gate above.

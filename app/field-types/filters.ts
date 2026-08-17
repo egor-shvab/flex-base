@@ -1,7 +1,7 @@
 import { markRaw } from 'vue'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseRange from '~/components/common/BaseRange.vue'
-import BaseSelect from '~/components/common/BaseSelect.vue'
+import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import { BOOLEAN_LABELS } from '#shared/constants/field'
 import type { IField, TFieldType } from '#shared/types/field'

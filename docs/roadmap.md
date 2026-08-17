@@ -19,11 +19,20 @@ loses its entry there; an item that is rejected leaves both.
       `utils → services` edge and re-shelving `record-query.ts` as SQL rather than as a service.
 - [x] **P2** — Ownership-bound handler factories, so a table-scoped request cannot reach its data
       without having proven ownership of it.
-- [ ] **P7** — Component-private composables move next to their component (`BaseSelect/`).
+- [x] **P7** — Component-private composables move next to their component (`BaseSelect/`).
 - [ ] **P6** — Record and field counts are returned by the server instead of computed on the client;
       `adjustCachedCount` goes.
 - [ ] **P3** — A declared client↔server contract and one API client module per resource; stores and
       components stop holding URLs and asserting response shapes.
+
+### Discovered
+
+- [ ] **The write handlers' happy paths are never driven through the handler**, only through their
+      services. `ownership.integration.spec.ts` runs every endpoint as a stranger (404) and
+      anonymous (401), but its owner pass is read-only on purpose — a delete mid-loop would pull
+      rows out from under it. Add an owner-write pass over its own rows, so a handler that passed
+      the wrong id or param name to a service would be caught. Surfaced by P2: the preamble those
+      files used to share now lives in the factory, so what is left reads 0% instead of ~60%.
 
 ### Second pass — each behind a stated judgement call
 

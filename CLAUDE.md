@@ -94,7 +94,7 @@ app/                         # Nuxt 4 frontend (client)
   assets/scss/               # global SCSS (main.scss + partials, incl. _mixins.scss)
   components/
     app/                     # the shell — AppSidebar, AppBreadcrumbs
-    common/                  # generic UI atoms, all `Base*`
+    common/                  # generic UI atoms, all `Base*` — one gets a folder (see below)
     fields/                  # surfaces that render field *metadata* rather than records
     modals/                  # dialogs built on BaseModal
     records/                 # the metadata renderers — DynamicForm, DynamicTable, the filter panel & summary
@@ -193,6 +193,7 @@ Rationale for all three: `docs/decisions.md`.
 
 - Pinia stores are **setup-style** (`defineStore('x', () => { … })`); state is refs mutated only inside that store's actions.
 - Components are PascalCase; generic atoms in `app/components/common/` carry the `Base` prefix.
+- **A composable belonging to exactly one component lives in that component's own folder**, not in `app/composables/` — `Foo.vue` becomes `Foo/Foo.vue` beside `Foo/useThing.ts`, its specs and any rig they share. `app/composables/` is for what the whole app may reach for; scope is stated by location, not by a warning in a doc comment. `BaseSelect/` is the one today. Auto-import is unaffected (`pathPrefix: false` names by filename), and `nuxt.config.ts` pins `extensions: ['.vue']` so a `.ts` sitting there is **not** registered as a component.
 - Props and emits are typed via generics — `defineProps<{ … }>()` / `defineEmits<{ … }>()`; no runtime prop declarations.
 - DTO/request types are derived with `z.infer` from the shared zod schemas — never hand-write a parallel interface that can drift.
 - Data fetching chain: page/component → `useAsyncData`/store action → `useApi()`. **Never bare `$fetch`** — it drops cookies during SSR. Surface request errors with `getApiErrorMessage`.
@@ -357,7 +358,7 @@ Rows are seeded through Prisma (`test/integration/seed.ts`), not through the ser
 - **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/db/record-sql.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute.
 - **A service that reaches the `prisma` client is tested against the stub in `test/prisma-mock.ts`**, wired per spec with `vi.mock('#server/db/prisma', …)`. Not a preference — `server/db/prisma.ts` constructs a real client at module load. **What the stub may prove is the code _around_ a query** — which guard fires, what shape a `where` clause is built in, how many queries are issued (assert on the argument, not only the outcome: a fetch-then-compare rewrite would still return the right value while losing the §5 property). **What it never proves is that the query runs.** That half is the integration suite's.
 - **Assert on structure and behaviour, never on computed styles.** Vitest's `test.css` stays `false`, so SCSS is stubbed rather than compiled; a component spec that reads a colour is testing nothing.
-- **A spec file that has grown past its concern is split over one shared rig**, not grown further — `BaseSelect` is four files over `~~/test/select-harness`. Add a case to the file whose concern it belongs to.
+- **A spec file that has grown past its concern is split over one shared rig**, not grown further — `BaseSelect` is four files over `~/components/common/BaseSelect/select-harness`, which sits in the component's own directory because it is as private to it as the composables beside it. Add a case to the file whose concern it belongs to.
 
 **Coverage is one report merged from two runs**, because `server/api/` and `server/middleware/` are reachable only from the `integration` project, which stays out of `npm run test`. `npm run coverage:collect` writes a blob per run into `.vitest-reports/` and merges them. The constraints that hold it together are in `docs/decisions.md`; the one to remember is that **`.vitest-reports/` must contain nothing but the blob files**. **`e2e` contributes no coverage** — it drives a built server, not an instrumented one.
 

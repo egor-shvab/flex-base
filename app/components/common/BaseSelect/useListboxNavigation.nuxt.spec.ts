@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref, shallowRef } from 'vue'
-import { useListboxNavigation } from '~/composables/useListboxNavigation'
+import { useListboxNavigation } from '~/components/common/BaseSelect/useListboxNavigation'
 import type { ISelectOption } from '~/types/select'
 import { track, unmountAll } from '~~/test/mount'
 

@@ -232,9 +232,9 @@
 <script setup lang="ts" generic="TModel extends string | string[]">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
-import { useListboxNavigation } from '~/composables/useListboxNavigation'
+import { useListboxNavigation } from '~/components/common/BaseSelect/useListboxNavigation'
 import { usePopover } from '~/composables/usePopover'
-import { useSelectOptions } from '~/composables/useSelectOptions'
+import { useSelectOptions } from '~/components/common/BaseSelect/useSelectOptions'
 import type { ISelectOption, TLoadSelectOptions } from '~/types/select'
 
 const props = withDefaults(

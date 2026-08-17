@@ -552,7 +552,9 @@ The extraction waited for a second consumer on purpose. Extracting on the first 
 
 ### `useListboxNavigation` was extracted for SRP, not DRY
 
-The rule above does **not** bind here: it rejects a _DRY_-motivated extraction with one consumer and no size problem. This is decomposition of an SFC that had grown to two control branches, two keyboard dispatchers, a search model, an async pipeline and a popover — the same case as `useSelectOptions`, and both carry the "not a general-purpose composable" warning for the same reason.
+The rule above does **not** bind here: it rejects a _DRY_-motivated extraction with one consumer and no size problem. This is decomposition of an SFC that had grown to two control branches, two keyboard dispatchers, a search model, an async pipeline and a popover — the same case as `useSelectOptions`.
+
+**Both live in `components/common/BaseSelect/`, and that is what says so.** They carried a "not a general-purpose composable" warning in prose while sitting in `app/composables/`, where anything in the app could reach them — a comment cannot decline an import. The directory can, and the warning came out of both files once it did. The same move brought the four spec files and their shared rig in, since those are private to the component by exactly the same argument (`CLAUDE.md` §7).
 
 `typeAhead` lives in it despite being called from only one branch: its whole effect is `setActive(index)`, so it shares the composable's single reason to change. Splitting a twenty-line function with one consumer into a third file is the over-fragmentation SRP is supposed to prevent.
 
@@ -604,7 +606,11 @@ The em-dash spellings went with them: they existed to make a fake choice read as
 
 At ~1000 lines it is the largest file in the project, and it is **already decomposed**: `usePopover`,
 `useAnchoredPosition`, `useListboxNavigation` and `useSelectOptions` all came out of it, the last two
-carrying an explicit "not a general-purpose composable" warning because that is what they are.
+into its own directory because they belong to it alone (above).
+
+**Giving it a directory is not the split rejected below.** Nothing about the component moved — a
+folder states which modules are private to it, where the alternative would have been two components
+that must agree.
 
 The remaining seam is a `BaseSelectPanel`, and it fails. The panel's Escape handling, its
 `aria-activedescendant` IDREFs, its teleport and its one focusable (the failed state's Retry) are

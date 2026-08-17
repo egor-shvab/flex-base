@@ -1,5 +1,5 @@
 import { nextTick } from 'vue'
-import BaseSelect from '~/components/common/BaseSelect.vue'
+import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
 import type { ISelectOption } from '~/types/select'
 import { mountTracked } from '~~/test/mount'
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import BaseCheckbox from '~/components/common/BaseCheckbox.vue'
 import BaseInput from '~/components/common/BaseInput.vue'
-import BaseSelect from '~/components/common/BaseSelect.vue'
+import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
 import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
 import type { TFieldType } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'

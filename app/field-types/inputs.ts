@@ -1,7 +1,7 @@
 import { markRaw } from 'vue'
 import BaseCheckbox from '~/components/common/BaseCheckbox.vue'
 import BaseInput from '~/components/common/BaseInput.vue'
-import BaseSelect from '~/components/common/BaseSelect.vue'
+import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
 import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
 import type { IField, TFieldType } from '#shared/types/field'
 import { choiceOptions, isMultiValue } from '#shared/utils/field'

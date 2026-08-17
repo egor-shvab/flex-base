@@ -13,7 +13,7 @@ import {
   panel,
   select,
   trigger,
-} from '~~/test/select-harness'
+} from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
 /**

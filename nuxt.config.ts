@@ -11,7 +11,11 @@ export default defineNuxtConfig({
 
   css: ['~/assets/scss/main.scss'],
 
-  components: [{ path: '~/components', pathPrefix: false }],
+  // `extensions` is not cosmetic: the scanner defaults to every builder extension, so a `.ts`
+  // file living beside its component — a component-private composable, a spec's shared rig —
+  // is registered as a global component of its own (`UseSelectOptions`, `SelectHarness`).
+  // Every component here is a `.vue` file, so say that.
+  components: [{ path: '~/components', pathPrefix: false, extensions: ['.vue'] }],
 
   // Components stay auto-imported (this is what makes `<Lazy*>` code-split for free);
   // everything else — composables, stores, utils, Vue/Nuxt/Nitro APIs — is imported

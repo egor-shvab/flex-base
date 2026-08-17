@@ -12,13 +12,13 @@ import {
   select,
   status,
   trigger,
-} from '~~/test/select-harness'
-import type { TWrapper } from '~~/test/select-harness'
+} from '~/components/common/BaseSelect/select-harness'
+import type { TWrapper } from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
 /**
  * What the component *is* before anything is done to it: which of its two controls renders,
- * how `multiple` is normalised, and the ARIA it exposes. The rig is `~~/test/select-harness`,
+ * how `multiple` is normalised, and the ARIA it exposes. The rig is `~/components/common/BaseSelect/select-harness`,
  * shared with the three sibling files this was split out of.
  */
 describe('BaseSelect', () => {

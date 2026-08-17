@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ISelectOption } from '~/types/select'
 import { nextTick } from 'vue'
-import { input, keydown, labels, open, panel, retry, select, status } from '~~/test/select-harness'
-import type { TWrapper } from '~~/test/select-harness'
+import {
+  input,
+  keydown,
+  labels,
+  open,
+  panel,
+  retry,
+  select,
+  status,
+} from '~/components/common/BaseSelect/select-harness'
+import type { TWrapper } from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
 /** A searchable select whose one request has failed, so the panel holds a Retry. */

@@ -54,4 +54,7 @@ export const APP_INCLUDE = [
   'app/utils/**/*.ts',
   // Only the registries themselves — `field-types/cells/` and `controls/` are components
   'app/field-types/*.ts',
+  // A component's own composables sit beside it, and `app/components/**` is otherwise excluded
+  // on purpose (markup). Named so they do not leave the report by living where they belong.
+  'app/components/**/use*.ts',
 ]
