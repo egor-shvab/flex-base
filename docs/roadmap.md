@@ -36,8 +36,8 @@ loses its entry there; an item that is rejected leaves both.
 
 - [ ] **P9** — Consolidate the status-code policy into one file and make `CLAUDE.md` §3's
       "framework-agnostic services" claim true or drop it. _Recommended variant: (b)._
-- [ ] **P10** — An error-sink port behind the file writer, plus a client-side error boundary
-      reporting through the same redaction contract.
+- [x] **P10** — Client errors reported through the server's sink, under the same redaction
+      contract. No sink port: one shared write path, since there is one destination.
 - [ ] **P4** — A field type becomes three co-located modules instead of thirteen registry entries.
       _Gate: do this when the next field type is scheduled, not before._
 - [ ] **P5** — Retire the records store; the list becomes one `useAsyncData` behind `useRecordList`.

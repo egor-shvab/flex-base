@@ -33,7 +33,7 @@ obtained from a handler factory rather than remembered, and the client/server co
 
 Everything after P7 is either taste, deferred, or gated behind a trigger — labelled as such.
 
-**Ranked by value ÷ risk:** P4, P10, P9, P5, P8, P11. (P1, P2, P3, P6 and P7 have landed — the whole first pass.)
+**Ranked by value ÷ risk:** P4, P9, P5, P8, P11. (P1, P2, P3, P6, P7 and P10 have landed.)
 
 ---
 
@@ -241,42 +241,6 @@ genuine architectural change and remains available later; nothing here foreclose
 
 ---
 
-## P10 — An error sink is a port; the client has none at all
-
-**Problem.** `server/utils/error-log-file.ts` appends to `logs/server-errors.log` and rotates it —
-a concrete infrastructure implementation reached directly by `server/plugins/error-log.ts`. It is
-per-machine, nobody is told when it grows, and more than one process means lost errors. The browser
-half does not exist: a client-side exception is reported nowhere. `decisions.md` → Accepted
-limitations already carries this with "_Revisit before any real deployment_".
-
-The pure half is already correctly separated (`error-log.ts` — `isLoggableServerError`,
-`buildErrorLogEntry`, `formatErrorLogLine`, with a redaction contract). What is missing is the seam
-between it and where an entry goes.
-
-**Proposed shape.** A one-method sink interface — `write(entry: IErrorLogEntry): void` — with the
-file writer as the default implementation and the plugin resolving it from runtime config. Then a
-client boundary: `app/plugins/error-report.client.ts` hooking `vue:error` and
-`window.onunhandledrejection`, posting through one `POST /api/client-errors` handler into the same
-sink, under the **same redaction contract** — which is the part that must not be reinvented.
-
-**Affected.** `server/utils/error-log-file.ts` (becomes one implementation of the port), new
-`server/utils/error-sink.ts`, `server/plugins/error-log.ts`, new client plugin and endpoint,
-`decisions.md` (the redaction contract grows a client clause and its limitation row shrinks).
-
-**Why it is an improvement.** Swapping the destination becomes configuration rather than an edit,
-and the client stops being a blind spot. The redaction contract — currently the strongest thing
-about this subsystem — gets applied to a second source instead of being duplicated for it.
-
-**Risks / downsides.** A public `POST /api/client-errors` is an unauthenticated write surface and
-needs a rate limit and a hard body cap, or it is an amplification vector. That guard is the
-substance of the work, not an afterthought.
-
-**Complexity.** Small–medium.
-
-**Depends on.** Nothing.
-
----
-
 ## P11 — The JSONB ceiling: pick the index strategy before it is urgent
 
 **Problem.** Every filter and sort on a user-defined field is an unindexed expression over
@@ -353,11 +317,11 @@ sub-note are the parts that do pay, and neither is the split those entries rejec
 ## Sequencing
 
 ```
-P5       — independent, any time (the riskiest entry here)
-P8       — defer (see its entry)
-P4       — gated on a new field type
-P9, P10  — independent, any time
-P11      — gated on measurement
+P5   — independent, any time (the riskiest entry here)
+P8   — defer (see its entry)
+P4   — gated on a new field type
+P9   — independent, any time
+P11  — gated on measurement
 ```
 
 **The first pass is complete.** Everything left is a judgement call, and P4, P5, P8 and P11 each

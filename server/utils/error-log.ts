@@ -14,10 +14,18 @@ export interface IErrorLogRequest {
 }
 
 /**
+ * Which half of the app raised it. One log holds both, so the tag leads every line — a browser
+ * stack read as a server fault would send the next reader looking in the wrong process.
+ */
+export type TErrorLogSource = 'server' | 'client'
+
+/**
  * One line of `logs/server-errors.log`. Flat rather than nested so a `grep` or a `jq`
- * one-liner stays trivial; the request half is null for an error raised outside a request.
+ * one-liner stays trivial; the request half is null for an error raised outside a request,
+ * and for a client report there is no request of ours to describe at all.
  */
 export interface IErrorLogEntry {
+  source: TErrorLogSource
   timestamp: string
   /** null when the error carries no HTTP status — an unclassified fault. */
   statusCode: number | null
@@ -92,6 +100,7 @@ export function buildErrorLogEntry(
   const origin = originOf(error)
 
   return {
+    source: 'server',
     timestamp: now.toISOString(),
     // The status is the response's, so it comes from the wrapper, not from what it wraps
     statusCode: isError(error) ? error.statusCode : null,
@@ -102,6 +111,48 @@ export function buildErrorLogEntry(
     path: request?.path ?? null,
     queryKeys: request?.queryKeys ?? null,
     userId: request?.userId ?? null,
+  }
+}
+
+/**
+ * What a browser reports about an error it raised, declared structurally for the same reason
+ * `IErrorLogEventSource` is — so this module needs no import from the validation layer, and a
+ * spec can pass an object literal.
+ */
+interface IClientErrorReportSource {
+  name: string
+  message: string
+  stack?: string
+  path: string
+}
+
+/**
+ * A client report as a log entry. **The redaction is the same rule from the other side:** the
+ * caller supplies no user id — it is read from the cookie the middleware already resolved, so a
+ * report cannot claim to be someone else — and the path is cut at the first `?`, so a query
+ * **value** pasted into it never reaches the file.
+ *
+ * `statusCode`, `method` and `queryKeys` are null: there is no request of ours being described.
+ * The browser's own request is the report itself, and its shape is not what failed.
+ */
+export function buildClientErrorLogEntry(
+  report: IClientErrorReportSource,
+  userId: string | null,
+  now: Date,
+): IErrorLogEntry {
+  const [path = ''] = report.path.split('?')
+
+  return {
+    source: 'client',
+    timestamp: now.toISOString(),
+    statusCode: null,
+    name: report.name,
+    message: report.message,
+    stack: report.stack ?? null,
+    method: null,
+    path,
+    queryKeys: null,
+    userId,
   }
 }
 

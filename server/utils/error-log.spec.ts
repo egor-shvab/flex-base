@@ -1,6 +1,7 @@
 import { createError } from 'h3'
 import { describe, expect, it } from 'vitest'
 import {
+  buildClientErrorLogEntry,
   buildErrorLogEntry,
   formatErrorLogLine,
   isLoggableServerError,
@@ -182,6 +183,126 @@ describe('the redaction contract', () => {
   it("never carries the user's email", () => {
     expect(line()).not.toContain('owner@example.com')
     expect(line()).toContain('usr_1')
+  })
+})
+
+/**
+ * The browser half. It goes through the same formatter and the same file, so the contract above
+ * has to hold from this side too — and the ways it could be broken are different ones, because
+ * here the *caller* is untrusted rather than the thrower.
+ */
+describe('buildClientErrorLogEntry', () => {
+  const report = {
+    name: 'TypeError',
+    message: 'x is not a function',
+    stack: 'TypeError: x is not a function\n    at Foo',
+    path: '/tables/tbl_1',
+  }
+
+  it('tags the entry as the client, so one log can hold both', () => {
+    expect(buildClientErrorLogEntry(report, USER.id, NOW).source).toBe('client')
+    expect(buildErrorLogEntry(new Error('boom'), null, NOW).source).toBe('server')
+  })
+
+  it('carries the name, message and stack the browser reported', () => {
+    const entry = buildClientErrorLogEntry(report, USER.id, NOW)
+
+    expect(entry.name).toBe('TypeError')
+    expect(entry.message).toBe('x is not a function')
+    expect(entry.stack).toContain('at Foo')
+    expect(entry.path).toBe('/tables/tbl_1')
+  })
+
+  it('takes its timestamp from the caller, like its server counterpart', () => {
+    expect(buildClientErrorLogEntry(report, null, NOW).timestamp).toBe('2026-08-16T09:12:04.113Z')
+  })
+
+  /** There is no request of ours being described — the browser's own is not what failed. */
+  it('nulls the status, the method and the query names', () => {
+    const entry = buildClientErrorLogEntry(report, USER.id, NOW)
+
+    expect(entry.statusCode).toBeNull()
+    expect(entry.method).toBeNull()
+    expect(entry.queryKeys).toBeNull()
+  })
+
+  it('reports an anonymous browser as a null user', () => {
+    expect(buildClientErrorLogEntry(report, null, NOW).userId).toBeNull()
+  })
+
+  it('keeps a missing stack as null rather than the string "undefined"', () => {
+    expect(buildClientErrorLogEntry({ ...report, stack: undefined }, null, NOW).stack).toBeNull()
+  })
+})
+
+/**
+ * The same contract, asserted from the untrusted side. A client report is a body someone can
+ * write by hand, so what matters here is what the builder **refuses to take from it** — the
+ * server-side cases above assert what the builder declines to reach for.
+ */
+describe('the redaction contract, for a client report', () => {
+  const line = (path: string, userId: string | null = USER.id) =>
+    formatErrorLogLine(
+      buildClientErrorLogEntry(
+        { name: 'Error', message: 'boom', stack: 'Error: boom', path },
+        userId,
+        NOW,
+      ),
+    )
+
+  /**
+   * The one that would be easy to get wrong: `path` is a string the caller controls, so a query
+   * string pasted into it would put the user's own data in the log by the back door. It is cut at
+   * the first `?` — the same structural cut `readErrorLogRequest` makes on the server side.
+   */
+  it('cuts a query string off the reported path, values and all', () => {
+    const written = line('/tables/tbl_1?search=acme%20holdings&stage=Won')
+
+    expect(written).toContain('/tables/tbl_1')
+    expect(written).not.toContain('search')
+    expect(written).not.toContain('acme')
+    expect(written).not.toContain('Won')
+  })
+
+  /**
+   * The user id is a parameter, never a field of the report — the handler reads it from the
+   * cookie the middleware resolved. A body claiming to be someone else cannot reach the entry,
+   * because there is no path for it to arrive by.
+   */
+  it('takes the user id from the caller, not from anything the report could carry', () => {
+    expect(line('/tables/tbl_1', 'usr_from_cookie')).toContain('usr_from_cookie')
+    expect(line('/tables/tbl_1', null)).toContain('"userId":null')
+  })
+
+  it("never carries the user's email, which the browser never sends and this never adds", () => {
+    expect(line('/tables/tbl_1')).not.toContain('owner@example.com')
+  })
+
+  /**
+   * The entry shape is closed. A field added to the report schema later would reach the file
+   * silently without this, which is exactly the failure the server-side block was written for.
+   */
+  it('writes the declared fields and nothing else', () => {
+    const entry = buildClientErrorLogEntry(
+      { name: 'Error', message: 'boom', stack: 'Error: boom', path: '/x' },
+      USER.id,
+      NOW,
+    )
+
+    expect(Object.keys(entry).sort()).toEqual(
+      [
+        'message',
+        'method',
+        'name',
+        'path',
+        'queryKeys',
+        'source',
+        'stack',
+        'statusCode',
+        'timestamp',
+        'userId',
+      ].sort(),
+    )
   })
 })
 

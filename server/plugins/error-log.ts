@@ -1,11 +1,10 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 import {
   buildErrorLogEntry,
-  formatErrorLogLine,
   isLoggableServerError,
   readErrorLogRequest,
 } from '#server/utils/error-log'
-import { appendErrorLogLine } from '#server/utils/error-log-file'
+import { recordErrorEntry } from '#server/utils/error-log-file'
 
 /**
  * The one place server errors are recorded. Nitro's `error` hook is reached from h3's
@@ -21,6 +20,6 @@ export default defineNitroPlugin((nitroApp) => {
     if (!isLoggableServerError(error)) return
 
     const request = event ? readErrorLogRequest(event) : null
-    appendErrorLogLine(formatErrorLogLine(buildErrorLogEntry(error, request, new Date())))
+    recordErrorEntry(buildErrorLogEntry(error, request, new Date()))
   })
 })

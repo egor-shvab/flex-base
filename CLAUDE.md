@@ -25,7 +25,7 @@ Two more that shape every change: **full TypeScript coverage**, with zod schemas
 
 **Not in scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, third-party integrations. Do not build them speculatively — but the architecture **may** be shaped to accommodate them where doing so also improves the code that exists.
 
-**Current phase — quality, UX, maintainability, polish.** The feature set is done; the work now is tests, accessibility, resilience, and consistency. The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/decisions.md` → **Accepted limitations** marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. One **Open** row is left and it is parked behind a stated trigger, so "Open" is now something to read the register for rather than a queue to work through.
+**Current phase — architectural restructuring**, tracked in `docs/roadmap.md`; before it, quality/UX/accessibility, which is where the four test projects and the axe gate came from. The feature set is done. The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/decisions.md` → **Accepted limitations** marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. Both **Open** rows are parked behind a stated trigger, so "Open" is something to read the register for rather than a queue to work through.
 
 ---
 
@@ -103,6 +103,7 @@ app/                         # Nuxt 4 frontend (client)
   composables/               # useForm, useDeleteConfirm, … (imported explicitly — see §4)
   layouts/                   # default + auth layouts
   middleware/                # route guards (auth)
+  plugins/                   # client error reporting (`.client` — SSR is Nitro's hook)
   pages/                     # file-based routing
     tables/[tableId]/          # the table itself (index.vue) + settings.vue
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
@@ -170,6 +171,7 @@ Rationale for all three: `docs/decisions.md`.
 - **No queries in loops:** batch with `findMany` + `where: { id: { in: […] } }`, `createMany`, or a relation `include`. Relation-label resolution is the case to watch.
 - `select` only the columns a response needs. New query patterns must check existing `@@index` coverage first.
 - No `console.log` in committed code; errors are surfaced with `createError`, not logged and swallowed. **A handler never logs for itself** — `server/plugins/error-log.ts` records every unhandled 5xx from Nitro's `error` hook, and what it may write is fixed by the redaction contract in `docs/decisions.md`.
+- **`POST /api/client-errors` is the one endpoint open to anyone**, because an error on the login page is one worth having. It therefore carries its own guards rather than the ownership ones: a `content-length` check **before** the body is read (a missing length is refused too, or chunked encoding is an uncapped path into memory), and a per-address rate limit. It takes no user id from its body — the middleware has already resolved one from the cookie.
 
 **Migrations are non-destructive.** A new required column is added nullable → backfilled → set `NOT NULL`; `prisma migrate dev` cannot generate that and refuses the diff, so use `--create-only` and edit the SQL. Never drop or retype a column holding user data without an explicit migration plan.
 

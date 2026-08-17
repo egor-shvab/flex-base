@@ -11,6 +11,7 @@ import {
 } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
 import process from 'node:process'
+import { formatErrorLogLine, type IErrorLogEntry } from '#server/utils/error-log'
 
 /** Already covered by `.gitignore` (`logs`, `*.log`), so nothing here needs committing. */
 const LOG_PATH = resolve(process.cwd(), 'logs', 'server-errors.log')
@@ -109,4 +110,19 @@ export function appendErrorLogLine(line: string): void {
     disabled = true
     closeLog()
   }
+}
+
+/**
+ * **The one write path**, and the reason it exists: two sources now record errors — Nitro's hook
+ * for a server fault, and `api/client-errors.post.ts` for a browser report — and both must reach
+ * the file through the same formatting and the same never-throws guarantee. Composing
+ * `appendErrorLogLine(formatErrorLogLine(…))` at each of them would be the same line written
+ * twice, and the second copy is where a format drifts.
+ *
+ * The destination is a local file and that is a **known limitation**, not a seam: swapping it is
+ * an edit to this function, which is why no interface stands in front of one implementation
+ * (`docs/decisions.md`).
+ */
+export function recordErrorEntry(entry: IErrorLogEntry): void {
+  appendErrorLogLine(formatErrorLogLine(entry))
 }

@@ -14,6 +14,12 @@ interface IEventInput {
   query?: TQueryInput
   body?: unknown
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  /**
+   * The address the request appears to come from, which `getRequestIP` reads off the socket.
+   * Only a rate-limited endpoint cares; supplying a distinct one per case is how a spec gets its
+   * own allowance instead of sharing the module-level counter with every case before it.
+   */
+  ip?: string
 }
 
 function toSearch(query: TQueryInput): string {
@@ -39,8 +45,13 @@ export function testEvent({
   query = {},
   body,
   method = 'GET',
+  ip,
 }: IEventInput = {}): H3Event {
-  const request = new IncomingMessage(new Socket())
+  const socket = new Socket()
+  // `remoteAddress` is a getter on a real socket, so it is defined rather than assigned
+  if (ip !== undefined) Object.defineProperty(socket, 'remoteAddress', { value: ip })
+
+  const request = new IncomingMessage(socket)
   request.method = method
   request.url = `/api${toSearch(query)}`
 

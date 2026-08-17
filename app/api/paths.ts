@@ -20,6 +20,8 @@ export const apiPath = {
   fieldOptions: (tableId: string, fieldId: string) =>
     `/api/tables/${tableId}/fields/${fieldId}/options`,
 
+  clientErrors: '/api/client-errors',
+
   records: (tableId: string) => `/api/tables/${tableId}/records`,
   record: (tableId: string, recordId: string) => `/api/tables/${tableId}/records/${recordId}`,
 } as const
