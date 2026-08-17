@@ -34,8 +34,10 @@ loses its entry there; an item that is rejected leaves both.
 
 ### Second pass — each behind a stated judgement call
 
-- [ ] **P9** — Consolidate the status-code policy into one file and make `CLAUDE.md` §3's
-      "framework-agnostic services" claim true or drop it. _Recommended variant: (b)._
+- [x] **P9** — `server/db/` stops speaking HTTP: it classifies a Prisma fault, `utils/http-errors.ts`
+      maps it, and a lint rule holds the boundary. **Shape changed on inspection** — the central
+      status-code file variant (b) proposed was rejected, since most messages are the rule itself;
+      `CLAUDE.md` §3's "framework-agnostic" claim was corrected rather than made true.
 - [x] **P10** — Client errors reported through the server's sink, under the same redaction
       contract. No sink port: one shared write path, since there is one destination.
 - [ ] **P4** — A field type becomes three co-located modules instead of thirteen registry entries.

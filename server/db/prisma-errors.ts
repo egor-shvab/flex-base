@@ -1,25 +1,24 @@
-import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
 
-interface IPrismaErrorMessages {
-  /** Message for a unique-constraint violation (P2002); omit when the model has none. */
-  conflict?: string
-  /** Message for an operation on a row that does not exist (P2025). */
-  notFound: string
+/**
+ * What a Prisma fault **is**, never what it should become. Classifying a constraint violation is a
+ * persistence question; deciding that one answers 409 is a transport one, and it lives in
+ * `#server/utils/http-errors`. Nothing under `server/db/` may import `h3` — the rule is in
+ * `eslint.config.mjs`, because this file used to build the HTTP error itself.
+ *
+ * Predicates over `unknown` rather than over a narrowed type: every caller has a `catch` binding,
+ * which TypeScript types as `unknown`, so narrowing here saves each of them the instanceof check.
+ */
+function hasCode(error: unknown, code: string): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === code
 }
 
-/**
- * Maps Prisma constraint errors onto HTTP errors; anything else is rethrown as-is
- * so unexpected failures still surface as a 500 instead of being disguised.
- */
-export function toHttpError(error: unknown, messages: IPrismaErrorMessages): Error {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === 'P2002' && messages.conflict) {
-      return createError({ statusCode: 409, statusMessage: messages.conflict })
-    }
-    if (error.code === 'P2025') {
-      return createError({ statusCode: 404, statusMessage: messages.notFound })
-    }
-  }
-  return error instanceof Error ? error : new Error(String(error))
+/** P2002 — a unique constraint was violated. Which one is not knowable from the error alone. */
+export function isUniqueViolation(error: unknown): boolean {
+  return hasCode(error, 'P2002')
+}
+
+/** P2025 — an update or delete matched no row. */
+export function isMissingRow(error: unknown): boolean {
+  return hasCode(error, 'P2025')
 }

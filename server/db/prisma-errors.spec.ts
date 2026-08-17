@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
-import { toHttpError } from '#server/db/prisma-errors'
-
-const messages = { conflict: 'A table with this name already exists', notFound: 'Table not found' }
+import { isMissingRow, isUniqueViolation } from '#server/db/prisma-errors'
 
 function prismaError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Constraint failed', {
@@ -11,63 +9,40 @@ function prismaError(code: string) {
   })
 }
 
-/** The shape `createError` produces, as a caller reads it off the thrown value. */
-function httpError(error: Error) {
-  return error as Error & { statusCode?: number; statusMessage?: string }
-}
-
-describe('toHttpError — mapped constraint errors', () => {
-  it('maps a unique-constraint violation to 409', () => {
-    const result = httpError(toHttpError(prismaError('P2002'), messages))
-
-    expect(result.statusCode).toBe(409)
-    expect(result.statusMessage).toBe(messages.conflict)
+/**
+ * These only classify. What each classification answers with is `toHttpError`'s, and its cases
+ * sit beside it in `utils/http-errors.spec.ts` — the split is the point of the module.
+ */
+describe('the Prisma fault predicates', () => {
+  it('recognises a unique-constraint violation', () => {
+    expect(isUniqueViolation(prismaError('P2002'))).toBe(true)
+    expect(isMissingRow(prismaError('P2002'))).toBe(false)
   })
 
-  it('maps an operation on a missing row to 404', () => {
-    const result = httpError(toHttpError(prismaError('P2025'), messages))
-
-    expect(result.statusCode).toBe(404)
-    expect(result.statusMessage).toBe(messages.notFound)
+  it('recognises an operation on a missing row', () => {
+    expect(isMissingRow(prismaError('P2025'))).toBe(true)
+    expect(isUniqueViolation(prismaError('P2025'))).toBe(false)
   })
 
-  it('returns the error rather than throwing it — every call site supplies the `throw`', () => {
-    expect(() => toHttpError(prismaError('P2025'), messages)).not.toThrow()
-    expect(toHttpError(prismaError('P2025'), messages)).toBeInstanceOf(Error)
-  })
-})
-
-describe('toHttpError — what it deliberately does not disguise', () => {
-  it('passes a unique violation through untouched when the model declares no conflict message', () => {
-    // `conflict` is optional, so a model with no unique constraint to speak of leaves P2002
-    // unmapped — it surfaces as a 500 rather than as a 409 with nothing to say
-    const original = prismaError('P2002')
-
-    expect(toHttpError(original, { notFound: 'Record not found' })).toBe(original)
+  it('claims nothing about an unrecognised Prisma code', () => {
+    expect(isUniqueViolation(prismaError('P2003'))).toBe(false)
+    expect(isMissingRow(prismaError('P2003'))).toBe(false)
   })
 
-  it('passes an unrecognised Prisma code through untouched', () => {
-    const original = prismaError('P2003')
-    expect(toHttpError(original, messages)).toBe(original)
-  })
-
-  it('passes an ordinary Error through as the same instance', () => {
-    const original = new Error('Connection reset')
-    expect(toHttpError(original, messages)).toBe(original)
-  })
-})
-
-describe('toHttpError — non-Error throws', () => {
-  it('wraps a thrown string', () => {
-    const result = toHttpError('boom', messages)
-
-    expect(result).toBeInstanceOf(Error)
-    expect(result.message).toBe('boom')
-  })
-
-  it('wraps anything else, so a caller always gets an Error to throw', () => {
-    expect(toHttpError(null, messages).message).toBe('null')
-    expect(toHttpError(undefined, messages).message).toBe('undefined')
-    expect(toHttpError({ code: 'P2002' }, messages).message).toBe('[object Object]')
+  /**
+   * A `catch` binding is `unknown`, so these are handed anything at all — a connection reset, a
+   * thrown string, a null. Narrowing here is what saves every caller its own instanceof check.
+   */
+  it('claims nothing about anything that is not a Prisma error', () => {
+    for (const value of [
+      new Error('Connection reset'),
+      'boom',
+      null,
+      undefined,
+      { code: 'P2002' },
+    ]) {
+      expect(isUniqueViolation(value)).toBe(false)
+      expect(isMissingRow(value)).toBe(false)
+    }
   })
 })

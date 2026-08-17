@@ -109,7 +109,7 @@ app/                         # Nuxt 4 frontend (client)
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
 server/                      # Nitro backend
   api/                       # HTTP route handlers (thin: parse → check ownership → call service)
-  services/                  # generic, framework-agnostic business logic
+  services/                  # the business rules; raises HTTP errors directly (§5)
   db/                        # persistence: the client, the selects, the row mappers, the SQL
   middleware/                # server middleware (attach authenticated user to event.context)
   plugins/                   # Nitro plugins — the `error` hook that records server faults
@@ -126,7 +126,7 @@ docs/                        # roadmap.md, architecture.md, decisions.md + the d
 public/                      # static assets
 ```
 
-**`server/` is three layers and dependencies point one way — `api` → `services` → `db`** — with `utils/` cross-cutting: importable by all three and importing none of them. `db/` is the only place that touches the Prisma client, a `select` shape, a row→domain mapper or `Prisma.Sql`; a service composes those into a rule, and a handler composes services. The direction is enforced by `no-restricted-imports` in `eslint.config.mjs`. **An alias-prefixed restriction there must be a `regex` pattern, never a `group` one** — see `docs/decisions.md`.
+**`server/` is three layers and dependencies point one way — `api` → `services` → `db`** — with `utils/` cross-cutting: importable by all three and importing none of them. `db/` is the only place that touches the Prisma client, a `select` shape, a row→domain mapper or `Prisma.Sql`; a service composes those into a rule, and a handler composes services. **`db/` may not import `h3`** — persistence classifies a fault (`isUniqueViolation`, `isMissingRow`), and `utils/http-errors.ts` decides what it answers with. The direction is enforced by `no-restricted-imports` in `eslint.config.mjs`. **An alias-prefixed restriction there must be a `regex` pattern, never a `group` one** — see `docs/decisions.md`.
 
 `shared/` is four layers with a strict dependency order — `types` → `constants` → `utils` → `validation`, each importing only from layers above it. A helper that fits none of `types`/`constants`/`validation` belongs in `utils/`, not in whichever folder is nearest.
 

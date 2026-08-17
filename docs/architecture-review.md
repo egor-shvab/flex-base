@@ -33,7 +33,7 @@ obtained from a handler factory rather than remembered, and the client/server co
 
 Everything after P7 is either taste, deferred, or gated behind a trigger — labelled as such.
 
-**Ranked by value ÷ risk:** P4, P9, P5, P8, P11. (P1, P2, P3, P6, P7 and P10 have landed.)
+**Ranked by value ÷ risk:** P4, P5, P8, P11. (P1, P2, P3, P6, P7, P9 and P10 have landed.)
 
 ---
 
@@ -204,43 +204,6 @@ than either end state.
 
 ---
 
-## P9 — Decide what `services/` means about h3, then make it true
-
-**Problem.** `CLAUDE.md` §3 describes `server/services/` as "generic, framework-agnostic business
-logic". It is not: all four services import `createError` from `h3` and throw HTTP errors directly,
-and the status-code policy is scattered — `toHttpError` maps `P2002`→409 / `P2025`→404 while each
-service carries its own `{ conflict, notFound }` message bag, and the domain-specific codes (400 for
-a type change, 400 for retargeting a relation, 409 for deleting a relation target, 400 for a
-dangling link) are inline `createError` calls across three files.
-
-Two coherent answers, and the current state is neither:
-
-- **(a) Full separation.** Services throw domain errors (`ConflictError`, `NotFoundError`,
-  `InvalidInputError`); one mapper at the API boundary — a Nitro plugin or the P2 factories —
-  turns them into HTTP. Services become independent of the transport and of h3 entirely.
-- **(b) Honest coupling.** Keep throwing `createError`, delete the "framework-agnostic" claim from
-  `CLAUDE.md`, and consolidate the status-code policy into one `server/http-errors.ts` that names
-  every code the app can produce, so the 404-not-403 rule and the 409 set are readable in one place
-  instead of inferred from four files.
-
-**Recommendation: (b).** There is exactly one transport and no plan for a second, so (a) buys
-portability nobody has asked for and adds an indirection between throwing and answering — precisely
-the speculative generality `CLAUDE.md` §1 rules out. What (b) buys is real and small: one file
-stating the status-code policy, and a documented claim that matches the code.
-
-**Affected.** (b): new `server/http-errors.ts`; `server/utils/prisma-errors.ts` folds into it; the
-four services; `CLAUDE.md` §3.
-
-**Risks / downsides.** (b) is close to a rename and will read as one — its value is entirely in the
-consolidated policy file, so if that file ends up as six re-exports it was not worth doing. (a) is a
-genuine architectural change and remains available later; nothing here forecloses it.
-
-**Complexity.** (b) small; (a) medium.
-
-**Depends on.** Nothing.
-
----
-
 ## P11 — The JSONB ceiling: pick the index strategy before it is urgent
 
 **Problem.** Every filter and sort on a user-defined field is an unindexed expression over
@@ -320,7 +283,6 @@ sub-note are the parts that do pay, and neither is the split those entries rejec
 P5   — independent, any time (the riskiest entry here)
 P8   — defer (see its entry)
 P4   — gated on a new field type
-P9   — independent, any time
 P11  — gated on measurement
 ```
 

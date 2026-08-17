@@ -1,6 +1,6 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
-import { toHttpError } from '#server/db/prisma-errors'
+import { toHttpError } from '#server/utils/http-errors'
 import { recordSelect, toJsonData, toSharedRecord, type TRecordRow } from '#server/db/records'
 import { buildRecordOrderBy, buildRecordWhere } from '#server/db/record-sql'
 import { assertRelationTargets, resolveLinkedRecords } from '#server/services/relations'

@@ -155,6 +155,14 @@ Each factory is **generic in its return type**. Flattening it to `unknown` would
 
 `[tableId].patch` and `[tableId].delete` use no factory, and that is not an exemption. Their services take a `userId` and scope on it inside their own `where` clause, which is the form preferred above; a pre-check would be a second round trip for an answer the write already gives. Ownership cannot be forgotten there because the **signature requires the id** — which is exactly the property the factories add to the services that take only a `tableId`.
 
+### The persistence layer does not speak HTTP
+
+`db/` classifies a fault — `isUniqueViolation`, `isMissingRow` — and `utils/http-errors.ts` decides what it answers with. Before, `db/prisma-errors.ts` built the `createError` itself, so the layer furthest from the transport was the one naming status codes. Enforced rather than trusted: `server/db/**` may not import `h3` (`eslint.config.mjs`), and that ban needs **`paths`**, since an import of a package is invisible to the alias patterns beside it.
+
+**Rejected: a central status-code registry.** The obvious next step is to move every message there too, and it is wrong. Of ~20 `createError` sites, about five are policy — 404-never-403, `P2002` → 409, `requireUser`'s 401 — and the rest carry messages that **are** the business rule: "Field type cannot be changed", `"{field}" in "{table}" links to this table`, "A multi-value field cannot be changed back to a single value". A registry would put each of those a file away from the rule that raises it. What is shared is the **mapping**; the wording belongs beside its rule.
+
+**Rejected: domain errors with a mapper at the boundary**, which would make a service literally framework-free. Its whole h3 dependency is `createError`, there is one transport and no second consumer, and an error hierarchy carrying a message and a status is `createError` with extra steps (`CLAUDE.md` §1). The claim in §3 was corrected instead — services raise HTTP errors directly, and that is now what it says.
+
 ### Ownership is denormalized nowhere
 
 It lives only on `Table.userId`; fields and records reach the user through their table. A denormalized `userId` on `Field`/`Record` would be faster to filter and impossible to keep honest.

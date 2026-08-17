@@ -1,6 +1,6 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
-import { toHttpError } from '#server/db/prisma-errors'
+import { toHttpError } from '#server/utils/http-errors'
 import { tableListSelect, toSharedTableListItem } from '#server/db/tables'
 import type { ITableListItem } from '#shared/types/table'
 
