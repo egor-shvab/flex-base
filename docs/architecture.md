@@ -280,6 +280,7 @@ Only the modules whose contract is not obvious from their name.
 ### `app/`
 
 - **`composables/useApi.ts`** — the `useRequestFetch` seam — its one job is keeping callers off bare `$fetch`
+- **`composables/useTableLoader.ts`** — the table and its fields, fetched together, which is what both table screens open with. It owns **neither the `useAsyncData` nor the error**: the two pages must key differently (a layout and a page must never share one) and the 404 is each page's own answer, so both stay at the call site
 - **`composables/useForm.ts`** — form state keyed `Record<string, unknown>`; its dynamic key handling is what lets one composable drive metadata-generated forms
 - **`composables/useDetailLink.ts`** — the route target that opens a record in the detail dialog, layered onto the current query. Every way in is this one function — a row's View action and a relation cell alike — and each appends to whatever chain it renders under, so a caller never has to know whether it is opening or drilling
 - **`composables/useRecordDetail.ts`** — the one owner of the record-detail dialog: reads the `detail` chain off the route, fetches only its last entry (keyed on a **string**, never the ref object, which is fresh on every query change), feeds the labels to the relations store, and hands back the route targets for Back and Close. Every control it exposes is a navigation, not a state change
@@ -317,7 +318,7 @@ directory above.
 
 ### The two table pages
 
-Both open with **`useTableLoader`** — the table and its fields, fetched together because neither screen draws anything without both. It owns neither the `useAsyncData` nor the error: the keys must differ (`table-…` vs `table-records-…`, since a layout and a page must never share one) and the 404 is the page's own answer, so both stay at the call site.
+Both open with **`useTableLoader`** (above), under their own keys — `table-…` and `table-records-…`.
 
 **On the records page the URL query is the single source of truth** for filter/sort/page. `queryState` is `parseRecordQueryState(fields, route.query)` — page, sort and filters in one shot, so the page parses nothing itself. Every control writes back through `useRecordListQuery`, and one watcher refetches — keyed on `recordQueryKey(queryState)` rather than on `queryState` itself, because that computed is a fresh object whenever **any** param moves and the list must not refetch because a dialog opened. Records and relation options are fetched **after** the loader resolves, in parallel with each other — filters decode against field metadata, so a shared filter URL would otherwise render unfiltered on first paint.
 

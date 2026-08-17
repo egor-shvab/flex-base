@@ -6,58 +6,14 @@ This file says only _what_ and _in what order_ — contracts belong in `docs/arc
 
 ---
 
-## Current phase — refactoring & cleanup
+## Current phase — none scheduled
 
-A full-codebase audit turned into ordered work: no new features, and no behaviour change except
-where a task says so. **Why each task exists, the files it touches and its risk are in
-`docs/refactor-plan.md`** — read the task's entry there before starting it. That file is deleted when
-this phase closes.
+The refactoring & cleanup phase is closed: its findings are in the code, and the constraints worth
+keeping moved into `docs/decisions.md` as they landed.
 
-Phases run in order; tasks within one are independent unless the plan says otherwise.
-
-### Phase 1 — Debris and stale documentation
-
-- [x] 1.1 Remove the stray `+` at the top of `BaseCheckbox.vue`
-- [x] 1.2 Correct `CLAUDE.md` §2's account of `typecheck` and `build`
-- [x] 1.3 Reconcile `architecture.md` §2 and §11 with the modules they describe
-- [x] 1.4 Guard the shell's Escape listener while a dialog is open, and correct the three documents claiming `BaseModal` held the only one
-- [x] 1.5 Drop the stale type-scale comment in `_variables.scss`
-- [x] 1.6 Remove `@nuxt/image`, which nothing uses
-- [x] 1.7 Move `eslint` out of `dependencies`
-- [x] 1.8 Route `docs/refactor-plan.md` from `CLAUDE.md`
-
-### Phase 2 — Single-source constants and shared helpers
-
-- [x] 2.1 One debounce constant, replacing three declarations and a default
-- [x] 2.2 One scalar→list normaliser, replacing `toList` and `toCellValueList`
-- [x] 2.3 One route-param reader for the 13 API handlers
-- [x] 2.4 One filter-map rebuild, shared by the filter drawer and the summary
-- [x] 2.5 Deduplicate the four registry `props(field)` factories
-- [x] 2.6 One "N matching records" phrase — the duplicated "Delete table" dialog body was left alone, being markup rather than a string
-
-### Phase 3 — Duplication in the render layer
-
-- [x] 3.1 Collapse `RelationFieldSelect`'s duplicated template
-- [x] 3.2 Resolve each field's control once per render, not three times
-- [x] 3.3 One error banner (`BaseErrorBanner`), replacing six hand-written copies
-- [x] 3.4 Two duplicated SCSS blocks: the centred card — which also moved `100vh` to `100dvh` — and the sidebar row
-
-### Phase 4 — Module boundaries
-
-- [x] 4.1 Split `app/utils/record-cells.ts` — the registry-reading half into `app/field-types/cell-resolver.ts`, the pure value shaper in beside `toValueList`
-- [x] 4.2 Un-export `RECORD_NUMBER_FIELD`; the record columns are now derived from `queryColumns` in `test/fixtures.ts`
-
-### Phase 5 — Page decomposition
-
-- [x] 5.1 Extract the shared table fetch into `useTableLoader` — narrower than planned; each page keeps its own `useAsyncData`, key and error throw
-- [x] 5.2 Extract the field list into `components/fields/TableFieldList.vue` (`settings.vue` 516 → 327)
-- [x] 5.3 Reassessed `pages/tables/[tableId]/index.vue` — **not split**, and the reason is recorded in `decisions.md`
-
-### Phase 6 — Deferred, and final validation
-
-- [ ] 6.1 `BaseSelect.vue`: evaluated and **deferred** — do not split on line count alone
-- [ ] 6.2 `BaseSelect`'s `seen` map: recorded as a watch item, not scheduled
-- [ ] 6.3 Final pass — reconcile the docs, run every suite, delete `docs/refactor-plan.md`
+The next phase is a decision rather than a backlog — drawn from the parked item below, or from
+`docs/decisions.md` → **Accepted limitations** when a row's _revisit_ condition comes true. One
+**Open** row is left there, and it is the same one parked here.
 
 ---
 

@@ -10,8 +10,6 @@ Three companion documents carry the detail this file deliberately omits. Read th
 
 How all four are maintained — what belongs where, and what must never be written — is §12.
 
-One further file exists **only while the current refactoring phase runs**: `docs/refactor-plan.md`, the audit detail behind the roadmap's task list. Read a task's entry there before starting it; it is deleted when the phase closes.
-
 ---
 
 ## 1. Project & current phase
@@ -378,7 +376,7 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 - **Type checking:** `typescript.typeCheck: 'build'` makes `nuxt build` run `vue-tsc` and fail on any type error, `.vue` templates included. `nuxt dev` does **not** type-check — use `npm run typecheck`.
 - `tsconfig.json` references the project configs generated into `.nuxt/` by `nuxt prepare`. Do not edit those directly.
 - `compatibilityDate` is pinned to `2025-07-15`.
-- Modules: `@nuxt/eslint`, `@nuxt/icon`, `@nuxt/image`, `@pinia/nuxt`.
+- Modules: `@nuxt/eslint`, `@nuxt/icon`, `@pinia/nuxt`.
 - Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate; dev-only, and it injects axe into the page rather than shipping in the bundle). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
 
 ---

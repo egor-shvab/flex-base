@@ -586,6 +586,20 @@ Three consequences to leave alone. **`Enter` with no cursor does nothing** — t
 
 The em-dash spellings went with them: they existed to make a fake choice read as not-a-choice, which a muted placeholder carries on its own. `FieldFormModal`'s **Type** select is the exception that proves the rule — it never had a blank option, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
 
+### `BaseSelect` is not split further, and its length is not the reason to
+
+At ~1000 lines it is the largest file in the project, and it is **already decomposed**: `usePopover`,
+`useAnchoredPosition`, `useListboxNavigation` and `useSelectOptions` all came out of it, the last two
+carrying an explicit "not a general-purpose composable" warning because that is what they are.
+
+The remaining seam is a `BaseSelectPanel`, and it fails. The panel's Escape handling, its
+`aria-activedescendant` IDREFs, its teleport and its one focusable (the failed state's Retry) are
+each coupled to the parent's two keyboard dispatchers, so the split would trade one cohesive
+component for two that have to agree — and four spec files plus `select-combobox.spec.ts` and
+`select-keyboard.spec.ts` read its DOM directly.
+
+The test is the one the records page states: a split has to buy separation, not move markup.
+
 ### `BaseSelect` no longer pins `height` — the reason expired
 
 It used to, because Chrome ignores `line-height` on `<select>` and left it 1px taller than the inputs beside it. Its trigger is a `<button>` now, so `form-control`'s `min-height` applies like every other control. Recorded rather than deleted, or the next person to find a select a pixel off will re-pin it.
