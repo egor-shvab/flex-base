@@ -18,7 +18,7 @@ import { computed, useId } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 import type { TRecordData, TRecordValue } from '#shared/types/record'
-import { inputFor } from '~/field-types/inputs'
+import { inputFor } from '~/field-types/registry'
 
 const props = defineProps<{
   fields: IField[]

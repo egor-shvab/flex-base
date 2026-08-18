@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { FIELD_TYPES } from '#shared/constants/field'
+import { FIELD_TYPES, FILTER_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import {
   CREATED_AT_KEY,
-  FILTER_VALUE_BY_TYPE,
   RECORD_NUMBER_KEY,
   RESERVED_QUERY_PARAMS,
   UPDATED_AT_KEY,

@@ -35,8 +35,8 @@ loses its entry there; an item that is rejected leaves both.
 
 ### Second pass — everything left is gated
 
-Nothing below is unblocked. Each open item names the trigger that would start it; until one comes
-true there is no architectural work queued, and the next phase is a decision rather than a backlog.
+Each open item names the trigger that would start it. P8 is the only one whose gate has opened —
+and its own entry argued against taking it, so the next phase is a decision rather than a backlog.
 
 - [x] **P9** — `server/db/` stops speaking HTTP: it classifies a Prisma fault, `utils/http-errors.ts`
       maps it, and a lint rule holds the boundary. **Shape changed on inspection** — the central
@@ -44,14 +44,17 @@ true there is no architectural work queued, and the next phase is a decision rat
       `CLAUDE.md` §3's "framework-agnostic" claim was corrected rather than made true.
 - [x] **P10** — Client errors reported through the server's sink, under the same redaction
       contract. No sink port: one shared write path, since there is one destination.
-- [ ] **P4** — A field type becomes three co-located modules instead of thirteen registry entries.
-      _Gate: do this when the next field type is scheduled, not before._
+- [x] **P4** — A field type is a module per slice instead of thirteen scattered registry entries;
+      the registries assemble rather than declare. **Shape changed on inspection** — the SQL slice
+      landed in `server/db/field-types/`, not a top-level `server/field-types/`, since `db/` is the
+      only place `Prisma.Sql` may live.
+      Its gate ("when the next field type is scheduled") was lifted by decision, not met.
 - [~] **P5** — **Rejected on inspection, not deferred.** Of the 25 behaviours the records store's
   spec pins, ~7 are the cache `useAsyncData` would replace; the rest are paging and write
   orchestration that would only relocate. `useAsyncData` also discards data on error, so keeping
   the rows under a failure banner needs back the state the change would remove. Reasoning in
   `docs/decisions.md`; do not re-derive it.
-- [ ] **P8** — Feature folders for the frontend. _Gate: after P4, or at a fourth domain._
+- [ ] **P8** — Feature folders for the frontend. _Gate: P4 has landed, so this one is open — take it at a fourth domain, or when the three that exist stop being legible._
 - [ ] **P11** — Index strategy for the JSONB ceiling. _Gate: first table over ~100k records, or the
       first report of a slow filtered view._
 

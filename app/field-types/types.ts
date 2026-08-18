@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
-import type { IField } from '#shared/types/field'
-import type { TFilterValue } from '#shared/types/filter'
-import type { TRecordSingleValue, TRecordValue } from '#shared/types/record'
+import type { IField, TFieldType } from '#shared/types/field'
+import type { IFilterValueByType, TFilterValue } from '#shared/types/filter'
+import type { ILinkedRecord, TRecordSingleValue, TRecordValue } from '#shared/types/record'
 
 /**
  * How one field type's value drives a `Base*` control — the shape both per-type control
@@ -69,4 +69,51 @@ export interface IFieldConfigSummaryProps {
 export interface IMultiValueCellProps {
   field: IField
   value: string[]
+}
+
+/** What a summariser may need beyond the value itself. Only RELATION uses it. */
+export interface IFilterSummaryContext {
+  linkedRecordFor: (fieldId: string, recordId: string) => ILinkedRecord | undefined
+}
+
+/**
+ * What an active filter reads as in the summary line above the table.
+ *
+ * The value parameter is widened to `TFilterValue` rather than indexed per type, and
+ * narrowed inside. Indexing a mapped type by a union in *parameter* position collapses to
+ * an intersection, which would make the map uncallable for an arbitrary field — the same
+ * reason `IFieldControl.fromControl` and the server's `TFilterSql` widen theirs. Validation
+ * guarantees the shape, so the guard branches are guards rather than behaviour.
+ */
+export type TFilterSummary = (
+  value: TFilterValue,
+  field: IField,
+  ctx: IFilterSummaryContext,
+) => string
+
+/**
+ * The whole client half of one field type: how it is edited, filtered, displayed, named and
+ * described. Its two siblings are the isomorphic half in `#shared/field-types` and the SQL half
+ * in `#server/db/field-types` — three modules, one per slice, split by what each bundle may
+ * contain rather than by concern (`CLAUDE.md` §9).
+ *
+ * **Every key is required and nullable, never optional**, so a new field type states its
+ * position on each axis rather than inheriting one by omission. The two `multi*` entries are
+ * `null` for a type with no list form — which `multiValue` in the shared module already
+ * refuses to configure. `configSummary`'s `null` means something different: not "no list form"
+ * but "fully described by its own word", which is why it has no multi counterpart at all —
+ * `isMultiValue(field)` answers cardinality for every type, so the field manager renders that
+ * part itself rather than two components repeating it.
+ */
+export interface IAppFieldType<K extends TFieldType> {
+  input: TRecordFieldControl
+  multiInput: TRecordFieldControl | null
+  filter: IFieldControl<IFilterValueByType[K]>
+  multiFilter: IFieldControl<TFilterValue> | null
+  cell: Component
+  summary: TFilterSummary
+  multiSummary: TFilterSummary | null
+  /** The glyph shown beside the type's word — never instead of it. */
+  icon: string
+  configSummary: Component | null
 }

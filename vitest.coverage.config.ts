@@ -53,8 +53,11 @@ export const APP_INCLUDE = [
   'app/middleware/**/*.ts',
   'app/stores/**/*.ts',
   'app/utils/**/*.ts',
-  // Only the registries themselves — `field-types/cells/` and `controls/` are components
-  'app/field-types/*.ts',
+  // The assemblers and every per-type module; the `.vue` cells and controls beside them are
+  // components and stay out, like the rest of `app/components/**`. `**`, not `*`: a per-type
+  // module sits a directory down, and a single-level glob would drop it from the report
+  // silently.
+  'app/field-types/**/*.ts',
   // A component's own composables sit beside it, and `app/components/**` is otherwise excluded
   // on purpose (markup). Named so they do not leave the report by living where they belong.
   'app/components/**/use*.ts',

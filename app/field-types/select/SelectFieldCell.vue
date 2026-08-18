@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { IFieldCellProps } from '~/field-types/types'
-import { badgeColorFor } from '#shared/utils/field'
+import { badgeColorFor } from '#shared/field-types/select'
 
 const props = defineProps<IFieldCellProps>()
 

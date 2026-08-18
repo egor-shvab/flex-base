@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { isMultiValue } from '#shared/field-types/cardinality'
+import { VALUE_SCHEMA_BY_TYPE } from '#shared/field-types/registry'
+import { TEXT_MAX_LENGTH } from '#shared/field-types/text'
 import {
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_KEY,
@@ -10,94 +13,14 @@ import {
   RECORD_PAGE_SIZE,
   RECORD_PAGE_SIZE_MAX,
 } from '#shared/constants/record'
-import type { IField, TFieldType } from '#shared/types/field'
+import type { IField } from '#shared/types/field'
 import type {
   IRecordQueryParams,
   TRecordData,
   TRecordSingleValue,
   TRecordValue,
 } from '#shared/types/record'
-import { choiceValues, isMultiValue } from '#shared/utils/field'
 import { claimFilterParams, filterShapeFor, queryColumns } from '#shared/utils/filter'
-
-const TEXT_MAX_LENGTH = 1000
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-
-interface IValueSchemaRules {
-  /** Schema for a filled-in value of this type; nullability is layered on top. */
-  base: (field: IField) => z.ZodType<TRecordSingleValue>
-  /**
-   * The **element** schema when this type holds a list, or `null` when it has no list form.
-   * Declared rather than derived from `base`: only a type whose values are strings can be
-   * stored as a JSON array, and stating that per type is what lets `buildMultiValueSchema`
-   * produce a real `z.ZodType<string[]>` instead of casting one into existence.
-   *
-   * Agrees with `MULTI_VALUE_BY_TYPE` by construction — both are declared per type, and the
-   * two are checked together where a field's cardinality is resolved.
-   */
-  listBase: ((field: IField) => z.ZodType<string>) | null
-  /** What a blank input produces — also the seed value for a new record. */
-  blank: TRecordSingleValue
-  /** Decodes a raw query-string value before `base` validates it — a URL carries only strings. */
-  fromQuery: (raw: string) => unknown
-}
-
-/** SELECT's choices, shared by its single and list schemas so the two cannot drift. */
-function choiceEnum(field: IField): z.ZodType<string> {
-  return z.enum(choiceValues(field) as [string, ...string[]], 'Choose a value')
-}
-
-/** A target record's id — the same schema whether a field holds one or several. */
-function relationId(): z.ZodType<string> {
-  return z.string().min(1, 'Choose a record')
-}
-
-/**
- * The single per-field-type branch point for record values. A new field type adds
- * one entry here and one entry in the component registry — nothing else changes.
- */
-const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaRules> = {
-  TEXT: {
-    base: () =>
-      z.string().trim().max(TEXT_MAX_LENGTH, `Must be at most ${TEXT_MAX_LENGTH} characters`),
-    listBase: null,
-    blank: null,
-    fromQuery: (raw) => raw,
-  },
-  NUMBER: {
-    base: () => z.number('Enter a number').finite('Enter a number'),
-    listBase: null,
-    blank: null,
-    fromQuery: (raw) => Number(raw),
-  },
-  // `false` is a real value, so a checkbox is never "missing" and `required` is a no-op
-  BOOLEAN: {
-    base: () => z.boolean(),
-    listBase: null,
-    blank: false,
-    fromQuery: (raw) => raw === 'true',
-  },
-  DATE: {
-    base: () => z.string().regex(ISO_DATE, 'Enter a valid date'),
-    listBase: null,
-    blank: null,
-    fromQuery: (raw) => raw,
-  },
-  SELECT: {
-    base: choiceEnum,
-    listBase: choiceEnum,
-    blank: null,
-    fromQuery: (raw) => raw,
-  },
-  // A target record's id. That the record exists is a database question, so the server
-  // layers `assertRelationTargets` on top of what is knowable here.
-  RELATION: {
-    base: relationId,
-    listBase: relationId,
-    blank: null,
-    fromQuery: (raw) => raw,
-  },
-}
 
 /** The value the form seeds a blank input with, per field. A multi-value field starts empty. */
 export function blankValueFor(field: IField): TRecordValue {

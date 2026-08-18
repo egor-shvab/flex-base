@@ -1,8 +1,8 @@
 import { markRaw, type Component } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { IRecord, TRecordValue } from '#shared/types/record'
-import { isMultiValue } from '#shared/utils/field'
-import { FIELD_CELLS } from '~/field-types/cells'
+import { isMultiValue } from '#shared/field-types/cardinality'
+import { FIELD_CELLS } from '~/field-types/registry'
 import MultiValueCell from '~/field-types/cells/MultiValueCell.vue'
 import { RECORD_COLUMNS } from '~/field-types/record-columns'
 
@@ -11,12 +11,12 @@ import { RECORD_COLUMNS } from '~/field-types/record-columns'
  * a value reads the same wherever it is shown. Key before type in both, mirroring the precedence
  * the server's `FIELD_SQL_BY_TYPE` lookup uses.
  *
- * **This is the one resolver that does not live in its own registry file, and the reason is a
- * cycle.** `inputFor` sits in `inputs.ts`, `filterFor` in `filters.ts`, `summaryFor` in
- * `filter-summaries.ts` — but `cellComponent` returns `MultiValueCell`, and that component imports
- * `FIELD_CELLS` back out of `cells.ts` to render each entry. Folding this into `cells.ts` would
- * make the two import each other. `cells.ts` naming only the six per-type cells, never the shared
- * one, is what keeps this directory acyclic (`docs/decisions.md`).
+ * **This is the one resolver that does not live in the registry, and the reason is a cycle.**
+ * `inputFor`, `filterFor` and `summaryFor` all sit in `registry.ts` — but `cellComponent` returns
+ * `MultiValueCell`, and that component imports `FIELD_CELLS` back out of `registry.ts` to render
+ * each entry. Folding this in would make the two import each other. `registry.ts` naming only the
+ * six per-type modules, never the shared cell, is what keeps this directory acyclic
+ * (`docs/decisions.md`).
  *
  * Only the registry-reading half lives here. The value shapers it pairs with — `toValueList` and
  * `toCellSingleValue` — are pure, and live together in `~/utils/record-value`.

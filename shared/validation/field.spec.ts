@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
-import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
+import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { fieldInputSchema } from '#shared/validation/field'
 
 const select = (overrides: Record<string, unknown> = {}) => ({

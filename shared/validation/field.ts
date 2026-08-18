@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { BADGE_COLORS, DEFAULT_BADGE_COLOR } from '#shared/constants/color'
-import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
+import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { nameSchema } from '#shared/validation/name'
 
 /**

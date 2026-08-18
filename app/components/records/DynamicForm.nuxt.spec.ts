@@ -10,7 +10,7 @@ import BaseCheckbox from '~/components/common/BaseCheckbox.vue'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
 import DynamicForm from '~/components/records/DynamicForm.vue'
-import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
+import RelationFieldSelect from '~/field-types/relation/RelationFieldSelect.vue'
 import {
   asMultiple,
   booleanField,

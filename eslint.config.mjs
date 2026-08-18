@@ -51,6 +51,33 @@ export default withNuxt(
     },
   },
 
+  // A field type sits *above* the shared layers that consume it: `utils/` and `validation/`
+  // read `field-types/`, never the reverse. That direction is what dissolved the cycle which
+  // used to keep `FILTER_VALUE_BY_TYPE` and `VALUE_SCHEMA_BY_TYPE` in separate layers — one
+  // import back into `utils/` would recreate it, and the modules would still compile.
+  //
+  // `constants/` is deliberately not restricted: it is a leaf, and `select.ts` reads the badge
+  // palette from it. `regex`, not `group`, for the reason above.
+  {
+    files: ['shared/field-types/**/*.ts'],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            NO_RELATIVE_IMPORTS,
+            {
+              regex: '^#shared/(utils|validation)/',
+              message:
+                'A field type is read by utils/ and validation/, never the reverse — that direction is what keeps the shared layer acyclic.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // A table-scoped route reaches its user through a handler factory, never by resolving one
   // itself — the factory is what makes the ownership check unskippable, and it is only
   // unskippable while nothing under here can go around it. The two sibling routes that do use

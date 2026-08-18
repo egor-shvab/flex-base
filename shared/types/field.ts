@@ -1,4 +1,4 @@
-import type { FIELD_TYPES } from '#shared/constants/field'
+import type { FIELD_TYPES } from '#shared/field-types/registry'
 import type { TBadgeColor } from '#shared/types/color'
 
 export type TFieldType = (typeof FIELD_TYPES)[number]

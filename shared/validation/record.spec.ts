@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest'
-import { FIELD_TYPES } from '#shared/constants/field'
+import { FIELD_TYPES } from '#shared/field-types/registry'
 import { FILTER_VALUES_MAX, SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import {
   MULTI_VALUE_MAX_ITEMS,

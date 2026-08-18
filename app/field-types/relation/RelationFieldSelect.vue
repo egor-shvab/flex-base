@@ -25,7 +25,7 @@ import type { ILinkedRecord } from '#shared/types/record'
 import { formatLinkedRecord } from '#shared/utils/record-label'
 // Explicit, because `field-types/` sits outside `~/components` on purpose — nothing here is
 // globally registered, so an unimported tag would silently render nothing
-import RelationOptionLabel from '~/field-types/controls/RelationOptionLabel.vue'
+import RelationOptionLabel from '~/field-types/relation/RelationOptionLabel.vue'
 import { useRelationsStore } from '~/stores/relations'
 import type { ISelectOption } from '~/types/select'
 

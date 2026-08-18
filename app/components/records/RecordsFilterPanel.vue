@@ -40,7 +40,7 @@ import {
 } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
-import { filterFor } from '~/field-types/filters'
+import { filterFor } from '~/field-types/registry'
 import { formatMatchingRecords } from '~/utils/format'
 
 const props = defineProps<{

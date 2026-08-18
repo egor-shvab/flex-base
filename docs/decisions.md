@@ -116,7 +116,7 @@ Four constraints are load-bearing:
 
 - **The merge step is `vitest run --merge-reports`, never bare `vitest`.** Watch mode defaults to `!isCI && process.stdin.isTTY && !isAgent`, and merging refuses to run under it — so a bare `vitest` works in CI, in a pipe and under an agent, and fails in the one place it matters: a developer's terminal. `run` forces `watch` off unconditionally.
 - **The scope lives in `vitest.coverage.config.ts`**, a fragment rather than a runnable config, because two `include` lists would drift the first time a directory was added. It is named `*.config.ts` only so `tsconfig.tools.json`'s glob type-checks it, and its importers name it **with the `.ts` extension** — Vite's `configLoader: 'native'` cannot resolve an extensionless relative specifier and warns on every run until it is spelled out.
-- **The integration run measures the server half only.** Given `app/**` it would have to transform `app/field-types/*.ts` — which import `.vue` files — in a node environment with no Vue plugin. Nothing is lost: merging unions the file sets.
+- **The integration run measures the server half only.** Given `app/**` it would have to transform `app/field-types/**/*.ts` — which import `.vue` files — in a node environment with no Vue plugin. Nothing is lost: merging unions the file sets.
 - **`.vitest-reports/` may contain nothing but blob files.** Vitest's `readBlobs` throws on any subdirectory and merges every file it finds, so the two fixed `--outputFile.blob` paths are what keep a stale or foreign file out of the report.
 
 The merge step's summary line counts the root projects only, though every test is listed and reported. The two collect steps print their own accurate totals just above it.
@@ -306,9 +306,19 @@ It stays separate from `expr` because NUMBER and BOOLEAN cast in their filter pr
 
 `withinRange` returns a bare `a >= x AND a <= y` with no parentheses of its own, which is safe only while every sibling is `AND`. Search is the only OR in the query layer, and unparenthesised it would bind to the last bound of a range filter and silently widen it.
 
-### `FILTER_VALUE_BY_TYPE` and `VALUE_SCHEMA_BY_TYPE` stay split
+### A field type is three modules, one per slice, and the bundler is why
 
-They look like one table split across two layers. Merging them would be a **cycle**: `shared/utils/filter.ts` imports the constant, and `shared/validation/record.ts` imports `shared/utils/filter.ts`.
+One folder per type is what cohesion wants and what the build refuses. A module holding both the value schema and the SQL rules pulls `Prisma.Sql`, and therefore the Prisma client, into the browser bundle the moment a form imports the schema; `.vue` cells cannot enter the Nitro bundle for the mirror-image reason. So the shared, server and client halves are separate modules that only their own assembler joins. **The split is by what each bundle may contain, never by concern** — which is the test to apply to any further one.
+
+That has a knock-on the numbers make look like a regression: the filter summaries are pure functions, but they sit in a module that also names cells, so `summaries.nuxt.spec.ts` runs in the Nuxt project rather than the one-second `unit` one. Deliberate, and **not** to be "fixed" by splitting a type's summary back out into its own module — cohesion on the extension axis was judged worth one spec's startup. `CLAUDE.md` §10's rule is unbroken either way: the import graph decides the project, and this graph genuinely needs Nuxt.
+
+What this buys is cohesion, not safety — totality already made a missing entry a compile error, and still does. What it costs is that `multiValue` and its `MULTI_*` counterparts now sit in different slices, so **a spec is still the only thing joining them** (`CLAUDE.md` §10). Do not read the co-location as making those specs redundant.
+
+### The two per-type tables merged, by moving what caused the cycle
+
+They were split across `constants/` and `validation/` because merging them cycled: `shared/utils/filter.ts` imported the constant, and `shared/validation/record.ts` imported `shared/utils/filter.ts`. The cycle existed only because `shared/utils/field.ts` held the SELECT helpers and `isMultiValue` — every one of which is field-type knowledge rather than a generic helper. With them in `shared/field-types/`, that folder imports nothing from `utils/` or `validation/`, both read it, and one module per type declares its label, its cardinality, its filter shape and its value schema together.
+
+**A lint rule is what keeps it dissolved.** One import back into `utils/` or `validation/` from a per-type module recreates the cycle and still compiles.
 
 ### The query schema validates; the codec decodes
 
@@ -346,15 +356,15 @@ There is a real UX cost too: with a floor, typing one character either shows the
 
 ### `cellComponent` is the one resolver that does not live in its registry file
 
-`inputFor` sits in `inputs.ts`, `filterFor` in `filters.ts`, `summaryFor` in `filter-summaries.ts`. `cellComponent` sits in `cell-resolver.ts`, and folding it into `cells.ts` to match — which looks like the obvious tidy-up, and which `architecture.md` §3's table appears to invite — creates a **cycle**: it returns `MultiValueCell` for a multi-value field, and that component imports `FIELD_CELLS` back out of `cells.ts` to render each entry.
+`inputFor`, `filterFor` and `summaryFor` all sit in `registry.ts`. `cellComponent` sits in `cell-resolver.ts`, and folding it into `registry.ts` to match — which looks like the obvious tidy-up, and which `architecture.md` §3's table appears to invite — creates a **cycle**: it returns `MultiValueCell` for a multi-value field, and that component imports `FIELD_CELLS` back out of `registry.ts` to render each entry.
 
-`cells.ts` naming only the six per-type cells, and never the shared one, is what keeps the directory acyclic. The split is by what each half reads: `cell-resolver.ts` for the two functions that consult the registries, `~/utils/record-value` for the two that only shape a value.
+`registry.ts` naming only the six per-type modules, and never the shared cell, is what keeps the directory acyclic. The split is by what each half reads: `cell-resolver.ts` for the two functions that consult the registries, `~/utils/record-value` for the two that only shape a value.
 
 ### Inputs and filters are data; only cells are components
 
 A cell carries markup and scoped styles (an icon, tabular figures), not just a value, so a `format | component` union would be worse than one uniform contract. Inputs and filters carry neither — they name a `Base*` control plus adapters, so they stay rows in a table.
 
-**`RelationFieldSelect` is the one exception**, because a relation's candidates are records of another table and no synchronous `props(field)` factory can produce them. The rule that follows: a type whose control needs data beyond its own metadata gets a component in `field-types/controls/`; everything else stays a row.
+**`RelationFieldSelect` is the one exception**, because a relation's candidates are records of another table and no synchronous `props(field)` factory can produce them. The rule that follows: a type whose control needs data beyond its own metadata gets that component in its own type folder; everything else stays a row.
 
 ### RELATION's target table is immutable; its label field is not
 
@@ -646,7 +656,7 @@ Three consequences to leave alone. **`Enter` with no cursor does nothing** — t
 
 ### The blank option became a placeholder, and the wire format did not move
 
-`— Select —` / `All` used to be real `<option value="">` entries because a native select had nowhere else to put them. They are placeholders now, with `clearable` as the way back. Clearing still emits `''`, which is why `blankIsNull` in `inputs.ts` and the BOOLEAN filter's adapters are **unchanged**, `isFilterValueEmpty` still drops it, and a shared filter URL means exactly what it meant before.
+`— Select —` / `All` used to be real `<option value="">` entries because a native select had nowhere else to put them. They are placeholders now, with `clearable` as the way back. Clearing still emits `''`, which is why `blankIsNull` in `adapters.ts` and the BOOLEAN filter's adapters are **unchanged**, `isFilterValueEmpty` still drops it, and a shared filter URL means exactly what it meant before.
 
 The em-dash spellings went with them: they existed to make a fake choice read as not-a-choice, which a muted placeholder carries on its own. `FieldFormModal`'s **Type** select is the exception that proves the rule — it never had a blank option, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
 

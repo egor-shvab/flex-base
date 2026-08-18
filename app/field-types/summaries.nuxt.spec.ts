@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 import type { ILinkedRecord } from '#shared/types/record'
-import { FILTER_SUMMARIES, summaryFor } from '~/field-types/filter-summaries'
-import type { IFilterSummaryContext } from '~/field-types/filter-summaries'
+import { FILTER_SUMMARIES, summaryFor } from '~/field-types/registry'
+import type { IFilterSummaryContext } from '~/field-types/types'
 import {
   asMultiple,
   booleanField,

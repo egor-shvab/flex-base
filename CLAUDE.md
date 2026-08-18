@@ -98,7 +98,7 @@ app/                         # Nuxt 4 frontend (client)
     fields/                  # surfaces that render field *metadata* rather than records
     modals/                  # dialogs built on BaseModal
     records/                 # the metadata renderers — DynamicForm, DynamicTable, the filter panel & summary
-  field-types/               # EVERYTHING per-field-type: the input/filter/cell registries + the cell components
+  field-types/               # the client half of a field type: one folder per type + the assemblers
   api/                       # the transport layer: paths.ts + one use*Api() per resource
   composables/               # useForm, useDeleteConfirm, … (imported explicitly — see §4)
   layouts/                   # default + auth layouts
@@ -111,12 +111,14 @@ server/                      # Nitro backend
   api/                       # HTTP route handlers (thin: parse → check ownership → call service)
   services/                  # the business rules; raises HTTP errors directly (§5)
   db/                        # persistence: the client, the selects, the row mappers, the SQL
+    field-types/             # the SQL half of a field type: one module per type + the registry
   middleware/                # server middleware (attach authenticated user to event.context)
   plugins/                   # Nitro plugins — the `error` hook that records server faults
   utils/                     # cross-cutting: auth, route params, ownership, field keys, error log
   generated/prisma/          # generated Prisma client (gitignored — never edit by hand)
 shared/                      # code used by BOTH client & server — one rule per folder
   types/                     # type & interface declarations ONLY (zero runtime exports)
+  field-types/               # the isomorphic half of a field type: one module per type + the registry
   constants/                 # the runtime constant registries
   utils/                     # generic framework-free helpers
   validation/                # zod schemas and nothing else
@@ -126,9 +128,11 @@ docs/                        # roadmap.md, architecture.md, decisions.md + the d
 public/                      # static assets
 ```
 
-**`server/` is three layers and dependencies point one way — `api` → `services` → `db`** — with `utils/` cross-cutting: importable by all three and importing none of them. `db/` is the only place that touches the Prisma client, a `select` shape, a row→domain mapper or `Prisma.Sql`; a service composes those into a rule, and a handler composes services. **`db/` may not import `h3`** — persistence classifies a fault (`isUniqueViolation`, `isMissingRow`), and `utils/http-errors.ts` decides what it answers with. The direction is enforced by `no-restricted-imports` in `eslint.config.mjs`. **An alias-prefixed restriction there must be a `regex` pattern, never a `group` one** — see `docs/decisions.md`.
+**`server/` is three layers and dependencies point one way — `api` → `services` → `db`** — with `utils/` cross-cutting: importable by all three and importing none of them. `db/` is the only place that touches the Prisma client, a `select` shape, a row→domain mapper or `Prisma.Sql` — which is why the per-type SQL rules live in `db/field-types/` rather than a folder of their own; a service composes those into a rule, and a handler composes services. **`db/` may not import `h3`** — persistence classifies a fault (`isUniqueViolation`, `isMissingRow`), and `utils/http-errors.ts` decides what it answers with. The direction is enforced by `no-restricted-imports` in `eslint.config.mjs`. **An alias-prefixed restriction there must be a `regex` pattern, never a `group` one** — see `docs/decisions.md`.
 
 `shared/` is four layers with a strict dependency order — `types` → `constants` → `utils` → `validation`, each importing only from layers above it. A helper that fits none of `types`/`constants`/`validation` belongs in `utils/`, not in whichever folder is nearest.
+
+**`shared/field-types/` is a fifth folder, and it sits between `types/` and `constants/`.** It imports `types/` (and `constants/color`) and is read by `utils/` and `validation/` — **never the reverse**, which is what keeps the layer acyclic and is enforced by `no-restricted-imports`. It is also the one place outside `validation/` that may import zod, because a type's value schema is part of what the type _is_ (§9).
 
 ---
 
@@ -278,21 +282,24 @@ The token inventory, the mixin list, the partial layout, and the `BaseButton` va
 
 ## 9. Adding a new field type
 
-A new field type touches exactly these places — and nothing else:
+A field type is **three modules — one per slice — and one line in each of three registries**, and nothing else:
 
-1. The `FieldType` enum in `prisma/schema.prisma` (+ migration).
-2. `FIELD_TYPES` + `FIELD_TYPE_LABELS` in `shared/constants/field.ts`. `TFieldType` derives from it.
-3. `shared/validation/field.ts` — one zod branch for its `options` (plus the matching branch in `buildOptions`, `server/services/fields.ts`, if it stores options); `shared/validation/record.ts` — one `VALUE_SCHEMA_BY_TYPE` entry (`base` schema + `blank` value + `fromQuery` decoder).
-4. `shared/constants/filter.ts` — one `FILTER_VALUE_BY_TYPE` entry (`shape`: `scalar`/`list`/`range`, and `empty` value), plus its shape in `IFilterValueByType` (`shared/types/filter.ts`).
-5. `app/field-types/` — one entry each in `FIELD_INPUTS`, `FIELD_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES`, `FIELD_TYPE_ICONS` (the glyph shown beside the type's word) and `FIELD_CONFIG_SUMMARIES` (`null` unless the type has configuration worth stating), plus **one** cell component in `cells/`.
-6. `server/db/record-sql.ts` — one `FIELD_SQL_BY_TYPE` entry: its SQL projection (`expr`), how that projection is compared (`filter`), how free-text search matches it (`searchPredicate`, `null` to opt out), and `sortExpr` only if it orders differently from how it filters.
-7. `MULTI_VALUE_BY_TYPE` in `shared/constants/field.ts` — `true` only if the type has a list form. If it does, one entry in each `MULTI_*` override table (`MULTI_SQL`, `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`); if it does not, `null` in each.
+| Where                             | What                                                                                                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`            | the `FieldType` enum member (+ migration)                                                                                                                                    |
+| `shared/field-types/<type>.ts`    | its `IFieldTypeModule`: `label`, `multiValue`, `filter` (shape + empty), `value` (`base` schema, `listBase`, `blank`, `fromQuery`)                                           |
+| `server/db/field-types/<type>.ts` | its `IFieldSqlModule`: `sql` (`expr` · `filter` · `searchPredicate`, `null` to opt out of search · `sortExpr` only if it orders differently from how it filters) and `multi` |
+| `app/field-types/<type>/index.ts` | its `IAppFieldType`: `input`, `multiInput`, `filter`, `multiFilter`, `cell`, `summary`, `multiSummary`, `icon`, `configSummary` — plus **one** cell component beside it      |
 
-Every one of these registries is a total `Record<TFieldType, …>`, so adding an enum member is a compile error until all of them exist.
+Then one line per map in each registry — `shared/field-types/registry.ts`, `server/db/field-types/registry.ts`, `app/field-types/registry.ts` — plus its value shape in `IFilterValueByType` (`shared/types/filter.ts`), a zod branch in `shared/validation/field.ts` if it takes `options` (and the matching branch in `buildOptions`, `server/services/fields.ts`), and a fixture in `test/fixtures.ts`.
 
-**Cardinality is a second axis, and it is per-field, not per-type.** `options.multiple` makes a SELECT or a RELATION hold a list; `MULTI_VALUE_BY_TYPE` says which types may, and `isMultiValue(field)` (`shared/utils/field.ts`) is the only reader. Each affected registry keeps its flat per-type entries and gains a `MULTI_*` override table — also total — plus one resolver every consumer calls instead of indexing: `sqlFor`, `inputFor`, `filterFor`, `summaryFor`, `cellComponent`, `filterShapeFor`. So a new type must still declare its position on multi-value, and no component branches on the flag.
+**The registries are the only files that enumerate the types**, and every map in them is a total `Record<TFieldType, …>` literal — so adding an enum member is a compile error until all three declare it. Never enumerate the types anywhere else; that is the property the whole arrangement exists to hold.
 
-**Inputs and filters are data, not components** — each is an `IFieldControl` naming a `Base*` control, a `props(field)` factory, and the adapters between that control's model and the field's value. Only cells are components. A type whose control needs data beyond its own metadata gets a component in `field-types/controls/` (RELATION is the only one today).
+**Why three modules and not one folder per type: the bundler.** A module holding both the value schema and the SQL rules would pull `Prisma.Sql` — and therefore the Prisma client — into the browser bundle the moment a form imports the schema, and `.vue` cells cannot enter the Nitro bundle for the mirror-image reason. The split is by what each bundle may contain, never by concern — so a type declares everything one slice needs in one file.
+
+**Cardinality is a second axis, and it is per-field, not per-type.** `options.multiple` makes a SELECT or a RELATION hold a list; `multiValue` in the shared module says which types may, and `isMultiValue(field)` (`shared/field-types/cardinality.ts`) is the only reader. Each affected registry keeps its flat per-type entries and gains a `MULTI_*` override table — also total — plus one resolver every consumer calls instead of indexing: `sqlFor`, `inputFor`, `filterFor`, `summaryFor`, `cellComponent`, `filterShapeFor`. A type's own module declares both halves, but they land in **different slices**, so only a spec joins them (§10).
+
+**Inputs and filters are data, not components** — each is an `IFieldControl` naming a `Base*` control, a `props(field)` factory, and the adapters between that control's model and the field's value. Only cells are components. A type whose control needs data beyond its own metadata gets that component in its own folder (RELATION's picker is the only one today).
 
 **No scattered `switch`/`if` chains on field type** in pages, services, or generic components. If adding a type would require editing `DynamicForm`, `DynamicTable`, or a service, the abstraction is broken — fix the abstraction instead of special-casing.
 
@@ -302,7 +309,7 @@ Full contracts for each registry: `docs/architecture.md` §3.
 
 ## 10. Testing
 
-**Step 4 of the definition of done is binding.** Changes to `shared/utils/`, `shared/validation/`, `server/services/`, `server/db/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one. `.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app.
+**Step 4 of the definition of done is binding.** Changes to `shared/field-types/`, `shared/utils/`, `shared/validation/`, `server/services/`, `server/db/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one. `.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app.
 
 ### The four projects
 

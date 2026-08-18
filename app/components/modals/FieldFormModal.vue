@@ -111,10 +111,10 @@ import { useFieldsApi } from '~/api/fields'
 import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
-import { FIELD_TYPES, FIELD_TYPE_LABELS, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
+import { FIELD_TYPES, FIELD_TYPE_LABELS, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import type { IField, TFieldType } from '#shared/types/field'
-import { isMultiValue } from '#shared/utils/field'
+import { isMultiValue } from '#shared/field-types/cardinality'
 
 const props = withDefaults(
   defineProps<{

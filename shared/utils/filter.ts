@@ -1,10 +1,11 @@
 import {
   CREATED_AT_KEY,
-  FILTER_VALUE_BY_TYPE,
   RECORD_NUMBER_KEY,
   RESERVED_QUERY_PARAMS,
   UPDATED_AT_KEY,
 } from '#shared/constants/filter'
+import { isMultiValue } from '#shared/field-types/cardinality'
+import { FILTER_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IField, TFieldType } from '#shared/types/field'
 import type {
@@ -13,7 +14,6 @@ import type {
   TFilterValue,
   TRecordFilterValues,
 } from '#shared/types/filter'
-import { isMultiValue } from '#shared/utils/field'
 
 /**
  * One column of `Record` itself, as the query layer sees it: a read-only field over a real

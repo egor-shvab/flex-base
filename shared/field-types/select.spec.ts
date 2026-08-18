@@ -1,36 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
-import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
-import { badgeColorFor, choiceOptions, choiceValues, isMultiValue } from '#shared/utils/field'
-import {
-  ALL_TYPE_FIELDS,
-  asMultiple,
-  relationField,
-  selectField,
-  textField,
-} from '~~/test/fixtures'
-
-describe('isMultiValue', () => {
-  it('is false without options', () => {
-    expect(isMultiValue(textField())).toBe(false)
-  })
-
-  it('honours `multiple` only on the types the registry allows', () => {
-    for (const type of FIELD_TYPES) {
-      expect(isMultiValue(asMultiple(ALL_TYPE_FIELDS[type]))).toBe(MULTI_VALUE_BY_TYPE[type])
-    }
-  })
-
-  it('ignores a crafted `multiple` on a type with no list form', () => {
-    // The guard that stops a stale or hand-written flag reaching the schema or the SQL
-    expect(isMultiValue(asMultiple(textField()))).toBe(false)
-  })
-
-  it('treats anything but `true` as single-value', () => {
-    const stale = { ...selectField(), options: { multiple: undefined } }
-    expect(isMultiValue(stale)).toBe(false)
-  })
-})
+import { badgeColorFor, choiceOptions, choiceValues } from '#shared/field-types/select'
+import { relationField, selectField, textField } from '~~/test/fixtures'
 
 describe('choiceValues', () => {
   it('unwraps a SELECT to bare strings', () => {

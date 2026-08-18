@@ -47,7 +47,7 @@ import {
   queryColumns,
   withFilterValue,
 } from '#shared/utils/filter'
-import { summaryFor } from '~/field-types/filter-summaries'
+import { summaryFor } from '~/field-types/registry'
 import { useRelationsStore } from '~/stores/relations'
 import { formatMatchingRecords } from '~/utils/format'
 

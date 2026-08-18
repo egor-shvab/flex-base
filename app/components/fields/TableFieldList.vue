@@ -64,11 +64,10 @@
 </template>
 
 <script setup lang="ts">
-import { FIELD_TYPE_LABELS } from '#shared/constants/field'
+import { FIELD_TYPE_LABELS } from '#shared/field-types/registry'
 import type { IField } from '#shared/types/field'
-import { isMultiValue } from '#shared/utils/field'
-import { FIELD_CONFIG_SUMMARIES } from '~/field-types/config-summaries'
-import { FIELD_TYPE_ICONS } from '~/field-types/icons'
+import { isMultiValue } from '#shared/field-types/cardinality'
+import { FIELD_CONFIG_SUMMARIES, FIELD_TYPE_ICONS } from '~/field-types/registry'
 
 /**
  * A table's fields as the settings page lists them: one row per field stating its type, how it is

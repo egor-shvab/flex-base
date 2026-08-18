@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { FIELD_CELLS } from '~/field-types/cells'
+import { FIELD_CELLS } from '~/field-types/registry'
 import type { IMultiValueCellProps } from '~/field-types/types'
 
 /**

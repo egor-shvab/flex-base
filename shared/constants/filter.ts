@@ -1,5 +1,4 @@
-import type { TFieldType } from '#shared/types/field'
-import type { IFilterValueByType, IFilterValueRules, TSortDirection } from '#shared/types/filter'
+import type { TSortDirection } from '#shared/types/filter'
 
 /**
  * The record's own columns, which sort and filter alongside a table's fields. Their keys are
@@ -56,23 +55,3 @@ export const FILTER_VALUES_MAX = 50
  * ever change.
  */
 export const RESERVED_FIELD_KEYS = [RECORD_NUMBER_KEY, CREATED_AT_KEY, UPDATED_AT_KEY] as const
-
-/**
- * The single per-field-type branch point for filtering. Typed as a total `Record`, so
- * adding a `TFieldType` fails to compile until its filter value is declared. There is no
- * operator anywhere: a type declares the *shape* of its value, that shape names its query
- * params, and the server derives the comparison from the type and the same shape.
- */
-export const FILTER_VALUE_BY_TYPE: {
-  [K in TFieldType]: IFilterValueRules<IFilterValueByType[K]>
-} = {
-  TEXT: { shape: 'scalar', empty: '' },
-  NUMBER: { shape: 'range', empty: { from: null, to: null } },
-  BOOLEAN: { shape: 'scalar', empty: null },
-  DATE: { shape: 'range', empty: { from: null, to: null } },
-  // Several choices at once, ORed in SQL. The empty *array* is what tells the control it is
-  // a multi-select — the shape is declared once here and read everywhere else.
-  SELECT: { shape: 'list', empty: [] },
-  // The target record's id — a picker offers the candidates, so it compares exactly
-  RELATION: { shape: 'scalar', empty: '' },
-}

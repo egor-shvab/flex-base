@@ -14,14 +14,15 @@ How the metadata layer works. Rules live in `CLAUDE.md`; rationale and rejected 
 
 ---
 
-## 2. The four `shared/` layers
+## 2. The `shared/` layers
 
 Each folder has one job, and the dependency order is what keeps them honest — a file may only import from layers above it.
 
 1. **`types/`** — declarations only, erased at build time. They may `import type` a constant purely to derive from it (`TFieldType` is `typeof FIELD_TYPES[number]`); because both directions are type-only, that reference costs nothing at runtime.
-2. **`constants/`** — the runtime registries. Values, never logic.
-3. **`utils/`** — generic helpers. `filter.ts` (param naming + value-shape predicates) is a pure leaf; `record-query.ts` (the URL codec) additionally uses the value schemas to decode.
-4. **`validation/`** — zod schemas and their builders. A schema validates; turning validated params into a domain model is the codec's job, never a `.transform()`.
+2. **`field-types/`** — one module per field type plus the registry that assembles them (§3). Read by `utils/` and `validation/`, **never the reverse** — a lint rule holds that, because the reverse edge is the cycle that used to keep the filter and value tables in separate layers (`decisions.md`). The one folder outside `validation/` that may import zod.
+3. **`constants/`** — the runtime registries. Values, never logic.
+4. **`utils/`** — generic helpers. `filter.ts` (param naming + value-shape predicates) is a pure leaf; `record-query.ts` (the URL codec) additionally uses the value schemas to decode.
+5. **`validation/`** — zod schemas and their builders. A schema validates; turning validated params into a domain model is the codec's job, never a `.transform()`.
 
 ### Module inventory
 
@@ -37,15 +38,19 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 
 `TRecordFilterValues` is **the filter model of every layer**: typed values keyed by `Field.key`, sparse — an absent key is unfiltered, and the count of filtered fields is `Object.keys(…).length`.
 
+**`shared/field-types/`**
+
+- `<type>.ts` × 6 — one `IFieldTypeModule` each: `label`, `multiValue`, `filter` (shape + empty), `value` (`base` / `listBase` / `blank` / `fromQuery`). `text.ts` also exports `TEXT_MAX_LENGTH` (the `search` param borrows it), `boolean.ts` `BOOLEAN_LABELS` (one source, so a checkbox cannot say "Yes" in one place and "True" in another), and `select.ts` the choice helpers `choiceValues` / `choiceOptions` / `badgeColorFor`.
+- `registry.ts` — the `FIELD_TYPES` tuple, the `MODULES` literal pinning each module to its own key, and the four total maps assembled from it: `FIELD_TYPE_LABELS`, `MULTI_VALUE_BY_TYPE`, `FILTER_VALUE_BY_TYPE`, `VALUE_SCHEMA_BY_TYPE`. Every type in `FIELD_TYPES` is creatable; there is no second, narrower list.
+- `cardinality.ts` — **`isMultiValue(field)`**, the one reader of `options.multiple`, guarded by `MULTI_VALUE_BY_TYPE` so a stale flag on a type with no list form cannot reach the schema or the SQL. Its own module rather than a registry export, so the registry stays a pure assembler.
+
 **`shared/constants/`**
 
-- `field.ts` — `FIELD_TYPES`, `FIELD_TYPE_LABELS`, `BOOLEAN_LABELS`, `MULTI_VALUE_BY_TYPE` (which types may be configured to hold several values — SELECT and RELATION). Every type in `FIELD_TYPES` is creatable; there is no second, narrower list.
-- `filter.ts` — `FILTER_VALUE_BY_TYPE`; `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIRECTION` (`desc`); `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir`/`search`/`detail`) + `DETAIL_PARAM`; `SEARCH_MIN_LENGTH` (2); `FILTER_VALUES_MAX` (50, the cap on one list-shaped filter's values); `RECORD_NUMBER_KEY` / `CREATED_AT_KEY` / `UPDATED_AT_KEY` + `RESERVED_FIELD_KEYS`.
+- `filter.ts` — `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIRECTION` (`desc`); `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir`/`search`/`detail`) + `DETAIL_PARAM`; `SEARCH_MIN_LENGTH` (2); `FILTER_VALUES_MAX` (50, the cap on one list-shaped filter's values); `RECORD_NUMBER_KEY` / `CREATED_AT_KEY` / `UPDATED_AT_KEY` + `RESERVED_FIELD_KEYS`.
 - `record.ts` — `RECORD_PAGE_SIZE` (50), `RECORD_PAGE_SIZE_MAX` (100), `RELATION_OPTIONS_LIMIT` (200), `UNKNOWN_RECORD_LABEL`, `MULTI_VALUE_MAX_ITEMS` (50, the cap on how many values one multi-value field may hold — `FILTER_VALUES_MAX`'s counterpart on the write side).
 
 **`shared/utils/`**
 
-- `field.ts` — `choiceValues` / `choiceOptions` / `badgeColorFor` (SELECT's choices as strings, as picker options, and as a hue), and **`isMultiValue(field)`** — the one reader of `options.multiple`, guarded by `MULTI_VALUE_BY_TYPE` so a stale flag on a type with no list form cannot reach the schema or the SQL.
 - `record-label.ts` — `buildRecordLabel(record, labelFieldKey)`: the one rule for what names a record, used by both server paths so they cannot disagree. A blank, missing or deleted label field reads as **`null`** — never `#<number>`, so the number stays recoverable and cannot be composed in twice. A stored list degrades to its values joined rather than to `["a","b"]`, since a field can be widened after being chosen as a label. Its sibling `formatLinkedRecord(ref)` writes the flat form (`#3 Example`, or `#3` alone) for the places that can only hold a string.
 - `filter.ts` — `recordColumn(key, name, type)` and `queryColumns(fields)` (§5); `filterShapeFor(field)` / `emptyFilterValueFor(field)`, the multi-value overrides every caller holding an `IField` reads instead of indexing by type; `filterParamClaims` / `filterParamNames` / `rangeParamName`, all over one private `RANGE_PARAM_SUFFIX`; `claimFilterParams(fields)`, which resolves each param name to at most one field (reserved names first, then fields in order) with `isReservedParam` over the same set, and `filterableFields(fields)`, the fields that claimed at least one param — what the drawer and the summary render from; and the shape predicates `isRangeFilterValue` / `isListFilterValue` / `isScalarFilterValue` / `isFilterValueEmpty`, which need no field metadata. **`isRangeFilterValue` excludes arrays explicitly** — an array is a non-null object, so without that a list value would narrow to a range.
 
@@ -61,7 +66,7 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 - `name.ts` — `nameSchema`, the one rule for every user-visible name (1–100 chars); tables and fields build on it so they cannot drift.
 - `table.ts` — `tableInputSchema`.
 - `field.ts` — flat `fieldInputSchema` with a per-type `superRefine`, one schema for client and server. `multiple` is judged against `MULTI_VALUE_BY_TYPE` rather than a hardcoded type pair. Flat at the top level only: a SELECT choice is `{ value, color }`, and uniqueness is judged on `value` alone, since two choices differing only by colour are the same choice. Whether a RELATION's target exists and is owned is a database question, so the server layers `requireFieldTarget` on top.
-- `record.ts` — `VALUE_SCHEMA_BY_TYPE` (per type: `base` schema + `blank` value + `fromQuery` decoder + `listBase`), `buildRecordSchema(fields)` (strips unknown keys), `blankValueFor(field)`, `buildFilterValueSchema(field)`, `buildRecordQuerySchema(fields)` (page + pageSize + sort/dir + the filter params the table's fields claim; a **loose** object so the refinement can read filter params without widening the base ones). Required is enforced only where `blank` is `null`, so a BOOLEAN's `false` counts as a value.
+- `record.ts` — the builders over `VALUE_SCHEMA_BY_TYPE` (which `field-types/registry.ts` owns): `buildRecordSchema(fields)` (strips unknown keys), `blankValueFor(field)`, `buildFilterValueSchema(field)`, `buildRecordQuerySchema(fields)` (page + pageSize + sort/dir + the filter params the table's fields claim; a **loose** object so the refinement can read filter params without widening the base ones). Required is enforced only where `blank` is `null`, so a BOOLEAN's `false` counts as a value.
 
   **A multi-value field's schema is its type's own `base` lifted into `z.array`** — the type still says what one value is, cardinality says how many. `blank` becomes `[]`, `required` becomes "at least one", the cap is `MULTI_VALUE_MAX_ITEMS`, and duplicates are rejected rather than deduplicated (`decisions.md`). No type declares a second schema.
 
@@ -69,30 +74,28 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 
 ## 3. The field-type registries
 
-`app/field-types/` holds the entire per-field-type surface of the client, deliberately outside `~/components` so nothing there is globally registered — these are only ever reached through the registries. All are `markRaw`ped module constants.
+A field type is **three modules and three registry lines** (`CLAUDE.md` §9), one per slice, because a single module holding all of it would drag `Prisma.Sql` into the browser bundle and `.vue` cells into the Nitro one. Each slice has one module per type and one assembler that is the only file enumerating the six; every map it exports is a total `Record<TFieldType, …>` literal, so a new type is a compile error until all three assemblers declare it.
 
-| File                  | Registry                                                                     | Branch point for                           |
-| --------------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
-| `inputs.ts`           | `FIELD_INPUTS: Record<TFieldType, TRecordFieldControl>`                      | editing a record                           |
-| `filters.ts`          | `FIELD_FILTERS: { [K in TFieldType]: IFieldControl<IFilterValueByType[K]> }` | filtering                                  |
-| `cells.ts`            | `FIELD_CELLS: Record<TFieldType, Component>`                                 | displaying a record                        |
-| `filter-summaries.ts` | `FILTER_SUMMARIES`                                                           | how an active filter reads above the table |
-| `record-columns.ts`   | `RECORD_COLUMNS`                                                             | the record's own columns (§5)              |
-| `icons.ts`            | `FIELD_TYPE_ICONS: Record<TFieldType, string>`                               | the glyph beside a type's word             |
-| `config-summaries.ts` | `FIELD_CONFIG_SUMMARIES: Record<TFieldType, Component \| null>`              | how a field's configuration reads          |
+| Slice                    | Per type                            | Assembler                                                  |
+| ------------------------ | ----------------------------------- | ---------------------------------------------------------- |
+| `shared/field-types/`    | `<type>.ts` — `IFieldTypeModule`    | `registry.ts` (§2)                                         |
+| `server/db/field-types/` | `<type>.ts` — `IFieldSqlModule`     | `registry.ts` → `FIELD_SQL_BY_TYPE`, `MULTI_SQL`, `sqlFor` |
+| `app/field-types/`       | `<type>/index.ts` — `IAppFieldType` | `registry.ts` (below)                                      |
 
-**Cardinality is the second axis, and it is a property of the field rather than of its type.** Each of the four control registries keeps its flat per-type entries and gains a total `Record<TFieldType, X | null>` override table — `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`, and `MULTI_SQL` on the server — plus one resolver every consumer calls instead of indexing:
+`app/field-types/` holds the entire per-field-type surface of the client, deliberately outside `~/components` so nothing there is globally registered — these are only ever reached through the assemblers. `registry.ts` exports `FIELD_INPUTS` (editing a record), `FIELD_FILTERS` (filtering), `FIELD_CELLS` (displaying), `FILTER_SUMMARIES` (how an active filter reads), `FIELD_TYPE_ICONS` (the glyph beside a type's word), `FIELD_CONFIG_SUMMARIES` (how a field's configuration reads), the private `MULTI_INPUTS` / `MULTI_FILTERS` / `MULTI_SUMMARIES`, and the resolvers `inputFor` / `filterFor` / `summaryFor`. `record-columns.ts` (`RECORD_COLUMNS`, §5) sits beside them and belongs to no type.
 
-| Registry              | Resolver                  | Consumer               |
-| --------------------- | ------------------------- | ---------------------- |
-| `inputs.ts`           | `inputFor(field)`         | `DynamicForm`          |
-| `filters.ts`          | `filterFor(field)`        | `RecordsFilterPanel`   |
-| `filter-summaries.ts` | `summaryFor(field)`       | `RecordsFilterSummary` |
-| `cells.ts`            | `cellComponent(column)`\* | `RecordFieldValue`     |
+**Cardinality is the second axis, and it is a property of the field rather than of its type.** Each control registry keeps its flat per-type entries and gains a total `Record<TFieldType, X | null>` override table — `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`, and `MULTI_SQL` on the server — plus one resolver every consumer calls instead of indexing:
 
-\* The three others sit in the registry file they resolve; `cellComponent` cannot, and lives in `cell-resolver.ts` — see below.
+| Registry      | Resolver                  | Consumer               |
+| ------------- | ------------------------- | ---------------------- |
+| `registry.ts` | `inputFor(field)`         | `DynamicForm`          |
+| `registry.ts` | `filterFor(field)`        | `RecordsFilterPanel`   |
+| `registry.ts` | `summaryFor(field)`       | `RecordsFilterSummary` |
+| `registry.ts` | `cellComponent(column)`\* | `RecordFieldValue`     |
 
-`null` means "this type has no list form", which `MULTI_VALUE_BY_TYPE` already refuses to configure — the two agree by construction. Because the override tables are total, a new field type still cannot ship without stating its position.
+\* The three others sit in the file they resolve; `cellComponent` cannot, and lives in `cell-resolver.ts` — see below.
+
+`null` means "this type has no list form", which `multiValue` in the shared module already refuses to configure — the two agree by construction. Because the override tables are total, a new field type still cannot ship without stating its position. The two halves sit in **different slices**, so nothing but a spec joins them (`CLAUDE.md` §10).
 
 Only two entries are non-`null` anywhere: `MULTI_FILTERS` and `MULTI_SUMMARIES` leave **SELECT** `null`, because a SELECT filter has always been list-shaped, so nothing about filtering it changes when the stored value becomes a list.
 
@@ -100,26 +103,30 @@ Only two entries are non-`null` anywhere: `MULTI_FILTERS` and `MULTI_SUMMARIES` 
 
 Multi-value **cells** need no override table at all. `cellComponent` returns one shared `MultiValueCell`, which renders each entry through `FIELD_CELLS[field.type]` — a list of values is the list of how each value renders, so a future multi-capable type is covered without a component of its own. It renders **inline** rather than as a flex row, which is load-bearing (`decisions.md`); nothing about the cell puts it on a line — `DynamicTable`'s `white-space: nowrap` does that, and `RecordDetail` simply does not impose it.
 
-`cellComponent` lives in **`app/field-types/cell-resolver.ts`** alongside `readCellValue` — the two halves that read the registries. It is the one resolver not folded into its own registry file, because `MultiValueCell` imports `FIELD_CELLS` back out of `cells.ts` and merging would make the two import each other (`decisions.md`).
+`cellComponent` lives in **`app/field-types/cell-resolver.ts`** alongside `readCellValue` — the two halves that read the registries. It is the one resolver not folded into the file it resolves, because `MultiValueCell` imports `FIELD_CELLS` back out of `registry.ts` and merging would make the two import each other (`decisions.md`). **`registry.ts` must therefore never import `MultiValueCell`**; that component and the two record-column cells are what `cells/` still holds, since none of the three belongs to a field type.
 
 It is paired with **`toValueList`** / **`toCellSingleValue`** (both `app/utils/record-value.ts`, since both are pure shape): whenever the first returns `MultiValueCell`, the value is `toValueList`, otherwise it is `toCellSingleValue`. `RecordFieldValue` branches on the same `isMultiValue` question to pick the pair. That is what lets each cell declare the exact shape it renders instead of the union of both — and `toValueList` is **the one place** a stored value that is not yet an array is accounted for (a row drawn before `updateField`'s migration ran). It sits outside the cell registry because the multi-value **form control** normalises through the same function.
 
-`types.ts` defines the shape both control tables share:
+`types.ts` defines the shapes the modules and both control tables share:
 
+- `IAppFieldType<K>` — one type's whole client surface: `input`, `multiInput`, `filter`, `multiFilter`, `cell`, `icon`, `configSummary`. Required-and-nullable keys, never optional, so a new type states its position on each axis.
 - `IFieldControl<TValue>` — `component` + a `props(field)` factory + optional `toControl`/`fromControl` adapters.
 - `TRecordFieldControl` = `Required<IFieldControl<TRecordValue>>`, since a record input always adapts (a DOM control speaks strings and checkboxes, never `TRecordValue`) — which is why `DynamicForm` never branches on an optional adapter.
+- `TFilterSummary` + `IFilterSummaryContext` — a summariser and the one thing it may need beyond its value (only RELATION uses it, to resolve a linked record).
 - `IFieldCellProps` — `field` + `value`. Its `value` is `TRecordSingleValue`, **not** `TRecordValue`: a per-type cell renders exactly one value, and `defineProps<T>()` compiles to a runtime prop check (`decisions.md`).
 - `IMultiValueCellProps` — `field` + `value: string[]`, `MultiValueCell`'s own contract. A separate interface rather than a widening, because the two are opposites: it is the only cell taking a list, and every other cell is what it delegates each entry to.
 
-**Inputs.** TEXT/DATE/SELECT share one `blankIsNull` adapter (a blank control means "no value", never `''`). NUMBER keeps a real parse, and unparseable text passes through so the schema reports "Enter a number". BOOLEAN maps to `BaseCheckbox`. RELATION reuses `blankIsNull` over the shared picker.
+Three fragment modules keep the per-type modules to their own wording: **`adapters.ts`** (`blankIsNull`, shared by every type whose blank control means "no value" rather than `''`; `listValue`, its list counterpart), **`prose.ts`** (`summariseRange`, `summariseList`, `summariseLinkedRecord`), and the server's **`fragments.ts`** — the projections (`jsonText`, `jsonArray`, the array guard), the comparators (`matchesPartially` / `matchesExactly` / `matchesAny` / `containsAny` / `withinRange`), the search predicates and `targetLabel` / `firstElement`. `record-sql.ts` keeps only what is not per-type: `RECORD_COLUMN_SQL` and the `buildRecord*` builders.
+
+**Inputs.** TEXT/DATE/SELECT/RELATION share `blankIsNull`. NUMBER keeps a real parse, and unparseable text passes through so the schema reports "Enter a number". BOOLEAN maps to `BaseCheckbox`.
 
 **Filters.** TEXT is a debounced, trimmed `BaseInput` (matching is always case-insensitive and partial); SELECT a **multiple** `BaseSelect` fed from the field's own metadata, whose model already _is_ the `string[]` filter value and so needs no adapters, marked `searchable` once the field has more choices than `shouldSearch()`'s threshold; NUMBER/DATE a `BaseRange` with its `type`; RELATION the same picker the form uses, so a filter offers exactly what a record can link to. Only BOOLEAN adds adapters, because the control speaks strings while its filter value is `boolean | null` (`null` = "All", carried by the _absence_ of a choice). **No control knows an operator** — the value is the whole contract.
 
-Every "All" / "— Select —" is a **placeholder plus `clearable`**, never a synthetic blank option. The cleared value is still `''`, so the wire format did not move.
+Every "All" / "— Select —" is a **placeholder plus `clearable`**, never a synthetic blank option. The cleared value is still `''`, so the wire format did not move. Each type's own module writes its props once for both tables — the placeholder is the parameter, since "All" narrows a list where "— Select —" fills a field.
 
-**Cells.** `cells/{Text,Number,Boolean,Date,Select,Relation}FieldCell.vue` — one read-only cell per type. BOOLEAN renders an `mdi:check`/`mdi:minus` icon, SELECT a chip, NUMBER/DATE fixed `en-GB` `Intl` formats, RELATION the label the page resolved (or a muted "Unknown record"). Blank values never reach a cell — `DynamicTable` renders the `—` placeholder itself. `RecordNumberCell` and `TimestampCell` belong to `RECORD_COLUMNS` rather than to a field type, which is why they are not named `*FieldCell`.
+**Cells.** `{text,number,boolean,date,select,relation}/*FieldCell.vue` — one read-only cell per type, beside the module that names it. BOOLEAN renders an `mdi:check`/`mdi:minus` icon, SELECT a chip, NUMBER/DATE fixed `en-GB` `Intl` formats, RELATION the label the page resolved (or a muted "Unknown record"). Blank values never reach a cell — `DynamicTable` renders the `—` placeholder itself. `RecordNumberCell` and `TimestampCell` belong to `RECORD_COLUMNS` rather than to a field type, which is why they stay in `cells/` and are not named `*FieldCell`.
 
-**`controls/RelationFieldSelect.vue`** is the only control that is a component rather than a registry row, because a relation's candidates are records of another table and no synchronous `props(field)` factory can produce them. One component serves both tables: `placeholder` is "— Select —" when editing and "All" when filtering. It renders **two `BaseSelect` branches** rather than binding a union model, because `multiple` is tied to that model's type by design; `multiple` comes from field metadata and is fixed for the control's lifetime, so the branch never swaps under the user. It is also the only control that fetches on **user input** — it hands `BaseSelect` a `loadOptions` that searches the target table server-side, plus `searchable` unconditionally (the cap is on the _seed_, so the option count says nothing about how many records exist). Everything the two branches agree on is bound once through a `selectProps` computed; only the model and `multiple` are per-branch. How one option row reads is its own component (`RelationOptionLabel`), because slot content compiles in the caller's scope and so cannot be hoisted alongside the props — and, like everything in `field-types/`, it must be **imported explicitly**. A linked record the seed list does not offer — beyond the cap, found through a search, or since deleted — is appended as its own option, so opening a form can never drop a link on save.
+**`relation/RelationFieldSelect.vue`** is the only control that is a component rather than a registry row, because a relation's candidates are records of another table and no synchronous `props(field)` factory can produce them. One component serves both tables: `placeholder` is "— Select —" when editing and "All" when filtering. It renders **two `BaseSelect` branches** rather than binding a union model, because `multiple` is tied to that model's type by design; `multiple` comes from field metadata and is fixed for the control's lifetime, so the branch never swaps under the user. It is also the only control that fetches on **user input** — it hands `BaseSelect` a `loadOptions` that searches the target table server-side, plus `searchable` unconditionally (the cap is on the _seed_, so the option count says nothing about how many records exist). Everything the two branches agree on is bound once through a `selectProps` computed; only the model and `multiple` are per-branch. How one option row reads is its own component (`RelationOptionLabel`), because slot content compiles in the caller's scope and so cannot be hoisted alongside the props — and, like everything in `field-types/`, it must be **imported explicitly**. A linked record the seed list does not offer — beyond the cap, found through a search, or since deleted — is appended as its own option, so opening a form can never drop a link on save.
 
 ---
 
@@ -270,7 +277,8 @@ Only the modules whose contract is not obvious from their name.
 Three layers, dependencies pointing one way — `api` → `services` → `db` — with `utils/` cross-cutting (`CLAUDE.md` §3). `db/` is the only place a `select` shape, a row→domain mapper, the Prisma client or a `Prisma.Sql` fragment lives, which is what keeps a service readable as a rule rather than as a query.
 
 - **`db/tables.ts`** · **`db/fields.ts`** · **`db/records.ts`** — the `select` shapes and the row→domain mappers. `toSharedField` is the one place Prisma's untyped `options` JSON is narrowed to `IField`; `toSharedRecord` the one place its JSONB `data` column is; `toJsonData` the one cast back. `tableListSelect` spreads `tableSelect` and adds the counts only the dashboard needs
-- **`db/record-sql.ts`** — the SQL layer (§8). Named for what it is: `shared/utils/record-query.ts` is the URL codec, and the two used to share a name
+- **`db/record-sql.ts`** — the SQL layer (§8): `RECORD_COLUMN_SQL` and the `buildRecord*` builders. Named for what it is: `shared/utils/record-query.ts` is the URL codec, and the two used to share a name
+- **`db/field-types/`** — the per-type SQL rules the builders compose (§3). Inside `db/` because `Prisma.Sql` lives nowhere else
 - **`db/prisma-errors.ts`** — `isUniqueViolation` / `isMissingRow`: what a Prisma fault **is**, never what it becomes. No `h3` here, and a lint rule keeps it that way
 - **`utils/http-errors.ts`** — `toHttpError(error, { conflict?, notFound })` — where that classification becomes a response: the shared `P2002` → 409 / `P2025` → 404 mapping all three services raise through. Anything unrecognised passes through untouched, so an unexpected failure still surfaces as a 500
 - **`utils/handler.ts`** — the four factories every table-scoped route is declared with, one per `require*` helper below: `defineTableHandler` (the table) · `defineFieldsHandler` (its fields + `tableId`) · `defineTableWithFieldsHandler` (both) · `defineRecordWriteHandler` (fields, non-empty). **The ownership check is what produces the context**, so a route cannot be written without it; each stays generic in its return type, so Nitro still infers what a route answers with. `[tableId].patch` and `[tableId].delete` use none of them on purpose — their services take a `userId` and scope on it in their own `where` clause (`decisions.md`)

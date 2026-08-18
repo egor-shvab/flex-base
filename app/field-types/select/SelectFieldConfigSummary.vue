@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { IFieldConfigSummaryProps } from '~/field-types/types'
-import { choiceValues } from '#shared/utils/field'
+import { choiceValues } from '#shared/field-types/select'
 
 const props = defineProps<IFieldConfigSummaryProps>()
 

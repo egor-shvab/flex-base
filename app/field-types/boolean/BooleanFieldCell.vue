@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { BOOLEAN_LABELS } from '#shared/constants/field'
+import { BOOLEAN_LABELS } from '#shared/field-types/boolean'
 import type { IFieldCellProps } from '~/field-types/types'
 
 /**

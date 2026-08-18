@@ -16,108 +16,26 @@ request.
 
 The codebase is **not** organically evolved. It follows one pattern deliberately: metadata-driven
 registries typed as total `Record<TFieldType, …>` maps, ownership pushed into the `where` clause,
-URL as the single source of truth for list and dialog state, a four-layer `shared/` with a
+URL as the single source of truth for list and dialog state, a layered `shared/` with a
 declared import direction, and four test projects split by what a spec _needs_ rather than what it
 _is_. Those are the right calls and none of the proposals below disturbs them.
 
 So the honest answer to "what would we decide differently from the beginning" is narrow, and it is
-mostly about **where things live rather than how they work**. The first theme — three server layers
-present but only two named — is closed: `server/db/` now holds persistence and the direction
-`api → services → db` is lint-enforced. So is the second half of the next one: ownership is now
-obtained from a handler factory rather than remembered, and the client/server contract is now declared in `shared/types/api.ts` and annotated on every handler. **One theme remains:**
+mostly about **where things live rather than how they work**. Every theme it found is now closed:
+three server layers present but only two named; ownership remembered rather than obtained; a
+client/server contract inferred rather than declared; and the extension axis scattered across
+thirteen declaration sites, which P4 collapsed into a module per type per slice.
 
-**The extension axis is scattered.** A field type is the one thing this platform is designed to be
-extended by, and defining one means editing thirteen places across three roots (P4).
-
-The last theme — a client-side cache said to duplicate a framework the app already runs — did not
-survive inspection. Half of it was real and is closed: a server-derived count maintained by
+One candidate theme — a client-side cache said to duplicate a framework the app already runs — did
+not survive inspection. Half of it was real and is closed: a server-derived count maintained by
 client-side arithmetic. The other half was the records store, and counting what that store actually
 holds rejected it; see **Considered and recommended against**.
 
-Everything left is gated behind a stated trigger — labelled as such.
+What is left is gated behind a stated trigger — labelled as such.
 
-**Ranked by value ÷ risk:** P4, P8, P11 — all three gated. (P1, P2, P3, P6, P7, P9 and P10 have landed; P5 was rejected.)
-
----
-
-## P4 — A field type is a module, not thirteen registry entries
-
-**Problem.** The field type is _the_ extension axis of a low-code platform, and defining one is
-currently spread across three roots and thirteen declaration sites. `CLAUDE.md` §9 lists them, which
-is itself the tell — the checklist exists because the structure does not carry the answer:
-
-| Where                         | What                                                                                                                                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prisma/schema.prisma`        | the enum member                                                                                                                                                                             |
-| `shared/constants/field.ts`   | `FIELD_TYPES`, `FIELD_TYPE_LABELS`, `MULTI_VALUE_BY_TYPE`                                                                                                                                   |
-| `shared/constants/filter.ts`  | `FILTER_VALUE_BY_TYPE`                                                                                                                                                                      |
-| `shared/validation/field.ts`  | the `superRefine` branch for its options                                                                                                                                                    |
-| `shared/validation/record.ts` | `VALUE_SCHEMA_BY_TYPE`                                                                                                                                                                      |
-| `server/db/record-sql.ts`     | `FIELD_SQL_BY_TYPE`, `MULTI_SQL`                                                                                                                                                            |
-| `app/field-types/`            | `FIELD_INPUTS` + `MULTI_INPUTS`, `FIELD_FILTERS` + `MULTI_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES` + `MULTI_SUMMARIES`, `FIELD_TYPE_ICONS`, `FIELD_CONFIG_SUMMARIES`, one cell component |
-
-Totality makes this **safe** — every map is a total `Record<TFieldType, …>`, so a missing entry is a
-compile error, and that mechanism should be preserved exactly. What it does not make it is
-**cohesive**: no file answers "what is a DATE field", and reading one type's behaviour means opening
-nine files and reading one line of each. Deleting a type means finding thirteen lines. The same
-shape repeats a second time for record columns (`RECORD_COLUMN_SQL` on the server, `RECORD_COLUMNS`
-on the client, `recordColumn()`/`queryColumns` in shared).
-
-**Proposed shape.** Invert it: one module per type per layer, and registries that assemble rather
-than declare.
-
-```
-shared/field-types/
-  text.ts number.ts boolean.ts date.ts select.ts relation.ts   ← label, value schema (+ list form),
-                                                                 filter shape + empty, multi capability
-  registry.ts                                                   ← the only file listing all six;
-                                                                   rebuilds today's maps from them
-server/field-types/
-  text.ts … relation.ts     ← expr / sortExpr / filter / searchPredicate, and the multi variant
-  registry.ts               ← FIELD_SQL_BY_TYPE, MULTI_SQL, sqlFor
-app/field-types/
-  text/ number/ … relation/ ← input, filter, cell, summary, icon, config summary, multi overrides
-  registry.ts               ← the six maps + inputFor / filterFor / summaryFor / cellComponent
-```
-
-Consumers keep importing the assembled maps and resolvers, so **not one call site outside
-`field-types/` changes**. Adding a type becomes three new files and three lines in three registries;
-the compile-error-on-omission property is unchanged, because the registries are still total literals.
-
-**Why it is three slices and not one folder.** It cannot be one folder, and the reason is the
-bundler, not taste. A module holding both the value schema and the SQL rules would pull
-`Prisma.Sql` — and therefore the Prisma client — into the browser bundle the moment the form
-imports the schema. `.vue` cells cannot enter the Nitro bundle for the mirror-image reason. Three
-co-located slices with one file per type in each is the closest correct approximation, and the
-constraint is worth writing into `CLAUDE.md` §9 whether or not this proposal lands.
-
-**Affected.** `app/field-types/*` (restructured, ~20 files), new `shared/field-types/` and
-`server/field-types/`; `shared/constants/{field,filter}.ts` and `shared/validation/record.ts` shrink
-to re-exports or disappear; `server/db/record-sql.ts` keeps only the builders. Consumers:
-unchanged. Specs: the registry specs move with their registries; the two structural invariant specs
-(`MULTI_INPUTS` vs `MULTI_VALUE_BY_TYPE`, `MULTI_SQL` likewise) become **stronger**, because both
-halves now sit in one file per type.
-
-**Why it is an improvement.** Cohesion on the axis the product is designed to grow along. A type
-becomes readable, reviewable and deletable as a unit. The `MULTI_*` override tables stop being four
-separate parallel maps a reader has to align by eye and become a second key in one object.
-`CLAUDE.md` §9's thirteen-row checklist collapses to "three files and three registry lines", which
-is the version a checklist should be.
-
-**Risks / downsides.** The largest diff of the set, and it touches the most carefully-reasoned code
-in the project — `decisions.md` records why `cellComponent` cannot live in `cells.ts` (a cycle
-through `MultiValueCell`), and a naive per-type restructure can reintroduce exactly that cycle. The
-registry files must remain the only place the six types are enumerated, or totality silently
-degrades into six independent files that can each forget an entry. There is also a real argument
-for **not** doing this: the current design already prevents the failure mode, so the gain is
-cohesion rather than correctness, and it is only worth its cost if new field types are actually
-expected. **Recommendation: gate it on that.** If the next phase adds a field type, do this first;
-if not, take P1–P3 and leave this.
-
-**Complexity.** Medium–large. No behaviour change; the whole suite should pass untouched, which is
-also the safety net that makes it feasible.
-
-**Depends on.** Nothing — the server slice lands in `server/field-types/`, beside `db/`.
+**Two entries remain, and neither is ranked ahead of doing nothing:** P8 (whose own entry argues
+against taking it) and P11 (gated on a measurement). P1–P4, P6, P7, P9 and P10 have landed; P5 was
+rejected.
 
 ---
 
@@ -159,7 +77,7 @@ than either end state.
 
 **Complexity.** Large, and almost entirely in review rather than in code.
 
-**Depends on.** P4 (P5 was rejected). Revisit **only** once it has landed, or when a fourth domain appears. P7 has already taken the cheap half of it — a component's private modules now sit with the component.
+**Depends on.** P4, which has landed — so the gate is open and the recommendation above is now the only thing holding it. Revisit at a fourth domain. P7 has already taken the cheap half of it — a component's private modules now sit with the component.
 
 ---
 
@@ -247,10 +165,10 @@ sub-note are the parts that do pay, and neither is the split those entries rejec
 ## Sequencing
 
 ```
-P4   — gated on a new field type
-P8   — gated on P4, or on a fourth domain
+P8   — gate open (P4 landed); recommended against until a fourth domain
 P11  — gated on measurement
 ```
 
-**Nothing here is unblocked.** Every remaining entry carries an explicit gate above, so this register
-is now something to read when a gate opens rather than a queue to work through.
+Two entries left, one of them arguing against itself. This register is something to read when a
+gate opens rather than a queue to work through — and it is close enough to empty to delete once
+P11 is answered either way.

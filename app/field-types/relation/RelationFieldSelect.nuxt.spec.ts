@@ -5,7 +5,7 @@ import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
 import { nextTick } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
-import RelationFieldSelect from '~/field-types/controls/RelationFieldSelect.vue'
+import RelationFieldSelect from '~/field-types/relation/RelationFieldSelect.vue'
 import { useRelationsStore } from '~/stores/relations'
 import { mountTracked, unmountAll } from '~~/test/mount'
 

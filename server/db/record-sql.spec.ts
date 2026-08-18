@@ -6,7 +6,7 @@ import {
   buildRecordOrderBy,
   buildRecordWhere,
 } from '#server/db/record-sql'
-import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/constants/field'
+import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { CREATED_AT_KEY, RECORD_NUMBER_KEY, UPDATED_AT_KEY } from '#shared/constants/filter'
 import {
   ALL_TYPE_FIELDS,
