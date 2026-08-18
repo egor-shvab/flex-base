@@ -26,11 +26,12 @@ loses its entry there; an item that is rejected leaves both.
 
 ### Discovered
 
-- [ ] **Two write handlers are still never driven on their happy path** — `fields/[fieldId].patch`
-      and `records/[recordId].patch`. `ownership.integration.spec.ts` runs every endpoint as a
-      stranger (404) and anonymously (401), but its owner pass is read-only on purpose, so an
-      update handler passing the wrong id or param name to its service would not be caught. The
-      four count-moving writes gained this cover with P6; these two are what is left.
+- [x] **Every write handler is now driven through its own success path.** `fields/[fieldId].patch`
+      and `records/[recordId].patch` were reached only as a stranger or anonymously, so a handler
+      passing the wrong id to its service would not have been caught. Each new case asserts the
+      named row changed **and that a sibling did not**, which is the half that fails on a mis-wired
+      param. `server/api/fields.integration.spec.ts` is new — the field endpoints had no
+      handler-layer home.
 
 ### Second pass — everything left is gated
 

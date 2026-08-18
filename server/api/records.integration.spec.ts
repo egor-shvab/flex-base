@@ -191,6 +191,59 @@ describe('writing through the endpoint', () => {
   })
 
   /**
+   * The update path, driven through the handler rather than the service. What only this layer
+   * shows is that the **route params reach the right row**: everything below takes a `recordId`
+   * as an argument and cannot tell a mis-wired one from a correct one.
+   */
+  describe('updating one', () => {
+    const patch = (recordId: string, body: unknown) =>
+      recordPatch(testEvent({ user: ada, params: { tableId, recordId }, method: 'PATCH', body }))
+
+    /**
+     * The sibling assertion is the point. "Acme became Renamed" also passes when the handler
+     * reaches for the first record of the table regardless of the id it was given; "and Beta did
+     * not" is what fails on a mis-wired param.
+     */
+    it('updates the record the route names, and leaves its siblings alone', async () => {
+      const { records } = await list({})
+      const acme = records.find((row) => row.data.company === 'Acme')
+
+      const { record } = await patch(acme!.id, { company: 'Renamed', contract_value: 100 })
+
+      expect(record).toMatchObject({
+        id: acme!.id,
+        data: expect.objectContaining({ company: 'Renamed' }),
+      })
+      expect(await companies({})).toEqual(['Beta', 'Renamed'])
+    })
+
+    /** `data` is replaced wholesale, so a key the payload omits is cleared rather than kept. */
+    it('replaces the record’s data rather than merging into it', async () => {
+      const { records } = await list({})
+      const acme = records.find((row) => row.data.company === 'Acme')
+
+      const { record } = await patch(acme!.id, { company: 'Acme' })
+
+      expect(record.data).toMatchObject({ company: 'Acme', contract_value: null })
+    })
+
+    /**
+     * The create path proves the schema is built from the table's fields; this proves the update
+     * path validates against the same one rather than trusting a body that already exists.
+     */
+    it('400s on a value of the wrong type, storing nothing', async () => {
+      const { records } = await list({})
+      const acme = records.find((row) => row.data.company === 'Acme')
+
+      await expect(patch(acme!.id, { contract_value: 'not-a-number' })).rejects.toMatchObject({
+        statusCode: 400,
+      })
+
+      expect(await companies({})).toEqual(['Beta', 'Acme'])
+    })
+  })
+
+  /**
    * The two caps a multi-value field carries, at the layer that returns the status code.
    * `shared/validation/record.spec.ts` proves zod rejects both; what only this layer shows is
    * that the rejection reaches the caller as a 400 rather than being swallowed or stored.
