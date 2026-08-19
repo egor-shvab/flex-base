@@ -878,6 +878,20 @@ Two consequences. **`RecordDetail` no longer overrides the cell's layout** — w
 
 ---
 
+## Decided against, structurally
+
+Recorded so they are not re-litigated. Revisit only with a reason that has changed.
+
+**A repository layer per entity.** Services call Prisma directly, are unit-tested against `test/prisma-mock.ts` and integration-tested against real PostgreSQL. `TableRepository` / `FieldRepository` / `RecordRepository` would be pass-through classes over an ORM that is already a repository, and would obscure the rule that makes ownership safe — "ownership lives in the `where` clause" is readable in a service and hidden behind a method signature in a repository. What is genuinely wanted from the pattern — one home for select shapes, row mappers and SQL — is `server/db/`, without the indirection.
+
+**Splitting `shared/` by domain** (`shared/record/`, `shared/field/`, …) instead of by layer. The present split is a mechanically checkable rule, and it is what keeps the isomorphic layer honest. A domain split trades it for cohesion the layer cannot deliver: record, field and filter are densely mutually referential here by design — `queryColumns` synthesises `IField`s for record columns, `filterShapeFor` reads field metadata, the record schema builds from filter claims — so domain folders would import each other in both directions on day one. `field-types/` is the one exception that earned its own folder, and it earned it by being acyclic.
+
+**Full hexagonal / DDD on the server** (use-case objects, ports and adapters, a DI container). One transport, one database, no second consumer. Every seam it would add is available later at the same cost, and `CLAUDE.md` §1's YAGNI rule rules it out today.
+
+**Feature folders for the frontend** (`app/features/records/`, `fields/`, `tables/`, each with its own components, composables and api). The payoff is co-location and a lintable design-system boundary. Against it: it fights the Nuxt directory conventions every reader already knows; the payoff scales with the number of features and there are three, one of which (`field-types/`) legitimately belongs to none of them; and a half-measure would be worse than either end state. _Revisit at a fourth domain._ The cheap half of it is already taken — a component's private modules sit with the component (`BaseSelect/`).
+
+---
+
 ## Accepted limitations
 
 The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for the current phase; **Accepted** entries are not, unless a request says otherwise. A limitation that has been fixed leaves the register — the constraint that outlives it, if any, moves into the entry above that governs it.
@@ -910,7 +924,9 @@ The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for th
 
 **Renaming a SELECT choice orphans the records holding the old text**, which then render as a neutral badge. A choice's identity is its own text, so the whole SQL layer stays out of it. The stale value keeps its text rather than blanking, and nothing errors. An option id buys nothing for colour.
 
-**Sorting/filtering by a JSONB key is unindexed.** Keys are user-defined per table, so no general index applies. _The first scaling ceiling; watch it._ Three limitations sit on top of it and are accepted for the same reason: a **relation label sort** costs one PK lookup per matching row; **free-text search** is unindexable and its cost is paid twice (page query + count), bounded only by `SEARCH_MIN_LENGTH`; and **relation option search** scans the target table the same way, though paid once, over one table, on one expression, under a hard `LIMIT`.
+**Sorting/filtering by a JSONB key is unindexed.** Keys are user-defined per table, so no general index applies. _The first scaling ceiling; watch it — revisit at the first table over ~100k records, or the first report of a slow filtered view._ Three limitations sit on top of it and are accepted for the same reason: a **relation label sort** costs one PK lookup per matching row; **free-text search** is unindexable and its cost is paid twice (page query + count), bounded only by `SEARCH_MIN_LENGTH`; and **relation option search** scans the target table the same way, though paid once, over one table, on one expression, under a hard `LIMIT`.
+
+When it does need answering, **the query layer can already take the fix** — stated here so it is not re-derived under load. Because `db/record-sql.ts` composes SQL per field from metadata rather than emitting one fixed query, each remedy plugs into the existing per-type rules: a **GIN index** on `data` helps exactly one comparison, `jsonb_exists_any`, which is the one GIN-indexable operator in the layer; a **per-field expression index** over `data ->> key` is an `expr`/`sortExpr`-shaped decision the registry already owns; and a maintained **`tsvector` column** would replace `buildRecordSearch`'s OR group, which is already a single seam. What is genuinely new is index _lifecycle_ — issuing DDL from `createField`/`deleteField` puts lock waits and half-created indexes inside a user-facing request, and `CONCURRENTLY` cannot run in a transaction. That is the commitment to take deliberately, not the SQL.
 
 **A disabled `BaseButton` with `to` renders `<button disabled>`**, so it announces as _button, dimmed_ rather than _link, dimmed_. Every alternative rebuilds native `disabled` out of `aria-disabled` + `tabindex="-1"` + `pointer-events: none`, taking the control out of the tab order by hand for a state the rest of the app expresses natively.
 
