@@ -170,3 +170,118 @@ describe('useForm', () => {
     form.stop()
   })
 })
+
+/**
+ * A field holding a structure the user edits **in place** — `FieldFormModal`'s SELECT choices
+ * are the only one today: rows are pushed, spliced and typed into, and the array itself is
+ * never reassigned. Its issues land on the top-level key (`path[0]`), so the error a user sees
+ * is cleared by the same watcher a scalar's is — which only holds because that watcher is deep.
+ */
+const CHOICES_SCHEMA = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    choices: z.array(z.object({ value: z.string().min(1, 'Choice cannot be empty') })),
+  })
+  .superRefine((value, ctx) => {
+    const values = value.choices.map((choice) => choice.value)
+    if (new Set(values).size !== values.length) {
+      ctx.addIssue({ code: 'custom', path: ['choices'], message: 'Choices must be unique' })
+    }
+  })
+
+function setupWithChoices(
+  initial: { name: string; choices: { value: string }[] },
+  onSubmit: (values: z.infer<typeof CHOICES_SCHEMA>) => Promise<void> | void = vi.fn(),
+) {
+  const scope = effectScope()
+  const composable = scope.run(() => useForm({ schema: CHOICES_SCHEMA, initial, onSubmit }))!
+
+  return { ...composable, stop: () => scope.stop() }
+}
+
+const DUPLICATED = () => ({ name: 'Stage', choices: [{ value: 'Won' }, { value: 'Won' }] })
+
+describe('useForm, with a field edited in place', () => {
+  it('maps a nested issue onto its top-level field', async () => {
+    const form = setupWithChoices({ name: 'Stage', choices: [{ value: '' }] })
+
+    await form.submit()
+
+    // `path` is ['choices', 0, 'value']; the error belongs to the control the user can see
+    expect(form.errors.choices).toBe('Choice cannot be empty')
+
+    form.stop()
+  })
+
+  it('clears the error when an entry is edited', async () => {
+    const form = setupWithChoices(DUPLICATED())
+
+    await form.submit()
+    expect(form.errors.choices).toBe('Choices must be unique')
+
+    form.form.choices[1]!.value = 'Lost'
+    await nextTick()
+
+    expect(form.errors.choices).toBeUndefined()
+
+    form.stop()
+  })
+
+  it('clears the error when an entry is added', async () => {
+    const form = setupWithChoices({ name: 'Stage', choices: [{ value: '' }] })
+
+    await form.submit()
+    expect(form.errors.choices).toBe('Choice cannot be empty')
+
+    form.form.choices.push({ value: 'Won' })
+    await nextTick()
+
+    expect(form.errors.choices).toBeUndefined()
+
+    form.stop()
+  })
+
+  it('clears the error when an entry is removed', async () => {
+    const form = setupWithChoices(DUPLICATED())
+
+    await form.submit()
+    expect(form.errors.choices).toBe('Choices must be unique')
+
+    form.form.choices.splice(1, 1)
+    await nextTick()
+
+    expect(form.errors.choices).toBeUndefined()
+
+    form.stop()
+  })
+
+  it('clears the server error when an entry is edited', async () => {
+    const form = setupWithChoices({ name: 'Stage', choices: [{ value: 'Won' }] }, async () => {
+      throw { data: { statusMessage: 'A field with that name already exists.' } }
+    })
+
+    await form.submit()
+    expect(form.serverError.value).toBe('A field with that name already exists.')
+
+    form.form.choices[0]!.value = 'Lost'
+    await nextTick()
+
+    expect(form.serverError.value).toBe('')
+
+    form.stop()
+  })
+
+  it('still clears on a wholesale replacement of the field', async () => {
+    const form = setupWithChoices(DUPLICATED())
+
+    await form.submit()
+    expect(form.errors.choices).toBe('Choices must be unique')
+
+    form.form.choices = [{ value: 'Won' }]
+    await nextTick()
+
+    expect(form.errors.choices).toBeUndefined()
+
+    form.stop()
+  })
+})

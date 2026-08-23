@@ -456,6 +456,12 @@ the test a split has to pass here, not the line count.
 
 The catch lives in the composable rather than in the three pages because the alternative is the same `try`/`catch` written three times. The message is cleared on two paths, and both are needed: a `watch` on `target` covers dismissing the dialog or opening it on something else, while `confirm()` clears at the start because a **retry keeps the same target** and would otherwise show the previous attempt's message while the next one is in flight.
 
+### `useForm` watches a composite field deeply, and the flag is conditional
+
+A field whose `initial` value is an object or an array is watched with `{ deep: true }`; a scalar is not. Without it the watcher never fires for a field edited **in place**: the getter returns a reactive object, so `Object.is` sees no change through `push`, `splice` or an edit to an element — and the field's error stays on screen while the user fixes exactly what it is about. `FieldFormModal`'s SELECT choices are the only such field, and all three of `shared/validation/field.ts`'s choice messages land on `path: ['choices']`, so all three were unclearable.
+
+Unconditional `deep` was rejected: it costs nothing on a scalar (`traverse` returns immediately on a non-object), but it reads as a default rather than as an answer to a shape, and `CLAUDE.md` §7 rules out reaching for `deep` by habit. The shape is read off `initial`, which already declares the field set — so a structure says so from the start rather than being discovered from a live value.
+
 ### `app/error.vue` is store-free
 
 It has to render when data fetching is exactly what failed.
