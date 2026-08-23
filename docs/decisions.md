@@ -502,6 +502,8 @@ Each page passes its own `IBreadcrumb[]` because the pages already hold the `ITa
 
 That store holds the table being edited; loading another table's fields into it would clobber the page behind the modal.
 
+Both of the form's fetches — that one and the table list — **catch rather than throw**, and each drives a four-way `empty-label`. Thrown, they were unhandled rejections whose only trace was the reporting plugin, and the select left saying "No other tables yet" / "That table has no fields to label by": an empty list and an unanswered request are indistinguishable from a `.length`, so the control stated something about the user's data that nothing had established. The table list is also fetched only for RELATION and only once, guarded on its own `idle` status — which is why a failure is not retried by switching type away and back; the Retry beside the control is the way back. The target's fields carry a monotonic request id for the same reason `useSelectOptions` does: the target can change while an answer is in flight.
+
 ### The open record lives in the URL, not in a store
 
 A `recordDetail` store would have been fewer moving parts, and it was rejected: a relation is a **link** in the concept, and a link needs an `href`. Putting the chain in `?detail=` makes the cell a real `<a>` — middle-click, "copy link address" and the SSR'd markup all work — and buys three things a store cannot: browser Back closes the dialog (and Forward reopens it), a refresh or a shared link renders the same dialog server-side, and the drill-down trail is history rather than a stack to maintain. A store would still have left the link an `href="#"`.

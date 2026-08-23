@@ -73,6 +73,13 @@ New unit cases pass. Manually: create a SELECT field with two identical choices,
 
 ### P2 — `FieldFormModal`'s two fetches state their condition
 
+**Status:** done, with changes — 2026-08-23. The plan's preferred `loadOptions` route does not work:
+`useSelectOptions` only calls the loader for a **typed term** (`runOptionsRequest` returns early on
+`''`, and its watcher is not `immediate`), so a loader can never seed a list. The fallback was taken
+instead, improved: each select derives a four-way `empty-label` from its own status, and a failure
+also renders a message plus Retry **beside** the control rather than inside a panel the user would
+have to open to find it — the shape `AppSidebar` already uses when this same list fails there.
+
 **Goal:**
 Neither relation select claims the user has no tables / no fields when the request is in flight or
 has failed. No unhandled rejections.

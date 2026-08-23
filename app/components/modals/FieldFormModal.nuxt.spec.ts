@@ -6,7 +6,9 @@ import type { Pinia } from 'pinia'
 import { nextTick } from 'vue'
 import { BADGE_COLOR_LABELS, DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import type { IField } from '#shared/types/field'
+import { createError } from 'h3'
 import FieldFormModal from '~/components/modals/FieldFormModal.vue'
+import { useTablesStore } from '~/stores/tables'
 import { asMultiple, relationField, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
@@ -27,8 +29,28 @@ const TABLES = [
 /** The target table's fields, swapped per case. */
 let targetFields: IField[] = []
 
-registerEndpoint('/api/tables', () => ({ tables: TABLES }))
-registerEndpoint('/api/tables/tbl_people/fields', () => ({ fields: targetFields }))
+/** Flipped per case, so a load failure can be asserted rather than only a successful one. */
+let tablesFail = false
+let targetFieldsFail = false
+
+/** Counted, because "did not fetch" is the whole claim of the gating case below. */
+let tablesRequests = 0
+
+function refuse(): never {
+  throw createError({ statusCode: 500, statusMessage: 'Nope' })
+}
+
+registerEndpoint('/api/tables', () => {
+  tablesRequests += 1
+  if (tablesFail) refuse()
+
+  return { tables: TABLES }
+})
+registerEndpoint('/api/tables/tbl_people/fields', () => {
+  if (targetFieldsFail) refuse()
+
+  return { fields: targetFields }
+})
 registerEndpoint('/api/tables/tbl_deals/fields', () => ({ fields: [] }))
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
@@ -79,6 +101,16 @@ describe('FieldFormModal', () => {
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     targetFields = []
+    tablesFail = false
+    targetFieldsFail = false
+    tablesRequests = 0
+
+    // The store is the Nuxt app's, so it outlives a case — a list left behind would make a
+    // failure case look like it had loaded (`CLAUDE.md` §10)
+    const tables = useTablesStore()
+    tables.tables = []
+    tables.loaded = false
+    tables.failed = false
 
     const root = document.createElement('div')
     root.id = '__nuxt'
@@ -247,6 +279,78 @@ describe('FieldFormModal', () => {
       })
 
       await expect.poll(() => text()).toContain('Email')
+    })
+  })
+
+  /**
+   * Neither option list may report "there are none" while the answer is unknown or the request
+   * failed — both used to, which stated something about the user's own data that nobody had
+   * established (`CLAUDE.md` §7). Both fetches also ran unguarded, so a failure was an
+   * unhandled rejection and nothing else.
+   */
+  describe('when an option list cannot be loaded', () => {
+    const loadError = () => dialog()?.querySelector('.field-form__load-error')?.textContent ?? ''
+
+    const relation = () =>
+      mountForm({
+        mode: 'edit',
+        field: relationField({ targetTableId: 'tbl_people', labelFieldKey: 'full_name' }),
+      })
+
+    it('says the table list failed rather than that there are no tables', async () => {
+      tablesFail = true
+
+      await relation()
+
+      await expect.poll(loadError).toContain('Couldn’t load your tables')
+      expect(text()).not.toContain('No other tables yet')
+    })
+
+    it('reloads the table list from its own Try again', async () => {
+      tablesFail = true
+      await relation()
+      await expect.poll(loadError).toContain('Couldn’t load your tables')
+
+      tablesFail = false
+      button('Try again')?.click()
+
+      // Waited on what the retry must *produce*: the message clears the instant the request
+      // starts, so polling it would resolve before anything had loaded (`CLAUDE.md` §10)
+      await expect.poll(() => useTablesStore().tables).toHaveLength(TABLES.length)
+      expect(loadError()).toBe('')
+    })
+
+    it('says the field list failed rather than that the table has no fields', async () => {
+      targetFieldsFail = true
+
+      await relation()
+
+      await expect.poll(loadError).toContain('Couldn’t load that table’s fields')
+      expect(text()).not.toContain('That table has no fields to label by')
+    })
+
+    it('reloads the field list from its own Try again', async () => {
+      targetFieldsFail = true
+      await relation()
+      await expect.poll(loadError).toContain('Couldn’t load that table’s fields')
+
+      targetFieldsFail = false
+      targetFields = [textField('full_name', { name: 'Full name' })]
+      button('Try again')?.click()
+
+      await expect.poll(() => text()).toContain('Full name')
+      expect(loadError()).toBe('')
+    })
+
+    /**
+     * The list is only read by the one type that renders a target select, so every other type
+     * was paying for a table list — with its per-table counts — that it never showed.
+     */
+    it('does not ask for the table list for a type that cannot link', async () => {
+      await mountForm({ mode: 'edit', field: textField() })
+      await nextTick()
+
+      expect(tablesRequests).toBe(0)
     })
   })
 

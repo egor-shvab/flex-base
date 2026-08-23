@@ -71,29 +71,48 @@
       </div>
 
       <template v-if="form.type === 'RELATION'">
-        <BaseSelect
-          :id="targetId"
-          v-model="form.targetTableId"
-          label="Links to table"
-          :options="targetOptions"
-          searchable
-          placeholder="Select a table"
-          clearable
-          empty-label="No other tables yet"
-          :error="errors.targetTableId"
-          :disabled="mode === 'edit'"
-        />
-        <BaseSelect
-          :id="labelId"
-          v-model="form.labelFieldKey"
-          label="Show which field"
-          :options="labelOptions"
-          searchable
-          placeholder="Select a field"
-          clearable
-          empty-label="That table has no fields to label by"
-          :error="errors.labelFieldKey"
-        />
+        <div class="field-form__source">
+          <BaseSelect
+            :id="targetId"
+            v-model="form.targetTableId"
+            label="Links to table"
+            :options="targetOptions"
+            searchable
+            placeholder="Select a table"
+            clearable
+            :empty-label="targetEmptyLabel"
+            :error="errors.targetTableId"
+            :disabled="mode === 'edit'"
+          />
+          <!--
+            Stated beside the control, not only inside its panel: a failure a user has to open a
+            select to discover is one they read as an empty account instead. `v-if`, so the alert
+            only ever exists while it has something to say — the same shape the sidebar uses when
+            this very list fails to load there.
+          -->
+          <p v-if="tablesStatus === 'failed'" class="field-form__load-error" role="alert">
+            Couldn’t load your tables.
+            <BaseButton variant="link" @click="loadTables">Try again</BaseButton>
+          </p>
+        </div>
+
+        <div class="field-form__source">
+          <BaseSelect
+            :id="labelId"
+            v-model="form.labelFieldKey"
+            label="Show which field"
+            :options="labelOptions"
+            searchable
+            placeholder="Select a field"
+            clearable
+            :empty-label="labelEmptyLabel"
+            :error="errors.labelFieldKey"
+          />
+          <p v-if="targetFieldsStatus === 'failed'" class="field-form__load-error" role="alert">
+            Couldn’t load that table’s fields.
+            <BaseButton variant="link" @click="retryTargetFields">Try again</BaseButton>
+          </p>
+        </div>
       </template>
 
       <BaseErrorBanner :message="serverError" />
@@ -106,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef, useId, watch } from 'vue'
+import { computed, ref, shallowRef, useId, watch } from 'vue'
 import { useFieldsApi } from '~/api/fields'
 import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
@@ -188,9 +207,50 @@ function removeChoice(index: number) {
 const fieldsApi = useFieldsApi()
 const tablesStore = useTablesStore()
 
-// A relation may point at any of the user's tables, its own included — "parent task" is a
-// real shape. The list is refreshed here so the modal stays self-contained.
-onMounted(() => tablesStore.fetchTables())
+/**
+ * Where one of this form's two option lists is in its lifecycle. Both need one, because an
+ * empty list and a request that has not answered are indistinguishable from a `.length` — and
+ * a select that says "there are none" while the answer is unknown states a fact about the
+ * user's data that nobody has established (`CLAUDE.md` §7).
+ */
+type TOptionsStatus = 'idle' | 'loading' | 'ready' | 'failed'
+
+const tablesStatus = ref<TOptionsStatus>('idle')
+
+/**
+ * A relation may point at any of the user's tables, its own included — "parent task" is a
+ * real shape. The list is refreshed here so the modal stays self-contained.
+ *
+ * **Never rethrown.** This ran as a bare `onMounted` callback, so a failure was an unhandled
+ * rejection — reported by `plugins/error-report.client.ts` and otherwise invisible, while the
+ * select below read "No other tables yet".
+ */
+async function loadTables() {
+  tablesStatus.value = 'loading'
+
+  try {
+    await tablesStore.fetchTables()
+    tablesStatus.value = 'ready'
+  } catch {
+    tablesStatus.value = 'failed'
+  }
+}
+
+/**
+ * Fetched for the one type that reads the list, and once: every other type renders no target
+ * select at all, so a TEXT field used to pay for a table list with per-table counts it never
+ * showed. `immediate`, so editing a field that is already a relation still loads on open.
+ *
+ * The `idle` guard is what makes it once — and why a failure is not retried by switching type
+ * away and back: the control below offers a Retry, which is the deliberate way back.
+ */
+watch(
+  () => form.type,
+  (type) => {
+    if (type === 'RELATION' && tablesStatus.value === 'idle') void loadTables()
+  },
+  { immediate: true },
+)
 
 // No blank entry any more: a placeholder says "nothing chosen" without posing as a choice,
 // and `clearable` is how the choice is taken back.
@@ -225,22 +285,78 @@ const labelOptions = computed(() =>
   labelCandidates.value.map((field) => ({ value: field.key, label: field.name })),
 )
 
-watch(
-  () => form.targetTableId,
-  async (targetTableId) => {
-    targetFields.value = []
-    if (targetTableId === '') return
+const targetFieldsStatus = ref<TOptionsStatus>('idle')
 
+/**
+ * Monotonic, so a slow answer for a target the user has already moved off cannot overwrite the
+ * one they are now looking at — the same guard `useSelectOptions` applies to a typed search.
+ */
+let targetFieldsRequestId = 0
+
+/**
+ * The target's own fields. Like `loadTables` above, a failure is **caught rather than thrown**:
+ * this ran as an async watcher callback, where a rejection is unhandled and the select was left
+ * claiming the table has no fields to label by — with the form unsubmittable, since the schema
+ * requires a label field, and nothing on screen saying why.
+ */
+async function loadTargetFields(targetTableId: string) {
+  const requestId = (targetFieldsRequestId += 1)
+
+  targetFields.value = []
+
+  if (targetTableId === '') {
+    targetFieldsStatus.value = 'idle'
+    return
+  }
+
+  targetFieldsStatus.value = 'loading'
+
+  try {
     const response = await fieldsApi.list(targetTableId)
+    if (requestId !== targetFieldsRequestId) return
+
     targetFields.value = response.fields
+    targetFieldsStatus.value = 'ready'
 
     // Keep a choice that still exists, otherwise fall back to the target's first field
     if (!labelCandidates.value.some((field) => field.key === form.labelFieldKey)) {
       form.labelFieldKey = labelCandidates.value[0]?.key ?? ''
     }
+  } catch {
+    if (requestId !== targetFieldsRequestId) return
+    targetFieldsStatus.value = 'failed'
+  }
+}
+
+function retryTargetFields() {
+  void loadTargetFields(form.targetTableId)
+}
+
+watch(
+  () => form.targetTableId,
+  (targetTableId) => void loadTargetFields(targetTableId),
+  {
+    immediate: true,
   },
-  { immediate: true },
 )
+
+/**
+ * What each select says when it is offering nothing — four different sentences per control,
+ * where a single `empty-label` used to answer for all four. Only the last of each is the
+ * genuine "there are none".
+ */
+const targetEmptyLabel = computed(() => {
+  if (tablesStatus.value === 'loading') return 'Loading your tables…'
+  if (tablesStatus.value === 'failed') return 'Couldn’t load your tables'
+  return 'No other tables yet'
+})
+
+const labelEmptyLabel = computed(() => {
+  if (form.targetTableId === '') return 'Choose a table to link to first'
+  if (targetFieldsStatus.value === 'loading') return 'Loading that table’s fields…'
+  if (targetFieldsStatus.value === 'failed') return 'Couldn’t load that table’s fields'
+  return 'That table has no fields to label by'
+})
 </script>
 
 <style lang="scss" scoped>
@@ -260,6 +376,23 @@ watch(
   &__hint {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+  }
+
+  // A select plus the line that says why it is empty. The pair is one `stack(4)` item, so the
+  // message sits against its own control rather than a form gap away from it.
+  &__source {
+    @include stack(4);
+  }
+
+  // The validation register, because a failed load *is* something having gone wrong — unlike
+  // `__hint` above. `inline-flex` so the Retry link sits on the sentence's own line and the two
+  // share a baseline; `BaseButton --link` brings its own type scale and target floor.
+  &__load-error {
+    @include field-error;
+
+    display: inline-flex;
+    align-items: baseline;
+    gap: rem(6);
   }
 
   &__choices {
