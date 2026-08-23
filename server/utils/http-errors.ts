@@ -4,8 +4,8 @@ import { isMissingRow, isUniqueViolation } from '#server/db/prisma-errors'
 interface IPrismaErrorMessages {
   /** Message for a unique-constraint violation (P2002); omit when the model has none. */
   conflict?: string
-  /** Message for an operation on a row that does not exist (P2025). */
-  notFound: string
+  /** Message for an operation on a row that does not exist (P2025); omit when none can occur. */
+  notFound?: string
 }
 
 /**
@@ -17,8 +17,10 @@ interface IPrismaErrorMessages {
  *
  * - **Anything unrecognised is returned untouched**, so an unexpected failure still surfaces as a
  *   500 rather than being disguised as a tidy 4xx.
- * - **`conflict` is optional.** A model with no unique constraint worth naming leaves P2002
- *   unmapped rather than answering 409 with nothing to say.
+ * - **Both messages are optional, and an absent one means "do not map this".** A model with no
+ *   unique constraint worth naming leaves P2002 unmapped rather than answering 409 with nothing
+ *   to say; a service whose writes cannot raise P2025 leaves that unmapped rather than carrying a
+ *   404 message that can never be shown.
  * - **It returns rather than throws**, so every call site keeps its own `throw` and the control
  *   flow reads the same as any other guard.
  *
@@ -31,7 +33,7 @@ export function toHttpError(error: unknown, messages: IPrismaErrorMessages): Err
     return createError({ statusCode: 409, statusMessage: messages.conflict })
   }
 
-  if (isMissingRow(error)) {
+  if (isMissingRow(error) && messages.notFound) {
     return createError({ statusCode: 404, statusMessage: messages.notFound })
   }
 

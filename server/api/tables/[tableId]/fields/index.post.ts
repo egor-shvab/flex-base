@@ -13,6 +13,6 @@ export default defineTableHandler(
     const field = await FieldService.createField(table.id, input)
 
     // The field count moved, so the row the sidebar and the dashboard draw travels back with it
-    return { field, table: await TableService.getTableListRow(table.id) }
+    return { field, table: await TableService.getTableListRow(user.id, table.id) }
   },
 )

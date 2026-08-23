@@ -2,9 +2,9 @@ import { vi, type Mock } from 'vitest'
 
 /**
  * A stand-in for the Prisma singleton, so the five modules that import it are reachable from
- * the fast `unit` project at all: `server/utils/prisma.ts` constructs a real `PrismaClient` at
- * module load, and `record-query.ts` is unit-testable today precisely because it is the one
- * service that does not import it.
+ * the fast `unit` project at all: `server/db/prisma.ts` constructs a real `PrismaClient` at
+ * module load, and `shared/utils/record-query.ts` is unit-testable today precisely because it is
+ * the one module in that path which does not import it.
  *
  * What a stub can prove is the code *around* a query — which guard fires, what shape the
  * `where` clause is built in, how many queries are issued. What it cannot prove is that the
@@ -14,6 +14,7 @@ import { vi, type Mock } from 'vitest'
 interface IModelMock {
   findMany: Mock
   findUnique: Mock
+  findUniqueOrThrow: Mock
   findFirst: Mock
   create: Mock
   update: Mock
@@ -24,6 +25,7 @@ function modelMock(): IModelMock {
   return {
     findMany: vi.fn(),
     findUnique: vi.fn(),
+    findUniqueOrThrow: vi.fn(),
     findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),

@@ -57,6 +57,36 @@ describe('TableService.listTables', () => {
   })
 })
 
+describe('TableService.getTableListRow', () => {
+  it('scopes the read by owner, so an id alone cannot reach another account’s counts', async () => {
+    prismaMock.table.findUniqueOrThrow.mockResolvedValue(tableRow)
+
+    await TableService.getTableListRow(USER_ID, TABLE_ID)
+
+    expect(prismaMock.table.findUniqueOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: TABLE_ID, userId: USER_ID } }),
+    )
+  })
+
+  it('carries the counts the sidebar and the dashboard redraw from', async () => {
+    prismaMock.table.findUniqueOrThrow.mockResolvedValue(tableRow)
+
+    await expect(TableService.getTableListRow(USER_ID, TABLE_ID)).resolves.toMatchObject({
+      _count: { fields: 0, records: 0 },
+    })
+  })
+
+  /** A table that is missing and one that is another user’s are the same answer — never 403. */
+  it('answers 404 when the row does not match the owner', async () => {
+    prismaMock.table.findUniqueOrThrow.mockRejectedValue(missing())
+
+    await expect(TableService.getTableListRow(USER_ID, TABLE_ID)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Table not found',
+    })
+  })
+})
+
 describe('TableService.createTable', () => {
   it('stamps the owner onto the row', async () => {
     prismaMock.table.create.mockResolvedValue(tableRow)

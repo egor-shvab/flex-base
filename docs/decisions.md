@@ -147,6 +147,12 @@ Fetch-then-check is a TOCTOU pattern and one forgotten branch away from a leak. 
 
 Ownership assertions live in `server/utils/ownership.ts` rather than in the services because they are cross-cutting: every service is reached through one, and none of them may reach back. They read `db/` for the `select` shapes and the row mappers, which is the direction `CLAUDE.md` §3 fixes — the earlier version imported `services/tables` and `services/fields` for exactly those two things, which put a util above the layer it serves.
 
+### The four count-moving writes repeat their counts call, and that is the end state
+
+Each ends `return { …, table: await TableService.getTableListRow(user.id, tableId) }`, which trips §6's DRY rule at four occurrences. It stays, because **every extraction available to it is worse than the line**. A helper belongs in `utils/`, and `no-restricted-imports` bans `server/utils/**` from importing `#server/services/` — which rules out a `defineCountingHandler` factory too, since `handler.ts` lives there. The remaining seam is a service composing another service (`records` → `relations` sets the precedent), but that couples the field and record services to a table count for nothing.
+
+Why the counts travel back at all is _A cached count is received, not computed_; this is only about why the call is written four times.
+
 ### A service is one plain object, not loose exports and not a class
 
 `FieldService.createField(table.id, input)` — the call site names the layer it crosses, which the four handlers importing two services could not say, and which let three integration specs drop their `… as …Service` aliases around `test/integration/seed`. **Full method names are kept**: the object qualifies, it does not abbreviate — never `FieldService.create`.
@@ -420,7 +426,7 @@ A rejection in the layout's async setup would replace the page with an error bou
 
 **Rejected: moving the number client-side by a delta.** That is arithmetic over a value only the database holds — it needs a floor at zero to stay presentable, it drifts the moment a second tab writes, and it puts a **cross-domain write** in two stores, records and fields each reaching into the tables store.
 
-**Only those four carry it.** An edit moves neither count, so `PATCH` on a field or a record answers as it did — the envelope says which writes are count-moving, rather than every write paying for a number that did not change.
+**Only those four carry it.** An edit moves neither count, so `PATCH` on a field or a record answers as it did, rather than every write paying for a number that did not change. The **envelope does not encode which** — `ITableListItemResponse` serves any write answering with the list row, and the two response types that once split that hair were structurally identical, so the distinction was never checked. Which writes are count-moving is this paragraph, not a type.
 
 **A row for a table the list does not hold is ignored, never inserted.** `ensureTables` never throws, so an empty list is a legitimate state (a record page reached by URL, or a failed sidebar fetch); inserting would leave the sidebar listing only the table just written to.
 

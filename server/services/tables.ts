@@ -25,13 +25,18 @@ async function listTables(userId: string): Promise<ITableListItem[]> {
  * The client used to move them by a delta of its own, which is arithmetic over a number only
  * the database knows.
  *
- * Unscoped by owner on purpose: every caller reaches it through a handler factory that has
- * already proven ownership of this table, the same contract `listFields(tableId)` works under.
+ * Scoped by owner like every other write here, even though all four callers reach it through a
+ * factory that has already proven ownership. The check costs nothing on a query that has to run
+ * anyway, and it is the signature rather than the caller that enforces it — a fifth caller that
+ * has proven nothing cannot compile.
  */
-async function getTableListRow(tableId: string): Promise<ITableListItem> {
+async function getTableListRow(userId: string, tableId: string): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
-      await prisma.table.findUniqueOrThrow({ where: { id: tableId }, select: tableListSelect }),
+      await prisma.table.findUniqueOrThrow({
+        where: { id: tableId, userId },
+        select: tableListSelect,
+      }),
     )
   } catch (error) {
     throw toHttpError(error, tableErrors)

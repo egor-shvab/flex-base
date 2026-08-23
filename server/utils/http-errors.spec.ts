@@ -46,6 +46,14 @@ describe('toHttpError — what it deliberately does not disguise', () => {
     expect(toHttpError(original, { notFound: 'Record not found' })).toBe(original)
   })
 
+  it('passes a missing row through untouched when the service declares no notFound message', () => {
+    // The mirror of the case above: a service whose writes cannot raise P2025 carries no 404
+    // message, and an unexpected one surfaces as a 500 rather than as a 404 nobody can explain
+    const original = prismaError('P2025')
+
+    expect(toHttpError(original, { conflict: 'Email is already registered' })).toBe(original)
+  })
+
   it('passes an unrecognised Prisma code through untouched', () => {
     const original = prismaError('P2003')
     expect(toHttpError(original, messages)).toBe(original)

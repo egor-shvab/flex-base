@@ -6,11 +6,7 @@ import { toHttpError } from '#server/utils/http-errors'
 import type { IAuthUser } from '#shared/types/auth'
 import type { TCredentialsInput } from '#shared/validation/auth'
 
-const authErrors = {
-  conflict: 'Email is already registered',
-  // Required by the shared mapping, unreachable here: `create` raises P2002, never P2025.
-  notFound: 'Account not found',
-}
+const authErrors = { conflict: 'Email is already registered' }
 
 /** Same generic error for unknown email and wrong password — no user enumeration. */
 const invalidCredentials = () =>

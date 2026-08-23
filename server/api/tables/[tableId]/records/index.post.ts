@@ -6,11 +6,11 @@ import { buildRecordSchema } from '#shared/validation/record'
 import type { IRecordCreatedResponse } from '#shared/types/api'
 
 export default defineRecordWriteHandler(
-  async ({ event, tableId, fields }): Promise<IRecordCreatedResponse> => {
+  async ({ event, user, tableId, fields }): Promise<IRecordCreatedResponse> => {
     const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
     const record = await RecordService.createRecord(tableId, fields, data)
 
     // Read after the insert's own transaction, so the count includes the row just written
-    return { record, table: await TableService.getTableListRow(tableId) }
+    return { record, table: await TableService.getTableListRow(user.id, tableId) }
   },
 )

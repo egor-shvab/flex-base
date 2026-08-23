@@ -32,7 +32,11 @@ export interface ITablesResponse {
   tables: ITableListItem[]
 }
 
-/** A write to a table answers with the list row, counts and all — what the sidebar redraws from. */
+/**
+ * A write that answers with the table's list row, counts and all — what the sidebar and the
+ * dashboard redraw from, so the client stores what it was told rather than computing a delta
+ * against what it last saw (`decisions.md` → _A cached count is received, not computed_).
+ */
 export interface ITableListItemResponse {
   table: ITableListItem
 }
@@ -40,15 +44,6 @@ export interface ITableListItemResponse {
 /** A read of one table answers without the counts, which only the list surfaces need. */
 export interface ITableResponse {
   table: ITable
-}
-
-/**
- * A write that moved one of a table's counts answers with the table's refreshed list row, so the
- * client stores what it was told instead of computing a delta against what it last saw. Only the
- * four writes that change a count carry it — an edit moves neither, so its response does not.
- */
-export interface ITableCountsResponse {
-  table: ITableListItem
 }
 
 export interface IFieldsResponse {
@@ -59,11 +54,11 @@ export interface IFieldResponse {
   field: IField
 }
 
-export interface IFieldCreatedResponse extends ITableCountsResponse {
+export interface IFieldCreatedResponse extends ITableListItemResponse {
   field: IField
 }
 
-export interface IFieldDeletedResponse extends ITableCountsResponse {
+export interface IFieldDeletedResponse extends ITableListItemResponse {
   ok: true
 }
 
@@ -71,11 +66,11 @@ export interface IRecordResponse {
   record: IRecord
 }
 
-export interface IRecordCreatedResponse extends ITableCountsResponse {
+export interface IRecordCreatedResponse extends ITableListItemResponse {
   record: IRecord
 }
 
-export interface IRecordDeletedResponse extends ITableCountsResponse {
+export interface IRecordDeletedResponse extends ITableListItemResponse {
   ok: true
 }
 
