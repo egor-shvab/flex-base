@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { listRecords } from '#server/services/records'
+import { RecordService } from '#server/services/records'
 import {
   CREATED_AT_KEY,
   DEFAULT_SORT_DIRECTION,
@@ -39,7 +39,7 @@ const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
 
 /** The company names matching a filter, which is what makes a failure readable. */
 async function matching(filters: TRecordFilterValues, overrides: Partial<IRecordQuery> = {}) {
-  const page = await listRecords(tableId, fields, query({ filters, ...overrides }))
+  const page = await RecordService.listRecords(tableId, fields, query({ filters, ...overrides }))
   return page.records.map((record) => record.data.company)
 }
 
@@ -158,7 +158,7 @@ describe('the WHERE clause selects the rows it claims to', () => {
   })
 
   it('filters the record number as text, so 1 finds #1 but not #2', async () => {
-    const page = await listRecords(
+    const page = await RecordService.listRecords(
       tableId,
       fields,
       query({ filters: { [RECORD_NUMBER_KEY]: '1' } }),
@@ -197,7 +197,7 @@ describe('the WHERE clause selects the rows it claims to', () => {
       { createdAt: new Date('2026-01-06T12:00:00Z') },
     )
 
-    const page = await listRecords(
+    const page = await RecordService.listRecords(
       table.id,
       textOnly,
       query({ filters: { [CREATED_AT_KEY]: { from: '2026-01-05', to: '2026-01-05' } } }),
@@ -233,7 +233,7 @@ describe('free-text search', () => {
     const textOnly = await createFields(table.id, [{ key: 'company', type: 'TEXT' }])
     await createRecords(table.id, [{ company: 'Alpha' }, { company: 'Beta' }, { company: 'Gamma' }])
 
-    const page = await listRecords(table.id, textOnly, query({ search: '2' }))
+    const page = await RecordService.listRecords(table.id, textOnly, query({ search: '2' }))
 
     expect(page.records.map((record) => record.number)).toEqual([2])
   })
@@ -284,7 +284,7 @@ describe('free-text search', () => {
 
     const dealFields = [company, owner]
     const found = async (term: string) => {
-      const page = await listRecords(deals.id, dealFields, query({ search: term }))
+      const page = await RecordService.listRecords(deals.id, dealFields, query({ search: term }))
       return page.records.map((record) => record.data.company)
     }
 
@@ -312,7 +312,11 @@ describe('free-text search', () => {
 
 describe('ORDER BY', () => {
   const ordered = async (key: string, direction: 'asc' | 'desc') => {
-    const page = await listRecords(tableId, fields, query({ sort: { key, direction } }))
+    const page = await RecordService.listRecords(
+      tableId,
+      fields,
+      query({ sort: { key, direction } }),
+    )
     return page.records.map((record) => record.data.company)
   }
 
@@ -321,7 +325,7 @@ describe('ORDER BY', () => {
   })
 
   it('sorts the record number as an integer', async () => {
-    const page = await listRecords(
+    const page = await RecordService.listRecords(
       tableId,
       fields,
       query({ sort: { key: RECORD_NUMBER_KEY, direction: 'asc' } }),
@@ -352,27 +356,31 @@ describe('ORDER BY', () => {
 
 describe('paging and counting', () => {
   it('counts every matching row, not just the page', async () => {
-    const page = await listRecords(tableId, fields, query({ pageSize: 2 }))
+    const page = await RecordService.listRecords(tableId, fields, query({ pageSize: 2 }))
 
     expect(page.records).toHaveLength(2)
     expect(page.total).toBe(3)
   })
 
   it('offsets to the next page', async () => {
-    const page = await listRecords(tableId, fields, query({ page: 2, pageSize: 2 }))
+    const page = await RecordService.listRecords(tableId, fields, query({ page: 2, pageSize: 2 }))
 
     expect(page.records).toHaveLength(1)
     expect(page.total).toBe(3)
   })
 
   it('counts what the filter matched, so the pager does not promise pages that are not there', async () => {
-    const page = await listRecords(tableId, fields, query({ filters: { stage: ['Won'] } }))
+    const page = await RecordService.listRecords(
+      tableId,
+      fields,
+      query({ filters: { stage: ['Won'] } }),
+    )
 
     expect(page.total).toBe(2)
   })
 
   it('comes back empty past the end rather than erroring', async () => {
-    const page = await listRecords(tableId, fields, query({ page: 9 }))
+    const page = await RecordService.listRecords(tableId, fields, query({ page: 9 }))
 
     expect(page.records).toEqual([])
     expect(page.total).toBe(3)
@@ -381,13 +389,13 @@ describe('paging and counting', () => {
 
 describe('table scoping', () => {
   it('never returns another table’s rows, even one owned by the same user', async () => {
-    const page = await listRecords(tableId, fields, query())
+    const page = await RecordService.listRecords(tableId, fields, query())
     expect(page.total).toBe(3)
 
     const other = await createTable((await createUser()).id)
     await createRecords(other.id, [{ company: 'Elsewhere' }])
 
-    const again = await listRecords(tableId, fields, query())
+    const again = await RecordService.listRecords(tableId, fields, query())
     expect(again.total).toBe(3)
     expect(again.records.map((record) => record.data.company)).not.toContain('Elsewhere')
   })

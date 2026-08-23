@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
-import { authenticateUser, findAuthUser, registerUser } from '#server/services/auth'
+import { AuthService } from '#server/services/auth'
 import { hashPassword, verifyPassword } from '#server/utils/auth'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
@@ -34,11 +34,11 @@ beforeEach(() => {
   vi.mocked(verifyPassword).mockReset()
 })
 
-describe('registerUser', () => {
+describe('AuthService.registerUser', () => {
   it('stores what hashPassword returned, never the password itself', async () => {
     prismaMock.user.create.mockResolvedValue(authUser)
 
-    await expect(registerUser(CREDENTIALS)).resolves.toEqual(authUser)
+    await expect(AuthService.registerUser(CREDENTIALS)).resolves.toEqual(authUser)
 
     expect(prismaMock.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -50,7 +50,7 @@ describe('registerUser', () => {
   it('selects only id and email, so the hash cannot reach a response', async () => {
     prismaMock.user.create.mockResolvedValue(authUser)
 
-    await registerUser(CREDENTIALS)
+    await AuthService.registerUser(CREDENTIALS)
 
     expect(prismaMock.user.create).toHaveBeenCalledWith(
       expect.objectContaining({ select: { id: true, email: true } }),
@@ -64,7 +64,7 @@ describe('registerUser', () => {
   it('runs no uniqueness pre-check — the insert is the check', async () => {
     prismaMock.user.create.mockResolvedValue(authUser)
 
-    await registerUser(CREDENTIALS)
+    await AuthService.registerUser(CREDENTIALS)
 
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled()
   })
@@ -72,7 +72,7 @@ describe('registerUser', () => {
   it('maps a duplicate email onto a 409', async () => {
     prismaMock.user.create.mockRejectedValue(conflict())
 
-    await expect(registerUser(CREDENTIALS)).rejects.toMatchObject({
+    await expect(AuthService.registerUser(CREDENTIALS)).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'Email is already registered',
     })
@@ -81,7 +81,7 @@ describe('registerUser', () => {
   it('passes an unrecognised failure through, so it still surfaces as a 500', async () => {
     prismaMock.user.create.mockRejectedValue(new Error('connection reset'))
 
-    const error = await registerUser(CREDENTIALS).catch((thrown: unknown) => thrown)
+    const error = await AuthService.registerUser(CREDENTIALS).catch((thrown: unknown) => thrown)
 
     expect(error).toBeInstanceOf(Error)
     expect(error).toMatchObject({ message: 'connection reset' })
@@ -89,12 +89,12 @@ describe('registerUser', () => {
   })
 })
 
-describe('authenticateUser', () => {
+describe('AuthService.authenticateUser', () => {
   it('reads the hash-bearing select and returns the user without it', async () => {
     prismaMock.user.findUnique.mockResolvedValue(rowWithHash)
     vi.mocked(verifyPassword).mockResolvedValue(true)
 
-    const user = await authenticateUser(CREDENTIALS)
+    const user = await AuthService.authenticateUser(CREDENTIALS)
 
     expect(user).toEqual(authUser)
     expect(user).not.toHaveProperty('passwordHash')
@@ -108,7 +108,7 @@ describe('authenticateUser', () => {
     prismaMock.user.findUnique.mockResolvedValue(rowWithHash)
     vi.mocked(verifyPassword).mockResolvedValue(true)
 
-    await authenticateUser(CREDENTIALS)
+    await AuthService.authenticateUser(CREDENTIALS)
 
     expect(verifyPassword).toHaveBeenCalledWith(CREDENTIALS.password, 'stored-hash')
   })
@@ -116,7 +116,7 @@ describe('authenticateUser', () => {
   it('answers an unknown email with a 401, without a password to compare', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null)
 
-    await expect(authenticateUser(CREDENTIALS)).rejects.toMatchObject({
+    await expect(AuthService.authenticateUser(CREDENTIALS)).rejects.toMatchObject({
       statusCode: 401,
       statusMessage: 'Invalid email or password',
     })
@@ -128,18 +128,18 @@ describe('authenticateUser', () => {
     prismaMock.user.findUnique.mockResolvedValue(rowWithHash)
     vi.mocked(verifyPassword).mockResolvedValue(false)
 
-    await expect(authenticateUser(CREDENTIALS)).rejects.toMatchObject({
+    await expect(AuthService.authenticateUser(CREDENTIALS)).rejects.toMatchObject({
       statusCode: 401,
       statusMessage: 'Invalid email or password',
     })
   })
 })
 
-describe('findAuthUser', () => {
+describe('AuthService.findAuthUser', () => {
   it('reads by id with the select that omits the hash', async () => {
     prismaMock.user.findUnique.mockResolvedValue(authUser)
 
-    await expect(findAuthUser(USER_ID)).resolves.toEqual(authUser)
+    await expect(AuthService.findAuthUser(USER_ID)).resolves.toEqual(authUser)
 
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { id: USER_ID },
@@ -151,6 +151,6 @@ describe('findAuthUser', () => {
   it('returns null when the row is gone', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null)
 
-    await expect(findAuthUser(USER_ID)).resolves.toBeNull()
+    await expect(AuthService.findAuthUser(USER_ID)).resolves.toBeNull()
   })
 })

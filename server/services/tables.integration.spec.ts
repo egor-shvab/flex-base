@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
-  createTable as createTableService,
-  deleteTable,
-  renameTable,
-} from '#server/services/tables'
+import { TableService } from '#server/services/tables'
 import { prisma } from '#server/db/prisma'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
@@ -16,9 +12,9 @@ beforeEach(async () => {
 
 describe('table names are unique per user, in the database', () => {
   it('refuses a second table of the same name', async () => {
-    await createTableService(userId, 'Deals')
+    await TableService.createTable(userId, 'Deals')
 
-    await expect(createTableService(userId, 'Deals')).rejects.toMatchObject({
+    await expect(TableService.createTable(userId, 'Deals')).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A table with this name already exists',
     })
@@ -26,16 +22,18 @@ describe('table names are unique per user, in the database', () => {
 
   it('lets a different user take that name', async () => {
     const other = await createUser()
-    await createTableService(userId, 'Deals')
+    await TableService.createTable(userId, 'Deals')
 
-    await expect(createTableService(other.id, 'Deals')).resolves.toMatchObject({ name: 'Deals' })
+    await expect(TableService.createTable(other.id, 'Deals')).resolves.toMatchObject({
+      name: 'Deals',
+    })
   })
 
   it('refuses a rename onto a name already taken', async () => {
-    await createTableService(userId, 'Deals')
-    const second = await createTableService(userId, 'Leads')
+    await TableService.createTable(userId, 'Deals')
+    const second = await TableService.createTable(userId, 'Leads')
 
-    await expect(renameTable(userId, second.id, 'Deals')).rejects.toMatchObject({
+    await expect(TableService.renameTable(userId, second.id, 'Deals')).rejects.toMatchObject({
       statusCode: 409,
     })
   })
@@ -44,7 +42,9 @@ describe('table names are unique per user, in the database', () => {
     const other = await createUser()
     const theirs = await createTable(other.id, 'Theirs')
 
-    await expect(renameTable(userId, theirs.id, 'Mine')).rejects.toMatchObject({ statusCode: 404 })
+    await expect(TableService.renameTable(userId, theirs.id, 'Mine')).rejects.toMatchObject({
+      statusCode: 404,
+    })
 
     const unchanged = await prisma.table.findUniqueOrThrow({ where: { id: theirs.id } })
     expect(unchanged.name).toBe('Theirs')
@@ -62,7 +62,7 @@ describe('deleting a table', () => {
     const field = await createField(table.id, { key: 'company', type: 'TEXT' })
     const record = await createRecord(table.id, { company: 'Acme' })
 
-    await deleteTable(userId, table.id)
+    await TableService.deleteTable(userId, table.id)
 
     await expect(prisma.field.findUnique({ where: { id: field.id } })).resolves.toBeNull()
     await expect(prisma.record.findUnique({ where: { id: record.id } })).resolves.toBeNull()
@@ -78,7 +78,7 @@ describe('deleting a table', () => {
       options: { targetTableId: target.id, labelFieldKey: 'full_name' },
     })
 
-    await expect(deleteTable(userId, target.id)).rejects.toMatchObject({
+    await expect(TableService.deleteTable(userId, target.id)).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: '"Owner" in "Deals" links to this table',
     })
@@ -97,7 +97,7 @@ describe('deleting a table', () => {
 
     await prisma.field.delete({ where: { id: relation.id } })
 
-    await expect(deleteTable(userId, target.id)).resolves.toBeUndefined()
+    await expect(TableService.deleteTable(userId, target.id)).resolves.toBeUndefined()
   })
 
   /** The check is scoped by owner, so another account's relation is not this user's problem. */
@@ -111,7 +111,7 @@ describe('deleting a table', () => {
       options: { targetTableId: target.id, labelFieldKey: 'full_name' },
     })
 
-    await expect(deleteTable(userId, target.id)).resolves.toBeUndefined()
+    await expect(TableService.deleteTable(userId, target.id)).resolves.toBeUndefined()
   })
 
   it('lets the source table itself be deleted while it still holds the relation', async () => {
@@ -123,14 +123,16 @@ describe('deleting a table', () => {
       options: { targetTableId: target.id, labelFieldKey: 'full_name' },
     })
 
-    await expect(deleteTable(userId, source.id)).resolves.toBeUndefined()
+    await expect(TableService.deleteTable(userId, source.id)).resolves.toBeUndefined()
   })
 
   it('404s for a table belonging to someone else, and leaves it standing', async () => {
     const other = await createUser()
     const theirs = await createTable(other.id)
 
-    await expect(deleteTable(userId, theirs.id)).rejects.toMatchObject({ statusCode: 404 })
+    await expect(TableService.deleteTable(userId, theirs.id)).rejects.toMatchObject({
+      statusCode: 404,
+    })
     await expect(prisma.table.findUnique({ where: { id: theirs.id } })).resolves.not.toBeNull()
   })
 })

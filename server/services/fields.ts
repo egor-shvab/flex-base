@@ -17,7 +17,7 @@ const fieldErrors = {
  * Both multi-capable types carry their cardinality alongside — the schema has already refused
  * `multiple` on a type that has no list form, so nothing needs re-checking here.
  */
-export function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   if (input.type === 'SELECT') return { choices: input.choices, multiple: input.multiple }
   if (input.type === 'RELATION') {
     return {
@@ -49,7 +49,7 @@ function widenToList(tx: Prisma.TransactionClient, tableId: string, key: string)
   `
 }
 
-export async function listFields(tableId: string): Promise<IField[]> {
+async function listFields(tableId: string): Promise<IField[]> {
   const fields = await prisma.field.findMany({
     where: { tableId },
     orderBy: { order: 'asc' },
@@ -58,7 +58,7 @@ export async function listFields(tableId: string): Promise<IField[]> {
   return fields.map(toSharedField)
 }
 
-export async function createField(tableId: string, input: TFieldInput): Promise<IField> {
+async function createField(tableId: string, input: TFieldInput): Promise<IField> {
   const existing = await prisma.field.findMany({
     where: { tableId },
     select: { key: true, type: true, order: true },
@@ -84,11 +84,7 @@ export async function createField(tableId: string, input: TFieldInput): Promise<
   }
 }
 
-export async function updateField(
-  tableId: string,
-  fieldId: string,
-  input: TFieldInput,
-): Promise<IField> {
+async function updateField(tableId: string, fieldId: string, input: TFieldInput): Promise<IField> {
   const field = await prisma.field.findFirst({
     where: { id: fieldId, tableId },
     select: { key: true, type: true, options: true },
@@ -147,10 +143,23 @@ export async function updateField(
   }
 }
 
-export async function deleteField(tableId: string, fieldId: string) {
+async function deleteField(tableId: string, fieldId: string) {
   try {
     await prisma.field.delete({ where: { id: fieldId, tableId } })
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }
+}
+
+/**
+ * The field rules a handler may reach. `buildOptions` is public because a new field type adds a
+ * branch to it (`CLAUDE.md` §9); `widenToList` is not — it is an implementation detail of
+ * widening, and nothing outside this module has a reason to run it.
+ */
+export const FieldService = {
+  buildOptions,
+  listFields,
+  createField,
+  updateField,
+  deleteField,
 }

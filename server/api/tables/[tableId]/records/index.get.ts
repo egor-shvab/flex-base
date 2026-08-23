@@ -1,6 +1,6 @@
 import { getValidatedQuery } from 'h3'
 import { defineFieldsHandler } from '#server/utils/handler'
-import { listRecords } from '#server/services/records'
+import { RecordService } from '#server/services/records'
 import type { IRecordPage, IRecordQuery } from '#shared/types/record'
 import { parseRecordQueryState } from '#shared/utils/record-query'
 import { buildRecordQuerySchema } from '#shared/validation/record'
@@ -13,5 +13,5 @@ export default defineFieldsHandler(async ({ event, tableId, fields }): Promise<I
     pageSize: params.pageSize,
   }
 
-  return listRecords(tableId, fields, query)
+  return RecordService.listRecords(tableId, fields, query)
 })

@@ -1,7 +1,7 @@
 import { defineEventHandler, readValidatedBody } from 'h3'
 import { requireUser } from '#server/utils/auth'
 import { routeParam } from '#server/utils/route'
-import { renameTable } from '#server/services/tables'
+import { TableService } from '#server/services/tables'
 import { tableInputSchema } from '#shared/validation/table'
 import type { ITableListItemResponse } from '#shared/types/api'
 
@@ -13,6 +13,6 @@ export default defineEventHandler(async (event): Promise<ITableListItemResponse>
   const user = requireUser(event)
   const tableId = routeParam(event, 'tableId')
   const { name } = await readValidatedBody(event, tableInputSchema.parse)
-  const table = await renameTable(user.id, tableId, name)
+  const table = await TableService.renameTable(user.id, tableId, name)
   return { table }
 })

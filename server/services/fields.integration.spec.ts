@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createField as createFieldService, updateField } from '#server/services/fields'
+import { FieldService } from '#server/services/fields'
 import { prisma } from '#server/db/prisma'
 import type { TRecordData } from '#shared/types/record'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
@@ -46,7 +46,7 @@ describe('widening a field migrates the rows it describes', () => {
     })
     const record = await createRecord(tableId, stored)
 
-    await updateField(tableId, field.id, selectInput(true))
+    await FieldService.updateField(tableId, field.id, selectInput(true))
 
     return { recordId: record.id, field }
   }
@@ -86,7 +86,7 @@ describe('widening a field migrates the rows it describes', () => {
   it('is idempotent — widening again wraps nothing twice', async () => {
     const { recordId, field } = await widen({ stage: 'Won' })
 
-    await updateField(tableId, field.id, selectInput(true))
+    await FieldService.updateField(tableId, field.id, selectInput(true))
 
     expect(await storedValue(recordId, 'stage')).toEqual(['Won'])
   })
@@ -117,7 +117,7 @@ describe('widening a field migrates the rows it describes', () => {
       await createRecord(tableId, { stage: 'Won' }),
     ]
 
-    await updateField(tableId, field.id, selectInput(true))
+    await FieldService.updateField(tableId, field.id, selectInput(true))
 
     for (const row of rows) {
       expect(Array.isArray(await storedValue(row.id, 'stage'))).toBe(true)
@@ -149,7 +149,7 @@ describe('widening a field migrates the rows it describes', () => {
     })
     const record = await createRecord(tableId, { stage: 'Won' })
 
-    await updateField(tableId, field.id, selectInput(false))
+    await FieldService.updateField(tableId, field.id, selectInput(false))
 
     expect(await storedValue(record.id, 'stage')).toBe('Won')
   })
@@ -165,8 +165,8 @@ describe('field keys are unique per table, in the database', () => {
   })
 
   it('lets the service derive a free key instead of colliding', async () => {
-    await createFieldService(tableId, input({ type: 'TEXT', name: 'Stage' }))
-    const second = await createFieldService(tableId, input({ type: 'TEXT', name: 'Stage' }))
+    await FieldService.createField(tableId, input({ type: 'TEXT', name: 'Stage' }))
+    const second = await FieldService.createField(tableId, input({ type: 'TEXT', name: 'Stage' }))
 
     expect(second.key).toBe('stage_2')
   })

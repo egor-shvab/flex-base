@@ -9,7 +9,7 @@ const tableErrors = {
   notFound: 'Table not found',
 }
 
-export async function listTables(userId: string): Promise<ITableListItem[]> {
+async function listTables(userId: string): Promise<ITableListItem[]> {
   const tables = await prisma.table.findMany({
     where: { userId },
     orderBy: { createdAt: 'asc' },
@@ -28,7 +28,7 @@ export async function listTables(userId: string): Promise<ITableListItem[]> {
  * Unscoped by owner on purpose: every caller reaches it through a handler factory that has
  * already proven ownership of this table, the same contract `listFields(tableId)` works under.
  */
-export async function getTableListRow(tableId: string): Promise<ITableListItem> {
+async function getTableListRow(tableId: string): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
       await prisma.table.findUniqueOrThrow({ where: { id: tableId }, select: tableListSelect }),
@@ -38,7 +38,7 @@ export async function getTableListRow(tableId: string): Promise<ITableListItem> 
   }
 }
 
-export async function createTable(userId: string, name: string): Promise<ITableListItem> {
+async function createTable(userId: string, name: string): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
       await prisma.table.create({ data: { userId, name }, select: tableListSelect }),
@@ -48,11 +48,7 @@ export async function createTable(userId: string, name: string): Promise<ITableL
   }
 }
 
-export async function renameTable(
-  userId: string,
-  tableId: string,
-  name: string,
-): Promise<ITableListItem> {
+async function renameTable(userId: string, tableId: string, name: string): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
       await prisma.table.update({
@@ -89,7 +85,7 @@ async function assertNotRelationTarget(userId: string, tableId: string) {
   }
 }
 
-export async function deleteTable(userId: string, tableId: string) {
+async function deleteTable(userId: string, tableId: string) {
   await assertNotRelationTarget(userId, tableId)
 
   try {
@@ -97,4 +93,12 @@ export async function deleteTable(userId: string, tableId: string) {
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }
+}
+
+export const TableService = {
+  listTables,
+  getTableListRow,
+  createTable,
+  renameTable,
+  deleteTable,
 }

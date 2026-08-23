@@ -3,7 +3,7 @@ import { prisma } from '#server/db/prisma'
 import { toHttpError } from '#server/utils/http-errors'
 import { recordSelect, toJsonData, toSharedRecord, type TRecordRow } from '#server/db/records'
 import { buildRecordOrderBy, buildRecordWhere } from '#server/db/record-sql'
-import { assertRelationTargets, resolveLinkedRecords } from '#server/services/relations'
+import { RelationService } from '#server/services/relations'
 import type { IField } from '#shared/types/field'
 import type {
   IRecord,
@@ -21,7 +21,7 @@ const recordErrors = { notFound: 'Record not found' }
  * Raw SQL because Prisma cannot order by a JSON path; the WHERE fragment is shared with the
  * count so both legs of the transaction see the same rows.
  */
-export async function listRecords(
+async function listRecords(
   tableId: string,
   fields: IField[],
   query: IRecordQuery,
@@ -49,7 +49,7 @@ export async function listRecords(
     page,
     pageSize,
     // Resolved for the ids on this page alone, in one query per target table
-    linkedRecords: await resolveLinkedRecords(fields, records),
+    linkedRecords: await RelationService.resolveLinkedRecords(fields, records),
   }
 }
 
@@ -59,7 +59,7 @@ export async function listRecords(
  * come from the same resolver the list uses, which is what lets a relation inside the dialog
  * read as a label and link on again.
  */
-export async function getRecordDetail(
+async function getRecordDetail(
   table: Pick<ITable, 'id' | 'name'>,
   fields: IField[],
   recordId: string,
@@ -81,7 +81,7 @@ export async function getRecordDetail(
     table,
     fields,
     record,
-    linkedRecords: await resolveLinkedRecords(fields, [record]),
+    linkedRecords: await RelationService.resolveLinkedRecords(fields, [record]),
   }
 }
 
@@ -91,12 +91,12 @@ export async function getRecordDetail(
  * than racing for the same number, and no retry loop is needed. Because the counter is a
  * high-water mark rather than a count, deleting a record never frees its number for reuse.
  */
-export async function createRecord(
+async function createRecord(
   tableId: string,
   fields: IField[],
   data: TRecordData,
 ): Promise<IRecord> {
-  await assertRelationTargets(fields, data)
+  await RelationService.assertRelationTargets(fields, data)
 
   try {
     const record = await prisma.$transaction(async (tx) => {
@@ -119,13 +119,13 @@ export async function createRecord(
 }
 
 /** The form always submits every field, so `data` is replaced wholesale rather than merged. */
-export async function updateRecord(
+async function updateRecord(
   tableId: string,
   fields: IField[],
   recordId: string,
   data: TRecordData,
 ): Promise<IRecord> {
-  await assertRelationTargets(fields, data)
+  await RelationService.assertRelationTargets(fields, data)
 
   try {
     const record = await prisma.record.update({
@@ -139,10 +139,18 @@ export async function updateRecord(
   }
 }
 
-export async function deleteRecord(tableId: string, recordId: string) {
+async function deleteRecord(tableId: string, recordId: string) {
   try {
     await prisma.record.delete({ where: { id: recordId, tableId } })
   } catch (error) {
     throw toHttpError(error, recordErrors)
   }
+}
+
+export const RecordService = {
+  listRecords,
+  getRecordDetail,
+  createRecord,
+  updateRecord,
+  deleteRecord,
 }

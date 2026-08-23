@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
-import { createTable, deleteTable, listTables, renameTable } from '#server/services/tables'
+import { TableService } from '#server/services/tables'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
 vi.mock('#server/db/prisma', async () => ({
@@ -31,11 +31,11 @@ const missing = () =>
 
 beforeEach(resetPrismaMock)
 
-describe('listTables', () => {
+describe('TableService.listTables', () => {
   it('reads only the owner’s tables, oldest first', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
-    await listTables(USER_ID)
+    await TableService.listTables(USER_ID)
 
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: USER_ID }, orderBy: { createdAt: 'asc' } }),
@@ -45,7 +45,7 @@ describe('listTables', () => {
   it('carries the counts the dashboard reads', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
-    await listTables(USER_ID)
+    await TableService.listTables(USER_ID)
 
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -57,11 +57,11 @@ describe('listTables', () => {
   })
 })
 
-describe('createTable', () => {
+describe('TableService.createTable', () => {
   it('stamps the owner onto the row', async () => {
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await createTable(USER_ID, 'Deals')
+    await TableService.createTable(USER_ID, 'Deals')
 
     expect(prismaMock.table.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: { userId: USER_ID, name: 'Deals' } }),
@@ -71,18 +71,18 @@ describe('createTable', () => {
   it('maps a duplicate name onto a 409', async () => {
     prismaMock.table.create.mockRejectedValue(conflict())
 
-    await expect(createTable(USER_ID, 'Deals')).rejects.toMatchObject({
+    await expect(TableService.createTable(USER_ID, 'Deals')).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A table with this name already exists',
     })
   })
 })
 
-describe('renameTable', () => {
+describe('TableService.renameTable', () => {
   it('scopes the update by owner, so an id alone cannot reach another account’s table', async () => {
     prismaMock.table.update.mockResolvedValue(tableRow)
 
-    await renameTable(USER_ID, TABLE_ID, 'Renamed')
+    await TableService.renameTable(USER_ID, TABLE_ID, 'Renamed')
 
     expect(prismaMock.table.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -95,13 +95,15 @@ describe('renameTable', () => {
   it('maps a name already taken onto a 409', async () => {
     prismaMock.table.update.mockRejectedValue(conflict())
 
-    await expect(renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({ statusCode: 409 })
+    await expect(TableService.renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
+      statusCode: 409,
+    })
   })
 
   it('maps a table that is gone onto a 404', async () => {
     prismaMock.table.update.mockRejectedValue(missing())
 
-    await expect(renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
+    await expect(TableService.renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Table not found',
     })
@@ -113,12 +115,12 @@ describe('renameTable', () => {
  * would take the referenced rows with it silently. The refusal is the only thing standing
  * between a delete and every link into that table breaking.
  */
-describe('deleteTable', () => {
+describe('TableService.deleteTable', () => {
   it('looks for a relation pointing here before deleting anything', async () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
 
-    await deleteTable(USER_ID, TABLE_ID)
+    await TableService.deleteTable(USER_ID, TABLE_ID)
 
     expect(prismaMock.field.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -135,7 +137,7 @@ describe('deleteTable', () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
 
-    await deleteTable(USER_ID, TABLE_ID)
+    await TableService.deleteTable(USER_ID, TABLE_ID)
 
     expect(prismaMock.table.delete).toHaveBeenCalledWith({
       where: { id: TABLE_ID, userId: USER_ID },
@@ -145,7 +147,7 @@ describe('deleteTable', () => {
   it('refuses with a 409 naming the field to remove first', async () => {
     prismaMock.field.findFirst.mockResolvedValue({ name: 'Owner', table: { name: 'Deals' } })
 
-    await expect(deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({
+    await expect(TableService.deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: '"Owner" in "Deals" links to this table',
     })
@@ -157,6 +159,8 @@ describe('deleteTable', () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockRejectedValue(missing())
 
-    await expect(deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({ statusCode: 404 })
+    await expect(TableService.deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({
+      statusCode: 404,
+    })
   })
 })

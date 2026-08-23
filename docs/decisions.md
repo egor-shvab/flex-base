@@ -147,6 +147,14 @@ Fetch-then-check is a TOCTOU pattern and one forgotten branch away from a leak. 
 
 Ownership assertions live in `server/utils/ownership.ts` rather than in the services because they are cross-cutting: every service is reached through one, and none of them may reach back. They read `db/` for the `select` shapes and the row mappers, which is the direction `CLAUDE.md` §3 fixes — the earlier version imported `services/tables` and `services/fields` for exactly those two things, which put a util above the layer it serves.
 
+### A service is one plain object, not loose exports and not a class
+
+`FieldService.createField(table.id, input)` — the call site names the layer it crosses, which the four handlers importing two services could not say, and which let three integration specs drop their `… as …Service` aliases around `test/integration/seed`. **Full method names are kept**: the object qualifies, it does not abbreviate — never `FieldService.create`.
+
+Members are declared as functions at module scope and listed in the object at the bottom, so an internal call (`buildOptions` inside `createField`) stays a plain call and **no member depends on `this`** — a method reached as a bare reference (`const { createField } = FieldService`) would otherwise throw under ESM strict mode. The literal is also the whole statement of what is public: `widenToList` and `assertNotRelationTarget` are absent from it.
+
+No annotation and no `satisfies` — the inferred type is exact, and an interface would restate five signatures that can drift. No `Object.freeze`: nothing mutates it, and `Readonly<T>` would foreclose a `vi.spyOn` seam nothing needs yet.
+
 ### Registration has no uniqueness pre-check
 
 `findUnique`-then-`create` is the same TOCTOU shape as fetch-then-check above: two requests for one email both see nothing, both insert, and the unique index refuses the loser as an unmapped 500. The `create` **is** the check, and `P2002` becomes the 409 through the shared mapping. The cost is that a duplicate pays for a bcrypt hash before being refused — which also closes the timing difference the pre-check gave away, since it answered before hashing.
@@ -879,7 +887,7 @@ Two consequences. **`RecordDetail` no longer overrides the cell's layout** — w
 
 Recorded so they are not re-litigated. Revisit only with a reason that has changed.
 
-**A repository layer per entity.** Services call Prisma directly, are unit-tested against `test/prisma-mock.ts` and integration-tested against real PostgreSQL. `TableRepository` / `FieldRepository` / `RecordRepository` would be pass-through classes over an ORM that is already a repository, and would obscure the rule that makes ownership safe — "ownership lives in the `where` clause" is readable in a service and hidden behind a method signature in a repository. What is genuinely wanted from the pattern — one home for select shapes, row mappers and SQL — is `server/db/`, without the indirection.
+**A repository layer per entity.** Services call Prisma directly, are unit-tested against `test/prisma-mock.ts` and integration-tested against real PostgreSQL. `TableRepository` / `FieldRepository` / `RecordRepository` would be pass-through classes over an ORM that is already a repository, and would obscure the rule that makes ownership safe — "ownership lives in the `where` clause" is readable in a service and hidden behind a method signature in a repository. What is genuinely wanted from the pattern — one home for select shapes, row mappers and SQL — is `server/db/`, without the indirection. (Addressing those services through one plain object each is naming, not a layer — see _A service is one plain object_; it adds no type, no instance and no seam.)
 
 **Splitting `shared/` by domain** (`shared/record/`, `shared/field/`, …) instead of by layer. The present split is a mechanically checkable rule, and it is what keeps the isomorphic layer honest. A domain split trades it for cohesion the layer cannot deliver: record, field and filter are densely mutually referential here by design — `queryColumns` synthesises `IField`s for record columns, `filterShapeFor` reads field metadata, the record schema builds from filter claims — so domain folders would import each other in both directions on day one. `field-types/` is the one exception that earned its own folder, and it earned it by being acyclic.
 

@@ -39,7 +39,7 @@ function toLinkedRecord(
   return { number: source.number, label: buildRecordLabel(source, labelFieldKey) }
 }
 
-export function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
+function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
   const targets: IRelationTarget[] = []
 
   for (const field of fields) {
@@ -101,7 +101,7 @@ async function fetchTargetRecords(
  * target record id. An id that no longer resolves is simply absent, so a deleted target
  * degrades to a placeholder in the cell rather than breaking the list.
  */
-export async function resolveLinkedRecords(
+async function resolveLinkedRecords(
   fields: IField[],
   records: IRecord[],
 ): Promise<Record<string, Record<string, ILinkedRecord>>> {
@@ -133,7 +133,7 @@ export async function resolveLinkedRecords(
  * Referential integrity for a write: the picker only ever offers live records of the target
  * table, so anything else is a crafted payload and is rejected rather than stored dangling.
  */
-export async function assertRelationTargets(fields: IField[], data: TRecordData): Promise<void> {
+async function assertRelationTargets(fields: IField[], data: TRecordData): Promise<void> {
   const targets = collectRelationTargets(fields, [data])
   if (targets.length === 0) return
 
@@ -162,7 +162,7 @@ export async function assertRelationTargets(fields: IField[], data: TRecordData)
  * The ORDER BY is deliberately untouched by the search: narrowing and ordering are separate
  * questions, and folding the term into the sort would silently reorder every existing picker.
  */
-export async function listRelationOptions(field: IField, search = ''): Promise<IRecordOption[]> {
+async function listRelationOptions(field: IField, search = ''): Promise<IRecordOption[]> {
   const targetTableId = field.options?.targetTableId
   if (targetTableId === undefined) return []
 
@@ -178,4 +178,11 @@ export async function listRelationOptions(field: IField, search = ''): Promise<I
   `
 
   return rows.map((row) => ({ id: row.id, ...toLinkedRecord(toLabelSource(row), labelFieldKey) }))
+}
+
+export const RelationService = {
+  collectRelationTargets,
+  resolveLinkedRecords,
+  assertRelationTargets,
+  listRelationOptions,
 }

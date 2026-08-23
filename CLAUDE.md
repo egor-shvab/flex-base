@@ -149,6 +149,7 @@ Rationale for all three: `docs/decisions.md`.
 
 - Route files are named by HTTP method suffix under `server/api/`: `index.get.ts`, `index.post.ts`, `[tableId].patch.ts`, `[tableId].delete.ts`, …
 - Handlers stay thin: validate input with the shared zod schema from `shared/validation/` → assert ownership → delegate all business logic to `server/services/`.
+- **Each service module exports one plain object named for it** — `AuthService` · `TableService` · `FieldService` · `RecordService` · `RelationService`. A handler imports the object and calls `FieldService.createField(…)`, so a call site names the layer it crosses. Method names are never shortened because they are namespaced (`docs/decisions.md`).
 - **A table-scoped route is declared with a factory from `server/utils/handler.ts`**, never with a bare `defineEventHandler` — `defineTableHandler` · `defineFieldsHandler` · `defineTableWithFieldsHandler` · `defineRecordWriteHandler`, one per `require*` helper in `utils/ownership.ts`. The check is what produces the context, so it cannot be skipped, and lint refuses `#server/utils/auth` under `server/api/tables/*/**` so nothing can go around it. A route needing a shape none of the four covers **adds a factory**; it does not resolve the user itself.
 - Validate request bodies with `readValidatedBody(event, schema.parse)` — invalid input automatically becomes a 400 carrying the zod issue details.
 - Throw errors with Nitro's `createError({ statusCode, statusMessage })`; never return password hashes or another user's data.
@@ -177,7 +178,7 @@ Rationale for all three: `docs/decisions.md`.
 - **One meaning per word.** A word already carrying a meaning here is taken: `ref` is Vue's, `slot` is a template slot, `spec` is a test file, `summary` is a filter chip or a field's configuration line, `detail` is the record dialog. Qualify a second use (`configSummary`) or pick another word — never overload one.
 - **Some vocabularies are closed, and an internal rename never reaches them:** URL query params, because a shared link outlives any refactor; JSON body keys; Prisma columns and `FieldType` members; BEM class names; user-visible labels, which the e2e suite selects by; and the `*For(field)` resolver family (§9). An internal name may therefore disagree with the wire name it serializes to — `params.dir = state.sort.direction` is deliberate, not an oversight.
 - **`any` is forbidden.** Use explicit interfaces, generics, or `unknown` with type guards.
-- **Type naming:** project interfaces are prefixed `I` (`IAuthUser`), project type aliases `T` (`TFieldType`). Everywhere — `shared/types/`, component-local, server. External and generated types (h3 augmentations, Prisma models, library types) keep their original names.
+- **Type naming:** project interfaces are prefixed `I` (`IAuthUser`), project type aliases `T` (`TFieldType`). Everywhere — `shared/types/`, component-local, server. External and generated types (h3 augmentations, Prisma models, library types) keep their original names. A module-scoped object of **behaviour** is PascalCase (`FieldService`); a registry of **data** stays SCREAMING_SNAKE (`FIELD_CELLS`).
 
 ---
 
@@ -276,7 +277,7 @@ A field type is **three modules — one per slice — and one line in each of th
 | `server/db/field-types/<type>.ts` | its `IFieldSqlModule`: `sql` (`expr` · `filter` · `searchPredicate`, `null` to opt out of search · `sortExpr` only if it orders differently from how it filters) and `multi` |
 | `app/field-types/<type>/index.ts` | its `IAppFieldType`: `input`, `multiInput`, `filter`, `multiFilter`, `cell`, `summary`, `multiSummary`, `icon`, `configSummary` — plus **one** cell component beside it      |
 
-Then one line per map in each registry — `shared/field-types/registry.ts`, `server/db/field-types/registry.ts`, `app/field-types/registry.ts` — plus its value shape in `IFilterValueByType` (`shared/types/filter.ts`), a zod branch in `shared/validation/field.ts` if it takes `options` (and the matching branch in `buildOptions`, `server/services/fields.ts`), and a fixture in `test/fixtures.ts`.
+Then one line per map in each registry — `shared/field-types/registry.ts`, `server/db/field-types/registry.ts`, `app/field-types/registry.ts` — plus its value shape in `IFilterValueByType` (`shared/types/filter.ts`), a zod branch in `shared/validation/field.ts` if it takes `options` (and the matching branch in `FieldService.buildOptions`, `server/services/fields.ts`), and a fixture in `test/fixtures.ts`.
 
 **The registries are the only files that enumerate the types**, and every map in them is a total `Record<TFieldType, …>` literal — so adding an enum member is a compile error until all three declare it. Never enumerate the types anywhere else; that is the property the whole arrangement exists to hold.
 

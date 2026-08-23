@@ -1,13 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { z } from 'zod'
 import { Prisma } from '#server/generated/prisma/client'
-import {
-  buildOptions,
-  createField,
-  deleteField,
-  listFields,
-  updateField,
-} from '#server/services/fields'
+import { FieldService } from '#server/services/fields'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { textField } from '~~/test/fixtures'
@@ -42,9 +36,11 @@ function storedField(overrides: Partial<{ key: string; type: string; options: un
 
 beforeEach(resetPrismaMock)
 
-describe('buildOptions', () => {
+describe('FieldService.buildOptions', () => {
   it('stores a SELECT’s choices and its cardinality', () => {
-    expect(buildOptions(select({ choices: [{ value: 'Won' }, { value: 'Lost' }] }))).toEqual({
+    expect(
+      FieldService.buildOptions(select({ choices: [{ value: 'Won' }, { value: 'Lost' }] })),
+    ).toEqual({
       choices: [
         { value: 'Won', color: 'gray' },
         { value: 'Lost', color: 'gray' },
@@ -54,7 +50,7 @@ describe('buildOptions', () => {
   })
 
   it('stores a RELATION’s target, label field and cardinality', () => {
-    expect(buildOptions(relation({ multiple: true }))).toEqual({
+    expect(FieldService.buildOptions(relation({ multiple: true }))).toEqual({
       targetTableId: 'tbl_people',
       labelFieldKey: 'full_name',
       multiple: true,
@@ -63,16 +59,16 @@ describe('buildOptions', () => {
 
   it('writes a JSON null for a type that carries no options at all', () => {
     for (const type of ['TEXT', 'NUMBER', 'BOOLEAN', 'DATE'] as const) {
-      expect(buildOptions(input({ type }))).toBe(Prisma.JsonNull)
+      expect(FieldService.buildOptions(input({ type }))).toBe(Prisma.JsonNull)
     }
   })
 })
 
-describe('listFields', () => {
+describe('FieldService.listFields', () => {
   it('reads a table’s fields in stored order and narrows their options', async () => {
     prismaMock.field.findMany.mockResolvedValue([{ ...textField('company'), options: null }])
 
-    const fields = await listFields(TABLE_ID)
+    const fields = await FieldService.listFields(TABLE_ID)
 
     expect(prismaMock.field.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { tableId: TABLE_ID }, orderBy: { order: 'asc' } }),
@@ -86,7 +82,7 @@ describe('createField — order allocation', () => {
     prismaMock.field.findMany.mockResolvedValue([])
     prismaMock.field.create.mockResolvedValue(textField('owner'))
 
-    await createField(TABLE_ID, input({ type: 'TEXT' }))
+    await FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))
 
     expect(prismaMock.field.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ order: 0 }) }),
@@ -101,7 +97,7 @@ describe('createField — order allocation', () => {
     ])
     prismaMock.field.create.mockResolvedValue(textField('owner'))
 
-    await createField(TABLE_ID, input({ type: 'TEXT' }))
+    await FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))
 
     expect(prismaMock.field.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ order: 8 }) }),
@@ -112,7 +108,7 @@ describe('createField — order allocation', () => {
     prismaMock.field.findMany.mockResolvedValue([{ key: 'owner', type: 'TEXT', order: 0 }])
     prismaMock.field.create.mockResolvedValue(textField('owner_2'))
 
-    await createField(TABLE_ID, input({ type: 'TEXT' }))
+    await FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))
 
     expect(prismaMock.field.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ key: 'owner_2' }) }),
@@ -125,10 +121,12 @@ describe('createField — order allocation', () => {
       new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: '7.9.0' }),
     )
 
-    await expect(createField(TABLE_ID, input({ type: 'TEXT' }))).rejects.toMatchObject({
-      statusCode: 409,
-      statusMessage: 'A field with this name already exists',
-    })
+    await expect(FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))).rejects.toMatchObject(
+      {
+        statusCode: 409,
+        statusMessage: 'A field with this name already exists',
+      },
+    )
   })
 })
 
@@ -140,7 +138,7 @@ describe('updateField — the write guards', () => {
   it('404s for a field that is not on this table', async () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
 
-    await expect(updateField(TABLE_ID, FIELD_ID, relation())).rejects.toMatchObject({
+    await expect(FieldService.updateField(TABLE_ID, FIELD_ID, relation())).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Field not found',
     })
@@ -150,7 +148,7 @@ describe('updateField — the write guards', () => {
   it('refuses a type change, which every stored value was written under', async () => {
     prismaMock.field.findFirst.mockResolvedValue(storedField({ type: 'TEXT' }))
 
-    await expect(updateField(TABLE_ID, FIELD_ID, relation())).rejects.toMatchObject({
+    await expect(FieldService.updateField(TABLE_ID, FIELD_ID, relation())).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'Field type cannot be changed',
     })
@@ -162,7 +160,7 @@ describe('updateField — the write guards', () => {
     )
 
     await expect(
-      updateField(TABLE_ID, FIELD_ID, relation({ targetTableId: 'tbl_other' })),
+      FieldService.updateField(TABLE_ID, FIELD_ID, relation({ targetTableId: 'tbl_other' })),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'Relation target cannot be changed',
@@ -176,7 +174,7 @@ describe('updateField — the write guards', () => {
     prismaMock.field.update.mockResolvedValue(textField('owner'))
 
     await expect(
-      updateField(TABLE_ID, FIELD_ID, relation({ labelFieldKey: 'email' })),
+      FieldService.updateField(TABLE_ID, FIELD_ID, relation({ labelFieldKey: 'email' })),
     ).resolves.toBeDefined()
   })
 
@@ -188,7 +186,7 @@ describe('updateField — the write guards', () => {
     )
 
     await expect(
-      updateField(TABLE_ID, FIELD_ID, relation({ multiple: false })),
+      FieldService.updateField(TABLE_ID, FIELD_ID, relation({ multiple: false })),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'A multi-value field cannot be changed back to a single value',
@@ -198,7 +196,7 @@ describe('updateField — the write guards', () => {
   it('never reaches the database when a guard fires', async () => {
     prismaMock.field.findFirst.mockResolvedValue(storedField({ type: 'TEXT' }))
 
-    await expect(updateField(TABLE_ID, FIELD_ID, relation())).rejects.toBeDefined()
+    await expect(FieldService.updateField(TABLE_ID, FIELD_ID, relation())).rejects.toBeDefined()
 
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
     expect(prismaMock.field.update).not.toHaveBeenCalled()
@@ -212,7 +210,7 @@ describe('updateField — widening', () => {
     )
     prismaMock.field.update.mockResolvedValue(textField('stage'))
 
-    await updateField(TABLE_ID, FIELD_ID, select({ multiple: true }))
+    await FieldService.updateField(TABLE_ID, FIELD_ID, select({ multiple: true }))
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
     // The stub hands the callback itself as `tx`, so both halves land on the same spies
@@ -226,7 +224,7 @@ describe('updateField — widening', () => {
     )
     prismaMock.field.update.mockResolvedValue(textField('stage'))
 
-    await updateField(TABLE_ID, FIELD_ID, select({ multiple: false }))
+    await FieldService.updateField(TABLE_ID, FIELD_ID, select({ multiple: false }))
 
     expect(prismaMock.$executeRaw).not.toHaveBeenCalled()
   })
@@ -237,7 +235,7 @@ describe('updateField — widening', () => {
     )
     prismaMock.field.update.mockResolvedValue(textField('stage'))
 
-    await updateField(TABLE_ID, FIELD_ID, select({ multiple: true }))
+    await FieldService.updateField(TABLE_ID, FIELD_ID, select({ multiple: true }))
 
     expect(prismaMock.$executeRaw).not.toHaveBeenCalled()
   })
@@ -249,7 +247,7 @@ describe('updateField — widening', () => {
     )
 
     await expect(
-      updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT', name: 'Taken' })),
+      FieldService.updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT', name: 'Taken' })),
     ).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A field with this name already exists',
@@ -260,7 +258,7 @@ describe('updateField — widening', () => {
     prismaMock.field.findFirst.mockResolvedValue(storedField({ type: 'TEXT' }))
     prismaMock.field.update.mockResolvedValue(textField('owner'))
 
-    await updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT', name: 'Renamed' }))
+    await FieldService.updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT', name: 'Renamed' }))
 
     const [call] = prismaMock.field.update.mock.calls
     expect(call?.[0].data).not.toHaveProperty('key')
@@ -268,11 +266,11 @@ describe('updateField — widening', () => {
   })
 })
 
-describe('deleteField', () => {
+describe('FieldService.deleteField', () => {
   it('scopes the delete to the table, so a field id alone is not enough', async () => {
     prismaMock.field.delete.mockResolvedValue(textField('owner'))
 
-    await deleteField(TABLE_ID, FIELD_ID)
+    await FieldService.deleteField(TABLE_ID, FIELD_ID)
 
     expect(prismaMock.field.delete).toHaveBeenCalledWith({
       where: { id: FIELD_ID, tableId: TABLE_ID },
@@ -284,7 +282,7 @@ describe('deleteField', () => {
       new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),
     )
 
-    await expect(deleteField(TABLE_ID, FIELD_ID)).rejects.toMatchObject({
+    await expect(FieldService.deleteField(TABLE_ID, FIELD_ID)).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Field not found',
     })

@@ -1,6 +1,6 @@
 import { defineEventHandler, getCookie } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import { findAuthUser } from '#server/services/auth'
+import { AuthService } from '#server/services/auth'
 import { AUTH_COOKIE, verifyAuthToken } from '#server/utils/auth'
 
 // Attaches the authenticated user to event.context.user on every request.
@@ -15,5 +15,5 @@ export default defineEventHandler(async (event) => {
   const userId = verifyAuthToken(token, useRuntimeConfig(event).jwtSecret)
   if (!userId) return
 
-  event.context.user = await findAuthUser(userId)
+  event.context.user = await AuthService.findAuthUser(userId)
 })

@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
-  assertRelationTargets,
-  listRelationOptions,
-  resolveLinkedRecords,
-} from '#server/services/relations'
-import { createRecord as createRecordService } from '#server/services/records'
+import { RelationService } from '#server/services/relations'
+import { RecordService } from '#server/services/records'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
 import type { IRecord, TRecordData } from '#shared/types/record'
@@ -43,7 +39,7 @@ describe('resolving linked records', () => {
   it('reads the number and the label field of the linked record', async () => {
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
-    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: ada.id })])
+    const refs = await RelationService.resolveLinkedRecords([owner], [asRecord({ owner: ada.id })])
 
     expect(refs[owner.id]).toEqual({ [ada.id]: { number: ada.number, label: 'Ada' } })
   })
@@ -52,14 +48,20 @@ describe('resolving linked records', () => {
   it('resolves a blank label field to a null label', async () => {
     const blank = await createRecord(peopleId, { full_name: '' })
 
-    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: blank.id })])
+    const refs = await RelationService.resolveLinkedRecords(
+      [owner],
+      [asRecord({ owner: blank.id })],
+    )
 
     expect(refs[owner.id]?.[blank.id]).toEqual({ number: blank.number, label: null })
   })
 
   /** A deleted target degrades to a placeholder in the cell rather than breaking the list. */
   it('leaves an id that no longer resolves absent', async () => {
-    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: 'rec_gone' })])
+    const refs = await RelationService.resolveLinkedRecords(
+      [owner],
+      [asRecord({ owner: 'rec_gone' })],
+    )
 
     expect(refs[owner.id]).toEqual({})
   })
@@ -68,7 +70,10 @@ describe('resolving linked records', () => {
     const elsewhere = await createTable(userId, 'Elsewhere')
     const stranger = await createRecord(elsewhere.id, { full_name: 'Not Ada' })
 
-    const refs = await resolveLinkedRecords([owner], [asRecord({ owner: stranger.id })])
+    const refs = await RelationService.resolveLinkedRecords(
+      [owner],
+      [asRecord({ owner: stranger.id })],
+    )
 
     expect(refs[owner.id]).toEqual({})
   })
@@ -78,7 +83,10 @@ describe('resolving linked records', () => {
     const grace = await createRecord(peopleId, { full_name: 'Grace' })
     const multi = { ...owner, options: { ...owner.options, multiple: true } }
 
-    const refs = await resolveLinkedRecords([multi], [asRecord({ owner: [ada.id, grace.id] })])
+    const refs = await RelationService.resolveLinkedRecords(
+      [multi],
+      [asRecord({ owner: [ada.id, grace.id] })],
+    )
 
     expect(refs[owner.id]).toEqual({
       [ada.id]: { number: ada.number, label: 'Ada' },
@@ -91,14 +99,18 @@ describe('checking a write’s targets', () => {
   it('accepts an id the target table holds', async () => {
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
-    await expect(assertRelationTargets([owner], { owner: ada.id })).resolves.toBeUndefined()
+    await expect(
+      RelationService.assertRelationTargets([owner], { owner: ada.id }),
+    ).resolves.toBeUndefined()
   })
 
   it('rejects an id from another table, which is what a crafted payload looks like', async () => {
     const elsewhere = await createTable(userId, 'Elsewhere')
     const stranger = await createRecord(elsewhere.id, {})
 
-    await expect(assertRelationTargets([owner], { owner: stranger.id })).rejects.toMatchObject({
+    await expect(
+      RelationService.assertRelationTargets([owner], { owner: stranger.id }),
+    ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'Owner: the linked record no longer exists',
     })
@@ -109,7 +121,7 @@ describe('checking a write’s targets', () => {
     const dealsFields = [owner]
 
     await expect(
-      createRecordService(owner.id, dealsFields, { owner: `${ada.id}x` }),
+      RecordService.createRecord(owner.id, dealsFields, { owner: `${ada.id}x` }),
     ).rejects.toMatchObject({ statusCode: 400 })
   })
 })
@@ -119,7 +131,7 @@ describe('the options a picker offers', () => {
     const grace = await createRecord(peopleId, { full_name: 'Grace' })
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
-    const options = await listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner)
 
     expect(options).toEqual([
       { id: ada.id, number: ada.number, label: 'Ada' },
@@ -132,7 +144,7 @@ describe('the options a picker offers', () => {
     await createRecord(peopleId, { full_name: 'Ada' })
     await createRecord(peopleId, { full_name: 'Mo' })
 
-    const options = await listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner)
 
     expect(options.map((option) => option.label)).toEqual(['Ada', 'Mo', 'Zoe'])
   })
@@ -141,7 +153,7 @@ describe('the options a picker offers', () => {
     await createRecord(peopleId, { full_name: 'Ada Lovelace' })
     await createRecord(peopleId, { full_name: 'Grace Hopper' })
 
-    const options = await listRelationOptions(owner, 'hopp')
+    const options = await RelationService.listRelationOptions(owner, 'hopp')
 
     expect(options.map((option) => option.label)).toEqual(['Grace Hopper'])
   })
@@ -149,7 +161,7 @@ describe('the options a picker offers', () => {
   it('matches the #number a blank-labelled record reads by', async () => {
     const blank = await createRecord(peopleId, { full_name: '' })
 
-    const options = await listRelationOptions(owner, `#${blank.number}`)
+    const options = await RelationService.listRelationOptions(owner, `#${blank.number}`)
 
     expect(options.map((option) => option.id)).toEqual([blank.id])
   })
@@ -157,13 +169,13 @@ describe('the options a picker offers', () => {
   it('treats a wildcard the user typed as a literal', async () => {
     await createRecord(peopleId, { full_name: 'Ada' })
 
-    await expect(listRelationOptions(owner, '%')).resolves.toEqual([])
+    await expect(RelationService.listRelationOptions(owner, '%')).resolves.toEqual([])
   })
 
   it('offers nothing for a field with no target', async () => {
     const untargeted = { ...owner, options: {} }
 
-    await expect(listRelationOptions(untargeted)).resolves.toEqual([])
+    await expect(RelationService.listRelationOptions(untargeted)).resolves.toEqual([])
   })
 
   it('never offers a record of another table', async () => {
@@ -171,7 +183,7 @@ describe('the options a picker offers', () => {
     await createRecord(elsewhere.id, { full_name: 'Stranger' })
     await createRecord(peopleId, { full_name: 'Ada' })
 
-    const options = await listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner)
 
     expect(options.map((option) => option.label)).toEqual(['Ada'])
   })
@@ -182,7 +194,7 @@ describe('the options a picker offers', () => {
       await createRecord(peopleId, { full_name: `Person ${String(index).padStart(4, '0')}` })
     }
 
-    const options = await listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner)
 
     expect(options).toHaveLength(RELATION_OPTIONS_LIMIT)
   })

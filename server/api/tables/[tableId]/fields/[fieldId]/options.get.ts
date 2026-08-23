@@ -1,7 +1,7 @@
 import { createError, getValidatedQuery } from 'h3'
 import { defineFieldsHandler } from '#server/utils/handler'
 import { routeParam } from '#server/utils/route'
-import { listRelationOptions } from '#server/services/relations'
+import { RelationService } from '#server/services/relations'
 import { relationOptionsQuerySchema } from '#shared/validation/relation'
 import type { IRelationOptionsResponse } from '#shared/types/api'
 
@@ -20,5 +20,5 @@ export default defineFieldsHandler(async ({ event, fields }): Promise<IRelationO
     throw createError({ statusCode: 404, statusMessage: 'Field not found' })
   }
 
-  return { options: await listRelationOptions(field, q) }
+  return { options: await RelationService.listRelationOptions(field, q) }
 })

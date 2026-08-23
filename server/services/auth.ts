@@ -23,7 +23,7 @@ const invalidCredentials = () =>
  * duplicate now pays for a hash before being refused — which also closes the timing difference
  * a pre-check gave away (`docs/decisions.md`).
  */
-export async function registerUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
+async function registerUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
   const passwordHash = await hashPassword(password)
 
   try {
@@ -39,7 +39,7 @@ export async function registerUser({ email, password }: TCredentialsInput): Prom
  * The one read that needs `passwordHash`, which is why it is the only caller of
  * `authUserWithHashSelect` and narrows through `toAuthUser` on the way out.
  */
-export async function authenticateUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
+async function authenticateUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
   const user = await prisma.user.findUnique({ where: { email }, select: authUserWithHashSelect })
   if (!user) throw invalidCredentials()
 
@@ -52,8 +52,14 @@ export async function authenticateUser({ email, password }: TCredentialsInput): 
  * Null rather than a 404: the middleware never rejects, it leaves the caller anonymous. A
  * validly signed token still has to name a row that exists, or a deleted account authenticates.
  */
-export async function findAuthUser(userId: string): Promise<IAuthUser | null> {
+async function findAuthUser(userId: string): Promise<IAuthUser | null> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: authUserSelect })
 
   return user ? toAuthUser(user) : null
+}
+
+export const AuthService = {
+  registerUser,
+  authenticateUser,
+  findAuthUser,
 }
