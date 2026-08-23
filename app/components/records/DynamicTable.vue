@@ -290,7 +290,7 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     //
     // 0.35 composites to ~#C6C8CD, about 1.67:1 — deliberately under the 3:1 non-text floor
     // in CLAUDE.md §8, as a hint rather than a control outline. Registered in
-    // `docs/decisions.md` → Accepted limitations; do not raise it back on contrast grounds
+    // `docs/limitations.md`; do not raise it back on contrast grounds
     // alone without reading that entry first.
     opacity: 0.35;
     transition: opacity 0.15s ease;

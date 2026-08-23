@@ -40,7 +40,7 @@ describe('slugify', () => {
   })
 
   it('reduces a name with no ASCII alphanumerics to that same fallback', () => {
-    // Deliberate — see `docs/decisions.md` → Accepted limitations
+    // Deliberate — see `docs/limitations.md`
     expect(slugify('Компания')).toBe('field')
     expect(slugify('会社')).toBe('field')
     expect(slugify('🎯')).toBe('field')

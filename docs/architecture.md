@@ -1,6 +1,6 @@
 # Architecture
 
-How the metadata layer works. Rules live in `CLAUDE.md`; rationale and rejected alternatives live in `decisions.md`.
+How the metadata layer works. Rules live in `CLAUDE.md`; rationale and rejected alternatives live in `decisions.md`; the SCSS layer is `styling.md`.
 
 ---
 
@@ -19,56 +19,51 @@ How the metadata layer works. Rules live in `CLAUDE.md`; rationale and rejected 
 Each folder has one job, and the dependency order is what keeps them honest — a file may only import from layers above it.
 
 1. **`types/`** — declarations only, erased at build time. They may `import type` a constant purely to derive from it (`TFieldType` is `typeof FIELD_TYPES[number]`); because both directions are type-only, that reference costs nothing at runtime.
-2. **`field-types/`** — one module per field type plus the registry that assembles them (§3). Read by `utils/` and `validation/`, **never the reverse** — a lint rule holds that, because the reverse edge is the cycle that used to keep the filter and value tables in separate layers (`decisions.md`). The one folder outside `validation/` that may import zod.
+2. **`field-types/`** — one module per field type plus the registry that assembles them (§3). Read by `utils/` and `validation/`, **never the reverse** — a lint rule holds that, because the reverse edge is the cycle that used to keep the filter and value tables in separate layers (`decisions.md` → _One module per type, because what cycled was moved out_). The one folder outside `validation/` that may import zod.
 3. **`constants/`** — the runtime registries. Values, never logic.
 4. **`utils/`** — generic helpers. `filter.ts` (param naming + value-shape predicates) is a pure leaf; `record-query.ts` (the URL codec) additionally uses the value schemas to decode.
 5. **`validation/`** — zod schemas and their builders. A schema validates; turning validated params into a domain model is the codec's job, never a `.transform()`.
 
-### Module inventory
+### Contracts not obvious from a module's name
 
-**`shared/types/`**
+The folders themselves are readable from `ls`; these are the rules a reader cannot see there.
 
-- **`auth.ts`** — `IAuthUser`
-- **`table.ts`** — `ITable`, `ITableListItem` (with `_count`)
-- **`field.ts`** — `TFieldType`, `IFieldChoice` (`value` + `color`), `IFieldOptions` (SELECT's `choices`; RELATION's `targetTableId` + `labelFieldKey`; both types' `multiple`), `IField`
-- **`color.ts`** — `TBadgeColor` — the closed badge palette, a design-system concept rather than a field one, so an atom can consume it without importing field metadata
-- **`record.ts`** — `TRecordSingleValue` (**one** value — what a per-type cell renders, what a record column holds, what a decoded filter bound is), `TRecordValue` (that plus `string[]`), `TRecordData`, `IRecord`, `IRecordPage` (records + paging + `linkedRecords`), `ILinkedRecord` (`number` + a nullable `label` — how a linked record reads), `IRecordOption` (that plus the `id` it stores), `IOpenRecord` (`tableId` + `recordId`), `IRecordDetail` (that record plus its table, fields and refs), `IRecordQueryState` (page + sort + filters), `IRecordQuery` (the same plus the resolved `pageSize`), `IRecordQueryParams`
-- **`range.ts`** — `INumberRange`, `IDateRange` — the two-bound shapes shared by `BaseRange` and the filter codec
-- **`filter.ts`** — `TFilterValue` (`TRecordValue` is a subset of this union), `IFilterValueByType`, `TRecordFilterValues`, the shape union (`scalar`/`list`/`range`), `IFilterValueRules`, `TFilterParamPart` (`value`/`from`/`to`), `IRecordSort`, `TSortDirection`
-
-`TRecordFilterValues` is **the filter model of every layer**: typed values keyed by `Field.key`, sparse — an absent key is unfiltered, and the count of filtered fields is `Object.keys(…).length`.
-
-**`shared/field-types/`**
-
-- `<type>.ts` × 6 — one `IFieldTypeModule` each: `label`, `multiValue`, `filter` (shape + empty), `value` (`base` / `listBase` / `blank` / `fromQuery`). `text.ts` also exports `TEXT_MAX_LENGTH` (the `search` param borrows it), `boolean.ts` `BOOLEAN_LABELS` (one source, so a checkbox cannot say "Yes" in one place and "True" in another), and `select.ts` the choice helpers `choiceValues` / `choiceOptions` / `badgeColorFor`.
-- `registry.ts` — the `FIELD_TYPES` tuple, the `MODULES` literal pinning each module to its own key, and the four total maps assembled from it: `FIELD_TYPE_LABELS`, `MULTI_VALUE_BY_TYPE`, `FILTER_VALUE_BY_TYPE`, `VALUE_SCHEMA_BY_TYPE`. Every type in `FIELD_TYPES` is creatable; there is no second, narrower list.
-- `cardinality.ts` — **`isMultiValue(field)`**, the one reader of `options.multiple`, guarded by `MULTI_VALUE_BY_TYPE` so a stale flag on a type with no list form cannot reach the schema or the SQL. Its own module rather than a registry export, so the registry stays a pure assembler.
-
-**`shared/constants/`**
-
-- `filter.ts` — `DEFAULT_SORT_KEY` (`createdAt`) + `DEFAULT_SORT_DIRECTION` (`desc`); `RESERVED_QUERY_PARAMS` (`page`/`pageSize`/`sort`/`dir`/`search`/`detail`) + `DETAIL_PARAM`; `SEARCH_MIN_LENGTH` (2); `FILTER_VALUES_MAX` (50, the cap on one list-shaped filter's values); `RECORD_NUMBER_KEY` / `CREATED_AT_KEY` / `UPDATED_AT_KEY` + `RESERVED_FIELD_KEYS`.
-- `record.ts` — `RECORD_PAGE_SIZE` (50), `RECORD_PAGE_SIZE_MAX` (100), `RELATION_OPTIONS_LIMIT` (200), `UNKNOWN_RECORD_LABEL`, `MULTI_VALUE_MAX_ITEMS` (50, the cap on how many values one multi-value field may hold — `FILTER_VALUES_MAX`'s counterpart on the write side).
-
-**`shared/utils/`**
-
-- `record-label.ts` — `buildRecordLabel(record, labelFieldKey)`: the one rule for what names a record, used by both server paths so they cannot disagree. A blank, missing or deleted label field reads as **`null`** — never `#<number>`, so the number stays recoverable and cannot be composed in twice. A stored list degrades to its values joined rather than to `["a","b"]`, since a field can be widened after being chosen as a label. Its sibling `formatLinkedRecord(ref)` writes the flat form (`#3 Example`, or `#3` alone) for the places that can only hold a string.
-- `filter.ts` — `recordColumn(key, name, type)` and `queryColumns(fields)` (§5); `filterShapeFor(field)` / `emptyFilterValueFor(field)`, the multi-value overrides every caller holding an `IField` reads instead of indexing by type; `filterParamClaims` / `filterParamNames` / `rangeParamName`, all over one private `RANGE_PARAM_SUFFIX`; `claimFilterParams(fields)`, which resolves each param name to at most one field (reserved names first, then fields in order) with `isReservedParam` over the same set, and `filterableFields(fields)`, the fields that claimed at least one param — what the drawer and the summary render from; and the shape predicates `isRangeFilterValue` / `isListFilterValue` / `isScalarFilterValue` / `isFilterValueEmpty`, which need no field metadata. **`isRangeFilterValue` excludes arrays explicitly** — an array is a non-null object, so without that a list value would narrow to a range.
-
-  The param **claims** stay keyed by type and multi-value does not move them: `scalar` and `list` already claim the same single name (a list is that name repeated), and no multi-capable type is `range`. That is what keeps `filterParamNames` callable from `createField`, where only the type is known.
-
-- `record-query.ts` — the URL codec: `parseRecordQueryState(fields, query)` and `toRecordQueryParams(state)`, shared by the page, the store and the records endpoint so a shared link and the fetch behind it cannot diverge. Decoding one filter value and naming one param are private to it. `parseRecordQueryState` is the exact inverse of `toRecordQueryParams` and is **lenient by design** — rejecting bad input is the schema's job. Decoding goes straight from params to typed values with no intermediate condition model, narrowing a range **by value shape**, never by field type. `recordQueryKey(state)` serializes the same params to a stable string, for watchers that must fire on a changed query rather than a changed object.
-- `record-detail.ts` — the `?detail=` codec (§7): `parseDetailChain`, `toDetailParam`, `pushDetail`, `popDetail`, and `withDetailChain(query, chain)`, the one seam every link in the dialog is built from — it layers the chain onto the current query, so the list view a dialog was opened over always survives.
-- `query-param.ts` — `singleParam`, the `string | string[] | number` collapse both codecs read a param through.
-
-**`shared/validation/`**
-
-- `auth.ts` — `credentialsInputSchema` (login and register share it), `registerSchema`.
-- `name.ts` — `nameSchema`, the one rule for every user-visible name (1–100 chars); tables and fields build on it so they cannot drift.
-- `table.ts` — `tableInputSchema`.
-- `field.ts` — flat `fieldInputSchema` with a per-type `superRefine`, one schema for client and server. `multiple` is judged against `MULTI_VALUE_BY_TYPE` rather than a hardcoded type pair. Flat at the top level only: a SELECT choice is `{ value, color }`, and uniqueness is judged on `value` alone, since two choices differing only by colour are the same choice. Whether a RELATION's target exists and is owned is a database question, so the server layers `requireFieldTarget` on top.
-- `record.ts` — the builders over `VALUE_SCHEMA_BY_TYPE` (which `field-types/registry.ts` owns): `buildRecordSchema(fields)` (strips unknown keys), `blankValueFor(field)`, `buildFilterValueSchema(field)`, `buildRecordQuerySchema(fields)` (page + pageSize + sort/dir + the filter params the table's fields claim; a **loose** object so the refinement can read filter params without widening the base ones). Required is enforced only where `blank` is `null`, so a BOOLEAN's `false` counts as a value.
-
-  **A multi-value field's schema is its type's own `base` lifted into `z.array`** — the type still says what one value is, cardinality says how many. `blank` becomes `[]`, `required` becomes "at least one", the cap is `MULTI_VALUE_MAX_ITEMS`, and duplicates are rejected rather than deduplicated (`decisions.md`). No type declares a second schema.
+- **`TRecordFilterValues` is the filter model of every layer** — typed values keyed by `Field.key`,
+  sparse: an absent key is unfiltered, and the count of filtered fields is `Object.keys(…).length`.
+- **`isRangeFilterValue` excludes arrays explicitly.** An array is a non-null object, so without that
+  test a list value narrows to a range.
+- **`buildRecordLabel` returns `null`** for a record with nothing to name it by — never
+  `#<number>`, so the number stays recoverable and cannot be composed in twice. A stored list
+  degrades to its values joined. Its sibling `formatLinkedRecord` writes the flat form (`#3 Example`)
+  for the places that can only hold a string.
+- **`parseRecordQueryState` is the exact inverse of `toRecordQueryParams`**, and lenient by design —
+  rejecting bad input is the schema's job. The page (over `route.query`) and the records endpoint
+  (over its validated params) both decode through it, so a link cannot decode two ways.
+  `recordQueryKey` serializes the same params to a stable string, for watchers that must fire on a
+  changed query rather than a changed object.
+- **`claimFilterParams` resolves each param name to at most one field** — reserved names first, then
+  fields in order — and `filterableFields` is the set that claimed at least one, which is what the
+  drawer and the summary render from. Both halves read one `isReservedParam`. The param **claims**
+  stay keyed by type: `scalar` and `list` claim the same single name and no multi-capable type is
+  `range`, which is what keeps `filterParamNames` callable from `createField`, where only the type is
+  known.
+- **A multi-value field's schema is its type's own `base` lifted into `z.array`** — the type still
+  says what one value is, cardinality says how many. `blank` becomes `[]`, `required` becomes "at
+  least one", the cap is `MULTI_VALUE_MAX_ITEMS`, and duplicates are rejected rather than
+  deduplicated (`decisions.md` → _Multi is a lifting of the single-value spec, not a second set of specs_). No type declares a second schema.
+- **`buildRecordSchema` strips unknown keys, and required is enforced only where `blank` is `null`**,
+  so a BOOLEAN's `false` counts as a value. `buildRecordQuerySchema` is a **loose** object, so its
+  refinement can read filter params without widening the base ones.
+- **`nameSchema` is the one rule for every user-visible name** (1–100 characters); tables and fields
+  build on it so they cannot drift. `fieldInputSchema` is likewise one schema for client and server,
+  judging `multiple` against `MULTI_VALUE_BY_TYPE` rather than a hardcoded type pair — whether a
+  RELATION's target exists and is owned is a database question, so the server layers
+  `requireFieldTarget` on top.
+- **`TBadgeColor` is its own module rather than part of field metadata** — the closed badge palette
+  is a design-system concept, so an atom can consume it without importing field types.
+- **Every type in `FIELD_TYPES` is creatable**; there is no second, narrower list. `BOOLEAN_LABELS`
+  is the single source for `Yes`/`No`, so a checkbox cannot say "Yes" in one place and "True" in
+  another, and the `search` param borrows TEXT's own `TEXT_MAX_LENGTH`.
 
 ---
 
@@ -76,11 +71,11 @@ Each folder has one job, and the dependency order is what keeps them honest — 
 
 A field type is **three modules and three registry lines** (`CLAUDE.md` §9), one per slice, because a single module holding all of it would drag `Prisma.Sql` into the browser bundle and `.vue` cells into the Nitro one. Each slice has one module per type and one assembler that is the only file enumerating the six; every map it exports is a total `Record<TFieldType, …>` literal, so a new type is a compile error until all three assemblers declare it.
 
-| Slice                    | Per type                            | Assembler                                                  |
-| ------------------------ | ----------------------------------- | ---------------------------------------------------------- |
-| `shared/field-types/`    | `<type>.ts` — `IFieldTypeModule`    | `registry.ts` (§2)                                         |
-| `server/db/field-types/` | `<type>.ts` — `IFieldSqlModule`     | `registry.ts` → `FIELD_SQL_BY_TYPE`, `MULTI_SQL`, `sqlFor` |
-| `app/field-types/`       | `<type>/index.ts` — `IAppFieldType` | `registry.ts` (below)                                      |
+| Slice                    | Per type                            | Assembler                                                                                                                     |
+| ------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `shared/field-types/`    | `<type>.ts` — `IFieldTypeModule`    | `registry.ts` — `FIELD_TYPES` + `FIELD_TYPE_LABELS` · `MULTI_VALUE_BY_TYPE` · `FILTER_VALUE_BY_TYPE` · `VALUE_SCHEMA_BY_TYPE` |
+| `server/db/field-types/` | `<type>.ts` — `IFieldSqlModule`     | `registry.ts` → `FIELD_SQL_BY_TYPE`, `MULTI_SQL`, `sqlFor`                                                                    |
+| `app/field-types/`       | `<type>/index.ts` — `IAppFieldType` | `registry.ts` (below)                                                                                                         |
 
 `app/field-types/` holds the entire per-field-type surface of the client, deliberately outside `~/components` so nothing there is globally registered — these are only ever reached through the assemblers. `registry.ts` exports `FIELD_INPUTS` (editing a record), `FIELD_FILTERS` (filtering), `FIELD_CELLS` (displaying), `FILTER_SUMMARIES` (how an active filter reads), `FIELD_TYPE_ICONS` (the glyph beside a type's word), `FIELD_CONFIG_SUMMARIES` (how a field's configuration reads), the private `MULTI_INPUTS` / `MULTI_FILTERS` / `MULTI_SUMMARIES`, and the resolvers `inputFor` / `filterFor` / `summaryFor`. `record-columns.ts` (`RECORD_COLUMNS`, §5) sits beside them and belongs to no type.
 
@@ -101,9 +96,9 @@ Only two entries are non-`null` anywhere: `MULTI_FILTERS` and `MULTI_SUMMARIES` 
 
 **`FIELD_CONFIG_SUMMARIES` is the one control-adjacent registry with no `MULTI_*` counterpart**, and its `null` means something different from theirs: not "this type has no list form" but "this type is fully described by its own word" — TEXT configures nothing. Cardinality stays out of it because `isMultiValue(field)` already answers for every type, so the field manager renders that part itself rather than two components repeating it. That is also why callers index it directly instead of through a resolver: there is no override for one to consult. `FIELD_TYPE_ICONS` is a plain string map for the same reason — nothing about a glyph changes when a field is widened.
 
-Multi-value **cells** need no override table at all. `cellComponent` returns one shared `MultiValueCell`, which renders each entry through `FIELD_CELLS[field.type]` — a list of values is the list of how each value renders, so a future multi-capable type is covered without a component of its own. It renders **inline** rather than as a flex row, which is load-bearing (`decisions.md`); nothing about the cell puts it on a line — `DynamicTable`'s `white-space: nowrap` does that, and `RecordDetail` simply does not impose it.
+Multi-value **cells** need no override table at all. `cellComponent` returns one shared `MultiValueCell`, which renders each entry through `FIELD_CELLS[field.type]` — a list of values is the list of how each value renders, so a future multi-capable type is covered without a component of its own. It renders **inline** rather than as a flex row, which is load-bearing (`decisions.md` → _A table column's width cap lives on a wrapper, not on the cell_); nothing about the cell puts it on a line — `DynamicTable`'s `white-space: nowrap` does that, and `RecordDetail` simply does not impose it.
 
-`cellComponent` lives in **`app/field-types/cell-resolver.ts`** alongside `readCellValue` — the two halves that read the registries. It is the one resolver not folded into the file it resolves, because `MultiValueCell` imports `FIELD_CELLS` back out of `registry.ts` and merging would make the two import each other (`decisions.md`). **`registry.ts` must therefore never import `MultiValueCell`**; that component and the two record-column cells are what `cells/` still holds, since none of the three belongs to a field type.
+`cellComponent` lives in **`app/field-types/cell-resolver.ts`** alongside `readCellValue` — the two halves that read the registries. It is the one resolver not folded into the file it resolves, because `MultiValueCell` imports `FIELD_CELLS` back out of `registry.ts` and merging would make the two import each other (`decisions.md` → _`cellComponent` is the one resolver that does not live in its registry file_). **`registry.ts` must therefore never import `MultiValueCell`**; that component and the two record-column cells are what `cells/` still holds, since none of the three belongs to a field type.
 
 It is paired with **`toValueList`** / **`toCellSingleValue`** (both `app/utils/record-value.ts`, since both are pure shape): whenever the first returns `MultiValueCell`, the value is `toValueList`, otherwise it is `toCellSingleValue`. `RecordFieldValue` branches on the same `isMultiValue` question to pick the pair. That is what lets each cell declare the exact shape it renders instead of the union of both — and `toValueList` is **the one place** a stored value that is not yet an array is accounted for (a row drawn before `updateField`'s migration ran). It sits outside the cell registry because the multi-value **form control** normalises through the same function.
 
@@ -113,7 +108,7 @@ It is paired with **`toValueList`** / **`toCellSingleValue`** (both `app/utils/r
 - `IFieldControl<TValue>` — `component` + a `props(field)` factory + optional `toControl`/`fromControl` adapters.
 - `TRecordFieldControl` = `Required<IFieldControl<TRecordValue>>`, since a record input always adapts (a DOM control speaks strings and checkboxes, never `TRecordValue`) — which is why `DynamicForm` never branches on an optional adapter.
 - `TFilterSummary` + `IFilterSummaryContext` — a summariser and the one thing it may need beyond its value (only RELATION uses it, to resolve a linked record).
-- `IFieldCellProps` — `field` + `value`. Its `value` is `TRecordSingleValue`, **not** `TRecordValue`: a per-type cell renders exactly one value, and `defineProps<T>()` compiles to a runtime prop check (`decisions.md`).
+- `IFieldCellProps` — `field` + `value`. Its `value` is `TRecordSingleValue`, **not** `TRecordValue`: a per-type cell renders exactly one value, and `defineProps<T>()` compiles to a runtime prop check (`decisions.md` → _One value union, narrowed by shape_).
 - `IMultiValueCellProps` — `field` + `value: string[]`, `MultiValueCell`'s own contract. A separate interface rather than a widening, because the two are opposites: it is the only cell taking a list, and every other cell is what it delegates each entry to.
 
 Three fragment modules keep the per-type modules to their own wording: **`adapters.ts`** (`blankIsNull`, shared by every type whose blank control means "no value" rather than `''`; `listValue`, its list counterpart), **`prose.ts`** (`summariseRange`, `summariseList`, `summariseLinkedRecord`), and the server's **`fragments.ts`** — the projections (`jsonText`, `jsonArray`, the array guard), the comparators (`matchesPartially` / `matchesExactly` / `matchesAny` / `containsAny` / `withinRange`), the search predicates and `targetLabel` / `firstElement`. `record-sql.ts` keeps only what is not per-type: `RECORD_COLUMN_SQL` and the `buildRecord*` builders.
@@ -166,9 +161,9 @@ An id is not readable, so how a record reads is resolved server-side. **A relati
 
 - **`resolveLinkedRecords`** — runs after the record list and returns `IRecordPage.linkedRecords`, keyed by **field id** then by target record id (per field, because two relations may point at one table through different label fields). One `findMany` per distinct target table, never one per row. `collectRelationTargets` normalises a stored value through `Array.isArray(v) ? v : [v]`, and that is the **whole** of what several links cost this module: everything below it already works in sets and batches.
 - **`assertRelationTargets`** — gates every record write: a value that does not resolve to a live record of its target table is a 400, so a crafted payload cannot store a dangling id.
-- **`listRelationOptions(field, search)`** — backs `GET /api/tables/[tableId]/fields/[fieldId]/options[?q=]`, capped at `RELATION_OPTIONS_LIMIT` and label-ascending. Scoped by the **source field**, so nothing about the target is taken from the client. `?q=` narrows via `buildRecordLabelSearch` — the label field plus the record's `#number` — leaving the ORDER BY untouched, so search and order stay independent. No `SEARCH_MIN_LENGTH` here (`decisions.md`); the bound is `max(100)` on the term. Note the order is by **label**, so the visible numbers are not ascending and blank-labelled records sort together at the end.
+- **`listRelationOptions(field, search)`** — backs `GET /api/tables/[tableId]/fields/[fieldId]/options[?q=]`, capped at `RELATION_OPTIONS_LIMIT` and label-ascending. Scoped by the **source field**, so nothing about the target is taken from the client. `?q=` narrows via `buildRecordLabelSearch` — the label field plus the record's `#number` — leaving the ORDER BY untouched, so search and order stay independent. No `SEARCH_MIN_LENGTH` here (`decisions.md` → _Relation option search deliberately does not enforce `SEARCH_MIN_LENGTH`_); the bound is `max(100)` on the term. Note the order is by **label**, so the visible numbers are not ascending and blank-labelled records sort together at the end.
 
-Client side, `app/stores/relations.ts` is the single home for both halves — `optionsByField` (a picker's candidates) and `linkedByField` (id → `ILinkedRecord`), both keyed by field id. `RelationFieldSelect` reads the options; `RelationFieldCell` reads the linked records. Both draw the pair through **`BaseLinkedRecord`**, the one component that writes a `#`; the picker reaches it through `BaseSelect`'s single slot (`decisions.md`), and each option's flat `label` stays `formatLinkedRecord`'s output so the trigger, the type-ahead and the accessible name all agree with the row.
+Client side, `app/stores/relations.ts` is the single home for both halves — `optionsByField` (a picker's candidates) and `linkedByField` (id → `ILinkedRecord`), both keyed by field id. `RelationFieldSelect` reads the options; `RelationFieldCell` reads the linked records. Both draw the pair through **`BaseLinkedRecord`**, the one component that writes a `#`; the picker reaches it through `BaseSelect`'s single slot (`decisions.md` → _`BaseSelect` has one slot, and it replaces an option's text rather than its row_), and each option's flat `label` stays `formatLinkedRecord`'s output so the trigger, the type-ahead and the accessible name all agree with the row.
 
 A resolved reference is a **link**: `RelationFieldCell` renders a `<NuxtLink>` whose target is the current URL with the record appended to the `detail` chain (§7), so clicking one opens the record-detail dialog. A reference that does not resolve — the target was deleted — renders as a `<span>` with a dashed underline and a `title`, never a link and never a `#`: there is no number to state. The cell is the same component in the table and inside the dialog, which is what makes nested relations drill: it appends to whatever chain it is being rendered under, without knowing where it is.
 
@@ -227,7 +222,7 @@ One reserved `?search=` param, ANDed with the filters. It is **free text ORed ac
 **`MULTI_SQL`** is the cardinality override, consulted by `sqlFor(field)` for a field whose `options.multiple` is set — the same lifting the validation layer applies, in SQL:
 
 - `expr` is `data -> key` rather than `->>`, since `->>` on an array yields the literal `["a","b"]` and would match a filter on `[` or `","`.
-- `filter` is `containsAny`: `jsonb_exists_any(expr, ARRAY[…]::text[])`. The **function form**, never the `?|` operator (`decisions.md`). Like `IN (…)` it is self-parenthesising, it answers correctly for a bare scalar, and it is the one comparison in this layer that is **GIN-indexable**.
+- `filter` is `containsAny`: `jsonb_exists_any(expr, ARRAY[…]::text[])`. The **function form**, never the `?|` operator (`decisions.md` → _`jsonb_exists_any`, never the `?|` operator_). Like `IN (…)` it is self-parenthesising, it answers correctly for a bare scalar, and it is the one comparison in this layer that is **GIN-indexable**.
 - `sortExpr` orders by the **first** element (`data -> key ->> 0`; for RELATION, `targetLabel` over that same first id).
 - `searchPredicate` is `EXISTS (SELECT 1 FROM jsonb_array_elements_text(…) WHERE element ILIKE …)` for SELECT, and `null` for RELATION.
 
@@ -260,9 +255,9 @@ Keys and values are bound as parameters, never interpolated, and the key is `::t
 | `Field`  | `id`, `tableId`, `name` (editable), `key` (**immutable**), `type`, `required`, `options` (`Json?`), `order`, `createdAt` | `@@unique([tableId, key])`; left prefix covers the per-table list                        |
 | `Record` | `id`, `number`, `tableId`, `data` (`Json`, **keyed by `Field.key`**), `createdAt`, `updatedAt`                           | `@@unique([tableId, number])` serves the `#` sort; `@@index([tableId, createdAt])`       |
 
-`Record.data` is keyed by `Field.key`, never by field id, so renaming a field never rewrites a single row. A **multi-value** field stores a JSON array under that key; widening a field is the one operation that does rewrite rows, in `updateField`'s own transaction (§10). `User` is always read with an explicit `select` so `passwordHash` cannot reach a response. `Table.recordCounter` is never exposed in `tableSelect`.
+`Record.data` is keyed by `Field.key`, never by field id, so renaming a field never rewrites a single row. A **multi-value** field stores a JSON array under that key; widening a field is the one operation that does rewrite rows, in `updateField`'s own transaction (§10). `Table.recordCounter` is never exposed in `tableSelect`.
 
-**Sorting or filtering by a JSONB key is deliberately unindexed** — keys are user-defined per table, so no general index applies. This is the first scaling limit the schema will hit.
+**No index covers a JSONB key**, and that is deliberate — `limitations.md` carries the reason, the ceiling it sets, its trigger, and the remedies that fit this query layer.
 
 `prisma/migrations/` is the history. One of them is hand-written, because a required column over existing rows cannot be generated (`CLAUDE.md` §5, `decisions.md`).
 
@@ -281,7 +276,7 @@ Three layers, dependencies pointing one way — `api` → `services` → `db` �
 - **`db/field-types/`** — the per-type SQL rules the builders compose (§3). Inside `db/` because `Prisma.Sql` lives nowhere else
 - **`db/prisma-errors.ts`** — `isUniqueViolation` / `isMissingRow`: what a Prisma fault **is**, never what it becomes. No `h3` here, and a lint rule keeps it that way
 - **`utils/http-errors.ts`** — `toHttpError(error, { conflict?, notFound })` — where that classification becomes a response: the shared `P2002` → 409 / `P2025` → 404 mapping all three services raise through. Anything unrecognised passes through untouched, so an unexpected failure still surfaces as a 500
-- **`utils/handler.ts`** — the four factories every table-scoped route is declared with, one per `require*` helper below: `defineTableHandler` (the table) · `defineFieldsHandler` (its fields + `tableId`) · `defineTableWithFieldsHandler` (both) · `defineRecordWriteHandler` (fields, non-empty). **The ownership check is what produces the context**, so a route cannot be written without it; each stays generic in its return type, so Nitro still infers what a route answers with. `[tableId].patch` and `[tableId].delete` use none of them on purpose — their services take a `userId` and scope on it in their own `where` clause (`decisions.md`)
+- **`utils/handler.ts`** — the four factories every table-scoped route is declared with, one per `require*` helper below: `defineTableHandler` (the table) · `defineFieldsHandler` (its fields + `tableId`) · `defineTableWithFieldsHandler` (both) · `defineRecordWriteHandler` (fields, non-empty). **The ownership check is what produces the context**, so a route cannot be written without it; each stays generic in its return type, so Nitro still infers what a route answers with. `[tableId].patch` and `[tableId].delete` use none of them on purpose — their services take a `userId` and scope on it in their own `where` clause (`decisions.md` → _Ownership is obtained, not remembered_)
 - **`utils/ownership.ts`** — `requireOwnedTable` (single scoped query; 404 when missing or foreign) · `requireOwnedTableFields` (same plus the table's field metadata in one round trip — reads need it to resolve sort/filter params) · `requireOwnedTableWithFields` (the table itself plus its fields, for the record-detail read, which has to **name** a table the page it opened from is not about) · `requireRecordFields` (the same plus a 400 when the table has no fields — **writes only**, since a field-less table must still list an empty page) · `requireFieldTarget` (a RELATION may only point at an owned table, labelled by a field that table has)
 - **`utils/auth.ts`** — bcrypt hash/verify, JWT sign/verify, `auth_token` cookie helpers, `requireUser`. `verifyAuthToken` pins `algorithms: ['HS256']`, so the token cannot choose its own
 - **`utils/error-log.ts`** + **`utils/error-log-file.ts`** — the error sink, fed by **two sources**: `plugins/error-log.ts` off Nitro's `error` hook, and `api/client-errors.post.ts` off the browser. The first module is pure: `isLoggableServerError` (5xx and unclassified only), `readErrorLogRequest`, `buildErrorLogEntry` / `buildClientErrorLogEntry` (timestamp injected), `formatErrorLogLine` (NDJSON). One entry leads with `source` (`server` / `client`) and carries timestamp · statusCode · name · message · stack · method · path · query **names** · userId, and **nothing else is ever read** — not headers, not the body, not query values, not `error.data`, not the user's email. A client entry nulls the status, the method and the query names, cuts any query off the reported path, and takes its user id from the cookie rather than from the report. The second module owns `recordErrorEntry`, the one write path both sources go through; it appends to `logs/server-errors.log`, rotates at 5 MB over 5 generations, never throws, and switches itself off after a failure. Both contracts are in `decisions.md`
@@ -289,7 +284,7 @@ Three layers, dependencies pointing one way — `api` → `services` → `db` �
 - **`utils/field-key.ts`** — `slugify` (a display name → `^[a-z0-9_]+$`, `field` when nothing survives) + `buildFieldKey(name, type, existing)`. A key must be free for **every query param it would claim**, not only for itself: a field called "Page" becomes `page_2`, "Budget from" becomes `budget_from_2` next to a NUMBER `budget`. Server-only — nothing in the Vue layer derives a key
 - **`services/tables.ts`** — list/create/rename/delete scoped by `userId`. `deleteTable` refuses with 409 when another table's RELATION field targets it
 - **`services/fields.ts`** — list/create/update/delete scoped by `tableId`; derives `order` and the DB `options`, and takes the immutable `key` from `utils/field-key.ts`. Rejects type changes, RELATION retargeting, and narrowing a multi-value field (400 each); **widening** runs `widenToList` — one scoped, idempotent `UPDATE` — inside the same transaction as the metadata change
-- **`services/records.ts`** — paginated list (`$transaction` of two `$queryRaw`s sharing one WHERE fragment) + create/update/delete scoped by `tableId`. `data` is replaced wholesale on update; every write passes `assertRelationTargets` first. `getRecordDetail` returns one record as `IRecordDetail` — an aggregate on purpose (`decisions.md`); a missing row is a 404
+- **`services/records.ts`** — paginated list (`$transaction` of two `$queryRaw`s sharing one WHERE fragment) + create/update/delete scoped by `tableId`. `data` is replaced wholesale on update; every write passes `assertRelationTargets` first. `getRecordDetail` returns one record as `IRecordDetail` — an aggregate on purpose (`decisions.md` → _The detail endpoint returns an aggregate, not just the record_); a missing row is a 404
 - **`api/tables/[tableId]/records/index.get.ts`** — validates with `buildRecordQuerySchema(fields)`, then composes `IRecordQuery` from `parseRecordQueryState(fields, params)` + the validated `pageSize` — **the schema judges, the codec decodes**
 
 ### `app/`
@@ -300,18 +295,18 @@ Three layers, dependencies pointing one way — `api` → `services` → `db` �
 - **`composables/useDetailLink.ts`** — the route target that opens a record in the detail dialog, layered onto the current query. Every way in is this one function — a row's View action and a relation cell alike — and each appends to whatever chain it renders under, so a caller never has to know whether it is opening or drilling
 - **`composables/useRecordDetail.ts`** — the one owner of the record-detail dialog: reads the `detail` chain off the route, fetches only its last entry (keyed on a **string**, never the ref object, which is fresh on every query change), feeds the labels to the relations store, and hands back the route targets for Back and Close. Every control it exposes is a navigation, not a state change
 - **`composables/useRecordListQuery.ts`** — the records page's list query. Which action leaves a history entry is a contract: a sort or a page step **pushes**, a filter edit, a search or a clear **replaces**. A search term below `SEARCH_MIN_LENGTH` is dropped rather than sent, and an unchanged term does not navigate at all
-- **`composables/useDeleteConfirm.ts`** — the confirm-then-delete flow every list page repeats. The target is cleared **only on success**, so a failed delete leaves the dialog open; a refused one renders its reason in the dialog rather than rethrowing (`decisions.md`)
+- **`composables/useDeleteConfirm.ts`** — the confirm-then-delete flow every list page repeats. The target is cleared **only on success**, so a failed delete leaves the dialog open; a refused one renders its reason in the dialog rather than rethrowing (`decisions.md` → _`useDeleteConfirm` catches instead of re-throwing_)
 - **`composables/useDebouncedModel.ts`** — a writable local `draft` of a `v-model` that writes back on a delay, re-synced when the model changes from outside, skipping the write when draft and model already agree. `delay: 0` writes through synchronously, which is what lets `BaseInput` use one code path for both
 - **`composables/usePopover.ts`** — open state, outside-pointer dismissal and focus restore. `containerRef` (the outside-click boundary) and `triggerRef` (the focus-restore target) are **separate** refs. **Owns no Escape listener** — the caller handles it (`CLAUDE.md` §7, `decisions.md`)
 - **`composables/useAnchoredPosition.ts`** — places a `position: fixed` panel against an anchor in viewport coordinates, flipping above when there is no room below (anchoring by `bottom`, so it grows upward with no second measurement). Reflows on `resize` and on `scroll` **captured at `window`**, which is what keeps a panel pinned inside a scroll container
 - **`components/common/BaseSelect/useListboxNavigation.ts`** — the cursor into a listbox: `activeIndex`, arrow/page/Home/End movement that skips disabled options and never wraps, type-ahead, scroll-into-view, and the re-clamp when the visible list changes — keyed on option **values**, so a `props(field)` factory rebuilding its array does not move the highlight
 - **`components/common/BaseSelect/useSelectOptions.ts`** — which options a `BaseSelect` shows and what state that list is in — local filtering, or debounced server search with abort + a monotonic request id so an out-of-order response is dropped rather than written. Stale-while-revalidating
-- **`utils/format.ts`** — every `Intl` formatter in one place. Locales are hard-coded `en-GB` and `formatTimestamp` pins `timeZone: 'UTC'` (`decisions.md`). The prose date (`1 Jan 2026`) and the column date (`01 Jan 2026`) are two named constants, never one formatter reconfigured per call
+- **`utils/format.ts`** — every `Intl` formatter in one place. Locales are hard-coded `en-GB` and `formatTimestamp` pins `timeZone: 'UTC'` (`decisions.md` → _Locales and time zones are hard-coded_). The prose date (`1 Jan 2026`) and the column date (`01 Jan 2026`) are two named constants, never one formatter reconfigured per call
 - **`utils/api-error.ts`** — `getApiErrorMessage` reads Nitro's message off `FetchError.data`; `toPageError` asserts a cause only for a 404
 - **`utils/safe-redirect.ts`** — `resolveSafeRedirect` restricts `?redirect` to internal paths
 - **`stores/records.ts`** — **Every action takes the query params from the caller** — the store never mirrors them. `createRecord` returns the page the new record landed on and only refetches when that equals the current page. An edit refetches rather than splicing. State is cleared when `fetchRecords` is called for a different table. `fetchRecords` sets `failed` **and rethrows**
 - **`stores/tables.ts`** — `loaded`/`failed` flags + `ensureTables()`, which **never throws** — it sets `failed` and the sidebar reports it inline with a Retry. Also owns `applyTableRow(row)`, the one way a cached row moves without a refetch — **`stores/records.ts` and `stores/fields.ts` are its only callers**, each passing back the row the write answered with. A row for a table the list does not hold is ignored rather than inserted
-- **`stores/relations.ts`** — `loadOptions(tableId, fields)` fetches every relation field's candidates in parallel and makes no request at all for a table without relations. `searchOptions` never writes `optionsByField` (`decisions.md`)
+- **`stores/relations.ts`** — `loadOptions(tableId, fields)` fetches every relation field's candidates in parallel and makes no request at all for a table without relations. `searchOptions` never writes `optionsByField` (`decisions.md` → _`RelationFieldSelect` gets its `tableId` from the store, not from `IField`_)
 - **`error.vue`** — the whole-app error boundary. Deliberately **store-free** — it has to render when data fetching is exactly what failed
 
 ### The renderers — `app/components/records/`
@@ -339,102 +334,7 @@ Both open with **`useTableLoader`** (above), under their own keys — `table-…
 
 ---
 
-## 11. Styling reference
-
-`app/assets/scss/` partials:
-
-| Partial                 | Contents                                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `_palette.scss`         | the primitive colour ramp as **SCSS variables** (`$gray-200`, `$blue-600`, …)                                                               |
-| `_variables.scss`       | the public token surface: CSS custom properties built from the palette                                                                      |
-| `_reset.scss`           | reset/normalize + base typography + the global `:focus-visible` baseline                                                                    |
-| `_functions.scss`       | the `rem()` helper                                                                                                                          |
-| `_mixins.scss`          | the shared style fragments + `$breakpoint-shell`; `@use`s `functions` itself and does not re-export it                                      |
-| `_auth-form.scss`       | the shared `.auth-form` block; `@use`s `functions` and `mixins` itself                                                                      |
-| `_text-link.scss`       | the global `.text-link` block; references only custom properties, so it `@use`s nothing                                                     |
-| `_visually-hidden.scss` | the global `.visually-hidden` block; references nothing either, so it too `@use`s nothing                                                   |
-| `main.scss`             | entry point — `@use`s `variables` / `reset` / `auth-form` / `text-link` / `visually-hidden`, and must **not** re-`@use` functions or mixins |
-
-**Token surface:** semantic colour (`--color-canvas`, `--color-surface`/`-hover`/`-row-hover`/`-disabled`/`-muted`, `--color-text`/`-secondary`/`-subtle`/`-on-accent`/`-on-accent-tint`, `--color-accent`/`-hover`/`-active`/`-tint`/`-underline`, `--color-danger*`, `--color-border-subtle`/`--color-border`/`-strong`/`-control`, `--color-scrim`, `--shadow-sm`/`-md`), the focus state (`--color-focus`, `--focus-ring-width`/`-offset`/`-halo`), the badge hues (`--color-badge-<name>-bg`/`-border`/`-fg` for each member of `BADGE_COLORS`), layering (`--z-scrim`/`-sidebar`/`-modal`/`-popover`), geometry (`--radius-sm`/`-md`/`-lg`/`-pill`, `--control-height`, `--control-padding-x`, `--header-height`, `--sidebar-width`), type (`--font-size-xs…xl`, `--line-height-tight`/`-base`).
-
-**The badge hues** are the one ramp a component selects at runtime rather than by class. `badgeTint()` (`app/utils/badge-tint.ts`) composes the token _names_ into `var()` references and returns them as inline custom properties (`--badge-bg`/`-border`/`-fg`), so a literal colour still cannot reach a component (`decisions.md`). The three steps are read by two components: `BaseBadge` takes `-bg` and `-fg` (its dot is `currentColor`, so the dot is the `-fg` step), while `BaseColorPicker` takes all three. Each `-fg` clears 4.5:1 on its own `-bg`, and each `-border` clears 3:1 against both `--color-surface` and `--color-surface-hover` — the second is the binding one, because the picker's trigger takes that wash.
-
-**Mixins:** `focus-ring($offset)`, `below-shell`, `stack($gap)`, `cluster($gap)`, `truncate`, `surface-card`, `centred-viewport`, `centred-card($max-width)`, `field-label`, `field-error`, `form-control`, `error-banner`, `page-header`, `page-title`.
-
-`centred-viewport` + `centred-card` are the two surfaces that render **outside the shell** and so own the viewport themselves — the auth layout and `error.vue`. They take `100dvh` for the same reason the shell does.
-
-`surface-card` is the bordered surface on the canvas — the dashboard's cards and each section of the table settings page. Geometry and colour only: a card that lifts on hover, or wears the ring because a link fills it, declares that itself, since collapsing those in would put a hover state on surfaces that are not interactive.
-
-`stack($gap)` and `cluster($gap)` are the two layout primitives, a column and a row; neither declares `flex-wrap`. A `page-header` side passed as a `cluster` must carry `min-width: 0` itself (`decisions.md`).
-
-`truncate` is one line of text ending in an ellipsis, and it only does anything on a **bounded** box: a `max-width` of its own, or `min-width: 0` where it is a flex item that would otherwise refuse to shrink below its content. Forgetting the bound is the failure mode — the rule is present and silently inert.
-
-**`.text-link` is a class, not a mixin** — an inline navigation link _inside a sentence_, the one link look that is not a control. Anything standing on its own in an action row is a `BaseButton` with `to` instead.
-
-**Focus has two registers, chosen by whether a control has a border of its own.** `focus-ring` is for those that do not — buttons, links, rows, options — and draws a hairline outline; `form-control` is for fields, which recolour their own border to `--color-focus` instead and never take a ring (it would restate the same edge one hairline out). Both then take `--focus-ring-halo`. Within `form-control` the split is the same as before: `:focus` recolours the border, including on programmatic autofocus; the halo is `:focus-visible`, so it says "you are on the keyboard". Where a link fills a card, the **card** wears the ring via `:has(:focus-visible)` and the link suppresses both halves of its own.
-
-### `BaseButton` variants
-
-`.base-button` is a neutral chassis (flex centering, radius, type, `focus-ring`, `:disabled`); the filled look lives in `&--primary`, which the template always emits since `variant` defaults to `'primary'`. **`font-size`/`font-weight` must stay on the chassis** — `--ghost` declares neither, so moving them would drop ghost buttons to the UA default.
-
-| Variant     | Use                                                                                                                                |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `primary`   | default filled action                                                                                                              |
-| `secondary` | the neutral peer of primary — same geometry so a dialog's footer pair aligns, bordered rather than filled. `ConfirmModal`'s Cancel |
-| `danger`    | destructive filled action                                                                                                          |
-| `ghost`     | transparent text+icon with a faint `--color-accent-tint` hover                                                                     |
-| `icon`      | borderless icon-only; takes `prependIcon` + `label` (aria-label/title)                                                             |
-| `link`      | bare text button for row actions — the chrome of a link, the semantics of a button                                                 |
-
-`primary`/`secondary`/`danger`/`ghost` are `min-height: var(--control-height)`; `icon` takes it on **both** axes (`min-width` too, or it stays glyph-wide); `link` declares no height but is floored at 24 on both axes. `ghost`'s horizontal padding is transparent, so it reads as gap — space a ghost against a neighbour from the **ink**, not the box (`decisions.md`).
-
-Any variant takes `prependIcon` and `appendIcon` (iconify names) for an icon before and after the slot. Both render the same `aria-hidden` `.base-button__icon` — the side is DOM order, not a modifier class, since nothing about the two differs visually and the chassis's `gap` already spaces them.
-
-A typed `tone?: 'default' | 'danger'` recolours hover for the `icon`/`link` variants via the internal `--hover-color` custom property, which each variant defaults for itself. Per-variant defaults are why this is a custom property rather than a `v-bind`.
-
-A typed `size?: 'md' | 'sm'` works the same way and is likewise a closed set, not a free-form measurement. `icon` reads its box and glyph from `--icon-box`/`--icon-glyph`; `sm` resteps only those two, so it declares no property of its own and is inert on every other variant. It is the **24×24** step for an icon button sitting inside another control — the select's clear ✕, the filter chip's remove ✕ — where the 36px floor does not fit. `16 + rem(4)` of the variant's padding on each side is exactly 24, which is SC 2.5.8's floor and the boundary case `test/e2e/setup/a11y.ts` measures: neither number moves alone.
-
-**`variant` is the appearance; `to` is the element.** Passing `to` makes the root a `<NuxtLink>` — a real `<a href>` — while every variant keeps its exact look. The modes bind **disjoint** props through one `rootProps` computed: button mode emits `type`/`disabled`, link mode emits `to`. Everything else arrives by attribute fallthrough and the component forwards nothing by hand — including `target`, `rel`, `external` and `prefetch`, which are declared `NuxtLink` props and so resolve as props even when they fall through. **`disabled` wins over `to`**, and a link activates on Enter only (`decisions.md`).
-
-### Other atoms worth knowing
-
-- **`BaseInput`** — bound with `:value` + `@input` rather than `v-model` (`decisions.md`); the composition guard is kept by hand so IME input still works. `ariaLabel` and `invalid` serve **grouped** controls where a wrapper owns the visible label and error line. `debounce` and `trim` serve callers that bind props rather than `v-model`, since `<component :is>` cannot pass v-model modifiers. `icon` is an Iconify name drawn in a leading gutter inside `.base-input__control`, the relative-positioned box any future decoration positions against. `form-control`'s chrome stays on the `<input>` rather than moving to that box on purpose: the border, its `:focus` colour, the halo and the `--invalid` state are then identical whether a field is decorated or not.
-- **`BaseRange`** — the two-bound atom, knowing nothing about filters: one label above a 1fr/1fr grid of bare `BaseInput`s. A required `type` (`number`/`date`) picks the bound's DOM type; a blank or unparseable bound is `null`, **never `0`**, or an empty box silently becomes `>= 0`. It keeps typed text in local drafts synced by a `watch` that resyncs **only a bound that disagrees with what is on screen**.
-- **`BaseModal`** — teleport, backdrop/Esc close, `role="dialog"`, optional `footer` slot outside the scrolling body. `variant`: `dialog` (centered card) / `drawer` (same chrome anchored right, full height). **Both cap the dialog at the scrim's own content box and make the body the sole scroll pane**, so the header and footer stay put and a dialog taller than the screen is reachable rather than centred off both edges (`decisions.md`). Marks `#__nuxt` `inert` while open, which makes `aria-modal="true"` true rather than a claim. **It owns one of the app's two document-level Escape listeners** — the shell's, for the off-canvas sidebar, stands down while `#__nuxt` is `inert` (`decisions.md`) — and releases it on unmount.
-- **`BaseSelect`** — a listbox **or** a combobox, chosen by `searchable`: single or multiple selection, `clearable`, placeholder, coloured options, and distinct loading / empty / no-results / failed states. Generic over `TModel extends string | string[]`, with `multiple` tied to that type so the two cannot disagree. The panel teleports to `<body>` and is placed by `useAnchoredPosition`.
-  - `searchable: false` — a `<button aria-haspopup="listbox">` with native focus and hand-rolled type-ahead. Its accessible name is _label + value_.
-  - `searchable: true` — an `<input role="combobox">`; the user types **into the control** and the panel lists matches. Search is **independent of where options come from**: locally it filters `options`, with `loadOptions` it asks the server. `loadOptions` is inert without it.
-  - The selection is drawn as an **overlay** over the control, never as the input's value, so searching never means clearing what is already chosen. One piece of markup serves both branches; the `<button>` names itself by IDREF to it, the `<input>` describes itself by IDREF to it.
-  - **`searchable` is never derived from the option count.** `~/utils/select`'s `shouldSearch()` is the house threshold, applied at the call site.
-  - **`multiple` is read through `isMultiple`, never as `props.multiple`** (`decisions.md`).
-  - Its combobox swallows Escape **only while open**, so a closed select inside the filter drawer does not eat the drawer's own key.
-- **`BaseCheckbox`** — label-wrapped native checkbox with `accent-color`. Its `disabled` is a **declared prop bound to the `<input>`**: attribute fallthrough would put it on the wrapper `<div>`, where it does nothing at all.
-- **`BaseBadge`** — `chip` (a **value**, e.g. a SELECT cell — never uppercased, it is user data) / `label` (a **meta marker**, e.g. `required`). An optional `color` tints a chip from `BADGE_COLORS` and draws an 8px dot in its `-fg` step; it is inert on `label`. It draws no border: the word bounds it, and the dot carries the hue onto the hovered row where the fill washes out. It truncates itself, because an `inline-flex` box is atomic to the cell containing it (`decisions.md`). It declares **its own `height` and `line-height`** — 24px for a chip, 20px for a label — so no container can resize it (`decisions.md`).
-- **`BaseColorPicker`** — a swatch trigger plus an absolutely-positioned `radiogroup` panel with roving tabindex. It takes `useAnchoredPosition` but no teleport: the only surface it opens inside is `BaseModal`'s `dialog` variant, which is itself teleported. **Scrolling ancestors are not what would clip it** — it opens inside two of them (the dialog body, and the choices list in `FieldFormModal`) and survives both, because a `position: fixed` box is clipped by an ancestor's `overflow` only where that ancestor is its containing block. What would break it is a `transform`/`filter`/`contain` anywhere above it, which `.base-modal` must therefore keep declaring none of. **Escape is handled on the panel with `.stop`, never on `document`.** It states its own `maxHeight` rather than taking the composable's default, which describes a scrolling list.
-- **`BaseErrorBanner`** — the form-level error a server refused a submission with, over the `error-banner` mixin. **Renders nothing at all without a message**, never an empty element: two e2e cases assert `getByRole('alert')` counts zero on a clean page, and a mounted-but-silent alert announces itself. Every banner whose content is a **plain message** uses it, whatever produced the message — `useForm`'s `serverError` in the five forms, `useDeleteConfirm`'s refusal in `ConfirmModal`, a failed fetch in `RecordDetailModal`. A caller needing placement passes a class for it and nothing else; the look is never restated.
-
-The one banner left on the mixin is the records page's failed view, and the reason is its **content, not its source**: the sentence carries an inline `<NuxtLink>` recovery, so there is no message to pass. That is what `error-banner` stays a mixin for — the same look over different markup.
-
-- **`BaseEmptyState`** — an optional `title`, the message as the default slot, an optional `action` slot, and a **required `icon`** drawn in an accent-tinted tile above the copy: an empty state names what is missing, and every one the concept draws opens with that glyph. The icon is `aria-hidden` — the records page renders this component _as_ a `role="status"` live region. Its message keeps a `<p>` wrapper because the root is a flex column: a bare slot would put each run of a message mixing text with an inline `.text-link` on its own line.
-- **`BasePagination`** — `pageCount` is passed in rather than derived, so the `ceil` formula lives only in the store. Owns its internal layout only; the consumer positions it.
-
-### The shell
-
-`app/layouts/default.vue` is a CSS grid of `var(--sidebar-width) minmax(0, 1fr)` under a full-width `var(--header-height)` header. **The shell owns the viewport and the document never scrolls:** the grid is `height: 100dvh` with `overflow: hidden`, so its rows resolve against a definite height and the header cannot scroll away. The sidebar and the main region are the two scroll panes, each `overflow-y: auto`.
-
-> **`minmax(0, 1fr)` + `min-width: 0` on the main region, and `min-height: 0` on both panes, are load-bearing** — without them the table never shrinks and the panes' `overflow` never engages (`decisions.md`).
-
-Below `below-shell` the grid collapses to one column and the sidebar becomes `position: fixed` with `top: 0; bottom: 0` — anchored to the viewport rather than to the header it covers, and stating both edges because out of the grid it has no row to take its height from — translated off-canvas **and `visibility: hidden`** (translation alone leaves it off-screen but focusable), opened by a header toggle over a scrim, closing on Escape, scrim click, and route change. Sidebar `z-index: 50` / scrim `40`, both below `BaseModal`'s `100`. `BaseModal` teleports to `<body>`, so the shell's `overflow: hidden` cannot clip a dialog or the filter drawer.
-
-`DynamicTable` splits its rules by job: `--color-border-subtle` between rows (a rule _inside_ a surface), and `--color-border`/`-strong` for the container, the sticky-header rule and the pinned-column edge (the structure). A hovered row takes `--color-surface-row-hover`, deliberately lighter than the control hover. **Every cell takes the same inset**, `$cell-padding-y $cell-padding-x`, with no per-cell exception, and rows are `height: calc(var(--control-height) + #{$cell-padding-y * 2})` on `tbody td` — the two are one decision. Its root is the scroll container on **both** axes: `thead th` is `position: sticky; top: 0` and the Actions column is `position: sticky; right: 0`, with the corner cell sticky on both and above them. Column width is capped by `$column-max-width` on a wrapper **inside** the cell. Every one of these has a failure mode that is invisible until it bites — the sticky edges are shadows rather than borders, the actions cell needs its wrapper to stay a table-cell box, and the cap cannot go on the `td`; all four are in `decisions.md`.
-
-**The records page fills the pane rather than scrolling it.** `.records-page` is `display: flex; flex-direction: column; height: 100%`; breadcrumbs, the header row, the filter summary and the failure banner are the fixed band; `&__body` is `flex: 1; min-height: 0`. `DynamicTable` takes `flex: 0 1 auto; min-height: 0`, so it sizes to its rows and stops — a short result ends at its last row with the pager directly beneath, a long one shrinks to the pane and scrolls inside itself. Only the rows scroll. The empty states are centred by `margin-block: auto`, not by a `justify-content` on `&__body`; the skeleton is `flex: none` instead — it stands in for the table, so it takes the table's place rather than the middle of the pane.
-
-The table list is fetched **by the layout, once per session**, via `ensureTables()` under the key `app-tables`. The dashboard fetches nothing of its own — it renders the same list, and the `_count` on it is kept current by `applyTableRow` — the four writes that move a count answer with the table's refreshed row — rather than by a second request. A page that does fetch keys on what it fetches; a layout and a page must **never** share a key (`decisions.md`).
-
----
-
-## 12. Browser regression checklist
+## 11. Browser regression checklist
 
 **Playwright owns this list, bar the clauses badged otherwise.** `test/e2e/` automates it against the production build in Chromium (`npm run test:e2e`, and its own CI job). Keep the list current: it is the index of what `test/e2e/` is for, and a behaviour added here without a spec is a gap that will not announce itself.
 
@@ -443,7 +343,7 @@ Two badges appear below, and both mean the line is inventory but another suite i
 - **_(integration)_** — SQL semantics: a cast, a projection, an opt-out. A browser cannot answer them any better than a database round trip can, so they are proved in `server/db/record-sql.integration.spec.ts`.
 - **_(unit)_** — logic a component spec pins in milliseconds. Where a keyboard cursor _lands_ is decided by the same code whatever renders it; only whether it is _painted_ needs a browser.
 
-**Four lines are approximated rather than proven** — hydration mismatches, a focus ring not clipped by its cell, Backspace held down, and a multi-value cell's ellipsis. Each spec says so where it sits, and the register in `decisions.md` carries the reason.
+**Four lines are approximated rather than proven** — hydration mismatches, a focus ring not clipped by its cell, Backspace held down, and a multi-value cell's ellipsis. Each spec says so where it sits, and `limitations.md` carries the reason.
 
 - Record CRUD across **every** field type.
 - A filtered URL loaded cold — it must render filtered on first paint.

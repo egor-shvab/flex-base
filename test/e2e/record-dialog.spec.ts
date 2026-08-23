@@ -271,7 +271,7 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
    *
    * The other half — that the entries past the cap give way to a single ellipsis rather than
    * being clipped mid-pill — is **paint**, and is recorded as approximated in
-   * `docs/architecture.md` §12: the omitted badge keeps its box, its client rects and its
+   * `docs/architecture.md` §11: the omitted badge keeps its box, its client rects and its
    * `checkVisibility()`, so no assertion here can see the difference.
    */
   const firstTagIsWhole = await badges(row)

@@ -1,8 +1,8 @@
-# Decisions & accepted limitations
+# Decisions
 
 Why the code is shaped the way it is. Each entry exists because the alternative looks obviously better until you know the reason — treat these as **load-bearing**: do not "clean them up" without reading the entry.
 
-Rules live in `CLAUDE.md`; contracts live in `architecture.md`.
+Rules live in `CLAUDE.md`; contracts live in `architecture.md`; what the project knowingly does not do lives in `limitations.md`.
 
 ---
 
@@ -10,7 +10,7 @@ Rules live in `CLAUDE.md`; contracts live in `architecture.md`.
 
 ### Everything except components is imported explicitly
 
-`imports: { autoImport: false }` (app) and `nitro: { imports: { autoImport: false } }` (server) also stop Nuxt generating the global `.d.ts` declarations, so a missing import is a `vue-tsc` error at build time rather than a silently resolved global.
+`imports: { autoImport: false }` (app) and `nitro: { imports: { autoImport: false } }` (server) also stop Nuxt generating the global `.d.ts` declarations — the mechanism behind `CLAUDE.md` §4's rule, since without them there is no global for a missing import to resolve against.
 
 The component scan (`components: [{ path: '~/components', pathPrefix: false }]`) is deliberately **kept**: it is what code-splits `<LazyRecordFormModal>` for free and what keeps `<NuxtLink>` / `<NuxtPage>` / `<Icon>` working. `pathPrefix: false` is why `common/BaseInput.vue` registers as `<BaseInput>`.
 
@@ -40,9 +40,9 @@ Nuxt's import protection rejects it in app and shared code. The Vue layer reache
 
 No `icon: { … }` block in `nuxt.config.ts`: `serverBundle: 'local'` would only restate what `auto` already resolves to, and would not keep the remote fallback away if the package were ever dropped.
 
-### `@nuxt/fonts` and `@nuxt/image` were removed
+### Neither `@nuxt/fonts` nor `@nuxt/image` is installed
 
-Neither had anything to work on. The app ships no webfonts, and `@nuxt/fonts` tries to resolve the `Segoe UI` / `Roboto` names in `_reset.scss`'s system stack from font providers. It renders no images either — no `<NuxtImg>`, no `<img>`, and `public/` holds only a favicon — so `@nuxt/image` was a module in the build graph and a runtime dependency paying for nothing.
+Neither has anything to work on. The app ships no webfonts, and `@nuxt/fonts` tries to resolve the `Segoe UI` / `Roboto` names in `_reset.scss`'s system stack from font providers. It renders no images either — no `<NuxtImg>`, no `<img>`, and `public/` holds only a favicon — so `@nuxt/image` would be a module in the build graph and a runtime dependency paying for nothing.
 
 Re-add either if and when there is a real webfont or a real image, and the rule it carried in `CLAUDE.md` comes back with it — not before. Contrast `@iconify-json/mdi` above, which nothing imports and which is kept precisely because dropping it changes what ships.
 
@@ -52,21 +52,19 @@ Re-add either if and when there is a real webfont or a real image, and the rule 
 
 `scripts/serve-output.mjs` assigns `_importMeta_` before a **dynamic** import, which is not hoisted. **Making that import static reintroduces the crash.** `scripts/preview.mjs` is the same launcher with the root `.env` loaded first — two files rather than one flag, because loading `.env` is the one thing the e2e suite must never do (it points at the development database, and the suite truncates between cases).
 
-### `.gitattributes` pins `eol=lf`, and nothing was renormalised
+### `.gitattributes` pins `eol=lf`, and the index must not be renormalised
 
-`core.autocrlf` is `true` on Windows and Prettier's `endOfLine` defaults to `lf`, so git rewrote every checked-out file to CRLF and Prettier then rejected all of them — a fresh clone failed `npm run format:check` before a line was written, with every touched file reporting a modification whose diff was empty. CI never saw it: Linux checks out LF.
+Without the pin, `core.autocrlf: true` on Windows checks every file out as CRLF while Prettier's `endOfLine` defaults to `lf`, so a fresh clone fails `npm run format:check` before a line is written — every touched file reporting a modification whose diff is empty. CI never sees it: Linux checks out LF.
 
-**No `git add --renormalize` was run, and none should be.** `git ls-files --eol` reported the whole index as `i/lf` already — the blobs were always right, only checkout was wrong.
+**`git add --renormalize` is not the fix and must not be run.** `git ls-files --eol` reports the whole index as `i/lf`: the blobs are right, only the checkout was ever wrong.
 
 ---
 
 ## Testing
 
-### The suite is two Vitest projects, not one with a mixed environment
+### `unit` and `nuxt` are separate projects, not one with a mixed environment
 
-A single `environment: 'node'` config held exactly as long as the covered surface was `shared/` and the SQL builder. It stopped holding at the stores: each calls `useApi()` at store-setup time, so `#imports` is in the import graph and the module cannot even be **loaded** in the node project.
-
-The split keeps both properties instead of trading one for the other — the node project still runs in under a second, and the Nuxt startup cost is paid only by the specs that need it. Three alternatives were rejected:
+A single `environment: 'node'` config cannot load the stores at all: each calls `useApi()` at store-setup time, so `#imports` is in the import graph. The split keeps both properties instead of trading one for the other — the node project runs in under a second, and the Nuxt startup cost is paid only by the specs that need it. Three alternatives were rejected:
 
 - **A per-file `// @vitest-environment nuxt` pragma.** The Nuxt environment is not only an environment — `defineVitestConfig` also installs the Vite plugins that resolve `#imports`, compile SFCs and transform `mockNuxtImport`. There is no file-level form of that, and it would hide the cost.
 - **One project on `environment: 'nuxt'` throughout.** It would make every existing spec pay a Nuxt build for aliases it already had. The fast half is the half run most often.
@@ -100,9 +98,13 @@ Runtime was never the argument. Three reasons a second copy one layer up is wort
 
 What stays is the half that is not duplicated — e.g. the keyboard cursor's **paint**: `test.css` is `false`, so a component spec sees the `--active` class and never the outline it draws. Removing the outline rule leaves every component case green and turns the one browser case red, which is the shape every e2e case here should have. **Do not restore a deleted duplicate out of caution.** Depth belongs at the cheapest layer that can answer the question.
 
+### A spec never ends with `wrapper.unmount()`
+
+`~~/test/mount`'s `mountTracked` registers the wrapper and one `afterEach(unmountAll)` tears every one of them down. A trailing unmount inside the case looks equivalent and is not: a case that **fails** never reaches its own last line, so its component stays mounted into the next one — which is how a composable's `window` listener leaked across cases. `track()` is the same seam for a plain `@vue/test-utils` host.
+
 ### The accessibility gate blocks on serious and critical only
 
-Admitting `moderate` and `minor` on first introduction meant either a long list of disabled rules or a stage that never landed, and neither is a gate. The bar is raised by narrowing `BLOCKING_IMPACTS` in `test/e2e/setup/a11y.ts`, not by adding exclusions. Nothing is disabled today; a rule that ever has to be turned off belongs in that file with its reason beside it, never silently at a call site.
+Admitting `moderate` and `minor` means either a long list of disabled rules or a gate that never goes green, and neither is a gate. The bar is raised by narrowing `BLOCKING_IMPACTS` in `test/e2e/setup/a11y.ts`, not by adding exclusions. Nothing is disabled today; a rule that ever has to be turned off belongs in that file with its reason beside it, never silently at a call site.
 
 It does **not** replace the keyboard walk in the definition of done: axe decides a name, a role, a contrast ratio, and cannot tell whether a focus order makes sense.
 
@@ -137,7 +139,7 @@ Recorded so they are not re-litigated. Revisit only with a reason that has chang
 
 ### 404, never 403, for another user's resource
 
-A 403 confirms the resource exists. 401 comes only from `requireUser(event)`. Login failures return the same generic 401 regardless of which credential was wrong, for the same reason.
+A 403 confirms the resource exists. 401 comes only from `requireUser(event)`. The generic login 401 (`CLAUDE.md` §5) is the same reasoning applied to credentials.
 
 ### Ownership lives in the `where` clause, not around the query
 
@@ -157,11 +159,11 @@ Each factory is **generic in its return type**. Flattening it to `unknown` would
 
 ### The persistence layer does not speak HTTP
 
-`db/` classifies a fault — `isUniqueViolation`, `isMissingRow` — and `utils/http-errors.ts` decides what it answers with. Before, `db/prisma-errors.ts` built the `createError` itself, so the layer furthest from the transport was the one naming status codes. Enforced rather than trusted: `server/db/**` may not import `h3` (`eslint.config.mjs`), and that ban needs **`paths`**, since an import of a package is invisible to the alias patterns beside it.
+`db/` classifies a fault — `isUniqueViolation`, `isMissingRow` — and `utils/http-errors.ts` decides what it answers with, so the layer furthest from the transport never names a status code. Enforced rather than trusted: `server/db/**` may not import `h3` (`eslint.config.mjs`), and that ban needs **`paths`**, since an import of a package is invisible to the alias patterns beside it.
 
-**Rejected: a central status-code registry.** The obvious next step is to move every message there too, and it is wrong. Of ~20 `createError` sites, about five are policy — 404-never-403, `P2002` → 409, `requireUser`'s 401 — and the rest carry messages that **are** the business rule: "Field type cannot be changed", `"{field}" in "{table}" links to this table`, "A multi-value field cannot be changed back to a single value". A registry would put each of those a file away from the rule that raises it. What is shared is the **mapping**; the wording belongs beside its rule.
+**Rejected: a central status-code registry.** The obvious next step is to move every message there too, and it is wrong. A handful of `createError` sites are policy — 404-never-403, `P2002` → 409, `requireUser`'s 401 — and the rest carry messages that **are** the business rule: "Field type cannot be changed", `"{field}" in "{table}" links to this table`, "A multi-value field cannot be changed back to a single value". A registry would put each of those a file away from the rule that raises it. What is shared is the **mapping**; the wording belongs beside its rule.
 
-**Rejected: domain errors with a mapper at the boundary**, which would make a service literally framework-free. Its whole h3 dependency is `createError`, there is one transport and no second consumer, and an error hierarchy carrying a message and a status is `createError` with extra steps (`CLAUDE.md` §1). The claim in §3 was corrected instead — services raise HTTP errors directly, and that is now what it says.
+**Rejected: domain errors with a mapper at the boundary**, which would make a service literally framework-free. Its whole h3 dependency is `createError`, there is one transport and no second consumer, and an error hierarchy carrying a message and a status is `createError` with extra steps (`CLAUDE.md` §1). Services raise HTTP errors directly.
 
 ### Ownership is denormalized nowhere
 
@@ -171,7 +173,7 @@ It lives only on `Table.userId`; fields and records reach the user through their
 
 Every user's records share one physical `Record` table, so a global sequence would number rows across all tenants (a table would read `1, 47, 2931`), leak platform-wide row volume through the counter, and make ids enumerable — all while still not giving the per-table `1..n` that makes a number readable. So `id` stays an unguessable `cuid()` for reference and addressing, and `number` is a separate display column.
 
-`number` is allocated inside the insert's own transaction via Prisma's atomic `{ increment: 1 }`, which takes the row lock, so concurrent creates queue rather than race — no retry loop. It is a **high-water mark, not a count**: deleting a record never frees its number.
+How it is allocated, and why it is a high-water mark rather than a count, is `architecture.md` §4.
 
 ### The redundant single-column indexes were dropped — do not re-add them
 
@@ -213,9 +215,9 @@ Two things in `utils/error-log-file.ts` look like tidying opportunities and are 
 
 ### The client/server contract is declared, not inferred
 
-`shared/types/api.ts` names each endpoint's response envelope; a handler annotates its return type with one, and the matching function in `app/api/` reads the same one. Before it, 21 call sites asserted `api<{ tables: … }>('/api/tables')` — a claim about a handler the compiler never looked at, so renaming a response key compiled everywhere and broke at runtime.
+`shared/types/api.ts` names each endpoint's response envelope; a handler annotates its return type with one, and the matching function in `app/api/` reads the same one. Without it a call site asserts `api<{ tables: … }>('/api/tables')` — a claim about a handler the compiler never looks at, so renaming a response key compiles everywhere and breaks at runtime.
 
-**Nitro's own route-type inference was the alternative, and it was rejected.** It cannot type the path builders, it does not carry reliably through the `useRequestFetch` cookie-forwarding seam, and it leaves the client nothing to read: the declaration is the point, not the checking. The cost is that a shape is written in two places, paid down by the annotation on all 19 handlers — without those the file is documentation rather than a contract.
+**Nitro's own route-type inference was the alternative, and it was rejected.** It cannot type the path builders, it does not carry reliably through the `useRequestFetch` cookie-forwarding seam, and it leaves the client nothing to read: the declaration is the point, not the checking. The cost is that a shape is written in two places, paid down by the annotation on every handler — without those the file is documentation rather than a contract.
 
 **The envelopes are the only thing declared there.** `IRecordPage` and `IRecordDetail` are whole responses already, so aliasing either would be a second name for one thing.
 
@@ -223,7 +225,7 @@ Two things in `utils/error-log-file.ts` look like tidying opportunities and are 
 
 ### A row's timestamps are mapped, not left to `JSON.stringify`
 
-`ITable` declares ISO strings; Prisma returns `Date`s. The two agreed only because `JSON.stringify` calls `toJSON` and produces exactly the text the type promised — an agreement no type checker was watching, and one that only held at the moment of serialization. `db/tables.ts` now maps them, as `toSharedRecord` always did for records; the asymmetry between the two was the tell. **The wire output is byte-identical** — this buys the contract its annotation, not a behaviour change.
+`ITable` declares ISO strings; Prisma returns `Date`s. Leaving them to agree through `JSON.stringify`'s `toJSON` is an agreement no type checker watches, and one that holds only at the moment of serialization — so `db/tables.ts` maps them, as `toSharedRecord` does for records. **The wire output is byte-identical** — the mapping buys the contract its annotation, not a behaviour change.
 
 ### There are no operators, anywhere
 
@@ -231,7 +233,7 @@ A filter's **value** is the whole contract. How a value is compared is the field
 
 ### A record reference is a number plus a nullable label, never a pre-flattened string
 
-A relation travels as `ILinkedRecord` — `{ number, label: string | null }` — because a renderer is the only layer that knows whether it can style the two apart, and a flattened `#3 Example` can never be taken back apart. `buildRecordLabel` therefore returns `null` for a record with nothing to name it by; it used to return `#<number>`, which made the number unrecoverable from the label and turned "state the number too" into `#3 #3`.
+A relation travels as `ILinkedRecord` — `{ number, label: string | null }` — because a renderer is the only layer that knows whether it can style the two apart, and a flattened `#3 Example` can never be taken back apart. That is why `buildRecordLabel` answers `null` rather than `#<number>` (`architecture.md` §2): a number folded into a label cannot be taken back out, and turns "state the number too" into `#3 #3`.
 
 **Only `formatLinkedRecord` and `BaseLinkedRecord` write a `#`, and both require a real number.** That is what makes the doubling structurally impossible, and it also settles the deleted-target case: an unresolvable id resolves to nothing at all, so it degrades to `UNKNOWN_RECORD_LABEL` with no number — the app genuinely does not know one.
 
@@ -263,11 +265,11 @@ Duplicates in a stored list are **rejected, not deduplicated**: a control cannot
 
 ### One value union, narrowed by shape — and a prop type is a runtime contract
 
-`TRecordValue` is widened with `string[]`, reversing an earlier decision that a record holds one value per field. The consequence to know is that **`TRecordValue` stayed a subset of `TFilterValue`**, so `IFieldControl<TValue extends TFilterValue>` needed no change and the shape guards that already existed for filters were the ones the record side needed too.
+`TRecordValue` includes `string[]`, so a record does not hold one value per field. The consequence to know is that **`TRecordValue` stayed a subset of `TFilterValue`**, so `IFieldControl<TValue extends TFilterValue>` needed no change and the shape guards that already existed for filters were the ones the record side needed too.
 
 Those guards are load-bearing on both sides now. `isRangeFilterValue` narrowed on `typeof value === 'object' && value !== null`, which an array passes — so without `!Array.isArray` a list-shaped filter decodes as a range and is read for bounds it does not have. `isScalarFilterValue` exists so a comparison guards on the shape it _wants_ rather than on the one other shape that happened to exist when it was written.
 
-**`TRecordSingleValue` is the narrow half, and it is not a lint-level preference.** `defineProps<T>()` compiles to a _runtime_ prop declaration, so widening `IFieldCellProps.value` would add `Array` to the accepted types of every per-type cell that can never legitimately receive one — turning off a check that would otherwise catch a real routing bug. `MultiValueCell` takes its own `IMultiValueCellProps` with a plain `string[]`: a separate interface, not a widening, because the two contracts are opposites. The same reasoning narrowed `RECORD_COLUMNS.value`, `VALUE_SCHEMA_BY_TYPE.base` / `blank`, `buildFilterValueSchema` and `toRange`.
+**`TRecordSingleValue` is the narrow half, and it is not a lint-level preference.** `defineProps<T>()` compiles to a _runtime_ prop declaration, so widening `IFieldCellProps.value` would add `Array` to the accepted types of every per-type cell that can never legitimately receive one — turning off a check that would otherwise catch a real routing bug. `MultiValueCell` therefore takes its own `IMultiValueCellProps` (`architecture.md` §3) rather than a widened one. The same reasoning narrowed `RECORD_COLUMNS.value`, `VALUE_SCHEMA_BY_TYPE.base` / `blank`, `buildFilterValueSchema` and `toRange`.
 
 `IValueSchemaRules.listBase` came out of the same pass: `z.array(base)` over a `ZodType<TRecordSingleValue>` yields `TRecordSingleValue[]`, not `string[]`, and the cast that hid the gap was hiding a real one — only a type whose values are strings _can_ be stored as a JSON array, and nothing said which those were.
 
@@ -290,21 +292,15 @@ A literal `?` in raw SQL is the parameter placeholder on Prisma's other drivers 
 - It answers **correctly for a bare scalar** (`'"abc"'::jsonb` contains `abc`), which keeps an un-migrated row from disappearing from its own filter. Do not lean on that as a substitute for the migration — display and validation still want one shape.
 - It is the **only GIN-indexable comparison** in the query layer, so it is the one filter that could eventually escape the unindexed-JSONB ceiling.
 
-### The multi-value search guard is not defensive
+### The multi-value search guard has to be inside the argument
 
-`jsonb_array_elements_text` raises `cannot extract elements from a scalar` on anything that is not an array, including a JSON `null`. It is a **set-returning function in `FROM`**, so that error aborts the entire list query, not the row: one legacy scalar would turn every search on that table into a 500.
-
-Hence `CASE WHEN jsonb_typeof(…) = 'array' … ELSE '[]'::jsonb END` inside the call. Writing the type test as an `AND` beside the `EXISTS` does **not** work — SQL does not guarantee evaluation order between `AND` operands, so the planner is free to run the function first. The guard has to be inside the argument.
+Why the `CASE WHEN jsonb_typeof(…) = 'array' … ELSE '[]'::jsonb END` wrapping `jsonb_array_elements_text` is load-bearing is in `architecture.md` §8. What is not visible there: writing the type test as an `AND` beside the `EXISTS` does **not** work — SQL does not guarantee evaluation order between `AND` operands, so the planner is free to run the function first.
 
 ### `searchPredicate` is a predicate, and it is separate from `expr`
 
-It was `searchExpr`, returning an expression that `buildRecordSearch` appended `ILIKE ${pattern}` to. A multi-value column cannot be matched that way — the question is whether _any element_ matches, which no projection can express. Rejected: substring-matching the raw `["Won","Lost"]` text, which "works" and also lets a term of `","` or `[` match every multi-valued row. That is a lie rather than a near miss.
+It is a whole predicate rather than an expression the caller appends `ILIKE ${pattern}` to, because a multi-value column cannot be matched that way — the question is whether _any element_ matches, which no projection can express. Rejected: substring-matching the raw `["Won","Lost"]` text, which "works" and also lets a term of `","` or `[` match every multi-valued row. That is a lie rather than a near miss.
 
 It stays separate from `expr` because NUMBER and BOOLEAN cast in their filter projection and neither `numeric` nor `boolean` has an `ILIKE` operator: NUMBER searches the un-cast text, BOOLEAN opts out (searching `e` would match every `false`), and RELATION opts out because its stored value is a cuid — matching the label instead would run `targetLabel`'s correlated subquery against every row, and the count query has no `LIMIT`.
-
-### `buildRecordSearch`'s parentheses are load-bearing
-
-`withinRange` returns a bare `a >= x AND a <= y` with no parentheses of its own, which is safe only while every sibling is `AND`. Search is the only OR in the query layer, and unparenthesised it would bind to the last bound of a range filter and silently widen it.
 
 ### A field type is three modules, one per slice, and the bundler is why
 
@@ -314,9 +310,9 @@ That has a knock-on the numbers make look like a regression: the filter summarie
 
 What this buys is cohesion, not safety — totality already made a missing entry a compile error, and still does. What it costs is that `multiValue` and its `MULTI_*` counterparts now sit in different slices, so **a spec is still the only thing joining them** (`CLAUDE.md` §10). Do not read the co-location as making those specs redundant.
 
-### The two per-type tables merged, by moving what caused the cycle
+### One module per type, because what cycled was moved out
 
-They were split across `constants/` and `validation/` because merging them cycled: `shared/utils/filter.ts` imported the constant, and `shared/validation/record.ts` imported `shared/utils/filter.ts`. The cycle existed only because `shared/utils/field.ts` held the SELECT helpers and `isMultiValue` — every one of which is field-type knowledge rather than a generic helper. With them in `shared/field-types/`, that folder imports nothing from `utils/` or `validation/`, both read it, and one module per type declares its label, its cardinality, its filter shape and its value schema together.
+A type's filter shape and its value schema sit in one module rather than across `constants/` and `validation/`, which cycles: `shared/utils/filter.ts` reads the constant and `shared/validation/record.ts` reads `shared/utils/filter.ts`. The cycle existed only because `shared/utils/field.ts` held the SELECT helpers and `isMultiValue` — field-type knowledge rather than generic helpers. With them in `shared/field-types/`, that folder imports nothing from `utils/` or `validation/`, both read it, and one module declares a type's label, cardinality, filter shape and value schema together.
 
 **A lint rule is what keeps it dissolved.** One import back into `utils/` or `validation/` from a per-type module recreates the cycle and still compiles.
 
@@ -332,11 +328,11 @@ Filter params are named after the field with no prefix, so a typo is indistingui
 
 ### A reserved param is refused symmetrically, and a field that claims none renders no control
 
-`claimFilterParams` always seeded its claimed set with `RESERVED_QUERY_PARAMS`, so a field keyed `search` could never be **read** back from a URL. The encoder relied on something weaker — it spread the filter params first and let the reserved assignments below overwrite them — but those assignments are conditional (`page` only above 1, `search` only when non-empty), so on the default view a legacy field keyed `search` wrote its value into the free-text search param and the server ran it as a site-wide search. `detail` was worse: nothing writes it, so such a field leaked into the dialog param unconditionally.
+**Both halves read one `isReservedParam`, and the encoder drops those names rather than overwriting them.** Ordering is not a contract; a set membership test is. An encoder that instead writes the reserved params last rests on assignments that are conditional (`page` only above 1, `search` only when non-empty), so on the default view a legacy field keyed `search` puts its value in the free-text search param and the server runs it as a site-wide search; `detail`, which nothing writes, leaks unconditionally. The claim side is symmetric already: `claimFilterParams` seeds its set with `RESERVED_QUERY_PARAMS`, so such a field can never be **read** back from a URL either.
 
-Both halves now read one `isReservedParam`, and the encoder **drops** those names rather than overwriting them. Ordering is not a contract; a set membership test is. The drop is per **param name**, exactly as the claim is — so a NUMBER field keyed `page` keeps its filter under `page_from`/`page_to`, names nothing has reserved.
+The drop is per **param name**, exactly as the claim is — so a NUMBER field keyed `page` keeps its filter under `page_from`/`page_to`, names nothing has reserved.
 
-That leaves the control. A scalar field keyed `search` claimed no param, yet the drawer rendered its filter anyway, because both filter surfaces built from every column — a dead control, which `CLAUDE.md` §7 forbids. `filterableFields` is the narrowing both surfaces now apply. It narrows **filtering only**: such a field still renders as a table column and still sorts, because a sort key travels as the _value_ of `?sort=`, where a reserved name collides with nothing. Removing it from the table as well would hide user data to fix a URL problem.
+That leaves the control. A scalar field keyed `search` claims no param, so a filter surface built from every column renders a dead control, which `CLAUDE.md` §7 forbids. `filterableFields` is the narrowing both surfaces apply. It narrows **filtering only**: such a field still renders as a table column and still sorts, because a sort key travels as the _value_ of `?sort=`, where a reserved name collides with nothing. Removing it from the table as well would hide user data to fix a URL problem.
 
 ### A blank `?search=` is absent, not a zero-length term
 
@@ -364,7 +360,7 @@ There is a real UX cost too: with a floor, typing one character either shows the
 
 A cell carries markup and scoped styles (an icon, tabular figures), not just a value, so a `format | component` union would be worse than one uniform contract. Inputs and filters carry neither — they name a `Base*` control plus adapters, so they stay rows in a table.
 
-**`RelationFieldSelect` is the one exception**, because a relation's candidates are records of another table and no synchronous `props(field)` factory can produce them. The rule that follows: a type whose control needs data beyond its own metadata gets that component in its own type folder; everything else stays a row.
+**`RelationFieldSelect` is the one exception** — `architecture.md` §3 says what it does, and `CLAUDE.md` §9 states the rule drawn from it. Everything else stays a row.
 
 ### RELATION's target table is immutable; its label field is not
 
@@ -378,7 +374,7 @@ The reserved keys are **camelCase**, a shape `slugify` can never emit, so no use
 
 ### A choice's identity is its own text
 
-`Record.data` stores the choice string, not an option id. That keeps the whole SQL layer, the filter constants and the URL codec out of the colour change — SELECT still filters, sorts and searches on the stored text. The cost is that renaming a choice orphans the records holding the old one, which is recorded in the register rather than fixed: a stable option id buys nothing for colour and rewrites `record-sql.ts` to get there.
+`Record.data` stores the choice string, not an option id. That keeps the whole SQL layer, the filter constants and the URL codec out of the colour change — SELECT still filters, sorts and searches on the stored text. The cost is that renaming a choice orphans the records holding the old one, which is recorded in `limitations.md` rather than fixed: a stable option id buys nothing for colour and rewrites `record-sql.ts` to get there.
 
 ### A SELECT choice is coloured from a closed palette, not a free colour picker
 
@@ -390,9 +386,7 @@ A custom hex picker loses on all three axes the codebase already cares about:
 
 ### Type-only imports are invisible to HMR, and `compiler-sfc` caches resolved types
 
-Worth recording because it cost a bug report that looked like a code defect and was not.
-
-Widening `TRecordValue` changed no runtime module: `app/field-types/types.ts` imports it with `import type`, which is erased, so it is **not an edge in Vite's module graph**. `@vue/compiler-sfc` additionally caches resolved type scopes per file, so a dev server running across that edit kept generating cell props from the pre-widening union — including for a component created **after** the edit.
+Widening `TRecordValue` changes no runtime module: `app/field-types/types.ts` imports it with `import type`, which is erased, so it is **not an edge in Vite's module graph**. `@vue/compiler-sfc` additionally caches resolved type scopes per file, so a dev server running across that edit kept generating cell props from the pre-widening union — including for a component created **after** the edit.
 
 **A type name in a Vue prop warning that does not match the current source means the dev server is stale, not that the source is wrong** — the fix is a full restart. Corollary for reading built output: this toolchain emits a runtime `type` only for primitive unions, so an absent type on an array-typed prop is normal, not a resolution failure.
 
@@ -410,9 +404,9 @@ A rejection in the layout's async setup would replace the page with an error bou
 
 ### A cached count is received, not computed
 
-`_count` arrives with the table list and is read on two always-visible surfaces, so a write to a table's fields or records has to reach them. The client used to move the number itself by a delta, which is arithmetic over a value only the database holds: it needed a floor at zero to stay presentable, it drifted the moment a second tab wrote, and it put a **cross-domain write** in two stores — records and fields each reaching into the tables store.
+`_count` arrives with the table list and is read on two always-visible surfaces, so a write to a table's fields or records has to reach them. The four writes that move a count answer with the table's refreshed list row, and `applyTableRow` stores what it was told. The cost is one `COUNT` per write, on a table already being written.
 
-The four writes that move a count now answer with the table's refreshed list row, and `applyTableRow` stores what it was told. The cost is one `COUNT` per write, on a table already being written; the floor and the drift are gone with the arithmetic.
+**Rejected: moving the number client-side by a delta.** That is arithmetic over a value only the database holds — it needs a floor at zero to stay presentable, it drifts the moment a second tab writes, and it puts a **cross-domain write** in two stores, records and fields each reaching into the tables store.
 
 **Only those four carry it.** An edit moves neither count, so `PATCH` on a field or a record answers as it did — the envelope says which writes are count-moving, rather than every write paying for a number that did not change.
 
@@ -428,11 +422,11 @@ This is the opposite call from `useDeleteConfirm`. The rule is not "swallow" or 
 
 ### The records page is not split further, and its length is not the reason to
 
-At ~420 lines it is the second-largest file in the app, and every candidate seam was rejected on the
-same ground: each would trade markup for plumbing. Its header needs six bindings to stand alone; its
-four dialogs need fifteen props and eight emits between them; and its body — skeleton, fieldless,
-empty, table — is **one decision about four states**, described across three entries here, which
-scattering across files would only hide.
+It is one of the largest files in the app, and every candidate seam was rejected on the same
+ground: each would trade markup for plumbing. Its header would need most of the page's bindings to
+stand alone; its four dialogs need more props and emits between them than the markup they would
+carry away; and its body — skeleton, fieldless, empty, table — is **one decision about four
+states**, described across three entries here, which scattering across files would only hide.
 
 What the page is left holding is wiring, and wiring is what a page is for. Contrast the field list
 that came out of the settings page: self-contained markup, its own stylesheet, and one prop. That is
@@ -454,11 +448,11 @@ It exists because both inner pages forwarded the upstream `statusCode` but hard-
 
 A mirrored copy would have to survive SSR hydration to stay correct. Every action takes them from the caller, and the URL stays the single source of truth.
 
-`createRecord` returns the page the new record landed on and only refetches when that equals the current page; the page navigates when it differs. Otherwise the URL would show one page while the table showed another, or the refetch would happen twice.
+The paging contract that follows is in `architecture.md` §10. Without it the URL would show one page while the table showed another, or the refetch would happen twice.
 
 ### The records store is not a duplicated cache, and `useAsyncData` would not replace it
 
-It looks like one — it holds rows, a pending flag, a failure flag and a per-table guard, all of which `useAsyncData` offers. **Retiring it was proposed and rejected on the numbers.** Its spec pins 25 behaviours; about seven are that cache. The other eighteen are paging arithmetic and write orchestration `useAsyncData` has no opinion about: `isDefaultView`, the page a created record lands on, the `lastPage` step-back on delete, the in-place splice on an edit in the default view, "refetch the page it is actually on, not the one the query names". Those do not disappear with the store — they move to a composable that reads `total` and `page` out of `data.value` rather than from plain refs, which is the same logic made harder to read.
+It looks like one — it holds rows, a pending flag, a failure flag and a per-table guard, all of which `useAsyncData` offers. **Retiring it was proposed and rejected on the numbers.** Only a handful of the behaviours its spec pins are that cache; the rest are paging arithmetic and write orchestration `useAsyncData` has no opinion about: `isDefaultView`, the page a created record lands on, the `lastPage` step-back on delete, the in-place splice on an edit in the default view, "refetch the page it is actually on, not the one the query names". Those do not disappear with the store — they move to a composable that reads `total` and `page` out of `data.value` rather than from plain refs, which is the same logic made harder to read.
 
 **`useAsyncData` also discards data on error** — `asyncData.js`'s `.catch` sets `data.value` back to `options.default()`. A failed refetch here keeps its rows under the banner, and keeping them would need a `shallowRef` of the last good page: the state the change existed to remove, restored under another name.
 
@@ -510,7 +504,7 @@ The View action in a row could have been a button emitting `view`, as every othe
 
 ### `BaseButton` renders the element its role implies
 
-One component, one stylesheet. A `BaseLinkButton` would have been a second copy of six variants' worth of SCSS kept in step by hand. Passing `to` makes the root a `<NuxtLink>` while every variant keeps its look: `variant="link"` is _a button that looks like a link_, `to="/x"` is _a link that looks like whatever `variant` says_.
+One component, one stylesheet. A `BaseLinkButton` would have been a second copy of six variants' worth of SCSS kept in step by hand. `variant` is the appearance and `to` the element (`styling.md`): `variant="link"` is _a button that looks like a link_, `to="/x"` is _a link that looks like whatever `variant` says_.
 
 Rejected: a separate `href` prop — `NuxtLink` already resolves an absolute URL to a plain `<a href rel="noopener noreferrer">`, so it would be a second prop meaning the same thing plus a decision at every call site. Rejected: a polymorphic `as`/`is` — an open element set with no caller asking for it, which would let a call site emit a `<div>` that looks like a button, the bug this component exists to prevent.
 
@@ -536,7 +530,7 @@ A native `<select>` cannot render a choice's colour (`<option>` fills are not st
 
 `searchable` picks the control's root, and only the root — the clear button, the chevron, the teleported panel, the status row and the `role="listbox"` `<ul>` are shared. `false` gives a `<button aria-haspopup="listbox">` whose accessible name is label + value, the way a `<select>` announces; `true` gives an `<input role="combobox">`.
 
-What it cost, all of it deliberate: **the OS-native picker on touch** (and `searchable` raises the soft keyboard where a `<button>` did not); **arrow keys changing the value while closed**, which the ARIA pattern replaces with opening the list, since a filter changing under an unseen arrow key would fire a request per press; and **type-ahead**, which is _not_ given up — reimplemented by hand (500 ms buffer, match on the option's label) for the non-searchable branch, and it must stay. Where there is a search box, the search box _is_ the type-ahead.
+What it cost, all of it deliberate: **the OS-native picker on touch**, and the soft keyboard a searchable one raises (`limitations.md`); **arrow keys changing the value while closed**, which the ARIA pattern replaces with opening the list, since a filter changing under an unseen arrow key would fire a request per press; and **type-ahead**, which is _not_ given up — reimplemented by hand (500 ms buffer, match on the option's label) for the non-searchable branch, and it must stay. Where there is a search box, the search box _is_ the type-ahead.
 
 ### The search input is in the control, not in the panel
 
@@ -555,7 +549,7 @@ Two ARIA consequences that are easy to get backwards:
 
 ### `searchable` is an explicit prop, and the threshold lives at the call site
 
-It was derived — `loadOptions !== undefined || options.length > 8` — which welded search to the data source and made it impossible to turn off. Two things were wrong: **search and async are orthogonal** (local options deserve filtering too), and the docblock defending it was factually false — every call site owns the `options` array it passes and can count it. `shouldSearch()` in `app/utils/select.ts` exports the **predicate, not the number**, because what the registries would otherwise duplicate is the comparison rather than the literal.
+Deriving it — `loadOptions !== undefined || options.length > 8` — welds search to the data source and makes it impossible to turn off. **Search and async are orthogonal** (local options deserve filtering too), and every call site owns the `options` array it passes and can count it. `shouldSearch()` in `app/utils/select.ts` exports the **predicate, not the number**, because what the registries would otherwise duplicate is the comparison rather than the literal.
 
 Rejected: a tri-state `searchable?: boolean | 'auto'`, which keeps the threshold inside the component — the very thing being removed.
 
@@ -602,7 +596,7 @@ The invariant is the sentence, not the spelling.
 
 ### `usePopover` and `useAnchoredPosition` are two composables, split by reason to change
 
-`usePopover` owns open state, outside-pointer dismissal and focus restore; `useAnchoredPosition` owns measurement, flipping and reflow. The seam is real because their consumer sets differ — `BaseColorPicker` took the first before it took the second. Merging them would have made that retrofit an all-or-nothing change to a working control.
+Each one's surface is in `architecture.md` §10. The seam between them is real because their consumer sets differ — `BaseColorPicker` took the first before it took the second. Merging them would have made that retrofit an all-or-nothing change to a working control.
 
 `usePopover` exposes `containerRef` and `triggerRef` **separately** — the outside-click boundary and the focus-restore target are not the same element once a control puts a clear button beside its trigger. Inferring the second from the first with a `querySelector` was tried and rejected: it made the ordering of two buttons load-bearing and invisible.
 
@@ -654,15 +648,15 @@ Under `aria-activedescendant` the active option is not focused, so `:focus-visib
 
 Three consequences to leave alone. **`Enter` with no cursor does nothing** — there is no cursor precisely because the user has not chosen anything to commit; a fallback to the top option would commit a row nobody was shown. **Opening scrolls to the selected option without highlighting it**, which is why `scrollIntoView` is public on the composable. And **the re-clamp watcher is `flush: 'post'`**: a typed term narrows the list in the same tick that opens the panel, and the watcher is created before the one that opens it, so a pre-flush run sees `active` still false and skips the seed. Keying it on `active` instead reintroduces the bug from the other side — opening then re-clamps a cursor a printable key has just placed.
 
-### The blank option became a placeholder, and the wire format did not move
+### The blank option is a placeholder, and the wire format still says `''`
 
-`— Select —` / `All` used to be real `<option value="">` entries because a native select had nowhere else to put them. They are placeholders now, with `clearable` as the way back. Clearing still emits `''`, which is why `blankIsNull` in `adapters.ts` and the BOOLEAN filter's adapters are **unchanged**, `isFilterValueEmpty` still drops it, and a shared filter URL means exactly what it meant before.
+`— Select —` / `All` are placeholder text plus `clearable`, never a real `<option value="">`: a native select has nowhere but the option list to say "nothing chosen", and a listbox does. Clearing still emits `''`, which is why `blankIsNull` in `adapters.ts` and the BOOLEAN filter's adapters need no adjustment, `isFilterValueEmpty` drops it, and a shared filter URL means what it always meant.
 
-The em-dash spellings went with them: they existed to make a fake choice read as not-a-choice, which a muted placeholder carries on its own. `FieldFormModal`'s **Type** select is the exception that proves the rule — it never had a blank option, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
+`FieldFormModal`'s **Type** select is the exception that proves the rule — it has no blank state at all, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
 
 ### `BaseSelect` is not split further, and its length is not the reason to
 
-At ~1000 lines it is the largest file in the project, and it is **already decomposed**: `usePopover`,
+It is the largest file in the project, and it is **already decomposed**: `usePopover`,
 `useAnchoredPosition`, `useListboxNavigation` and `useSelectOptions` all came out of it, the last two
 into its own directory because they belong to it alone (above).
 
@@ -673,8 +667,7 @@ that must agree.
 The remaining seam is a `BaseSelectPanel`, and it fails. The panel's Escape handling, its
 `aria-activedescendant` IDREFs, its teleport and its one focusable (the failed state's Retry) are
 each coupled to the parent's two keyboard dispatchers, so the split would trade one cohesive
-component for two that have to agree — and four spec files plus `select-combobox.spec.ts` and
-`select-keyboard.spec.ts` read its DOM directly.
+component for two that have to agree — and its spec files read its DOM directly.
 
 The test is the one the records page states: a split has to buy separation, not move markup.
 
@@ -690,13 +683,13 @@ It used to, because Chrome ignores `line-height` on `<select>` and left it 1px t
 
 ### A coloured badge carries a dot, not a border
 
-`BaseBadge` had a 1px border whose only job was surviving the hovered row. With the row wash lightened that job is gone, and the badge matches the design concept: fill, word, and an 8px dot in the `-fg` step.
+`BaseBadge` draws no border: a border's only job was surviving the hovered row, and the lightened row wash carries that instead. What is left is the design concept's badge — fill, word, and an 8px dot in the `-fg` step.
 
 The dot is a `::before` with **empty** `content`, not an `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word beside it, and `DynamicTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — `CLAUDE.md` §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
 
 The guard is `variant === 'chip' && color !== undefined`, so `--label` never draws one: it is a metadata marker with no hue to signal. **Do not "simplify" it to `color !== undefined`** — a SELECT cell always resolves to a real hue (`badgeColorFor` falls back to `DEFAULT_BADGE_COLOR`, so a renamed choice renders grey with a grey dot), which makes the first half look redundant, and `--label` is what the second half is for.
 
-The padding moved `rem(1) rem(7)` → `rem(2) rem(8)` in the same change, absorbing the pixel the border gave up so the box keeps the size the row height is built around. Do not "tidy" it back to a round number.
+The padding is `rem(2) rem(8)`, absorbing the pixel the border gave up so the box keeps the size the row height is built around. Do not "tidy" it back to a round number.
 
 `BaseColorPicker` keeps the border on its swatches, and that asymmetry is the point: a swatch is pure colour with no word beside it, so its edge is the only thing bounding it. It is the sole consumer of the `-border` step.
 
@@ -740,7 +733,7 @@ Both were `rgb(… / 8%)`. A translucent tint composites against whatever is und
 
 `BaseInput` carries the general rule — a muted foreground is a colour token, because placeholder text at `opacity: 0.6` measured ~2.4:1. `DynamicTable`'s sort icon is the deliberate exception: it has to mute **whatever colour it currently inherits** (the header's secondary text at rest, `--color-accent` under the pointer). A fixed colour step can only mute one of the two, and restoring the other costs a `color: inherit` override that then has to out-specify the `--active` modifier.
 
-The value is `0.35`, deliberately under the 3:1 SC 1.4.11 bar — a considered trade recorded in the register. `0.7` (compliant) was shipped first and read as visual clutter across four columns at once. The `BaseInput` rule still stands for **text**, which needs 4.5:1 and cannot reach it through transparency.
+The value is `0.35`, deliberately under the 3:1 SC 1.4.11 bar — a considered trade, whose reason and revisit trigger are in `limitations.md`. The `BaseInput` rule still stands for **text**, which needs 4.5:1 and cannot reach it through transparency.
 
 The glyph is `mdi:code-tags` under `transform: rotate(90deg)`, not the nominally correct `mdi:unfold-more-horizontal`. Turned a quarter turn, `code-tags` is a chevron pointing up stacked over one pointing down, and its two halves are more open and further apart — which is what makes it read as an affordance at 14px. `--active` resets the rotation, because the sorted column's arrow must stay upright.
 
@@ -754,7 +747,7 @@ A media query cannot read a custom property, and `additionalData` injects that f
 
 **The state is two layers, and the split is the load-bearing part.** The indicator is `--color-focus` — `$blue-500`, a step lighter than the accent so it reads as a signal rather than a second border, and floored by the halo drawn against it at 3.63:1 rather than by the page behind it, which is the pairing to check if it ever moves. Behind it sits `--focus-ring-halo`, the pale glow taken from the concept's search field.
 
-**Where that indicator is drawn depends on whether the control already has an edge.** A button, link, row or option has none, so `focus-ring` gives it a hairline `outline`. A form control has one, so `form-control` recolours **that** border and suppresses the ring: drawing both puts two blue edges a hairline apart, which reads as a rendering fault rather than as emphasis. The two mixins are therefore mutually exclusive — a control that takes `form-control` must never also take `focus-ring`.
+**Where that indicator is drawn depends on whether the control already has an edge.** A button, link, row or option has none, so `focus-ring` gives it a hairline `outline`. A form control has one, so `form-control` recolours **that** border and suppresses the ring: drawing both puts two blue edges a hairline apart, which reads as a rendering fault rather than as emphasis. That is the reason behind `CLAUDE.md` §8's rule that the two mixins are mutually exclusive.
 
 That leaves fields with **no** outline, and both of their signals are ones `forced-colors` mode erases: every border resolves to the same system colour and `box-shadow` is not painted. `form-control` restores a real outline inside `@media (forced-colors: active)` for exactly that reason. Removing it looks like dead code in every normal rendering and takes the focus state away from the users least able to spare it. The halo is a `box-shadow`, which means an ancestor's `overflow` can clip it and a component's own shadow outranks it in the zero-specificity baseline — both acceptable **only** because it carries nothing. Never move the indicator into the shadow to save a declaration: the states where the glow silently vanishes are exactly the ones where a ring is needed most, a truncating table cell first among them.
 
@@ -782,7 +775,7 @@ Heights _derived_ from the control are all in one direction — a control plus i
 
 ### `--link` gained a target floor rather than an exemption
 
-It was the one `BaseButton` variant with no `min-height`: ~18px tall, used by every row action. Row actions sit 8px apart, so SC 2.5.8's _Spacing_ exception could not carry them, and `RecordDetailModal`'s Back link had already hand-rolled `min-height: rem(24)` for the same reason — which is what marked the shared variant as an oversight.
+Unfloored, `--link` is ~18px tall, and it is what every row action uses. Row actions sit 8px apart, so SC 2.5.8's _Spacing_ exception cannot carry them — and a floor hand-rolled at one call site, as `RecordDetailModal`'s Back link had, leaves every other row action short.
 
 **Both axes**, for the reason `--icon` already states: the button is content-sized, so a short label is narrow however tall it is ("Edit" measured 23×24 after the height was floored). The floor is 24 rather than `--control-height`: at 36 a bare text button would read as a filled one, and 24 is the actual AA requirement.
 
@@ -824,7 +817,7 @@ A submit button inside the body scrolls out of view on a short screen, which is 
 
 ### The records grid sizes to its rows, not to the pane
 
-`DynamicTable` takes `flex: 0 1 auto` from the records page, so its height is its content's, capped by the space left in the pane: a few rows end at the last row with the pager directly beneath, a full page shrinks to the pane and scrolls inside itself.
+`DynamicTable` takes `flex: 0 1 auto` from the records page, so its height is its content's, capped by the space left in the pane (`styling.md`).
 
 It was `flex: 1` first, on the reasoning that a pager welded to the bottom edge gives the page a stable frame. That was visibly wrong — with seven records the grid was a mostly-empty box with a void between the last row and the pager. **Do not restore it.**
 
@@ -872,7 +865,7 @@ It is the app's **first and only `calc()`**, and deliberately so. Written as a l
 
 **`MultiValueCell` is `display: inline` for the same reason, from the other side.** It was `inline-flex`, which made a whole list one atomic box — so an over-full list was hard-clipped at the cell edge with nothing to say values were missing, and the entries did not even shrink, because a flex item's automatic minimum floors it at its own content. Plain inline puts the entries in the cell's own inline formatting context, where the cap already applies: the values that fit are drawn in full and the first that does not gives way to an ellipsis. `gap` goes with the flex box, replaced by a margin on adjacent siblings.
 
-Two consequences. **`RecordDetail` no longer overrides the cell's layout** — what put the list on one line was always `DynamicTable`'s `white-space: nowrap`, so the dialog only has to not impose it and to space the wrapped rows with a `line-height`, since inline content has no `row-gap`. And **the ellipsis is not machine-checkable**: the dropped badge keeps its box, its client rects and its `checkVisibility()`, so it is paint and nothing else — it is one of the approximated clauses in `architecture.md` §12.
+Two consequences. **`RecordDetail` no longer overrides the cell's layout** — what put the list on one line was always `DynamicTable`'s `white-space: nowrap`, so the dialog only has to not impose it and to space the wrapped rows with a `line-height`, since inline content has no `row-gap`. And **the ellipsis is not machine-checkable**: the dropped badge keeps its box, its client rects and its `checkVisibility()`, so it is paint and nothing else — it is one of the approximated clauses in `architecture.md` §11.
 
 **`BaseBadge` declares its own `height` and `line-height`, and the second is what matters.** An `inline-flex` box with neither is sized by the line-height it _inherits_, so a badge was 25px in a table cell, 21.5px in a `BaseSelect` overlay and 32px in `RecordDetail` — where the `line-height` above spaces the wrapped rows and the pills standing on them grew with it. Declaring the pair ends the inheritance at the badge, which leaves a container free to set leading for its own rows. **Rejected: normalising line-height at each call site** — one rule spread over every container that will ever hold a badge, and silent when the next one forgets. Only Playwright can see this: `test.css` is `false` in both Vitest projects, so a component spec reading a height reads nothing.
 
@@ -889,51 +882,3 @@ Recorded so they are not re-litigated. Revisit only with a reason that has chang
 **Full hexagonal / DDD on the server** (use-case objects, ports and adapters, a DI container). One transport, one database, no second consumer. Every seam it would add is available later at the same cost, and `CLAUDE.md` §1's YAGNI rule rules it out today.
 
 **Feature folders for the frontend** (`app/features/records/`, `fields/`, `tables/`, each with its own components, composables and api). The payoff is co-location and a lintable design-system boundary. Against it: it fights the Nuxt directory conventions every reader already knows; the payoff scales with the number of features and there are three, one of which (`field-types/`) legitimately belongs to none of them; and a half-measure would be worse than either end state. _Revisit at a fourth domain._ The cheap half of it is already taken — a component's private modules sit with the component (`BaseSelect/`).
-
----
-
-## Accepted limitations
-
-The register referenced by `CLAUDE.md` §1. **Open** entries are in scope for the current phase; **Accepted** entries are not, unless a request says otherwise. A limitation that has been fixed leaves the register — the constraint that outlives it, if any, moves into the entry above that governs it.
-
-### Open
-
-**Row actions are three inline icons, where the concept draws one `⋯` menu** of full sentences. The stated blocker is gone — `usePopover` + `useAnchoredPosition` anchor correctly inside a scrolling, clipping container. What is left is that three targets in a pinned column still fit, so the menu would be work without a user-visible gain. The third button does add one more site where the focus halo crosses a `gap: rem(4)` neighbour — the bargain that row already struck. _Revisit when a fourth row action appears._
-
-### Accepted
-
-**Four lines of `architecture.md` §12 are approximated, not proven.** Playwright covers the rest. What it cannot reach: a **hydration-mismatch warning**, which a production build silences (the specs assert the SSR HTML is correct and the console clean instead); a **clipped focus ring**, asserted structurally as the focused link's box sitting inside its cell's; **Backspace held down**, which no Playwright API reproduces — pressed repeatedly instead; and **a multi-value cell's ellipsis**, which is paint with no DOM consequence. Running against a dev build recovers the first at the cost of testing something other than what ships.
-
-**Nitro's own routing is exercised by no test.** The integration suite imports each handler and invokes it with a constructed `H3Event`, so `requireUser` → ownership → zod → service all run against a real database, but the path-to-handler mapping, the method suffix convention and route-param extraction are taken on trust. Covering them meant booting the whole app per run, which costs a Nuxt build for a layer that is generated rather than written — and which Playwright drives from the outside anyway. _Revisit only if a routing bug reaches production._
-
-**A field named entirely in non-ASCII gets the key `field`.** `slugify` keeps `^[a-z0-9_]+$` and nothing else, so "Компания", "会社" and "🎯" all reduce to nothing and take the `field` fallback. The charset is not incidental: the camelCase record columns cannot be shadowed by a user key _because_ this cannot emit one, and the raw-SQL note rests on the same sentence. Unicode keys would be SQL-safe (keys are always bound as parameters) but would put percent-encoded names in every filter URL and retire both arguments. The key is machine-facing — the field's **name** is untouched. _Revisit only if non-ASCII names become the common case._
-
-**36px targets are below the Apple HIG / Material touch figure on touch devices.** A flat 36 was chosen over a `@media (pointer: coarse)` override restoring 44: a second geometry mode means every derived height has to hold at two values, and the app's touch use is secondary. Clears SC 2.5.8 (24×24) with 50% margin; it is SC 2.5.5 **AAA** that is given up. _Revisit if touch becomes a primary surface._
-
-**A select no longer opens the OS-native picker on touch**, and a searchable one raises the soft keyboard where a `<button>` did not. The price of a listbox that can render a choice's colour, search, and load asynchronously — none of which a `<select>` can do. Every option row is `--control-height`, so SC 2.5.8 is clear either way; the keyboard half is bounded by `shouldSearch()`, which keeps short pickers on the button branch. _Revisit if touch becomes a primary surface._
-
-**In `multiple`, the closed control shows a count, not which values are chosen.** Chips would make the control's height content-dependent, which `useAnchoredPosition` does not observe. In a filter the information is restated in `RecordsFilterSummary` above the table; in the **record form** it is not, which is the one place multi-value reads as less than single-value did. A chip row _below_ the control, leaving its height fixed, is the cheap fix if it is ever wanted. _The form case is the one worth revisiting._
-
-**A multi-value filter can only mean _any of_, never _all of_.** There are no operators anywhere in this project, so a filter's value is its whole contract and "has any" is the only question its shape can ask. Expressing "has all" needs an operator in the URL, in every control and in the SQL map — reopening a load-bearing decision to serve one comparison. Users do want it; the answer is a design change, not a patch. _Revisit only alongside operators as a whole._
-
-**A multi-value cell shows one line in the table**, so values past the width cap are cut off. A row has a fixed height, so wrapping would clip the second line rather than reveal it, and a `+2` affordance still needs a measurement the cell has no reason to take. The values that fit are drawn in full and the rest give way to an ellipsis, exactly as a long TEXT value always has.
-
-**A legacy field keyed like a reserved param cannot be filtered**, and nothing on screen says why. Only `page`, `pageSize`, `sort`, `dir`, `search` and `detail` are affected, and `createField` has refused those keys since the filter param format landed — so no field the app can create is in this state, only older data. Both alternatives cost more: a migration renaming user field keys rewrites the JSONB key of every record and every link already shared; an explanation in the drawer is UI built for a state that should not exist. The field still renders and still sorts.
-
-**Deleting a target record leaves a dangling id** that reads as "Unknown record". Blocking it would mean a JSONB scan of every table on every delete. Deleting a target **table** is refused with a 409 instead. _Revisit only with a real referential design._
-
-**Renaming a SELECT choice orphans the records holding the old text**, which then render as a neutral badge. A choice's identity is its own text, so the whole SQL layer stays out of it. The stale value keeps its text rather than blanking, and nothing errors. An option id buys nothing for colour.
-
-**Sorting/filtering by a JSONB key is unindexed.** Keys are user-defined per table, so no general index applies. _The first scaling ceiling; watch it — revisit at the first table over ~100k records, or the first report of a slow filtered view._ Three limitations sit on top of it and are accepted for the same reason: a **relation label sort** costs one PK lookup per matching row; **free-text search** is unindexable and its cost is paid twice (page query + count), bounded only by `SEARCH_MIN_LENGTH`; and **relation option search** scans the target table the same way, though paid once, over one table, on one expression, under a hard `LIMIT`.
-
-When it does need answering, **the query layer can already take the fix** — stated here so it is not re-derived under load. Because `db/record-sql.ts` composes SQL per field from metadata rather than emitting one fixed query, each remedy plugs into the existing per-type rules: a **GIN index** on `data` helps exactly one comparison, `jsonb_exists_any`, which is the one GIN-indexable operator in the layer; a **per-field expression index** over `data ->> key` is an `expr`/`sortExpr`-shaped decision the registry already owns; and a maintained **`tsvector` column** would replace `buildRecordSearch`'s OR group, which is already a single seam. What is genuinely new is index _lifecycle_ — issuing DDL from `createField`/`deleteField` puts lock waits and half-created indexes inside a user-facing request, and `CONCURRENTLY` cannot run in a transaction. That is the commitment to take deliberately, not the SQL.
-
-**A disabled `BaseButton` with `to` renders `<button disabled>`**, so it announces as _button, dimmed_ rather than _link, dimmed_. Every alternative rebuilds native `disabled` out of `aria-disabled` + `tabindex="-1"` + `pointer-events: none`, taking the control out of the tab order by hand for a state the rest of the app expresses natively.
-
-**A truncated table cell offers no way to read the full value** — no `title`, no expand affordance, **except for a relation**, whose dialog shows the target in full. The rendered text is produced by the cell _component_ (a label resolved from a store, `Yes`/`No`, a formatted date), so it is not recoverable from the raw value. Both routes to it buy a **pointer-only** tooltip: a text projection per field type is a fifth registry against the "only cells are components" contract, and reading it back off the DOM means a `scrollWidth` pass over every cell plus a `ResizeObserver`, re-run on every fetch. Against that, the View action is one click away on every row. _Revisit if something else earns the table a measurement pass, which would make the tooltip nearly free._
-
-**The unsorted sort icon is ~1.67:1**, under the 3:1 SC 1.4.11 floor for non-text UI. `--color-text-secondary` at `opacity: 0.35`. A compliant `0.7` was shipped first and read as clutter — the glyph repeats on every column at once. Nothing depends on seeing it: the header's own text names the column, the button is in the tab order with a visible focus ring, and sort state reaches assistive tech through `aria-sort` on the `th`. It is an affordance hint, not a control boundary — unlike `--color-border-control`, which is why that token carries the floor and this does not. _Raise it only on a real report of users missing the affordance._
-
-**A badge's fill is ~1.1:1 against a hovered row**, so the pill shape barely reads there. The badge draws no border by design. The dot (its `-fg` step, ≥6:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings.
-
-**The error log is a local file, and the rate limit in front of it is per process.** Both halves now report — Nitro's hook for a server fault, `api/client-errors.post.ts` for a browser one — but a rotating file is per-machine and nobody is told it grew, so more than one instance means a real sink is needed; the same instance count splits the client-error rate limit into one allowance each, since it is an in-memory map. Both wait on the same infrastructure, which is why neither was built speculatively. _Revisit before any real deployment._

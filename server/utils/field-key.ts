@@ -19,7 +19,7 @@ import { filterParamNames } from '#shared/utils/filter'
  *
  * A name with no ASCII alphanumerics at all — written in Cyrillic, CJK, or punctuation —
  * reduces to nothing and takes the `field` fallback, so several of them on one table become
- * `field`, `field_2`, `field_3`. Deliberate: see `docs/decisions.md` → Accepted limitations.
+ * `field`, `field_2`, `field_3`. Deliberate: see `docs/limitations.md`.
  */
 export function slugify(name: string): string {
   return (

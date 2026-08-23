@@ -4,6 +4,9 @@
 // (see `vite.css.preprocessorOptions.scss.additionalData` in nuxt.config.ts), so a
 // component uses these without importing anything; standalone partials must
 // `@use 'mixins' as *` themselves, since additionalData does not reach them.
+//
+// The list of what is here, and what each one is for, is `docs/styling.md`; when to reach for a
+// mixin rather than a class is `CLAUDE.md` §8.
 
 /// The one breakpoint in the project: below it the sidebar stops being persistent.
 /// It lives here rather than in `_variables.scss` because a media query cannot read

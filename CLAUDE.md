@@ -2,13 +2,14 @@
 
 Guidance for Claude Code (claude.ai/code) when working in this repository.
 
-Three companion documents carry the detail this file deliberately omits. Read the relevant one before changing the area it covers:
+Four companion documents carry the detail this file deliberately omits. Read the relevant one before changing the area it covers:
 
-- **`docs/roadmap.md`** — what is being built next and in what order. The source of truth for the current plan (§2).
 - **`docs/architecture.md`** — how the metadata layer works: the field-type registries, record identity and record columns, relations, the filter/search wire format, the SQL layer, the data model, and a map of the key modules.
-- **`docs/decisions.md`** — why it works that way: the rejected alternatives, the load-bearing constraints that must not be "cleaned up", and the **Accepted limitations** register.
+- **`docs/styling.md`** — how the SCSS layer is put together: the partials, the token ramps, the mixin list, the `BaseButton` variant contract and the shell (§8).
+- **`docs/decisions.md`** — why it works that way: the rejected alternatives and the load-bearing constraints that must not be "cleaned up".
+- **`docs/limitations.md`** — what the project knowingly does not do: the **Open** / **Accepted** register, each entry carrying the trigger that would reopen it (§1).
 
-How all four are maintained — what belongs where, and what must never be written — is §12.
+How all five are maintained — what belongs where, and what must never be written — is §12.
 
 ---
 
@@ -25,49 +26,19 @@ Two more that shape every change: **full TypeScript coverage**, with zod schemas
 
 **Not in scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, third-party integrations. Do not build them speculatively — but the architecture **may** be shaped to accommodate them where doing so also improves the code that exists.
 
-**No phase is in progress.** The feature set is done, the quality/UX/accessibility pass is done (which is where the four test projects and the axe gate came from), and so is the architectural restructuring. `docs/roadmap.md` is therefore empty of work by design — it carries only parked items and their triggers, and a change starts from a request rather than from a backlog. The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/decisions.md` → **Accepted limitations** marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. The one **Open** row is parked behind a stated trigger, so "Open" is something to read the register for rather than a queue to work through.
+**No phase is in progress.** The feature set is done, the quality/UX/accessibility pass is done (which is where the four test projects and the axe gate came from), and so is the architectural restructuring. A change therefore starts from a request rather than from a backlog: **no roadmap or plan file is kept**, and one is written only where a request asks for it — while one exists it is kept current (§2). The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/limitations.md` marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. The one **Open** row is parked behind a stated trigger, so "Open" is something to read the register for rather than a queue to work through.
 
 ---
 
 ## 2. Commands & definition of done
 
-```bash
-npm run dev          # start dev server at http://localhost:3000
-npm run typecheck    # vue-tsc over the app, then tsc over the e2e specs — the inner-loop type gate
-npm run test          # vitest run — the unit + nuxt projects; no database, no browser
-npm run test:unit     # the node project only (~1s) — the inner loop
-npm run test:nuxt     # the Nuxt-environment project only
-npm run test:integration # the integration project — runs `db:up` itself, then Vitest
-npm run test:e2e      # Playwright over the production build — installs Chromium and runs `db:up` itself (~90s incl. build)
-npm run test:e2e:ui   # the same, in Playwright's UI mode
-npm run test:watch    # vitest in watch mode
-npm run test:coverage # `db:up` + coverage:collect — the merged report, so it needs a database
-npm run coverage:collect # unit+nuxt and integration, each to a blob, merged into one report
-npm run build        # production build — also runs vue-tsc; a TS error fails the build (~30s)
-npm run preview      # preview a production build locally
-npm run lint         # eslint
-npm run format       # format all files with Prettier
-npm run format:check # check formatting without writing
-npm run db:up        # docker compose up -d --wait (PostgreSQL 17, container flexbase-postgres)
-npm run db:studio    # browse data in a GUI
-```
-
-```bash
-npx prisma migrate dev --name <name>  # create & apply a migration
-npx prisma generate                   # regenerate the client into server/generated/prisma (gitignored)
-```
+The commands themselves are in `README.md`; `package.json` is the source. What a table cannot say:
 
 `typecheck` is the one to reach for while iterating: the same `vue-tsc` errors as the build at a fraction of the time, it never rewrites `.output`, and its second step (`tsc -p test/e2e/tsconfig.json`) is the **only** thing checking the Playwright specs. Keep `build` as the pre-commit gate — it is the only step that exercises Vite/Nitro bundling.
 
-**In CI, call the tools rather than these scripts.** `test:integration`, `test:e2e` and `test:coverage` each begin with `db:up`, which is right on a developer machine and wrong on a runner that already has PostgreSQL on 5432. `.github/workflows/ci.yml` invokes `vitest`/`playwright`/`coverage:collect` directly for that reason.
+**In CI, call the tools rather than these scripts.** `test:integration`, `test:e2e` and `test:coverage` each begin with `db:up`, and `test:e2e` installs Chromium as well — right on a developer machine, wrong on a runner that already has PostgreSQL on 5432. `.github/workflows/ci.yml` invokes `vitest`/`playwright`/`coverage:collect` directly for that reason.
 
 PostgreSQL runs in Docker. Never use OSPanel's bundled modules.
-
-### The roadmap
-
-**`docs/roadmap.md` is the source of truth for the current development plan** — what is being worked on now, what comes next, in what order. Read it before starting a task. Mark a task `[x]` as soon as it is done, `[~]` while in progress. A task discovered mid-development is added to it; anything cancelled or superseded is deleted rather than kept "for the record".
-
-Scope discipline: the roadmap says _what_ and _in what order_, and never grows into a specification.
 
 ### Definition of done
 
@@ -79,11 +50,21 @@ A change is finished only when, in order:
 4. `npm run test` passes, with tests covering the changed logic added or updated (§10);
 5. for any interactive or visual change: the keyboard path works and the focus ring is visible — both still a manual walk. Target size and the axe rules are gated by `npm run test:e2e` (§8);
 6. the change has been verified working in the running app (dev server);
-7. if the change knowingly leaves a limitation, it is recorded in `docs/decisions.md` → **Accepted limitations** — not only in a commit message;
+7. if the change knowingly leaves a limitation, it is recorded in `docs/limitations.md` — not only in a commit message;
 8. documentation is updated **only where a rule, contract, or limitation changed** — §12 governs what belongs where and what must never be written;
-9. `docs/roadmap.md` reflects reality — the task is marked `[x]`, and anything the work revealed or made obsolete is added, updated, or removed.
+9. if the change implements a task from a plan file, that task is marked in it **before the work is reported** — see _Marking a plan task done_ below.
 
-**A finished change is left uncommitted.** Never run `git commit` unless the user asks for a commit in that message — not after a task completes, not when the suite is green, not because a plan or a roadmap item said a commit would happen. Approving a plan is approval to make the change, never to commit it. Leave the work in the tree and say what is there, and suggest a suitable Conventional Commit message (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, etc.) without actually committing it.
+**A finished change is left uncommitted.** Never run `git commit` unless the user asks for a commit in that message — not after a task completes, not when the suite is green, not because a plan said a commit would happen. Approving a plan is approval to make the change, never to commit it. Leave the work in the tree and say what is there, and suggest a suitable Conventional Commit message (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, etc.) without actually committing it.
+
+### Marking a plan task done
+
+A plan file exists only where a request asked for one (§1). While it exists it must state the truth about its own progress, because the next session reads it to decide what is left.
+
+- **Mark per task, not per session** — the moment steps 1–8 pass for that task, before reporting it and before starting the next one. Marks batched to the end of a session are the ones an interruption loses.
+- The mark is a `**Status:**` line, written as the **first line of the task's own block**: `**Status:** done — YYYY-MM-DD`. A task carrying no such line has not been started.
+- **Mark what happened, not what was planned.** `done, with changes — <one line on the difference>` where the work diverged from the plan; `in progress — <what is left>` where it did not finish; a task dropped or superseded says which. A task whose diff is prepared but **not landed is not done**.
+- Marking a task is not permission to commit — the rule above holds unchanged.
+- When every task is marked done, say so and **offer** to delete the plan file. Never delete one unasked.
 
 ---
 
@@ -107,6 +88,8 @@ app/                         # Nuxt 4 frontend (client)
   pages/                     # file-based routing
     tables/[tableId]/          # the table itself (index.vue) + settings.vue
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
+  types/                     # client-only type declarations (zero runtime exports)
+  utils/                     # client-only helpers — formatters, api errors, value shapes
 server/                      # Nitro backend
   api/                       # HTTP route handlers (thin: parse → check ownership → call service)
   services/                  # the business rules; raises HTTP errors directly (§5)
@@ -124,7 +107,7 @@ shared/                      # code used by BOTH client & server — one rule pe
   validation/                # zod schemas and nothing else
 prisma/migrations/           # Prisma migration history
 test/                        # fixtures, mount/prisma helpers, the integration and e2e suites
-docs/                        # roadmap.md, architecture.md, decisions.md + the design concept
+docs/                        # architecture.md, styling.md, decisions.md, limitations.md + the concept
 public/                      # static assets
 ```
 
@@ -133,6 +116,8 @@ public/                      # static assets
 `shared/` is four layers with a strict dependency order — `types` → `constants` → `utils` → `validation`, each importing only from layers above it. A helper that fits none of `types`/`constants`/`validation` belongs in `utils/`, not in whichever folder is nearest.
 
 **`shared/field-types/` is a fifth folder, and it sits between `types/` and `constants/`.** It imports `types/` (and `constants/color`) and is read by `utils/` and `validation/` — **never the reverse**, which is what keeps the layer acyclic and is enforced by `no-restricted-imports`. It is also the one place outside `validation/` that may import zod, because a type's value schema is part of what the type _is_ (§9).
+
+**A declaration lives with the layer that uses it.** `app/types/` holds shapes only the Vue layer has (`IBreadcrumb`, `ISelectOption`); `shared/types/` is for what client and server both speak. `app/utils/` and `shared/utils/` divide on the same test.
 
 ---
 
@@ -208,7 +193,7 @@ Rationale for all three: `docs/decisions.md`.
 - Forms use the `useForm` composable — reactive fields, per-field zod errors that clear on edit, form-level server error, `pending`, `submit`, `reset`.
 - Deleting anything from a list page goes through `useDeleteConfirm`, not a hand-rolled pending flag.
 - A popover goes through `usePopover` (+ `useAnchoredPosition` where it must escape a clipping ancestor), never a hand-rolled open/outside-click/focus-restore trio.
-- **A popover swallows Escape only while it has something open**, because one keypress must never close two things. There are exactly two `document`-level Escape listeners — `BaseModal`'s, and the shell's for the off-canvas sidebar, which stands down while the shell is `inert`. A popover adds none. Two spellings, and the difference matters: `@keydown.esc.stop` on the panel where focus lives inside it; the key handled in JS with `stopPropagation()` guarded on `open` where the control keeps focus **outside** its panel (a combobox), since an unconditional modifier there would make a _closed_ control eat the surrounding dialog's Escape. See `docs/decisions.md`.
+- **A popover swallows Escape only while it has something open** — one keypress must never close two things. `BaseModal` and the shell's off-canvas sidebar hold the only two `document`-level Escape listeners and **a popover adds none**: it handles the key on its own panel with `@keydown.esc.stop` where focus lives inside the panel, and in JS guarded on `open` where the control keeps focus outside it (a combobox). Which spelling applies where, and what breaks under the wrong one: `docs/decisions.md`.
 - **Every async surface states its condition.** Loading, empty, and error are distinct states with distinct copy — never infer "empty" from "unknown". A failed fetch is visible (banner + retry), never a silently stale view.
 - **Never ship a dead control.** A visible input or button that cannot do anything yet is worse than its absence.
 
@@ -221,7 +206,7 @@ Rationale for all three: `docs/decisions.md`.
 - Derive state with `computed`, don't sync it with watchers; never deep-`watch` large arrays/objects.
 - **Debounce** user-driven query inputs ~300 ms before hitting the API (`useDebouncedModel`).
 - Fetch page data through `useAsyncData` with an explicit key so the SSR result transfers in the payload; never re-fetch in `onMounted` what SSR already loaded. A layout and a page must never share a key.
-- **No image pipeline ships.** `@nuxt/image` was removed because the app renders none — re-add it, and this rule, when a real image exists (`docs/decisions.md`).
+- **No image pipeline ships.** `@nuxt/image` was removed because the app renders none — re-add it, and this rule, when a real image exists (`docs/decisions.md` → _Neither `@nuxt/fonts` nor `@nuxt/image` is installed_).
 
 These rules target collections that grow with user data. Static UI — auth pages, layout chrome — does not warrant `shallowRef`/lazy machinery; KISS wins there.
 
@@ -239,7 +224,7 @@ A deliberately plain, familiar office-app look for a largely non-technical audie
 
 Two halves are machine-checked by `npm run test:e2e`: an **axe** pass over the WCAG A/AA rules, failing on `serious` and `critical`, and the target-size floor below. Neither replaces the keyboard walk in step 5 of the definition of done — axe cannot tell whether a focus order makes sense — but both catch what a walk misses because nothing on screen looks different.
 
-- Every interactive element is keyboard-operable and has a visible `:focus-visible` state. **Focus is never removed, only restyled** — `_reset.scss` carries a zero-specificity baseline so nothing can end up bare. **Two registers, chosen by whether the control has a border of its own:** a button, link, row or option takes the `focus-ring` mixin — a hairline `outline` in `--color-focus`, which no ancestor's `overflow` can clip and which forced-colors mode redraws; a **form control** takes `form-control`, which recolours its own border to `--color-focus` and suppresses the ring, since a ring one hairline outside a recoloured border states the same edge twice. Both add `--focus-ring-halo`, a soft `box-shadow` that is clippable and outrankable and therefore never the indicator — which is why `form-control` restores a real outline under `@media (forced-colors: active)`, the one mode where a border colour and a shadow both stop saying anything.
+- Every interactive element is keyboard-operable and has a visible `:focus-visible` state. **Focus is never removed, only restyled** — `_reset.scss` carries a zero-specificity baseline so nothing can end up bare. **Two registers, chosen by whether the control has a border of its own:** a button, link, row or option takes the `focus-ring` mixin; a **form control** takes `form-control`, which recolours its own border instead. **The two are mutually exclusive** — a control taking `form-control` must never also take `focus-ring`. Both add `--focus-ring-halo`, which is **never the indicator**: it is a `box-shadow`, so it is clippable and outrankable. Why each half is shaped that way, and what `forced-colors` changes: `docs/decisions.md`.
 - Minimum target size **24×24** — SC 2.5.8, the AA requirement. The house floor is `--control-height` (**36px**), which every sized control including icon-only buttons meets; nothing may go below 24. A content-sized control needs **both** axes floored, because a short label ("Edit" is 23px) is narrow however tall it is. 44×44 is SC 2.5.5, which is **AAA** — do not quote it as the AA bar.
 - The gate lives in `test/e2e/accessibility.spec.ts` + `test/e2e/setup/a11y.ts`, which encode three real SC 2.5.8 exceptions (the _Inline_ exception for `.text-link`, an `<input>` whose wrapping `<label>` is the actual target, and anything not rendered). **Do not add a fourth to make a failure go away.**
 - Text contrast ≥ 4.5:1; control outlines and other non-text UI ≥ 3:1 (this is why `--color-border-control` is a separate token from `--color-border-strong`).
@@ -276,7 +261,7 @@ Two halves are machine-checked by `npm run test:e2e`: an **axe** pass over the W
 }
 ```
 
-The token inventory, the mixin list, the partial layout, and the `BaseButton` variant contract are documented in `docs/architecture.md` §11.
+The partial layout, the token ramps, the mixin list and the `BaseButton` variant contract are documented in `docs/styling.md`.
 
 ---
 
@@ -309,7 +294,7 @@ Full contracts for each registry: `docs/architecture.md` §3.
 
 ## 10. Testing
 
-**Step 4 of the definition of done is binding.** Changes to `shared/field-types/`, `shared/utils/`, `shared/validation/`, `server/services/`, `server/db/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §12 ships with an end-to-end one. `.github/workflows/ci.yml` runs three jobs on every push to `main`/`develop` and on every PR: `format:check` → `lint` → `typecheck` → `test` → `build`; an **integration** job with a PostgreSQL service container; and an **e2e** job that additionally installs Chromium and builds the app.
+**Step 4 of the definition of done is binding.** Changes to `shared/field-types/`, `shared/utils/`, `shared/validation/`, `server/services/`, `server/db/`, `app/composables/`, `app/stores/` and `app/utils/` ship with tests; a change to behaviour listed in `docs/architecture.md` §11 ships with an end-to-end one. `.github/workflows/ci.yml` gates all four projects on every push to `main`/`develop` and on every PR; `README.md` has the job layout.
 
 ### The four projects
 
@@ -331,13 +316,13 @@ Full contracts for each registry: `docs/architecture.md` §3.
 
 **Reach for `integration` only for what a stub cannot answer** — that the SQL executes, that a constraint fires, that a lock holds, that the rules survive out to the endpoint. It is not the place to re-test logic the fast projects already cover.
 
-**Reach for `e2e` only for what a browser answers** — first paint, history, focus, keyboard, paint. Its list is `docs/architecture.md` §12 and nothing else; a case that would pass in happy-dom belongs three projects down, where it runs in a second instead of a minute.
+**Reach for `e2e` only for what a browser answers** — first paint, history, focus, keyboard, paint. Its list is `docs/architecture.md` §11 and nothing else; a case that would pass in happy-dom belongs three projects down, where it runs in a second instead of a minute.
 
 ### The end-to-end project
 
 Chromium only, `workers: 1`, its own `flexbase_e2e` database. Three things are load-bearing:
 
-- **The server is the built output, started by `scripts/serve-output.mjs`.** Never `nuxt preview`, and never `npm run preview`: both load the root `.env`, which points at the **development** database, and the suite truncates between cases. The launcher also works around a Windows-only crash whose fix is one dynamic import — **making it static reintroduces the bug** (`docs/decisions.md`).
+- **The server is the built output, started by `scripts/serve-output.mjs`.** Never `nuxt preview`, and never `npm run preview`: both load the root `.env`, which points at the **development** database, and the suite truncates between cases. The launcher also works around a Windows-only crash whose fix is one dynamic import — **making it static reintroduces the bug** (`docs/decisions.md` → _The built output is started by one launcher, and its import must stay dynamic_).
 - **One guard for both disposable databases.** `test/disposable-database.ts` refuses any name not ending in `_test` or `_e2e`, and both suites call it before writing. Never weaken it.
 - **Selectors are roles and accessible names**, never `data-testid` — the app labels everything already, so a spec that breaks because a label changed is reporting something real. Note that `BaseSelect`'s non-searchable trigger is a `<button>` whose accessible name is _label + value_ ("Stage Won"), and its value overlay is a **sibling** of that button rather than a child.
 
@@ -360,10 +345,10 @@ Rows are seeded through Prisma (`test/integration/seed.ts`), not through the ser
 ### Rules
 
 - **Specs are colocated** — each sits beside its source. That is what puts them inside the `include` globs Nuxt generates, so `npm run typecheck` checks them too.
-- **`globals: false` in both projects.** Every spec imports `{ describe, it, expect } from 'vitest'`, matching the project's `autoImport: false` doctrine — and required regardless, since the generated tsconfigs set `types: []`.
+- **`globals: false` in both projects.** Every spec imports `{ describe, it, expect } from 'vitest'` — not a stylistic match with `autoImport: false` but a requirement, since the generated tsconfigs set `types: []`.
 - **Imports are aliased in a spec exactly as in source** (`~/…`, `#shared/…`, `#server/…`); `no-restricted-imports` applies to specs too.
 - **Field fixtures live in `test/fixtures.ts`**, reached as `~~/test/fixtures`. Add a builder there rather than restating an `IField` in a second spec.
-- **Mount through `~~/test/mount`, never `mountSuspended` directly.** `mountTracked` registers the wrapper and `afterEach(unmountAll)` tears it down, so no spec ends a case with `wrapper.unmount()`. This is not tidiness: a case that _fails_ skips its own trailing unmount, and a composable leaked a window listener into the next case exactly that way. `track()` is the same seam for a plain `@vue/test-utils` host.
+- **Mount through `~~/test/mount`, never `mountSuspended` directly.** `mountTracked` registers the wrapper and `afterEach(unmountAll)` tears it down, so no spec ends a case with `wrapper.unmount()` — a correctness rule rather than tidiness (`docs/decisions.md` → _A spec never ends with `wrapper.unmount()`_). `track()` is the same seam for a plain `@vue/test-utils` host.
 - **Do not hand-stub what the Nuxt environment already provides** — `defineVitestConfig` boots the real app from `nuxt.config.ts`, so a stub is a second source of truth able to drift. In particular: `registerEndpoint` for an API a store calls, `mockNuxtImport` for `useRoute` and friends, `mountSuspended` for a component.
 - **A mounted component reads the Nuxt app's pinia, not a spec's.** `setActivePinia(createPinia())` is right for a store tested directly and wrong under `mountSuspended` — use `setActivePinia(useNuxtApp().$pinia as Pinia)` and clear the state it carries between cases.
 - **A unit test must be deterministic and offline:** no database, no network, no `Date.now`, no randomness, no filesystem. `server/db/record-sql.ts` is testable precisely because it only _builds_ `Prisma.Sql` — assert on `.text` and `.values`, never execute.
@@ -399,7 +384,7 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 
 ## 12. Documentation maintenance
 
-These four documents are a working reference for whoever changes this code next, not a record of what happened. They load into an agent's context in full, so every unnecessary sentence costs attention the next change needs. **Less documentation, better documentation** — and this section governs itself too.
+These five documents are a working reference for whoever changes this code next, not a record of what happened. They load into an agent's context in full, so every unnecessary sentence costs attention the next change needs. **Less documentation, better documentation** — and this section governs itself too.
 
 **Before adding anything, check that it is not already written and that a reader actually needs it.** If it exists in another document, cross-reference it; if it exists in the code, leave it there. If nobody needs it to make a correct change, leave it out. There is exactly one home per kind of information — the routing at the top of this file — and never two.
 
@@ -414,3 +399,5 @@ These four documents are a working reference for whoever changes this code next,
 **Prefer the short form.** A rule is a sentence. A decision is its rule, the failure mode if it is violated, and the rejected alternative in one clause. Spell out a _why_ only where the code cannot, and only where an obvious-looking "cleanup" would break it.
 
 **When a change makes a passage wrong, rewrite or delete it** — never append a correction beside it.
+
+**A pointer to a numbered section is a dependency.** Moving or renumbering one means grepping the repo for its old `§N` first: a stale number still resolves to a real section, so nothing fails and the reader is simply sent to the wrong place. The pointers reach past `docs/` into source comments and specs.

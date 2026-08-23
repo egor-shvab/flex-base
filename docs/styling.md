@@ -1,0 +1,100 @@
+# Styling reference
+
+How the SCSS layer is put together. The rules that govern writing it are `CLAUDE.md` §8; why the tokens and mixins are shaped this way is `decisions.md`.
+
+## Partials
+
+`app/assets/scss/` partials:
+
+| Partial                 | Contents                                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_palette.scss`         | the primitive colour ramp as **SCSS variables** (`$gray-200`, `$blue-600`, …)                                                               |
+| `_variables.scss`       | the public token surface: CSS custom properties built from the palette                                                                      |
+| `_reset.scss`           | reset/normalize + base typography + the global `:focus-visible` baseline                                                                    |
+| `_functions.scss`       | the `rem()` helper                                                                                                                          |
+| `_mixins.scss`          | the shared style fragments + `$breakpoint-shell`; `@use`s `functions` itself and does not re-export it                                      |
+| `_auth-form.scss`       | the shared `.auth-form` block; `@use`s `functions` and `mixins` itself                                                                      |
+| `_text-link.scss`       | the global `.text-link` block; references only custom properties, so it `@use`s nothing                                                     |
+| `_visually-hidden.scss` | the global `.visually-hidden` block; references nothing either, so it too `@use`s nothing                                                   |
+| `main.scss`             | entry point — `@use`s `variables` / `reset` / `auth-form` / `text-link` / `visually-hidden`, and must **not** re-`@use` functions or mixins |
+
+## Tokens
+
+`_variables.scss` is the list. It is six ramps — semantic colour, the focus state, the badge hues, layering (`--z-*`), geometry (radii, `--control-height`, `--header-height`, `--sidebar-width`) and type — and a token names a role rather than a value (`CLAUDE.md` §8). Where two ramps hold the same value today and stay separate anyway, `decisions.md` says why.
+
+**The badge hues** are the one ramp a component selects at runtime rather than by class. `badgeTint()` (`app/utils/badge-tint.ts`) composes the token _names_ into `var()` references and returns them as inline custom properties (`--badge-bg`/`-border`/`-fg`), so a literal colour still cannot reach a component (`decisions.md` → _The badge palette is selected in JavaScript, by token name_). The three steps are read by two components: `BaseBadge` takes `-bg` and `-fg` (its dot is `currentColor`, so the dot is the `-fg` step), while `BaseColorPicker` takes all three. Each `-fg` clears 4.5:1 on its own `-bg`, and each `-border` clears 3:1 against both `--color-surface` and `--color-surface-hover` — the second is the binding one, because the picker's trigger takes that wash.
+
+## Mixins and shared classes
+
+**Mixins:** `focus-ring($offset)`, `below-shell`, `stack($gap)`, `cluster($gap)`, `truncate`, `surface-card`, `centred-viewport`, `centred-card($max-width)`, `field-label`, `field-error`, `form-control`, `error-banner`, `page-header`, `page-title`.
+
+`centred-viewport` + `centred-card` are the two surfaces that render **outside the shell** and so own the viewport themselves — the auth layout and `error.vue`. They take `100dvh` for the same reason the shell does.
+
+`surface-card` is the bordered surface on the canvas — the dashboard's cards and each section of the table settings page. Geometry and colour only: a card that lifts on hover, or wears the ring because a link fills it, declares that itself, since collapsing those in would put a hover state on surfaces that are not interactive.
+
+`stack($gap)` and `cluster($gap)` are the two layout primitives, a column and a row; neither declares `flex-wrap`. A `page-header` side passed as a `cluster` must carry `min-width: 0` itself (`decisions.md` → _The header group needs `min-width: 0`, same as the panes_).
+
+`truncate` is one line of text ending in an ellipsis, and it only does anything on a **bounded** box: a `max-width` of its own, or `min-width: 0` where it is a flex item that would otherwise refuse to shrink below its content. Forgetting the bound is the failure mode — the rule is present and silently inert.
+
+**`.text-link` is a class, not a mixin** — an inline navigation link _inside a sentence_, the one link look that is not a control. Anything standing on its own in an action row is a `BaseButton` with `to` instead.
+
+**Which register a control takes is `CLAUDE.md` §8's rule.** Two things it does not state: within `form-control`, `:focus` recolours the border — including on programmatic autofocus — while the halo is `:focus-visible`, so the halo alone says "you are on the keyboard"; and where a link fills a card, the **card** wears the ring via `:has(:focus-visible)` while the link suppresses both halves of its own.
+
+## `BaseButton` variants
+
+`.base-button` is a neutral chassis (flex centering, radius, type, `focus-ring`, `:disabled`); the filled look lives in `&--primary`, which the template always emits since `variant` defaults to `'primary'`. **`font-size`/`font-weight` must stay on the chassis** — `--ghost` declares neither, so moving them would drop ghost buttons to the UA default.
+
+| Variant     | Use                                                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `primary`   | default filled action                                                                                                              |
+| `secondary` | the neutral peer of primary — same geometry so a dialog's footer pair aligns, bordered rather than filled. `ConfirmModal`'s Cancel |
+| `danger`    | destructive filled action                                                                                                          |
+| `ghost`     | transparent text+icon with a faint `--color-accent-tint` hover                                                                     |
+| `icon`      | borderless icon-only; takes `prependIcon` + `label` (aria-label/title)                                                             |
+| `link`      | bare text button for row actions — the chrome of a link, the semantics of a button                                                 |
+
+`primary`/`secondary`/`danger`/`ghost` are `min-height: var(--control-height)`; `icon` takes it on **both** axes (`min-width` too, or it stays glyph-wide); `link` declares no height but is floored at 24 on both axes. `ghost`'s horizontal padding is transparent, so it reads as gap — space a ghost against a neighbour from the **ink**, not the box (`decisions.md` → _A ghost button's padding is spacing, so the gaps beside it are unequal on purpose_).
+
+Any variant takes `prependIcon` and `appendIcon` (iconify names) for an icon before and after the slot. Both render the same `aria-hidden` `.base-button__icon` — the side is DOM order, not a modifier class, since nothing about the two differs visually and the chassis's `gap` already spaces them.
+
+A typed `tone?: 'default' | 'danger'` recolours hover for the `icon`/`link` variants via the internal `--hover-color` custom property, which each variant defaults for itself. Per-variant defaults are why this is a custom property rather than a `v-bind`.
+
+A typed `size?: 'md' | 'sm'` works the same way and is likewise a closed set, not a free-form measurement. `icon` reads its box and glyph from `--icon-box`/`--icon-glyph`; `sm` resteps only those two, so it declares no property of its own and is inert on every other variant. It is the **24×24** step for an icon button sitting inside another control — the select's clear ✕, the filter chip's remove ✕ — where the 36px floor does not fit. `16 + rem(4)` of the variant's padding on each side is exactly 24, which is SC 2.5.8's floor and the boundary case `test/e2e/setup/a11y.ts` measures: neither number moves alone.
+
+**`variant` is the appearance; `to` is the element.** Passing `to` makes the root a `<NuxtLink>` — a real `<a href>` — while every variant keeps its exact look. The modes bind **disjoint** props through one `rootProps` computed: button mode emits `type`/`disabled`, link mode emits `to`. Everything else arrives by attribute fallthrough and the component forwards nothing by hand — including `target`, `rel`, `external` and `prefetch`, which are declared `NuxtLink` props and so resolve as props even when they fall through. **`disabled` wins over `to`**, and a link activates on Enter only (`decisions.md` → _`BaseButton` renders the element its role implies_).
+
+## Other atoms worth knowing
+
+- **`BaseInput`** — bound with `:value` + `@input` rather than `v-model` (`decisions.md` → _`BaseInput` binds `:value` + `@input`, not `v-model`_); the composition guard is kept by hand so IME input still works. `ariaLabel` and `invalid` serve **grouped** controls where a wrapper owns the visible label and error line. `debounce` and `trim` serve callers that bind props rather than `v-model`, since `<component :is>` cannot pass v-model modifiers. `icon` is an Iconify name drawn in a leading gutter inside `.base-input__control`, the relative-positioned box any future decoration positions against. `form-control`'s chrome stays on the `<input>` rather than moving to that box on purpose: the border, its `:focus` colour, the halo and the `--invalid` state are then identical whether a field is decorated or not.
+- **`BaseRange`** — the two-bound atom, knowing nothing about filters: one label above a 1fr/1fr grid of bare `BaseInput`s. A required `type` (`number`/`date`) picks the bound's DOM type; a blank or unparseable bound is `null`, **never `0`**, or an empty box silently becomes `>= 0`. It keeps typed text in local drafts synced by a `watch` that resyncs **only a bound that disagrees with what is on screen**.
+- **`BaseModal`** — teleport, backdrop/Esc close, `role="dialog"`, optional `footer` slot outside the scrolling body. `variant`: `dialog` (centered card) / `drawer` (same chrome anchored right, full height). **Both cap the dialog at the scrim's own content box and make the body the sole scroll pane**, so the header and footer stay put and a dialog taller than the screen is reachable rather than centred off both edges (`decisions.md` → _A dialog caps against the scrim, and only its body scrolls_). Marks `#__nuxt` `inert` while open, which makes `aria-modal="true"` true rather than a claim. **It owns one of the app's two document-level Escape listeners** — the shell's, for the off-canvas sidebar, stands down while `#__nuxt` is `inert` (`decisions.md` → _Escape is swallowed only while something of ours is open_) — and releases it on unmount.
+- **`BaseSelect`** — a listbox **or** a combobox, chosen by `searchable`: single or multiple selection, `clearable`, placeholder, coloured options, and distinct loading / empty / no-results / failed states. Generic over `TModel extends string | string[]`, with `multiple` tied to that type so the two cannot disagree. The panel teleports to `<body>` and is placed by `useAnchoredPosition`.
+  - `searchable: false` — a `<button aria-haspopup="listbox">` with native focus and hand-rolled type-ahead. Its accessible name is _label + value_.
+  - `searchable: true` — an `<input role="combobox">`; the user types **into the control** and the panel lists matches. Search is **independent of where options come from**: locally it filters `options`, with `loadOptions` it asks the server. `loadOptions` is inert without it.
+  - The selection is drawn as an **overlay** over the control, never as the input's value, so searching never means clearing what is already chosen. One piece of markup serves both branches; the `<button>` names itself by IDREF to it, the `<input>` describes itself by IDREF to it.
+  - **`searchable` is never derived from the option count.** `~/utils/select`'s `shouldSearch()` is the house threshold, applied at the call site.
+  - **`multiple` is read through `isMultiple`, never as `props.multiple`** (`decisions.md` → _`multiple` is tied to the model's type, and is read through `isMultiple`_).
+  - Its combobox swallows Escape **only while open**, so a closed select inside the filter drawer does not eat the drawer's own key.
+- **`BaseCheckbox`** — label-wrapped native checkbox with `accent-color`. Its `disabled` is a **declared prop bound to the `<input>`**: attribute fallthrough would put it on the wrapper `<div>`, where it does nothing at all.
+- **`BaseBadge`** — `chip` (a **value**, e.g. a SELECT cell — never uppercased, it is user data) / `label` (a **meta marker**, e.g. `required`). An optional `color` tints a chip from `BADGE_COLORS` and draws an 8px dot in its `-fg` step; it is inert on `label`. It draws no border: the word bounds it, and the dot carries the hue onto the hovered row where the fill washes out. It truncates itself, because an `inline-flex` box is atomic to the cell containing it (`decisions.md` → _A table column's width cap lives on a wrapper, not on the cell_). It declares **its own `height` and `line-height`** — 24px for a chip, 20px for a label — so no container can resize it (`decisions.md` → _A table column's width cap lives on a wrapper, not on the cell_).
+- **`BaseColorPicker`** — a swatch trigger plus an absolutely-positioned `radiogroup` panel with roving tabindex. It takes `useAnchoredPosition` but no teleport: the only surface it opens inside is `BaseModal`'s `dialog` variant, which is itself teleported. **Scrolling ancestors are not what would clip it** — it opens inside two of them (the dialog body, and the choices list in `FieldFormModal`) and survives both, because a `position: fixed` box is clipped by an ancestor's `overflow` only where that ancestor is its containing block. What would break it is a `transform`/`filter`/`contain` anywhere above it, which `.base-modal` must therefore keep declaring none of. **Escape is handled on the panel with `.stop`, never on `document`.** It states its own `maxHeight` rather than taking the composable's default, which describes a scrolling list.
+- **`BaseErrorBanner`** — the form-level error a server refused a submission with, over the `error-banner` mixin. **Renders nothing at all without a message**, never an empty element: two e2e cases assert `getByRole('alert')` counts zero on a clean page, and a mounted-but-silent alert announces itself. Every banner whose content is a **plain message** uses it, whatever produced the message — `useForm`'s `serverError` in the five forms, `useDeleteConfirm`'s refusal in `ConfirmModal`, a failed fetch in `RecordDetailModal`. A caller needing placement passes a class for it and nothing else; the look is never restated.
+
+The one banner left on the mixin is the records page's failed view, and the reason is its **content, not its source**: the sentence carries an inline `<NuxtLink>` recovery, so there is no message to pass. That is what `error-banner` stays a mixin for — the same look over different markup.
+
+- **`BaseEmptyState`** — an optional `title`, the message as the default slot, an optional `action` slot, and a **required `icon`** drawn in an accent-tinted tile above the copy: an empty state names what is missing, and every one the concept draws opens with that glyph. The icon is `aria-hidden` — the records page renders this component _as_ a `role="status"` live region. Its message keeps a `<p>` wrapper because the root is a flex column: a bare slot would put each run of a message mixing text with an inline `.text-link` on its own line.
+- **`BasePagination`** — `pageCount` is passed in rather than derived, so the `ceil` formula lives only in the store. Owns its internal layout only; the consumer positions it.
+
+## The shell
+
+`app/layouts/default.vue` is a CSS grid of `var(--sidebar-width) minmax(0, 1fr)` under a full-width `var(--header-height)` header. **The shell owns the viewport and the document never scrolls:** the grid is `height: 100dvh` with `overflow: hidden`, so its rows resolve against a definite height and the header cannot scroll away. The sidebar and the main region are the two scroll panes, each `overflow-y: auto`.
+
+> **`minmax(0, 1fr)` + `min-width: 0` on the main region, and `min-height: 0` on both panes, are load-bearing** — without them the table never shrinks and the panes' `overflow` never engages (`decisions.md` → _The viewport lock lives in the shell, not in the records page_).
+
+Below `below-shell` the grid collapses to one column and the sidebar becomes `position: fixed` with `top: 0; bottom: 0` — anchored to the viewport rather than to the header it covers, and stating both edges because out of the grid it has no row to take its height from — translated off-canvas **and `visibility: hidden`** (translation alone leaves it off-screen but focusable), opened by a header toggle over a scrim, closing on Escape, scrim click, and route change. Sidebar `z-index: 50` / scrim `40`, both below `BaseModal`'s `100`. `BaseModal` teleports to `<body>`, so the shell's `overflow: hidden` cannot clip a dialog or the filter drawer.
+
+`DynamicTable` splits its rules by job: `--color-border-subtle` between rows (a rule _inside_ a surface), and `--color-border`/`-strong` for the container, the sticky-header rule and the pinned-column edge (the structure). A hovered row takes `--color-surface-row-hover`, deliberately lighter than the control hover. **Every cell takes the same inset**, `$cell-padding-y $cell-padding-x`, with no per-cell exception, and rows are `height: calc(var(--control-height) + #{$cell-padding-y * 2})` on `tbody td` — the two are one decision. Its root is the scroll container on **both** axes: `thead th` is `position: sticky; top: 0` and the Actions column is `position: sticky; right: 0`, with the corner cell sticky on both and above them. Column width is capped by `$column-max-width` on a wrapper **inside** the cell. Every one of these has a failure mode that is invisible until it bites — the sticky edges are shadows rather than borders, the actions cell needs its wrapper to stay a table-cell box, and the cap cannot go on the `td`; all four are in `decisions.md`.
+
+**The records page fills the pane rather than scrolling it.** `.records-page` is `display: flex; flex-direction: column; height: 100%`; breadcrumbs, the header row, the filter summary and the failure banner are the fixed band; `&__body` is `flex: 1; min-height: 0`. `DynamicTable` takes `flex: 0 1 auto; min-height: 0`, so it sizes to its rows and stops — a short result ends at its last row with the pager directly beneath, a long one shrinks to the pane and scrolls inside itself. Only the rows scroll. The empty states are centred by `margin-block: auto`, not by a `justify-content` on `&__body`; the skeleton is `flex: none` instead — it stands in for the table, so it takes the table's place rather than the middle of the pane.
+
+The table list is fetched **by the layout, once per session**, via `ensureTables()` under the key `app-tables`. The dashboard fetches nothing of its own — it renders the same list, and the `_count` on it is kept current by `applyTableRow` — the four writes that move a count answer with the table's refreshed row — rather than by a second request. A page that does fetch keys on what it fetches; a layout and a page must **never** share a key (`decisions.md` → _A layout and a page must never share a `useAsyncData` key_).
