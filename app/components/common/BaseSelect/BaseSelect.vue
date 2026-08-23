@@ -315,9 +315,67 @@ defineSlots<{
  */
 const isMultiple = computed(() => props.multiple !== undefined && props.multiple !== false)
 
+/*
+ * The sections below are a one-file exception: this setup block is several times the size of
+ * any other in the app, so a reader needs boundaries to find one behaviour in one place.
+ * Nothing else here uses them, and a second component wanting them is one to decompose instead.
+ */
+
+/* Options panel */
+
 const { open, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
 
 const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { matchWidth: true })
+
+const listboxId = panelId
+
+/**
+ * The cursor is a position the **keyboard** asked for, so opening does not create one: a ring
+ * drawn before the user has navigated reads as a choice already made. What opening keeps is the
+ * useful half — a long list arrives scrolled to the current value, without highlighting it.
+ */
+function openPanel() {
+  if (props.disabled) return
+
+  show()
+
+  void nextTick(() => {
+    // Searchable keeps focus in the field it is already in; otherwise it moves into the list,
+    // which is what `aria-activedescendant` on the `<ul>` then describes
+    if (props.searchable) triggerRef.value?.focus()
+    else listRef.value?.focus()
+
+    const index = selectedIndex()
+    if (index >= 0) scrollIntoView(index)
+  })
+}
+
+/** The button branch's control and the chevron on either branch both route through this. */
+function togglePanel() {
+  if (props.disabled) return
+
+  if (open.value) dismiss()
+  else openPanel()
+}
+
+function onControlClick() {
+  if (props.disabled) return
+
+  if (props.searchable) {
+    // Never a toggle: a click inside a text field places the caret, and closing on it would
+    // make it impossible to click into the middle of a term being edited. The chevron above is
+    // the unambiguous target, and it is the one that closes.
+    if (!open.value) openPanel()
+    triggerRef.value?.focus()
+    return
+  }
+
+  togglePanel()
+}
+
+/* end Options panel */
+
+/* Options and load status */
 
 const { searchDraft, visibleOptions, status, retry, reset } = useSelectOptions({
   options: () => props.options,
@@ -327,8 +385,6 @@ const { searchDraft, visibleOptions, status, retry, reset } = useSelectOptions({
   loadOptions: () => (props.searchable ? props.loadOptions : undefined),
 })
 
-const listboxId = panelId
-const listRef = ref<HTMLUListElement>()
 const statusRef = ref<HTMLParagraphElement>()
 
 /**
@@ -340,23 +396,49 @@ function retryButton(): HTMLButtonElement | null {
   return statusRef.value?.querySelector('button') ?? null
 }
 
-const {
-  activeIndex,
-  PAGE_STEP,
-  setActive,
-  scrollIntoView,
-  moveBy,
-  moveToFirst,
-  moveToLast,
-  typeAhead,
-  reset: resetCursor,
-} = useListboxNavigation({
-  options: () => visibleOptions.value,
-  listRef,
-  isOpen: open,
-  // Typing is the user placing the cursor; options merely arriving is not
-  shouldSeedCursor: () => props.searchable && searchDraft.value !== '',
+const statusText = computed(() => {
+  if (status.value === 'failed') return 'Could not load options.'
+  if (status.value === 'loading') return 'Searching…'
+  if (visibleOptions.value.length > 0) return ''
+
+  const typed = searchDraft.value.trim()
+
+  return typed === '' ? props.emptyLabel : `No results for “${typed}”`
 })
+
+/**
+ * `retry()` flips `status` to `loading` synchronously, which unmounts the button that was just
+ * pressed — without the handoff focus falls to `<body>`, exactly as it would for the clear
+ * button above. The panel stays open and shows `Searching…`.
+ */
+function onRetry() {
+  retry()
+  triggerRef.value?.focus()
+}
+
+/**
+ * Leaving the panel again. Forward, the panel is closed and the default is **not** cancelled:
+ * `dismiss()` returns focus to the control synchronously, so the browser then continues from
+ * there and one press leaves the select — what Tab means everywhere else. Backwards returns to
+ * the field with the panel still open, since the user is heading back to the term.
+ *
+ * Escape needs nothing here: it bubbles to the panel's own `@keydown.esc.stop`.
+ */
+function onRetryKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Tab') return
+
+  if (event.shiftKey) {
+    event.preventDefault()
+    triggerRef.value?.focus()
+    return
+  }
+
+  dismiss()
+}
+
+/* end Options and load status */
+
+/* Selection */
 
 /**
  * Selection is always a list internally, whatever the model's shape. That is the whole of
@@ -376,6 +458,44 @@ function commit(values: string[]) {
 }
 
 const showClear = computed(() => props.clearable && !props.disabled && selected.value.length > 0)
+
+/** -1 when nothing is chosen — "no selection" and "the top option" are not the same answer. */
+function selectedIndex(): number {
+  return visibleOptions.value.findIndex((option) => selected.value.includes(option.value))
+}
+
+function choose(option: ISelectOption) {
+  if (option.disabled) return
+
+  if (isMultiple.value) {
+    const next = selected.value.includes(option.value)
+      ? selected.value.filter((value) => value !== option.value)
+      : [...selected.value, option.value]
+
+    // The panel stays open: picking several values one at a time is the whole point
+    commit(next)
+    return
+  }
+
+  commit([option.value])
+  dismiss()
+}
+
+function chooseActive() {
+  const option = visibleOptions.value[activeIndex.value]
+  if (option) choose(option)
+}
+
+function clear() {
+  commit([])
+  // `showClear` follows the selection, so the button that was just clicked unmounts with it —
+  // without this, focus falls to `<body>`
+  triggerRef.value?.focus()
+}
+
+/* end Selection */
+
+/* Rendered selection */
 
 /**
  * Every option ever rendered, so a value keeps its label when an async search has replaced
@@ -433,51 +553,35 @@ const describedBy = computed(() => {
   return ids.length > 0 ? ids.join(' ') : undefined
 })
 
+/* end Rendered selection */
+
+/* Cursor and keyboard */
+
+const listRef = ref<HTMLUListElement>()
+
+const {
+  activeIndex,
+  PAGE_STEP,
+  setActive,
+  scrollIntoView,
+  moveBy,
+  moveToFirst,
+  moveToLast,
+  typeAhead,
+  reset: resetCursor,
+} = useListboxNavigation({
+  options: () => visibleOptions.value,
+  listRef,
+  isOpen: open,
+  // Typing is the user placing the cursor; options merely arriving is not
+  shouldSeedCursor: () => props.searchable && searchDraft.value !== '',
+})
+
 function optionId(index: number): string {
   return `${panelId}-option-${index}`
 }
 
 const activeId = computed(() => (activeIndex.value >= 0 ? optionId(activeIndex.value) : undefined))
-
-const statusText = computed(() => {
-  if (status.value === 'failed') return 'Could not load options.'
-  if (status.value === 'loading') return 'Searching…'
-  if (visibleOptions.value.length > 0) return ''
-
-  const typed = searchDraft.value.trim()
-
-  return typed === '' ? props.emptyLabel : `No results for “${typed}”`
-})
-
-function isPrintable(event: KeyboardEvent): boolean {
-  return event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
-}
-
-/** -1 when nothing is chosen — "no selection" and "the top option" are not the same answer. */
-function selectedIndex(): number {
-  return visibleOptions.value.findIndex((option) => selected.value.includes(option.value))
-}
-
-/**
- * The cursor is a position the **keyboard** asked for, so opening does not create one: a ring
- * drawn before the user has navigated reads as a choice already made. What opening keeps is the
- * useful half — a long list arrives scrolled to the current value, without highlighting it.
- */
-function openPanel() {
-  if (props.disabled) return
-
-  show()
-
-  void nextTick(() => {
-    // Searchable keeps focus in the field it is already in; otherwise it moves into the list,
-    // which is what `aria-activedescendant` on the `<ul>` then describes
-    if (props.searchable) triggerRef.value?.focus()
-    else listRef.value?.focus()
-
-    const index = selectedIndex()
-    if (index >= 0) scrollIntoView(index)
-  })
-}
 
 /**
  * ↑/↓ go through here rather than to `move` directly. With no cursor yet, the first press
@@ -498,100 +602,8 @@ function moveCursor(delta: number) {
   moveBy(delta)
 }
 
-/**
- * Any way text arrives opens the list — keystroke, paste, IME commit, drop. Driving this off
- * the model rather than off `keydown` is deliberate: a printable-key test misses paste
- * (`Ctrl+V` is excluded by definition and the pasted text fires no keydown of its own) and
- * misses IME composition, whose keydown is `Process` rather than the composed character.
- *
- * `v-model` already withholds the write until a composition commits, which is why this input
- * does not repeat `BaseInput`'s hand-rolled composition guard — that one exists only because
- * it binds `:value` + `@input` to dodge the `type="number"` cast.
- */
-watch(searchDraft, (value) => {
-  if (props.searchable && !props.disabled && value !== '' && !open.value) openPanel()
-})
-
-function choose(option: ISelectOption) {
-  if (option.disabled) return
-
-  if (isMultiple.value) {
-    const next = selected.value.includes(option.value)
-      ? selected.value.filter((value) => value !== option.value)
-      : [...selected.value, option.value]
-
-    // The panel stays open: picking several values one at a time is the whole point
-    commit(next)
-    return
-  }
-
-  commit([option.value])
-  dismiss()
-}
-
-function chooseActive() {
-  const option = visibleOptions.value[activeIndex.value]
-  if (option) choose(option)
-}
-
-function clear() {
-  commit([])
-  // `showClear` follows the selection, so the button that was just clicked unmounts with it —
-  // without this, focus falls to `<body>`
-  triggerRef.value?.focus()
-}
-
-/**
- * `retry()` flips `status` to `loading` synchronously, which unmounts the button that was just
- * pressed — without the handoff focus falls to `<body>`, exactly as it would for the clear
- * button above. The panel stays open and shows `Searching…`.
- */
-function onRetry() {
-  retry()
-  triggerRef.value?.focus()
-}
-
-/**
- * Leaving the panel again. Forward, the panel is closed and the default is **not** cancelled:
- * `dismiss()` returns focus to the control synchronously, so the browser then continues from
- * there and one press leaves the select — what Tab means everywhere else. Backwards returns to
- * the field with the panel still open, since the user is heading back to the term.
- *
- * Escape needs nothing here: it bubbles to the panel's own `@keydown.esc.stop`.
- */
-function onRetryKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Tab') return
-
-  if (event.shiftKey) {
-    event.preventDefault()
-    triggerRef.value?.focus()
-    return
-  }
-
-  dismiss()
-}
-
-/** The button branch's control and the chevron on either branch both route through this. */
-function togglePanel() {
-  if (props.disabled) return
-
-  if (open.value) dismiss()
-  else openPanel()
-}
-
-function onControlClick() {
-  if (props.disabled) return
-
-  if (props.searchable) {
-    // Never a toggle: a click inside a text field places the caret, and closing on it would
-    // make it impossible to click into the middle of a term being edited. The chevron above is
-    // the unambiguous target, and it is the one that closes.
-    if (!open.value) openPanel()
-    triggerRef.value?.focus()
-    return
-  }
-
-  togglePanel()
+function isPrintable(event: KeyboardEvent): boolean {
+  return event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 }
 
 /** Branch B: focus never leaves the input, so one dispatcher covers both open and closed. */
@@ -746,6 +758,24 @@ function onListKeydown(event: KeyboardEvent) {
   }
 }
 
+/* end Cursor and keyboard */
+
+/* Panel ↔ search */
+
+/**
+ * Any way text arrives opens the list — keystroke, paste, IME commit, drop. Driving this off
+ * the model rather than off `keydown` is deliberate: a printable-key test misses paste
+ * (`Ctrl+V` is excluded by definition and the pasted text fires no keydown of its own) and
+ * misses IME composition, whose keydown is `Process` rather than the composed character.
+ *
+ * `v-model` already withholds the write until a composition commits, which is why this input
+ * does not repeat `BaseInput`'s hand-rolled composition guard — that one exists only because
+ * it binds `:value` + `@input` to dodge the `type="number"` cast.
+ */
+watch(searchDraft, (value) => {
+  if (props.searchable && !props.disabled && value !== '' && !open.value) openPanel()
+})
+
 // Reopening must never inherit the last search, and an index into a list that has since been
 // refiltered means nothing
 watch(open, (isOpen) => {
@@ -754,6 +784,8 @@ watch(open, (isOpen) => {
   reset()
   resetCursor()
 })
+
+/* end Panel ↔ search */
 </script>
 
 <style lang="scss" scoped>
