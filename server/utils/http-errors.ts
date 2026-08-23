@@ -11,7 +11,7 @@ interface IPrismaErrorMessages {
 /**
  * Where a persistence fault becomes a response. `db/prisma-errors.ts` says what a Prisma error
  * **is**; this says what the caller answers with, and it is the one place the mapping is written —
- * all three services share it, so a constraint cannot mean 409 in one and 500 in another.
+ * every service shares it, so a constraint cannot mean 409 in one and 500 in another.
  *
  * Three properties are deliberate:
  *

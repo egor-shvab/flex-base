@@ -147,6 +147,10 @@ Fetch-then-check is a TOCTOU pattern and one forgotten branch away from a leak. 
 
 Ownership assertions live in `server/utils/ownership.ts` rather than in the services because they are cross-cutting: every service is reached through one, and none of them may reach back. They read `db/` for the `select` shapes and the row mappers, which is the direction `CLAUDE.md` §3 fixes — the earlier version imported `services/tables` and `services/fields` for exactly those two things, which put a util above the layer it serves.
 
+### Registration has no uniqueness pre-check
+
+`findUnique`-then-`create` is the same TOCTOU shape as fetch-then-check above: two requests for one email both see nothing, both insert, and the unique index refuses the loser as an unmapped 500. The `create` **is** the check, and `P2002` becomes the 409 through the shared mapping. The cost is that a duplicate pays for a bcrypt hash before being refused — which also closes the timing difference the pre-check gave away, since it answered before hashing.
+
 ### Ownership is obtained, not remembered
 
 Every table-scoped route used to open with the same `requireUser` → `routeParam` → `require*` preamble, which made the app's central rule a habit: a route that skipped it compiled, linted, type-checked and served another user's rows, and the only thing watching was a spec that enumerates the routes it already knows about — so a new route would be unprotected and untested by the same omission. The factories in `server/utils/handler.ts` invert it: **the check is what produces the context**, so there is no way to reach a `table` or its `fields` without having proven ownership of them. Lint closes the way around, refusing `#server/utils/auth` under `server/api/tables/*/**`.
