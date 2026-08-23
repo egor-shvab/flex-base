@@ -32,12 +32,7 @@
 
 <script setup lang="ts">
 import { computed, useId } from 'vue'
-import {
-  emptyFilterValueFor,
-  filterableFields,
-  queryColumns,
-  withFilterValue,
-} from '#shared/utils/filter'
+import { emptyFilterValueFor, filterableColumns, withFilterValue } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import { filterFor } from '~/field-types/registry'
@@ -59,12 +54,8 @@ const panelId = useId()
 
 const activeFilterCount = computed(() => Object.keys(props.filters).length)
 
-/**
- * The record's own columns filter alongside the table's fields (see `queryColumns`), minus any
- * column whose filter could not round-trip through the URL — a control that discards what is
- * typed into it is a dead control (`CLAUDE.md` §7).
- */
-const columns = computed(() => filterableFields(queryColumns(props.fields)))
+/** A control that discards what is typed into it is a dead control (`CLAUDE.md` §7). */
+const columns = computed(() => filterableColumns(props.fields))
 
 /**
  * Each field's control, resolved **once** rather than per render — `props` is a factory, and the

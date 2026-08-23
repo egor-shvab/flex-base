@@ -9,6 +9,7 @@ import {
 import {
   claimFilterParams,
   emptyFilterValueFor,
+  filterableColumns,
   filterableFields,
   filterParamNames,
   filterShapeFor,
@@ -177,6 +178,33 @@ describe('filterableFields', () => {
     const second = textField('company', { id: 'fld_second' })
 
     expect(filterableFields([first, second])).toEqual([first])
+  })
+})
+
+describe('filterableColumns', () => {
+  /**
+   * What the composition adds over `filterableFields` alone: the record's own columns are in the
+   * list, and in `queryColumns` order. None of the three is a reserved param name — they claim
+   * `recordNumber` and the two `_from`/`_to` pairs — so all three always survive the filter.
+   */
+  it('brackets the table’s fields with the record’s own columns', () => {
+    expect(filterableColumns([textField('company')]).map((field) => field.key)).toEqual([
+      RECORD_NUMBER_KEY,
+      'company',
+      CREATED_AT_KEY,
+      UPDATED_AT_KEY,
+    ])
+  })
+
+  it('still drops a field keyed like a reserved param from between them', () => {
+    const columns = filterableColumns([textField('company'), textField('search')])
+
+    expect(columns.map((field) => field.key)).toEqual([
+      RECORD_NUMBER_KEY,
+      'company',
+      CREATED_AT_KEY,
+      UPDATED_AT_KEY,
+    ])
   })
 })
 

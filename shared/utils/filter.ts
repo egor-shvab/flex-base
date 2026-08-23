@@ -157,6 +157,20 @@ export function filterableFields(fields: IField[]): IField[] {
 }
 
 /**
+ * The columns a table's filter surfaces render — its own fields bracketed by the record's own
+ * columns (`queryColumns`), minus any whose filter could not round-trip through the URL
+ * (`filterableFields`).
+ *
+ * The drawer and the summary both read this rather than composing the pair themselves, so a
+ * filter one can set and the other cannot chip is not a state either can reach on its own.
+ * Distinct from `filterableFields`, which answers the narrower question this is built from: of
+ * *these* fields, which claim a param at all.
+ */
+export function filterableColumns(fields: IField[]): IField[] {
+  return filterableFields(queryColumns(fields))
+}
+
+/**
  * `!Array.isArray` is load-bearing, not defensive: an array *is* a non-null object, so
  * without it a list-shaped value would narrow to a range and be read for bounds it does
  * not have. Every guard over `TFilterValue` has to separate the two object shapes.

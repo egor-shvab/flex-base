@@ -181,6 +181,11 @@ Item 3 depends on the outcome of P2.
 
 ### P4 — One helper for the filterable column list
 
+**Status:** done — 2026-08-23. `filterableFields` stayed exported as the underlying rule, with
+`filterableColumns` as the composed seam. Three `docs/architecture.md` passages were corrected
+alongside; two of them (§10's panel and summary entries) credited `queryColumns` for a list that was
+already `filterableFields` over it, so they were wrong before this change too.
+
 **Goal:**
 The filter drawer and the filter summary cannot drift on which columns are filterable.
 

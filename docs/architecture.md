@@ -42,8 +42,9 @@ The folders themselves are readable from `ls`; these are the rules a reader cann
   `recordQueryKey` serializes the same params to a stable string, for watchers that must fire on a
   changed query rather than a changed object.
 - **`claimFilterParams` resolves each param name to at most one field** — reserved names first, then
-  fields in order — and `filterableFields` is the set that claimed at least one, which is what the
-  drawer and the summary render from. Both halves read one `isReservedParam`. The param **claims**
+  fields in order — and `filterableFields` is the set that claimed at least one. The drawer and the
+  summary render from `filterableColumns`, which is that rule over `queryColumns`, so neither can
+  offer a filter the other cannot. Both halves read one `isReservedParam`. The param **claims**
   stay keyed by type: `scalar` and `list` claim the same single name and no multi-capable type is
   `range`, which is what keeps `filterParamNames` callable from `createField`, where only the type is
   known.
@@ -317,9 +318,9 @@ Three layers, dependencies pointing one way — `api` → `services` → `db` �
 - **`DynamicTable.vue`** — renders from `queryColumns(fields)` + `IRecord[]`, so **one** `columns` list drives header and body alike. Each cell is a `RecordFieldValue`. No branch on a key or a type anywhere in the template. Emits `edit`/`delete`/`sort`; the optional `sort` prop drives `aria-sort` and the header arrow. The row's **View** action emits nothing — it is a `<NuxtLink>` through `useDetailLink`, which is why the component takes a `tableId` prop: a generic renderer must not read that off the route itself.
 - **`RecordFieldValue.vue`** — one column of one record: `Not set`, or the cell component for that column, resolved through `app/field-types/cell-resolver.ts` (`readCellValue` reads `RECORD_COLUMNS` first and falls through to `record.data`; `cellComponent` likewise falls through to `FIELD_CELLS`). The seam that keeps the table and the detail dialog rendering a value the same way. An **empty array is blank** alongside `null` — without that a cleared multi-value field would render as nothing rather than say so.
 - **`RecordDetail.vue`** — the detail dialog's body: a `<dl>` over `queryColumns(fields)`, minus the record number (which names the dialog in its own heading). Values wrap instead of truncating — reading one in full is the point of the dialog. It does that by **not** declaring the table's `white-space: nowrap`, not by overriding a cell.
-- **`RecordsFilterPanel.vue`** — the filter drawer. One control per `queryColumns(fields)` entry from `FIELD_FILTERS`, bound to `filters[field.key]` falling back to the type's empty value. Rebuilt **in field order** rather than patched per key, so a shared URL is stable whichever control was touched, dropping anything `isFilterValueEmpty`.
+- **`RecordsFilterPanel.vue`** — the filter drawer. One control per `filterableColumns(fields)` entry from `FIELD_FILTERS`, bound to `filters[field.key]` falling back to the type's empty value. Rebuilt **in field order** rather than patched per key, so a shared URL is stable whichever control was touched, dropping anything `isFilterValueEmpty`.
 - **`RecordsTableSkeleton.vue`** — the body's third state, standing where the rows will be while a fetch is in flight with none to show. A `role="status"` naming itself through `.visually-hidden`, over `aria-hidden` bars. Its row and bar counts are **fixed constants**, never derived from `fields`: mid-navigation those still belong to the table being left, and this is a placeholder rather than a preview of what is coming.
-- **`RecordsFilterSummary.vue`** — the active filters stated **above** the data. Iterates `queryColumns(fields)` and looks each key up in the filter map — never `Object.entries(filters)`, which would surface a key with no field to pair it with — so chip order matches the drawer and the URL.
+- **`RecordsFilterSummary.vue`** — the active filters stated **above** the data. Iterates `filterableColumns(fields)` — the drawer's own list — and looks each key up in the filter map — never `Object.entries(filters)`, which would surface a key with no field to pair it with — so chip order matches the drawer and the URL.
 
 ### `app/components/fields/`
 
