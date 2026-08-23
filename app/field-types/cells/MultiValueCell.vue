@@ -22,7 +22,7 @@ import type { IMultiValueCellProps } from '~/field-types/types'
  * It is reached through `cellComponent`, never through `FIELD_CELLS` — the registry stays
  * keyed by type, and cardinality is resolved one layer out.
  *
- * Its value is a plain `string[]`: `toCellValueList` normalises at the seam and `RecordFieldValue`
+ * Its value is a plain `string[]`: `toValueList` normalises at the seam and `RecordFieldValue`
  * renders "Not set" for an empty one, so there is no blank case and no scalar case here.
  *
  * It renders **inline** rather than as a flex row, which is what lets a container truncate it —

@@ -63,7 +63,7 @@ export interface IFieldConfigSummaryProps {
  * it, because the two are opposites: this is the only cell that takes a list, and every other
  * one is the thing it delegates each entry to.
  *
- * Always a real array — `toCellValueList` normalises at the seam, so the pre-migration scalar case
+ * Always a real array — `toValueList` normalises at the seam, so the pre-migration scalar case
  * is handled in one place instead of in every cell that might meet one.
  */
 export interface IMultiValueCellProps {

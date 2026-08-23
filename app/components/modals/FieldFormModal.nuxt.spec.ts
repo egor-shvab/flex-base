@@ -17,9 +17,10 @@ import { mountTracked, unmountAll } from '~~/test/mount'
  * place the metadata layer is authored rather than consumed. Built on `BaseModal`, so its body
  * is teleported and every query goes to the document.
  *
- * The two fetches are registered rather than stubbed: the modal refreshes the table list on
- * mount so it stays self-contained, and reads the *target* table's fields directly rather than
- * through the fields store, which holds the table being edited and would be clobbered.
+ * The two fetches are registered rather than stubbed: the modal refreshes the table list itself
+ * so it stays self-contained — for RELATION only, which is why the gating case below can assert
+ * on a request count — and reads the *target* table's fields directly rather than through the
+ * fields store, which holds the table being edited and would be clobbered.
  */
 const TABLES = [
   { id: 'tbl_deals', name: 'Deals', _count: { fields: 2, records: 3 } },

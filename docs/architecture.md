@@ -104,7 +104,7 @@ It is paired with **`toValueList`** / **`toCellSingleValue`** (both `app/utils/r
 
 `types.ts` defines the shapes the modules and both control tables share:
 
-- `IAppFieldType<K>` — one type's whole client surface: `input`, `multiInput`, `filter`, `multiFilter`, `cell`, `icon`, `configSummary`. Required-and-nullable keys, never optional, so a new type states its position on each axis.
+- `IAppFieldType<K>` — one type's whole client surface: `input`, `multiInput`, `filter`, `multiFilter`, `cell`, `summary`, `multiSummary`, `icon`, `configSummary`. Required-and-nullable keys, never optional, so a new type states its position on each axis.
 - `IFieldControl<TValue>` — `component` + a `props(field)` factory + optional `toControl`/`fromControl` adapters.
 - `TRecordFieldControl` = `Required<IFieldControl<TRecordValue>>`, since a record input always adapts (a DOM control speaks strings and checkboxes, never `TRecordValue`) — which is why `DynamicForm` never branches on an optional adapter.
 - `TFilterSummary` + `IFilterSummaryContext` — a summariser and the one thing it may need beyond its value (only RELATION uses it, to resolve a linked record).

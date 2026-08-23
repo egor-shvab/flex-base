@@ -141,6 +141,13 @@ site"_ explains why both selects hardcode `searchable`; keep that.
 
 ### P3 — Documentation drift
 
+**Status:** done, with changes — 2026-08-23. Item 1 was in **two** files, not the one named:
+`app/field-types/types.ts` and `app/field-types/cells/MultiValueCell.vue`. Item 2 done as written.
+Item 3 was moot, P2 having landed. Three passages beyond the plan were also corrected, each a
+statement that was already false: the `FieldFormModal` spec's header still said the table list is
+refreshed "on mount" (drift P2 introduced), and `CLAUDE.md` §7 credited `useForm` with a `reset`
+member it has never returned — no call site uses one.
+
 **Goal:**
 Three stale passages corrected, so a grep for a named symbol finds it and a contract list is
 complete.
