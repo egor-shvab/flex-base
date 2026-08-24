@@ -1,5 +1,5 @@
 import type { TRecordFieldControl } from '~/field-types/types'
-import { toValueList } from '~/utils/record-value'
+import { toValueList } from '~/utils/value-shape'
 
 /**
  * TEXT, DATE, SELECT and RELATION all speak a plain string whose blank means "no value", never

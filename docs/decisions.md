@@ -299,7 +299,7 @@ Single → multi runs `widenToList` — one scoped `UPDATE` wrapping each stored
 
 Multi → single is a 400, in the same shape as `Relation target cannot be changed`. It is lossy, and there is no non-arbitrary answer to which of several values survives. A softer rule — allow it when no record holds more than one — costs a JSONB scan of the table on every field save to buy a case nobody has asked for.
 
-The consequence, and the reason the migration exists: a value written **before** the flip is a bare scalar. Two places tolerate one where a list is expected — `toValueList` (`app/utils/record-value.ts`), which the multi-value form control and the cell both normalise through, and `collectRelationTargets` on the server. Not defensive padding: a form opened from a stale page must not drop the value it is about to save back. The server keeps its own because it rejects non-string _elements_ as it goes, which is a stricter question than the client's.
+The consequence, and the reason the migration exists: a value written **before** the flip is a bare scalar. Two places tolerate one where a list is expected — `toValueList` (`app/utils/value-shape.ts`), which the multi-value form control and the cell both normalise through, and `collectRelationTargets` on the server. Not defensive padding: a form opened from a stale page must not drop the value it is about to save back. The server keeps its own because it rejects non-string _elements_ as it goes, which is a stricter question than the client's.
 
 **Sorting by the first value** is a choice, since a list has no intrinsic order. Opting out of sorting is the most honest and was rejected on cost: `DynamicTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy`. `jsonb_array_length` orders by how many, which nobody asked. The first value wins because it is explicable from the screen — it is the one already visible in the cell.
 
@@ -372,7 +372,7 @@ There is a real UX cost too: with a floor, typing one character either shows the
 
 `inputFor`, `filterFor` and `summaryFor` all sit in `registry.ts`. `cellComponent` sits in `cell-resolver.ts`, and folding it into `registry.ts` to match — which looks like the obvious tidy-up, and which `architecture.md` §3's table appears to invite — creates a **cycle**: it returns `MultiValueCell` for a multi-value field, and that component imports `FIELD_CELLS` back out of `registry.ts` to render each entry.
 
-`registry.ts` naming only the six per-type modules, and never the shared cell, is what keeps the directory acyclic. The split is by what each half reads: `cell-resolver.ts` for the two functions that consult the registries, `~/utils/record-value` for the two that only shape a value.
+`registry.ts` naming only the six per-type modules, and never the shared cell, is what keeps the directory acyclic. The split is by what each half reads: `cell-resolver.ts` for the two functions that consult the registries, `~/utils/value-shape` for the two that only shape a value.
 
 ### Inputs and filters are data; only cells are components
 
@@ -590,6 +590,14 @@ That conditional type has a runtime cost that is invisible until it bites: Vue c
 `isMultiple` (`props.multiple !== undefined && props.multiple !== false`) makes both spellings mean the same thing. **Never read `props.multiple` directly.** Widening the prop to a plain `boolean` would fix the cast and give back exactly the mismatch the conditional prevents, so the type stays and the read moved.
 
 Internally selection is **always** a `string[]`, whatever the model's shape: one normalisation in, one `commit` out, and keyboard, rendering and ARIA are written once. That is the whole cost of multi mode.
+
+### The scalar-or-list normalisation has one home, and its module is named for shape
+
+`toValueList` (`app/utils/value-shape.ts`) is the only implementation, and `BaseSelect` calls it like every other consumer. A second copy in the atom is what made its own "the one place" claim false, which costs more than the three lines saved: a reader who trusts that sentence looks in one place and misses the other.
+
+**The module is named for the shape, not for records, and that is the load-bearing half.** `BaseSelect` has no application-domain dependency and must not gain one to borrow a shape helper — sending a reader of a generic listbox to a record-named module, to read three paragraphs about JSONB migrations that are not why it is called, is the misdirection the name removes. `toCellSingleValue` staying beside it is why the module is not narrower still: the two are a pair, and splitting them to purify one would break a cohesion documented in three places.
+
+Rejected: keeping the duplicate; and having the atom import the helper from its old record-named home, which saves the same lines and leaves the misdirection in place.
 
 ### In `multiple`, the control shows a count, not chips
 

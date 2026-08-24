@@ -19,7 +19,7 @@ import { RECORD_COLUMNS } from '~/field-types/record-columns'
  * (`docs/decisions.md`).
  *
  * Only the registry-reading half lives here. The value shapers it pairs with — `toValueList` and
- * `toCellSingleValue` — are pure, and live together in `~/utils/record-value`.
+ * `toCellSingleValue` — are pure, and live together in `~/utils/value-shape`.
  */
 
 /** Module scope + `markRaw`, like the registries themselves — never a deep-proxied component. */

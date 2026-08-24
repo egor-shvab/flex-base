@@ -21,7 +21,7 @@ import type { IField } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
 import { isMultiValue } from '#shared/field-types/cardinality'
 import { cellComponent, readCellValue } from '~/field-types/cell-resolver'
-import { toCellSingleValue, toValueList } from '~/utils/record-value'
+import { toCellSingleValue, toValueList } from '~/utils/value-shape'
 
 const props = defineProps<{
   record: IRecord

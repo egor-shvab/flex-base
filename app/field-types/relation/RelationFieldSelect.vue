@@ -28,6 +28,7 @@ import { formatLinkedRecord } from '#shared/utils/record-label'
 import RelationOptionLabel from '~/field-types/relation/RelationOptionLabel.vue'
 import { useRelationsStore } from '~/stores/relations'
 import type { ISelectOption } from '~/types/select'
+import { toValueList } from '~/utils/value-shape'
 
 /**
  * The one control both relation registries name, for editing a record and for filtering one.
@@ -61,14 +62,12 @@ const model = defineModel<string | string[]>({ required: true })
 const relations = useRelationsStore()
 
 /**
- * The selection as a list, whatever the model's shape — the same normalisation `BaseSelect`
- * does internally, and what lets everything below be written once for both branches.
+ * The stored value of a relation field as the list it may hold — which is `toValueList`'s own
+ * question, so it is asked there rather than restated here, and everything below is written once
+ * for both branches. `BaseSelect` normalises its model too, but that is a control's own business
+ * and stays in the control (`docs/decisions.md`).
  */
-const linkedIds = computed<string[]>(() => {
-  if (Array.isArray(model.value)) return model.value
-
-  return model.value === '' ? [] : [model.value]
-})
+const linkedIds = computed<string[]>(() => toValueList(model.value))
 
 /** Typed proxies, so each branch hands `BaseSelect` exactly the model its generic expects. */
 const listModel = computed<string[]>({

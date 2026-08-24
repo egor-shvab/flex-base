@@ -219,6 +219,22 @@ Existing panel and summary specs pass unchanged; add one unit case for the new h
 
 ### P5 — One implementation of scalar-or-list → list
 
+**Status:** done — 2026-08-23, in two passes. First pass folded `RelationFieldSelect` into
+`toValueList` and left `BaseSelect`'s copy, reasoning that an atom should not import from a
+record-domain module. **P5a superseded that** — the coupling objection was real but the fix was to
+give the primitive an honest home, not to keep a second copy. See P5a below for the end state; the
+first pass's `docs/decisions.md` entry was replaced rather than added to.
+
+---
+
+### P5a — …and a neutrally-named home for it (follow-up to P5)
+
+**Status:** done — 2026-08-23. `app/utils/record-value.ts` → `app/utils/value-shape.ts`, keeping
+`toValueList` and `toCellSingleValue` together (they are documented in three places as a pair).
+`BaseSelect` now calls `toValueList` like every other consumer, so there is one implementation.
+Verified with the full suite plus `test:e2e` (140 pass), since this changes the selection path of
+every select in the app.
+
 **Goal:**
 `toValueList`'s claim to be "the one place" a non-array stored value is accounted for is true again.
 

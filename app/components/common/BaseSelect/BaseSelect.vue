@@ -236,6 +236,7 @@ import { useListboxNavigation } from '~/components/common/BaseSelect/useListboxN
 import { usePopover } from '~/composables/usePopover'
 import { useSelectOptions } from '~/components/common/BaseSelect/useSelectOptions'
 import type { ISelectOption, TLoadSelectOptions } from '~/types/select'
+import { toValueList } from '~/utils/value-shape'
 
 const props = withDefaults(
   defineProps<{
@@ -444,13 +445,12 @@ function onRetryKeydown(event: KeyboardEvent) {
  * Selection is always a list internally, whatever the model's shape. That is the whole of
  * what multi mode costs: one normalisation in, one in `commit` out, and everything between
  * — keyboard, rendering, ARIA — written once.
+ *
+ * The inward half is `toValueList`, which is shared rather than restated here — the same
+ * shape question the record layer asks, from a module named for shape and not for records
+ * (`docs/decisions.md`). `commit` below is its counterpart and stays this control's own.
  */
-const selected = computed<string[]>(() => {
-  const value = model.value
-  if (Array.isArray(value)) return value
-
-  return value === '' ? [] : [value]
-})
+const selected = computed<string[]>(() => toValueList(model.value))
 
 /** The cast is the seam between a generic model and a component that speaks lists. */
 function commit(values: string[]) {

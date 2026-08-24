@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toCellSingleValue, toValueList } from '~/utils/record-value'
+import { toCellSingleValue, toValueList } from '~/utils/value-shape'
 
 /**
  * The one place a stored value that is not yet an array is accounted for — which is what lets
