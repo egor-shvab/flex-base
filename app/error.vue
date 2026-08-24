@@ -25,18 +25,36 @@ useHead({ title: 'Something went wrong' })
 
 const isNotFound = computed(() => props.error.statusCode === 404)
 
-const title = computed(() => (isNotFound.value ? 'We couldn’t find that' : 'That link didn’t work'))
+/** A fault at our end, not a link the user got wrong — and the two must not read alike. */
+const isServerFault = computed(() => (props.error.statusCode ?? 0) >= 500)
+
+const title = computed(() => {
+  if (isNotFound.value) return 'We couldn’t find that'
+
+  return isServerFault.value ? 'Something went wrong' : 'That link didn’t work'
+})
 
 /**
- * A 404 is the only case where we know what was missing. Anything else reaching here is a
- * request the server refused to read — a hand-edited or truncated link is the usual cause —
- * so the message says that instead of guessing at a cause.
+ * Three cases, because three things can go wrong. A **404** names what was missing. A **5xx** is
+ * ours to own: the records page's own fetch reaches this boundary, so a failing endpoint used to
+ * be reported as "part of that web address could not be read" — blaming the user for a fault
+ * they could do nothing about. Anything else is a request the server refused to read, a
+ * hand-edited or truncated link being the usual cause.
+ *
+ * Both named cases take `statusMessage` where there is one, so `toPageError` stays the single
+ * place the wording is decided and the two layers cannot drift.
  */
-const message = computed(() =>
-  isNotFound.value
-    ? (props.error.statusMessage ?? 'The page or table you asked for no longer exists.')
-    : 'Part of that web address could not be read. Going back to your tables and trying again usually fixes it.',
-)
+const message = computed(() => {
+  if (isNotFound.value) {
+    return props.error.statusMessage ?? 'The page or table you asked for no longer exists.'
+  }
+
+  if (isServerFault.value) {
+    return `${props.error.statusMessage ?? 'Something went wrong at our end.'} Trying again in a moment usually fixes it.`
+  }
+
+  return 'Part of that web address could not be read. Going back to your tables and trying again usually fixes it.'
+})
 
 function goHome() {
   return clearError({ redirect: '/' })

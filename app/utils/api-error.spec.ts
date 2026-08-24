@@ -73,10 +73,22 @@ describe('toPageError', () => {
   })
 
   it('forwards the status it was given', () => {
-    expect(toPageError({ statusCode: 500 }).statusCode).toBe(500)
-    expect(toPageError({ statusCode: 500 }).statusMessage).toBe(
-      'That web address could not be read.',
-    )
+    expect(toPageError({ statusCode: 400 }).statusCode).toBe(400)
+    expect(toPageError({ statusCode: 503 }).statusCode).toBe(503)
+  })
+
+  /**
+   * This case used to assert a 500 read "That web address could not be read.", which was the
+   * 400 wording reaching a status it does not describe: the records page wraps its record fetch
+   * in the same `useAsyncData`, so a failing endpoint lands here and used to blame the user's
+   * link for a fault at our end. The assertion moved because the behaviour did.
+   */
+  it('owns a server fault rather than blaming the address', () => {
+    expect(toPageError({ statusCode: 500 })).toEqual({
+      statusCode: 500,
+      statusMessage: 'Something went wrong at our end.',
+    })
+    expect(toPageError({ statusCode: 503 }).statusMessage).toBe('Something went wrong at our end.')
   })
 
   it('defaults to 404 when the failure carried no status', () => {

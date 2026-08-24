@@ -234,6 +234,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
 import { useListboxNavigation } from '~/components/common/BaseSelect/useListboxNavigation'
 import { usePopover } from '~/composables/usePopover'
+import { optionValuesKey } from '~/components/common/BaseSelect/option-values-key'
 import { useSelectOptions } from '~/components/common/BaseSelect/useSelectOptions'
 import type { ISelectOption, TLoadSelectOptions } from '~/types/select'
 import { toValueList } from '~/utils/value-shape'
@@ -506,7 +507,7 @@ function clear() {
 const seen = ref(new Map<string, ISelectOption>())
 
 watch(
-  () => JSON.stringify([...props.options, ...visibleOptions.value].map((option) => option.value)),
+  () => optionValuesKey([...props.options, ...visibleOptions.value]),
   () => {
     const next = new Map(seen.value)
     for (const option of [...props.options, ...visibleOptions.value]) next.set(option.value, option)

@@ -1,5 +1,6 @@
 import { onBeforeUnmount, nextTick, readonly, ref, watch } from 'vue'
 import type { Ref } from 'vue'
+import { optionValuesKey } from '~/components/common/BaseSelect/option-values-key'
 import type { ISelectOption } from '~/types/select'
 
 /** How far PageUp / PageDown jump, and how long a type-ahead buffer survives. */
@@ -122,7 +123,7 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
   // owed. Keying on `isOpen` instead would make *opening* re-clamp a cursor a printable key had
   // just placed, which is the same bug from the other side.
   watch(
-    () => JSON.stringify(input.options().map((option) => option.value)),
+    () => optionValuesKey(input.options()),
     () => {
       if (!input.isOpen.value) return
       // A changed list re-clamps a cursor; it does not *create* one. Without this an async

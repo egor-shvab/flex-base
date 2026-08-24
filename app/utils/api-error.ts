@@ -21,14 +21,26 @@ export function getApiErrorMessage(error: unknown): string {
   )
 }
 
+/** The one place each status's wording is decided — `app/error.vue` renders what this returns. */
+function pageErrorMessage(statusCode: number): string {
+  if (statusCode === 404) return 'We couldn’t find that table.'
+  if (statusCode >= 500) return 'Something went wrong at our end.'
+
+  return 'That web address could not be read.'
+}
+
 /**
  * Turns a failed page fetch into the error the boundary renders.
  *
- * Only a 404 tells us what was wrong — the table is missing or belongs to someone else. Every
- * other status reaching a page load is a request the server refused to read (a malformed
- * `?search=` or `?sort=` in a hand-edited link), so the code is forwarded but no cause is
- * asserted. Hard-coding "Table not found" here is what previously made a 400 render as a
- * server error claiming a table that had just loaded did not exist.
+ * Three answers, because three things can go wrong. A **404** names its cause — the table is
+ * missing or belongs to someone else. A **5xx** is a fault at our end, and saying so matters:
+ * the records page wraps its record fetch in the same `useAsyncData`, so a failing endpoint
+ * reaches here and must not be reported as a bad link. Everything else — a 4xx — is a request
+ * the server refused to read, a malformed `?search=` or `?sort=` in a hand-edited link being the
+ * usual cause, so the code is forwarded and no cause is asserted.
+ *
+ * Hard-coding "Table not found" here is what previously made a 400 render as a server error
+ * claiming a table that had just loaded did not exist.
  */
 export function toPageError(error: { statusCode?: number }): {
   statusCode: number
@@ -36,9 +48,5 @@ export function toPageError(error: { statusCode?: number }): {
 } {
   const statusCode = error.statusCode ?? 404
 
-  return {
-    statusCode,
-    statusMessage:
-      statusCode === 404 ? 'We couldn’t find that table.' : 'That web address could not be read.',
-  }
+  return { statusCode, statusMessage: pageErrorMessage(statusCode) }
 }

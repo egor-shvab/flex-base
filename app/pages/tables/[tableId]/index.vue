@@ -137,13 +137,13 @@
     />
 
     <LazyRecordFormModal
-      v-if="recordModal"
-      :mode="recordModal.mode"
+      v-if="recordModalOpen"
+      :mode="editingRecord ? 'edit' : 'create'"
       :fields="fieldsStore.fields"
-      :record="recordModal.mode === 'edit' ? recordModal.record : undefined"
+      :record="editingRecord"
       :submit-handler="submitRecord"
-      @saved="recordModal = null"
-      @close="recordModal = null"
+      @saved="closeRecordModal"
+      @close="closeRecordModal"
     />
 
     <LazyRecordDetailModal
@@ -178,6 +178,7 @@ import { computed, ref, watch } from 'vue'
 import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { QUERY_DEBOUNCE_MS } from '~/composables/useDebouncedModel'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
+import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useRecordListQuery } from '~/composables/useRecordListQuery'
 import { useTableLoader } from '~/composables/useTableLoader'
@@ -187,8 +188,6 @@ import { useRelationsStore } from '~/stores/relations'
 import { toPageError } from '~/utils/api-error'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IRecord, TRecordData } from '#shared/types/record'
-
-type TRecordModal = { mode: 'create' } | { mode: 'edit'; record: IRecord }
 
 const route = useRoute()
 const loadTable = useTableLoader()
@@ -264,20 +263,18 @@ const rowsLoading = computed(() => recordsStore.pending && recordsStore.records.
 
 const filterPanelOpen = ref(false)
 
-const recordModal = ref<TRecordModal | null>(null)
-
-function openCreateRecord() {
-  recordModal.value = { mode: 'create' }
-}
-
-function openEditRecord(record: IRecord) {
-  recordModal.value = { mode: 'edit', record }
-}
+const {
+  open: recordModalOpen,
+  editing: editingRecord,
+  openCreate: openCreateRecord,
+  openEdit: openEditRecord,
+  close: closeRecordModal,
+} = useEntityFormModal<IRecord>()
 
 // Throws (400/404) propagate into RecordFormModal's useForm, which shows the error
 async function submitRecord(data: TRecordData) {
-  if (recordModal.value?.mode === 'edit') {
-    await recordsStore.updateRecord(tableId, recordModal.value.record.id, data, queryState.value)
+  if (editingRecord.value) {
+    await recordsStore.updateRecord(tableId, editingRecord.value.id, data, queryState.value)
     return
   }
 

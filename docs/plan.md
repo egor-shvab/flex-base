@@ -394,9 +394,14 @@ Item 2 is a **decision to take, not a foregone conclusion.**
 
 ## Deferred / Optional
 
-Identified, not scheduled. Each needs a judgement call that was not settled during the review.
+**All resolved — 2026-08-23.** Three implemented, one rejected (moved below). Kept here rather than
+deleted so the reasoning behind each is still findable.
 
-- **`useEntityFormModal` composable.** The create-or-edit dialog state machine —
+- **Done.** `useEntityFormModal` — built without the discriminated union the note assumed, which is
+  what let each page keep its own `editingRecord` / `editingField` / `editingTable` and drop the
+  `mode === 'edit' ? … : undefined` ternary from all three templates. The blocking question was
+  settled: the "records page is not split further" entry rejects splitting into **components**, and
+  a composable carries no markup. Original note: the create-or-edit dialog state machine —
   `type TXModal = { mode: 'create' } | { mode: 'edit'; x: X }`, `openCreateX`, `openEditX`, a
   branching `submitX`, and `@saved`/`@close` both nulling the ref — is written three times
   (`app/pages/index.vue`, `app/pages/tables/[tableId]/settings.vue`,
@@ -406,16 +411,18 @@ Identified, not scheduled. Each needs a judgement call that was not settled duri
   split further"_ does not cover it. That entry rejects splitting the page into **components** on
   the grounds that each seam trades markup for plumbing; a composable carries no markup and no
   props, so it reads as a different trade — but this was not settled.
-- **`optionValuesKey(options)` helper.** `JSON.stringify(options.map(o => o.value))` is used as a
+- **Done.** `optionValuesKey` — in `components/common/BaseSelect/`, and it **keeps**
+  `JSON.stringify` rather than the `join` this note proposed: the saving is microseconds on a list
+  capped at 200, and a separator can appear inside a SELECT choice's free text, which would key two
+  values as one. Original note: `JSON.stringify(options.map(o => o.value))` is used as a
   watch key in `BaseSelect.vue` and `useListboxNavigation.ts`. Both uses are load-bearing and
   commented, but both build a throwaway JSON string per dependency tick.
   `options.map(o => o.value).join('�')` in a shared module inside `BaseSelect/` (already the
   home for component-private modules, `CLAUDE.md` §7) is cheaper and names the intent.
-- **Bound `BaseSelect`'s `seen` map.** It accumulates every option ever rendered for the component's
-  lifetime and rebuilds the whole `Map` on each change — unbounded for a relation picker in a filter
-  drawer that stays mounted across many searches. Its purpose only needs the currently **selected**
-  values plus the current list. Latent, not observed.
-- **`toPageError` and 5xx.** `app/utils/api-error.ts` maps every non-404 to "That web address could
+- **Done, and larger than described.** `app/error.vue` **ignores `statusMessage` for every non-404**
+  and hardcodes its own copy, so a `toPageError` branch alone would have fixed a string nobody
+  renders. Both layers got the 5xx branch, and the boundary — which had no test at all — got one.
+  Original note: `app/utils/api-error.ts` maps every non-404 to "That web address could
   not be read." Correct for the 400 case its TSDoc describes, but the records page also wraps
   `recordsStore.fetchRecords` in `useAsyncData`, so a 500 renders as a claim about the URL. A
   `statusCode >= 500` branch with generic copy would close it. Arguably below the bar.
@@ -425,6 +432,11 @@ Identified, not scheduled. Each needs a judgement call that was not settled duri
 ## Rejected
 
 Considered during the review and ruled out. Do not reconsider without a new reason.
+
+- **Bounding `BaseSelect`'s `seen` map.** The premise was wrong: the filter drawer and the record
+  form are both `v-if`, so the component unmounts on close and the map dies with it — its lifetime
+  is one drawer session, not the page's. That leaves a correctness-neutral micro-optimisation on
+  subtle code in a component with 132 specs, for growth nobody has observed.
 
 - **Splitting `BaseSelect.vue`** (1037 lines). Already rejected in `docs/decisions.md` with the right
   argument, the setup block is sectioned, and the two genuinely separable pieces

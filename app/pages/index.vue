@@ -30,12 +30,12 @@
     </ul>
 
     <LazyTableFormModal
-      v-if="formModal"
-      :mode="formModal.mode"
-      :initial-name="formModal.mode === 'rename' ? formModal.table.name : ''"
+      v-if="tableModalOpen"
+      :mode="editingTable ? 'rename' : 'create'"
+      :initial-name="editingTable?.name ?? ''"
       :submit-handler="submitTable"
-      @saved="formModal = null"
-      @close="formModal = null"
+      @saved="closeTableModal"
+      @close="closeTableModal"
     />
 
     <LazyConfirmModal
@@ -55,15 +55,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useSeoMeta } from '#imports'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
+import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useTablesStore } from '~/stores/tables'
 import type { ITableListItem } from '#shared/types/table'
 
 useSeoMeta({ title: 'Your tables' })
-
-type TFormModal = { mode: 'create' } | { mode: 'rename'; table: ITableListItem }
 
 // No fetch of its own: the layout's `ensureTables` loads the list, and the counts it carries
 // are kept honest at the source — the records and fields stores tell this one when a write
@@ -71,21 +69,18 @@ type TFormModal = { mode: 'create' } | { mode: 'rename'; table: ITableListItem }
 // over that, which fixed Home and left the sidebar's counts stale everywhere else.
 const tablesStore = useTablesStore()
 
-const formModal = ref<TFormModal | null>(null)
-
-function openCreateModal() {
-  formModal.value = { mode: 'create' }
-}
-
-function openRenameModal(table: ITableListItem) {
-  formModal.value = { mode: 'rename', table }
-}
+const {
+  open: tableModalOpen,
+  editing: editingTable,
+  openCreate: openCreateModal,
+  openEdit: openRenameModal,
+  close: closeTableModal,
+} = useEntityFormModal<ITableListItem>()
 
 // Throws (e.g. 409) propagate into TableFormModal's useForm, which shows the error
 async function submitTable(name: string) {
-  if (!formModal.value) return
-  if (formModal.value.mode === 'rename') {
-    await tablesStore.renameTable(formModal.value.table.id, { name })
+  if (editingTable.value) {
+    await tablesStore.renameTable(editingTable.value.id, { name })
   } else {
     await tablesStore.createTable({ name })
   }

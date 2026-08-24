@@ -474,7 +474,9 @@ Unconditional `deep` was rejected: it costs nothing on a scalar (`traverse` retu
 
 It has to render when data fetching is exactly what failed.
 
-It exists because both inner pages forwarded the upstream `statusCode` but hard-coded `statusMessage: 'Table not found'` — so a malformed `?search=`/`?sort=` returned 400, failed Nuxt's `is404` check, and rendered the 500 template claiming a table that had just loaded did not exist. `toPageError` now asserts a cause only for a 404.
+It exists because both inner pages forwarded the upstream `statusCode` but hard-coded `statusMessage: 'Table not found'` — so a malformed `?search=`/`?sort=` returned 400, failed Nuxt's `is404` check, and rendered the 500 template claiming a table that had just loaded did not exist.
+
+**Three branches, because three things go wrong**, and the same mistake had been made again one status along: everything that was not a 404 read "part of that web address could not be read", so a **5xx** blamed the user's link for a fault at our end. The records page wraps its record fetch in the same `useAsyncData`, so a failing endpoint genuinely reaches this boundary. `toPageError` decides the wording for all three and the page echoes it, so the layers cannot drift — which is the half that was missing before: `error.vue` read `statusMessage` on the 404 path only, and every other message it rendered was its own.
 
 ### The records store never mirrors query params
 

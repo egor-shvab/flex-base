@@ -72,12 +72,12 @@
     />
 
     <LazyFieldFormModal
-      v-if="fieldModal"
-      :mode="fieldModal.mode"
-      :field="fieldModal.mode === 'edit' ? fieldModal.field : undefined"
+      v-if="fieldModalOpen"
+      :mode="editingField ? 'edit' : 'create'"
+      :field="editingField"
       :submit-handler="submitField"
-      @saved="fieldModal = null"
-      @close="fieldModal = null"
+      @saved="closeFieldModal"
+      @close="closeFieldModal"
     />
 
     <LazyConfirmModal
@@ -115,6 +115,7 @@
 import { computed, ref } from 'vue'
 import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
+import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
 import { useTablesStore } from '~/stores/tables'
@@ -123,8 +124,6 @@ import { formatNumber, formatTimestamp } from '~/utils/format'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
-
-type TFieldModal = { mode: 'create' } | { mode: 'edit'; field: IField }
 
 const route = useRoute()
 const loadTable = useTableLoader()
@@ -177,20 +176,18 @@ async function submitRename(name: string) {
   await tablesStore.renameTable(tableId, { name })
 }
 
-const fieldModal = ref<TFieldModal | null>(null)
-
-function openCreateField() {
-  fieldModal.value = { mode: 'create' }
-}
-
-function openEditField(field: IField) {
-  fieldModal.value = { mode: 'edit', field }
-}
+const {
+  open: fieldModalOpen,
+  editing: editingField,
+  openCreate: openCreateField,
+  openEdit: openEditField,
+  close: closeFieldModal,
+} = useEntityFormModal<IField>()
 
 // Throws (400/409) propagate into FieldFormModal's useForm, which shows the error
 async function submitField(input: TFieldInput) {
-  if (fieldModal.value?.mode === 'edit') {
-    await fieldsStore.updateField(tableId, fieldModal.value.field.id, input)
+  if (editingField.value) {
+    await fieldsStore.updateField(tableId, editingField.value.id, input)
   } else {
     await fieldsStore.createField(tableId, input)
   }
