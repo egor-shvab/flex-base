@@ -482,6 +482,14 @@ A mirrored copy would have to survive SSR hydration to stay correct. Every actio
 
 The paging contract that follows is in `architecture.md` §10. Without it the URL would show one page while the table showed another, or the refetch would happen twice.
 
+### `stores/fields.ts` and `stores/relations.ts` carry no per-table guard, and the records store's is not a pattern to copy
+
+Both were examined for one and both are correct without it, for different reasons.
+
+**Fields.** The obvious guard — clear `fields` whenever `fetchFields` is called for a different table — is worse than the gap it closes. The records page awaits `loadTable` _before_ `fetchRecords`, so for the whole duration of the fields request `pending` is `false`, `rowsLoading` is therefore `false`, and an emptied `fields` would put **"This table has no fields yet"** on screen for a network round trip. Without it, what is left is the microtask between `fetchFields` resolving and `fetchRecords`'s synchronous prologue clearing the rows. **The ordering of the states in the page body is what holds this** — the skeleton is tested ahead of the fieldless state deliberately, not incidentally — and the visible half is pinned by the "switching tables shows the skeleton" case in `architecture.md` §11.
+
+**Relations.** `linkedByField` is keyed by **field id, not table**, and the detail dialog drills across tables: `useRecordDetail` caches linked records for fields belonging to a table the page is not about, and those ids never pass through `loadOptions`, which is the only writer of `tableIdByField`. There is no correct key to clear on. Merge-only and unbounded is the design rather than an oversight — the entries are `{ number, label }` pairs and the ceiling is one session's browsing.
+
 ### The records store is not a duplicated cache, and `useAsyncData` would not replace it
 
 It looks like one — it holds rows, a pending flag, a failure flag and a per-table guard, all of which `useAsyncData` offers. **Retiring it was proposed and rejected on the numbers.** Only a handful of the behaviours its spec pins are that cache; the rest are paging arithmetic and write orchestration `useAsyncData` has no opinion about: `isDefaultView`, the page a created record lands on, the `lastPage` step-back on delete, the in-place splice on an edit in the default view, "refetch the page it is actually on, not the one the query names". Those do not disappear with the store — they move to a composable that reads `total` and `page` out of `data.value` rather than from plain refs, which is the same logic made harder to read.

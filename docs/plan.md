@@ -338,6 +338,21 @@ rather than that entry — but confirm that reading before starting. If it is re
 
 ### P7 — Store guards and one dependency move
 
+**Status:** done, with changes — 2026-08-23. Only item 3 was a code change. Items 1 and 2 were
+**researched and deliberately not implemented** — this is the finished state, not two skipped
+tasks:
+
+- **Item 1 (fields guard) would have been a regression.** Clearing `fields` on a table mismatch
+  makes `hasFields` false for the whole fields request, during which `pending` is still false and
+  `rowsLoading` does not fire — so the body would show "This table has no fields yet" for a network
+  round trip, in place of the sub-microtask gap it was meant to close.
+- **Item 2 (relations clear) has no correct key.** `linkedByField` is keyed by field, not table, and
+  the detail dialog caches fields of tables the page is not about; those ids never reach
+  `tableIdByField`. Merge-only is the design.
+
+Both are recorded in `docs/decisions.md` so neither is re-attempted, with a pointer in the relations
+store where the growth is noticed.
+
 **Goal:**
 Two singleton stores state their own per-table invariants instead of relying on a sibling's render
 order; one dev-only package leaves `dependencies`.

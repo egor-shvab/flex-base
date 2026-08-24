@@ -11,6 +11,11 @@ import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
  *
  * Linked records arrive from two places that never disagree, because the server builds both
  * from the same rule: the candidates a picker offers, and the ones a page of records came with.
+ *
+ * **Merge-only, and never cleared between tables** — unlike the records store, which drops its
+ * state when the table changes. Keying by field is what rules a per-table clear out: the detail
+ * dialog drills across tables and caches fields the current page is not about
+ * (`docs/decisions.md`).
  */
 export const useRelationsStore = defineStore('relations', () => {
   const api = useRelationsApi()
