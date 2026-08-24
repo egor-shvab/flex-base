@@ -14,10 +14,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { useId } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 import type { TRecordData, TRecordValue } from '#shared/types/record'
+import { useFieldControls } from '~/composables/useFieldControls'
 import { inputFor } from '~/field-types/registry'
 
 const props = defineProps<{
@@ -32,18 +33,8 @@ const emit = defineEmits<{ update: [key: string, value: TRecordValue] }>()
 
 const formId = useId()
 
-/**
- * Each field's control, resolved **once** rather than per render — `props` is a factory, and the
- * adapters are part of the same answer. A record input always adapts, so both are required here
- * and neither call site branches.
- */
-const controls = computed(() =>
-  props.fields.map((field) => {
-    const { component, props: propsFor, toControl, fromControl } = inputFor(field)
-
-    return { field, component, props: propsFor(field), toControl, fromControl }
-  }),
-)
+/** A record input always adapts, so both adapters are required here and nothing branches. */
+const controls = useFieldControls(() => props.fields, inputFor)
 
 type TRecordControl = (typeof controls.value)[number]
 

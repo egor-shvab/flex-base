@@ -275,6 +275,18 @@ The `BaseSelect` half is a **decision to take, not a foregone conclusion.** Do n
 
 ### P6 — `useFieldControls` for the two metadata-driven renderers
 
+**Status:** done, with changes — 2026-08-23. The open question was settled by the project's own
+precedent, not by preference: `docs/decisions.md` → _`usePopover` and `useAnchoredPosition`_ ends
+"the extraction waited for a second consumer on purpose", and there are exactly two.
+
+Two departures from the plan as written, both deliberate. **Only the map moved** — the composable is
+generic on the control, so `DynamicForm` keeps its adapters as `Required` and the drawer keeps its
+optional ones. The plan's identity defaults were dropped: they would have collapsed that difference
+and erased the guarantee `architecture.md` §3 records, so **the filter panel's two adapter ternaries
+remain by design, not by oversight.** It lives in `app/composables/` per the decision taken while
+planning, which the `BaseSelect/` precedent argues against — the entry in `decisions.md` records that
+the trade was taken knowingly.
+
 **Goal:**
 One home for "resolve a field's control, apply its adapters both ways".
 

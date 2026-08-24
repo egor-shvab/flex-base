@@ -35,6 +35,7 @@ import { computed, useId } from 'vue'
 import { emptyFilterValueFor, filterableColumns, withFilterValue } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import { useFieldControls } from '~/composables/useFieldControls'
 import { filterFor } from '~/field-types/registry'
 import { formatMatchingRecords } from '~/utils/format'
 
@@ -57,17 +58,8 @@ const activeFilterCount = computed(() => Object.keys(props.filters).length)
 /** A control that discards what is typed into it is a dead control (`CLAUDE.md` §7). */
 const columns = computed(() => filterableColumns(props.fields))
 
-/**
- * Each field's control, resolved **once** rather than per render — `props` is a factory, and the
- * adapters are part of the same answer, so they ride along instead of being looked up again.
- */
-const controls = computed(() =>
-  columns.value.map((field) => {
-    const { component, props: propsFor, toControl, fromControl } = filterFor(field)
-
-    return { field, component, props: propsFor(field), toControl, fromControl }
-  }),
-)
+/** A filter adapts only where it must, so the two adapters below stay optional. */
+const controls = useFieldControls(() => columns.value, filterFor)
 
 type TFilterControl = (typeof controls.value)[number]
 

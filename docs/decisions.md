@@ -450,6 +450,14 @@ What the page is left holding is wiring, and wiring is what a page is for. Contr
 that came out of the settings page: self-contained markup, its own stylesheet, and one prop. That is
 the test a split has to pass here, not the line count.
 
+### Both metadata renderers resolve their controls through one composable
+
+`DynamicForm` and `RecordsFilterPanel` differ only in their source and their resolver, so the map between them is `useFieldControls`. The property it exists to hold is that a registry entry's `props` is a **factory**: resolving inside a `computed` builds each control's props once per change of the field list, not per render. That was asserted in a comment in each file and checked in neither — inlining a resolver back into a template would lose it silently in one of them, which is why the composable's spec pins the call count.
+
+**No identity defaults for a missing adapter.** `inputFor` answers `TRecordFieldControl` — `Required<IFieldControl<TRecordValue>>` — and the composable is generic so that arity survives: `DynamicForm` still never branches, and the drawer still does. Defaulting an absent adapter to `(v) => v` would collapse both into one shape and turn a type-level guarantee into a runtime accident.
+
+It sits in `app/composables/` rather than beside its two callers, so only its TSDoc scopes it. That is the weaker guard — see _`useListboxNavigation` was extracted for SRP_, where a directory was used to decline imports a comment could not — and it was taken knowingly, on the grounds that this is an ordinary composable in the register of `useForm` and `useDeleteConfirm` beside it.
+
 ### `useDeleteConfirm` catches instead of re-throwing
 
 **Every call site binds `confirm` directly to a template's `@confirm`**, so there was no caller to catch anything — a refused delete became an unhandled promise rejection while the dialog sat open saying nothing. Re-throwing is only a contract worth keeping where someone is positioned to honour it.
