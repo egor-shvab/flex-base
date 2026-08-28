@@ -57,11 +57,11 @@
       @clear="clearNarrowing"
     />
 
-    <p v-if="recordsStore.failed" class="records-page__failed" role="alert">
+    <BaseErrorBanner v-if="recordsStore.failed" class="records-page__failed">
       That view couldn’t be loaded. Check the web address, or
       <NuxtLink :to="`/tables/${tableId}`" class="text-link">start again with all records</NuxtLink
       >.
-    </p>
+    </BaseErrorBanner>
 
     <!-- Everything above this is the fixed band; the rows below are the only thing that scrolls -->
     <div class="records-page__body">
@@ -365,9 +365,9 @@ const {
     width: rem(220);
   }
 
+  // Placement only — `BaseErrorBanner` owns the look. The rule still reaches it because a child
+  // component's root element carries the parent's scope.
   &__failed {
-    @include error-banner;
-
     margin-bottom: rem(16);
   }
 

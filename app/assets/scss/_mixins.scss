@@ -177,16 +177,6 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   }
 }
 
-/// The form-level server error banner.
-@mixin error-banner {
-  margin: 0;
-  padding: rem(10) rem(12);
-  border-radius: var(--radius-md);
-  background: var(--color-danger-tint);
-  font-size: var(--font-size-sm);
-  color: var(--color-danger);
-}
-
 /// A page's title row: heading on the left, the remaining actions on the right. Either
 /// side may be one control or a `cluster` of them — the two table pages group the title
 /// with its primary action, the dashboard passes a bare button. A group on the left must
