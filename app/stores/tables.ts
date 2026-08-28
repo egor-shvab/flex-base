@@ -68,6 +68,11 @@ export const useTablesStore = defineStore('tables', () => {
     tables.value = tables.value.map((table) => (table.id === row.id ? row : table))
   }
 
+  /** One cached list row by id — the single place `tables` is read by identity. */
+  function tableRow(tableId: string): ITableListItem | undefined {
+    return tables.value.find((table) => table.id === tableId)
+  }
+
   async function deleteTable(tableId: string) {
     await api.remove(tableId)
     tables.value = tables.value.filter((table) => table.id !== tableId)
@@ -83,5 +88,6 @@ export const useTablesStore = defineStore('tables', () => {
     renameTable,
     deleteTable,
     applyTableRow,
+    tableRow,
   }
 })

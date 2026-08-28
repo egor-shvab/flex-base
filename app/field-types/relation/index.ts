@@ -2,7 +2,6 @@ import { markRaw } from 'vue'
 import type { IField } from '#shared/types/field'
 import { blankIsNull, listValue } from '~/field-types/adapters'
 import RelationFieldCell from '~/field-types/relation/RelationFieldCell.vue'
-import RelationFieldConfigSummary from '~/field-types/relation/RelationFieldConfigSummary.vue'
 import RelationFieldSelect from '~/field-types/relation/RelationFieldSelect.vue'
 import { summariseLinkedRecord, summariseList } from '~/field-types/prose'
 import type { IAppFieldType } from '~/field-types/types'
@@ -53,11 +52,22 @@ export const RELATION_APP_FIELD_TYPE: IAppFieldType<'RELATION'> = {
     props: (field) => relationProps(field, 'All', true),
   },
   cell: markRaw(RelationFieldCell),
-  // The only entry needing state beyond its own value. A filtered id outside the capped
-  // candidate list resolves to nothing, and degrades the same way a cell does.
+  // The only filter summary needing state beyond its own value. A filtered id outside the
+  // capped candidate list resolves to nothing, and degrades the same way a cell does.
   summary: (value, field, ctx) => `is ${summariseLinkedRecord(ctx, field, String(value))}`,
   multiSummary: (value, field, ctx) =>
     summariseList(value, (id) => summariseLinkedRecord(ctx, field, id)),
   icon: 'mdi:link-variant',
-  configSummary: markRaw(RelationFieldConfigSummary),
+  // The one config summary needing state beyond its field, for the same reason the filter
+  // summary above does: the target's *name* is not in the metadata, only its id.
+  //
+  // The fallback is a phrase, never blank. `ensureTables` never throws, so the store may hold
+  // nothing at all — and the caller has already drawn the separator in front of this by the
+  // time that is known, so an empty string would leave it dangling.
+  configSummary: (field, ctx) => {
+    const targetTableId = field.options?.targetTableId
+    const name = targetTableId === undefined ? undefined : ctx.tableName(targetTableId)
+
+    return `links to ${name ?? 'another table'}`
+  },
 }

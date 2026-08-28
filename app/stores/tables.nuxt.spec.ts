@@ -230,4 +230,33 @@ describe('useTablesStore', () => {
       expect(store.tables).toEqual([])
     })
   })
+
+  /**
+   * The single place `tables` is read by identity — the settings page's cached row and the field
+   * list's relation target both go through it. Reads only what is cached: `ensureTables` may
+   * legitimately have loaded nothing, and a miss must never become a request.
+   */
+  describe('tableRow', () => {
+    it('answers with the cached row for a known id', async () => {
+      listing = [table('tbl_1', 'Deals', { fields: 3, records: 7 })]
+      const store = useTablesStore()
+      await store.fetchTables()
+
+      expect(store.tableRow('tbl_1')).toEqual(table('tbl_1', 'Deals', { fields: 3, records: 7 }))
+    })
+
+    it('answers undefined for an unknown id, and never fetches', async () => {
+      listing = [table('tbl_1', 'Deals')]
+      const store = useTablesStore()
+      await store.fetchTables()
+      calls.length = 0
+
+      expect(store.tableRow('tbl_missing')).toBeUndefined()
+      expect(calls).toHaveLength(0)
+    })
+
+    it('answers undefined before the list has loaded', () => {
+      expect(useTablesStore().tableRow('tbl_1')).toBeUndefined()
+    })
+  })
 })

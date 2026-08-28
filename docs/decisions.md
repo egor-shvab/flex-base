@@ -374,9 +374,9 @@ There is a real UX cost too: with a floor, typing one character either shows the
 
 `registry.ts` naming only the six per-type modules, and never the shared cell, is what keeps the directory acyclic. The split is by what each half reads: `cell-resolver.ts` for the two functions that consult the registries, `~/utils/value-shape` for the two that only shape a value.
 
-### Inputs and filters are data; only cells are components
+### Inputs, filters and config summaries are data; only cells are components
 
-A cell carries markup and scoped styles (an icon, tabular figures), not just a value, so a `format | component` union would be worse than one uniform contract. Inputs and filters carry neither — they name a `Base*` control plus adapters, so they stay rows in a table.
+A cell carries markup and scoped styles (an icon, tabular figures), not just a value, so a `format | component` union would be worse than one uniform contract. Inputs and filters carry neither — they name a `Base*` control plus adapters, so they stay rows in a table. A config summary carries less still: it is one phrase, so it is a function returning a string, and what it needs beyond the field arrives as a context the caller owns — a registry entry resolving a store itself would read Pinia's module-global instance rather than the app's, which is a cross-request hazard under SSR.
 
 **`RelationFieldSelect` is the one exception** — `architecture.md` §3 says what it does, and `CLAUDE.md` §9 states the rule drawn from it. Everything else stays a row.
 

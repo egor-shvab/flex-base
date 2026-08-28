@@ -1,10 +1,9 @@
 import { markRaw } from 'vue'
 import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
-import { choiceOptions } from '#shared/field-types/select'
+import { choiceOptions, choiceValues } from '#shared/field-types/select'
 import type { IField } from '#shared/types/field'
 import { blankIsNull, listValue } from '~/field-types/adapters'
 import SelectFieldCell from '~/field-types/select/SelectFieldCell.vue'
-import SelectFieldConfigSummary from '~/field-types/select/SelectFieldConfigSummary.vue'
 import { summariseList } from '~/field-types/prose'
 import type { IAppFieldType } from '~/field-types/types'
 import { shouldSearch } from '~/utils/select'
@@ -70,5 +69,11 @@ export const SELECT_APP_FIELD_TYPE: IAppFieldType<'SELECT'> = {
   // The summary already reads as a list, for the same reason `multiFilter` is `null`
   multiSummary: null,
   icon: 'mdi:form-dropdown',
-  configSummary: markRaw(SelectFieldConfigSummary),
+  // Through `choiceValues` rather than `options?.choices?.length`, so a field whose options are
+  // missing or malformed counts 0 instead of rendering nothing
+  configSummary: (field) => {
+    const count = choiceValues(field).length
+
+    return `${count} ${count === 1 ? 'choice' : 'choices'}`
+  },
 }

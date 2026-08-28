@@ -43,22 +43,6 @@ export interface IFieldCellProps {
 }
 
 /**
- * What a field's config-summary component receives: the field and nothing else. It states how one
- * type is *configured* — a SELECT's choice count, a RELATION's target — beside the type's own
- * word, so a field list can be read without opening a dialog per row.
- *
- * No `value`, which is what separates it from `IFieldCellProps`: a config summary is about the
- * field's metadata, and no record is involved.
- *
- * Cardinality is deliberately **not** its business. `isMultiValue(field)` is guarded by
- * `MULTI_VALUE_BY_TYPE` and answers for any type, so the caller renders that part itself rather
- * than every config-summary component repeating it.
- */
-export interface IFieldConfigSummaryProps {
-  field: IField
-}
-
-/**
  * `MultiValueCell`'s own contract. Separate from `IFieldCellProps` rather than a widening of
  * it, because the two are opposites: this is the only cell that takes a list, and every other
  * one is the thing it delegates each entry to.
@@ -75,6 +59,28 @@ export interface IMultiValueCellProps {
 export interface IFilterSummaryContext {
   linkedRecordFor: (fieldId: string, recordId: string) => ILinkedRecord | undefined
 }
+
+/**
+ * What a *config* summariser may need beyond the field itself. Only RELATION uses it, and only
+ * because a target table's name is not in the field's own metadata — the same reason its filter
+ * summary takes `IFilterSummaryContext`. The caller owns the store; a registry entry resolving
+ * one itself would read Pinia's module-global instance rather than the app's, which is not a
+ * thing to do under SSR.
+ */
+export interface IFieldConfigSummaryContext {
+  tableName: (tableId: string) => string | undefined
+}
+
+/**
+ * How one field's *configuration* reads beside its type — a SELECT's choice count, a RELATION's
+ * target — so a field list can be read without opening a dialog per row.
+ *
+ * No value of any kind: a config summary is about metadata, which is what separates it from
+ * `TFilterSummary` and from `IFieldCellProps` alike. Cardinality is deliberately not its
+ * business either — `isMultiValue(field)` answers that for every type, so the caller renders
+ * that part itself rather than every entry repeating it.
+ */
+export type TFieldConfigSummary = (field: IField, ctx: IFieldConfigSummaryContext) => string
 
 /**
  * What an active filter reads as in the summary line above the table.
@@ -103,7 +109,7 @@ export type TFilterSummary = (
  * refuses to configure. `configSummary`'s `null` means something different: not "no list form"
  * but "fully described by its own word", which is why it has no multi counterpart at all —
  * `isMultiValue(field)` answers cardinality for every type, so the field manager renders that
- * part itself rather than two components repeating it.
+ * part itself rather than two entries repeating it.
  */
 export interface IAppFieldType<K extends TFieldType> {
   input: TRecordFieldControl
@@ -115,5 +121,5 @@ export interface IAppFieldType<K extends TFieldType> {
   multiSummary: TFilterSummary | null
   /** The glyph shown beside the type's word — never instead of it. */
   icon: string
-  configSummary: Component | null
+  configSummary: TFieldConfigSummary | null
 }

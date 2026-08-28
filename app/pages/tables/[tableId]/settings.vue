@@ -56,6 +56,7 @@
 
       <TableFieldList
         :fields="fieldsStore.fields"
+        :summary-context="summaryContext"
         @create="openCreateField"
         @edit="openEditField"
         @delete="deleteTarget = $event"
@@ -119,6 +120,7 @@ import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
 import { useTablesStore } from '~/stores/tables'
+import type { IFieldConfigSummaryContext } from '~/field-types/types'
 import { toPageError } from '~/utils/api-error'
 import { formatNumber, formatTimestamp } from '~/utils/format'
 import type { IBreadcrumb } from '~/types/breadcrumb'
@@ -144,7 +146,7 @@ if (error.value) {
  * page's `data`, so reading the name from here is what keeps the heading and the breadcrumbs
  * in step without a refetch.
  */
-const cachedTableRow = computed(() => tablesStore.tables.find((table) => table.id === tableId))
+const cachedTableRow = computed(() => tablesStore.tableRow(tableId))
 
 /**
  * Preferred over the fetched table, and falling back to it: `ensureTables` never throws, so
@@ -168,6 +170,18 @@ const recordCount = computed(() =>
 )
 
 const fieldCount = computed(() => fieldsStore.fields.length)
+
+/**
+ * What a field's configuration line may need beyond the field's own metadata — only a RELATION's
+ * target table name. The page owns the store, so the lookup is handed down rather than reached
+ * for inside a registry entry.
+ *
+ * A plain object rather than a computed: `tableName` is *called* during the list's render, so it
+ * is `tables` the render effect tracks, and this needs no identity of its own.
+ */
+const summaryContext: IFieldConfigSummaryContext = {
+  tableName: (id) => tablesStore.tableRow(id)?.name,
+}
 
 const renameOpen = ref(false)
 

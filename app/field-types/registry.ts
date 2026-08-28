@@ -11,6 +11,7 @@ import { TEXT_APP_FIELD_TYPE } from '~/field-types/text'
 import type {
   IAppFieldType,
   IFieldControl,
+  TFieldConfigSummary,
   TFilterSummary,
   TRecordFieldControl,
 } from '~/field-types/types'
@@ -166,14 +167,15 @@ export const FIELD_TYPE_ICONS: Record<TFieldType, string> = {
 /**
  * How a field's *configuration* reads beside its type — what the field manager shows so a
  * table's shape can be read without opening a dialog per row. Every entry honours
- * `IFieldConfigSummaryProps`.
+ * `TFieldConfigSummary`: a phrase, not a component, since none of them carries markup or a
+ * style — the same reason `FIELD_TYPE_ICONS` above is a plain map.
  *
  * The one control-adjacent registry with **no `MULTI_*` counterpart**: cardinality is answered
  * for every type by `isMultiValue(field)`, so the caller renders that part itself instead of
- * two components repeating it. That is also why callers index this map directly rather than
+ * two entries repeating it. That is also why callers index this map directly rather than
  * through a resolver — there is no override for one to consult.
  */
-export const FIELD_CONFIG_SUMMARIES: Record<TFieldType, Component | null> = {
+export const FIELD_CONFIG_SUMMARIES: Record<TFieldType, TFieldConfigSummary | null> = {
   TEXT: MODULES.TEXT.configSummary,
   NUMBER: MODULES.NUMBER.configSummary,
   BOOLEAN: MODULES.BOOLEAN.configSummary,

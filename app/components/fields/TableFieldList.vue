@@ -29,9 +29,9 @@
                  which would space one separator differently from the next. -->
             <p class="field-row__meta">
               <span>{{ FIELD_TYPE_LABELS[field.type] }}</span>
-              <template v-if="FIELD_CONFIG_SUMMARIES[field.type]">
+              <template v-if="configSummaries.get(field.id)">
                 <span class="field-row__sep" aria-hidden="true">·</span>
-                <component :is="FIELD_CONFIG_SUMMARIES[field.type]" :field="field" />
+                <span>{{ configSummaries.get(field.id) }}</span>
               </template>
               <template v-if="isMultiValue(field)">
                 <span class="field-row__sep" aria-hidden="true">·</span>
@@ -64,10 +64,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { FIELD_TYPE_LABELS } from '#shared/field-types/registry'
 import type { IField } from '#shared/types/field'
 import { isMultiValue } from '#shared/field-types/cardinality'
 import { FIELD_CONFIG_SUMMARIES, FIELD_TYPE_ICONS } from '~/field-types/registry'
+import type { IFieldConfigSummaryContext } from '~/field-types/types'
 
 /**
  * A table's fields as the settings page lists them: one row per field stating its type, how it is
@@ -77,19 +79,40 @@ import { FIELD_CONFIG_SUMMARIES, FIELD_TYPE_ICONS } from '~/field-types/registry
  * It renders **metadata**, which is why it does not sit in `components/records/` — those draw
  * records *from* metadata. Nothing here branches on a field type: the word comes from
  * `FIELD_TYPE_LABELS`, the glyph from `FIELD_TYPE_ICONS`, the configuration line from
- * `FIELD_CONFIG_SUMMARIES`, and the cardinality from `isMultiValue`.
+ * `FIELD_CONFIG_SUMMARIES`, and the cardinality from `isMultiValue`. The one thing a summary
+ * may need that a field does not carry — a relation target's name — arrives as
+ * `summaryContext`, so the store stays the page's business rather than this component's.
  *
  * The section around it — its heading, the field count and the primary "Add field" — stays on the
  * page, because `.section-head` is shared with the Table section above it. Only the empty state's
  * own call to action lives here, and it emits rather than acting.
  */
-defineProps<{ fields: IField[] }>()
+const props = defineProps<{
+  fields: IField[]
+  summaryContext: IFieldConfigSummaryContext
+}>()
 
 const emit = defineEmits<{
   create: []
   edit: [field: IField]
   delete: [field: IField]
 }>()
+
+/**
+ * The configuration phrase per field, keyed by id. Only the types that state something about how
+ * they are configured land in the map, so a missing key is what leaves the separator undrawn —
+ * a type saying nothing must not draw one.
+ */
+const configSummaries = computed(
+  () =>
+    new Map(
+      props.fields.flatMap((field) => {
+        const summarise = FIELD_CONFIG_SUMMARIES[field.type]
+
+        return summarise ? [[field.id, summarise(field, props.summaryContext)] as const] : []
+      }),
+    ),
+)
 </script>
 
 <style lang="scss" scoped>
