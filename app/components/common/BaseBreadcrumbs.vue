@@ -1,8 +1,8 @@
 <template>
-  <nav class="app-breadcrumbs" aria-label="Breadcrumb">
-    <ol class="app-breadcrumbs__list">
-      <li v-for="(item, index) in items" :key="item.label" class="app-breadcrumbs__item">
-        <NuxtLink v-if="item.to" :to="item.to" class="app-breadcrumbs__link">
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs__list">
+      <li v-for="(item, index) in items" :key="item.label" class="breadcrumbs__item">
+        <NuxtLink v-if="item.to" :to="item.to" class="breadcrumbs__link">
           {{ item.label }}
         </NuxtLink>
         <span v-else aria-current="page">{{ item.label }}</span>
@@ -10,7 +10,7 @@
         <Icon
           v-if="index < items.length - 1"
           name="mdi:chevron-right"
-          class="app-breadcrumbs__sep"
+          class="breadcrumbs__sep"
           aria-hidden="true"
         />
       </li>
@@ -30,7 +30,7 @@ defineProps<{ items: IBreadcrumb[] }>()
 </script>
 
 <style lang="scss" scoped>
-.app-breadcrumbs {
+.breadcrumbs {
   margin-bottom: rem(12);
 
   &__list {

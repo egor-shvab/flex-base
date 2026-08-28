@@ -1,6 +1,6 @@
 <template>
   <section class="records-page">
-    <AppBreadcrumbs :items="breadcrumbs" />
+    <BaseBreadcrumbs :items="breadcrumbs" />
 
     <header class="records-page__header">
       <div class="records-page__header-main">

@@ -74,7 +74,7 @@ A plan file exists only where a request asked for one (§1). While it exists it 
 app/                         # Nuxt 4 frontend (client)
   assets/scss/               # global SCSS (main.scss + partials, incl. _mixins.scss)
   components/
-    app/                     # the shell — AppSidebar, AppBreadcrumbs
+    app/                     # the shell — AppSidebar
     common/                  # generic UI atoms, all `Base*` — one gets a folder (see below)
     fields/                  # surfaces that render field *metadata* rather than records
     modals/                  # dialogs built on BaseModal

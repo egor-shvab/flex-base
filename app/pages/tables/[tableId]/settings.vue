@@ -1,6 +1,6 @@
 <template>
   <div class="table-page">
-    <AppBreadcrumbs :items="breadcrumbs" />
+    <BaseBreadcrumbs :items="breadcrumbs" />
 
     <header class="table-page__header">
       <div class="table-page__heading">

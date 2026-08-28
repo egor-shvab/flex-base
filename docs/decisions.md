@@ -512,7 +512,7 @@ The chain was three `??`s, and `??` skips only `null`/`undefined` — so a respo
 
 `/tables/:id` is a string prefix of `/tables/:id/settings`, so a path check is ambiguous — and an equality check would drop the highlight on the settings page. The param marks the table active on both.
 
-### `AppBreadcrumbs` is prop-driven
+### `BaseBreadcrumbs` is prop-driven
 
 Each page passes its own `IBreadcrumb[]` because the pages already hold the `ITable` they fetched — which is also what produces their 404. Deriving the name from the store in the layout would quietly delete that guard.
 
