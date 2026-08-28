@@ -7,7 +7,7 @@ import { CREATED_AT_KEY, RECORD_NUMBER_KEY, UPDATED_AT_KEY } from '#shared/const
 import type { IField } from '#shared/types/field'
 import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord } from '#shared/types/record'
-import DynamicTable from '~/components/records/DynamicTable.vue'
+import RecordsTable from '~/components/records/RecordsTable.vue'
 import { numberField, record, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
@@ -21,7 +21,7 @@ const RECORDS: IRecord[] = [
 ]
 
 function table(props: { fields?: IField[]; records?: IRecord[]; sort?: IRecordSort | null } = {}) {
-  return mountTracked(DynamicTable, {
+  return mountTracked(RecordsTable, {
     props: {
       tableId: TABLE_ID,
       fields: props.fields ?? FIELDS,
@@ -37,7 +37,7 @@ const headers = (wrapper: TTable) => wrapper.findAll('thead th')
 const headerNames = (wrapper: TTable) => headers(wrapper).map((th) => th.text().trim())
 const rows = (wrapper: TTable) => wrapper.findAll('tbody tr')
 
-describe('DynamicTable', () => {
+describe('RecordsTable', () => {
   afterEach(unmountAll)
 
   // A row's View action goes through `useDetailLink`; a RELATION cell reads the relations store
@@ -158,16 +158,16 @@ describe('DynamicTable', () => {
     it('marks only the sorted column’s icon active', async () => {
       const wrapper = await table({ sort: { key: 'company', direction: 'asc' } })
 
-      const active = wrapper.findAll('.dynamic-table__sort-icon--active')
+      const active = wrapper.findAll('.records-table__sort-icon--active')
       expect(active).toHaveLength(1)
-      expect(headers(wrapper)[1]!.find('.dynamic-table__sort-icon--active').exists()).toBe(true)
+      expect(headers(wrapper)[1]!.find('.records-table__sort-icon--active').exists()).toBe(true)
     })
 
     it('makes every column header a sort button, the record’s own included', async () => {
       const wrapper = await table()
 
       // Every header but Actions carries one
-      expect(wrapper.findAll('.dynamic-table__sort')).toHaveLength(headers(wrapper).length - 1)
+      expect(wrapper.findAll('.records-table__sort')).toHaveLength(headers(wrapper).length - 1)
     })
 
     it.each([
@@ -178,7 +178,7 @@ describe('DynamicTable', () => {
     ])('emits sort with the %s key', async (key, index) => {
       const wrapper = await table()
 
-      await wrapper.findAll('.dynamic-table__sort')[index]!.trigger('click')
+      await wrapper.findAll('.records-table__sort')[index]!.trigger('click')
 
       expect(wrapper.emitted('sort')).toEqual([[key]])
     })
@@ -228,7 +228,7 @@ describe('DynamicTable', () => {
       const wrapper = await table()
 
       for (const row of rows(wrapper)) {
-        expect(row.findAll('.dynamic-table__actions-group > *')).toHaveLength(3)
+        expect(row.findAll('.records-table__actions-group > *')).toHaveLength(3)
       }
     })
   })

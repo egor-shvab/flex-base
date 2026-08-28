@@ -1,7 +1,7 @@
 <template>
   <BaseModal :title="mode === 'create' ? 'New record' : 'Edit record'" @close="emit('close')">
     <form class="record-form" novalidate @submit.prevent="submit">
-      <DynamicForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
+      <RecordForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
 
       <BaseErrorBanner :message="serverError" />
 

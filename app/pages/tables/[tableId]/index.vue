@@ -103,7 +103,7 @@
         </BaseEmptyState>
 
         <template v-else>
-          <DynamicTable
+          <RecordsTable
             class="records-page__table"
             :table-id="tableId"
             :fields="fieldsStore.fields"

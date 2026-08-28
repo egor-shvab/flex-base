@@ -1,6 +1,6 @@
 <template>
-  <div class="dynamic-table">
-    <table class="dynamic-table__table">
+  <div class="records-table">
+    <table class="records-table__table">
       <thead>
         <tr>
           <th
@@ -8,19 +8,19 @@
             :key="column.key"
             scope="col"
             :aria-sort="ariaSort(column)"
-            :class="{ 'dynamic-table__number-head': column.key === RECORD_NUMBER_KEY }"
+            :class="{ 'records-table__number-head': column.key === RECORD_NUMBER_KEY }"
           >
-            <button type="button" class="dynamic-table__sort" @click="emit('sort', column.key)">
-              <span class="dynamic-table__sort-label">{{ column.name }}</span>
+            <button type="button" class="records-table__sort" @click="emit('sort', column.key)">
+              <span class="records-table__sort-label">{{ column.name }}</span>
               <Icon
                 :name="sortIcon(column)"
-                class="dynamic-table__sort-icon"
-                :class="{ 'dynamic-table__sort-icon--active': sort?.key === column.key }"
+                class="records-table__sort-icon"
+                :class="{ 'records-table__sort-icon--active': sort?.key === column.key }"
                 aria-hidden="true"
               />
             </button>
           </th>
-          <th scope="col" class="dynamic-table__actions-head">Actions</th>
+          <th scope="col" class="records-table__actions-head">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -28,14 +28,14 @@
           <td v-for="column in columns" :key="column.key">
             <!-- The wrapper is what caps the column: a `max-width` on the `td` itself would
                  not (see the style block) -->
-            <div class="dynamic-table__cell">
+            <div class="records-table__cell">
               <RecordFieldValue :record="record" :column="column" />
             </div>
           </td>
           <!-- The flex row is a wrapper, not the cell: a `display: flex` td is no longer a
                table cell, and a sticky box cannot move outside its containing block -->
-          <td class="dynamic-table__actions">
-            <div class="dynamic-table__actions-group">
+          <td class="records-table__actions">
+            <div class="records-table__actions-group">
               <!-- A link, not a button, like every other way into the record dialog: reading a
                    record is a place, and the row must not have to mediate a navigation -->
               <BaseButton
@@ -127,7 +127,7 @@ $cell-padding-x: rem(16);
 // and a column bounded by its header name both land on `$column-max-width`.
 $content-max-width: $column-max-width - $cell-padding-x * 2;
 
-.dynamic-table {
+.records-table {
   // Both axes: given a bounded height, long tables scroll here instead of growing the page
   overflow: auto;
   border: 1px solid var(--color-border);
@@ -215,12 +215,12 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
 
     // The corner of both pinned axes: it has to sit above the sticky header row *and* the
     // pinned column, and carry both of their edges. Spelled out rather than `&__…`, because
-    // `&` is `.dynamic-table thead th` here.
+    // `&` is `.records-table thead th` here.
     //
     // It is the one header with no sort button to carry the inset, so `th { padding: 0 }`
     // would leave the label flat against the divider while every label beside it sits a full
     // `$cell-padding-x` in. It takes the same pair directly instead.
-    &.dynamic-table__actions-head {
+    &.records-table__actions-head {
       right: 0;
       z-index: 2;
       padding: $cell-padding-y $cell-padding-x;
@@ -254,8 +254,8 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
 
     // Keyboard focus lights it too — on hover alone the affordance only ever fully resolves
     // for a pointer.
-    &:hover .dynamic-table__sort-icon,
-    &:focus-visible .dynamic-table__sort-icon {
+    &:hover .records-table__sort-icon,
+    &:focus-visible .records-table__sort-icon {
       opacity: 1;
     }
   }
@@ -314,7 +314,7 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
 
     // The pinned cell paints its own background, so it has to follow the row — otherwise
     // the hovered row has a white notch at its right edge
-    .dynamic-table__actions {
+    .records-table__actions {
       background: var(--color-surface-row-hover);
     }
   }

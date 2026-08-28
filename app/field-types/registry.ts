@@ -20,7 +20,7 @@ import type {
  * own key, so a module annotated for the wrong one fails here rather than handing the filter
  * panel a control whose value shape does not match.
  *
- * Every map below is a total literal assembled from it, so `DynamicForm`, `DynamicTable` and
+ * Every map below is a total literal assembled from it, so `RecordForm`, `RecordsTable` and
  * the filter panel never learn which types there are — and adding a `TFieldType` is a compile
  * error until this file declares it.
  *
@@ -184,7 +184,7 @@ export const FIELD_CONFIG_SUMMARIES: Record<TFieldType, Component | null> = {
 
 /**
  * The control that edits one field — the single place a field's cardinality is resolved on the
- * form side, so `DynamicForm` never learns that `multiple` exists any more than it knows which
+ * form side, so `RecordForm` never learns that `multiple` exists any more than it knows which
  * field types there are.
  */
 export function inputFor(field: IField): TRecordFieldControl {

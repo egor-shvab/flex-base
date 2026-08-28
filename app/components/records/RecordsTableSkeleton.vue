@@ -30,7 +30,7 @@ const BAR_COUNT = 3
     grid-template-columns: 1fr rem(150) rem(100);
     gap: rem(20);
     align-items: center;
-    // The row height `DynamicTable` derives from `--control-height` plus its cell inset on both
+    // The row height `RecordsTable` derives from `--control-height` plus its cell inset on both
     // sides. That inset is a component-local SCSS variable there and cannot be reached from here,
     // so the figure is restated — it has to move whenever that pair does, or the placeholder rows
     // stop lining up with the real ones and the swap jumps.

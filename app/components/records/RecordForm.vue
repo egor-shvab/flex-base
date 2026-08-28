@@ -1,5 +1,5 @@
 <template>
-  <div class="dynamic-form">
+  <div class="record-fields">
     <component
       :is="control.component"
       v-for="control in controls"
@@ -50,7 +50,7 @@ function applyValue(control: TRecordControl, model: TFilterValue) {
 </script>
 
 <style lang="scss" scoped>
-.dynamic-form {
+.record-fields {
   @include stack;
 }
 </style>

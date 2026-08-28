@@ -34,14 +34,14 @@ defineProps<IMultiValueCellProps>()
 <style lang="scss" scoped>
 // `inline`, and that is the whole design. It was `inline-flex`, which made the list a single
 // **atomic** inline box to whatever contained it — and an atomic box is the one thing
-// `text-overflow: ellipsis` cannot reach inside. So an over-full list in `DynamicTable` was
+// `text-overflow: ellipsis` cannot reach inside. So an over-full list in `RecordsTable` was
 // hard-clipped at the cell edge with nothing to say values were missing: the entries did not
 // even shrink to hint at it, because a flex item's automatic minimum size floors it at its own
 // content. Plain inline puts the entries in the cell's own inline formatting context, where the
 // cap it already carries applies — the values that fit are drawn in full, and the rest are
 // dropped in favour of an ellipsis, exactly as a long TEXT value has always behaved.
 //
-// It is `DynamicTable`'s `white-space: nowrap` that keeps this to one line, not a property
+// It is `RecordsTable`'s `white-space: nowrap` that keeps this to one line, not a property
 // here; `RecordDetail` simply does not impose it, so the same markup wraps there.
 //
 // The same fact from the other side is in `docs/decisions.md`: `BaseBadge` truncates *itself*

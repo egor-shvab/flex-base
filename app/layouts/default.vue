@@ -88,7 +88,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .app-layout {
   display: grid;
   // `minmax(0, 1fr)` is load-bearing: without it the main column's min-content width is
-  // DynamicTable's full intrinsic width, so it never shrinks, `overflow-x` never
+  // RecordsTable's full intrinsic width, so it never shrinks, `overflow-x` never
   // engages, and the whole document scrolls sideways instead of the table.
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-rows: var(--header-height) 1fr;

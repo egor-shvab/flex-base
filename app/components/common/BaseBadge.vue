@@ -56,7 +56,7 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
   // the box. 14px of text at `tight` is 17.5, so the content sits well inside 24.
   height: rem(24);
   line-height: var(--line-height-tight);
-  // Never wider than whatever bounds it — `DynamicTable`'s capped cell is the case that
+  // Never wider than whatever bounds it — `RecordsTable`'s capped cell is the case that
   // matters. Inert everywhere the badge already fits.
   max-width: 100%;
   // Inline only: `height` sizes the box, so block padding would be a second number that has
@@ -80,7 +80,7 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
   //
   // A pseudo-element rather than an `<i>`: an empty `content` contributes no accessible
   // object, so the dot stays the redundant encoding it is (the word carries the meaning),
-  // and `DynamicTable` does not pay a DOM node per SELECT cell. A glyph would be wrong
+  // and `RecordsTable` does not pay a DOM node per SELECT cell. A glyph would be wrong
   // twice over — §8 bans text glyphs as icons, and a non-empty `content` string does
   // reach the accessibility tree.
   &--dot {

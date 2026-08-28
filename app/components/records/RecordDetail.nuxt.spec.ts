@@ -8,7 +8,7 @@ import { record, relationField, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
- * The dialog's body: the same columns `DynamicTable` renders, stacked as a definition list.
+ * The dialog's body: the same columns `RecordsTable` renders, stacked as a definition list.
  * Nothing here branches on field type — the cells do that, and `RecordFieldValue` has its own
  * spec — so what is worth pinning is the column *set*, which is the one thing that could
  * silently disagree with the row the dialog was opened from.
@@ -28,7 +28,7 @@ describe('RecordDetail', () => {
       props: { fields: FIELDS, record: record() },
     })
 
-    // `queryColumns` order, which is what `DynamicTable` renders too
+    // `queryColumns` order, which is what `RecordsTable` renders too
     expect(terms(wrapper)).toEqual(['Company', 'stage', 'Created at', 'Updated at'])
   })
 

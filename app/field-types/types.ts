@@ -22,7 +22,7 @@ export interface IFieldControl<TValue extends TFilterValue> {
 
 /**
  * A record input always adapts — a DOM control speaks strings and checkboxes, never
- * `TRecordValue` — so both directions are mandatory and `DynamicForm` never branches.
+ * `TRecordValue` — so both directions are mandatory and `RecordForm` never branches.
  */
 export type TRecordFieldControl = Required<IFieldControl<TRecordValue>>
 

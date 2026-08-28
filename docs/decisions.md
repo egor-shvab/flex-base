@@ -301,7 +301,7 @@ Multi → single is a 400, in the same shape as `Relation target cannot be chang
 
 The consequence, and the reason the migration exists: a value written **before** the flip is a bare scalar. Two places tolerate one where a list is expected — `toValueList` (`app/utils/value-shape.ts`), which the multi-value form control and the cell both normalise through, and `collectRelationTargets` on the server. Not defensive padding: a form opened from a stale page must not drop the value it is about to save back. The server keeps its own because it rejects non-string _elements_ as it goes, which is a stricter question than the client's.
 
-**Sorting by the first value** is a choice, since a list has no intrinsic order. Opting out of sorting is the most honest and was rejected on cost: `DynamicTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy`. `jsonb_array_length` orders by how many, which nobody asked. The first value wins because it is explicable from the screen — it is the one already visible in the cell.
+**Sorting by the first value** is a choice, since a list has no intrinsic order. Opting out of sorting is the most honest and was rejected on cost: `RecordsTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy`. `jsonb_array_length` orders by how many, which nobody asked. The first value wins because it is explicable from the screen — it is the one already visible in the cell.
 
 ### `jsonb_exists_any`, never the `?|` operator
 
@@ -452,9 +452,9 @@ the test a split has to pass here, not the line count.
 
 ### Both metadata renderers resolve their controls through one composable
 
-`DynamicForm` and `RecordsFilterPanel` differ only in their source and their resolver, so the map between them is `useFieldControls`. The property it exists to hold is that a registry entry's `props` is a **factory**: resolving inside a `computed` builds each control's props once per change of the field list, not per render. That was asserted in a comment in each file and checked in neither — inlining a resolver back into a template would lose it silently in one of them, which is why the composable's spec pins the call count.
+`RecordForm` and `RecordsFilterPanel` differ only in their source and their resolver, so the map between them is `useFieldControls`. The property it exists to hold is that a registry entry's `props` is a **factory**: resolving inside a `computed` builds each control's props once per change of the field list, not per render. That was asserted in a comment in each file and checked in neither — inlining a resolver back into a template would lose it silently in one of them, which is why the composable's spec pins the call count.
 
-**No identity defaults for a missing adapter.** `inputFor` answers `TRecordFieldControl` — `Required<IFieldControl<TRecordValue>>` — and the composable is generic so that arity survives: `DynamicForm` still never branches, and the drawer still does. Defaulting an absent adapter to `(v) => v` would collapse both into one shape and turn a type-level guarantee into a runtime accident.
+**No identity defaults for a missing adapter.** `inputFor` answers `TRecordFieldControl` — `Required<IFieldControl<TRecordValue>>` — and the composable is generic so that arity survives: `RecordForm` still never branches, and the drawer still does. Defaulting an absent adapter to `(v) => v` would collapse both into one shape and turn a type-level guarantee into a runtime accident.
 
 It sits in `app/composables/` rather than beside its two callers, so only its TSDoc scopes it. That is the weaker guard — see _`useListboxNavigation` was extracted for SRP_, where a directory was used to decline imports a comment could not — and it was taken knowingly, on the grounds that this is an ordinary composable in the register of `useForm` and `useDeleteConfirm` beside it.
 
@@ -528,7 +528,7 @@ A `recordDetail` store would have been fewer moving parts, and it was rejected: 
 
 ### Reading a record is a link, everywhere
 
-The View action in a row could have been a button emitting `view`, as every other row action is. It is a `<NuxtLink>` for the same reason a relation is: the dialog **is** a URL. It also keeps `DynamicTable` out of the business of navigation. The cost is the `tableId` prop — reading it from the route inside the component would have coupled a generic renderer to a URL shape that is not its to know.
+The View action in a row could have been a button emitting `view`, as every other row action is. It is a `<NuxtLink>` for the same reason a relation is: the dialog **is** a URL. It also keeps `RecordsTable` out of the business of navigation. The cost is the `tableId` prop — reading it from the route inside the component would have coupled a generic renderer to a URL shape that is not its to know.
 
 ### The chain appends from wherever a relation cell renders
 
@@ -737,7 +737,7 @@ It used to, because Chrome ignores `line-height` on `<select>` and left it 1px t
 
 `BaseBadge` draws no border: a border's only job was surviving the hovered row, and the lightened row wash carries that instead. What is left is the design concept's badge — fill, word, and an 8px dot in the `-fg` step.
 
-The dot is a `::before` with **empty** `content`, not an `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word beside it, and `DynamicTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — `CLAUDE.md` §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
+The dot is a `::before` with **empty** `content`, not an `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word beside it, and `RecordsTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — `CLAUDE.md` §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
 
 The guard is `variant === 'chip' && color !== undefined`, so `--label` never draws one: it is a metadata marker with no hue to signal. **Do not "simplify" it to `color !== undefined`** — a SELECT cell always resolves to a real hue (`badgeColorFor` falls back to `DEFAULT_BADGE_COLOR`, so a renamed choice renders grey with a grey dot), which makes the first half look redundant, and `--label` is what the second half is for.
 
@@ -783,7 +783,7 @@ Both were `rgb(… / 8%)`. A translucent tint composites against whatever is und
 
 ### The sort icon is muted with `opacity`, not a colour step
 
-`BaseInput` carries the general rule — a muted foreground is a colour token, because placeholder text at `opacity: 0.6` measured ~2.4:1. `DynamicTable`'s sort icon is the deliberate exception: it has to mute **whatever colour it currently inherits** (the header's secondary text at rest, `--color-accent` under the pointer). A fixed colour step can only mute one of the two, and restoring the other costs a `color: inherit` override that then has to out-specify the `--active` modifier.
+`BaseInput` carries the general rule — a muted foreground is a colour token, because placeholder text at `opacity: 0.6` measured ~2.4:1. `RecordsTable`'s sort icon is the deliberate exception: it has to mute **whatever colour it currently inherits** (the header's secondary text at rest, `--color-accent` under the pointer). A fixed colour step can only mute one of the two, and restoring the other costs a `color: inherit` override that then has to out-specify the `--active` modifier.
 
 The value is `0.35`, deliberately under the 3:1 SC 1.4.11 bar — a considered trade, whose reason and revisit trigger are in `limitations.md`. The `BaseInput` rule still stands for **text**, which needs 4.5:1 and cannot reach it through transparency.
 
@@ -821,7 +821,7 @@ The focus state's geometry did not move with it: it paints outside the border bo
 
 ### Every sized control is one height; `link` alone has none
 
-There is a single control height and no secondary size. `primary`/`secondary`/`danger`/`ghost` take it as `min-height`, `icon` takes it on both axes, `BaseCheckbox` gives it to the whole label row, `AppSidebar` to its items, `DynamicTable` to its sort button. `--link` is the exception and not an oversight: it is a text run with the semantics of a button, and it is what sizes `.table-card__actions` and `.field-row` — giving it the full height would grow both surfaces for no gain.
+There is a single control height and no secondary size. `primary`/`secondary`/`danger`/`ghost` take it as `min-height`, `icon` takes it on both axes, `BaseCheckbox` gives it to the whole label row, `AppSidebar` to its items, `RecordsTable` to its sort button. `--link` is the exception and not an oversight: it is a text run with the semantics of a button, and it is what sizes `.table-card__actions` and `.field-row` — giving it the full height would grow both surfaces for no gain.
 
 Heights _derived_ from the control are all in one direction — a control plus its own inset — and are written that way rather than as literals. Anything that restates the number by hand drifts the next time the token moves, which is exactly what happened at 44px.
 
@@ -855,7 +855,7 @@ It had three `@include`s and no per-site variation, which is a shared block, not
 
 `dvh`, not `vh`: on mobile a collapsing URL bar leaves a `100vh` shell overhanging the visible area, which is exactly where the pager lives. **That holds app-wide, not just here** — the auth layout and `error.vue` render outside the shell and own the viewport themselves, through `centred-viewport`, which takes the same unit. A `100vh` anywhere in this project is now the anomaly.
 
-**`min-width: 0` and `min-height: 0` on the panes are load-bearing.** A grid or flex item's automatic minimum is its content, so without them the main column's min-content width is `DynamicTable`'s full intrinsic width (the table's `overflow-x` never engages and the document scrolls sideways), and a pane holding 50 rows grows past its row so the `overflow-y: auto` beside it never fires. Both read like redundant lines and are not.
+**`min-width: 0` and `min-height: 0` on the panes are load-bearing.** A grid or flex item's automatic minimum is its content, so without them the main column's min-content width is `RecordsTable`'s full intrinsic width (the table's `overflow-x` never engages and the document scrolls sideways), and a pane holding 50 rows grows past its row so the `overflow-y: auto` beside it never fires. Both read like redundant lines and are not.
 
 ### A dialog caps against the scrim, and only its body scrolls
 
@@ -869,7 +869,7 @@ A submit button inside the body scrolls out of view on a short screen, which is 
 
 ### The records grid sizes to its rows, not to the pane
 
-`DynamicTable` takes `flex: 0 1 auto` from the records page, so its height is its content's, capped by the space left in the pane (`styling.md`).
+`RecordsTable` takes `flex: 0 1 auto` from the records page, so its height is its content's, capped by the space left in the pane (`styling.md`).
 
 It was `flex: 1` first, on the reasoning that a pager welded to the bottom edge gives the page a stable frame. That was visibly wrong — with seven records the grid was a mostly-empty box with a void between the last row and the pager. **Do not restore it.**
 
@@ -889,11 +889,11 @@ Its left edge is a `box-shadow` for the same reason the sticky header's rule is.
 
 It is the one divider drawn in `--color-border-strong`: separating a frozen column from columns sliding underneath it is a heavier job than ruling off a row. **A tinted fill was rejected** — `--color-surface-muted` equals `--color-surface-hover`, so filling the column would swallow the row hover exactly where the buttons are, and `--color-accent-tint` reads as "selected" everywhere else in the app. **A wider gutter was tried and dropped**: the extra 4px read as a misalignment against the header label rather than as breathing room. Every cell now takes the same inset, with no per-cell exception.
 
-The Actions corner header still needs its own padding rule, because it is the only header with no sort button to carry the inset. It is nested inside `thead th` and spells its class out rather than being written as a sibling `&__…` block: that is specificity, not style — `.dynamic-table thead th` outranks a bare class, so the same declarations written as a sibling block are silently dead. Moving it out of its parent will not error; it will simply stop applying.
+The Actions corner header still needs its own padding rule, because it is the only header with no sort button to carry the inset. It is nested inside `thead th` and spells its class out rather than being written as a sibling `&__…` block: that is specificity, not style — `.records-table thead th` outranks a bare class, so the same declarations written as a sibling block are silently dead. Moving it out of its parent will not error; it will simply stop applying.
 
 The pinned cells paint opaque backgrounds, so `tbody tr:hover` has to repaint the actions cell explicitly, or the hovered row shows a white notch at its right edge.
 
-### `DynamicTable` rows have an explicit height, and it is one decision with the cell inset
+### `RecordsTable` rows have an explicit height, and it is one decision with the cell inset
 
 `height: calc(var(--control-height) + #{$cell-padding-y * 2})` on `tbody td`, not derived from the tallest cell — otherwise the action cell's buttons define the row rather than the design doing so. A row is one control plus the cell inset on both sides.
 
@@ -903,7 +903,7 @@ It is the app's **first and only `calc()`**, and deliberately so. Written as a l
 
 ### A table column's width cap lives on a wrapper, not on the cell
 
-`DynamicTable` sizes columns from content under the browser's default `table-layout: auto`. A table's columns are user-defined, so no field's content is bounded from above: one long TEXT value stretches its column to the width of that value and pushes the rest of the grid out of the viewport. `$column-max-width` caps it, and `$content-max-width` derives the per-box figure by subtracting the cell's own padding twice, so a column bounded by a **value** and one bounded by its **header name** land on the same width.
+`RecordsTable` sizes columns from content under the browser's default `table-layout: auto`. A table's columns are user-defined, so no field's content is bounded from above: one long TEXT value stretches its column to the width of that value and pushes the rest of the grid out of the viewport. `$column-max-width` caps it, and `$content-max-width` derives the per-box figure by subtracting the cell's own padding twice, so a column bounded by a **value** and one bounded by its **header name** land on the same width.
 
 **The cap cannot go on the `td`.** CSS 2.2 §17.5.2 leaves the effect of `min-width`/`max-width` on table cells explicitly undefined, and under `table-layout: auto` browsers ignore it — the column is sized by the cell's max-content contribution, which the declaration never touches. A **block child's** `max-width` does bound that contribution, so the inner cell wrapper is load-bearing markup: deleting it silently restores the unbounded behaviour with the SCSS still in place.
 
@@ -913,11 +913,11 @@ It is the app's **first and only `calc()`**, and deliberately so. Written as a l
 
 **Rejected: capping the sort button instead of its label.** That button is deliberately `width: 100%` so the whole header cell is the sort target; a `max-width` on it stops it short of the cell edge whenever a column has widened past the cap. The cap sits on the label instead, which leaves the gap and the sort icon outside the bounded box — a column bounded by its header name can run slightly over. Closing that gap means encoding the icon's rendered size in the table's stylesheet.
 
-**`BaseBadge` truncates itself.** A badge is `display: inline-flex`, so it is an atomic inline box to the cell containing it: `text-overflow` cannot ellipsise it, and an overflowing badge is hard-clipped mid-pill with the ellipsis painted over its own fill. An inner `&__text` wrapper plus `max-width: 100%` moves the truncation inside the badge. This is why the badge, not `DynamicTable`, owns the rule.
+**`BaseBadge` truncates itself.** A badge is `display: inline-flex`, so it is an atomic inline box to the cell containing it: `text-overflow` cannot ellipsise it, and an overflowing badge is hard-clipped mid-pill with the ellipsis painted over its own fill. An inner `&__text` wrapper plus `max-width: 100%` moves the truncation inside the badge. This is why the badge, not `RecordsTable`, owns the rule.
 
 **`MultiValueCell` is `display: inline` for the same reason, from the other side.** It was `inline-flex`, which made a whole list one atomic box — so an over-full list was hard-clipped at the cell edge with nothing to say values were missing, and the entries did not even shrink, because a flex item's automatic minimum floors it at its own content. Plain inline puts the entries in the cell's own inline formatting context, where the cap already applies: the values that fit are drawn in full and the first that does not gives way to an ellipsis. `gap` goes with the flex box, replaced by a margin on adjacent siblings.
 
-Two consequences. **`RecordDetail` no longer overrides the cell's layout** — what put the list on one line was always `DynamicTable`'s `white-space: nowrap`, so the dialog only has to not impose it and to space the wrapped rows with a `line-height`, since inline content has no `row-gap`. And **the ellipsis is not machine-checkable**: the dropped badge keeps its box, its client rects and its `checkVisibility()`, so it is paint and nothing else — it is one of the approximated clauses in `architecture.md` §11.
+Two consequences. **`RecordDetail` no longer overrides the cell's layout** — what put the list on one line was always `RecordsTable`'s `white-space: nowrap`, so the dialog only has to not impose it and to space the wrapped rows with a `line-height`, since inline content has no `row-gap`. And **the ellipsis is not machine-checkable**: the dropped badge keeps its box, its client rects and its `checkVisibility()`, so it is paint and nothing else — it is one of the approximated clauses in `architecture.md` §11.
 
 **`BaseBadge` declares its own `height` and `line-height`, and the second is what matters.** An `inline-flex` box with neither is sized by the line-height it _inherits_, so a badge was 25px in a table cell, 21.5px in a `BaseSelect` overlay and 32px in `RecordDetail` — where the `line-height` above spaces the wrapped rows and the pills standing on them grew with it. Declaring the pair ends the inheritance at the badge, which leaves a container free to set leading for its own rows. **Rejected: normalising line-height at each call site** — one rule spread over every container that will ever hold a badge, and silent when the next one forgets. Only Playwright can see this: `test.css` is `false` in both Vitest projects, so a component spec reading a height reads nothing.
 

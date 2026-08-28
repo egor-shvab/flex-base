@@ -12,7 +12,7 @@ export type TResolvedFieldControl<TControl> = Omit<TControl, 'props'> & {
 /**
  * Each field's control, resolved through the registry once per field.
  *
- * **For the two metadata renderers, not general purpose** — `DynamicForm` over `inputFor` and
+ * **For the two metadata renderers, not general purpose** — `RecordForm` over `inputFor` and
  * `RecordsFilterPanel` over `filterFor` are the whole consumer set. It sits in `app/composables/`
  * rather than beside those two, so this sentence is the only thing scoping it (`docs/decisions.md`).
  *
@@ -22,7 +22,7 @@ export type TResolvedFieldControl<TControl> = Omit<TControl, 'props'> & {
  * instead.
  *
  * **Generic on the control, which is what preserves each caller's adapter arity.** `inputFor`
- * returns `TRecordFieldControl` — `Required<IFieldControl<TRecordValue>>` — so `DynamicForm` gets
+ * returns `TRecordFieldControl` — `Required<IFieldControl<TRecordValue>>` — so `RecordForm` gets
  * `toControl` / `fromControl` back as **required** and never branches on them, which is the
  * guarantee `architecture.md` §3 records. `filterFor` returns them optional, so the drawer still
  * branches. Defaulting a missing adapter to identity here would collapse that difference and turn a

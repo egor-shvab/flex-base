@@ -22,7 +22,7 @@ const props = defineProps<{
 }>()
 
 /**
- * The same column list `DynamicTable` renders — the record's own columns bracketing its
+ * The same column list `RecordsTable` renders — the record's own columns bracketing its
  * table's fields — so the dialog cannot show a different set, in a different order, from the
  * row it was opened from. Nothing here branches on field type: the cells do that.
  *
@@ -63,7 +63,7 @@ const columns = computed(() =>
   // which is the opposite of the table's per-column cap.
   //
   // A multi-value cell no longer needs an override to wrap: it renders inline, so it wraps
-  // wherever nothing says otherwise, and what put it on one line was always `DynamicTable`'s
+  // wherever nothing says otherwise, and what put it on one line was always `RecordsTable`'s
   // `white-space: nowrap` rather than a property of the cell. What is left is the space
   // *between* the wrapped rows — inline content has no `row-gap`, so the line-height is the
   // only control over it, and consecutive rows would otherwise touch.

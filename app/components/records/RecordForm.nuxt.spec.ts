@@ -9,7 +9,7 @@ import type { TRecordData, TRecordValue } from '#shared/types/record'
 import BaseCheckbox from '~/components/common/BaseCheckbox.vue'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
-import DynamicForm from '~/components/records/DynamicForm.vue'
+import RecordForm from '~/components/records/RecordForm.vue'
 import RelationFieldSelect from '~/field-types/relation/RelationFieldSelect.vue'
 import {
   asMultiple,
@@ -26,7 +26,7 @@ function form(
   values: TRecordData = {},
   errors: Partial<Record<string, string>> = {},
 ) {
-  return mountTracked(DynamicForm, { props: { fields, values, errors } })
+  return mountTracked(RecordForm, { props: { fields, values, errors } })
 }
 
 type TForm = Awaited<ReturnType<typeof form>>
@@ -36,7 +36,7 @@ const updates = (wrapper: TForm) =>
   wrapper.emitted('update') as [string, TRecordValue][] | undefined
 const lastUpdate = (wrapper: TForm) => updates(wrapper)?.at(-1)
 
-describe('DynamicForm', () => {
+describe('RecordForm', () => {
   afterEach(unmountAll)
 
   // A RELATION field renders `RelationFieldSelect`, which reads the relations store
@@ -53,7 +53,7 @@ describe('DynamicForm', () => {
     it('renders nothing at all for a table with no fields', async () => {
       const wrapper = await form([])
 
-      expect(wrapper.get('.dynamic-form').element.children).toHaveLength(0)
+      expect(wrapper.get('.record-fields').element.children).toHaveLength(0)
     })
 
     it.each([

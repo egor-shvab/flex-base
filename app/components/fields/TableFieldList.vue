@@ -115,7 +115,7 @@ const emit = defineEmits<{
   }
 
   &:hover {
-    // The row wash, not the control hover — the same pairing `DynamicTable` uses
+    // The row wash, not the control hover — the same pairing `RecordsTable` uses
     background: var(--color-surface-row-hover);
   }
 

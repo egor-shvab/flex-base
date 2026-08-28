@@ -121,7 +121,7 @@
   // component's own shadow outranks it, and neither may be allowed to cost a user the state.
   //
   // The halo's 4px spread is the state's whole reach, and the number three containers are sized
-  // against — `DynamicTable`'s clip margin, `FieldFormModal`'s scroll inset, and the colour
+  // against — `RecordsTable`'s clip margin, `FieldFormModal`'s scroll inset, and the colour
   // picker's grid gap. Changing it moves all three.
   --color-focus: #{$blue-500};
   --focus-ring-width: #{rem(1)};

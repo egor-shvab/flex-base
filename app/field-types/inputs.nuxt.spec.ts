@@ -38,7 +38,7 @@ describe('FIELD_INPUTS', () => {
 
 /**
  * Cardinality is per-field, not per-type, so this resolver is the single place the form side
- * reads `options.multiple` — `DynamicForm` never learns the flag exists.
+ * reads `options.multiple` — `RecordForm` never learns the flag exists.
  */
 describe('inputFor', () => {
   it('keeps the same control but swaps the adapter for a multi SELECT', () => {

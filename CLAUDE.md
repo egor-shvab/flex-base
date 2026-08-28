@@ -78,7 +78,7 @@ app/                         # Nuxt 4 frontend (client)
     common/                  # generic UI atoms, all `Base*` — one gets a folder (see below)
     fields/                  # surfaces that render field *metadata* rather than records
     modals/                  # dialogs built on BaseModal
-    records/                 # the metadata renderers — DynamicForm, DynamicTable, the filter panel & summary
+    records/                 # the metadata renderers — RecordForm, RecordsTable, the filter panel & summary
   field-types/               # the client half of a field type: one folder per type + the assemblers
   api/                       # the transport layer: paths.ts + one use*Api() per resource
   composables/               # useForm, useDeleteConfirm, … (imported explicitly — see §4)
@@ -303,7 +303,7 @@ Then one line per map in each registry — `shared/field-types/registry.ts`, `se
 
 **Inputs and filters are data, not components** — each is an `IFieldControl` naming a `Base*` control, a `props(field)` factory, and the adapters between that control's model and the field's value. Only cells are components. A type whose control needs data beyond its own metadata gets that component in its own folder (RELATION's picker is the only one today).
 
-**No scattered `switch`/`if` chains on field type** in pages, services, or generic components. If adding a type would require editing `DynamicForm`, `DynamicTable`, or a service, the abstraction is broken — fix the abstraction instead of special-casing.
+**No scattered `switch`/`if` chains on field type** in pages, services, or generic components. If adding a type would require editing `RecordForm`, `RecordsTable`, or a service, the abstraction is broken — fix the abstraction instead of special-casing.
 
 Full contracts for each registry: `docs/architecture.md` §3.
 
