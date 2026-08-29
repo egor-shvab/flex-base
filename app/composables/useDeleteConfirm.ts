@@ -11,6 +11,10 @@ import { getApiErrorMessage } from '~/utils/api-error'
  * promise rejection, and the dialog sat there saying nothing. The server's message is the
  * useful part — a refused table delete names the field to remove first — so it is surfaced
  * instead (`docs/decisions.md`).
+ *
+ * `dialogProps` is every state prop `ConfirmModal` reads, in one `v-bind`. The three were only
+ * ever passed straight through, and a page carrying two of these dialogs had to alias each one
+ * twice over to keep them apart.
  */
 export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<void>) {
   // shallowRef: the target is a fetched object, replaced wholesale rather than mutated
@@ -18,7 +22,11 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
   const pending = ref(false)
   const error = ref<string | null>(null)
 
-  const confirmLabel = computed(() => (pending.value ? 'Deleting…' : 'Delete'))
+  const dialogProps = computed(() => ({
+    pending: pending.value,
+    error: error.value,
+    confirmLabel: pending.value ? 'Deleting…' : 'Delete',
+  }))
 
   // Whatever the dialog is about changed, so the last attempt's message no longer applies.
   // Covers both exits from a failed state — cancelling, and a target set from the page —
@@ -47,5 +55,5 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
     target.value = null
   }
 
-  return { target, pending, error, confirmLabel, confirm, cancel }
+  return { target, dialogProps, confirm, cancel }
 }

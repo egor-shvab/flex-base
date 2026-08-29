@@ -59,7 +59,7 @@
         :summary-context="summaryContext"
         @create="openCreateField"
         @edit="openEditField"
-        @delete="deleteTarget = $event"
+        @delete="fieldDeleteTarget = $event"
       />
     </section>
 
@@ -85,9 +85,7 @@
       v-if="tableDeleteTarget"
       title="Delete table"
       danger
-      :pending="tableDeletePending"
-      :confirm-label="tableDeleteLabel"
-      :error="tableDeleteError"
+      v-bind="tableDeleteDialog"
       @confirm="confirmDeleteTable"
       @close="cancelDeleteTable"
     >
@@ -96,16 +94,14 @@
     </LazyConfirmModal>
 
     <LazyConfirmModal
-      v-if="deleteTarget"
+      v-if="fieldDeleteTarget"
       title="Delete field"
       danger
-      :pending="deletePending"
-      :confirm-label="deleteLabel"
-      :error="deleteError"
+      v-bind="fieldDeleteDialog"
       @confirm="confirmDeleteField"
-      @close="cancelDelete"
+      @close="cancelDeleteField"
     >
-      Delete <strong>{{ deleteTarget.name }}</strong
+      Delete <strong>{{ fieldDeleteTarget.name }}</strong
       >? Everything stored in this field will be permanently removed from every record. This cannot
       be undone.
     </LazyConfirmModal>
@@ -214,9 +210,7 @@ async function submitField(input: TFieldInput) {
  */
 const {
   target: tableDeleteTarget,
-  pending: tableDeletePending,
-  error: tableDeleteError,
-  confirmLabel: tableDeleteLabel,
+  dialogProps: tableDeleteDialog,
   confirm: confirmDeleteTable,
   cancel: cancelDeleteTable,
 } = useDeleteConfirm(async (id: string) => {
@@ -225,12 +219,10 @@ const {
 })
 
 const {
-  target: deleteTarget,
-  pending: deletePending,
-  error: deleteError,
-  confirmLabel: deleteLabel,
+  target: fieldDeleteTarget,
+  dialogProps: fieldDeleteDialog,
   confirm: confirmDeleteField,
-  cancel: cancelDelete,
+  cancel: cancelDeleteField,
 } = useDeleteConfirm((field: IField) => fieldsStore.deleteField(tableId, field.id))
 </script>
 

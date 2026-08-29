@@ -162,9 +162,7 @@
       v-if="deleteTarget"
       title="Delete record"
       danger
-      :pending="deletePending"
-      :confirm-label="deleteLabel"
-      :error="deleteError"
+      v-bind="deleteDialog"
       @confirm="confirmDeleteRecord"
       @close="cancelDelete"
     >
@@ -307,9 +305,7 @@ function closeDetail() {
 
 const {
   target: deleteTarget,
-  pending: deletePending,
-  error: deleteError,
-  confirmLabel: deleteLabel,
+  dialogProps: deleteDialog,
   confirm: confirmDeleteRecord,
   cancel: cancelDelete,
 } = useDeleteConfirm((record: IRecord) =>

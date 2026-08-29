@@ -42,9 +42,7 @@
       v-if="deleteTarget"
       title="Delete table"
       danger
-      :pending="deletePending"
-      :confirm-label="deleteLabel"
-      :error="deleteError"
+      v-bind="deleteDialog"
       @confirm="confirmDelete"
       @close="cancelDelete"
     >
@@ -88,9 +86,7 @@ async function submitTable(name: string) {
 
 const {
   target: deleteTarget,
-  pending: deletePending,
-  error: deleteError,
-  confirmLabel: deleteLabel,
+  dialogProps: deleteDialog,
   confirm: confirmDelete,
   cancel: cancelDelete,
 } = useDeleteConfirm((table: ITableListItem) => tablesStore.deleteTable(table.id))

@@ -9,7 +9,7 @@ interface ITable {
 
 const TABLE: ITable = { id: 'tbl_1', name: 'Deals' }
 
-/** `confirmLabel` is a `computed`, so the composable needs a scope to own it. */
+/** `dialogProps` is a `computed`, so the composable needs a scope to own it. */
 function setup(remove: (target: ITable) => Promise<void>) {
   const scope = effectScope()
   const composable = scope.run(() => useDeleteConfirm(remove))!
@@ -22,8 +22,8 @@ describe('useDeleteConfirm', () => {
     const confirmer = setup(vi.fn())
 
     expect(confirmer.target.value).toBeNull()
-    expect(confirmer.pending.value).toBe(false)
-    expect(confirmer.confirmLabel.value).toBe('Delete')
+    expect(confirmer.dialogProps.value.pending).toBe(false)
+    expect(confirmer.dialogProps.value.confirmLabel).toBe('Delete')
 
     confirmer.stop()
   })
@@ -35,7 +35,7 @@ describe('useDeleteConfirm', () => {
     await confirmer.confirm()
 
     expect(remove).not.toHaveBeenCalled()
-    expect(confirmer.pending.value).toBe(false)
+    expect(confirmer.dialogProps.value.pending).toBe(false)
 
     confirmer.stop()
   })
@@ -49,7 +49,7 @@ describe('useDeleteConfirm', () => {
 
     expect(remove).toHaveBeenCalledWith(TABLE)
     expect(confirmer.target.value).toBeNull()
-    expect(confirmer.pending.value).toBe(false)
+    expect(confirmer.dialogProps.value.pending).toBe(false)
 
     confirmer.stop()
   })
@@ -73,8 +73,8 @@ describe('useDeleteConfirm', () => {
     await confirmer.confirm()
 
     expect(confirmer.target.value).toBe(TABLE)
-    expect(confirmer.pending.value).toBe(false)
-    expect(confirmer.error.value).toBe('Remove the field “owner” first')
+    expect(confirmer.dialogProps.value.pending).toBe(false)
+    expect(confirmer.dialogProps.value.error).toBe('Remove the field “owner” first')
 
     confirmer.stop()
   })
@@ -90,7 +90,7 @@ describe('useDeleteConfirm', () => {
     confirmer.target.value = TABLE
     await confirmer.confirm()
 
-    expect(confirmer.error.value).toBe('Something went wrong. Please try again.')
+    expect(confirmer.dialogProps.value.error).toBe('Something went wrong. Please try again.')
 
     confirmer.stop()
   })
@@ -106,12 +106,12 @@ describe('useDeleteConfirm', () => {
 
     confirmer.target.value = TABLE
     await confirmer.confirm()
-    expect(confirmer.error.value).not.toBeNull()
+    expect(confirmer.dialogProps.value.error).not.toBeNull()
 
     fail = false
     await confirmer.confirm()
 
-    expect(confirmer.error.value).toBeNull()
+    expect(confirmer.dialogProps.value.error).toBeNull()
     expect(confirmer.target.value).toBeNull()
 
     confirmer.stop()
@@ -126,12 +126,12 @@ describe('useDeleteConfirm', () => {
 
     confirmer.target.value = TABLE
     await confirmer.confirm()
-    expect(confirmer.error.value).not.toBeNull()
+    expect(confirmer.dialogProps.value.error).not.toBeNull()
 
     confirmer.cancel()
     await nextTick()
 
-    expect(confirmer.error.value).toBeNull()
+    expect(confirmer.dialogProps.value.error).toBeNull()
 
     confirmer.stop()
   })
@@ -144,14 +144,14 @@ describe('useDeleteConfirm', () => {
     confirmer.target.value = TABLE
     const settled = confirmer.confirm()
 
-    expect(confirmer.pending.value).toBe(true)
-    expect(confirmer.confirmLabel.value).toBe('Deleting…')
+    expect(confirmer.dialogProps.value.pending).toBe(true)
+    expect(confirmer.dialogProps.value.confirmLabel).toBe('Deleting…')
 
     release()
     await settled
 
-    expect(confirmer.pending.value).toBe(false)
-    expect(confirmer.confirmLabel.value).toBe('Delete')
+    expect(confirmer.dialogProps.value.pending).toBe(false)
+    expect(confirmer.dialogProps.value.confirmLabel).toBe('Delete')
 
     confirmer.stop()
   })
