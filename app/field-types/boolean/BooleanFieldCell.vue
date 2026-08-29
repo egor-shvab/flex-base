@@ -9,7 +9,7 @@ import type { IFieldCellProps } from '~/field-types/types'
 /**
  * Words rather than a tick, because a checkmark next to nothing is ambiguous — and a
  * `false` is not blank, so it reaches this cell and must read "No" while a *missing*
- * value renders the table's own "Not set" placeholder.
+ * value never arrives at all: `RecordFieldValue` renders "Not set" in its place.
  */
 defineProps<IFieldCellProps>()
 </script>
