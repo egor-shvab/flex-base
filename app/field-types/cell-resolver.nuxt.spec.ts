@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { CREATED_AT_KEY, RECORD_NUMBER_KEY, UPDATED_AT_KEY } from '#shared/constants/filter'
 import { FIELD_TYPES } from '#shared/field-types/registry'
-import { cellComponent, readCellValue } from '~/field-types/cell-resolver'
+import { RECORD_COLUMNS, cellComponent, readCellValue } from '~/field-types/cell-resolver'
 import { FIELD_CELLS } from '~/field-types/registry'
 import MultiValueCell from '~/field-types/cells/MultiValueCell.vue'
-import { RECORD_COLUMNS } from '~/field-types/record-columns'
 import {
   ALL_TYPE_FIELDS,
   asMultiple,

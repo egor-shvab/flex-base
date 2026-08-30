@@ -7,8 +7,8 @@ import { ref, watch, type Ref } from 'vue'
  * user-driven query inputs ~300 ms before hitting the API"), and because a registry, a composable
  * and a page each used to declare it separately.
  *
- * A **number**, not a predicate — unlike `shouldSearch`, where what the call sites would otherwise
- * duplicate is the comparison. Here it is the literal.
+ * A **number**, not a predicate — unlike `shouldSearch`, which exports the comparison and keeps
+ * its threshold private. Here the literal is what callers need, since each passes it to a `delay`.
  */
 export const QUERY_DEBOUNCE_MS = 300
 
