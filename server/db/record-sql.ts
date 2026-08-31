@@ -66,12 +66,32 @@ function searchPredicate(field: IField, pattern: string): Prisma.Sql | null {
 }
 
 /**
- * One parenthesised OR group matching `search` across every searchable column.
+ * The indexed half of a search: the whole row flattened to one text blob, matched against a
+ * trigram GIN (`Record_search_trgm_idx`).
  *
- * **The parentheses are load-bearing.** `buildRecordWhere` joins its conditions with `AND`,
- * and `withinRange` returns a bare two-bound `a >= x AND a <= y` with none of its own — safe
- * only while every sibling is also `AND`. An unparenthesised OR here would bind to the last
- * bound of a range filter and silently widen it.
+ * **This expression must stay byte-identical to the one the index was built on** — the planner
+ * matches an expression index structurally, so a stray cast or a renamed argument silently
+ * costs the index and leaves a query that is merely slow rather than wrong.
+ *
+ * It is a **pre-filter, never the comparison.** `record_search_text` is deliberately
+ * over-inclusive — it flattens every stored value, including the booleans and relation ids no
+ * field type considers searchable — so the exact per-type OR group below still decides. What it
+ * may never do is miss a value some type *does* search; that superset property is what the
+ * whole arrangement rests on, and it has its own test.
+ */
+function buildSearchPrefilter(pattern: string): Prisma.Sql {
+  return Prisma.sql`record_search_text(data, "number") ILIKE ${pattern}`
+}
+
+/**
+ * The indexed pre-filter, ANDed with one parenthesised OR group matching `search` across every
+ * searchable column. Two terms in an `AND` chain, so it composes with the filters exactly as a
+ * single condition would.
+ *
+ * **The parentheses around the OR group are load-bearing.** `buildRecordWhere` joins its
+ * conditions with `AND`, and `withinRange` returns a bare two-bound `a >= x AND a <= y` with
+ * none of its own — safe only while every sibling is also `AND`. An unparenthesised OR here
+ * would bind to the last bound of a range filter and silently widen it.
  */
 function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null {
   if (search === '') return null
@@ -84,7 +104,9 @@ function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null 
     if (predicate) arms.push(predicate)
   }
 
-  return arms.length > 0 ? Prisma.sql`(${Prisma.join(arms, ' OR ')})` : null
+  if (arms.length === 0) return null
+
+  return Prisma.sql`${buildSearchPrefilter(pattern)} AND (${Prisma.join(arms, ' OR ')})`
 }
 
 /**

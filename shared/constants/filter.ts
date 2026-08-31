@@ -35,11 +35,13 @@ export const RESERVED_QUERY_PARAMS = [
 ] as const
 
 /**
- * Below this, a search is not run at all — an unanchored `ILIKE` across every field of every
- * row is unindexable, and one character would scan the table to narrow almost nothing. The
- * floor lives in the query schema, not only in the input, so it holds for any caller.
+ * Below this, a search is not run at all. **Three because that is a trigram**: the search index
+ * is a `gin_trgm_ops` GIN, which cannot serve a term shorter than three characters — such a
+ * term falls back to scanning every row to narrow almost nothing, the case this floor exists to
+ * prevent. The floor lives in the query schema, not only in the input, so it holds for any
+ * caller.
  */
-export const SEARCH_MIN_LENGTH = 2
+export const SEARCH_MIN_LENGTH = 3
 
 /**
  * How many values one list-shaped filter may carry. A repeated param is the only place a

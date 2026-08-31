@@ -22,6 +22,7 @@ function panel(
     fields?: IField[]
     filters?: TRecordFilterValues
     total?: number
+    totalCapped?: boolean
     pending?: boolean
   } = {},
 ) {
@@ -30,6 +31,7 @@ function panel(
       fields: props.fields ?? FIELDS,
       filters: props.filters ?? {},
       total: props.total ?? 12,
+      totalCapped: props.totalCapped ?? false,
       pending: props.pending ?? false,
     },
   })

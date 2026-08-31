@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
 import { RecordService } from '#server/services/records'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import type { IRecordQuery } from '#shared/types/record'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { relationField, textField } from '~~/test/fixtures'
@@ -69,8 +70,39 @@ describe('RecordService.listRecords', () => {
 
     const page = await RecordService.listRecords(TABLE_ID, fields, query({ page: 2, pageSize: 20 }))
 
-    expect(page).toMatchObject({ total: 7, page: 2, pageSize: 20 })
+    expect(page).toMatchObject({ total: 7, page: 2, pageSize: 20, totalCapped: false })
     expect(page.records).toHaveLength(1)
+  })
+
+  /**
+   * The count stops at `RECORD_COUNT_CAP`, so past it `total` is a floor rather than a figure.
+   * The query counts to `cap + 1` precisely so these two cases can be told apart — one extra
+   * row is the whole difference between "exactly the cap" and "more than we counted".
+   */
+  it('reports a count at the cap as exact', async () => {
+    stubPage([row()], RECORD_COUNT_CAP)
+
+    const page = await RecordService.listRecords(TABLE_ID, fields, query())
+
+    expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: false })
+  })
+
+  it('reports one past the cap as capped, and never leaks the extra row into the total', async () => {
+    stubPage([row()], RECORD_COUNT_CAP + 1)
+
+    const page = await RecordService.listRecords(TABLE_ID, fields, query())
+
+    expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: true })
+  })
+
+  it('bounds the count query itself, so the cap is effort rather than presentation', async () => {
+    stubPage([], 0)
+
+    await RecordService.listRecords(TABLE_ID, fields, query())
+
+    // The second call is the count leg; the cap must reach the SQL, or the query still walks
+    // every row and only the label pretends otherwise
+    expect(prismaMock.$queryRaw.mock.calls[1]).toContain(RECORD_COUNT_CAP + 1)
   })
 
   it('counts zero when the count query comes back empty', async () => {

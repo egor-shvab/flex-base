@@ -99,6 +99,7 @@ function page(overrides: Partial<IRecordPage> = {}): IRecordPage {
   return {
     records: [ACME, GLOBEX],
     total: 2,
+    totalCapped: false,
     page: 1,
     pageSize: RECORD_PAGE_SIZE,
     linkedRecords: {},

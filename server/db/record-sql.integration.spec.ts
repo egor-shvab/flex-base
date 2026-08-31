@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildRecordWhere } from '#server/db/record-sql'
+import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { prisma } from '#server/db/prisma'
 import { RecordService } from '#server/services/records'
 import {
@@ -326,6 +327,141 @@ describe('free-text search', () => {
   it('narrows alongside a filter rather than replacing it', async () => {
     expect(await matching({ stage: ['Won'] }, { search: 'gam' })).toEqual(['Gamma'])
   })
+
+  /**
+   * A NUMBER is stored as a JSON **number**, not a string, and is searched through its un-cast
+   * text — so `100` finds `1000` the way a substring search should. Worth its own case because
+   * it is the one type whose searchability depends on how the value is stored rather than on
+   * what its predicate says, and an indexed pre-filter that flattened only strings would drop
+   * it silently.
+   */
+  it('matches a NUMBER through its text, so 100 also finds 1000', async () => {
+    expect(await searching('100')).toEqual(['Gamma', 'Acme'])
+  })
+})
+
+/**
+ * `record_search_text` is the indexed **pre-filter**, and the exact per-type predicates decide
+ * after it. That only works while it is a strict **superset** of what those predicates can
+ * match: an over-inclusive blob costs a row the OR group then rejects, but a value it *omits*
+ * is a row search can never return, and nothing anywhere would report it.
+ *
+ * Asserted on the function's own output rather than through a search, so a gap is attributed to
+ * the flatten rather than to whichever predicate happened to be exercised.
+ */
+describe('the search pre-filter flattens every stored value', () => {
+  it('carries every scalar, every list element and the record number', async () => {
+    const stored = {
+      company: 'Acme',
+      contract_value: 1250.5,
+      active: true,
+      signed_on: '2026-01-15',
+      stage: 'Won',
+      tags: ['urgent', 'renewal'],
+      owner: 'cmsxxxxxxxxxxxxxxxxxxxxxx',
+    }
+
+    const rows = await prisma.$queryRaw<{ flattened: string }[]>`
+      SELECT record_search_text(${stored}::jsonb, 42) AS flattened
+    `
+    const flattened = rows[0]?.flattened ?? ''
+
+    // The record number, in the bare form its own predicate matches
+    expect(flattened).toContain('42')
+    // Every scalar, whatever its JSON type — numbers and booleans included, since the flatten
+    // may over-reach but may never fall short
+    expect(flattened).toContain('Acme')
+    expect(flattened).toContain('1250.5')
+    expect(flattened).toContain('true')
+    expect(flattened).toContain('2026-01-15')
+    expect(flattened).toContain('Won')
+    expect(flattened).toContain('cmsxxxxxxxxxxxxxxxxxxxxxx')
+    // A list contributes its elements…
+    expect(flattened).toContain('urgent')
+    expect(flattened).toContain('renewal')
+    // …and never the punctuation holding them together, which would make `["` a search term
+    expect(flattened).not.toContain('["')
+    expect(flattened).not.toContain('", "')
+  })
+
+  it('degrades rather than erroring on a null value or an empty document', async () => {
+    const [row] = await prisma.$queryRaw<{ a: string; b: string }[]>`
+      SELECT record_search_text('{"company": null}'::jsonb, 1) AS a,
+             record_search_text('{}'::jsonb, 2) AS b
+    `
+
+    expect(row?.a).toContain('1')
+    expect(row?.b).toContain('2')
+  })
+})
+
+/**
+ * The count stops at `RECORD_COUNT_CAP`. The unit spec pins the arithmetic against a stubbed
+ * count; this pins the half a stub cannot — that the `LIMIT` really does stop PostgreSQL, and
+ * that a table sitting exactly on the cap is still reported exactly.
+ */
+describe('the record count is bounded', () => {
+  const fill = (count: number) => prisma.$executeRaw`
+    INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
+    SELECT 'bulk'||g, ${tableId}, 5000+g, jsonb_build_object('company', 'Bulk ' || g), now(), now()
+    FROM generate_series(1, ${count}) g
+  `
+
+  it('reports a table under the cap exactly', async () => {
+    const page = await RecordService.listRecords(tableId, fields, query())
+
+    // The three rows the shared fixture seeds
+    expect(page).toMatchObject({ total: 3, totalCapped: false })
+  })
+
+  it('reports a table sitting exactly on the cap as exact, not capped', async () => {
+    await fill(RECORD_COUNT_CAP - 3)
+
+    const page = await RecordService.listRecords(tableId, fields, query())
+
+    expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: false })
+  })
+
+  it('stops counting past the cap and says so', async () => {
+    await fill(RECORD_COUNT_CAP)
+
+    const page = await RecordService.listRecords(tableId, fields, query())
+
+    expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: true })
+    // The page itself is unaffected — the cap bounds the count, never the rows
+    expect(page.records).toHaveLength(page.pageSize)
+  })
+})
+
+/**
+ * The plan assertion for search — the same category as the multi-value one above, and here for
+ * the same reason: an unused index returns entirely correct rows, so every other test in this
+ * file passes while search quietly scans the table.
+ *
+ * The pre-filter expression and `Record_search_trgm_idx` are one contract; this is what proves
+ * they still match.
+ */
+describe('free-text search is served by the trigram index', () => {
+  it('uses the index and does not scan, with the search resolved before the ordering', async () => {
+    // Seeded inside the case — `test/integration/setup.ts` truncates in `beforeEach`, and an
+    // EXPLAIN against three rows would simply prefer a scan and prove nothing
+    await prisma.$executeRaw`
+      INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
+      SELECT 'seek'||g, ${tableId}, 1000+g,
+             jsonb_build_object('company', 'Filler ' || g), now(), now()
+      FROM generate_series(1, 20000) g
+    `
+    await prisma.$executeRaw`ANALYZE "Record"`
+
+    const where = buildRecordWhere(tableId, fields, {}, 'zzqqxx')
+    const rows = await prisma.$queryRaw<Record<string, string>[]>`
+      EXPLAIN SELECT id FROM "Record" ${where}
+    `
+    const plan = rows.map((row) => Object.values(row)[0]).join('\n')
+
+    expect(plan).toContain('Record_search_trgm_idx')
+    expect(plan).not.toContain('Seq Scan')
+  })
 })
 
 describe('ORDER BY', () => {
@@ -369,6 +505,52 @@ describe('ORDER BY', () => {
   it('falls back to creation order for a key the table does not own, keeping the direction', async () => {
     expect(await ordered('ghost', 'asc')).toEqual(['Acme', 'Beta', 'Gamma'])
     expect(await ordered('ghost', 'desc')).toEqual(['Gamma', 'Beta', 'Acme'])
+  })
+
+  /**
+   * A RELATION sorts by the target's **label**, through `targetLabel`'s correlated subquery —
+   * and that subquery qualifies the outer row as `"Record"`. A search sends the query down the
+   * materialised-CTE path, where the outer row is the CTE rather than the table, so the two
+   * features only compose because the CTE is aliased back to `"Record"`.
+   *
+   * Asserted **with and without** the search: the same order either way is what proves the two
+   * query shapes agree, and the searching half is the one that would fail on a missing alias.
+   */
+  it('sorts by a relation label under both query shapes, searching or not', async () => {
+    const user = await createUser()
+    const people = await createTable(user.id, 'People')
+    await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
+    const [ada, grace] = await createRecords(people.id, [
+      { full_name: 'Ada Lovelace' },
+      { full_name: 'Grace Hopper' },
+    ])
+
+    const deals = await createTable(user.id, 'Deals')
+    const dealFields = await createFields(deals.id, [
+      { key: 'company', type: 'TEXT' },
+      {
+        key: 'owner',
+        type: 'RELATION',
+        options: { targetTableId: people.id, labelFieldKey: 'full_name' },
+      },
+    ])
+    await createRecords(deals.id, [
+      { company: 'Zeta Holdings', owner: grace?.id ?? '' },
+      { company: 'Alpha Holdings', owner: ada?.id ?? '' },
+    ])
+
+    const byOwner = async (search: string) => {
+      const page = await RecordService.listRecords(
+        deals.id,
+        dealFields,
+        query({ sort: { key: 'owner', direction: 'asc' }, search }),
+      )
+      return page.records.map((record) => record.data.company)
+    }
+
+    // Ada before Grace — the label's order, not the company's and not creation order
+    expect(await byOwner('')).toEqual(['Alpha Holdings', 'Zeta Holdings'])
+    expect(await byOwner('Holdings')).toEqual(['Alpha Holdings', 'Zeta Holdings'])
   })
 })
 

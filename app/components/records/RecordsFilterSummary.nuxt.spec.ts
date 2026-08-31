@@ -18,7 +18,13 @@ const OWNER = relationField({}, { id: 'fld_owner', key: 'owner', name: 'Owner' }
 
 async function summary(
   filters: TRecordFilterValues,
-  overrides: { fields?: IField[]; search?: string; total?: number; pending?: boolean } = {},
+  overrides: {
+    fields?: IField[]
+    search?: string
+    total?: number
+    totalCapped?: boolean
+    pending?: boolean
+  } = {},
 ) {
   return mountTracked(RecordsFilterSummary, {
     props: {
@@ -26,6 +32,7 @@ async function summary(
       filters,
       search: overrides.search ?? '',
       total: overrides.total ?? 12,
+      totalCapped: overrides.totalCapped ?? false,
       pending: overrides.pending ?? false,
     },
   })

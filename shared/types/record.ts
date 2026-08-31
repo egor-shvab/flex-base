@@ -39,7 +39,17 @@ export interface IRecord {
 /** Records are always served page by page — an endpoint never returns a whole table. */
 export interface IRecordPage {
   records: IRecord[]
+  /**
+   * Matching records, counted no further than `RECORD_COUNT_CAP` — so this is the exact total
+   * only while `totalCapped` is false, and the cap itself once it is true.
+   */
   total: number
+  /**
+   * Whether there are more matches than `total` says. Every reader that renders a total has to
+   * branch on it, because `1000` and "at least 1000" are different claims and only one of them
+   * can be shown as a number.
+   */
+  totalCapped: boolean
   page: number
   pageSize: number
   /**

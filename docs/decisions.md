@@ -367,7 +367,27 @@ A preprocess maps a blank param to `undefined` before the floor runs, and blank 
 
 ### `SEARCH_MIN_LENGTH` is enforced by the schema, not the input
 
-An unanchored `ILIKE` over user-defined JSON keys is unindexable and the count query cannot stop early, so a one-character term is a full-table scan paid twice. Enforcing it client-side only would leave the endpoint open to any caller.
+A term shorter than a trigram cannot be served by the search index and falls back to scanning every row, which the count query cannot stop early either. Enforcing it client-side only would leave the endpoint open to any caller. **Three because that is a trigram** — the floor tracks what `Record_search_trgm_idx` can answer, so it moves only if the index does; a spec that spells a term out rather than deriving it from the constant stops testing the boundary.
+
+### Search is an indexed pre-filter in front of the exact predicates, not a replacement for them
+
+`buildRecordSearch` ANDs `record_search_text(data, "number") ILIKE …` in front of the per-type OR group rather than replacing it. Replacing it looks simpler and silently moves the semantics in two directions: a **NUMBER is stored as a JSON number**, so a flatten of string values alone drops it out of search, and a **RELATION stores a cuid**, which the flatten would add to search where `notSearchable` deliberately excludes it.
+
+So the flatten is only ever a **superset**. Over-inclusion is free — the exact group rejects what no type searches, which is why a cuid prefix still finds nothing. Omission is not: a value the flatten misses is a row search can never return, and no error is raised. That asymmetry is the whole design, and it is what the superset test guards.
+
+The pre-filter expression and the index expression are **one contract**: PostgreSQL matches an expression index structurally, so a stray cast or a renamed column costs the index and leaves a query that is merely slow. `record_search_text` must also stay `IMMUTABLE` with a pinned `search_path`, or it cannot be indexed at all and its value would depend on session state.
+
+### A search resolves before the ordering
+
+`listRecords` materialises the hits in a CTE when a search is present. Adding the index alone is not enough: the planner faces a choice it cannot win — use the index that satisfies `ORDER BY` and filter, or use the GIN and sort — and it picks the former, reading most of the table to fill one page. `MATERIALIZED` forces the search first. The CTE is aliased back to `"Record"` because a RELATION sort's correlated subquery qualifies the outer row by that name.
+
+Without a search the plain query is kept: there is nothing to narrow by, and materialising would build every matching row in order to take fifty.
+
+### The count is bounded, and Next does not read the page count
+
+An exact `COUNT(*)` is `O(rows)`, cannot be indexed away, and was charged to every list view including the unfiltered default — whose page query is otherwise trivial. Counting to `RECORD_COUNT_CAP + 1` is flat at any table size; the extra row is what distinguishes "exactly the cap" from "more than we counted".
+
+The consequence reaches the UI: past the cap `total` is a floor, so `pageCount` is a floor too. **Next is therefore driven by whether the page came back full**, never by `page >= pageCount` — which would strand a user on the cap's last page with rows still behind it. `Table.recordCounter` is not a substitute for either: it is a high-water mark that never decrements, so it is not a row count.
 
 ### Relation option search deliberately does **not** enforce `SEARCH_MIN_LENGTH`
 

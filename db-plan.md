@@ -3,7 +3,7 @@
 Target: stay fast and comfortable at **100k records per table and 1M+ overall**, with priority
 order **search > filtering > sorting > writes**.
 
-**T1 is implemented; everything else is not.** The stated priority order is reflected in what lands in Phase 1;
+**T1, T2 and T4 are implemented; everything else is not.** The stated priority order is reflected in what lands in Phase 1;
 **the authoritative execution order is the Sequencing summary near the end**, which is not the
 numbering order — T9–T11 were added during review and sit in Phase 1 despite their numbers.
 Task numbers are stable identifiers, not a running order.
@@ -150,7 +150,14 @@ T3's lifecycle, not a single global index.
 
 ---
 
-### T2. Free-text search: a generated column with a trigram GIN, and a search-first query shape
+### T2. Free-text search: a trigram GIN over a row expression, and a search-first query shape
+
+**Status:** done — 2026-08-31, with changes — shipped as an indexed **pre-filter in front of** the
+existing per-type OR group rather than replacing it. Replacing it would have silently dropped
+NUMBER out of search (stored as a JSON number, so a string-only flatten misses it) and added
+RELATION cuids into it. The flatten is a deliberate superset; the exact predicates still decide,
+so every existing search test passed unchanged. `record_search_text` also takes `"number"`, so the
+record-number arm stays indexable.
 
 **What.** Three parts:
 
@@ -217,6 +224,13 @@ roughly `O(matches)`. At 100k, ~200 ms → ~5 ms _(projected from the 1M pair)_;
 - **Backup/restore ordering.** A generated column depending on a user-defined function makes
   `pg_restore` order-sensitive: the function must exist before the table. Worth one check against
   a real dump before this is load-bearing.
+
+**Settled by spike, and it de-risks T3 too: Prisma ignores what it cannot express.** A
+`migrate diff` against a database holding the `pg_trgm` extension, a custom function and an
+expression index reports an **empty migration**, while a probe column added in the same database
+_is_ reported — so the diff was live and the silence is real, not a misconfigured URL. Custom
+objects created by hand-written migrations are therefore safe, and so are the indexes T3's
+reconciler will create at runtime, which can never be in `schema.prisma`.
 
 **If the stored column is ever reconsidered**, the blocker to clear first is Prisma drift, not the
 lock: confirm what `prisma migrate dev` does with a `GENERATED … STORED` column it cannot express
@@ -318,6 +332,10 @@ reconciler's rules rather than treating it as a separate mechanism.
 ---
 
 ### T4. Cap the count instead of computing it exactly
+
+**Status:** done — 2026-08-31, with changes — the pager's Next button is driven by whether the
+page came back full (`hasNextPage`), not by `page >= pageCount`, which would strand a user on the
+cap's last page. `IRecordPage` gained `totalCapped`.
 
 **What.** Replace `SELECT COUNT(*)` with a count over a bounded subquery:
 

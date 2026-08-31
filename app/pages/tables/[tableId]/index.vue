@@ -51,6 +51,7 @@
       :filters="filters"
       :search="queryState.search"
       :total="recordsStore.total"
+      :total-capped="recordsStore.totalCapped"
       :pending="recordsStore.pending"
       @update:filters="applyFilters"
       @update:search="applySearch"
@@ -120,6 +121,8 @@
             :page-count="recordsStore.pageCount"
             :page-size="recordsStore.pageSize"
             :total="recordsStore.total"
+            :total-capped="recordsStore.totalCapped"
+            :has-next="recordsStore.hasNextPage"
             @update:page="goToPage"
           />
         </template>
@@ -131,6 +134,7 @@
       :fields="fieldsStore.fields"
       :filters="filters"
       :total="recordsStore.total"
+      :total-capped="recordsStore.totalCapped"
       :pending="recordsStore.pending"
       @update:filters="applyFilters"
       @close="filterPanelOpen = false"

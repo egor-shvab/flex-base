@@ -8,7 +8,7 @@
     -->
     <span class="pagination__count" role="status">{{ rangeLabel }}</span>
     <div class="pagination__pager">
-      <span class="pagination__page">Page {{ page }} of {{ pageCount }}</span>
+      <span class="pagination__page">{{ pageLabel }}</span>
       <BaseButton
         variant="ghost"
         prepend-icon="mdi:chevron-left"
@@ -20,7 +20,7 @@
       <BaseButton
         variant="ghost"
         append-icon="mdi:chevron-right"
-        :disabled="page >= pageCount"
+        :disabled="!hasNext"
         @click="emit('update:page', page + 1)"
       >
         Next
@@ -38,6 +38,13 @@ const props = defineProps<{
   pageCount: number
   pageSize: number
   total: number
+  /** Whether `total` is a floor rather than a count, which changes every label below. */
+  totalCapped: boolean
+  /**
+   * Whether a next page exists. Passed in rather than read off `pageCount`, which is only a
+   * lower bound once the total is capped — see the store's `hasNextPage`.
+   */
+  hasNext: boolean
 }>()
 
 const emit = defineEmits<{ 'update:page': [page: number] }>()
@@ -47,8 +54,15 @@ const rangeLabel = computed(() => {
   if (props.total === 0) return '0 of 0'
   const first = (props.page - 1) * props.pageSize + 1
   const last = Math.min(props.page * props.pageSize, props.total)
-  return `${first}–${last} of ${props.total}`
+  const of = props.totalCapped ? `${props.total}+` : `${props.total}`
+  return `${first}–${last} of ${of}`
 })
+
+// A capped total cannot say how many pages there are, so the count is dropped rather than
+// stated wrongly — "Page 3 of 20" would be a claim the server never made
+const pageLabel = computed(() =>
+  props.totalCapped ? `Page ${props.page}` : `Page ${props.page} of ${props.pageCount}`,
+)
 </script>
 
 <style lang="scss" scoped>

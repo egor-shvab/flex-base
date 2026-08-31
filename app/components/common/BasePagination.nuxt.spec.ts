@@ -8,11 +8,21 @@ interface IPageProps {
   pageCount: number
   pageSize: number
   total: number
+  totalCapped: boolean
+  hasNext: boolean
 }
 
 function mount(props: Partial<IPageProps> = {}) {
   return mountTracked(BasePagination, {
-    props: { page: 1, pageCount: 1, pageSize: 50, total: 0, ...props },
+    props: {
+      page: 1,
+      pageCount: 1,
+      pageSize: 50,
+      total: 0,
+      totalCapped: false,
+      hasNext: false,
+      ...props,
+    },
   })
 }
 
@@ -55,7 +65,7 @@ describe('the range label', () => {
 
 describe('the pager', () => {
   it('names the page and the total count of pages', async () => {
-    const wrapper = await mount({ page: 2, pageCount: 3, total: 120 })
+    const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
 
     expect(wrapper.find('.pagination__page').text()).toBe('Page 2 of 3')
   })
@@ -71,7 +81,7 @@ describe('the pager', () => {
   })
 
   it('offers no way back from the first page', async () => {
-    const wrapper = await mount({ page: 1, pageCount: 3, total: 120 })
+    const wrapper = await mount({ page: 1, pageCount: 3, total: 120, hasNext: true })
     const [previous, next] = wrapper.findAll('button')
 
     expect(previous?.attributes('disabled')).toBeDefined()
@@ -95,12 +105,55 @@ describe('the pager', () => {
   })
 
   it('steps one page at a time in each direction', async () => {
-    const wrapper = await mount({ page: 2, pageCount: 3, total: 120 })
+    const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
     const [previous, next] = wrapper.findAll('button')
 
     await previous?.trigger('click')
     await next?.trigger('click')
 
     expect(wrapper.emitted('update:page')).toEqual([[1], [3]])
+  })
+})
+
+/**
+ * Past `RECORD_COUNT_CAP` the server stops counting, so `total` becomes a floor. Every label
+ * that would otherwise read as an exact figure has to say so.
+ */
+describe('a capped total', () => {
+  it('marks the range as a floor rather than a count', async () => {
+    expect(await rangeOf({ page: 1, pageSize: 50, total: 1000, totalCapped: true })).toBe(
+      '1–50 of 1000+',
+    )
+  })
+
+  it('drops the page count, which a capped total cannot establish', async () => {
+    const wrapper = await mount({ page: 3, pageCount: 20, total: 1000, totalCapped: true })
+
+    expect(wrapper.find('.pagination__page').text()).toBe('Page 3')
+  })
+
+  /**
+   * The regression this prop exists for: on the cap's own last page `pageCount` says there is
+   * nothing further, while rows the count never reached still sit behind it. Next follows the
+   * page that came back, so it stays right at any table size.
+   */
+  it('still offers Next on the last page the cap can describe', async () => {
+    const wrapper = await mount({
+      page: 20,
+      pageCount: 20,
+      total: 1000,
+      totalCapped: true,
+      hasNext: true,
+    })
+    const next = wrapper.findAll('button')[1]
+
+    expect(next?.attributes('disabled')).toBeUndefined()
+  })
+
+  it('stops offering Next once a page comes back short', async () => {
+    const wrapper = await mount({ page: 21, pageCount: 20, total: 1000, totalCapped: true })
+    const next = wrapper.findAll('button')[1]
+
+    expect(next?.attributes('disabled')).toBeDefined()
   })
 })

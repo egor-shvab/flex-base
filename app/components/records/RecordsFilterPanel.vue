@@ -15,7 +15,7 @@
     <template #footer>
       <div class="filter-panel__footer">
         <span class="filter-panel__count">
-          {{ pending ? 'Filtering…' : formatMatchingRecords(total) }}
+          {{ pending ? 'Filtering…' : formatMatchingRecords(total, totalCapped) }}
         </span>
         <BaseButton
           v-if="activeFilterCount > 0"
@@ -43,6 +43,7 @@ const props = defineProps<{
   fields: IField[]
   filters: TRecordFilterValues
   total: number
+  totalCapped: boolean
   pending?: boolean
 }>()
 

@@ -225,9 +225,10 @@ describe('buildRecordQuerySchema — base params', () => {
   })
 
   it(`enforces the ${SEARCH_MIN_LENGTH}-character search floor`, () => {
-    // An unanchored ILIKE across every column must never be triggerable by one character
-    expect(schema.safeParse({ search: 'a' }).success).toBe(false)
-    expect(schema.safeParse({ search: 'ac' }).success).toBe(true)
+    // Derived from the constant rather than spelled out: the floor tracks what the trigram
+    // index can serve, so a term written in here would silently stop testing the boundary
+    expect(schema.safeParse({ search: 'a'.repeat(SEARCH_MIN_LENGTH - 1) }).success).toBe(false)
+    expect(schema.safeParse({ search: 'a'.repeat(SEARCH_MIN_LENGTH) }).success).toBe(true)
     expect(schema.safeParse({}).success).toBe(true)
   })
 

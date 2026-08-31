@@ -205,7 +205,7 @@ The records a detail dialog has open, outermost first. Only the **last** entry i
 
 ### Search
 
-One reserved `?search=` param, ANDed with the filters. It is **free text ORed across the table's searchable columns** — the only OR anywhere in the query layer. `SEARCH_MIN_LENGTH` (2) is enforced by the **query schema**, not just the input, so no caller can trigger an unanchored full-table scan with one character; a shorter term is a 400, and the client drops it rather than sending it. `?search=` empty reads as absent, exactly like a filter — in the **schema** as well as in the codec, so a hand-written link with a cleared box is not a 400. Blank means empty after trimming, the same test `isFilterValueEmpty` applies to a text filter, and both readers trim before judging.
+One reserved `?search=` param, ANDed with the filters. It is **free text ORed across the table's searchable columns** — the only OR anywhere in the query layer. `SEARCH_MIN_LENGTH` (3) is enforced by the **query schema**, not just the input, so no caller can trigger a term the trigram index cannot serve; a shorter term is a 400, and the client drops it rather than sending it. Three because that is a trigram — the floor tracks the index, not a taste in usability. `?search=` empty reads as absent, exactly like a filter — in the **schema** as well as in the codec, so a hand-written link with a cleared box is not a 400. Blank means empty after trimming, the same test `isFilterValueEmpty` applies to a text filter, and both readers trim before judging.
 
 ---
 
@@ -235,7 +235,11 @@ One reserved `?search=` param, ANDed with the filters. It is **free text ORed ac
 
 > **`buildRecordSearch`'s parentheses are load-bearing.** `withinRange` returns a bare two-bound `a >= x AND a <= y` with no parentheses of its own, which is safe only while every sibling is `AND`. An unparenthesised OR group would bind to the last bound of a range filter and silently widen it.
 
-**The search cost is real and is paid twice:** the same WHERE fragment goes into the page query and the count; the page query can stop at `LIMIT+OFFSET` but the count cannot; and an unanchored `ILIKE` over user-defined JSON keys is unindexable. The `(tableId, createdAt)` index still supplies the access path, so it is an index scan with a per-row filter, not a sequential scan.
+**Search is served by an index, in two parts.** `buildRecordSearch` emits an indexed **pre-filter** — `record_search_text(data, "number") ILIKE …`, matched against the `Record_search_trgm_idx` trigram GIN — ANDed in front of the OR group above, which still decides. `record_search_text` flattens the whole row to one text blob and is deliberately **over-inclusive**: it carries the booleans and relation ids no field type searches, because the exact predicates reject them afterwards. What it may never do is _omit_ a value some type does search — that would be a row search can never return, with nothing to report it, which is why the superset property has its own test. The pre-filter expression and the index are one contract: an expression index is matched structurally, so they must stay byte-identical.
+
+**A search resolves before the ordering, and that is a query shape, not an index.** `listRecords` runs the row selection through `WITH hits AS MATERIALIZED (…)` when a search is present, aliased back to `"Record"` so a RELATION sort's correlated subquery still resolves. Left alone the planner instead walks the `ORDER BY` index and filters, reading most of the table to fill one page. Without a search there is nothing to narrow by and materialising would build every matching row to take fifty, so the plain query keeps its index scan.
+
+**The count is bounded, never exact past the cap.** Both legs still share one WHERE fragment, but the count runs inside `SELECT 1 … LIMIT RECORD_COUNT_CAP + 1` — the extra row is what separates "exactly the cap" from "more than we counted", and it is what `IRecordPage.totalCapped` reports. An exact `COUNT(*)` is `O(rows)` and no index shortens it, so it was the one cost in a list view that grew without bound.
 
 Keys and values are bound as parameters, never interpolated, and the key is `::text`-cast to disambiguate Postgres' `->>` overloads.
 
@@ -258,7 +262,9 @@ Keys and values are bound as parameters, never interpolated, and the key is `::t
 
 `Record.data` is keyed by `Field.key`, never by field id, so renaming a field never rewrites a single row. A **multi-value** field stores a JSON array under that key; widening a field is the one operation that does rewrite rows, in `updateField`'s own transaction (§10). `Table.recordCounter` is never exposed in `tableSelect`.
 
-**No index covers a JSONB key**, and that is deliberate — `limitations.md` carries the reason, the ceiling it sets, its trigger, and the remedies that fit this query layer.
+**One index covers `data`, and it is the search one.** `Record_search_trgm_idx` is a `gin_trgm_ops` GIN over `record_search_text(data, "number")`, created by migration alongside the `pg_trgm` extension and the function itself. None of the three can be expressed in `schema.prisma`, and Prisma ignores all of them — a `migrate diff` against a database holding them reports an empty migration — so they are created by hand and never managed by the schema. It is **one index for every table**, since the expression reads only the row.
+
+**No index covers a JSONB key for sorting or filtering**, and that is still deliberate — `limitations.md` carries the reason, the ceiling it sets, its trigger, and the remedies that fit this query layer.
 
 `prisma/migrations/` is the history. One of them is hand-written, because a required column over existing rows cannot be generated (`CLAUDE.md` §5, `decisions.md`).
 

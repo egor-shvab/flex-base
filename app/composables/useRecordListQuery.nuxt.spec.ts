@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
+import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import { parseRecordQueryState } from '#shared/utils/record-query'
 import { useRecordListQuery } from '~/composables/useRecordListQuery'
@@ -198,14 +199,19 @@ describe('sorting', () => {
 })
 
 describe('searching', () => {
-  it('sends a term at the floor', () => {
-    setup().applySearch('ac')
+  // Both terms are derived from the floor, which tracks what the trigram index can serve —
+  // a literal here would quietly stop testing the boundary the next time it moves
+  const atFloor = 'a'.repeat(SEARCH_MIN_LENGTH)
+  const belowFloor = 'a'.repeat(SEARCH_MIN_LENGTH - 1)
 
-    expect(navigation().query).toMatchObject({ search: 'ac' })
+  it('sends a term at the floor', () => {
+    setup().applySearch(atFloor)
+
+    expect(navigation().query).toMatchObject({ search: atFloor })
   })
 
   it('drops a term below the floor rather than sending one the schema would reject', () => {
-    setup({ search: 'acme' }).applySearch('a')
+    setup({ search: 'acme' }).applySearch(belowFloor)
 
     expect(navigation().query.search).toBeUndefined()
   })

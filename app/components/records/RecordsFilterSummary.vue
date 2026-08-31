@@ -51,6 +51,7 @@ const props = defineProps<{
   filters: TRecordFilterValues
   search: string
   total: number
+  totalCapped: boolean
   pending?: boolean
 }>()
 
@@ -80,7 +81,7 @@ const entries = computed(() =>
   }),
 )
 
-const countLabel = computed(() => formatMatchingRecords(props.total))
+const countLabel = computed(() => formatMatchingRecords(props.total, props.totalCapped))
 
 /** Clearing one filter is the same rebuild the drawer does — blanking it is what drops it. */
 function remove(field: IField) {

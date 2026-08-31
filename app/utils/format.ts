@@ -75,6 +75,10 @@ export function formatTimestamp(value: string): string {
  * records`), and routing it through the thousands formatter here would change user-visible copy
  * under the guise of removing a duplicate. A separate decision, if it is ever wanted.
  */
-export function formatMatchingRecords(total: number): string {
+export function formatMatchingRecords(total: number, capped = false): string {
+  // Past the cap the count is a floor, so it is stated as one — `1000 matching records` would
+  // be a number the server never established
+  if (capped) return `${total}+ matching records`
+
   return `${total} matching ${total === 1 ? 'record' : 'records'}`
 }

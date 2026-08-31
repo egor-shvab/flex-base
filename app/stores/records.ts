@@ -27,6 +27,8 @@ export const useRecordsStore = defineStore('records', () => {
   // shallowRef: the collection is replaced wholesale, never mutated item-by-item
   const records = shallowRef<IRecord[]>([])
   const total = ref(0)
+  /** Whether `total` is the cap rather than the count — see `IRecordPage.totalCapped`. */
+  const totalCapped = ref(false)
   const page = ref(1)
   const pageSize = ref(RECORD_PAGE_SIZE)
   const pending = ref(false)
@@ -35,7 +37,15 @@ export const useRecordsStore = defineStore('records', () => {
   // The store is a singleton reused across tables — state must not leak between them
   const loadedTableId = ref('')
 
+  /** A lower bound once `totalCapped` is set, which is why nothing gates *paging* on it. */
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+
+  /**
+   * Whether a next page exists, read off the page that came back rather than off `pageCount`.
+   * A capped total makes `pageCount` a floor, so gating Next on it would strand a user at the
+   * cap with rows still behind it; "the page came back full" is true at any table size.
+   */
+  const hasNextPage = computed(() => records.value.length === pageSize.value)
 
   /**
    * The caller owns the query — it lives in the page URL, so the store never mirrors it.
@@ -50,6 +60,7 @@ export const useRecordsStore = defineStore('records', () => {
       const response = await api.list(tableId, query)
       records.value = response.records
       total.value = response.total
+      totalCapped.value = response.totalCapped
       page.value = response.page
       pageSize.value = response.pageSize
       loadedTableId.value = tableId
@@ -109,13 +120,17 @@ export const useRecordsStore = defineStore('records', () => {
   async function deleteRecord(tableId: string, recordId: string, query: IRecordQueryState) {
     const removed = await api.remove(tableId, recordId)
     tables.applyTableRow(removed.table)
+    // A capped total is a lower bound, so it cannot say which page is last — clamping on it
+    // would drag a user back to the cap's page while rows still sit behind it
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
-    await fetchRecords(tableId, { ...query, page: Math.min(page.value, lastPage) })
+    const next = totalCapped.value ? page.value : Math.min(page.value, lastPage)
+    await fetchRecords(tableId, { ...query, page: next })
   }
 
   function clearState() {
     records.value = []
     total.value = 0
+    totalCapped.value = false
     page.value = 1
     pageSize.value = RECORD_PAGE_SIZE
   }
@@ -123,9 +138,11 @@ export const useRecordsStore = defineStore('records', () => {
   return {
     records,
     total,
+    totalCapped,
     page,
     pageSize,
     pageCount,
+    hasNextPage,
     pending,
     failed,
     fetchRecords,

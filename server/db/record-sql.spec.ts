@@ -198,6 +198,23 @@ describe('buildRecordWhere — free-text search', () => {
     expect(sqlText(where)).toMatch(/AND \(.+ OR .+\)$/)
   })
 
+  /**
+   * The indexed pre-filter, pinned as an exact string on purpose.
+   *
+   * `Record_search_trgm_idx` is an **expression** index, and PostgreSQL matches those
+   * structurally — a stray cast, a different argument order or a renamed column here silently
+   * costs the index and leaves a query that is merely slow. Nothing else in the suite would
+   * notice, so this string and the migration's are one contract.
+   */
+  it('leads with the expression the search index is built on, byte for byte', () => {
+    const where = buildRecordWhere(TABLE_ID, table, {}, 'acme')
+
+    expect(sqlText(where)).toContain('record_search_text(data, "number") ILIKE $2')
+    // The pre-filter narrows first and the exact group decides, so it is ANDed *before* it
+    expect(sqlText(where)).toMatch(/record_search_text\(data, "number"\) ILIKE \$2 AND \(/)
+    expect(where.values[1]).toBe('%acme%')
+  })
+
   it('keeps that group parenthesised beside a bare two-bound range', () => {
     // The load-bearing case: `withinRange` emits `a >= x AND a <= y` with no parentheses of
     // its own, so an unwrapped OR here would bind to its last bound and silently widen it
@@ -224,7 +241,9 @@ describe('buildRecordWhere — free-text search', () => {
     // a RELATION stores a cuid; and `date ILIKE text` has no operator
     const text = sqlText(buildRecordWhere(TABLE_ID, [booleanField(), relationField()], {}, 'acme'))
 
-    expect(text).toBe('WHERE "tableId" = $1 AND ("number"::text ILIKE $2)')
+    expect(text).toBe(
+      'WHERE "tableId" = $1 AND record_search_text(data, "number") ILIKE $2 AND ("number"::text ILIKE $3)',
+    )
   })
 
   it('leaves a multi-value RELATION out too, which widening only strengthens', () => {
@@ -232,7 +251,9 @@ describe('buildRecordWhere — free-text search', () => {
     // every row — the count query has no LIMIT
     const text = sqlText(buildRecordWhere(TABLE_ID, [asMultiple(relationField())], {}, 'acme'))
 
-    expect(text).toBe('WHERE "tableId" = $1 AND ("number"::text ILIKE $2)')
+    expect(text).toBe(
+      'WHERE "tableId" = $1 AND record_search_text(data, "number") ILIKE $2 AND ("number"::text ILIKE $3)',
+    )
   })
 
   it('searches a multi-value SELECT element-wise, guarded against a scalar row', () => {
@@ -240,7 +261,7 @@ describe('buildRecordWhere — free-text search', () => {
     // list query — a row written before the field was widened must degrade, not 500
     const text = sqlText(buildRecordWhere(TABLE_ID, [asMultiple(selectField())], {}, 'acme'))
 
-    expect(text).toContain("CASE WHEN jsonb_typeof(data -> $3::text) = 'array'")
+    expect(text).toContain("CASE WHEN jsonb_typeof(data -> $4::text) = 'array'")
     expect(text).toContain("ELSE '[]'::jsonb END")
     expect(text).toContain('EXISTS ( SELECT 1 FROM jsonb_array_elements_text(')
     expect(text).toContain('WHERE element ILIKE')
