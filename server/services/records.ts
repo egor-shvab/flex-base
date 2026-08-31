@@ -4,7 +4,7 @@ import { prisma } from '#server/db/prisma'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { toHttpError } from '#server/utils/http-errors'
 import { recordSelect, toJsonData, toSharedRecord, type TRecordRow } from '#server/db/records'
-import { buildRecordOrderBy, buildRecordWhere } from '#server/db/record-sql'
+import { buildRecordOrderBy, buildRecordWhere, type IRecordOrder } from '#server/db/record-sql'
 import { RelationService } from '#server/services/relations'
 import type { IField } from '#shared/types/field'
 import type {
@@ -28,10 +28,13 @@ const recordErrors = { notFound: 'Record not found' }
  * materialising would mean building every matching row before taking fifty — so the plain query
  * keeps its index scan.
  *
- * The CTE is aliased back to `"Record"` because a RELATION sort's correlated subquery qualifies
- * the outer row by that name (`targetLabel`), and the alias is what keeps it in scope.
+ * **An ordering may bring a join with it** (`IRecordOrder`), and it goes here rather than in the
+ * builder because only this knows which `FROM` is in play. The CTE keeps its `"Record"` alias so
+ * that one join expression reads the source row by the same name under either shape; the joined
+ * table inside it resolves to the real `"Record"`, since a non-lateral subquery cannot see its
+ * siblings' aliases.
  */
-function selectPage(where: Prisma.Sql, orderBy: Prisma.Sql, query: IRecordQuery) {
+function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery) {
   const { page, pageSize, search } = query
   const offset = (page - 1) * pageSize
   const columns = Prisma.sql`id, "number", data, "createdAt", "updatedAt"`
@@ -39,8 +42,9 @@ function selectPage(where: Prisma.Sql, orderBy: Prisma.Sql, query: IRecordQuery)
   if (search === '') {
     return prisma.$queryRaw<TRecordRow[]>`
       SELECT ${columns} FROM "Record"
+      ${order.join}
       ${where}
-      ORDER BY ${orderBy}
+      ORDER BY ${order.orderBy}
       LIMIT ${pageSize} OFFSET ${offset}
     `
   }
@@ -48,7 +52,8 @@ function selectPage(where: Prisma.Sql, orderBy: Prisma.Sql, query: IRecordQuery)
   return prisma.$queryRaw<TRecordRow[]>`
     WITH hits AS MATERIALIZED (SELECT ${columns} FROM "Record" ${where})
     SELECT ${columns} FROM hits AS "Record"
-    ORDER BY ${orderBy}
+    ${order.join}
+    ORDER BY ${order.orderBy}
     LIMIT ${pageSize} OFFSET ${offset}
   `
 }
@@ -77,10 +82,10 @@ async function listRecords(
 ): Promise<IRecordPage> {
   const { page, pageSize, sort, filters, search } = query
   const where = buildRecordWhere(tableId, fields, filters, search)
-  const orderBy = buildRecordOrderBy(fields, sort)
+  const order = buildRecordOrderBy(fields, sort)
 
   const [rows, counts] = await prisma.$transaction([
-    selectPage(where, orderBy, query),
+    selectPage(where, order, query),
     selectCount(where),
   ])
 

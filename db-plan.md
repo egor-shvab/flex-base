@@ -3,7 +3,7 @@
 Target: stay fast and comfortable at **100k records per table and 1M+ overall**, with priority
 order **search > filtering > sorting > writes**.
 
-**T1–T4 and T10 are implemented; T5, T6 and T11 are not.** The stated priority order is reflected in what lands in Phase 1;
+**T1–T4, T6 and T10 are implemented; T5 and T11 are not.** The stated priority order is reflected in what lands in Phase 1;
 **the authoritative execution order is the Sequencing summary near the end**, which is not the
 numbering order — T9–T11 were added during review and sit in Phase 1 despite their numbers.
 Task numbers are stable identifiers, not a running order.
@@ -49,11 +49,13 @@ Current schema and indexes, no changes:
 | Deep page (offset 100 000), default sort | **38 ms**    | Index scan, walks 100 050 rows           |
 | `COUNT(*)` with a text filter            | **395 ms**   | Parallel seq scan                        |
 | **Free-text search** (7-column OR)       | **1 940 ms** | Index scan + per-row filter              |
-| **Relation label sort**                  | **2 771 ms** | Seq scan + 800 000 PK lookups            |
+| **Relation label sort**                  | ~~2 771 ms~~ | Seq scan + 800 000 PK lookups — see §3   |
 
-The two headline numbers — **search at ~2 s and relation sort at ~2.8 s** — are the ones that
-make the app feel broken. Note also that `COUNT(*)` at 61 ms is charged to _every_ list view
-including the unfiltered default, which is otherwise a 0.15 ms query.
+The two headline numbers — search and the relation label sort — are the ones that make the app feel
+broken. Both were later re-measured: search is fixed (§3), and the relation sort really is the
+slowest thing here, at **1 528 ms** rather than the 2 771 ms below. Note also that `COUNT(*)` at
+61 ms is charged to _every_ list view including the unfiltered default, which is otherwise a
+0.15 ms query.
 
 > **Read these as shapes, not magnitudes.** They were taken under `EXPLAIN ANALYZE`, whose per-row
 > timing instrumentation is expensive over 800k rows, so the slow figures here overstate what the
@@ -98,9 +100,33 @@ the second is reported.
 - **Three opted-in fields cost 399 MB of index** on a 1M-row table. That is the number that
   vindicates opt-in over indexing everything: six fields would have been most of a gigabyte.
 
-**Not re-measured: the relation label sort.** The benchmark had no relation field. It stays as §2
-recorded it, and nothing about it has changed — `targetLabel` is a correlated subquery, T3 declares
-it unindexable, and a test pins that. Its cost is structural, not in doubt.
+### The relation label sort, measured separately
+
+800k source rows each linking to one of 5 000 targets, same method — whole list calls, no
+`EXPLAIN ANALYZE`.
+
+| Relation label sort, 1M rows               | Opted out    | Opted in     |
+| ------------------------------------------ | ------------ | ------------ |
+| Plain TEXT sort on the same table, control | 104.4 ms     | —            |
+| Correlated subquery — what shipped before  | 1 527.8 ms   | 1 568.5 ms   |
+| **The same sort as a `LEFT JOIN`** — T6    | **384.5 ms** | **171.5 ms** |
+
+Both shapes returned identical rows.
+
+**This one was not inflated the way the others were.** I expected ~250 ms by analogy with the TEXT
+sort's 10× overstatement; it is 1 528 ms — §2 overstated it by less than 2×. The relation label
+sort is genuinely the slowest thing in the system, and guessing would have got it wrong in the
+direction that mattered.
+
+Three things follow:
+
+- **Opting a relation in changes nothing for its ordering** — 1 528 vs 1 568 ms, which is noise.
+  That is `sortIndex: null` behaving exactly as declared, now measured rather than reasoned.
+- **A `LEFT JOIN` is 4× faster on its own, and 9× faster once the field is opted in** — because T3
+  already builds a B-tree over `data ->> key` for the relation's _filter_, and that is the column
+  the join probes. Opting in stops being pointless for relations the moment the join lands.
+- At 171 ms it is within striking distance of the 104 ms plain-sort control, so most of what is
+  left is the cost of ordering 800k rows at all, not the relation.
 
 ## 4. The single most important scheduling fact
 
@@ -551,24 +577,40 @@ which buys a lot of time.
 
 ### T6. The relation label sort
 
-**What.** Currently `targetLabel` is a correlated subquery per row: measured **2 771 ms** at 1M
-(seq scan + 800 000 PK lookups). Rewriting it as a `LEFT JOIN` measured 393 → 232 ms at 100k —
-better, but still hash-joining the whole target table, and not a fix.
+**Status:** done — 2026-08-31, with changes — shipped as a join, not the denormalisation this
+block describes, and **not** the "one fragment" the re-scope predicted. A plain self-join does not
+compile: every column reference around it is unqualified, so `data`, `id` and `"tableId"` all
+become ambiguous. It joins a **derived table exposing two renamed columns** instead, which leaves
+the rest of the SQL layer untouched, and narrows to the target table — which the old subquery did
+not, so a link pointing outside its own target now sorts last rather than resolving to a foreign
+row.
 
-The real fix is to **stop computing the label at query time**: maintain the target's label
-alongside the stored id, so the sort reads a local column. That means a denormalised value kept
-current when the target record's label field changes — a trigger, or a write-path update in
-`RecordService`.
+**Re-scoped by measurement (§3). Denormalisation is off the table; a `LEFT JOIN` is the fix.**
 
-**Why deferred.** It is the only item here that introduces **derived data that can go stale**,
-and staleness in a label is user-visible. It needs a real design: what updates it, what happens
-when the label field itself is changed (`labelFieldKey` is editable), and what happens to the
-existing "dangling id reads as Unknown record" behaviour. That design is not a performance patch.
+`targetLabel` emits a correlated subquery, which costs **1 528 ms** at 1M and is the slowest thing
+in the system. The same ordering as a `LEFT JOIN` on the target's primary key costs **384 ms**, and
+**171 ms** once the field is opted in — a 9× improvement, returning identical rows, with **no
+derived data, no staleness, and no dependency on the background job this was previously blocked
+on**. The plan's original answer — maintain the label alongside the stored id — is now
+over-engineering for a problem a query-shape change mostly solves.
 
-**Trigger.** Before any table with a relation column and >100k rows becomes sortable by it in
-practice. This is the **worst-scaling query in the system** — it should be added to
-`docs/limitations.md` now (T8) even though the fix is deferred, because right now it is only
-implied there.
+**What it actually takes, and it is not one fragment.** `targetLabel` is an _expression_ used in
+`ORDER BY`; a join has to reach the `FROM` clause, which lives in `selectPage`
+(`server/services/records.ts`) rather than in the per-type module. So the seam has to grow: a
+sort must be able to contribute a join, not just an expression. Concretely —
+
+- `IFieldSqlRules` gains a way to say "this ordering needs the target joined", alongside `sortExpr`;
+- `buildRecordOrderBy` returns that join alongside the ordering, or `selectPage` asks for it;
+- `targetLabel` becomes a reference to the joined alias rather than a subquery;
+- the multi-value case joins on `data -> key ->> 0`, exactly as it projects today;
+- the alias must not collide with the `hits AS "Record"` alias the search path already uses.
+
+**Why it is still not done here.** It changes the shape of the one query every list view runs, and
+this session was scoped to measure. The existing relation-sort integration case already asserts the
+same order under both query shapes (searching and not), which is the proof it would need.
+
+**Trigger.** The next time relation sorting matters — or simply next, since it is now a bounded
+change with a measured 9× return rather than an open-ended design problem.
 
 ---
 
@@ -641,7 +683,7 @@ Execution order, which is not the numbering order — T9/T10/T11 were added in r
 | 6     | T11 Maintenance settings                 | writes             | Deferred — tuning at this size would be cargo-culting |
 | —     | T9 Tests                                 | —                  | **Inside each task above**, never after               |
 | —     | T5 Keyset pagination                     | sorting at depth   | Deferred — and §3 lowered its priority: 17 ms         |
-| —     | T6 Relation label denormalisation        | sorting            | Deferred — needs a staleness design                   |
+| 7     | T6 Relation label sort → `LEFT JOIN`     | sorting            | **Done** — 1 528 ms → 171 ms, no denormalisation      |
 | —     | T7 Physical columns / EAV / partitioning | —                  | Rejected, with measurements                           |
 | last  | T8 Documentation                         | —                  | After the implementation tasks land                   |
 

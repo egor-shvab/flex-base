@@ -80,12 +80,12 @@ async function planForSort(
   direction: TSortDirection = DEFAULT_SORT_DIRECTION,
 ): Promise<string> {
   const where = buildRecordWhere(tableId, fields, {})
-  const orderBy = buildRecordOrderBy(fields, { key, direction })
+  const order = buildRecordOrderBy(fields, { key, direction })
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SET LOCAL enable_sort = off`
     const rows = await tx.$queryRaw<Record<string, string>[]>`
-      EXPLAIN SELECT id FROM "Record" ${where} ORDER BY ${orderBy} LIMIT 50
+      EXPLAIN SELECT id FROM "Record" ${order.join} ${where} ORDER BY ${order.orderBy} LIMIT 50
     `
     return rows.map((row) => Object.values(row)[0]).join('\n')
   })

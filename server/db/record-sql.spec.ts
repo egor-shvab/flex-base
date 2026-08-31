@@ -282,66 +282,94 @@ describe('buildRecordOrderBy', () => {
   const table = [textField('company'), relationField()]
 
   it('orders by creation for the default key', () => {
-    expect(sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'desc' }))).toBe(
-      '"createdAt" DESC',
-    )
-    expect(sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'asc' }))).toBe(
-      '"createdAt" ASC',
-    )
+    expect(
+      sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'desc' }).orderBy),
+    ).toBe('"createdAt" DESC')
+    expect(
+      sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'asc' }).orderBy),
+    ).toBe('"createdAt" ASC')
   })
 
   it('falls back to creation for a key the table no longer owns', () => {
-    expect(sqlText(buildRecordOrderBy(table, { key: 'deleted_field', direction: 'asc' }))).toBe(
-      '"createdAt" ASC',
-    )
+    expect(
+      sqlText(buildRecordOrderBy(table, { key: 'deleted_field', direction: 'asc' }).orderBy),
+    ).toBe('"createdAt" ASC')
   })
 
   it('sorts blanks last and breaks ties newest-first, which is what keeps paging stable', () => {
-    expect(sqlText(buildRecordOrderBy(table, { key: 'company', direction: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy(table, { key: 'company', direction: 'asc' }).orderBy)).toBe(
       'data ->> $1::text ASC NULLS LAST, "createdAt" DESC',
     )
   })
 
   it('orders the number as an integer though it filters as text, so #9 precedes #10', () => {
-    expect(sqlText(buildRecordOrderBy([], { key: RECORD_NUMBER_KEY, direction: 'asc' }))).toBe(
-      '"number" ASC NULLS LAST, "createdAt" DESC',
-    )
+    expect(
+      sqlText(buildRecordOrderBy([], { key: RECORD_NUMBER_KEY, direction: 'asc' }).orderBy),
+    ).toBe('"number" ASC NULLS LAST, "createdAt" DESC')
   })
 
   it('orders a timestamp as a timestamp, so two records made in one day still order by time', () => {
-    expect(sqlText(buildRecordOrderBy([], { key: UPDATED_AT_KEY, direction: 'desc' }))).toBe(
-      '"updatedAt" DESC NULLS LAST, "createdAt" DESC',
-    )
+    expect(
+      sqlText(buildRecordOrderBy([], { key: UPDATED_AT_KEY, direction: 'desc' }).orderBy),
+    ).toBe('"updatedAt" DESC NULLS LAST, "createdAt" DESC')
   })
 
+  /**
+   * A RELATION orders by the target's label, and that value is in another row — so unlike every
+   * other type its ordering arrives as a join plus a reference to it, rather than an expression
+   * over the row being sorted.
+   */
   it('orders a RELATION by the label the user reads, not by the id it stores', () => {
-    const orderBy = buildRecordOrderBy(table, { key: 'owner', direction: 'asc' })
+    const order = buildRecordOrderBy(table, { key: 'owner', direction: 'asc' })
 
-    expect(sqlText(orderBy)).toBe(
-      '( SELECT target.data ->> $1::text FROM "Record" AS target WHERE target.id = "Record".data ->> $2::text ) ASC NULLS LAST, "createdAt" DESC',
+    expect(sqlText(order.orderBy)).toBe(
+      '"sort_target".target_label ASC NULLS LAST, "createdAt" DESC',
     )
-    expect(orderBy.values).toEqual(['full_name', 'owner'])
+    expect(sqlText(order.join)).toBe(
+      'LEFT JOIN ( SELECT id AS target_id, data ->> $1::text AS target_label FROM "Record" WHERE "tableId" = $2 ) AS "sort_target" ON "sort_target".target_id = data ->> $3::text',
+    )
+    expect(order.join.values).toEqual(['full_name', 'tbl_people', 'owner'])
+  })
+
+  /**
+   * The derived table exposes two **renamed** columns and nothing else. That is not tidiness: the
+   * surrounding query references `id`, `data` and `"tableId"` unqualified, so a plain self-join
+   * would make every one of them ambiguous and the statement would not compile.
+   */
+  it('exposes only renamed columns, so nothing around it becomes ambiguous', () => {
+    const { join } = buildRecordOrderBy(table, { key: 'owner', direction: 'asc' })
+    const exposed = sqlText(join).match(/AS (target_\w+)/g)
+
+    expect(exposed).toEqual(['AS target_id', 'AS target_label'])
   })
 
   it('orders a multi-value RELATION by its first link', () => {
     const multi = asMultiple(relationField())
-    expect(sqlText(buildRecordOrderBy([multi], { key: 'owner', direction: 'asc' }))).toContain(
-      'target.id = "Record".data -> $2::text ->> 0',
-    )
+    const { join } = buildRecordOrderBy([multi], { key: 'owner', direction: 'asc' })
+
+    expect(sqlText(join)).toContain('ON "sort_target".target_id = data -> $3::text ->> 0')
+  })
+
+  it('joins nothing for a type whose ordering is already in the row', () => {
+    for (const key of ['company', RECORD_NUMBER_KEY, CREATED_AT_KEY]) {
+      expect(buildRecordOrderBy(table, { key, direction: 'asc' }).join.text).toBe('')
+    }
   })
 
   it('orders a multi-value SELECT by its first value', () => {
     const multi = asMultiple(selectField())
-    expect(sqlText(buildRecordOrderBy([multi], { key: 'stage', direction: 'asc' }))).toBe(
+    expect(sqlText(buildRecordOrderBy([multi], { key: 'stage', direction: 'asc' }).orderBy)).toBe(
       'data -> $1::text ->> 0 ASC NULLS LAST, "createdAt" DESC',
     )
   })
 
-  it('falls back to the stored id when the label field was deleted', () => {
+  it('falls back to the stored id when the label field was deleted, and joins nothing', () => {
     const orphan = relationField({ labelFieldKey: undefined })
-    expect(sqlText(buildRecordOrderBy([orphan], { key: 'owner', direction: 'asc' }))).toBe(
-      '"Record".data ->> $1::text ASC NULLS LAST, "createdAt" DESC',
-    )
+    const order = buildRecordOrderBy([orphan], { key: 'owner', direction: 'asc' })
+
+    expect(sqlText(order.orderBy)).toBe('data ->> $1::text ASC NULLS LAST, "createdAt" DESC')
+    // Nothing to join to, so nothing is joined — a join with no label to read would be pure cost
+    expect(order.join.text).toBe('')
   })
 })
 
@@ -392,9 +420,18 @@ describe('buildRecordLabelSearch', () => {
  * Probed through ORDER BY rather than WHERE: a widened field's filter is list-shaped whatever
  * its type declares, so a WHERE would differ from the value's shape rather than from the
  * routing this is about.
+ *
+ * **Both halves of the ordering are compared, and that is not belt-and-braces.** A RELATION now
+ * orders through a join, so its `orderBy` is the same `"sort_target".target_label` widened or
+ * not — the difference between the two moved into the join's `ON`. Comparing `orderBy` alone
+ * would report RELATION as *not* differing and quietly invert the invariant for the one type
+ * whose routing is hardest to see.
  */
 describe('MULTI_SQL — the cross-registry invariant', () => {
   it('projects a widened field differently at exactly the types that may hold a list', () => {
+    const whole = (order: ReturnType<typeof buildRecordOrderBy>) =>
+      `${sqlText(order.orderBy)} | ${sqlText(order.join)}`
+
     for (const type of FIELD_TYPES) {
       const field = ALL_TYPE_FIELDS[type]
       const sort = { key: field.key, direction: 'asc' as const }
@@ -402,7 +439,7 @@ describe('MULTI_SQL — the cross-registry invariant', () => {
       const flat = buildRecordOrderBy([field], sort)
       const widened = buildRecordOrderBy([asMultiple(field)], sort)
 
-      expect(sqlText(flat) !== sqlText(widened)).toBe(MULTI_VALUE_BY_TYPE[type])
+      expect(whole(flat) !== whole(widened)).toBe(MULTI_VALUE_BY_TYPE[type])
     }
   })
 })

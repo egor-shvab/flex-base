@@ -218,7 +218,8 @@ One reserved `?search=` param, ANDed with the filters. It is **free text ORed ac
 **One total map, `FIELD_SQL_BY_TYPE`**, gives each field type:
 
 - `expr` — the JSONB projection a **filter** compares against (`::numeric`/`::boolean` casts; plain text for TEXT/DATE/SELECT/RELATION).
-- `sortExpr` — how the column **orders**, when that differs from how it filters. RELATION is the only single-value type that declares one: a correlated subquery over the target's label field, because it filters on the stored id but orders by the label.
+- `sortExpr` — how the column **orders**, when that differs from how it filters, as an expression over the row being sorted.
+- `sortJoin` — how it orders when the value is in **another row**, which no expression can reach: the join to bring that row in, plus what to order by once it is there. RELATION is the only type that declares one, because it filters on the stored id but orders by the target's label. It takes precedence over `sortExpr`, and `buildRecordOrderBy` hands the join back to the caller (`IRecordOrder`) since a join belongs to `FROM` and only the caller knows where its `FROM` is.
 - `filter` — how its value compares: `matchesPartially` (`ILIKE` with escaped wildcards), `matchesExactly` (`=`), `withinRange` (inclusive `>=`/`<=` for whichever bounds are set), `matchesAny` (`IN (…)`).
 - `searchPredicate(key, pattern)` — how free-text search matches it, or `null` to opt out. A whole **predicate**, not an expression the caller appends `ILIKE` to, and separate from `expr` for the reasons in `decisions.md`.
 
@@ -226,7 +227,7 @@ One reserved `?search=` param, ANDed with the filters. It is **free text ORed ac
 
 - `expr` is `data -> key` rather than `->>`, since `->>` on an array yields the literal `["a","b"]` and would match a filter on `[` or `","`.
 - `filter` is `containsAny`: `(expr ?| ARRAY[…]::text[])`. The **operator form**, never the `jsonb_exists_any` function that means the same thing (`decisions.md` → _The `?|` operator, never the `jsonb_exists_any` function_) — only an operator can be matched to an index operator class or carry selectivity statistics. Emitted parenthesised so, like `IN (…)`, it cannot bind to a sibling's last term; it answers correctly for a bare scalar; and it is the one comparison in this layer a **GIN index can serve**, on the sub-path `(data->key)`.
-- `sortExpr` orders by the **first** element (`data -> key ->> 0`; for RELATION, `targetLabel` over that same first id).
+- `sortExpr` orders by the **first** element (`data -> key ->> 0`); for RELATION it is `sortJoin` that joins on that same first id.
 - `searchPredicate` is `EXISTS (SELECT 1 FROM jsonb_array_elements_text(…) WHERE element ILIKE …)` for SELECT, and `null` for RELATION.
 
 > **The `jsonb_typeof(…) = 'array'` guard inside that `EXISTS` is load-bearing.** `jsonb_array_elements_text` raises `cannot extract elements from a scalar` on anything else, and that error takes down the **whole list query**, not one row. A field flipped to multi migrates its data, but a row written between the two is a scalar, and so is a JSON `null`.

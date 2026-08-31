@@ -8,6 +8,7 @@ export const DATE_FIELD_SQL: IFieldSqlModule = {
     expr: jsonText,
     searchPredicate: matchesText,
     filter: withinRange,
+    sortJoin: null,
     filterIndex: 'btree',
     sortIndex: 'btree',
   },

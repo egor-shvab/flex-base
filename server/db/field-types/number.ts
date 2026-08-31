@@ -9,6 +9,7 @@ export const NUMBER_FIELD_SQL: IFieldSqlModule = {
     expr: (key) => Prisma.sql`(${jsonText(key)})::numeric`,
     searchPredicate: matchesText,
     filter: withinRange,
+    sortJoin: null,
     filterIndex: 'btree',
     sortIndex: 'btree',
   },

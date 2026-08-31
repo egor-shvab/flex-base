@@ -137,18 +137,45 @@ export function buildRecordWhere(
   return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
 }
 
-export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): Prisma.Sql {
+/**
+ * How the rows are ordered, and what the query needs in scope to order them that way.
+ *
+ * The two travel together because they belong to different clauses: an ordering is `ORDER BY` and
+ * a join is `FROM`, and only the caller knows where its `FROM` is — the list has two query shapes
+ * (§8) and the join has to land in whichever one is running.
+ */
+export interface IRecordOrder {
+  orderBy: Prisma.Sql
+  /** What the ordering has to bring into the query, or `Prisma.empty` when it is self-contained. */
+  join: Prisma.Sql
+}
+
+/**
+ * The alias a joined ordering is given. One fixed name is enough: a query orders by exactly one
+ * column, so there is never a second join to collide with.
+ */
+const SORT_JOIN_ALIAS = 'sort_target'
+
+export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecordOrder {
   const direction = sort.direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
   const field =
     sort.key === DEFAULT_SORT_KEY ? undefined : queryColumns(fields).find((f) => f.key === sort.key)
 
   if (!field) {
-    return Prisma.sql`"createdAt" ${direction}`
+    return { orderBy: Prisma.sql`"createdAt" ${direction}`, join: Prisma.empty }
   }
+
+  // A record column never joins — it is already in the row (§5)
+  const joined = RECORD_COLUMN_SQL[field.key]
+    ? null
+    : (sqlFor(field).sortJoin?.(field, SORT_JOIN_ALIAS) ?? null)
 
   // Blanks always sort last; ties break newest-first, matching the default order, and the
   // tie-break is what keeps paging stable
-  return Prisma.sql`${sortExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`
+  return {
+    orderBy: Prisma.sql`${joined?.expr ?? sortExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`,
+    join: joined?.join ?? Prisma.empty,
+  }
 }
 
 /**

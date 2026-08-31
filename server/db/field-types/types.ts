@@ -21,11 +21,28 @@ export type TFilterSql = (expr: Prisma.Sql, value: TFilterValue) => Prisma.Sql |
  */
 export type TFieldIndexKind = 'btree' | 'trigram' | 'gin'
 
+/** An ordering that reaches another row: what to join, and what to order by once joined. */
+export interface IJoinedSort {
+  join: Prisma.Sql
+  expr: Prisma.Sql
+}
+
 export interface IFieldSqlRules {
   /** Projects the stored JSONB value to a comparable expression — what a filter compares against. */
   expr: (key: string) => Prisma.Sql
   /** How the column orders, for a type that reads as something other than the value it stores. */
   sortExpr?: (field: IField) => Prisma.Sql
+  /**
+   * How this type orders when the value it sorts by lives in **another row** — the join to bring
+   * that row in, and the expression to order by once it is there. Takes precedence over
+   * `sortExpr`, and `null` for every type whose ordering is local.
+   *
+   * Separate from `sortExpr` because a join belongs to `FROM` and an expression to `ORDER BY`, and
+   * only the caller knows where its `FROM` is. RELATION is the only type that needs it: reading
+   * the target's label per row instead costs a subquery per row, measured at 1 528 ms over 800k
+   * rows against 171 ms for the join.
+   */
+  sortJoin: ((field: IField, alias: string) => IJoinedSort) | null
   /**
    * How free-text search matches this type, as a whole **predicate**, or `null` to exclude it.
    * Separate from `expr` because two types cannot be searched the way they are filtered:

@@ -60,7 +60,7 @@ Those records then render as a neutral badge. A choice's identity is its own tex
 
 ### Sorting/filtering by a JSONB key is unindexed
 
-Keys are user-defined per table, so no general index applies. _The first scaling ceiling; watch it — revisit at the first table over ~100k records, or the first report of a slow filtered view._ Two limitations sit on top of it and are accepted for the same reason: a **relation label sort** costs one PK lookup per matching row, and **relation option search** scans the target table the same way, though over one table, on one expression, under a hard `LIMIT`. Free-text search no longer belongs to this list — it is served by `Record_search_trgm_idx` (`architecture.md` §8).
+Keys are user-defined per table, so no general index applies. _The first scaling ceiling; watch it — revisit at the first table over ~100k records, or the first report of a slow filtered view._ One limitation sits on top of it and is accepted for the same reason: **relation option search** scans the target table, though over one table, on one expression, under a hard `LIMIT`. The relation label sort no longer belongs here — it joins rather than looking up per row (`decisions.md`), which took it from ~1.5 s to 171 ms over 800k rows. Free-text search no longer belongs to this list — it is served by `Record_search_trgm_idx` (`architecture.md` §8).
 
 When it does need answering, **the query layer can already take the fix** — stated here so it is not re-derived under load. Because `db/record-sql.ts` composes SQL per field from metadata rather than emitting one fixed query, each remedy plugs into the existing per-type rules: a **GIN index** helps exactly one comparison, `containsAny`'s `?|`, and must be built per field on the sub-path (`(data->'tags')`) — one on `data` as a whole does not serve it; and a **per-field expression index** over `data ->> key` is an `expr`/`sortExpr`-shaped decision the registry already owns. What is genuinely new is index _lifecycle_ — the search index needs none because its expression reads only the row, but a per-field one is created and dropped as fields are, and issuing that DDL from `createField`/`deleteField` puts lock waits and half-created indexes inside a user-facing request, while `CONCURRENTLY` cannot run in a transaction. That is the commitment to take deliberately, not the SQL.
 
@@ -74,7 +74,9 @@ Index DDL is fired from the request and not awaited (`decisions.md`), so a failu
 
 ### A RELATION cannot be sorted from an index
 
-It filters from one, but `sortExpr` is `targetLabel` — a correlated subquery over a row in the _target_ table, and an index only ever covers an expression of the row it is built on. So opting a relation field in speeds its filter and leaves its ordering exactly as slow as before. Denormalising the label is the only fix, and it is the same one the relation-label sort entry above needs.
+It filters from one and no index orders it, because the value it orders by — the target's label — is not in the row being sorted. What closes most of that gap is the **join** the ordering now brings with it (`decisions.md`), which probes the very column the filter index covers: 1 528 ms as a per-row subquery, 384 ms joined, **171 ms** joined with the field opted in. So opting a relation in speeds its ordering as well as its filter, through the filter index rather than a sort one.
+
+What is left is that 171 ms against a 104 ms plain-text sort on the same table — the residue is the cost of ordering 800k rows at all, not of the relation. _Revisit only if that gap starts to matter; a denormalised label is the only thing left that would close it, and it costs derived data that can go stale._
 
 ### A record count stops at 1000, and past it the UI says `1000+`
 

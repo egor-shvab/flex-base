@@ -377,6 +377,29 @@ So the flatten is only ever a **superset**. Over-inclusion is free — the exact
 
 The pre-filter expression and the index expression are **one contract**: PostgreSQL matches an expression index structurally, so a stray cast or a renamed column costs the index and leaves a query that is merely slow. `record_search_text` must also stay `IMMUTABLE` with a pinned `search_path`, or it cannot be indexed at all and its value would depend on session state.
 
+### A relation orders through a joined derived table, not a subquery per row
+
+Reading the target's label per row cost **1 528 ms** over 800k rows; the same ordering as a join
+costs 384 ms, and **171 ms** once the field is opted in — because the join probes `data ->> key`,
+which is precisely what T3 indexes for the relation's _filter_. Both return identical rows. The
+denormalised label this used to call for — derived data, staleness, one write fanning out across
+thousands of rows — was retired by that measurement.
+
+**The joined relation must be a derived table exposing renamed columns.** A plain
+`LEFT JOIN "Record" …` is a self-join, and every column reference in the surrounding query is
+unqualified, so `data`, `id` and `"tableId"` all become ambiguous and the statement will not
+compile — verified, not theorised. Exposing only `target_id` and `target_label` means nothing else
+in the SQL layer has to be qualified, which is the whole reason this shape was chosen over
+qualifying every fragment.
+
+Two consequences worth keeping: the derived table **narrows to the target table**, which the old
+subquery did not, so a link pointing outside its own target now sorts last rather than resolving
+to a foreign row (`assertRelationTargets` refuses to create one); and the join is `LEFT`, so a
+dangling or empty link keeps its row and sorts last rather than dropping it.
+
+`sortIndex` stays `null` for RELATION — no index orders this column, because the value it orders by
+is not in it. What the join exploits is the `filterIndex`.
+
 ### A search resolves before the ordering
 
 `listRecords` materialises the hits in a CTE when a search is present. Adding the index alone is not enough: the planner faces a choice it cannot win — use the index that satisfies `ORDER BY` and filter, or use the GIN and sort — and it picks the former, reading most of the table to fill one page. `MATERIALIZED` forces the search first. The CTE is aliased back to `"Record"` because a RELATION sort's correlated subquery qualifies the outer row by that name.

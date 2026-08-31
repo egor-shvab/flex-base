@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { buildRecordWhere } from '#server/db/record-sql'
+import { buildRecordOrderBy, buildRecordWhere } from '#server/db/record-sql'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { prisma } from '#server/db/prisma'
 import { RecordService } from '#server/services/records'
@@ -551,6 +551,87 @@ describe('ORDER BY', () => {
     // Ada before Grace — the label's order, not the company's and not creation order
     expect(await byOwner('')).toEqual(['Alpha Holdings', 'Zeta Holdings'])
     expect(await byOwner('Holdings')).toEqual(['Alpha Holdings', 'Zeta Holdings'])
+  })
+
+  /**
+   * The ordering reaches the target through a `LEFT JOIN`, and the three ways that could go wrong
+   * are all invisible in the SQL: a row could vanish, a row could appear twice, or the whole thing
+   * could quietly fall back to a per-row subquery.
+   */
+  describe('the join the relation ordering brings with it', () => {
+    async function dealsLinkedTo(links: (string | undefined)[]) {
+      const user = await createUser()
+      const people = await createTable(user.id, 'People')
+      await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
+      const [ada] = await createRecords(people.id, [{ full_name: 'Ada Lovelace' }])
+
+      const deals = await createTable(user.id, 'Deals')
+      const dealFields = await createFields(deals.id, [
+        { key: 'company', type: 'TEXT' },
+        {
+          key: 'owner',
+          type: 'RELATION',
+          options: { targetTableId: people.id, labelFieldKey: 'full_name' },
+        },
+      ])
+      await createRecords(
+        deals.id,
+        links.map((link, index) => ({
+          company: `Deal ${index}`,
+          owner: link === 'ada' ? (ada?.id ?? '') : (link ?? ''),
+        })),
+      )
+
+      return { deals, dealFields }
+    }
+
+    const sorted = (deals: { id: string }, dealFields: IField[]) =>
+      RecordService.listRecords(
+        deals.id,
+        dealFields,
+        query({ sort: { key: 'owner', direction: 'asc' } }),
+      )
+
+    it('keeps a row whose link resolves to nothing, and sorts it last', async () => {
+      // An inner join would drop these two entirely — the row would disappear from its own table
+      const { deals, dealFields } = await dealsLinkedTo(['rec_deleted', undefined, 'ada'])
+
+      const page = await sorted(deals, dealFields)
+
+      expect(page.records).toHaveLength(3)
+      expect(page.records[0]?.data.company).toBe('Deal 2')
+    })
+
+    it('returns each row once, however the join resolves', async () => {
+      const { deals, dealFields } = await dealsLinkedTo(['ada', 'ada', 'ada'])
+
+      const page = await sorted(deals, dealFields)
+
+      // The join is on the target's primary key, so at most one row can match — but a join that
+      // matched twice would silently duplicate rows rather than error
+      expect(page.records).toHaveLength(3)
+      expect(new Set(page.records.map((record) => record.id)).size).toBe(3)
+      expect(page.total).toBe(3)
+    })
+
+    /**
+     * The plan assertion. `targetLabel` used to emit a correlated subquery, which PostgreSQL
+     * reports as a `SubPlan` and runs once per row — the shape this task exists to remove. Both
+     * shapes return identical rows, so nothing else in this file would notice a silent revert.
+     */
+    it('resolves the label by joining, not by a subquery per row', async () => {
+      const { deals, dealFields } = await dealsLinkedTo(['ada'])
+      const order = buildRecordOrderBy(dealFields, { key: 'owner', direction: 'asc' })
+      const where = buildRecordWhere(deals.id, dealFields, {})
+
+      const rows = await prisma.$queryRaw<Record<string, string>[]>`
+        EXPLAIN SELECT id FROM "Record" ${order.join} ${where} ORDER BY ${order.orderBy} LIMIT 50
+      `
+      const plan = rows.map((row) => Object.values(row)[0]).join('\n')
+
+      expect(plan).toContain('Join')
+      expect(plan).not.toContain('SubPlan')
+    })
   })
 })
 

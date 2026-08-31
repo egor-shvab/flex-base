@@ -3,7 +3,7 @@ import { isMultiValue } from '#shared/field-types/cardinality'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 import { isListFilterValue, isRangeFilterValue, isScalarFilterValue } from '#shared/utils/filter'
-import type { TFilterSql } from '#server/db/field-types/types'
+import type { IJoinedSort, TFilterSql } from '#server/db/field-types/types'
 
 /**
  * The SQL fragments the per-type modules are assembled from. Prisma cannot order by a JSON
@@ -92,29 +92,49 @@ export const withinRange: TFilterSql = (expr, value) => {
 }
 
 /**
- * A relation stores an id, which is meaningless to sort by, so its column orders on the
- * target record's label instead — the key of that label field travels in the relation's own
- * options, so no extra metadata has to be fetched. A missing key (its field was deleted)
- * yields NULL for every row, which the `NULLS LAST` suffix already handles.
+ * A relation stores an id, which is meaningless to sort by, so its column orders on the target
+ * record's label instead — the key of that label field travels in the relation's own options, so
+ * no extra metadata has to be fetched. A missing key (its field was deleted) or a link that
+ * resolves to nothing yields NULL, which the `NULLS LAST` suffix already handles.
  *
- * A multi-value relation orders by its **first** link, for the same reason a multi SELECT
- * does: a list has no order of its own, and the first value is the one the user can see
- * without opening anything.
+ * A multi-value relation orders by its **first** link, for the same reason a multi SELECT does: a
+ * list has no order of its own, and the first value is the one the user can see without opening
+ * anything.
  *
- * The outer `data` is qualified because the subquery's own alias would otherwise shadow it.
+ * **The joined relation is a derived table exposing two renamed columns, and that is load-bearing.**
+ * A plain `LEFT JOIN "Record" … ` is a self-join, and every column reference in the surrounding
+ * query is unqualified — so `data`, `id` and `"tableId"` all become *ambiguous* and the statement
+ * will not compile. Exposing only `target_id` and `target_label` means nothing the rest of the
+ * layer emits has to be qualified.
+ *
+ * It also narrows to the target table, which the per-row subquery this replaced did not: that
+ * builds the hash from one table rather than every record in the database, and a link pointing
+ * outside its own target — which `assertRelationTargets` refuses to store — now sorts last rather
+ * than resolving to a foreign row.
  */
-export function targetLabel(field: IField): Prisma.Sql {
-  const labelFieldKey = field.options?.labelFieldKey
+export function targetLabelJoin(field: IField, alias: string): IJoinedSort {
   const storedId = isMultiValue(field)
-    ? Prisma.sql`"Record".data -> ${field.key}::text ->> 0`
-    : Prisma.sql`"Record".data ->> ${field.key}::text`
+    ? Prisma.sql`data -> ${field.key}::text ->> 0`
+    : Prisma.sql`data ->> ${field.key}::text`
 
-  if (labelFieldKey === undefined) return storedId
+  const labelFieldKey = field.options?.labelFieldKey
+  const targetTableId = field.options?.targetTableId
 
-  return Prisma.sql`(
-    SELECT target.data ->> ${labelFieldKey}::text FROM "Record" AS target
-    WHERE target.id = ${storedId}
-  )`
+  // Nothing to join to: with no label field, or no target, the stored id is all there is to order
+  // by — the same fallback this had when it was a subquery
+  if (labelFieldKey === undefined || targetTableId === undefined) {
+    return { join: Prisma.empty, expr: storedId }
+  }
+
+  const joined = Prisma.raw(`"${alias}"`)
+
+  return {
+    join: Prisma.sql`LEFT JOIN (
+      SELECT id AS target_id, data ->> ${labelFieldKey}::text AS target_label
+      FROM "Record" WHERE "tableId" = ${targetTableId}
+    ) AS ${joined} ON ${joined}.target_id = ${storedId}`,
+    expr: Prisma.sql`${joined}.target_label`,
+  }
 }
 
 /**

@@ -16,6 +16,7 @@ export const SELECT_FIELD_SQL: IFieldSqlModule = {
     expr: jsonText,
     searchPredicate: matchesText,
     filter: matchesAny,
+    sortJoin: null,
     // `IN (…)` is a set of equalities, which is what a B-tree answers best
     filterIndex: 'btree',
     sortIndex: 'btree',
@@ -26,6 +27,7 @@ export const SELECT_FIELD_SQL: IFieldSqlModule = {
     sortExpr: firstElement,
     searchPredicate: matchesAnyElement,
     filter: containsAny,
+    sortJoin: null,
     // `?|` asks about the elements inside the stored array, which only GIN indexes — and on the
     // sub-path `expr` projects to, never on `data` as a whole
     filterIndex: 'gin',
