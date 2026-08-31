@@ -5,6 +5,10 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { ITableListItem } from '#shared/types/table'
 import { useTablesStore } from '~/stores/tables'
 
+/**
+ * The number is derived from the id so two rows in one listing never claim the same one. No case
+ * here exercises it — the store keys on `id` throughout — so the particular value carries nothing.
+ */
 function table(
   id: string,
   name: string,
@@ -12,6 +16,7 @@ function table(
 ): ITableListItem {
   return {
     id,
+    number: Number(id.match(/\d+$/)?.[0] ?? 1),
     name,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

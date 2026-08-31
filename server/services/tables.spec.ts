@@ -17,6 +17,7 @@ const TABLE_ID = 'tbl_deals'
  */
 const tableRow = {
   id: TABLE_ID,
+  number: 1,
   name: 'Deals',
   createdAt: new Date('2026-01-05T09:14:00.000Z'),
   updatedAt: new Date('2026-02-11T16:30:00.000Z'),

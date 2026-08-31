@@ -13,6 +13,7 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 
 const TABLE: ITable = {
   id: 'tbl_deals',
+  number: 4,
   name: 'Deals',
   createdAt: '2026-01-05T09:14:00.000Z',
   updatedAt: '2026-01-05T09:14:00.000Z',

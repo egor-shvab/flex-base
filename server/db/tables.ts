@@ -7,6 +7,7 @@ import type { ITable, ITableListItem } from '#shared/types/table'
  */
 export const tableSelect = {
   id: true,
+  number: true,
   name: true,
   createdAt: true,
   updatedAt: true,
@@ -29,6 +30,7 @@ export type TTableListRow = Prisma.TableGetPayload<{ select: typeof tableListSel
 export function toSharedTable(row: TTableRow): ITable {
   return {
     id: row.id,
+    number: row.number,
     name: row.name,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

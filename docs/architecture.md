@@ -137,7 +137,7 @@ Two different jobs, split across two columns:
 
 `number` is allocated from `Table.recordCounter` inside the insert's own transaction: Prisma's atomic `{ increment: 1 }` takes the row lock, so concurrent creates queue instead of racing and no retry loop is needed. The counter is a **high-water mark, not a count** — deleting a record never frees its number for reuse, the same contract an issue tracker gives.
 
-**A table carries the same pair one level up.** `Table.number` is sequential **per user** (`@@unique([userId, number])`) and allocated from `User.tableCounter` in exactly that shape — same transaction, same row lock, same high-water mark, so a deleted table never hands its number on. `Table.id` stays the cuid that a relation's `options.targetTableId` references. Nothing reads `Table.number` yet: it is not on the wire and nothing addresses by it.
+**A table carries the same pair one level up.** `Table.number` is sequential **per user** (`@@unique([userId, number])`) and allocated from `User.tableCounter` in exactly that shape — same transaction, same row lock, same high-water mark, so a deleted table never hands its number on. `Table.id` stays the cuid that a relation's `options.targetTableId` references. Both travel on the wire (`tableSelect`, and `IRecordDetail.table` for the dialog), but **nothing addresses by the number yet** — every URL and route param is still the cuid.
 
 ---
 

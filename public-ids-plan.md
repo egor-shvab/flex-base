@@ -198,6 +198,9 @@ user get distinct numbers, mirroring the existing record-counter concurrency cas
 
 ### T3. Shared types and the wire contract
 
+**Status:** done — 2026-08-31, with changes — `IOpenRecord` was **moved to T7**, and the tests were
+more than type-level. Both are written into the task below.
+
 **What.**
 
 - `ITable` gains `number: number`. `tableSelect` / `toSharedTable` carry it, so `ITableListItem`
@@ -205,16 +208,31 @@ user get distinct numbers, mirroring the existing record-counter concurrency cas
 - `IRecordDetail.table` widens from `Pick<ITable, 'id' | 'name'>` to
   `Pick<ITable, 'id' | 'number' | 'name'>` — the dialog's "Open in …" link needs the number, and
   `id` stays because the dialog is also where a cross-table relation is resolved.
-- **`IOpenRecord` becomes `{ tableNumber: number; recordNumber: number }`.** Both names are
-  deliberate and neither overloads a taken word: `recordNumber` is already the name of this exact
-  value in `RECORD_NUMBER_KEY`, so this is one meaning in two places rather than a second meaning.
+  `RecordService.getRecordDetail`'s first parameter widens with it.
 - `IRecord` is **unchanged** — it keeps both `id` (what a relation references) and `number`.
 
-**Doc obligation for this task:** `architecture.md` §4 gains the table half of record identity; the
-`ITable` and `IOpenRecord` comments state which of the two identifiers each field is.
+**`IOpenRecord` is deliberately not here — it belongs to T7.** `useRecordDetail` calls
+`api.detail(openRecord.tableId, openRecord.recordId)`, and the record endpoint addresses by cuid
+until T6. A numeric chain landed here would force a number→cuid resolution in the client, which is
+the one thing this design exists to avoid.
 
-**Tests.** Type-level only; `npm run typecheck` is the gate, and it will light up every call site
-the later tasks have to change — run it early and use the error list as the work queue.
+**Additive by design, and its first consumer is T8.** Nothing reads `ITable.number` when this
+lands — T4–T7 build toward the sidebar links and the relation cell's cuid→number lookup. That is
+staging, not dead code. What it buys immediately is that T1/T2's allocation becomes observable at
+the boundary instead of only through `psql`.
+
+**Doc obligation for this task:** `architecture.md` §4 gains the table half of record identity; the
+`ITable` comment states which of the two identifiers each field is.
+
+**Tests.** `npm run typecheck` names most of the work — six test doubles carry a table shape and
+must gain `number` (the two nuxt store/loader builders, the two detail builders,
+`records.spec.ts`'s `table`, and `tables.spec.ts`'s untyped `tableRow`). **Not type-level only:**
+add an endpoint-level case to `server/api/tables.integration.spec.ts` asserting `GET /api/tables`
+hands back `1, 2, 3` per caller — the counterpart to the service-level `table numbers` block, and
+the first proof the number survives the whole stack.
+
+**No shared table fixture.** The six doubles are three different shapes across two projects, each
+with spec-local defaults; one builder cannot serve them. _Revisit at a seventh site._
 
 ---
 
@@ -337,6 +355,12 @@ case per verb proving a malformed `:recordId` is a 404 and not a 500.
 
 **What.** `shared/utils/record-detail.ts` — the format becomes
 `?detail=<tableNumber>.<recordNumber>,…`.
+
+**`IOpenRecord` becomes `{ tableNumber: number; recordNumber: number }` here, not in T3.** It has
+to follow T6: `useRecordDetail` calls `api.detail(…)` with whatever the chain holds, so the chain
+may only carry numbers once the endpoint accepts them. Both names are deliberate and neither
+overloads a taken word — `recordNumber` is already the name of this exact value in
+`RECORD_NUMBER_KEY`, so it is one meaning in two places rather than a second meaning.
 
 - `parseOpenRecord` parses two strict integers through the same bounds T4 uses. It already returns
   `null` on a malformed entry, and `parseDetailChain` already **stops** at one rather than skipping

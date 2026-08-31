@@ -22,7 +22,7 @@ mockNuxtImport('useRoute', () => () => route.current)
 
 function detail(recordId: string, linked: IRecordDetail['linkedRecords'] = {}): IRecordDetail {
   return {
-    table: { id: 'tbl_deals', name: 'Deals' },
+    table: { id: 'tbl_deals', number: 1, name: 'Deals' },
     fields: [textField('company'), relationField()],
     record: record({ id: recordId, number: 1, data: { company: 'Acme' } }),
     linkedRecords: linked,

@@ -52,6 +52,26 @@ describe('creating a table', () => {
     expect(tables[0]?._count).toMatchObject({ fields: 0, records: 0 })
   })
 
+  /**
+   * The number reaches the wire, and it runs per caller — the endpoint-level counterpart to the
+   * `table numbers` block in `services/tables.integration.spec.ts`, which proves the allocation
+   * itself. Mallory's first table is hers, not the fourth of the platform.
+   */
+  it('numbers the caller’s tables from one, in the order they were made', async () => {
+    for (const name of ['Deals', 'People', 'Companies']) await create(ada, { name })
+    await create(mallory, { name: 'Theirs' })
+
+    const { tables } = await tablesGet(testEvent({ user: ada }))
+    const { tables: theirs } = await tablesGet(testEvent({ user: mallory }))
+
+    expect(tables.map((table) => [table.name, table.number])).toEqual([
+      ['Deals', 1],
+      ['People', 2],
+      ['Companies', 3],
+    ])
+    expect(theirs.map((table) => table.number)).toEqual([1])
+  })
+
   describe('what it refuses', () => {
     it('400s on a blank name', async () => {
       await expect(create(ada, { name: '' })).rejects.toMatchObject({ statusCode: 400 })

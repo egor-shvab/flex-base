@@ -1,5 +1,10 @@
 export interface ITable {
   id: string
+  /**
+   * The id a user reads — sequential within its owner's tables, unlike `id`, which is a cuid
+   * because it is what a relation's `targetTableId` references.
+   */
+  number: number
   name: string
   createdAt: string
   updatedAt: string

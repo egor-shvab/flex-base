@@ -110,7 +110,7 @@ async function listRecords(
  * read as a label and link on again.
  */
 async function getRecordDetail(
-  table: Pick<ITable, 'id' | 'name'>,
+  table: Pick<ITable, 'id' | 'number' | 'name'>,
   fields: IField[],
   recordId: string,
 ): Promise<IRecordDetail> {

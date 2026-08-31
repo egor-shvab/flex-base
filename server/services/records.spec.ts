@@ -13,7 +13,7 @@ vi.mock('#server/db/prisma', async () => ({
 
 const TABLE_ID = 'tbl_deals'
 const RECORD_ID = 'rec_1'
-const table = { id: TABLE_ID, name: 'Deals' }
+const table = { id: TABLE_ID, number: 1, name: 'Deals' }
 const fields = [textField('company')]
 
 /** A row as Prisma returns it — `data` as opaque JSON, timestamps as `Date`. */

@@ -7,6 +7,10 @@ export default defineTableWithFieldsHandler(
   async ({ event, table, fields }): Promise<IRecordDetail> => {
     const recordId = routeParam(event, 'recordId')
 
-    return RecordService.getRecordDetail({ id: table.id, name: table.name }, fields, recordId)
+    return RecordService.getRecordDetail(
+      { id: table.id, number: table.number, name: table.name },
+      fields,
+      recordId,
+    )
   },
 )

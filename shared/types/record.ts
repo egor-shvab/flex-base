@@ -94,7 +94,7 @@ export interface IOpenRecord {
  * would cost a second round trip and a second loading state for one dialog.
  */
 export interface IRecordDetail {
-  table: Pick<ITable, 'id' | 'name'>
+  table: Pick<ITable, 'id' | 'number' | 'name'>
   fields: IField[]
   record: IRecord
   /** Keyed exactly like `IRecordPage`'s, so the same client cache ingests both. */

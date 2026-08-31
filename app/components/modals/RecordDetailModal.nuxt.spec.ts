@@ -25,9 +25,9 @@ const link = (name: string | RegExp) =>
       : name.test(anchor.textContent?.trim() ?? ''),
   )
 
-function detailOf(tableId = 'tbl_deals', tableName = 'Deals'): IRecordDetail {
+function detailOf(tableId = 'tbl_deals', tableName = 'Deals', tableNumber = 1): IRecordDetail {
   return {
-    table: { id: tableId, name: tableName },
+    table: { id: tableId, number: tableNumber, name: tableName },
     fields: [textField('company', { name: 'Company' })],
     record: record({ id: 'rec_1', number: 7, data: { company: 'Acme' } }),
     linkedRecords: {},
@@ -129,7 +129,7 @@ describe('RecordDetailModal', () => {
 
     it('is offered when the record belongs elsewhere, named after its table', async () => {
       await mountModal({
-        detail: detailOf('tbl_people', 'People'),
+        detail: detailOf('tbl_people', 'People', 2),
         currentTableId: 'tbl_deals',
       })
 
@@ -138,7 +138,7 @@ describe('RecordDetailModal', () => {
 
     it('points at that table with this record still open', async () => {
       await mountModal({
-        detail: detailOf('tbl_people', 'People'),
+        detail: detailOf('tbl_people', 'People', 2),
         currentTableId: 'tbl_deals',
       })
 
