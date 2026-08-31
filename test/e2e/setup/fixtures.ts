@@ -4,6 +4,7 @@ import { prisma } from '#server/db/prisma'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 import { createField, createFields, createRecords, createTable } from '~~/test/integration/seed'
+import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 
 /**
  * Seeded metadata handed to a spec — enough to reach any page by URL without clicking through
@@ -33,8 +34,20 @@ interface IFixtures {
   consoleErrors: string[]
 }
 
+/**
+ * The account the suite runs as, resolved by **identity rather than by position**.
+ *
+ * It is not the only one in the database: the sign-up case registers a second, which
+ * `global-setup` truncates between runs but not within one. `findFirst` has no ordering to
+ * promise, so it returns whichever row the scan reaches first — and any write to `User` moves a
+ * row in physical order. Seeding then files a table under the wrong account, the cookie's owner
+ * cannot see it, and every table-scoped case 404s.
+ */
 async function currentUserId(): Promise<string> {
-  const user = await prisma.user.findFirstOrThrow({ select: { id: true } })
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { email: E2E_USER.email },
+    select: { id: true },
+  })
   return user.id
 }
 

@@ -162,7 +162,13 @@ integration **and** e2e suites. Mirror the `createRecord` beside it, which alrea
 
 ### T2. `TableService.createTable` allocates the number
 
-**Status:** done — 2026-08-31
+**Status:** done — 2026-08-31, with a follow-up landed in T4 — the counter increment made this the
+first write ever issued against `User`, which **exposed a latent bug in the e2e fixture** and turned
+82 cases red. `currentUserId` resolved the signed-in account with an unordered `findFirstOrThrow`,
+and the suite holds two accounts (the sign-up case registers one that only `global-setup` clears);
+an `UPDATE` moves a row in physical scan order, so seeding began filing tables under the wrong
+account and every table-scoped case 404'd. Fixed by resolving on `E2E_USER.email`. **The lesson
+generalises: writing to a row can reorder an unordered read anywhere.**
 
 **What.** The same transaction shape as `RecordService.createRecord`:
 
@@ -238,21 +244,36 @@ with spec-local defaults; one builder cannot serve them. _Revisit at a seventh s
 
 ### T4. Route params: one parser, one guard, no new throw site
 
+**Status:** done — 2026-08-31, with changes — the module is `shared/utils/address.ts` (not
+`table-address.ts`), and the slug-tolerant parser is the **page's alone**: the server only ever
+receives a bare number, so it takes the strict one. Both corrections are written into the task
+below. Also carried T2's e2e fixture fix, which was blocking the suite.
+
 **What.** `server/utils/route.ts` gains a sibling to `routeParam`, and the address format gets one
 shared decoder both sides read.
 
-`shared/utils/table-address.ts` (new):
+`shared/utils/address.ts` (new — **`address.ts`, not `table-address.ts`**: it holds the plain
+record-number parser too, and `address` is already this work's word for the concept):
 
 ```ts
+/** The number a URL segment addresses, or 0. Digits only, bounded to a PostgreSQL Int. */
+export function parseAddressNumber(raw: string): number
 /** `12` and `12-deals` both address table 12; the slug is decoration and is never resolved. */
 export function parseTableAddress(raw: string): number
 /** The inverse — what a link is built from. */
-export function toTableAddress(table: Pick<ITable, 'number' | 'name'>): string
+export function toTableAddress(table: Pick<ITable, 'number'>): string
 ```
 
-It is **shared**, not server-only, for the same reason `parseRecordQueryState` is: the page reads
-the param off `route.query`/`route.params` and the server reads it off the route, and a link that
-decoded two ways would be the whole bug class this project already avoids once.
+It is **shared** so that the bound and the notion of "valid" cannot drift between the page reading
+`route.params` and the server reading a route param.
+
+**The two parsers split by surface, and the server only ever needs the strict one.** A slug appears
+only in the _browser_ URL, which is a Nuxt page route; the client builds API paths from
+`apiPath.table(tableNumber)`, so `/api/tables/:tableId` receives a bare number. `parseTableAddress`
+is therefore the page's, `parseAddressNumber` the server's — one shared bound, two entry points.
+
+**No zod here.** `shared/utils/` sits above `validation/` in the layer order and may not import it
+(`architecture.md` §2), which is also what keeps this callable from `route.ts`.
 
 `server/utils/route.ts`:
 
@@ -320,6 +341,12 @@ number is a 404, and an unowned-but-existing number is a 404 rather than a 403.
 **What.** The four factories in `server/utils/handler.ts` swap `routeParam(event, 'tableId')` for
 `numericRouteParam(event, 'tableId')`. Their **count and their 1:1 correspondence with the
 `require*` helpers do not change** — that rule stands.
+
+**Rename the dynamic segment to `[tableNumber]`**, here for `server/api/tables/[tableId]/` and in
+T8 for `pages/tables/[tableId]/`. After this task the param holds a number, and a name ending in
+`Id` that carries one is exactly the drift §6 exists to prevent. It moves ~12 files and nothing
+user-visible depends on it — a dynamic segment's name is internal, not one of §6's closed
+vocabularies. Do it as its own commit-sized step so the rename does not hide inside the logic diff.
 
 Context shapes:
 
