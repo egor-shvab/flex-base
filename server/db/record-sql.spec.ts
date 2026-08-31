@@ -123,14 +123,15 @@ describe('buildRecordWhere — per type', () => {
 
 describe('buildRecordWhere — multi-value', () => {
   it('asks whether the stored list overlaps the filtered one', () => {
-    // `jsonb_exists_any` is the function form of `?|` — a literal `?` is the placeholder token
-    // on Prisma's other drivers and has a long history of being mangled
+    // The `?|` operator, never the `jsonb_exists_any` function that means the same thing: only
+    // an operator can be matched to a GIN operator class, and only an operator carries
+    // selectivity statistics (`decisions.md`)
     const where = buildRecordWhere(TABLE_ID, [asMultiple(selectField())], {
       stage: ['Won', 'Lost'],
     })
 
     expect(sqlText(where)).toBe(
-      'WHERE "tableId" = $1 AND jsonb_exists_any(data -> $2::text, ARRAY[$3,$4]::text[])',
+      'WHERE "tableId" = $1 AND (data -> $2::text ?| ARRAY[$3,$4]::text[])',
     )
     expect(where.values).toEqual([TABLE_ID, 'stage', 'Won', 'Lost'])
   })
@@ -148,7 +149,7 @@ describe('buildRecordWhere — multi-value', () => {
       stage: ['Won'],
     })
 
-    expect(sqlText(where)).toMatch(/AND jsonb_exists_any\(.+\)$/)
+    expect(sqlText(where)).toMatch(/AND \(.+ \?\| .+\)$/)
   })
 })
 

@@ -59,20 +59,25 @@ export const matchesAny: TFilterSql = (expr, value) =>
 
 /**
  * The multi-value counterpart: the *stored* value is now the list, so the question is whether
- * it holds any of the filtered ones. `jsonb_exists_any` is the function form of the `?|`
- * operator, chosen because a literal `?` in raw SQL is the placeholder token on Prisma's other
- * drivers and has a long history of being mangled — the functions are unambiguous everywhere.
+ * it holds any of the filtered ones.
  *
- * It carries its own parentheses, so like `IN (…)` and unlike `withinRange` it cannot bind to
- * a sibling's last term. It also answers correctly for a bare scalar, which is what keeps a
- * row written before a field's migration from disappearing from its own filter.
+ * **The `?|` operator, never the `jsonb_exists_any` function that means the same thing.**
+ * PostgreSQL matches *operators* to index operator classes and never matches the equivalent
+ * function call, so the function form cannot be served by a GIN index in any form — and it
+ * additionally leaves the planner with no selectivity statistics, so it estimates a blind third
+ * of the table. A row estimate that wrong propagates into join and sort choices elsewhere in the
+ * same query, which is why this matters before any index exists. `docs/decisions.md` carries the
+ * measurement and the `@>` fallback.
  *
- * Unlike every other comparison here this one is GIN-indexable, so it is the one filter whose
- * cost is not pinned to the unindexed JSONB ceiling the rest of the layer accepts.
+ * Wrapped in its own parentheses, so like `IN (…)` and unlike `withinRange` it cannot bind to a
+ * sibling's last term — operator precedence would already save it, but the invariant is worth
+ * seeing in the SQL rather than inferring from a precedence table. It also answers correctly for
+ * a bare scalar, which is what keeps a row written before a field's migration from disappearing
+ * from its own filter.
  */
 export const containsAny: TFilterSql = (expr, value) =>
   isListFilterValue(value) && value.length > 0
-    ? Prisma.sql`jsonb_exists_any(${expr}, ARRAY[${Prisma.join(value)}]::text[])`
+    ? Prisma.sql`(${expr} ?| ARRAY[${Prisma.join(value)}]::text[])`
     : null
 
 export const withinRange: TFilterSql = (expr, value) => {

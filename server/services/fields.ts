@@ -36,15 +36,16 @@ function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma
  *
  * Non-destructive and idempotent: a value already an array is skipped, and so is a missing or
  * JSON-null one — there is nothing to wrap, and `[null]` would be a value where there was none.
- * `jsonb_exists` rather than the `?` operator, which is a placeholder token on Prisma's other
- * drivers and has a history of being mangled in raw SQL.
+ * The `?` operator rather than the `jsonb_exists` function, for one rule with `containsAny` —
+ * a literal `?` is a placeholder token on Prisma's *other* drivers, not on the `adapter-pg` this
+ * project uses. Nothing here is index-served, so the choice is consistency rather than cost.
  */
 function widenToList(tx: Prisma.TransactionClient, tableId: string, key: string) {
   return tx.$executeRaw`
     UPDATE "Record"
     SET data = jsonb_set(data, ARRAY[${key}::text], jsonb_build_array(data -> ${key}::text))
     WHERE "tableId" = ${tableId}
-      AND jsonb_exists(data, ${key}::text)
+      AND data ? ${key}::text
       AND jsonb_typeof(data -> ${key}::text) NOT IN ('array', 'null')
   `
 }

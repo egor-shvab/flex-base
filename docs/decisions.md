@@ -275,7 +275,7 @@ It also avoids doubling the user's type list (`Select` / `Multi-select` / `Link 
 
 ### Multi is a lifting of the single-value spec, not a second set of specs
 
-Every layer treats "several" as the same uniform transformation of "one": `base` → `z.array(base)`, `= x` → `jsonb_exists_any`, one cell → a row of that cell, `BaseSelect` → `BaseSelect multiple`. So no field type declares a second schema, cell or summary. The branch exists once per registry — in `sqlFor` / `inputFor` / `filterFor` / `summaryFor` / `cellComponent` / `filterShapeFor` — and nothing downstream learns that `multiple` exists, which is what keeps this from being a `switch` on cardinality in every renderer.
+Every layer treats "several" as the same uniform transformation of "one": `base` → `z.array(base)`, `= x` → `?|`, one cell → a row of that cell, `BaseSelect` → `BaseSelect multiple`. So no field type declares a second schema, cell or summary. The branch exists once per registry — in `sqlFor` / `inputFor` / `filterFor` / `summaryFor` / `cellComponent` / `filterShapeFor` — and nothing downstream learns that `multiple` exists, which is what keeps this from being a `switch` on cardinality in every renderer.
 
 **Multi-value cells need no override table at all.** `MultiValueCell` renders each entry through `FIELD_CELLS[field.type]`, because a list of values is exactly the list of how each value renders. A future multi-capable type is covered without a component.
 
@@ -303,12 +303,19 @@ The consequence, and the reason the migration exists: a value written **before**
 
 **Sorting by the first value** is a choice, since a list has no intrinsic order. Opting out of sorting is the most honest and was rejected on cost: `RecordsTable` makes every header a sort button unconditionally, so it would need a `sortable` notion threaded through the table, the query schema and `buildRecordOrderBy`. `jsonb_array_length` orders by how many, which nobody asked. The first value wins because it is explicable from the screen — it is the one already visible in the cell.
 
-### `jsonb_exists_any`, never the `?|` operator
+### The `?|` operator, never the `jsonb_exists_any` function
 
-A literal `?` in raw SQL is the parameter placeholder on Prisma's other drivers and has a long history of being mangled. The function forms `jsonb_exists` / `jsonb_exists_any` mean exactly the same thing and are unambiguous everywhere; `widenToList`'s key test is `jsonb_exists(data, key)` for the same reason. Two properties worth knowing:
+PostgreSQL matches **operators** to index operator classes and never matches the equivalent function call, so `jsonb_exists_any` cannot be served by a GIN index in any form — the function form and the operator form are not interchangeable, whatever their identical semantics suggest. `containsAny` therefore emits `?|`, and `widenToList`'s key test is `data ? key`, for one rule.
 
-- It answers **correctly for a bare scalar** (`'"abc"'::jsonb` contains `abc`), which keeps an un-migrated row from disappearing from its own filter. Do not lean on that as a substitute for the migration — display and validation still want one shape.
-- It is the **only GIN-indexable comparison** in the query layer, so it is the one filter that could eventually escape the unindexed-JSONB ceiling.
+The reason the functions were used — a literal `?` being the parameter placeholder on some drivers — is real elsewhere and does not apply here: `@prisma/adapter-pg` binds `$1`. Verified through `$queryRaw` for `?|` and `?`, including with values bound via `Prisma.join` and with a parameter preceding the operator.
+
+Three properties worth knowing:
+
+- The function form also **destroys the planner's row estimate** — no selectivity statistics exist for an opaque function call, so it guesses a third of the table. A wrong estimate propagates into join and sort choices elsewhere in the same query, so this cost is paid even where no index exists.
+- The operator answers **correctly for a bare scalar** (`'"abc"'::jsonb ?| ARRAY['abc']`), which keeps an un-migrated row from disappearing from its own filter. Do not lean on that as a substitute for the migration — display and validation still want one shape.
+- `@>` (`data->key @> '["x"]'::jsonb`) is equally GIN-indexable and contains no `?`. Kept here so the fallback is not re-derived if a driver ever does mangle the operator; "any of" becomes an OR group per value.
+
+A GIN serving this must be built on the **sub-path** (`(data->'tags')`) — one on `data` does not serve it.
 
 ### The multi-value search guard has to be inside the argument
 

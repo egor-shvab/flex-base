@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { buildRecordWhere } from '#server/db/record-sql'
+import { prisma } from '#server/db/prisma'
 import { RecordService } from '#server/services/records'
 import {
   CREATED_AT_KEY,
@@ -20,9 +22,9 @@ import {
 
 /**
  * The half `record-query.spec.ts` cannot reach. That spec asserts on `.text` and `.values` and
- * never executes, so a fragment PostgreSQL rejects — a bad cast, a mis-typed `jsonb_exists_any`
- * argument, an operator that binds differently than it reads — passes every test in the unit
- * suite. Everything here runs the SQL for real and looks at which rows come back.
+ * never executes, so a fragment PostgreSQL rejects — a bad cast, a mis-typed `?|` argument, an
+ * operator that binds differently than it reads — passes every test in the unit suite.
+ * Everything here runs the SQL for real and looks at which rows come back.
  */
 
 let tableId: string
@@ -139,7 +141,7 @@ describe('the WHERE clause selects the rows it claims to', () => {
     expect(await matching({ stage: ['Won', 'Lost'] })).toEqual(['Gamma', 'Beta', 'Acme'])
   })
 
-  /** `jsonb_exists_any` over the stored array — the one comparison here that is indexable. */
+  /** `?|` over the stored array — the one comparison here a GIN index can serve. */
   it('matches a multi-value SELECT where the lists overlap', async () => {
     expect(await matching({ tags: ['urgent'] })).toEqual(['Beta', 'Acme'])
     expect(await matching({ tags: ['renewal'] })).toEqual(['Beta'])
@@ -147,6 +149,22 @@ describe('the WHERE clause selects the rows it claims to', () => {
 
   it('leaves out a row whose list is empty', async () => {
     expect(await matching({ tags: ['urgent', 'renewal'] })).not.toContain('Gamma')
+  })
+
+  /**
+   * A multi-value filter beside a **range**, which is the one neighbour that contributes a bare
+   * two-term `a >= x AND a <= y` to the chain — every other filter contributes a single term.
+   * Beta carries `urgent` but falls outside the range, so it is the row that appears if the
+   * conjunction has come apart.
+   *
+   * Note what this does *not* prove: `?|` is an operator and binds tighter than `AND`, so
+   * precedence alone would keep this correct even unparenthesised. The parentheses are there to
+   * keep the invariant visible rather than inferred, and no test can distinguish that.
+   */
+  it('composes with a bare range bound rather than widening it', async () => {
+    expect(await matching({ tags: ['urgent'], contract_value: { from: 50, to: 200 } })).toEqual([
+      'Acme',
+    ])
   })
 
   it('ANDs several filters rather than widening', async () => {
@@ -384,6 +402,50 @@ describe('paging and counting', () => {
 
     expect(page.records).toEqual([])
     expect(page.total).toBe(3)
+  })
+})
+
+/**
+ * The one case here that asserts on a **query plan** rather than on rows.
+ *
+ * An index that is present but unused returns entirely correct results, so it passes every unit,
+ * integration and end-to-end test in the project and shows up only as latency under data volume
+ * no suite has. That is exactly how `jsonb_exists_any` survived for so long while being
+ * documented as the layer's one GIN-indexable comparison — it never was.
+ *
+ * Structural assertions only, never timings: `CLAUDE.md` §10 requires determinism, and a
+ * millisecond figure on a laptop container is not that.
+ */
+describe('the multi-value filter is GIN-indexable', () => {
+  const INDEX = 'record_tags_gin_probe'
+
+  it('is served by a GIN index on the same expression, and does not scan', async () => {
+    // Seeded *inside* the case: `test/integration/setup.ts` truncates in `beforeEach`, so a
+    // `beforeAll` seed would be gone by now — and an EXPLAIN against an empty table happily
+    // passes while proving nothing.
+    await prisma.$executeRaw`
+      INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
+      SELECT 'probe'||g, ${tableId}, 1000+g, '{"tags":["urgent"]}'::jsonb, now(), now()
+      FROM generate_series(1, 5000) g
+    `
+    await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS ${INDEX}`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX ${INDEX} ON "Record" USING gin ((data->'tags'))`)
+    await prisma.$executeRaw`ANALYZE "Record"`
+
+    try {
+      // The production fragment, not a hand-written one — the point is that what the builder
+      // emits is indexable, so a rewrite that loses the property fails here
+      const where = buildRecordWhere(tableId, fields, { tags: ['renewal'] })
+      const rows = await prisma.$queryRaw<Record<string, string>[]>`
+        EXPLAIN SELECT id FROM "Record" ${where}
+      `
+      const plan = rows.map((row) => Object.values(row)[0]).join('\n')
+
+      expect(plan).toContain(INDEX)
+      expect(plan).not.toContain('Seq Scan')
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS ${INDEX}`)
+    }
   })
 })
 

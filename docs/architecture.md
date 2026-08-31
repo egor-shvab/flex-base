@@ -223,7 +223,7 @@ One reserved `?search=` param, ANDed with the filters. It is **free text ORed ac
 **`MULTI_SQL`** is the cardinality override, consulted by `sqlFor(field)` for a field whose `options.multiple` is set — the same lifting the validation layer applies, in SQL:
 
 - `expr` is `data -> key` rather than `->>`, since `->>` on an array yields the literal `["a","b"]` and would match a filter on `[` or `","`.
-- `filter` is `containsAny`: `jsonb_exists_any(expr, ARRAY[…]::text[])`. The **function form**, never the `?|` operator (`decisions.md` → _`jsonb_exists_any`, never the `?|` operator_). Like `IN (…)` it is self-parenthesising, it answers correctly for a bare scalar, and it is the one comparison in this layer that is **GIN-indexable**.
+- `filter` is `containsAny`: `(expr ?| ARRAY[…]::text[])`. The **operator form**, never the `jsonb_exists_any` function that means the same thing (`decisions.md` → _The `?|` operator, never the `jsonb_exists_any` function_) — only an operator can be matched to an index operator class or carry selectivity statistics. Emitted parenthesised so, like `IN (…)`, it cannot bind to a sibling's last term; it answers correctly for a bare scalar; and it is the one comparison in this layer a **GIN index can serve**, on the sub-path `(data->key)`.
 - `sortExpr` orders by the **first** element (`data -> key ->> 0`; for RELATION, `targetLabel` over that same first id).
 - `searchPredicate` is `EXISTS (SELECT 1 FROM jsonb_array_elements_text(…) WHERE element ILIKE …)` for SELECT, and `null` for RELATION.
 
