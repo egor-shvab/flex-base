@@ -22,6 +22,18 @@
       <BaseCheckbox v-model="form.required" label="Required" />
 
       <!--
+        Opt-in, because an index is a trade rather than an improvement: it makes sorting and
+        filtering on this field fast and every save on this table slightly slower. Labelled by
+        what it buys, not by the mechanism — nobody creating a table is thinking about B-trees.
+      -->
+      <div class="field-form__indexed">
+        <BaseCheckbox v-model="form.indexed" label="Speed up sorting and filtering" />
+        <span class="field-form__hint">
+          Worth it for fields you sort or filter by often. Saving records gets a little slower.
+        </span>
+      </div>
+
+      <!--
         Cardinality is a per-field setting rather than a second field type, which is what makes
         an existing single-value field convertible. Widening migrates the records that already
         exist; narrowing would have to discard values, so the server refuses it and the control
@@ -172,6 +184,7 @@ const { form, errors, serverError, pending, submit } = useForm({
     targetTableId: props.field?.options?.targetTableId ?? '',
     labelFieldKey: props.field?.options?.labelFieldKey ?? '',
     multiple: props.field?.options?.multiple ?? false,
+    indexed: props.field?.indexed ?? false,
   },
   onSubmit: async (values) => {
     await props.submitHandler(values)
@@ -367,7 +380,8 @@ const labelEmptyLabel = computed(() => {
     @include field-label;
   }
 
-  &__multiple {
+  &__multiple,
+  &__indexed {
     @include stack(4);
   }
 

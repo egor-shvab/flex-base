@@ -55,6 +55,13 @@ model Field {
   required  Boolean   @default(false)
   options   Json? // SELECT: { choices: [{ value, color }] } ; RELATION: { targetTableId, labelFieldKey }
   order     Int       @default(0)
+
+  // Opt-in: whether this field carries indexes for sorting and filtering. A column rather than a
+  // key in `options` because it is a property of the field like `required`, not per-type
+  // configuration — and the reconciler queries it without unpacking JSON. The indexes themselves
+  // are expression indexes Prisma cannot express, so they live in `server/db/field-indexes.ts`.
+  indexed   Boolean   @default(false)
+
   createdAt DateTime  @default(now())
 
   // Likewise: (tableId, key) covers the per-table list by its left prefix.

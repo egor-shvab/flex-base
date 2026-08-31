@@ -78,6 +78,8 @@ A field type is **three modules and three registry lines** (`CLAUDE.md` §9), on
 | `server/db/field-types/` | `<type>.ts` — `IFieldSqlModule`     | `registry.ts` → `FIELD_SQL_BY_TYPE`, `MULTI_SQL`, `sqlFor`                                                                    |
 | `app/field-types/`       | `<type>/index.ts` — `IAppFieldType` | `registry.ts` (below)                                                                                                         |
 
+**`IFieldSqlRules` also says how a type is indexable** — `filterIndex` (`'btree' | 'trigram' | 'gin' | null`) and `sortIndex`. They sit on the _rules_ rather than the module so `sqlFor` resolves cardinality for free: a widened SELECT filters through a GIN on the sub-path where the single-value one uses a B-tree. The kind follows how the type **compares**, not what it stores — TEXT's unanchored `ILIKE` needs trigrams, a range needs a B-tree — and `sortIndex` is `null` for RELATION, whose `targetLabel` reads a row in another table and so cannot be covered by any index on this one. `server/db/field-indexes.ts` turns those declarations into DDL (§9).
+
 `app/field-types/` holds the entire per-field-type surface of the client, deliberately outside `~/components` so nothing there is globally registered — these are only ever reached through the assemblers. `registry.ts` exports `FIELD_INPUTS` (editing a record), `FIELD_FILTERS` (filtering), `FIELD_CELLS` (displaying), `FILTER_SUMMARIES` (how an active filter reads), `FIELD_TYPE_ICONS` (the glyph beside a type's word), `FIELD_CONFIG_SUMMARIES` (how a field's configuration reads), the private `MULTI_INPUTS` / `MULTI_FILTERS` / `MULTI_SUMMARIES`, and the resolvers `inputFor` / `filterFor` / `summaryFor`. `cell-resolver.ts` sits beside them, holding `readCellValue` / `cellComponent` and the `RECORD_COLUMNS` table they consult first (§5); why it is not in `registry.ts` is below.
 
 **Cardinality is the second axis, and it is a property of the field rather than of its type.** Each control registry keeps its flat per-type entries and gains a total `Record<TFieldType, X | null>` override table — `MULTI_INPUTS`, `MULTI_FILTERS`, `MULTI_SUMMARIES`, and `MULTI_SQL` on the server — plus one resolver every consumer calls instead of indexing:
@@ -264,7 +266,14 @@ Keys and values are bound as parameters, never interpolated, and the key is `::t
 
 **One index covers `data`, and it is the search one.** `Record_search_trgm_idx` is a `gin_trgm_ops` GIN over `record_search_text(data, "number")`, created by migration alongside the `pg_trgm` extension and the function itself. None of the three can be expressed in `schema.prisma`, and Prisma ignores all of them — a `migrate diff` against a database holding them reports an empty migration — so they are created by hand and never managed by the schema. It is **one index for every table**, since the expression reads only the row.
 
-**No index covers a JSONB key for sorting or filtering**, and that is still deliberate — `limitations.md` carries the reason, the ceiling it sets, its trigger, and the remedies that fit this query layer.
+**A JSONB key is indexed only where a field opts in.** `Field.indexed` is that opt-in, and `server/db/field-indexes.ts` owns everything downstream of it: which indexes a field wants (from its type's `filterIndex` / `sortIndex`), the DDL, and creating, dropping and reaping them. Nothing is indexed by default — an index is a trade, so it lands where someone asked for it.
+
+Four rules there are not guessable from the code:
+
+- **Sorting needs one index per direction.** `buildRecordOrderBy` emits `NULLS LAST` whichever way a column sorts, and a B-tree read backwards gives the exact reverse — `DESC NULLS FIRST`, which is not what the query asks for. So `_sa` and `_sd` are separate objects; `_f` doubles as `_sa` when the filter is an ascending B-tree over the same expression.
+- **Names come from `Field.id`.** A field name may be 100 characters, `slugify` maps it roughly 1:1, and PostgreSQL truncates identifiers past 63 bytes silently — a key-based name would let two long keys collide into one index.
+- **The DDL inlines the field key where the query binds it**, because DDL takes no parameters. PostgreSQL still matches the two: an unnamed prepared statement is planned at Bind with the values in hand. The two expressions are generated separately, so the plan assertions in `field-indexes.integration.spec.ts` are what stop them drifting.
+- **DDL runs `CONCURRENTLY`, fired and not awaited**, so a build that takes minutes never holds a request or blocks a write. A failure reaches the error log, never the caller (`limitations.md`).
 
 `prisma/migrations/` is the history. One of them is hand-written, because a required column over existing rows cannot be generated (`CLAUDE.md` §5, `decisions.md`).
 

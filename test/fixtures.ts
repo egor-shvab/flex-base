@@ -18,6 +18,7 @@ export function field(overrides: Partial<IField> & Pick<IField, 'key' | 'type'>)
     required: false,
     options: null,
     order: 0,
+    indexed: false,
     ...overrides,
   }
 }

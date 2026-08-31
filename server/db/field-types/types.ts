@@ -13,6 +13,14 @@ import type { TFilterValue } from '#shared/types/filter'
  */
 export type TFilterSql = (expr: Prisma.Sql, value: TFilterValue) => Prisma.Sql | null
 
+/**
+ * Which kind of index can serve a comparison. The kind follows how the type **compares**, not
+ * what it stores: an unanchored `ILIKE` needs trigrams where a range needs a B-tree, and a
+ * multi-value overlap needs a GIN on the sub-path. A single kind per field would serve some of
+ * them and silently fail to serve the rest.
+ */
+export type TFieldIndexKind = 'btree' | 'trigram' | 'gin'
+
 export interface IFieldSqlRules {
   /** Projects the stored JSONB value to a comparable expression — what a filter compares against. */
   expr: (key: string) => Prisma.Sql
@@ -30,6 +38,20 @@ export interface IFieldSqlRules {
   searchPredicate: (key: string, pattern: string) => Prisma.Sql | null
   /** Compares this type's filter value against that expression. */
   filter: TFilterSql
+  /**
+   * Which index kind serves `filter`, or `null` when none can. Read together with `expr`: the
+   * index is built on that same projection, so the two move as one.
+   */
+  filterIndex: TFieldIndexKind | null
+  /**
+   * Which index kind serves the ordering, or `null` for a projection no index can cover —
+   * RELATION's `targetLabel` is a correlated subquery over another row, so nothing local to this
+   * table can stand in for it.
+   *
+   * Only ever `'btree'` today: an ordering wants a sorted structure, which is the one thing GIN
+   * does not give. Typed as the full union anyway so a type that finds another answer can say so.
+   */
+  sortIndex: TFieldIndexKind | null
 }
 
 /**

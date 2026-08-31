@@ -18,6 +18,11 @@ export const RELATION_FIELD_SQL: IFieldSqlModule = {
     searchPredicate: notSearchable,
     sortExpr: targetLabel,
     filter: matchesExactly,
+    filterIndex: 'btree',
+    // **The one type that cannot be sorted from an index.** `targetLabel` is a correlated
+    // subquery over a row in another table, and an index can only cover an expression of the
+    // row it is built on. Denormalising that label is the only fix, and it is not this one.
+    sortIndex: null,
   },
   // Same comparison over ids; still not searchable, for the reason above — which the array
   // only strengthens, since matching labels would mean the subquery once per link per row
@@ -26,5 +31,7 @@ export const RELATION_FIELD_SQL: IFieldSqlModule = {
     sortExpr: targetLabel,
     searchPredicate: notSearchable,
     filter: containsAny,
+    filterIndex: 'gin',
+    sortIndex: null,
   },
 }

@@ -3,7 +3,7 @@
 Target: stay fast and comfortable at **100k records per table and 1M+ overall**, with priority
 order **search > filtering > sorting > writes**.
 
-**T1, T2 and T4 are implemented; everything else is not.** The stated priority order is reflected in what lands in Phase 1;
+**T1, T2, T3 and T4 are implemented; everything else is not.** The stated priority order is reflected in what lands in Phase 1;
 **the authoritative execution order is the Sequencing summary near the end**, which is not the
 numbering order — T9–T11 were added during review and sit in Phase 1 despite their numbers.
 Task numbers are stable identifiers, not a running order.
@@ -247,6 +247,23 @@ rank — but it should be an explicit product decision, not a performance side e
 ---
 
 ### T3. Per-field expression indexes for sorting and filtering
+
+**Status:** done — 2026-08-31, with changes. Three departures from what is written below, each
+found while building it:
+
+- **"A B-tree expression index per field" is wrong.** The index kind follows how a type
+  _compares_: TEXT's unanchored `ILIKE` needs a trigram GIN, a multi-value overlap needs a GIN on
+  the sub-path, and RELATION's ordering cannot be indexed at all. So a type declares
+  `filterIndex` / `sortIndex` and a field gets up to three indexes, not one.
+- **Sorting needs one index per direction.** `buildRecordOrderBy` asks for `NULLS LAST` both ways,
+  and a B-tree reversed gives `NULLS FIRST` — so the ascending index simply cannot serve a
+  descending sort. Caught by a plan assertion; it would otherwise have shipped as an index half
+  the sorts silently ignored.
+- **Option B (the background reconciler) was not built.** Settled with the user: the definition
+  layer plus an explicit trigger. `reconcileFieldIndexes` exists and is tested, but nothing calls
+  it on a schedule, and the per-field toggle keeps itself in step by firing DDL out of band.
+  Deciding _which_ fields to index became a user's choice rather than a policy, so the usage
+  counters below are not needed.
 
 **What.** A B-tree expression index per indexed field, shaped
 `("tableId", <the field's expr>, "createdAt")` — the third column matching the existing

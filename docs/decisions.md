@@ -383,6 +383,24 @@ The pre-filter expression and the index expression are **one contract**: Postgre
 
 Without a search the plain query is kept: there is nothing to narrow by, and materialising would build every matching row in order to take fifty.
 
+### An index is opted into per field, and built out of band
+
+Threshold- and usage-driven policies were both rejected: the first indexes fields nobody sorts by and is how a 432 MB table acquires 800 MB of indexes, the second needs per-field counters written outside the request path. A toggle needs neither, and puts the cost where someone asked for it.
+
+The build is fired from the request and **not awaited**. `CREATE INDEX CONCURRENTLY` runs for minutes on a large table — a trigram GIN over a million rows took over two — and it cannot block writes, so waiting would only buy a response that reports the outcome. The price is that a failure reaches the error log rather than the user.
+
+**It is recorded straight to the sink, never rethrown.** Nitro's `error` hook only sees faults on the request path, and this has deliberately left it; an uncaught throw would reach Node's `uncaughtException` and take the process down over an index that failed to build. `reconcileFieldIndexes` is the recovery path, and a failed concurrent build leaves an **invalid** index that the next sync drops first — without that, `IF NOT EXISTS` would see it as present and skip the rebuild forever.
+
+### Sorting takes one index per direction, and index names come from `Field.id`
+
+Two rules that look like redundancy and are not.
+
+**Per direction:** `buildRecordOrderBy` emits `NULLS LAST` whichever way a column sorts, because blanks belong at the bottom either way. A B-tree scanned backwards yields the exact reverse of how it was built, so an `ASC NULLS LAST` index reversed gives `DESC NULLS FIRST` — and PostgreSQL sorts the rows outright rather than use it. Verified with `enable_sort` off: with only the ascending index present, a descending sort still refuses it.
+
+**From the id:** a field _name_ may be 100 characters and `slugify` maps it roughly 1:1 into the key, so `rec_idx_<tableId>_<key>` can reach ~130 — past the 63-byte identifier limit, which PostgreSQL truncates **silently**, letting two long keys on one table collide into one index. A cuid keeps it at 35 and makes index→field lookup a prefix match.
+
+Related: the DDL inlines the key where the query binds it, because DDL takes no parameters. The two still match — an unnamed prepared statement is planned at Bind with the values known — but they are generated separately, so only a plan assertion keeps them honest.
+
 ### The count is bounded, and Next does not read the page count
 
 An exact `COUNT(*)` is `O(rows)`, cannot be indexed away, and was charged to every list view including the unfiltered default — whose page query is otherwise trivial. Counting to `RECORD_COUNT_CAP + 1` is flat at any table size; the extra row is what distinguishes "exactly the cap" from "more than we counted".

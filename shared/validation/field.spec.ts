@@ -35,6 +35,8 @@ describe('fieldInputSchema — defaults', () => {
       targetTableId: '',
       labelFieldKey: '',
       multiple: false,
+      // Opted out unless asked for: an index is a cost on every write of the table
+      indexed: false,
     })
   })
 

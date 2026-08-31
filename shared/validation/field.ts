@@ -32,6 +32,12 @@ export const fieldInputSchema = z
     labelFieldKey: z.string().trim().default(''),
     /** Whether the field holds several values. Only the types below may set it. */
     multiple: z.boolean().default(false),
+    /**
+     * Whether the field carries indexes for sorting and filtering. Unconstrained by type: every
+     * type has *something* an index can serve, and which indexes that means is decided in SQL
+     * rather than here — a RELATION, for instance, gets a filter index and no sort one.
+     */
+    indexed: z.boolean().default(false),
   })
   .superRefine((value, ctx) => {
     // Judged against the registry rather than a hardcoded pair, so a new field type declares

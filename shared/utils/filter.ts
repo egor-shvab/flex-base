@@ -23,7 +23,9 @@ import type {
  * since `queryColumns` fixes where each one sits.
  */
 function recordColumn(key: string, name: string, type: TFieldType): IField {
-  return { id: key, key, name, type, required: false, options: null, order: 0 }
+  // `indexed` is inert too: these are real columns, already covered by the table's own indexes,
+  // and there is no `Field` row to opt one in
+  return { id: key, key, name, type, required: false, options: null, order: 0, indexed: false }
 }
 
 /** A partial match, so typing `4` finds `#4`, `#14` and `#42` alike. */

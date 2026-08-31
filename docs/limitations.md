@@ -64,6 +64,14 @@ Keys are user-defined per table, so no general index applies. _The first scaling
 
 When it does need answering, **the query layer can already take the fix** — stated here so it is not re-derived under load. Because `db/record-sql.ts` composes SQL per field from metadata rather than emitting one fixed query, each remedy plugs into the existing per-type rules: a **GIN index** helps exactly one comparison, `containsAny`'s `?|`, and must be built per field on the sub-path (`(data->'tags')`) — one on `data` as a whole does not serve it; and a **per-field expression index** over `data ->> key` is an `expr`/`sortExpr`-shaped decision the registry already owns. What is genuinely new is index _lifecycle_ — the search index needs none because its expression reads only the row, but a per-field one is created and dropped as fields are, and issuing that DDL from `createField`/`deleteField` puts lock waits and half-created indexes inside a user-facing request, while `CONCURRENTLY` cannot run in a transaction. That is the commitment to take deliberately, not the SQL.
 
+### An index that fails to build says so only in the error log
+
+Index DDL is fired from the request and not awaited (`decisions.md`), so a failure has no response to land in: the toggle reports success, the index is simply absent, and the sorting or filtering it was for stays slow. Nothing surfaces that in the UI. `reconcileFieldIndexes` fixes it, and the next save of that field would too — but **nothing calls either on a schedule**, which waits on the same deployment story as the error-log sink. _Revisit together with that._
+
+### A RELATION cannot be sorted from an index
+
+It filters from one, but `sortExpr` is `targetLabel` — a correlated subquery over a row in the _target_ table, and an index only ever covers an expression of the row it is built on. So opting a relation field in speeds its filter and leaves its ordering exactly as slow as before. Denormalising the label is the only fix, and it is the same one the relation-label sort entry above needs.
+
 ### A record count stops at 1000, and past it the UI says `1000+`
 
 An exact `COUNT(*)` is `O(rows)`, no index shortens it, and it was charged to every list view — including the unfiltered default, whose page query is otherwise trivial. Counting to `RECORD_COUNT_CAP + 1` is flat at any table size, at the price of a total that stops being a number. The pager reads `1–50 of 1000+` and drops "of N pages"; the filter summary reads `1000+ matching records`. Paging past the cap still works, because Next follows whether the page came back full rather than the page count (`decisions.md`). _Revisit if an exact total past the cap is ever actually asked for — the fix is a second, opt-in count, not raising the cap, which would put the cost back on every view._

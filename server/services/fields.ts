@@ -1,7 +1,10 @@
 import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
+import { dropFieldIndexes, syncFieldIndexes } from '#server/db/field-indexes'
 import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
+import { buildErrorLogEntry } from '#server/utils/error-log'
+import { recordErrorEntry } from '#server/utils/error-log-file'
 import { toHttpError } from '#server/utils/http-errors'
 import { buildFieldKey } from '#server/utils/field-key'
 import type { IField } from '#shared/types/field'
@@ -10,6 +13,29 @@ import type { TFieldInput } from '#shared/validation/field'
 const fieldErrors = {
   conflict: 'A field with this name already exists',
   notFound: 'Field not found',
+}
+
+/**
+ * Brings a field's indexes in line **without making the caller wait**.
+ *
+ * `CREATE INDEX CONCURRENTLY` on a large table runs for minutes — a trigram GIN over a million
+ * rows took over two of them — so awaiting it would hold a request open for as long as the table
+ * is big. It cannot block writes either, which is the whole reason for `CONCURRENTLY`, so the
+ * only thing waiting would buy is a response that reports the outcome.
+ *
+ * That is the trade: a failure reaches the error log rather than the user, and the index is
+ * simply absent until something asks again. `reconcileFieldIndexes` is the recovery path, and a
+ * failed build leaves an invalid index that the next sync drops before rebuilding.
+ */
+function recordBackgroundFailure(error: unknown): void {
+  // Written straight to the sink rather than rethrown. Nitro's `error` hook only sees faults on
+  // the request path, and this deliberately left it — an uncaught throw here would reach Node's
+  // `uncaughtException` and take the process down over an index that failed to build.
+  recordErrorEntry(buildErrorLogEntry(error, null, new Date()))
+}
+
+function syncIndexesInBackground(field: IField): void {
+  void syncFieldIndexes(field).catch(recordBackgroundFailure)
 }
 
 /**
@@ -76,10 +102,15 @@ async function createField(tableId: string, input: TFieldInput): Promise<IField>
         required: input.required,
         options: buildOptions(input),
         order: maxOrder + 1,
+        indexed: input.indexed,
       },
       select: fieldSelect,
     })
-    return toSharedField(field)
+
+    const created = toSharedField(field)
+    syncIndexesInBackground(created)
+
+    return created
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }
@@ -125,6 +156,7 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
           name: input.name,
           required: input.required,
           options: buildOptions(input),
+          indexed: input.indexed,
         },
         select: fieldSelect,
       })
@@ -138,7 +170,14 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
       return row
     })
 
-    return toSharedField(updated)
+    const saved = toSharedField(updated)
+    // Outside the transaction, and not only because it is fire-and-forget: `CONCURRENTLY` is
+    // refused inside one. Widening also changes which index a field wants — a multi-value
+    // SELECT filters through GIN where the single-value one used a B-tree — so this runs on
+    // every update rather than only when the flag itself moved.
+    syncIndexesInBackground(saved)
+
+    return saved
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }
@@ -150,6 +189,10 @@ async function deleteField(tableId: string, fieldId: string) {
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }
+
+  // After the delete, and only once it succeeded: an index outlives nothing, but dropping one
+  // for a field that is still there would quietly slow the queries that were using it
+  void dropFieldIndexes(fieldId).catch(recordBackgroundFailure)
 }
 
 /**

@@ -9,6 +9,8 @@ export const BOOLEAN_FIELD_SQL: IFieldSqlModule = {
     // record that has the value `false`
     searchPredicate: notSearchable,
     filter: matchesExactly,
+    filterIndex: 'btree',
+    sortIndex: 'btree',
   },
   multi: null,
 }

@@ -35,6 +35,7 @@ interface IFieldSeed {
   required?: boolean
   options?: IFieldOptions | null
   order?: number
+  indexed?: boolean
 }
 
 export async function createField(tableId: string, seed: IFieldSeed): Promise<IField> {
@@ -47,6 +48,7 @@ export async function createField(tableId: string, seed: IFieldSeed): Promise<IF
       required: seed.required ?? false,
       options: (seed.options as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
       order: seed.order ?? 0,
+      indexed: seed.indexed ?? false,
     },
     select: {
       id: true,
@@ -56,6 +58,7 @@ export async function createField(tableId: string, seed: IFieldSeed): Promise<IF
       required: true,
       options: true,
       order: true,
+      indexed: true,
     },
   })
 

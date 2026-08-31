@@ -38,4 +38,10 @@ export interface IField {
   required: boolean
   options: IFieldOptions | null
   order: number
+  /**
+   * Whether this field carries indexes for sorting and filtering. Opt-in per field: an index
+   * speeds those reads and slows every write, so the cost lands where someone asked for it.
+   * Which indexes that means is the field type's business (`IFieldSqlRules`).
+   */
+  indexed: boolean
 }

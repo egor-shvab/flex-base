@@ -9,6 +9,7 @@ export const fieldSelect = {
   required: true,
   options: true,
   order: true,
+  indexed: true,
 } satisfies Prisma.FieldSelect
 
 export type TFieldRow = Prisma.FieldGetPayload<{ select: typeof fieldSelect }>
