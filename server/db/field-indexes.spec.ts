@@ -76,7 +76,7 @@ describe('fieldIndexes — what a field asks for', () => {
   })
 
   /**
-   * RELATION is the one type that cannot be sorted from an index: `targetLabel` reads a row in
+   * RELATION is the one type that cannot be sorted from an index: the value it orders by is in
    * another table, and an index only ever covers an expression of the row it is built on.
    */
   it('gives RELATION a filter index and no sort index', () => {

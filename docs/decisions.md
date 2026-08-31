@@ -137,6 +137,16 @@ Recorded so they are not re-litigated. Revisit only with a reason that has chang
 
 ## API & data access
 
+### A record's fields live in one JSONB column, not in an EAV table or per-table columns
+
+The choice the whole data model rests on, and both alternatives were measured rather than argued.
+
+**EAV** — a row per value — was slower on every axis: 7.7× on a three-filter query, 8× on writes, three times the storage, and _slower_ even at fetching one record, since that becomes a lookup per field instead of one heap read. Nothing recommends it here.
+
+**Per-table physical columns** are genuinely faster on filtered reads, and still wrong. They gave **no** improvement on the count, which is the cost every list view pays; 2 000 empty tables cost 47 MB on disk and 20 MB of catalog before a single row; and they turn `createField` into `ALTER TABLE` inside a user request. Most of all they retire the property `CLAUDE.md` §1 is built on — that a new field needs no new code — because every generic query would need per-table schema knowledge.
+
+What JSONB costs in exchange is that no index applies until a field asks for one (`limitations.md`), which is the trade the indexing rules below manage.
+
 ### 404, never 403, for another user's resource
 
 A 403 confirms the resource exists. 401 comes only from `requireUser(event)`. The generic login 401 (`CLAUDE.md` §5) is the same reasoning applied to credentials.
@@ -255,7 +265,7 @@ A relation travels as `ILinkedRecord` — `{ number, label: string | null }` —
 
 **Only `formatLinkedRecord` and `BaseLinkedRecord` write a `#`, and both require a real number.** That is what makes the doubling structurally impossible, and it also settles the deleted-target case: an unresolvable id resolves to nothing at all, so it degrades to `UNKNOWN_RECORD_LABEL` with no number — the app genuinely does not know one.
 
-The visible `#N` is **not** the sort key: `targetLabel` orders by the target's label field, blanks last, so a column of blank-labelled records shows numbers in no particular order. Sorting by number instead would reorder every existing picker and every relation column to match a tiebreaker rather than a name.
+The visible `#N` is **not** the sort key: a relation orders by the target's label field, blanks last, so a column of blank-labelled records shows numbers in no particular order. Sorting by number instead would reorder every existing picker and every relation column to match a tiebreaker rather than a name.
 
 ### A multi-value filter is a repeated param, not a delimited one
 
@@ -325,7 +335,7 @@ Why the `CASE WHEN jsonb_typeof(…) = 'array' … ELSE '[]'::jsonb END` wrappin
 
 It is a whole predicate rather than an expression the caller appends `ILIKE ${pattern}` to, because a multi-value column cannot be matched that way — the question is whether _any element_ matches, which no projection can express. Rejected: substring-matching the raw `["Won","Lost"]` text, which "works" and also lets a term of `","` or `[` match every multi-valued row. That is a lie rather than a near miss.
 
-It stays separate from `expr` because NUMBER and BOOLEAN cast in their filter projection and neither `numeric` nor `boolean` has an `ILIKE` operator: NUMBER searches the un-cast text, BOOLEAN opts out (searching `e` would match every `false`), and RELATION opts out because its stored value is a cuid — matching the label instead would run `targetLabel`'s correlated subquery against every row, and the count query has no `LIMIT`.
+It stays separate from `expr` because NUMBER and BOOLEAN cast in their filter projection and neither `numeric` nor `boolean` has an `ILIKE` operator: NUMBER searches the un-cast text, BOOLEAN opts out (searching `e` would match every `false`), and RELATION opts out because its stored value is a cuid — matching the label instead would pull the target table into the **count** query too, which has no `LIMIT` to stop it.
 
 ### A field type is three modules, one per slice, and the bundler is why
 
@@ -409,6 +419,8 @@ Without a search the plain query is kept: there is nothing to narrow by, and mat
 ### An index is opted into per field, and built out of band
 
 Threshold- and usage-driven policies were both rejected: the first indexes fields nobody sorts by and is how a 432 MB table acquires 800 MB of indexes, the second needs per-field counters written outside the request path. A toggle needs neither, and puts the cost where someone asked for it.
+
+**Keeping that set small matters more than "indexes cost writes" suggests.** With no index over `data`, an `updateRecord` can be a heap-only-tuple update: nothing to maintain, cheap to vacuum. The first such index ends that for the whole table — every update then writes to every index over `data` and leaves a dead tuple behind, so the cost is a change in what kind of update the table does, not a per-index increment.
 
 The build is fired from the request and **not awaited**. `CREATE INDEX CONCURRENTLY` runs for minutes on a large table — a trigram GIN over a million rows took over two — and it cannot block writes, so waiting would only buy a response that reports the outcome. The price is that a failure reaches the error log rather than the user.
 

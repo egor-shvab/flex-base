@@ -281,8 +281,8 @@ describe('free-text search', () => {
 
   /**
    * RELATION opts out of search entirely — the stored value is a cuid, and matching the label
-   * instead would run `targetLabel`'s correlated subquery per row against a count query that
-   * has no `LIMIT`. The positive half is what keeps this honest: without it the case would
+   * instead would pull the target table into the count query too, which has no `LIMIT` to stop
+   * it. The positive half is what keeps this honest: without it the case would
    * pass just as well against a table nothing could ever find.
    */
   it('does not search a RELATION column, by its label or by its stored id', async () => {
@@ -508,8 +508,8 @@ describe('ORDER BY', () => {
   })
 
   /**
-   * A RELATION sorts by the target's **label**, through `targetLabel`'s correlated subquery —
-   * and that subquery qualifies the outer row as `"Record"`. A search sends the query down the
+   * A RELATION sorts by the target's **label**, through a join that reads the outer row as
+   * `"Record"`. A search sends the query down the
    * materialised-CTE path, where the outer row is the CTE rather than the table, so the two
    * features only compose because the CTE is aliased back to `"Record"`.
    *

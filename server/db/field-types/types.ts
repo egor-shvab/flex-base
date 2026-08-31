@@ -62,8 +62,8 @@ export interface IFieldSqlRules {
   filterIndex: TFieldIndexKind | null
   /**
    * Which index kind serves the ordering, or `null` for a projection no index can cover —
-   * RELATION's `targetLabel` is a correlated subquery over another row, so nothing local to this
-   * table can stand in for it.
+   * RELATION orders by a value in another row, so nothing local to this table can stand in for
+   * it — its `sortJoin` brings that row in instead.
    *
    * Only ever `'btree'` today: an ordering wants a sorted structure, which is the one thing GIN
    * does not give. Typed as the full union anyway so a type that finds another answer can say so.
