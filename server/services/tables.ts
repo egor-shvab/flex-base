@@ -43,11 +43,32 @@ async function getTableListRow(userId: string, tableId: string): Promise<ITableL
   }
 }
 
+/**
+ * The table's number is allocated from its owner's counter in the same transaction as the
+ * insert — the same shape `createRecord` uses one level down. The atomic increment takes the
+ * user's row lock, so two concurrent creates queue rather than racing for one number and no
+ * retry loop is needed.
+ *
+ * A failed create leaves no gap: a duplicate name raises inside the transaction, so the
+ * increment rolls back with it. Gaps come only from deletes, which is the point of a
+ * high-water mark — deleting table 3 must not hand that number to a different table later.
+ */
 async function createTable(userId: string, name: string): Promise<ITableListItem> {
   try {
-    return toSharedTableListItem(
-      await prisma.table.create({ data: { userId, name }, select: tableListSelect }),
-    )
+    const table = await prisma.$transaction(async (tx) => {
+      const { tableCounter } = await tx.user.update({
+        where: { id: userId },
+        data: { tableCounter: { increment: 1 } },
+        select: { tableCounter: true },
+      })
+
+      return tx.table.create({
+        data: { userId, name, number: tableCounter },
+        select: tableListSelect,
+      })
+    })
+
+    return toSharedTableListItem(table)
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }

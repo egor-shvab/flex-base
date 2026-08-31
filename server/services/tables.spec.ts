@@ -88,17 +88,41 @@ describe('TableService.getTableListRow', () => {
 })
 
 describe('TableService.createTable', () => {
-  it('stamps the owner onto the row', async () => {
+  /** The counter the transaction reads before it inserts. */
+  const allocates = (next: number) =>
+    prismaMock.user.update.mockResolvedValue({ tableCounter: next })
+
+  it('stamps the owner and the allocated number onto the row', async () => {
+    allocates(7)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
     await TableService.createTable(USER_ID, 'Deals')
 
     expect(prismaMock.table.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { userId: USER_ID, name: 'Deals' } }),
+      expect.objectContaining({ data: { userId: USER_ID, name: 'Deals', number: 7 } }),
     )
   })
 
+  /**
+   * Asserted on the *argument*, not on the number that comes back: a read-then-write rewrite
+   * would return the same number while taking no row lock, which is the whole property here.
+   */
+  it('allocates by incrementing the owner’s counter, inside the insert’s own transaction', async () => {
+    allocates(1)
+    prismaMock.table.create.mockResolvedValue(tableRow)
+
+    await TableService.createTable(USER_ID, 'Deals')
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+      data: { tableCounter: { increment: 1 } },
+      select: { tableCounter: true },
+    })
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+  })
+
   it('maps a duplicate name onto a 409', async () => {
+    allocates(1)
     prismaMock.table.create.mockRejectedValue(conflict())
 
     await expect(TableService.createTable(USER_ID, 'Deals')).rejects.toMatchObject({

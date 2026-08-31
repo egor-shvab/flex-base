@@ -5,8 +5,9 @@ import type { TRecordData } from '#shared/types/record'
 
 /**
  * Rows written straight through Prisma rather than through the services, so a spec about
- * `createRecord` is not seeded by `createRecord`. The one exception is `recordCounter`, which
- * is maintained by hand here for the same reason.
+ * `createRecord` is not seeded by `createRecord`. The exceptions are the two display counters —
+ * `User.tableCounter` and `Table.recordCounter` — which are maintained by hand here for the
+ * same reason.
  */
 
 let sequence = 0
@@ -21,9 +22,20 @@ export function createUser(email = `${unique('user')}@example.com`) {
   })
 }
 
-export function createTable(userId: string, name = unique('Table')) {
+/**
+ * A table with its number allocated the way the service would, so a spec that seeds tables and
+ * then creates one through `createTable` sees a continuous sequence — the same reason
+ * `createRecord` below maintains `recordCounter` by hand.
+ */
+export async function createTable(userId: string, name = unique('Table')) {
+  const { tableCounter } = await prisma.user.update({
+    where: { id: userId },
+    data: { tableCounter: { increment: 1 } },
+    select: { tableCounter: true },
+  })
+
   return prisma.table.create({
-    data: { userId, name },
+    data: { userId, name, number: tableCounter },
     select: { id: true, name: true, createdAt: true, updatedAt: true },
   })
 }

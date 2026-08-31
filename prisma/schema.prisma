@@ -21,7 +21,13 @@ model User {
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
-  tables       Table[]
+
+  // High-water mark for Table.number, allocated by createTable inside the insert's own
+  // transaction — the same contract Table.recordCounter gives Record.number one level down.
+  // Never decremented: deleting a table must not hand its number to a different one later.
+  tableCounter Int @default(0)
+
+  tables Table[]
 }
 
 model Table {
@@ -29,6 +35,11 @@ model Table {
   name   String
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The id a user reads: sequential per user, so one account runs 1..n however many tables the
+  // platform holds. Identity stays on the cuid — a relation's options.targetTableId references
+  // that, never this.
+  number Int
 
   // High-water mark for Record.number, allocated by createRecord inside the insert's own
   // transaction. Never decremented: deleting a record must not recycle the number a user
@@ -41,8 +52,10 @@ model Table {
   updatedAt DateTime @updatedAt
 
   // No separate @@index([userId]): the unique above is a btree on (userId, name), and a
-  // left prefix of it already serves every lookup by userId alone.
+  // left prefix of it already serves every lookup by userId alone. The same holds for the
+  // second unique below, which is why neither warrants an index of its own.
   @@unique([userId, name])
+  @@unique([userId, number])
 }
 
 model Field {
