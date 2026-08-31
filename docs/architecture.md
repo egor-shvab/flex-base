@@ -275,6 +275,8 @@ Four rules there are not guessable from the code:
 - **The DDL inlines the field key where the query binds it**, because DDL takes no parameters. PostgreSQL still matches the two: an unnamed prepared statement is planned at Bind with the values in hand. The two expressions are generated separately, so the plan assertions in `field-indexes.integration.spec.ts` are what stop them drifting.
 - **DDL runs `CONCURRENTLY`, fired and not awaited**, so a build that takes minutes never holds a request or blocks a write. A failure reaches the error log, never the caller (`limitations.md`).
 
+Two diagnostic entry points sit beside them, exported and tested with **no caller in the app** — deliberately, since wiring either to a screen or a schedule waits on the same deployment story as the error-log sink. `fieldIndexStats()` reports each owned index's validity, scan count and size: an index nobody scans is pure write cost, and nothing else in the project can say so. `reconcileFieldIndexes()` returns what it changed, keeping a **reaped** index (a build that failed and still needs doing) apart from a **dropped** one (tidying after a field that no longer wants it).
+
 `prisma/migrations/` is the history. One of them is hand-written, because a required column over existing rows cannot be generated (`CLAUDE.md` §5, `decisions.md`).
 
 ---

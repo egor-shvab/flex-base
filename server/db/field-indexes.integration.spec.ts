@@ -1,10 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { dropFieldIndexes, reconcileFieldIndexes, syncFieldIndexes } from '#server/db/field-indexes'
+import {
+  dropFieldIndexes,
+  fieldIndexStats,
+  reconcileFieldIndexes,
+  syncFieldIndexes,
+} from '#server/db/field-indexes'
 import { prisma } from '#server/db/prisma'
 import { buildRecordOrderBy, buildRecordWhere } from '#server/db/record-sql'
-import { DEFAULT_SORT_DIRECTION } from '#shared/constants/filter'
+import { RecordService } from '#server/services/records'
+import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues, TSortDirection } from '#shared/types/filter'
+import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createTable, createUser } from '~~/test/integration/seed'
 
 /**
@@ -35,6 +42,15 @@ async function seedRows(count = 20000) {
   `
   await prisma.$executeRaw`ANALYZE "Record"`
 }
+
+const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
+  page: 1,
+  pageSize: 50,
+  sort: { key: DEFAULT_SORT_KEY, direction: DEFAULT_SORT_DIRECTION },
+  filters: {},
+  search: '',
+  ...overrides,
+})
 
 /** The plan for the production WHERE of one filter. */
 async function planForFilter(fields: IField[], filters: TRecordFilterValues): Promise<string> {
@@ -73,6 +89,17 @@ async function planForSort(
     `
     return rows.map((row) => Object.values(row)[0]).join('\n')
   })
+}
+
+/** Whether any owned index has recorded a scan yet, waiting out the statistics flush. */
+async function waitForScan(attempts = 40): Promise<boolean> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await prisma.$executeRaw`SELECT pg_stat_clear_snapshot()`
+    if ((await fieldIndexStats()).some((stat) => stat.scans > 0)) return true
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
+  return false
 }
 
 const indexNames = async () => {
@@ -219,6 +246,100 @@ describe('the index lifecycle', () => {
 
     expect(await invalidCount()).toBe(0)
     expect(await indexNames()).toContain(name)
+  }, 60_000)
+
+  /**
+   * The diagnostic half. An index that is never scanned returns entirely correct results, so the
+   * only way to notice it is costing writes for nothing is to ask PostgreSQL — which is what
+   * these two exist for.
+   */
+  it('reports what each index has cost and returned, and which field owns it', async () => {
+    const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
+    await syncFieldIndexes(company as IField)
+
+    const stats = await fieldIndexStats()
+
+    expect(stats.map((stat) => stat.name)).toEqual([
+      `rec_idx_${company?.id}_f`,
+      `rec_idx_${company?.id}_sa`,
+      `rec_idx_${company?.id}_sd`,
+    ])
+    // The cuid is recovered from the name, which is the only place the ownership is recorded
+    expect(new Set(stats.map((stat) => stat.fieldId))).toEqual(new Set([company?.id]))
+    expect(stats.every((stat) => stat.valid)).toBe(true)
+    // Freshly built and never queried — exactly the shape that says "opt this back out"
+    expect(stats.every((stat) => stat.scans === 0)).toBe(true)
+    expect(stats.every((stat) => stat.bytes > 0)).toBe(true)
+  }, 60_000)
+
+  it('counts a scan once the index has actually served a query', async () => {
+    const [value] = await createFields(tableId, [
+      { key: 'contract_value', type: 'NUMBER', indexed: true },
+    ])
+    // The same size and filter the case above proves the planner serves from this index — a
+    // smaller table would have it quite reasonably scan instead, and this case would then be
+    // measuring the planner rather than the statistics plumbing it exists to check
+    await seedRows()
+    await syncFieldIndexes(value as IField)
+    await prisma.$executeRaw`ANALYZE "Record"`
+
+    await RecordService.listRecords(
+      tableId,
+      [value as IField],
+      query({ filters: { contract_value: { from: 1, to: 5 } } }),
+    )
+
+    // **Polled, and that is not flakiness being papered over.** A backend reports index usage
+    // to the shared statistics no more often than once a second, and a session caches the
+    // snapshot it reads — so the counter is genuinely not there yet the instant the query
+    // returns. Measured directly: zero immediately, one after a second. Waiting a fixed second
+    // would be slower and no more certain.
+    const scanned = await waitForScan()
+
+    expect(scanned).toBe(true)
+  }, 60_000)
+
+  it('reports an invalid index as invalid, which nothing else surfaces', async () => {
+    const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
+    await syncFieldIndexes(company as IField)
+
+    await prisma.$executeRaw`
+      UPDATE pg_index SET indisvalid = false
+      WHERE indexrelid = ${`rec_idx_${company?.id}_f`}::regclass
+    `
+
+    const stats = await fieldIndexStats()
+
+    expect(stats.filter((stat) => !stat.valid).map((stat) => stat.name)).toEqual([
+      `rec_idx_${company?.id}_f`,
+    ])
+  }, 60_000)
+
+  it('says what a reconcile changed, telling a failed build apart from a tidy-up', async () => {
+    const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
+
+    const first = await reconcileFieldIndexes()
+    expect(first.created).toHaveLength(3)
+    expect(first).toMatchObject({ dropped: [], reaped: [] })
+
+    // A second pass has nothing to do — the report is what makes that visible
+    expect(await reconcileFieldIndexes()).toEqual({ created: [], dropped: [], reaped: [] })
+
+    // A failed concurrent build, and a field that no longer wants its indexes: both are removed,
+    // and they are reported apart because only one of them still needs doing
+    await prisma.$executeRaw`
+      UPDATE pg_index SET indisvalid = false
+      WHERE indexrelid = ${`rec_idx_${company?.id}_f`}::regclass
+    `
+    const repaired = await reconcileFieldIndexes()
+    expect(repaired.reaped).toEqual([`rec_idx_${company?.id}_f`])
+    expect(repaired.created).toEqual([`rec_idx_${company?.id}_f`])
+    expect(repaired.dropped).toEqual([])
+
+    await prisma.field.update({ where: { id: company?.id }, data: { indexed: false } })
+    const cleared = await reconcileFieldIndexes()
+    expect(cleared.dropped).toHaveLength(3)
+    expect(cleared).toMatchObject({ created: [], reaped: [] })
   }, 60_000)
 
   it('reconciles the whole database, dropping what no field wants', async () => {

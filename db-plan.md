@@ -3,7 +3,7 @@
 Target: stay fast and comfortable at **100k records per table and 1M+ overall**, with priority
 order **search > filtering > sorting > writes**.
 
-**T1, T2, T3 and T4 are implemented; everything else is not.** The stated priority order is reflected in what lands in Phase 1;
+**T1–T4 and T10 are implemented; T5, T6 and T11 are not.** The stated priority order is reflected in what lands in Phase 1;
 **the authoritative execution order is the Sequencing summary near the end**, which is not the
 numbering order — T9–T11 were added during review and sit in Phase 1 despite their numbers.
 Task numbers are stable identifiers, not a running order.
@@ -55,20 +55,52 @@ The two headline numbers — **search at ~2 s and relation sort at ~2.8 s** — 
 make the app feel broken. Note also that `COUNT(*)` at 61 ms is charged to _every_ list view
 including the unfiltered default, which is otherwise a 0.15 ms query.
 
-## 3. Measured effect of the proposed changes, at 1M
+> **Read these as shapes, not magnitudes.** They were taken under `EXPLAIN ANALYZE`, whose per-row
+> timing instrumentation is expensive over 800k rows, so the slow figures here overstate what the
+> unindexed system actually cost — see §3, which re-measures without it. Which queries scan and
+> which do not was right; how slow they were was not.
 
-| Query                                    | Before     | After                | Change                           |
-| ---------------------------------------- | ---------- | -------------------- | -------------------------------- |
-| Free-text search                         | 1 940 ms   | **53 ms**            | trigram GIN + search-first shape |
-| Free-text search, rare term              | —          | **4 ms**             | same                             |
-| Search `COUNT(*)`                        | 395 ms     | **159 ms**           | same                             |
-| Sort by JSONB key, page 1                | 1 156 ms   | **0.41 ms**          | expression index (T3)            |
-| Number-range filter                      | scan-bound | **2.6 ms**           | expression index (T3)            |
-| Number-range `COUNT(*)`                  | scan-bound | **0.23 ms**          | expression index (T3)            |
-| `COUNT(*)` unfiltered                    | 61 ms      | **0.56 ms**          | capped count (T4)                |
-| Multi-value filter, rare value (at 100k) | 34.7 ms    | **0.11 ms**          | GIN + operator form (T1)         |
-| Deep page, JSONB sort                    | 836 ms     | 162 ms → **0.18 ms** | expression index → keyset (T5)   |
-| Relation label sort                      | 2 771 ms   | unfixed              | needs T6                         |
+## 3. Measured, as shipped, at 1M
+
+**Re-measured after T1–T4 landed, through `RecordService.listRecords` rather than raw SQL** — so
+every figure is a whole list call: the page query, the capped count, relation resolution and Prisma's
+own overhead. That is what a request actually costs, and it is the number worth quoting.
+
+800k rows in the hot table, 1M overall, values stored as the app stores them. Each query run twice;
+the second is reported.
+
+| Whole list call, 1M rows         | No field indexes | Field opted in | What does the work            |
+| -------------------------------- | ---------------- | -------------- | ----------------------------- |
+| Default list, page 1             | **4.3 ms**       | —              | `(tableId, createdAt)`        |
+| Unfiltered list + count          | **3.9 ms**       | —              | capped count (T4)             |
+| SELECT filter + default sort     | **12.2 ms**      | —              | index scan, early exit        |
+| **Free-text search, rare term**  | **5.3 ms**       | 5.2 ms         | search trigram GIN (T2)       |
+| Free-text search, common term    | **142.5 ms**     | —              | same; cost tracks match count |
+| Sort by a TEXT field             | 109.3 ms         | **3.7 ms**     | expression B-tree (T3)        |
+| Sort by a TEXT field, descending | —                | **3.9 ms**     | the `_sd` index (T3)          |
+| NUMBER range filter              | 140.8 ms         | **4.4 ms**     | expression B-tree (T3)        |
+| TEXT filter (`ILIKE`)            | —                | **3.0 ms**     | per-field trigram (T3)        |
+| Multi-value filter, rare value   | 266.7 ms         | **3.3 ms**     | GIN on the sub-path (T1+T3)   |
+| Deep page (page 2000)            | 17.3 ms          | 16.4 ms        | **unchanged — see below**     |
+
+**Four things this corrects, and two of them are corrections to my own earlier claims:**
+
+- **§2's baseline was inflated.** Those figures came from `EXPLAIN ANALYZE`, whose per-row timing
+  instrumentation is expensive on 800k rows. The unindexed system was never as slow as 1 156 ms
+  suggested — sorting a TEXT field really costs ~109 ms. The _shape_ of §2 held (which queries scan,
+  which do not); the magnitudes did not.
+- **Search is better than the prototype predicted**, not worse: 5.3 ms against the 53 ms estimate.
+  But that figure is for a term matching one row. A common term costs **142 ms**, because the work
+  tracks how many rows match — so 5 ms is the best case, not the typical one.
+- **Deep paging is not fixed by T3 and barely needs fixing.** `OFFSET` is the cost, not the sort, so
+  an index changes nothing — but at 17 ms it is not a problem worth the URL-contract change T5 would
+  require. That lowers T5's priority rather than raising it.
+- **Three opted-in fields cost 399 MB of index** on a 1M-row table. That is the number that
+  vindicates opt-in over indexing everything: six fields would have been most of a gigabyte.
+
+**Not re-measured: the relation label sort.** The benchmark had no relation field. It stays as §2
+recorded it, and nothing about it has changed — `targetLabel` is a correlated subquery, T3 declares
+it unindexable, and a test pins that. Its cost is structural, not in doubt.
 
 ## 4. The single most important scheduling fact
 
@@ -439,6 +471,12 @@ have a reason, `ANALYZE`, then run `EXPLAIN` via `$queryRaw` and assert on the p
 
 ### T10. Know whether the indexes are actually working
 
+**Status:** done — 2026-08-31, with changes. `fieldIndexStats()` and a reporting
+`reconcileFieldIndexes()` shipped, and §3 above is their first use. **`pg_stat_statements` was
+deliberately not enabled** — it needs a `docker-compose.yml` change and a database restart, and it
+proves little on a development container; recorded in `limitations.md` with the reason it is
+time-sensitive. No UI, per the scope discipline below.
+
 Without this, T3's selective-index policy is unmeasurable and the whole plan is unfalsifiable in
 production. Two cheap reads, no new infrastructure:
 
@@ -593,19 +631,19 @@ changelog, no drifting numbers.
 
 Execution order, which is not the numbering order — T9/T10/T11 were added in review:
 
-| Order | Task                                     | Priority served    | Do now?                                              |
-| ----- | ---------------------------------------- | ------------------ | ---------------------------------------------------- |
-| 1     | T1 Multi-value filter + doc correction   | filtering          | **Yes** — cheap, and the docs are actively wrong     |
-| 2     | T2 Trigram search column + search-first  | **search**         | **Yes** — migration is free now, costly later        |
-| 3     | T4 Capped count                          | all list views     | **Yes** — after T2, so the two are measured together |
-| 4     | T3 Expression indexes + reconciler       | filtering, sorting | **Yes** for the mechanism; selective on which fields |
-| 5     | T10 Index-usage visibility               | —                  | **Yes** — T3's policy is unmeasurable without it     |
-| 6     | T11 Maintenance settings                 | writes             | Settings now; tune when the table is large           |
-| —     | T9 Tests                                 | —                  | **Inside each task above**, never after              |
-| —     | T5 Keyset pagination                     | sorting at depth   | Deferred — URL contract decision                     |
-| —     | T6 Relation label denormalisation        | sorting            | Deferred — needs a staleness design                  |
-| —     | T7 Physical columns / EAV / partitioning | —                  | Rejected, with measurements                          |
-| last  | T8 Documentation                         | —                  | After the implementation tasks land                  |
+| Order | Task                                     | Priority served    | Do now?                                               |
+| ----- | ---------------------------------------- | ------------------ | ----------------------------------------------------- |
+| 1     | T1 Multi-value filter + doc correction   | filtering          | **Yes** — cheap, and the docs are actively wrong      |
+| 2     | T2 Trigram search column + search-first  | **search**         | **Yes** — migration is free now, costly later         |
+| 3     | T4 Capped count                          | all list views     | **Yes** — after T2, so the two are measured together  |
+| 4     | T3 Expression indexes + reconciler       | filtering, sorting | **Yes** for the mechanism; selective on which fields  |
+| 5     | T10 Index-usage visibility               | —                  | **Done** — and it is what measured §3                 |
+| 6     | T11 Maintenance settings                 | writes             | Deferred — tuning at this size would be cargo-culting |
+| —     | T9 Tests                                 | —                  | **Inside each task above**, never after               |
+| —     | T5 Keyset pagination                     | sorting at depth   | Deferred — and §3 lowered its priority: 17 ms         |
+| —     | T6 Relation label denormalisation        | sorting            | Deferred — needs a staleness design                   |
+| —     | T7 Physical columns / EAV / partitioning | —                  | Rejected, with measurements                           |
+| last  | T8 Documentation                         | —                  | After the implementation tasks land                   |
 
 Two ordering notes: **T4 before T3**, because the capped count is a small change that removes the
 largest fixed cost from every list view, and doing it before the index work keeps the two sets of

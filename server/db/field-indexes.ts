@@ -41,6 +41,19 @@ interface IFieldIndex {
 }
 
 /**
+ * What a reconcile did. Returned rather than logged because this is the one operator-facing entry
+ * point in the module, and a pass that reports nothing is one nobody can act on.
+ *
+ * `reaped` is kept apart from `dropped`: both were removed, but a dropped index is one no field
+ * wants any more, while a reaped one is a build that **failed** and still needs doing.
+ */
+export interface IReconcileReport {
+  created: string[]
+  dropped: string[]
+  reaped: string[]
+}
+
+/**
  * **Named from `Field.id`, never from its key.** A field *name* may be 100 characters and
  * `slugify` maps it roughly 1:1 into the key, so a key-based name would run past PostgreSQL's
  * 63-byte identifier limit — which it truncates **silently**, letting two long keys on one table
@@ -237,7 +250,7 @@ export async function dropFieldIndexes(fieldId: string): Promise<void> {
  * step; this exists for drift, for indexes orphaned by a failure, and as the body of the job that
  * runs when there is somewhere to run it (`limitations.md`).
  */
-export async function reconcileFieldIndexes(): Promise<void> {
+export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
   const rows = await prisma.field.findMany({ select: fieldSelect })
   const wanted = new Map(
     rows
@@ -247,14 +260,77 @@ export async function reconcileFieldIndexes(): Promise<void> {
       ),
   )
 
+  const dropped: string[] = []
+  const reaped: string[] = []
+
   for (const { name, valid } of await ownedIndexes()) {
-    if (!wanted.has(name) || !valid) await prisma.$executeRawUnsafe(dropStatement(name))
+    if (wanted.has(name) && valid) continue
+
+    await prisma.$executeRawUnsafe(dropStatement(name))
+    // An index nobody wants and one that failed to build are both dropped here, but they mean
+    // different things: the first is tidying, the second is a build that needs doing again
+    ;(valid ? dropped : reaped).push(name)
   }
 
   // Re-read rather than reusing the list above: the drops just changed it, and creating over an
   // index that is still present would be a no-op that hides a stale one
   const present = new Set((await ownedIndexes()).map((index) => index.name))
+  const created: string[] = []
+
   for (const index of wanted.values()) {
-    if (!present.has(index.name)) await prisma.$executeRawUnsafe(createStatement(index))
+    if (present.has(index.name)) continue
+
+    await prisma.$executeRawUnsafe(createStatement(index))
+    created.push(index.name)
   }
+
+  return { created, dropped, reaped }
+}
+
+/**
+ * What one owned index has cost and returned.
+ *
+ * The question this exists to answer is **"was opting this field in worth it?"**, and nothing else
+ * in the project can: an index that is never scanned still returns correct results, so it shows up
+ * only as writes being slower than they need to be. `scans` at zero on a table with real traffic
+ * is the signal to opt the field back out.
+ *
+ * `valid` catches the other silent case — a `CONCURRENTLY` build that failed leaves an index that
+ * costs every write and serves no read, and nothing surfaces that either.
+ */
+export interface IFieldIndexStat {
+  name: string
+  /** The field that owns it, recoverable from the name because that is how it was built. */
+  fieldId: string
+  valid: boolean
+  scans: number
+  bytes: number
+}
+
+/** Every index this module owns, with what PostgreSQL has recorded about it. */
+export async function fieldIndexStats(): Promise<IFieldIndexStat[]> {
+  const rows = await prisma.$queryRaw<
+    { name: string; valid: boolean; scans: bigint | number; bytes: bigint | number }[]
+  >`
+    SELECT c.relname AS name,
+           i.indisvalid AS valid,
+           COALESCE(s.idx_scan, 0) AS scans,
+           pg_relation_size(c.oid) AS bytes
+    FROM pg_class c
+    JOIN pg_index i ON i.indexrelid = c.oid
+    LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = c.oid
+    WHERE c.relname LIKE ${`${INDEX_PREFIX}%`}
+    ORDER BY c.relname
+  `
+
+  return rows.map((row) => ({
+    name: row.name,
+    // `rec_idx_<fieldId>_<purpose>` — the purpose suffix carries no underscore, so one split off
+    // the end recovers the id whatever the cuid contains
+    fieldId: row.name.slice(INDEX_PREFIX.length, row.name.lastIndexOf('_')),
+    valid: row.valid,
+    // `idx_scan` and `pg_relation_size` are bigints, which arrive as `BigInt` rather than a number
+    scans: Number(row.scans),
+    bytes: Number(row.bytes),
+  }))
 }
