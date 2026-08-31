@@ -20,6 +20,7 @@ const TABLE_ID = 'tbl_deals'
 /** A row as Prisma returns it — timestamps are `Date`s until a mapper turns them into the wire's. */
 const table = {
   id: TABLE_ID,
+  number: 4,
   name: 'Deals',
   createdAt: new Date('2026-01-05T09:14:00.000Z'),
   updatedAt: new Date('2026-02-11T16:30:00.000Z'),
@@ -90,6 +91,59 @@ describe('ownership is scoped in the query', () => {
 })
 
 /**
+ * A route may name its table by the public number a URL carries or by the cuid older links use.
+ * Which column identifies the row is all that differs — **the owner is inside the `where` either
+ * way**, which is the property these cases exist to hold as the second form is added.
+ */
+describe('a table is addressable by number as well as by cuid', () => {
+  const whereOf = () => prismaMock.table.findUnique.mock.calls[0]?.[0]?.where
+
+  it('scopes a numeric address on the owner through the compound unique', async () => {
+    prismaMock.table.findUnique.mockResolvedValue(table)
+
+    await requireOwnedTable(USER_ID, '4')
+
+    expect(whereOf()).toEqual({ userId_number: { userId: USER_ID, number: 4 } })
+  })
+
+  it('still scopes a cuid address by id and owner', async () => {
+    prismaMock.table.findUnique.mockResolvedValue(table)
+
+    await requireOwnedTable(USER_ID, TABLE_ID)
+
+    expect(whereOf()).toEqual({ id: TABLE_ID, userId: USER_ID })
+  })
+
+  it('reads both forms the same way when fetching fields, and when fetching both', async () => {
+    prismaMock.table.findUnique.mockResolvedValue({ ...table, fields: [] })
+
+    await requireOwnedTableFields(USER_ID, '4')
+    await requireOwnedTableWithFields(USER_ID, '4')
+
+    for (const call of prismaMock.table.findUnique.mock.calls) {
+      expect(call[0]?.where).toEqual({ userId_number: { userId: USER_ID, number: 4 } })
+    }
+  })
+
+  /**
+   * A malformed address takes the id branch, where it matches nothing. That is the whole reason
+   * `parseAddressNumber` answers `0` rather than `NaN`: a number that cannot be a row's would
+   * make Prisma throw, turning a mistyped link into a 500 where it owes a 404.
+   */
+  it.each([
+    ['digits with a suffix', '12abc'],
+    ['zero, which no row holds', '0'],
+    ['nothing at all', ''],
+    ['past a PostgreSQL Int', '9'.repeat(40)],
+  ])('sends %s down the id branch, where it simply finds nothing', async (_case, address) => {
+    prismaMock.table.findUnique.mockResolvedValue(null)
+
+    await expect(requireOwnedTable(USER_ID, address)).rejects.toMatchObject({ statusCode: 404 })
+    expect(whereOf()).toEqual({ id: address, userId: USER_ID })
+  })
+})
+
+/**
  * A row that exists but belongs to someone else and a row that does not exist are the same
  * answer — the scoped query cannot tell them apart, and that is the point: a 403 would confirm
  * the resource exists. There is no separate "not yours" case to test because the code has none.
@@ -133,6 +187,7 @@ describe('what the helpers return', () => {
 
     await expect(requireOwnedTable(USER_ID, TABLE_ID)).resolves.toEqual({
       id: TABLE_ID,
+      number: 4,
       name: 'Deals',
       createdAt: '2026-01-05T09:14:00.000Z',
       updatedAt: '2026-02-11T16:30:00.000Z',
@@ -145,10 +200,22 @@ describe('what the helpers return', () => {
       fields: [{ ...textField('company'), options: null }],
     })
 
-    const fields = await requireOwnedTableFields(USER_ID, TABLE_ID)
+    const { fields } = await requireOwnedTableFields(USER_ID, TABLE_ID)
 
     expect(fields).toHaveLength(1)
     expect(fields[0]).toMatchObject({ key: 'company', type: 'TEXT', options: null })
+  })
+
+  /**
+   * The id is resolved rather than echoed: the address may have been a number, and every route
+   * below builds its own `where` from what this returns.
+   */
+  it('answers with the table’s id, not with the address it was asked for', async () => {
+    prismaMock.table.findUnique.mockResolvedValue({ id: TABLE_ID, fields: [] })
+
+    await expect(requireOwnedTableFields(USER_ID, '4')).resolves.toMatchObject({
+      tableId: TABLE_ID,
+    })
   })
 
   it('names the table alongside its fields, which the detail dialog needs', async () => {
@@ -218,7 +285,7 @@ describe('requireRecordFields', () => {
       fields: [textField('company')],
     })
 
-    const fields = await requireRecordFields(USER_ID, TABLE_ID)
+    const { fields } = await requireRecordFields(USER_ID, TABLE_ID)
     expect(fields.map((field) => field.key)).toEqual(['company'])
   })
 

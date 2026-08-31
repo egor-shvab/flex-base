@@ -137,7 +137,11 @@ Two different jobs, split across two columns:
 
 `number` is allocated from `Table.recordCounter` inside the insert's own transaction: Prisma's atomic `{ increment: 1 }` takes the row lock, so concurrent creates queue instead of racing and no retry loop is needed. The counter is a **high-water mark, not a count** — deleting a record never frees its number for reuse, the same contract an issue tracker gives.
 
-**A table carries the same pair one level up.** `Table.number` is sequential **per user** (`@@unique([userId, number])`) and allocated from `User.tableCounter` in exactly that shape — same transaction, same row lock, same high-water mark, so a deleted table never hands its number on. `Table.id` stays the cuid that a relation's `options.targetTableId` references. Both travel on the wire (`tableSelect`, and `IRecordDetail.table` for the dialog), but **nothing addresses by the number yet** — every URL and route param is still the cuid.
+**A table carries the same pair one level up.** `Table.number` is sequential **per user** (`@@unique([userId, number])`) and allocated from `User.tableCounter` in exactly that shape — same transaction, same row lock, same high-water mark, so a deleted table never hands its number on. `Table.id` stays the cuid that a relation's `options.targetTableId` references, and both travel on the wire.
+
+**A table-scoped route names its table by either one.** `tableWhere` (`server/utils/ownership.ts`) is the only place that knows there are two forms: a route address parses to a number through `parseAddressNumber` and resolves on `@@unique([userId, number])`, or parses to `0` and resolves on `{ id, userId }`. The forms cannot collide — a cuid is never all digits — and a malformed address takes the id branch, where it matches nothing and 404s. **Both branches scope the owner inside the `where`**, so §5's rule is unchanged: what differs is which column identifies the row.
+
+The helpers therefore return the **resolved** `tableId`, never the address they were given — every route below builds its own `where` from it, and a number handed through would land in a query expecting a cuid.
 
 ---
 

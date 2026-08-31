@@ -65,8 +65,9 @@ export function defineFieldsHandler<T>(
 ) {
   return defineEventHandler(async (event): Promise<T> => {
     const user = requireUser(event)
-    const tableId = routeParam(event, 'tableId')
-    const fields = await requireOwnedTableFields(user.id, tableId)
+    // The raw address, whatever form it is in — resolving it is the helper's business, and what
+    // comes back is the table's id, which is what everything below builds a `where` from
+    const { tableId, fields } = await requireOwnedTableFields(user.id, routeParam(event, 'tableId'))
 
     return handler({ event, user, tableId, fields })
   })
@@ -100,8 +101,7 @@ export function defineRecordWriteHandler<T>(
 ) {
   return defineEventHandler(async (event): Promise<T> => {
     const user = requireUser(event)
-    const tableId = routeParam(event, 'tableId')
-    const fields = await requireRecordFields(user.id, tableId)
+    const { tableId, fields } = await requireRecordFields(user.id, routeParam(event, 'tableId'))
 
     return handler({ event, user, tableId, fields })
   })

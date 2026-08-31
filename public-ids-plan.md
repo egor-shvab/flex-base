@@ -298,41 +298,62 @@ cases is the deliverable.
 
 ---
 
-### T5. Ownership helpers resolve by number
+### T5. Ownership resolves a table by number **or** by cuid
 
-**What.** `server/utils/ownership.ts` — the four `require*` helpers take a `tableNumber: number`
-and scope on the new compound unique:
+**Status:** done — 2026-08-31, with changes — the task was re-scoped from "helpers take a number"
+to "helpers accept either form", because the flip cannot be staged (see below). The id/number
+entry-point split was dropped as unnecessary. E2E is the proof it is non-breaking: it drives the
+app entirely through cuid URLs and stayed green at 140.
+
+**Why both, rather than a flip.** The four `require*` helpers are called from one place — the
+handler factories — so converting them to take a number would flip `/api/tables/:tableId` for
+tables, fields **and** records at once. There is no per-resource staging: they share the segment.
+That single commit would break the client, 37 integration param sites and the whole e2e suite, and
+`useRecordDetail` would drag T7 in with it — making T5–T8 one ~50-file change with no green
+checkpoint. So the server learns the second form first, and the client flips later against a server
+that already understands it.
+
+**What.** One private resolver in `server/utils/ownership.ts` is the only place that knows there
+are two forms:
 
 ```ts
-where: {
-  userId_number: {
-    userId, number: tableNumber
-  }
+function tableWhere(userId: string, address: string): Prisma.TableWhereUniqueInput {
+  const number = parseAddressNumber(address)
+
+  return number === 0 ? { id: address, userId } : { userId_number: { userId, number } }
 }
 ```
 
-Ownership stays **inside** the `where` clause, one query, same cost — the compound unique index
-serves it exactly as `{ id, userId }` did. 404-never-403 is unchanged and matters more now: a
-well-formed `/tables/7` belonging to someone else must be indistinguishable from a table that never
-existed, which the scoped `where` gives for free.
+- **Unambiguous by construction** — a cuid is never all digits — so no caller has to say which
+  form it holds, and the helpers keep taking a `string` (renamed `tableId` → `address`).
+- **Both branches scope the owner inside the `where`**, so §5 is untouched: what changes is which
+  column identifies the row, never whether ownership is part of the query. The compound unique
+  serves its branch exactly as `{ id, userId }` serves the other.
+- **A malformed address takes the id branch and matches nothing** — `parseAddressNumber` (T4)
+  answers `0` for `12abc`, `0`, empty, and anything past a PostgreSQL `Int` — so every mistyped
+  link still 404s rather than making Prisma throw.
 
-**One helper must NOT convert: `requireFieldTarget`.** It resolves `input.targetTableId`, which is a
-**cuid read out of field options**, not a route param. Give `ownership.ts` one private
-`findOwnedTable(userId, where)` and two public entry points so the two kinds of identifier cannot be
-passed to the same function by accident:
+**`requireOwnedTableFields` and `requireRecordFields` return `{ tableId, fields }`.** The resolved
+cuid, never the address given: routes below build their own `where` from it, so handing `"12"`
+through would land a number where a cuid belongs. This is the only change with teeth; the rest is
+mechanical. `handler.ts` destructures it in two factories and is otherwise untouched.
 
-- `requireOwnedTableFields(userId, tableNumber)` — the route path.
-- `requireOwnedTableFieldsById(userId, tableId)` — the one caller is `requireFieldTarget`.
+**`requireFieldTarget` needs no split.** The earlier draft called for separate id- and number-based
+entry points so this helper — which resolves `input.targetTableId`, a cuid out of field options —
+could not be handed the wrong kind. One resolver that reads both makes the split unnecessary: it
+keeps passing a cuid and takes the branch it always did. Fewer functions, nothing to confuse.
 
-**`requireOwnedTableFields` must now also return the resolved cuid.** Its callers need it: a record
-write's `where` is still `{ tableId, … }`, and `field-indexes.ts` names indexes from the cuid. Its
-return type becomes `{ tableId: string; fields: IField[] }`, and its `select` becomes
-`{ id: true, fields: … }` (it already selects `id`).
+**Tests.** `server/utils/ownership.spec.ts` asserts the `where` **argument** for each form (a
+fetch-then-compare rewrite would return the right table while losing the §5 property), including
+that each malformed address lands on the id branch.
+`server/api/ownership.integration.spec.ts` proves what a stub cannot: both forms answer
+identically, a number only another account holds is a 404, and each account has its own table `1`.
+**Note that last one when writing such a case** — asking for a number the caller also owns
+correctly returns _their_ row, so a cross-account test must pick a number the caller does not have.
 
-**Tests.** `server/utils/ownership.spec.ts` — the `where` shape for each helper (assert on the
-argument, not only the outcome: a fetch-then-compare rewrite would still return the right table
-while losing the §5 property). `server/api/ownership.integration.spec.ts` — another user's table
-number is a 404, and an unowned-but-existing number is a 404 rather than a 403.
+**Left open, to settle after T8:** whether the server keeps accepting cuids. While it does, this
+doubles as the D-a compatibility shim and old bookmarks resolve; dropping it is a small, isolated
+removal of one branch.
 
 ---
 

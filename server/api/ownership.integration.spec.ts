@@ -282,3 +282,61 @@ describe('a relation cannot be pointed across accounts', () => {
     })
   })
 })
+
+/**
+ * A table-scoped route names its table by the public number a URL carries or by the cuid older
+ * links use. Both resolve through one owner-scoped query, which is what a stub cannot show —
+ * that the compound unique exists, that it is scoped per user, and that the two forms land on
+ * the same row.
+ */
+describe('a table is addressable by its number as well as by its cuid', () => {
+  it('answers identically either way', async () => {
+    const table = await createTable(world.ada.id, 'Addressed')
+
+    const byCuid = await tableGet(testEvent({ user: world.ada, params: { tableId: table.id } }))
+    const byNumber = await tableGet(
+      testEvent({ user: world.ada, params: { tableId: String(table.number) } }),
+    )
+
+    expect(byNumber).toEqual(byCuid)
+    expect(byNumber.table.id).toBe(table.id)
+  })
+
+  /**
+   * Numbers are guessable where a cuid was not, so this is the case that matters most. Ada owns
+   * `1` and `2`, so Mallory's third is a number Ada has no row for — asking for it must be a 404
+   * and must never reach across the account.
+   */
+  it('404s on a number only another account has', async () => {
+    await createTable(world.mallory.id, 'One')
+    await createTable(world.mallory.id, 'Two')
+    const theirs = await createTable(world.mallory.id, 'Three')
+
+    await expect(
+      tableGet(testEvent({ user: world.ada, params: { tableId: String(theirs.number) } })),
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Table not found' })
+  })
+
+  /** The number runs per user, so the same address is two different tables. */
+  it('gives each account its own table 1', async () => {
+    const hers = await createTable(world.mallory.id, 'Hers')
+
+    const ada = await tableGet(testEvent({ user: world.ada, params: { tableId: '1' } }))
+    const mallory = await tableGet(testEvent({ user: world.mallory, params: { tableId: '1' } }))
+
+    expect(ada.table.name).toBe('Deals')
+    expect(mallory.table.id).toBe(hers.id)
+  })
+
+  /** Fields and records ride the same resolver, so one case each is enough to prove the seam. */
+  it('reaches a table’s fields and records by number too', async () => {
+    const number = String((await createTable(world.ada.id, 'Numbered')).number)
+
+    await expect(
+      fieldsGet(testEvent({ user: world.ada, params: { tableId: number } })),
+    ).resolves.toMatchObject({ fields: [] })
+    await expect(
+      recordsGet(testEvent({ user: world.ada, params: { tableId: number } })),
+    ).resolves.toMatchObject({ records: [], total: 0 })
+  })
+})

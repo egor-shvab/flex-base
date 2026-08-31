@@ -36,7 +36,7 @@ export async function createTable(userId: string, name = unique('Table')) {
 
   return prisma.table.create({
     data: { userId, name, number: tableCounter },
-    select: { id: true, name: true, createdAt: true, updatedAt: true },
+    select: { id: true, number: true, name: true, createdAt: true, updatedAt: true },
   })
 }
 
