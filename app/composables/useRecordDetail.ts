@@ -38,7 +38,13 @@ export function useRecordDetail() {
   )
 
   const { data, status, error, refresh } = useAsyncData<IRecordDetail | null>(
-    'record-detail',
+    // **The key names the open record, and that is load-bearing.** A constant key is one entry
+    // shared by every page that mounts this: moving between two table pages leaves the second
+    // page holding the first's entry, already `status: 'success'`, so nothing refetches and the
+    // dialog renders with no data, no pending and no error until a full reload. Keying on the
+    // record makes each one its own entry, and Nuxt re-executes on a reactive key — which is
+    // also why no `watch` is needed here.
+    () => `record-detail-${currentKey.value}`,
     async () => {
       const openRecord = current.value
       if (openRecord === undefined) return null
@@ -51,7 +57,7 @@ export function useRecordDetail() {
     },
     // `null` rather than `undefined` while it loads: "no record open" is a state the dialog
     // renders, not the absence of an answer
-    { watch: [currentKey], default: () => null },
+    { default: () => null },
   )
 
   const notFound = computed(() => error.value?.statusCode === 404)

@@ -55,6 +55,37 @@ test.describe('opening it', () => {
     await expect(page).toHaveURL(/detail=/)
   })
 
+  /**
+   * The regression this exists for: the dialog's fetch is keyed per record. Under one shared key
+   * it worked on the page you landed on and then silently stopped — the second table page held
+   * the first's resolved entry, so nothing refetched and the dialog opened with no data, no
+   * pending and no error until a full reload. **Navigating between two table pages first is the
+   * whole point**, so do not "simplify" this into a single `goto`.
+   */
+  test('still opens after moving between two tables, which once broke it', async ({ page }) => {
+    await page.goto(deals.url)
+    await page.getByRole('link', { name: 'View record' }).click()
+    await expect(dialog(page)).toContainText('Acme')
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    // Client-side navigation, not a reload — a reload is what used to mask this. The sidebar
+    // link's accessible name carries its record count, so it is matched loosely, as
+    // `mobile-shell.spec.ts` does.
+    await page
+      .getByRole('navigation', { name: 'Your tables' })
+      .getByRole('link', { name: new RegExp(people.name) })
+      .click()
+    await expect(page).toHaveURL(people.url)
+
+    await page.getByRole('link', { name: 'View record' }).first().click()
+
+    // Named by its table and carrying a field, rather than the empty box the bug produced.
+    // Which row is newest is not this case's business, so nothing here depends on it.
+    await expect(dialog(page)).toBeVisible()
+    await expect(dialog(page)).toContainText(people.name)
+    await expect(dialog(page)).toContainText('Full name')
+  })
+
   test('a relation link opens the record it points at, in the other table', async ({ page }) => {
     await page.goto(deals.url)
     await page.getByRole('link', { name: 'Ada' }).click()

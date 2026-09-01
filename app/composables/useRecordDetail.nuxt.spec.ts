@@ -66,11 +66,12 @@ const awaitRequests = (expected: string[]) => vi.waitFor(() => expect(requests).
 let host: { unmount: () => void } | undefined
 
 async function open(query: TUrlQuery = {}) {
-  // The `useAsyncData` key is the literal `'record-detail'`, so one case's entry is the next
-  // case's cache and the fetch would be skipped. Tearing the previous owner down and clearing
-  // the key together is what actually resets it — clearing alone leaves the instance resolved.
+  // Keys are per record (`record-detail-<table>.<record>`), so one case's entry is the next
+  // case's cache whenever two cases open the same record. Tearing the previous owner down and
+  // clearing the keys together is what actually resets it — clearing alone leaves the instance
+  // resolved.
   host?.unmount()
-  clearNuxtData('record-detail')
+  clearNuxtData((key) => key.startsWith('record-detail'))
 
   route.current = reactive({ query })
 
