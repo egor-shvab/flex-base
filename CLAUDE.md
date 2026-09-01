@@ -106,6 +106,7 @@ shared/                      # code used by BOTH client & server — one rule pe
   utils/                     # generic framework-free helpers
   validation/                # zod schemas and nothing else
 prisma/migrations/           # Prisma migration history
+prisma/seed/                 # the demo seed: a pure dataset + the writer (`npm run db:seed`)
 test/                        # fixtures, mount/prisma helpers, the integration and e2e suites
 docs/                        # architecture.md, styling.md, decisions.md, limitations.md + the concept
 public/                      # static assets
@@ -397,7 +398,7 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 - `tsconfig.json` references the project configs generated into `.nuxt/` by `nuxt prepare`. Do not edit those directly.
 - `compatibilityDate` is pinned to `2025-07-15`.
 - Modules: `@nuxt/eslint`, `@nuxt/icon`, `@pinia/nuxt`.
-- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate; dev-only, and it injects axe into the page rather than shipping in the bundle). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
+- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate; dev-only, and it injects axe into the page rather than shipping in the bundle), `tsx` (the demo seed's runner: the generated Prisma client is emitted as TypeScript whose imports carry `.js` specifiers, so plain `node` cannot load it — `tsx` also reads `tsconfig.seed.json` for the `#server`/`#shared` aliases). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
 
 ---
 

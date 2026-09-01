@@ -19,7 +19,10 @@ export default defineConfig({
     // No globals, matching the project's `autoImport: false` doctrine — and required anyway,
     // since the generated tsconfigs set `types: []`, so ambient `describe`/`it` would not typecheck
     globals: false,
-    include: ['{app,server,shared}/**/*.spec.ts'],
+    // `prisma/seed/` is outside the three source directories but its dataset is pure data with
+    // invariants no type can state — that every SELECT value is a declared choice, that every
+    // relation ref resolves — so it is checked here rather than only when the seed is run.
+    include: ['{app,server,shared}/**/*.spec.ts', 'prisma/seed/**/*.spec.ts'],
     // `exclude` replaces Vitest's defaults rather than extending them, so `node_modules` and
     // friends have to be carried over by hand alongside the other projects' files. The
     // integration specs are excluded by name for the same reason they are not in

@@ -56,6 +56,18 @@ Then run the dev server at http://localhost:3000:
 npm run dev
 ```
 
+To start from something to look at rather than an empty account, seed the demo workspace:
+
+```bash
+npm run db:seed
+```
+
+It signs in as `test@test.com` / `testtest` and creates eight tables — clients, people, projects,
+tasks, invoices and three smaller ones — holding around 445 records between them, covering every
+field type, both single- and multi-value fields, and the empty, single-row and multi-page list
+states. Re-running it replaces that one account and touches nothing else on the database; it is
+also available as `npx prisma db seed`.
+
 ## Commands
 
 | Command                    | Does                                                                          |
@@ -77,6 +89,7 @@ npm run dev
 | `npm run format:check`     | Check formatting without writing                                              |
 | `npm run db:up`            | Start PostgreSQL via Docker Compose                                           |
 | `npm run db:studio`        | Browse the database in Prisma Studio                                          |
+| `npm run db:seed`          | Fill a demo account with a realistic workspace — see below                    |
 
 Database changes go through Prisma:
 

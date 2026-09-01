@@ -23,6 +23,7 @@
     "format:check": "prettier --check .",
     "db:up": "docker compose up -d --wait",
     "db:studio": "prisma studio",
+    "db:seed": "tsx --tsconfig tsconfig.seed.json prisma/seed/index.ts",
     "test:e2e": "npm run db:up && playwright install chromium && playwright test",
     "test:e2e:ui": "npm run db:up && playwright install chromium && playwright test --ui"
   },
@@ -58,6 +59,7 @@
     "prettier": "^3.9.6",
     "prisma": "^7.9.0",
     "sass-embedded": "^1.100.0",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.8"

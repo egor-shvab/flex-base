@@ -18,6 +18,10 @@
     // the four projects above claim. See `tsconfig.tools.json`.
     {
       "path": "./tsconfig.tools.json"
+    },
+    // Nor the demo seed under `prisma/seed/`, for the same reason.
+    {
+      "path": "./tsconfig.seed.json"
     }
   ]
 }
