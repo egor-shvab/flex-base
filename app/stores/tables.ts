@@ -2,6 +2,7 @@ import { ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useTablesApi } from '~/api/tables'
 import type { ITableListItem } from '#shared/types/table'
+import { parseTableAddress } from '#shared/utils/address'
 import type { TTableInput } from '#shared/validation/table'
 
 export const useTablesStore = defineStore('tables', () => {
@@ -44,9 +45,13 @@ export const useTablesStore = defineStore('tables', () => {
     return response.table
   }
 
-  async function renameTable(tableId: string, input: TTableInput) {
-    const response = await api.rename(tableId, input)
-    tables.value = tables.value.map((table) => (table.id === tableId ? response.table : table))
+  async function renameTable(tableAddress: string, input: TTableInput) {
+    const response = await api.rename(tableAddress, input)
+    // Matched on the id the server answered with, not on the address asked for — the two are
+    // different kinds of thing, and only one of them identifies a cached row
+    tables.value = tables.value.map((table) =>
+      table.id === response.table.id ? response.table : table,
+    )
   }
 
   /**
@@ -68,14 +73,33 @@ export const useTablesStore = defineStore('tables', () => {
     tables.value = tables.value.map((table) => (table.id === row.id ? row : table))
   }
 
-  /** One cached list row by id — the single place `tables` is read by identity. */
-  function tableRow(tableId: string): ITableListItem | undefined {
-    return tables.value.find((table) => table.id === tableId)
+  /**
+   * One cached list row by **address** — what a page holds, having read it off the route. Both
+   * forms resolve, so a page reached by an older cuid link still finds its row.
+   */
+  function tableRow(tableAddress: string): ITableListItem | undefined {
+    const number = parseTableAddress(tableAddress)
+
+    return tables.value.find((table) =>
+      number === 0 ? table.id === tableAddress : table.number === number,
+    )
   }
 
-  async function deleteTable(tableId: string) {
-    await api.remove(tableId)
-    tables.value = tables.value.filter((table) => table.id !== tableId)
+  /**
+   * A table's public number from its id — the cuid→number direction, which only a relation needs:
+   * a RELATION field's `options.targetTableId` stores an id, and a link to that table has to be
+   * an address. Answers for **any** table the user owns, including one the current page is not
+   * about, which is why it lives here rather than travelling with the relation's options.
+   */
+  function tableNumber(tableId: string): number | undefined {
+    return tables.value.find((table) => table.id === tableId)?.number
+  }
+
+  async function deleteTable(tableAddress: string) {
+    await api.remove(tableAddress)
+
+    const removed = tableRow(tableAddress)
+    tables.value = tables.value.filter((table) => table.id !== removed?.id)
   }
 
   return {
@@ -89,5 +113,6 @@ export const useTablesStore = defineStore('tables', () => {
     deleteTable,
     applyTableRow,
     tableRow,
+    tableNumber,
   }
 })

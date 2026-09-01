@@ -25,11 +25,11 @@ export const useRelationsStore = defineStore('relations', () => {
 
   /**
    * Which table's endpoint answers for a relation field. Remembered here rather than added to
-   * `IField`, which carries no `tableId` on purpose: `recordColumn()` synthesises fields for
+   * `IField`, which carries no table of its own on purpose: `recordColumn()` synthesises fields for
    * `Record #` / `Created at` / `Updated at` that belong to no field row and would have to
    * invent one. `loadOptions` already receives it, so this is the one place that knows.
    */
-  const tableIdByField = ref<Record<string, string>>({})
+  const tableAddressByField = ref<Record<string, string>>({})
 
   function cacheLinkedRecords(incoming: Record<string, Record<string, ILinkedRecord>>) {
     for (const [fieldId, byRecordId] of Object.entries(incoming)) {
@@ -48,14 +48,14 @@ export const useRelationsStore = defineStore('relations', () => {
    * Loads the candidates for every relation field of a table at once. Called with the table's
    * field metadata, so a table without relations makes no request at all.
    */
-  async function loadOptions(tableId: string, fields: IField[]) {
+  async function loadOptions(tableAddress: string, fields: IField[]) {
     const relationFields = fields.filter((field) => field.type === 'RELATION')
     if (relationFields.length === 0) return
 
     await Promise.all(
       relationFields.map(async (field) => {
-        const response = await api.options(tableId, field.id)
-        tableIdByField.value[field.id] = tableId
+        const response = await api.options(tableAddress, field.id)
+        tableAddressByField.value[field.id] = tableAddress
         optionsByField.value[field.id] = response.options
         cacheLinkedRecords({ [field.id]: linkedRecordsFromOptions(response.options) })
       }),
@@ -84,11 +84,11 @@ export const useRelationsStore = defineStore('relations', () => {
     term: string,
     signal: AbortSignal,
   ): Promise<IRecordOption[]> {
-    const tableId = tableIdByField.value[fieldId]
+    const tableAddress = tableAddressByField.value[fieldId]
     // Never seeded — nothing has told this store which table answers for the field
-    if (tableId === undefined) return []
+    if (tableAddress === undefined) return []
 
-    const response = await api.search(tableId, fieldId, term, signal)
+    const response = await api.search(tableAddress, fieldId, term, signal)
 
     cacheLinkedRecords({ [fieldId]: linkedRecordsFromOptions(response.options) })
 
@@ -98,7 +98,7 @@ export const useRelationsStore = defineStore('relations', () => {
   return {
     optionsByField,
     linkedByField,
-    tableIdByField,
+    tableAddressByField,
     cacheLinkedRecords,
     loadOptions,
     searchOptions,

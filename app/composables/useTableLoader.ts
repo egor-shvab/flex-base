@@ -20,8 +20,11 @@ export function useTableLoader() {
   const api = useTablesApi()
   const fieldsStore = useFieldsStore()
 
-  return async (tableId: string): Promise<ITable> => {
-    const [response] = await Promise.all([api.get(tableId), fieldsStore.fetchFields(tableId)])
+  return async (tableAddress: string): Promise<ITable> => {
+    const [response] = await Promise.all([
+      api.get(tableAddress),
+      fieldsStore.fetchFields(tableAddress),
+    ])
 
     return response.table
   }

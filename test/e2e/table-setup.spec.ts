@@ -55,7 +55,7 @@ test.describe('allow multiple values', () => {
     const table = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }])
     const multiple = page.getByLabel('Allow multiple values')
 
-    await page.goto(`/tables/${table.id}/settings`)
+    await page.goto(table.settingsUrl)
     await page.getByRole('button', { name: 'Add field' }).first().click()
 
     for (const type of ['Text', 'Number', 'Checkbox', 'Date']) {
@@ -79,7 +79,7 @@ test.describe('allow multiple values', () => {
       },
     ])
 
-    await page.goto(`/tables/${table.id}/settings`)
+    await page.goto(table.settingsUrl)
     await page.getByRole('button', { name: 'Edit' }).first().click()
 
     await expect(page.getByLabel('Allow multiple values')).toBeDisabled()
@@ -96,7 +96,7 @@ test.describe('allow multiple values', () => {
       },
     ])
 
-    await page.goto(`/tables/${table.id}/settings`)
+    await page.goto(table.settingsUrl)
     await page.getByRole('button', { name: 'Edit' }).first().click()
 
     await expect(page.getByLabel('Allow multiple values')).toBeEnabled()
@@ -106,7 +106,7 @@ test.describe('allow multiple values', () => {
 test('the type of an existing field cannot be changed', async ({ page, seedTable }) => {
   const table = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }])
 
-  await page.goto(`/tables/${table.id}/settings`)
+  await page.goto(table.settingsUrl)
   await page.getByRole('button', { name: 'Edit' }).first().click()
 
   await expect(page.getByLabel('Type')).toBeDisabled()
@@ -140,7 +140,7 @@ test('a field row states its type, its configuration and its key', async ({ page
     },
   ])
 
-  await page.goto(`/tables/${deals.id}/settings`)
+  await page.goto(deals.settingsUrl)
 
   await expect(page.getByText('2 choices')).toBeVisible()
   await expect(page.getByText('multiple values')).toBeVisible()
@@ -158,7 +158,7 @@ test.describe('the table itself', () => {
   test('can be renamed from its settings page', async ({ page, seedTable }) => {
     const table = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }])
 
-    await page.goto(`/tables/${table.id}/settings`)
+    await page.goto(table.settingsUrl)
     await page.getByRole('button', { name: 'Rename' }).click()
     await page.getByLabel('Table name').fill('Contracts')
     await page.getByRole('button', { name: 'Save' }).click()
@@ -179,7 +179,7 @@ test.describe('the table itself', () => {
   }) => {
     const table = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }])
 
-    await page.goto(`/tables/${table.id}/settings`)
+    await page.goto(table.settingsUrl)
     await page.getByRole('button', { name: 'Delete table' }).click()
     await confirmDeletion(page)
 
@@ -208,13 +208,13 @@ test.describe('the table itself', () => {
       },
     ])
 
-    await page.goto(`/tables/${people.id}/settings`)
+    await page.goto(people.settingsUrl)
     await page.getByRole('button', { name: 'Delete table' }).click()
     await confirmDeletion(page)
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText(/"Owner" in "Deals" links to this table/)).toBeVisible()
-    await expect(page).toHaveURL(`/tables/${people.id}/settings`)
+    await expect(page).toHaveURL(people.settingsUrl)
   })
 })

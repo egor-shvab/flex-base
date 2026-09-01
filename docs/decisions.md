@@ -197,11 +197,27 @@ Each factory is **generic in its return type**. Flattening it to `unknown` would
 
 It lives only on `Table.userId`; fields and records reach the user through their table. A denormalized `userId` on `Field`/`Record` would be faster to filter and impossible to keep honest.
 
-### `Record.number` instead of an auto-incrementing PK
+### A per-tenant `number` instead of an auto-incrementing PK
 
-Every user's records share one physical `Record` table, so a global sequence would number rows across all tenants (a table would read `1, 47, 2931`), leak platform-wide row volume through the counter, and make ids enumerable — all while still not giving the per-table `1..n` that makes a number readable. So `id` stays an unguessable `cuid()` for reference and addressing, and `number` is a separate display column.
+Every user's rows share one physical table, so a global sequence would number them across all tenants (a table would read `1, 47, 2931`), leak platform-wide row volume through the counter, and still not give the per-parent `1..n` that makes a number readable. `Record.number` runs per table, `Table.number` per user, and both are allocated from a counter on the parent row.
 
-How it is allocated, and why it is a high-water mark rather than a count, is `architecture.md` §4.
+How they are allocated, and why they are high-water marks rather than counts, is `architecture.md` §4.
+
+### Public numbers address, cuids reference
+
+**Paths address, payloads reference.** A URL — browser or HTTP — names a row by its public number; a payload names it by the cuid the row actually stores. So `Record.data` holds target cuids, `Field.options.targetTableId` holds a table cuid, `linkedRecords` is keyed by record id, and `field-indexes.ts` names indexes from the table cuid — none of which moved.
+
+**The server accepts both forms**, which is what let the client be flipped without a broken window and what keeps a link copied before the change working. `tableWhere` / `recordWhere` are the only two places that know there are two forms; a cuid is never all digits, so they cannot collide.
+
+**What this does not buy:** cuids are still visible in API responses, because `ITable.id` is what a RELATION's config stores and `IRecord.id` is what a relation value stores. The deliverable is a readable URL, not a hidden id.
+
+**The enumeration risk is real and is accepted on one condition.** A cuid is unguessable, so a `where` that lost its `userId` used to leak rows nobody could address; with numbers the same bug is a `for i in 1..n` sweep of every tenant. What makes that acceptable is that ownership is not forgettable — `server/utils/handler.ts`'s factories _produce_ the context from the check, so a handler cannot be written that skips it. **Those factories are now load-bearing for security, not merely for tidiness.**
+
+**Fields get no number.** Field ids never reach the address bar, and a field already has two identifiers (`id`, and the immutable per-table-unique `key`). If one ever needs a public name, it is `key` — not a third identifier.
+
+**Rejected: numbering the stored relation values.** Migrating `Record.data` from cuids to numbers would rewrite every JSONB row holding a relation and force the per-field expression indexes to rebuild, for a value no user ever reads.
+
+**Rejected: a global sequence** (above), and **a central id-mapping layer** — the mapping is one `where` clause per model, not a service.
 
 ### The redundant single-column indexes were dropped — do not re-add them
 

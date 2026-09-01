@@ -14,7 +14,7 @@
 
     <ul v-else class="dashboard__grid">
       <li v-for="table in tablesStore.tables" :key="table.id" class="table-card">
-        <NuxtLink :to="`/tables/${table.id}`" class="table-card__link">
+        <NuxtLink :to="`/tables/${toTableAddress(table)}`" class="table-card__link">
           <h2 class="table-card__name">{{ table.name }}</h2>
           <p class="table-card__meta">
             {{ table._count.fields }} fields · {{ table._count.records }} records
@@ -58,6 +58,7 @@ import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useTablesStore } from '~/stores/tables'
 import type { ITableListItem } from '#shared/types/table'
+import { toTableAddress } from '#shared/utils/address'
 
 useSeoMeta({ title: 'Your tables' })
 
@@ -89,7 +90,7 @@ const {
   dialogProps: deleteDialog,
   confirm: confirmDelete,
   cancel: cancelDelete,
-} = useDeleteConfirm((table: ITableListItem) => tablesStore.deleteTable(table.id))
+} = useDeleteConfirm((table: ITableListItem) => tablesStore.deleteTable(toTableAddress(table)))
 </script>
 
 <style lang="scss" scoped>

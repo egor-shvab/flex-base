@@ -118,7 +118,7 @@ test('removing one chip leaves the rest of the query alone', async ({ page }) =>
  */
 test.describe('a value the field does not offer', () => {
   test('is a 400 from the endpoint', async ({ request }) => {
-    const response = await request.get(`/api/tables/${table.id}/records?stage=Nonexistent`)
+    const response = await request.get(`/api/tables/${table.number}/records?stage=Nonexistent`)
 
     expect(response.status()).toBe(400)
   })

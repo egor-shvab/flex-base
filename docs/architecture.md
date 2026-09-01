@@ -132,12 +132,14 @@ Every "All" / "— Select —" is a **placeholder plus `clearable`**, never a sy
 
 Two different jobs, split across two columns:
 
-- **`Record.id`** — a `cuid()`. It is what relations reference (inside `data` JSONB, with no foreign key) and what the API addresses, so it must be stable, non-recycled and unguessable.
-- **`Record.number`** — an `Int`, sequential **per table** (`@@unique([tableId, number])`), purely for display. Nothing references it.
+- **`Record.id`** — a `cuid()`. It is what relations reference (inside `data` JSONB, with no foreign key), so it must be stable, non-recycled and unguessable.
+- **`Record.number`** — an `Int`, sequential **per table** (`@@unique([tableId, number])`). It is what a URL addresses and what a user reads; nothing references it.
 
 `number` is allocated from `Table.recordCounter` inside the insert's own transaction: Prisma's atomic `{ increment: 1 }` takes the row lock, so concurrent creates queue instead of racing and no retry loop is needed. The counter is a **high-water mark, not a count** — deleting a record never frees its number for reuse, the same contract an issue tracker gives.
 
 **A table carries the same pair one level up.** `Table.number` is sequential **per user** (`@@unique([userId, number])`) and allocated from `User.tableCounter` in exactly that shape — same transaction, same row lock, same high-water mark, so a deleted table never hands its number on. `Table.id` stays the cuid that a relation's `options.targetTableId` references, and both travel on the wire.
+
+**The browser addresses by number** — `/tables/12?detail=3.48` — while both forms still resolve, so a link copied before the switch keeps working (`decisions.md` → _Public numbers address, cuids reference_).
 
 **A route names either row by either form**, through one rule per model, side by side in `db/`: `tableWhere` (`server/db/tables.ts`) and `recordWhere` (`server/db/records.ts`). An address parses through `parseAddressNumber` and resolves on the compound unique — `@@unique([userId, number])`, `@@unique([tableId, number])` — or parses to `0` and resolves on `{ id, … }`. The forms cannot collide, since a cuid is never all digits, and a malformed address takes the id branch where it matches nothing and 404s.
 
@@ -209,10 +211,10 @@ Plain query params named after the field, the name following from the value's sh
 One reserved `?detail=` param, owned by the **page** rather than by the list endpoint — it never travels in an API request:
 
 ```
-?detail=<tableId>.<recordId>,<tableId>.<recordId>
+?detail=<table>.<record>,<table>.<record>
 ```
 
-The records a detail dialog has open, outermost first. Only the **last** entry is fetched (`GET /api/tables/:tableId/records/:recordId`); the entries before it are the trail Back walks up, so drilling through nested relations is routing rather than state kept on the side — browser Back reverses exactly one step, the dialog survives a refresh, and SSR renders it for a shared link. Both separators sit outside the cuid alphabet. Decoded leniently: a malformed entry stops the chain rather than throwing.
+The records a detail dialog has open, outermost first. Each half is an **address** — the row's public number, or the cuid an older link carries — and travels to `GET /api/tables/:table/records/:record` as-is, which reads either. Only the **last** entry is fetched; the entries before it are the trail Back walks up, so drilling through nested relations is routing rather than state kept on the side — browser Back reverses exactly one step, the dialog survives a refresh, and SSR renders it for a shared link. Neither separator can appear inside either form. Decoded leniently: a malformed entry stops the chain rather than throwing.
 
 `detail` is in `RESERVED_QUERY_PARAMS`, so a field keyed `detail` cannot claim the name. Because `toRecordQueryParams` emits list params only, any list navigation (paging, sorting, filtering) drops the param and closes the dialog.
 

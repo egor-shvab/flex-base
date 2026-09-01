@@ -11,7 +11,7 @@ import RecordsTable from '~/components/records/RecordsTable.vue'
 import { numberField, record, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
-const TABLE_ID = 'tbl_deals'
+const TABLE_NUMBER = 4
 
 const FIELDS: IField[] = [textField('company', { name: 'Company' }), numberField('total')]
 
@@ -23,7 +23,7 @@ const RECORDS: IRecord[] = [
 function table(props: { fields?: IField[]; records?: IRecord[]; sort?: IRecordSort | null } = {}) {
   return mountTracked(RecordsTable, {
     props: {
-      tableId: TABLE_ID,
+      tableNumber: TABLE_NUMBER,
       fields: props.fields ?? FIELDS,
       records: props.records ?? RECORDS,
       sort: props.sort ?? null,
@@ -194,7 +194,7 @@ describe('RecordsTable', () => {
 
       const view = rows(wrapper)[0]!.get('[aria-label="View record"]')
       expect(view.element.tagName).toBe('A')
-      expect(view.attributes('href')).toContain(`detail=${TABLE_ID}.rec_1`)
+      expect(view.attributes('href')).toContain(`detail=${TABLE_NUMBER}.1`)
     })
 
     it('addresses each row’s own record', async () => {
@@ -204,8 +204,9 @@ describe('RecordsTable', () => {
         .findAll('[aria-label="View record"]')
         .map((link) => link.attributes('href'))
 
-      expect(hrefs[0]).toContain('rec_1')
-      expect(hrefs[1]).toContain('rec_2')
+      // Its own *number*, not its id — a row addresses its record the way a URL names one
+      expect(hrefs[0]).toContain(`${TABLE_NUMBER}.1`)
+      expect(hrefs[1]).toContain(`${TABLE_NUMBER}.2`)
     })
 
     it('emits edit with the row’s record', async () => {

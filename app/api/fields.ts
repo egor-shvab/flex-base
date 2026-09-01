@@ -12,12 +12,12 @@ export function useFieldsApi() {
   const api = useApi()
 
   return {
-    list: (tableId: string) => api<IFieldsResponse>(apiPath.fields(tableId)),
-    create: (tableId: string, input: TFieldInput) =>
-      api<IFieldCreatedResponse>(apiPath.fields(tableId), { method: 'POST', body: input }),
-    update: (tableId: string, fieldId: string, input: TFieldInput) =>
-      api<IFieldResponse>(apiPath.field(tableId, fieldId), { method: 'PATCH', body: input }),
-    remove: (tableId: string, fieldId: string) =>
-      api<IFieldDeletedResponse>(apiPath.field(tableId, fieldId), { method: 'DELETE' }),
+    list: (tableAddress: string) => api<IFieldsResponse>(apiPath.fields(tableAddress)),
+    create: (tableAddress: string, input: TFieldInput) =>
+      api<IFieldCreatedResponse>(apiPath.fields(tableAddress), { method: 'POST', body: input }),
+    update: (tableAddress: string, fieldId: string, input: TFieldInput) =>
+      api<IFieldResponse>(apiPath.field(tableAddress, fieldId), { method: 'PATCH', body: input }),
+    remove: (tableAddress: string, fieldId: string) =>
+      api<IFieldDeletedResponse>(apiPath.field(tableAddress, fieldId), { method: 'DELETE' }),
   }
 }

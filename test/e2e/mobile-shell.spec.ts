@@ -47,7 +47,7 @@ test.beforeEach(async ({ seedTable }) => {
     [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won' }],
   )
   recordsUrl = table.url
-  settingsUrl = `/tables/${table.id}/settings`
+  settingsUrl = table.settingsUrl
 })
 
 test('the sidebar is off-screen and unreachable until it is asked for', async ({ page }) => {

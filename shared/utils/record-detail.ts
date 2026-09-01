@@ -4,22 +4,24 @@ import type { IOpenRecord } from '#shared/types/record'
 import { singleParam } from '#shared/utils/query-param'
 
 /**
- * The detail dialog lives in the URL as `?detail=<tableId>.<recordId>,<tableId>.<recordId>` —
- * the records it has open, outermost first. Only the last one is shown; the entries before it
- * are the trail Back walks up, which is what makes drilling through nested relations a matter
- * of routing rather than of state kept on the side.
+ * The detail dialog lives in the URL as `?detail=<table>.<record>,<table>.<record>` — the records
+ * it has open, outermost first. Only the last one is shown; the entries before it are the trail
+ * Back walks up, which is what makes drilling through nested relations a matter of routing rather
+ * than of state kept on the side.
  *
- * Both separators are outside the cuid alphabet, so neither can appear inside an id.
+ * Each half is an **address**: the row's public number, or the cuid an older link still carries.
+ * Neither separator can appear inside either form — digits contain no punctuation and the cuid
+ * alphabet has none — so a chain written before this change still decodes and still resolves.
  */
 const CHAIN_SEPARATOR = ','
 const RECORD_SEPARATOR = '.'
 
 function parseOpenRecord(raw: string): IOpenRecord | null {
   const parts = raw.split(RECORD_SEPARATOR)
-  const [tableId, recordId] = parts
+  const [tableAddress, recordAddress] = parts
 
-  if (parts.length !== 2 || !tableId || !recordId) return null
-  return { tableId, recordId }
+  if (parts.length !== 2 || !tableAddress || !recordAddress) return null
+  return { tableAddress, recordAddress }
 }
 
 /**
@@ -47,7 +49,7 @@ export function toDetailParam(chain: IOpenRecord[]): string | undefined {
   if (chain.length === 0) return undefined
 
   return chain
-    .map((entry) => `${entry.tableId}${RECORD_SEPARATOR}${entry.recordId}`)
+    .map((entry) => `${entry.tableAddress}${RECORD_SEPARATOR}${entry.recordAddress}`)
     .join(CHAIN_SEPARATOR)
 }
 

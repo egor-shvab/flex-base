@@ -25,7 +25,7 @@ const SEED = [
   { id: 'rec_grace', number: 2, label: 'Grace Hopper' },
 ]
 
-/** `searchOptions` needs a seeded `tableIdByField`, or it short-circuits to `[]`. */
+/** `searchOptions` needs a seeded `tableAddressByField`, or it short-circuits to `[]`. */
 registerEndpoint('/api/tables/tbl_people/fields/fld_owner/options', () => ({
   options: [{ id: 'rec_margaret', number: 3, label: 'Margaret Hamilton' }],
 }))
@@ -67,7 +67,7 @@ describe('RelationFieldSelect', () => {
         SEED.map((option) => [option.id, { number: option.number, label: option.label }]),
       ),
     }
-    relations.tableIdByField = { [FIELD_ID]: 'tbl_people' }
+    relations.tableAddressByField = { [FIELD_ID]: 'tbl_people' }
 
     document.body.innerHTML = ''
   })

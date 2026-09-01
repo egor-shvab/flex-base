@@ -13,15 +13,19 @@ export const apiPath = {
   logout: '/api/auth/logout',
 
   tables: '/api/tables',
-  table: (tableId: string) => `/api/tables/${tableId}`,
+  table: (tableAddress: string) => `/api/tables/${tableAddress}`,
 
-  fields: (tableId: string) => `/api/tables/${tableId}/fields`,
-  field: (tableId: string, fieldId: string) => `/api/tables/${tableId}/fields/${fieldId}`,
-  fieldOptions: (tableId: string, fieldId: string) =>
-    `/api/tables/${tableId}/fields/${fieldId}/options`,
+  // A table is named by its address — its public number, or the cuid an older link holds. A
+  // **field** is always its cuid: fields have no public number, because none of them ever
+  // reaches the address bar. The mixed pair below is deliberate.
+  fields: (tableAddress: string) => `/api/tables/${tableAddress}/fields`,
+  field: (tableAddress: string, fieldId: string) => `/api/tables/${tableAddress}/fields/${fieldId}`,
+  fieldOptions: (tableAddress: string, fieldId: string) =>
+    `/api/tables/${tableAddress}/fields/${fieldId}/options`,
 
   clientErrors: '/api/client-errors',
 
-  records: (tableId: string) => `/api/tables/${tableId}/records`,
-  record: (tableId: string, recordId: string) => `/api/tables/${tableId}/records/${recordId}`,
+  records: (tableAddress: string) => `/api/tables/${tableAddress}/records`,
+  record: (tableAddress: string, recordAddress: string) =>
+    `/api/tables/${tableAddress}/records/${recordAddress}`,
 } as const

@@ -85,7 +85,7 @@ describe('useRelationsStore', () => {
 
       await store.loadOptions('tbl_deals', [OWNER])
 
-      expect(store.tableIdByField.fld_owner).toBe('tbl_deals')
+      expect(store.tableAddressByField.fld_owner).toBe('tbl_deals')
     })
   })
 

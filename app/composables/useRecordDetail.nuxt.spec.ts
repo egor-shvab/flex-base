@@ -118,7 +118,7 @@ describe('useRecordDetail', () => {
     it('reads one open record', async () => {
       const { dialog } = await open({ detail: 'tbl_deals.rec_1' })
 
-      expect(dialog.chain.value).toEqual([{ tableId: 'tbl_deals', recordId: 'rec_1' }])
+      expect(dialog.chain.value).toEqual([{ tableAddress: 'tbl_deals', recordAddress: 'rec_1' }])
       expect(dialog.detail.value?.record.id).toBe('rec_1')
     })
 

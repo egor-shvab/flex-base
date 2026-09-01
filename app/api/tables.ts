@@ -18,11 +18,12 @@ export function useTablesApi() {
   return {
     list: () => api<ITablesResponse>(apiPath.tables),
     /** The read of one table, without the counts — what both table screens open with. */
-    get: (tableId: string) => api<ITableResponse>(apiPath.table(tableId)),
+    get: (tableAddress: string) => api<ITableResponse>(apiPath.table(tableAddress)),
     create: (input: TTableInput) =>
       api<ITableListItemResponse>(apiPath.tables, { method: 'POST', body: input }),
-    rename: (tableId: string, input: TTableInput) =>
-      api<ITableListItemResponse>(apiPath.table(tableId), { method: 'PATCH', body: input }),
-    remove: (tableId: string) => api<IOkResponse>(apiPath.table(tableId), { method: 'DELETE' }),
+    rename: (tableAddress: string, input: TTableInput) =>
+      api<ITableListItemResponse>(apiPath.table(tableAddress), { method: 'PATCH', body: input }),
+    remove: (tableAddress: string) =>
+      api<IOkResponse>(apiPath.table(tableAddress), { method: 'DELETE' }),
   }
 }

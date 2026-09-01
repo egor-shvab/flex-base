@@ -14,6 +14,18 @@ The concept's menu holds full sentences. The stated blocker is gone — `usePopo
 
 ## Accepted
 
+### A public number is database-local
+
+A cuid survives a move between environments; `Table.number` and `Record.number` collide, because each database allocates its own from 1. Nothing exports or imports data today, so nothing is broken — but a number is not an identifier to carry across databases.
+
+_Reopen if import/export, seeding between environments, or any multi-database feature ships._
+
+### A URL discloses roughly how much a user has
+
+`/tables/12` says the account has at least twelve tables, and `#4821` says the table has had that many records. Both were previously unguessable behind cuids. The counts are already visible to the owner throughout the UI, so what changed is that a shared screenshot or link discloses them too.
+
+_Reopen if a table or record is ever shared with someone who should not see the owner's volume._
+
 ### Four lines of `architecture.md` §11 are approximated, not proven
 
 Playwright covers the rest. What it cannot reach: a **hydration-mismatch warning**, which a production build silences (the specs assert the SSR HTML is correct and the console clean instead); a **clipped focus ring**, asserted structurally as the focused link's box sitting inside its cell's; **Backspace held down**, which no Playwright API reproduces — pressed repeatedly instead; and **a multi-value cell's ellipsis**, which is paint with no DOM consequence. Running against a dev build recovers the first at the cost of testing something other than what ships.

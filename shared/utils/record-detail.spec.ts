@@ -8,7 +8,7 @@ import {
   withDetailChain,
 } from '#shared/utils/record-detail'
 
-const ref = (tableId: string, recordId: string) => ({ tableId, recordId })
+const ref = (tableAddress: string, recordAddress: string) => ({ tableAddress, recordAddress })
 
 describe('parseDetailChain', () => {
   it('is empty when the param is absent or blank', () => {

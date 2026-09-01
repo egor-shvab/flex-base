@@ -17,9 +17,9 @@
     <NuxtLink
       v-for="table in tablesStore.tables"
       :key="table.id"
-      :to="`/tables/${table.id}`"
+      :to="`/tables/${toTableAddress(table)}`"
       class="app-sidebar__item"
-      :class="{ 'app-sidebar__item--on': table.id === activeTableId }"
+      :class="{ 'app-sidebar__item--on': table.number === activeTableNumber }"
     >
       <Icon name="mdi:table" class="app-sidebar__icon" aria-hidden="true" />
       <span class="app-sidebar__name">{{ table.name }}</span>
@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { navigateTo, useRoute } from '#imports'
+import { parseTableAddress, toTableAddress } from '#shared/utils/address'
 import { useTablesStore } from '~/stores/tables'
 
 const route = useRoute()
@@ -66,15 +67,21 @@ function close() {
  */
 async function submitHandler(name: string) {
   const table = await tablesStore.createTable({ name })
-  await navigateTo(`/tables/${table.id}`)
+  await navigateTo(`/tables/${toTableAddress(table)}`)
 }
 
 /**
- * Compared by route param, not by path: `/tables/:id` is a string prefix of
- * `/tables/:id/settings`, so a path check would be ambiguous. The param is exact, and
+ * Compared by route param, not by path: `/tables/:address` is a string prefix of
+ * `/tables/:address/settings`, so a path check would be ambiguous. The param is exact, and
  * marks the table active on both the table itself and its settings page.
+ *
+ * Parsed rather than compared as text, so a link written with a slug — or an older one carrying
+ * a cuid — still marks its table.
  */
-const activeTableId = computed(() => route.params.tableId)
+const activeTableNumber = computed(() => {
+  const address = String(route.params.tableId ?? '')
+  return parseTableAddress(address) || tablesStore.tableRow(address)?.number
+})
 
 const isHome = computed(() => route.path === '/')
 

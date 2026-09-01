@@ -42,7 +42,12 @@
                 variant="icon"
                 prepend-icon="mdi:eye-outline"
                 label="View record"
-                :to="detailLinkTo({ tableId, recordId: record.id })"
+                :to="
+                  detailLinkTo({
+                    tableAddress: String(tableNumber),
+                    recordAddress: String(record.number),
+                  })
+                "
               />
               <BaseButton
                 variant="icon"
@@ -76,7 +81,7 @@ import { useDetailLink } from '~/composables/useDetailLink'
 
 const props = defineProps<{
   /** The table these records belong to — a row's View action has to *address* its record. */
-  tableId: string
+  tableNumber: number
   fields: IField[]
   records: IRecord[]
   sort?: IRecordSort | null

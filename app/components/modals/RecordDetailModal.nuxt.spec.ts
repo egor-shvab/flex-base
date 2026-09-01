@@ -122,7 +122,7 @@ describe('RecordDetailModal', () => {
    */
   describe('Open in …', () => {
     it('is absent when the record belongs to the table behind the dialog', async () => {
-      await mountModal({ currentTableId: 'tbl_deals' })
+      await mountModal({ currentTableNumber: 1 })
 
       expect(link(/Open in/)).toBeUndefined()
     })
@@ -130,7 +130,7 @@ describe('RecordDetailModal', () => {
     it('is offered when the record belongs elsewhere, named after its table', async () => {
       await mountModal({
         detail: detailOf('tbl_people', 'People', 2),
-        currentTableId: 'tbl_deals',
+        currentTableNumber: 1,
       })
 
       expect(link(/Open in/)?.textContent).toContain('Open in People')
@@ -139,22 +139,20 @@ describe('RecordDetailModal', () => {
     it('points at that table with this record still open', async () => {
       await mountModal({
         detail: detailOf('tbl_people', 'People', 2),
-        currentTableId: 'tbl_deals',
+        currentTableNumber: 1,
       })
 
-      expect(link(/Open in/)?.getAttribute('href')).toBe(
-        `/tables/tbl_people?${DETAIL_PARAM}=tbl_people.rec_1`,
-      )
+      expect(link(/Open in/)?.getAttribute('href')).toBe(`/tables/2?${DETAIL_PARAM}=2.7`)
     })
 
     /** Nothing to open while the record is still arriving, or once it failed to. */
     it('is withheld while loading and while erroring', async () => {
-      const loading = await mountModal({ pending: true, currentTableId: 'tbl_other' })
+      const loading = await mountModal({ pending: true, currentTableNumber: 9 })
       expect(link(/Open in/)).toBeUndefined()
       loading.unmount()
       document.body.innerHTML = ''
 
-      await mountModal({ errorMessage: 'Gone', currentTableId: 'tbl_other' })
+      await mountModal({ errorMessage: 'Gone', currentTableNumber: 9 })
       expect(link(/Open in/)).toBeUndefined()
     })
   })

@@ -81,10 +81,14 @@ export interface IRecordOption extends ILinkedRecord {
  * One record addressed from anywhere: a relation only stores the target's id, so the table it
  * belongs to has to travel with it. This is what the `detail` URL param encodes — the trail of
  * records the dialog has open, and the one it is being asked to open next.
+ *
+ * **Addresses, not ids.** Both are what a URL carries — the row's public number going forward,
+ * or the cuid an older link still holds — and they travel to the API as-is, which reads either.
+ * Strings for the same reason: a URL has nothing else.
  */
 export interface IOpenRecord {
-  tableId: string
-  recordId: string
+  tableAddress: string
+  recordAddress: string
 }
 
 /**

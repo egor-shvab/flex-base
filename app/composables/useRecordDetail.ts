@@ -32,7 +32,9 @@ export function useRecordDetail() {
    * change, so watching the object would refetch when an unrelated param moved.
    */
   const currentKey = computed(() =>
-    current.value === undefined ? '' : `${current.value.tableId}.${current.value.recordId}`,
+    current.value === undefined
+      ? ''
+      : `${current.value.tableAddress}.${current.value.recordAddress}`,
   )
 
   const { data, status, error, refresh } = useAsyncData<IRecordDetail | null>(
@@ -41,7 +43,7 @@ export function useRecordDetail() {
       const openRecord = current.value
       if (openRecord === undefined) return null
 
-      const detail = await api.detail(openRecord.tableId, openRecord.recordId)
+      const detail = await api.detail(openRecord.tableAddress, openRecord.recordAddress)
       // The same merge-only cache the list feeds, so a relation *inside* the dialog resolves
       // to a linked record and can link on again
       relations.cacheLinkedRecords(detail.linkedRecords)

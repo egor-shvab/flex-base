@@ -13,9 +13,16 @@ import { E2E_USER } from '~~/test/e2e/setup/global-setup'
  */
 export interface ISeededTable {
   id: string
+  /**
+   * What its URL carries. **Never assume it is 1**: the per-case truncate spares `User`, so
+   * `tableCounter` climbs across the whole run and the first table of a case is not table one.
+   * Address a table through `url` / `settingsUrl`, never by writing a number into a spec.
+   */
+  number: number
   name: string
   fields: IField[]
   url: string
+  settingsUrl: string
 }
 
 interface IFieldSeed {
@@ -76,9 +83,11 @@ export const test = base.extend<IFixtures>({
 
       return {
         id: table.id,
+        number: table.number,
         name: table.name,
         fields: created,
-        url: `/tables/${table.id}`,
+        url: `/tables/${table.number}`,
+        settingsUrl: `/tables/${table.number}/settings`,
       }
     })
   },

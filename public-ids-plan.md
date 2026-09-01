@@ -408,88 +408,42 @@ Unit specs pin the `where` argument for both forms on every service that takes a
 records integration spec proves a record reads and writes by either form and that record `1` of one
 table is not record `1` of another.
 
-### T7. The `?detail=` chain
+### T7 + T8. The client addresses by number
 
-**What.** `shared/utils/record-detail.ts` — the format becomes
-`?detail=<tableNumber>.<recordNumber>,…`.
+**Status:** done — 2026-09-01, as **one step**. They cannot be separated: every writer of a detail
+chain needs its table's number, and with the route still carrying a cuid that number has no source
+but the async payload — leaving `RecordsTable` with a `number | undefined` prop and a View link
+absent until the fetch resolves, which is the dead control §7 forbids. Under T8 the number comes
+off the route and the nullability disappears.
 
-**`IOpenRecord` becomes `{ tableNumber: number; recordNumber: number }` here, not in T3.** It has
-to follow T6: `useRecordDetail` calls `api.detail(…)` with whatever the chain holds, so the chain
-may only carry numbers once the endpoint accepts them. Both names are deliberate and neither
-overloads a taken word — `recordNumber` is already the name of this exact value in
-`RECORD_NUMBER_KEY`, so it is one meaning in two places rather than a second meaning.
+**The rule.** `IOpenRecord` is `{ tableAddress, recordAddress }` — **addresses, not ids**, and
+strings, because a URL has nothing else and the API reads either form. That is what keeps an old
+`?detail=<cuid>.<cuid>` resolving with no branch anywhere in the client, and what makes the field
+names honest (§6) now that the values are numbers.
 
-- `parseOpenRecord` parses two strict integers through the same bounds T4 uses. It already returns
-  `null` on a malformed entry, and `parseDetailChain` already **stops** at one rather than skipping
-  it — both behaviours are kept exactly as they are, and the leniency contract does not change.
-- `toDetailParam` writes numbers.
-- The comment "Both separators are outside the cuid alphabet" is rewritten, not appended to: `.`
-  and `,` are outside the digit alphabet, which is a stronger guarantee than the one it replaces.
+**What moved.** The chain codec and its type; `apiPath` + the four `app/api/` modules (`fieldId`
+stays a cuid — fields never reach the address bar, so the mixed signature is deliberate); all five
+stores; `useTableLoader` and `useRecordDetail`; both table pages, `AppSidebar`, `pages/index.vue`,
+`RecordsTable`, `RecordDetailModal`, `RelationFieldCell`.
 
-**A cuid-shaped entry must decode to nothing**, so an old bookmark degrades to a closed dialog
-rather than a request for table `NaN`. That falls out of the strict parse for free — but it is the
-case to write a test for, because it is the one an implementation is most likely to get wrong by
-using `parseInt`, which happily reads `12abc` as `12`.
+**Three things that are not mechanical:**
 
-**Tests.** `shared/utils/record-detail.spec.ts` (unit) — round-trip, the stop-at-bad-entry rule
-re-pinned against numeric entries, and the cuid-entry case above.
+- **The page derives its number from the loaded row**, not from the address:
+  `table.value?.number ?? parseTableAddress(tableAddress)`. An older link addresses by cuid, and
+  without the first half every `?detail=` entry it produced would be unable to name its table.
+- **`RelationFieldCell` resolves cuid→number through the tables store.** The target is
+  `options.targetTableId`, an id; the store holds every table the user owns, so it answers even for
+  a field belonging to a table the page is not about — the case that rules out carrying the number
+  in the relation-options response, since the dialog drills into fields that never pass through
+  `loadOptions`. A number it cannot supply degrades to plain text, the same as a deleted target.
+- **`tableRow` looks up by address, `tableNumber` by id, `applyTableRow` by id.** Three lookups,
+  three different keys, each matching what its caller actually holds.
 
----
-
-### T8. The client: pages, links, stores, api modules
-
-**What.** Follow the `npm run typecheck` error list from T3. The sites, so none is missed:
-
-**Addressing**
-
-- `app/api/paths.ts` — `table`, `fields`, `field`, `fieldOptions`, `records`, `record` take a
-  `tableNumber: number`; `record` takes a `recordNumber: number`. Field ids stay cuids (§2).
-- `app/api/tables.ts`, `fields.ts`, `records.ts`, `relations.ts` — parameter types only.
-- `app/stores/tables.ts` — `renameTable`, `deleteTable`, `applyTableRow`, `tableRow` are keyed by
-  number. **`applyTableRow` must keep matching on `id`**: it replaces a row the server just
-  answered with, and identity is the right key for that.
-  **New:** `tableNumber(tableId: string): number | undefined`, the cuid→number lookup T8's relation
-  cell needs (below), sitting beside the existing `tableRow` as the second place `tables` is read
-  by identity.
-- `app/stores/fields.ts`, `records.ts` — `tableId: string` → `tableNumber: number` throughout,
-  including `loadedTableId` (rename to `loadedTableNumber`; it is a cache key, and a key that says
-  `Id` while holding a number is exactly the drift `CLAUDE.md` §6 is about).
-- `app/stores/relations.ts` — `loadOptions(tableNumber, fields)`; `tableIdByField` becomes
-  `tableNumberByField`.
-
-**Links**
-
-- `app/pages/index.vue`, `app/components/app/AppSidebar.vue` — `/tables/${toTableAddress(table)}`.
-  `AppSidebar`'s active-route comparison is by route param, so it compares the parsed number.
-- `app/pages/tables/[tableId]/index.vue` + `settings.vue` — `route.params.tableId` goes through
-  `parseTableAddress`; the `useAsyncData` keys become `table-records-${tableNumber}` and
-  `table-${tableNumber}` (still distinct — a layout and a page must not share a key).
-- `app/composables/useTableLoader.ts` — the loader both table screens open with takes a
-  `tableNumber`. It returns `ITable`, which now carries the resolved `id` as well, so a caller
-  needing the cuid has one without a second request.
-- `app/components/records/RecordsTable.vue` — prop `tableId: string` → `tableNumber: number`; the
-  row link becomes `detailLinkTo({ tableNumber, recordNumber: record.number })`.
-- `app/components/modals/RecordDetailModal.vue` — `currentTableId` → `currentTableNumber`, and
-  `openInTableTo` builds `/tables/${toTableAddress(detail.table)}?detail=…`.
-- `app/field-types/relation/RelationFieldCell.vue` — **the one non-mechanical site.** Its link
-  target is built from `field.options.targetTableId`, a cuid, and it needs that table's number.
-  Resolve it through `useTablesStore().tableNumber(targetTableId)`: the tables store holds every
-  table the user owns, so it answers even for a field belonging to a table the current page is not
-  about — which is the case that rules out feeding the number through the relation-options response
-  instead, since the detail dialog drills into fields that never pass through `loadOptions`
-  (`decisions.md` records exactly this about `linkedByField`). The target record's number is already
-  in hand as `linkedRecord.number`.
-  Reading a store from a component is fine here — the SSR objection in `IFieldConfigSummaryContext`
-  is about a **registry entry** resolving Pinia's module-global instance, and this component already
-  calls `useRelationsStore()`.
-  **Degradation:** if `ensureTables` failed the number is unknown, and the cell must fall through to
-  its existing non-link text rather than rendering a broken link — the same shape as the
-  deleted-target case it already handles.
-
-**Tests.** `useDetailLink.nuxt.spec.ts` and `useRecordDetail.nuxt.spec.ts` re-pinned on numeric
-chains; a new `nuxt` case for the relation cell's fallback when the tables store is empty.
-
----
+**Tests.** A new `RelationFieldCell.nuxt.spec.ts` pins both the link and the fallback. In e2e the
+fixture carries `number`, `url` and `settingsUrl`, so the specs that navigate needed no per-file
+edits — **and no spec may hardcode `/tables/1`**, because the per-case truncate spares `User` and
+`tableCounter` climbs all run. One case was added for the compatibility promise: a URL in the old
+shape, path and chain both, still opens the same record.
 
 ### T9. The readable slug — `/tables/12-deals`
 

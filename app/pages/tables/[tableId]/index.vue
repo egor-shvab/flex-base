@@ -14,7 +14,7 @@
           <BaseButton
             variant="ghost"
             prepend-icon="mdi:cog-outline"
-            :to="`/tables/${tableId}/settings`"
+            :to="`/tables/${tableAddress}/settings`"
           >
             Settings
           </BaseButton>
@@ -60,7 +60,8 @@
 
     <BaseErrorBanner v-if="recordsStore.failed" class="records-page__failed">
       That view couldn’t be loaded. Check the web address, or
-      <NuxtLink :to="`/tables/${tableId}`" class="text-link">start again with all records</NuxtLink
+      <NuxtLink :to="`/tables/${tableAddress}`" class="text-link"
+        >start again with all records</NuxtLink
       >.
     </BaseErrorBanner>
 
@@ -77,7 +78,9 @@
         icon="mdi:view-column-outline"
       >
         This table has no fields yet —
-        <NuxtLink :to="`/tables/${tableId}/settings`" class="text-link">define its fields</NuxtLink>
+        <NuxtLink :to="`/tables/${tableAddress}/settings`" class="text-link"
+          >define its fields</NuxtLink
+        >
         before adding records.
       </BaseEmptyState>
 
@@ -106,7 +109,7 @@
         <template v-else>
           <RecordsTable
             class="records-page__table"
-            :table-id="tableId"
+            :table-number="tableNumber"
             :fields="fieldsStore.fields"
             :records="recordsStore.records"
             :sort="queryState.sort"
@@ -156,7 +159,7 @@
       :pending="detailPending"
       :error-message="detailError"
       :can-retry="detailCanRetry"
-      :current-table-id="tableId"
+      :current-table-number="tableNumber"
       :back-to="detailBackTo"
       @retry="refreshDetail"
       @close="closeDetail"
@@ -187,6 +190,7 @@ import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
+import { parseTableAddress } from '#shared/utils/address'
 import { toPageError } from '~/utils/api-error'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IRecord, TRecordData } from '#shared/types/record'
@@ -196,7 +200,8 @@ const loadTable = useTableLoader()
 const fieldsStore = useFieldsStore()
 const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
-const tableId = route.params.tableId as string
+/** The address the URL carries — a number going forward, a cuid from an older link. */
+const tableAddress = route.params.tableId as string
 
 /** The URL is the source of truth for the list query, so a filtered view is shareable. */
 const {
@@ -215,15 +220,15 @@ const {
 } = useRecordListQuery({ fields: () => fieldsStore.fields })
 
 // Its own key, never the settings page's — a layout and a page must not share one (`decisions.md`)
-const { data, error } = await useAsyncData(`table-records-${tableId}`, async () => {
-  const table = await loadTable(tableId)
+const { data, error } = await useAsyncData(`table-records-${tableAddress}`, async () => {
+  const table = await loadTable(tableAddress)
   // Filters decode against field metadata, so these wait for the loader rather than running
   // beside it — otherwise a shared filter URL would render unfiltered on first load.
   await Promise.all([
-    recordsStore.fetchRecords(tableId, queryState.value),
+    recordsStore.fetchRecords(tableAddress, queryState.value),
     // A relation filter is a picker over the target's records, so its candidates have to be
     // there on first paint for a shared link to show what it is filtered by
-    relationsStore.loadOptions(tableId, fieldsStore.fields),
+    relationsStore.loadOptions(tableAddress, fieldsStore.fields),
   ])
   return table
 })
@@ -234,7 +239,7 @@ const { data, error } = await useAsyncData(`table-records-${tableId}`, async () 
 // rows that no longer match the URL.
 watch(queryKey, async () => {
   try {
-    await recordsStore.fetchRecords(tableId, queryState.value)
+    await recordsStore.fetchRecords(tableAddress, queryState.value)
   } catch {
     // surfaced through `recordsStore.failed`
   }
@@ -245,6 +250,13 @@ if (error.value) {
 }
 
 const table = computed(() => data.value)
+
+/**
+ * The table's public number, which every link out of this page is built from. Taken from the
+ * loaded row rather than from the address, because an older link addresses by cuid and would
+ * otherwise leave every `?detail=` entry unable to name its table.
+ */
+const tableNumber = computed(() => table.value?.number ?? parseTableAddress(tableAddress))
 useSeoMeta({ title: () => table.value?.name ?? 'Records' })
 
 const breadcrumbs = computed<IBreadcrumb[]>(() => [
@@ -276,13 +288,13 @@ const {
 // Throws (400/404) propagate into RecordFormModal's useForm, which shows the error
 async function submitRecord(data: TRecordData) {
   if (editingRecord.value) {
-    await recordsStore.updateRecord(tableId, editingRecord.value.id, data, queryState.value)
+    await recordsStore.updateRecord(tableAddress, editingRecord.value.id, data, queryState.value)
     return
   }
 
   // A new record lands on page 1 of the default view; keep the URL in step rather than
   // letting the store show a page the address bar disagrees with
-  const nextPage = await recordsStore.createRecord(tableId, data, queryState.value)
+  const nextPage = await recordsStore.createRecord(tableAddress, data, queryState.value)
   if (nextPage !== queryState.value.page) {
     await goToPage(nextPage, true)
   }
@@ -313,7 +325,7 @@ const {
   confirm: confirmDeleteRecord,
   cancel: cancelDelete,
 } = useDeleteConfirm((record: IRecord) =>
-  recordsStore.deleteRecord(tableId, record.id, queryState.value),
+  recordsStore.deleteRecord(tableAddress, record.id, queryState.value),
 )
 </script>
 

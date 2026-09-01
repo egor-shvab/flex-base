@@ -16,7 +16,7 @@ describe('useDetailLink', () => {
   it('opens a record from a list view as a one-entry chain', () => {
     at({})
 
-    const link = useDetailLink()({ tableId: 'tbl_deals', recordId: 'rec_1' })
+    const link = useDetailLink()({ tableAddress: 'tbl_deals', recordAddress: 'rec_1' })
 
     expect(link.query.detail).toBe('tbl_deals.rec_1')
   })
@@ -28,7 +28,7 @@ describe('useDetailLink', () => {
   it('keeps the surrounding list query intact', () => {
     at({ page: '3', sort: 'name:asc', 'f.stage': 'Won' })
 
-    const link = useDetailLink()({ tableId: 'tbl_deals', recordId: 'rec_1' })
+    const link = useDetailLink()({ tableAddress: 'tbl_deals', recordAddress: 'rec_1' })
 
     expect(link.query).toMatchObject({ page: '3', sort: 'name:asc', 'f.stage': 'Won' })
   })
@@ -36,7 +36,7 @@ describe('useDetailLink', () => {
   it('drills rather than replaces when already inside the dialog', () => {
     at({ detail: 'tbl_deals.rec_1' })
 
-    const link = useDetailLink()({ tableId: 'tbl_people', recordId: 'rec_9' })
+    const link = useDetailLink()({ tableAddress: 'tbl_people', recordAddress: 'rec_9' })
 
     // The trail behind it is what Back walks up
     expect(link.query.detail).toBe('tbl_deals.rec_1,tbl_people.rec_9')
@@ -45,7 +45,7 @@ describe('useDetailLink', () => {
   it('appends to a chain of any depth', () => {
     at({ detail: 'tbl_a.rec_1,tbl_b.rec_2' })
 
-    const link = useDetailLink()({ tableId: 'tbl_c', recordId: 'rec_3' })
+    const link = useDetailLink()({ tableAddress: 'tbl_c', recordAddress: 'rec_3' })
 
     expect(link.query.detail).toBe('tbl_a.rec_1,tbl_b.rec_2,tbl_c.rec_3')
   })
@@ -54,7 +54,7 @@ describe('useDetailLink', () => {
   it('drops a malformed existing chain instead of failing', () => {
     at({ detail: 'not-a-ref' })
 
-    const link = useDetailLink()({ tableId: 'tbl_deals', recordId: 'rec_1' })
+    const link = useDetailLink()({ tableAddress: 'tbl_deals', recordAddress: 'rec_1' })
 
     expect(link.query.detail).toBe('tbl_deals.rec_1')
   })
@@ -63,8 +63,8 @@ describe('useDetailLink', () => {
     at({ detail: 'tbl_deals.rec_1' })
     const detailLink = useDetailLink()
 
-    const first = detailLink({ tableId: 'tbl_people', recordId: 'rec_9' })
-    const second = detailLink({ tableId: 'tbl_people', recordId: 'rec_8' })
+    const first = detailLink({ tableAddress: 'tbl_people', recordAddress: 'rec_9' })
+    const second = detailLink({ tableAddress: 'tbl_people', recordAddress: 'rec_8' })
 
     expect(first.query.detail).toBe('tbl_deals.rec_1,tbl_people.rec_9')
     expect(second.query.detail).toBe('tbl_deals.rec_1,tbl_people.rec_8')

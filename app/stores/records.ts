@@ -35,7 +35,7 @@ export const useRecordsStore = defineStore('records', () => {
   /** Set when the last fetch rejected, so a failed refetch is visible rather than silent. */
   const failed = ref(false)
   // The store is a singleton reused across tables — state must not leak between them
-  const loadedTableId = ref('')
+  const loadedTableAddress = ref('')
 
   /** A lower bound once `totalCapped` is set, which is why nothing gates *paging* on it. */
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -51,19 +51,19 @@ export const useRecordsStore = defineStore('records', () => {
    * The caller owns the query — it lives in the page URL, so the store never mirrors it.
    * A mirrored copy would have to survive SSR hydration to stay correct.
    */
-  async function fetchRecords(tableId: string, query: IRecordQueryState) {
-    if (tableId !== loadedTableId.value) clearState()
+  async function fetchRecords(tableAddress: string, query: IRecordQueryState) {
+    if (tableAddress !== loadedTableAddress.value) clearState()
     pending.value = true
     failed.value = false
 
     try {
-      const response = await api.list(tableId, query)
+      const response = await api.list(tableAddress, query)
       records.value = response.records
       total.value = response.total
       totalCapped.value = response.totalCapped
       page.value = response.page
       pageSize.value = response.pageSize
-      loadedTableId.value = tableId
+      loadedTableAddress.value = tableAddress
       // Relation cells read how a link reads from there, not from the record's own data
       relations.cacheLinkedRecords(response.linkedRecords)
     } catch (error) {
@@ -84,47 +84,51 @@ export const useRecordsStore = defineStore('records', () => {
    * differs from the current one the caller navigates and its watcher does the refetch.
    */
   async function createRecord(
-    tableId: string,
+    tableAddress: string,
     data: TRecordData,
     query: IRecordQueryState,
   ): Promise<number> {
-    const created = await api.create(tableId, data)
+    const created = await api.create(tableAddress, data)
     tables.applyTableRow(created.table)
 
     const nextPage = isDefaultView(query) ? 1 : query.page
-    if (nextPage === query.page) await fetchRecords(tableId, query)
+    if (nextPage === query.page) await fetchRecords(tableAddress, query)
 
     return nextPage
   }
 
   async function updateRecord(
-    tableId: string,
-    recordId: string,
+    tableAddress: string,
+    recordAddress: string,
     data: TRecordData,
     query: IRecordQueryState,
   ) {
-    const response = await api.update(tableId, recordId, data)
+    const response = await api.update(tableAddress, recordAddress, data)
 
     // An edit can move a record out of a filtered or sorted view, so that view is refetched
     if (!isDefaultView(query)) {
-      await fetchRecords(tableId, { ...query, page: page.value })
+      await fetchRecords(tableAddress, { ...query, page: page.value })
       return
     }
 
     records.value = records.value.map((record) =>
-      record.id === recordId ? response.record : record,
+      record.id === recordAddress ? response.record : record,
     )
   }
 
   /** Refetches rather than splicing — under server-side pagination the page shifts. */
-  async function deleteRecord(tableId: string, recordId: string, query: IRecordQueryState) {
-    const removed = await api.remove(tableId, recordId)
+  async function deleteRecord(
+    tableAddress: string,
+    recordAddress: string,
+    query: IRecordQueryState,
+  ) {
+    const removed = await api.remove(tableAddress, recordAddress)
     tables.applyTableRow(removed.table)
     // A capped total is a lower bound, so it cannot say which page is last — clamping on it
     // would drag a user back to the cap's page while rows still sit behind it
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
     const next = totalCapped.value ? page.value : Math.min(page.value, lastPage)
-    await fetchRecords(tableId, { ...query, page: next })
+    await fetchRecords(tableAddress, { ...query, page: next })
   }
 
   function clearState() {

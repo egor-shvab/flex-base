@@ -10,6 +10,7 @@ import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 let people: ISeededTable
 let deals: ISeededTable
 let adaId: string
+let adaNumber: number
 
 const dialog = (page: import('@playwright/test').Page) => page.getByRole('dialog')
 
@@ -22,9 +23,11 @@ test.beforeEach(async ({ seedTable }) => {
 
   const ada = await prisma.record.findFirstOrThrow({
     where: { tableId: people.id, data: { path: ['full_name'], equals: 'Ada' } },
-    select: { id: true },
+    select: { id: true, number: true },
   })
+  // The id is what a relation *stores*; the number is what a URL *addresses*. Both are needed.
   adaId = ada.id
+  adaNumber = ada.number
 
   deals = await seedTable(
     'Deals',
@@ -107,7 +110,7 @@ test.describe('the browser buttons', () => {
 })
 
 test('a ?detail= URL loaded cold renders the dialog server-side', async ({ page, request }) => {
-  const url = `${deals.url}?detail=${people.id}.${adaId}`
+  const url = `${deals.url}?detail=${people.number}.${adaNumber}`
   const html = await (await request.get(url)).text()
 
   expect(html).toContain('Record details')
@@ -115,6 +118,18 @@ test('a ?detail= URL loaded cold renders the dialog server-side', async ({ page,
 
   await page.goto(url)
   await expect(dialog(page)).toBeVisible()
+})
+
+/**
+ * The address bar carries numbers now, but a link copied before that change carries cuids — and
+ * the server reads either form. This is the case that keeps that promise honest end to end: a
+ * whole URL in the old shape, path and chain both, still opens the same record.
+ */
+test('a link written before the switch to numbers still resolves', async ({ page }) => {
+  await page.goto(`/tables/${deals.id}?detail=${people.id}.${adaId}`)
+
+  await expect(dialog(page)).toBeVisible()
+  await expect(dialog(page)).toContainText('Ada')
 })
 
 test.describe('drilling in', () => {
@@ -192,7 +207,7 @@ test.describe('closing it', () => {
 })
 
 test('a target deleted since the page was drawn says so, with no retry', async ({ page }) => {
-  const url = `${deals.url}?detail=${people.id}.${adaId}`
+  const url = `${deals.url}?detail=${people.number}.${adaNumber}`
   await prisma.record.delete({ where: { id: adaId } })
 
   await page.goto(url)

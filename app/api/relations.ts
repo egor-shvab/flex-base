@@ -11,11 +11,11 @@ export function useRelationsApi() {
   const api = useApi()
 
   return {
-    options: (tableId: string, fieldId: string) =>
-      api<IRelationOptionsResponse>(apiPath.fieldOptions(tableId, fieldId)),
+    options: (tableAddress: string, fieldId: string) =>
+      api<IRelationOptionsResponse>(apiPath.fieldOptions(tableAddress, fieldId)),
     /** `signal` is aborted when a newer term supersedes this request. */
-    search: (tableId: string, fieldId: string, term: string, signal: AbortSignal) =>
-      api<IRelationOptionsResponse>(apiPath.fieldOptions(tableId, fieldId), {
+    search: (tableAddress: string, fieldId: string, term: string, signal: AbortSignal) =>
+      api<IRelationOptionsResponse>(apiPath.fieldOptions(tableAddress, fieldId), {
         query: { q: term },
         signal,
       }),

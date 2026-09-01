@@ -8,7 +8,7 @@
         <!-- Both table screens open with the same name; this line is what says which one -->
         <p class="table-page__subtitle">Table settings</p>
       </div>
-      <BaseButton variant="ghost" prepend-icon="mdi:table" :to="`/tables/${tableId}`">
+      <BaseButton variant="ghost" prepend-icon="mdi:table" :to="`/tables/${tableAddress}`">
         Records
       </BaseButton>
     </header>
@@ -40,7 +40,7 @@
              dashboard's table card carries. The repeated row actions below are icons. -->
         <div class="detail-card__actions">
           <BaseButton variant="link" @click="renameOpen = true">Rename</BaseButton>
-          <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableId">
+          <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableAddress">
             Delete table
           </BaseButton>
         </div>
@@ -127,10 +127,11 @@ const route = useRoute()
 const loadTable = useTableLoader()
 const fieldsStore = useFieldsStore()
 const tablesStore = useTablesStore()
-const tableId = route.params.tableId as string
+/** The address the URL carries — a number going forward, a cuid from an older link. */
+const tableAddress = route.params.tableId as string
 
 // Its own key, never the records page's — a layout and a page must not share one (`decisions.md`)
-const { data, error } = await useAsyncData(`table-${tableId}`, () => loadTable(tableId))
+const { data, error } = await useAsyncData(`table-${tableAddress}`, () => loadTable(tableAddress))
 
 if (error.value) {
   throw createError(toPageError(error.value))
@@ -142,7 +143,7 @@ if (error.value) {
  * page's `data`, so reading the name from here is what keeps the heading and the breadcrumbs
  * in step without a refetch.
  */
-const cachedTableRow = computed(() => tablesStore.tableRow(tableId))
+const cachedTableRow = computed(() => tablesStore.tableRow(tableAddress))
 
 /**
  * Preferred over the fetched table, and falling back to it: `ensureTables` never throws, so
@@ -154,7 +155,7 @@ useSeoMeta({ title: () => table.value?.name ?? 'Table' })
 
 const breadcrumbs = computed<IBreadcrumb[]>(() => [
   { label: 'Home', to: '/' },
-  { label: table.value?.name ?? 'Table', to: `/tables/${tableId}` },
+  { label: table.value?.name ?? 'Table', to: `/tables/${tableAddress}` },
   { label: 'Settings' },
 ])
 
@@ -183,7 +184,7 @@ const renameOpen = ref(false)
 
 // Throws (409 on a duplicate name) propagate into TableFormModal's useForm, which shows the error
 async function submitRename(name: string) {
-  await tablesStore.renameTable(tableId, { name })
+  await tablesStore.renameTable(tableAddress, { name })
 }
 
 const {
@@ -197,9 +198,9 @@ const {
 // Throws (400/409) propagate into FieldFormModal's useForm, which shows the error
 async function submitField(input: TFieldInput) {
   if (editingField.value) {
-    await fieldsStore.updateField(tableId, editingField.value.id, input)
+    await fieldsStore.updateField(tableAddress, editingField.value.id, input)
   } else {
-    await fieldsStore.createField(tableId, input)
+    await fieldsStore.createField(tableAddress, input)
   }
 }
 
@@ -223,7 +224,7 @@ const {
   dialogProps: fieldDeleteDialog,
   confirm: confirmDeleteField,
   cancel: cancelDeleteField,
-} = useDeleteConfirm((field: IField) => fieldsStore.deleteField(tableId, field.id))
+} = useDeleteConfirm((field: IField) => fieldsStore.deleteField(tableAddress, field.id))
 </script>
 
 <style lang="scss" scoped>

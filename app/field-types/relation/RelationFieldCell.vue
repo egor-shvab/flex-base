@@ -20,11 +20,13 @@ import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import { useDetailLink } from '~/composables/useDetailLink'
 import type { IFieldCellProps } from '~/field-types/types'
 import { useRelationsStore } from '~/stores/relations'
+import { useTablesStore } from '~/stores/tables'
 
 const props = defineProps<IFieldCellProps>()
 
 const detailLinkTo = useDetailLink()
 const relations = useRelationsStore()
+const tables = useTablesStore()
 
 const recordId = computed(() => (typeof props.value === 'string' ? props.value : undefined))
 
@@ -36,19 +38,33 @@ const linkedRecord = computed(() =>
     : relations.linkedRecordFor(props.field.id, recordId.value),
 )
 
-/** `undefined` when there is nothing to open, so the template falls through to plain text. */
+/**
+ * `undefined` when there is nothing to open, so the template falls through to plain text.
+ *
+ * The target is stored as a **cuid** (`options.targetTableId`) and a link has to carry an
+ * address, so the number comes from the tables store — which holds every table the user owns,
+ * including one this page is not about. That matters inside the dialog, where a nested relation
+ * belongs to a table whose options never passed through `loadOptions`.
+ *
+ * A number the store cannot supply — `ensureTables` never throws, so the list may be empty —
+ * degrades to plain text, exactly as a deleted target already does. Never a broken link.
+ */
 const detailTo = computed(() => {
   const targetTableId = props.field.options?.targetTableId
+  const targetNumber = targetTableId === undefined ? undefined : tables.tableNumber(targetTableId)
 
   if (
     linkedRecord.value === undefined ||
-    targetTableId === undefined ||
+    targetNumber === undefined ||
     recordId.value === undefined
   ) {
     return undefined
   }
 
-  return detailLinkTo({ tableId: targetTableId, recordId: recordId.value })
+  return detailLinkTo({
+    tableAddress: String(targetNumber),
+    recordAddress: String(linkedRecord.value.number),
+  })
 })
 </script>
 

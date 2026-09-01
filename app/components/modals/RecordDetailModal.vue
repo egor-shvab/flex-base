@@ -33,6 +33,7 @@
 import { computed } from 'vue'
 import type { TUrlQuery } from '#shared/types/query'
 import type { IRecordDetail } from '#shared/types/record'
+import { toTableAddress } from '#shared/utils/address'
 import { toDetailParam } from '#shared/utils/record-detail'
 import { DETAIL_PARAM } from '#shared/constants/filter'
 
@@ -43,11 +44,11 @@ const props = withDefaults(
     errorMessage: string | null
     canRetry: boolean
     /** The table the page behind the dialog is showing, when it is showing one. */
-    currentTableId?: string
+    currentTableNumber?: number
     /** Where one level up is, when the dialog was reached through another record. */
     backTo?: { query: TUrlQuery }
   }>(),
-  { currentTableId: undefined, backTo: undefined },
+  { currentTableNumber: undefined, backTo: undefined },
 )
 
 const emit = defineEmits<{ retry: []; close: [] }>()
@@ -59,7 +60,7 @@ const emit = defineEmits<{ retry: []; close: [] }>()
  * page you are already on — and being a bare path it would drop that page's sort, filters and
  * position to reopen this very dialog, which is worse than not offering it.
  */
-const crossesTables = computed(() => props.detail?.table.id !== props.currentTableId)
+const crossesTables = computed(() => props.detail?.table.number !== props.currentTableNumber)
 
 /**
  * The target's own table with this record still open — the one link here that leaves the page,
@@ -69,9 +70,11 @@ const openInTableTo = computed(() => {
   if (props.detail === null) return ''
 
   const { table, record } = props.detail
-  const chain = toDetailParam([{ tableId: table.id, recordId: record.id }])
+  const chain = toDetailParam([
+    { tableAddress: String(table.number), recordAddress: String(record.number) },
+  ])
 
-  return `/tables/${table.id}?${DETAIL_PARAM}=${chain}`
+  return `/tables/${toTableAddress(table)}?${DETAIL_PARAM}=${chain}`
 })
 </script>
 
