@@ -11,9 +11,10 @@ import { isListFilterValue } from '#shared/utils/filter'
 import { buildRecordLabel } from '#shared/utils/record-label'
 
 /**
- * A relation stores a target record's id, which no schema can validate and no cell can
- * display on its own. This module is where the server resolves both — the one place that
- * knows what a RELATION field means, so `records.ts` stays generic.
+ * A relation stores a target record's id — which no schema can validate, no cell can display,
+ * and no URL should carry. This module resolves all three: it validates a written id, reads a
+ * stored one into a label, and turns the address a filter carries back into the id the column
+ * holds. The one place that knows what a RELATION field means, so `records.ts` stays generic.
  */
 export interface IRelationTarget {
   field: IField

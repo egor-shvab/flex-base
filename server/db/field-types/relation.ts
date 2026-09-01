@@ -9,7 +9,8 @@ import {
 import type { IFieldSqlModule } from '#server/db/field-types/types'
 
 export const RELATION_FIELD_SQL: IFieldSqlModule = {
-  // Filters on the stored id — the picker's own value — but reads and orders by its label.
+  // Filters on the stored id — which is what a filter's address has been resolved to by the
+  // time the SQL is built — but reads and orders by its label.
   // Not searchable: the stored value is a cuid, and matching the label instead would mean
   // joining the target table into the *count* query too, which has no LIMIT to stop it.
   sql: {

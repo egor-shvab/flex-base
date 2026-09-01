@@ -27,8 +27,8 @@ export type TRecordData = Record<string, TRecordValue>
 export interface IRecord {
   id: string
   /**
-   * The id a user reads — sequential within its own table, unlike `id`, which is a cuid
-   * because it is what relations reference and what the API addresses.
+   * The id a user reads, and what a URL addresses — sequential within its own table. `id` stays
+   * a cuid because it is what a relation *references*, inside `data` with no foreign key.
    */
   number: number
   data: TRecordData

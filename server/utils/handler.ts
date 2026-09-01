@@ -24,12 +24,12 @@ import type { ITable } from '#shared/types/table'
  * covering four shapes would put the branching back, one level further from the route.
  *
  * **Two table routes deliberately use none of these** — `[tableAddress].patch` and
- * `[tableAddress].delete`.
- * Their services take a `userId` and scope on it inside their own `where` clause, which is the
+ * `[tableAddress].delete`. Their services take a `userId` and scope on it inside their own
+ * `where` clause, which is the
  * form `CLAUDE.md` §5 actually prefers; a pre-check would be a second round trip for an answer
  * the write already gives. Nothing is lost by their absence here, because those signatures
  * require the `userId` — forgetting ownership there is already a compile error, which is exactly
- * the property these factories add to the services that take only a `tableId`.
+ * the property these factories add to the services that take a table and no owner.
  *
  * Each is generic in its return type, so Nitro still infers what a route answers with; a factory
  * that flattened it to `unknown` would silently widen every response type in the app.

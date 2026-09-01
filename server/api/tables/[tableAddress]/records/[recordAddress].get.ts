@@ -5,12 +5,12 @@ import type { IRecordDetail } from '#shared/types/record'
 
 export default defineTableWithFieldsHandler(
   async ({ event, table, fields }): Promise<IRecordDetail> => {
-    const recordId = routeParam(event, 'recordAddress')
+    const recordAddress = routeParam(event, 'recordAddress')
 
     return RecordService.getRecordDetail(
       { id: table.id, number: table.number, name: table.name },
       fields,
-      recordId,
+      recordAddress,
     )
   },
 )

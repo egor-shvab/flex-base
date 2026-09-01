@@ -183,7 +183,7 @@ There is one factory per `require*` helper and that is the entire list. A single
 
 Each factory is **generic in its return type**. Flattening it to `unknown` would have been invisible — every route would still work, while every response type in the app quietly widened.
 
-`[tableAddress].patch` and `[tableAddress].delete` use no factory, and that is not an exemption. Their services take a `userId` and scope on it inside their own `where` clause, which is the form preferred above; a pre-check would be a second round trip for an answer the write already gives. Ownership cannot be forgotten there because the **signature requires the id** — which is exactly the property the factories add to the services that take only a `tableId`.
+`[tableAddress].patch` and `[tableAddress].delete` use no factory, and that is not an exemption. Their services take a `userId` and scope on it inside their own `where` clause, which is the form preferred above; a pre-check would be a second round trip for an answer the write already gives. Ownership cannot be forgotten there because the **signature requires the id** — which is exactly the property the factories add to the services that take a table and no owner.
 
 ### The persistence layer does not speak HTTP
 

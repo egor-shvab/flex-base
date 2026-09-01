@@ -90,9 +90,9 @@ model Record {
   tableId String
   table   Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
-  // The id a user reads: sequential per table, so one table runs 1..n however many records
-  // the platform holds. Identity stays on the cuid — this is display only, and nothing
-  // references it, which is why renumbering could never orphan a relation.
+  // The id a user reads, and what a URL addresses: sequential per table, so one table runs 1..n
+  // however many records the platform holds. Identity stays on the cuid — nothing references
+  // this, which is why renumbering could never orphan a relation.
   number Int
 
   data      Json     @default("{}") // keyed by Field.key

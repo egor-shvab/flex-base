@@ -8,11 +8,11 @@ import type { ITableListItemResponse } from '#shared/types/api'
 // Not a `defineTableHandler`: `renameTable` scopes on `userId` inside its own `where` clause,
 // which is the form CLAUDE.md §5 prefers, so a pre-check would be a second round trip for an
 // answer the update already gives. Its signature requires the `userId`, so ownership cannot be
-// forgotten here the way it could where a service takes only a `tableId`.
+// forgotten here the way it could where a service takes a table and no owner.
 export default defineEventHandler(async (event): Promise<ITableListItemResponse> => {
   const user = requireUser(event)
-  const tableId = routeParam(event, 'tableAddress')
+  const tableAddress = routeParam(event, 'tableAddress')
   const { name } = await readValidatedBody(event, tableInputSchema.parse)
-  const table = await TableService.renameTable(user.id, tableId, name)
+  const table = await TableService.renameTable(user.id, tableAddress, name)
   return { table }
 })
