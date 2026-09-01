@@ -3,7 +3,13 @@ import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { toHttpError } from '#server/utils/http-errors'
-import { recordSelect, toJsonData, toSharedRecord, type TRecordRow } from '#server/db/records'
+import {
+  recordSelect,
+  recordWhere,
+  toJsonData,
+  toSharedRecord,
+  type TRecordRow,
+} from '#server/db/records'
 import { buildRecordOrderBy, buildRecordWhere, type IRecordOrder } from '#server/db/record-sql'
 import { RelationService } from '#server/services/relations'
 import type { IField } from '#shared/types/field'
@@ -112,10 +118,10 @@ async function listRecords(
 async function getRecordDetail(
   table: Pick<ITable, 'id' | 'number' | 'name'>,
   fields: IField[],
-  recordId: string,
+  address: string,
 ): Promise<IRecordDetail> {
   const row = await prisma.record.findUnique({
-    where: { id: recordId, tableId: table.id },
+    where: recordWhere(table.id, address),
     select: recordSelect,
   })
 
@@ -172,14 +178,14 @@ async function createRecord(
 async function updateRecord(
   tableId: string,
   fields: IField[],
-  recordId: string,
+  address: string,
   data: TRecordData,
 ): Promise<IRecord> {
   await RelationService.assertRelationTargets(fields, data)
 
   try {
     const record = await prisma.record.update({
-      where: { id: recordId, tableId },
+      where: recordWhere(tableId, address),
       data: { data: toJsonData(data) },
       select: recordSelect,
     })
@@ -189,9 +195,9 @@ async function updateRecord(
   }
 }
 
-async function deleteRecord(tableId: string, recordId: string) {
+async function deleteRecord(tableId: string, address: string) {
   try {
-    await prisma.record.delete({ where: { id: recordId, tableId } })
+    await prisma.record.delete({ where: recordWhere(tableId, address) })
   } catch (error) {
     throw toHttpError(error, recordErrors)
   }

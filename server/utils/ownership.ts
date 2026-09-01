@@ -1,36 +1,14 @@
 import { createError } from 'h3'
 import { fieldSelect, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
-import type { Prisma } from '#server/generated/prisma/client'
-import { tableSelect, toSharedTable } from '#server/db/tables'
+import { tableSelect, tableWhere, toSharedTable } from '#server/db/tables'
 import type { IField } from '#shared/types/field'
 import type { ITable } from '#shared/types/table'
-import { parseAddressNumber } from '#shared/utils/address'
 import type { TFieldInput } from '#shared/validation/field'
 
 /** Another user's table must be indistinguishable from a missing one — never 403. */
 function tableNotFound() {
   return createError({ statusCode: 404, statusMessage: 'Table not found' })
-}
-
-/**
- * How a table-scoped route names its table: by the public **number** a URL carries, or by the
- * **cuid** older links still use.
- *
- * The two are unambiguous — a cuid is never all digits — so one function answers both, and this
- * is the only place in the server that knows there are two forms. Keeping it to one place is
- * what stops the transition becoming the scattered conditional §9 forbids.
- *
- * **Both branches scope on the owner inside the `where`**, so §5's rule is untouched: what
- * changes is which column identifies the row, never whether ownership is part of the query.
- *
- * A malformed address — `12abc`, `0`, empty, anything past a PostgreSQL `Int` — parses to `0`
- * and falls to the id branch, where it simply matches nothing and 404s as it always has.
- */
-function tableWhere(userId: string, address: string): Prisma.TableWhereUniqueInput {
-  const number = parseAddressNumber(address)
-
-  return number === 0 ? { id: address, userId } : { userId_number: { userId, number } }
 }
 
 /**

@@ -139,9 +139,14 @@ Two different jobs, split across two columns:
 
 **A table carries the same pair one level up.** `Table.number` is sequential **per user** (`@@unique([userId, number])`) and allocated from `User.tableCounter` in exactly that shape — same transaction, same row lock, same high-water mark, so a deleted table never hands its number on. `Table.id` stays the cuid that a relation's `options.targetTableId` references, and both travel on the wire.
 
-**A table-scoped route names its table by either one.** `tableWhere` (`server/utils/ownership.ts`) is the only place that knows there are two forms: a route address parses to a number through `parseAddressNumber` and resolves on `@@unique([userId, number])`, or parses to `0` and resolves on `{ id, userId }`. The forms cannot collide — a cuid is never all digits — and a malformed address takes the id branch, where it matches nothing and 404s. **Both branches scope the owner inside the `where`**, so §5's rule is unchanged: what differs is which column identifies the row.
+**A route names either row by either form**, through one rule per model, side by side in `db/`: `tableWhere` (`server/db/tables.ts`) and `recordWhere` (`server/db/records.ts`). An address parses through `parseAddressNumber` and resolves on the compound unique — `@@unique([userId, number])`, `@@unique([tableId, number])` — or parses to `0` and resolves on `{ id, … }`. The forms cannot collide, since a cuid is never all digits, and a malformed address takes the id branch where it matches nothing and 404s.
 
-The helpers therefore return the **resolved** `tableId`, never the address they were given — every route below builds its own `where` from it, and a number handed through would land in a query expecting a cuid.
+**`tableWhere` scopes the owner inside the `where`; `recordWhere` scopes the table instead** — by the time a record is addressed, a handler factory has already proven that table belongs to the caller, so the table id _is_ the ownership scope. §5's rule is unchanged either way: what differs is which column identifies the row.
+
+Two consequences that are invisible until they break:
+
+- The ownership helpers return the **resolved** `tableId`, never the address they were given — every route below builds its own `where` from it, and a number handed through would land in a query expecting a cuid.
+- **`deleteTable` resolves before it guards.** `assertNotRelationTarget` compares `options.targetTableId`, which stores a cuid, so handing it an unresolved address matches no reference: the guard passes and the delete cascades a table every relation still points at. It costs a third query on a rare, irreversible operation, and the alternative is a guard that silently stops guarding.
 
 ---
 

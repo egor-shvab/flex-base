@@ -1,5 +1,27 @@
 import type { Prisma } from '#server/generated/prisma/client'
 import type { ITable, ITableListItem } from '#shared/types/table'
+import { parseAddressNumber } from '#shared/utils/address'
+
+/**
+ * Which row a table-scoped route's address selects: the public **number** a URL carries, or the
+ * **cuid** older links still use.
+ *
+ * The two are unambiguous — a cuid is never all digits — so one function answers both, and this
+ * is the only place the server knows there are two forms. Its record counterpart is
+ * `recordWhere`; keeping them side by side is what makes them read as one rule rather than two
+ * coincidences.
+ *
+ * **Both branches scope the owner inside the `where`**, so §5 is untouched: what changes is which
+ * column identifies the row, never whether ownership is part of the query.
+ *
+ * A malformed address — `12abc`, `0`, empty, anything past a PostgreSQL `Int` — parses to `0` and
+ * takes the id branch, where it matches nothing and 404s as it always has.
+ */
+export function tableWhere(userId: string, address: string): Prisma.TableWhereUniqueInput {
+  const number = parseAddressNumber(address)
+
+  return number === 0 ? { id: address, userId } : { userId_number: { userId, number } }
+}
 
 /**
  * The table itself, without the counts only the dashboard needs. Shared by the table service

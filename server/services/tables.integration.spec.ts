@@ -166,6 +166,44 @@ describe('deleting a table', () => {
     await expect(prisma.table.findUnique({ where: { id: target.id } })).resolves.not.toBeNull()
   })
 
+  /**
+   * The same refusal when the table is named by its **number**, which is the case the guard can
+   * silently stop covering: `assertNotRelationTarget` compares `options.targetTableId`, a cuid, so
+   * an unresolved address matches no reference, passes the guard, and cascades the table away with
+   * every link to it. The failure is a 200 and a table that is gone — never an error.
+   */
+  it('refuses by number too, rather than deleting past a guard that matched nothing', async () => {
+    const target = await createTable(userId, 'People')
+    const source = await createTable(userId, 'Deals')
+    await createField(source.id, {
+      key: 'owner',
+      name: 'Owner',
+      type: 'RELATION',
+      options: { targetTableId: target.id, labelFieldKey: 'full_name' },
+    })
+
+    await expect(TableService.deleteTable(userId, String(target.number))).rejects.toMatchObject({
+      statusCode: 409,
+    })
+
+    await expect(prisma.table.findUnique({ where: { id: target.id } })).resolves.not.toBeNull()
+  })
+
+  it('deletes by number when nothing points at it', async () => {
+    const table = await createTable(userId, 'Disposable')
+
+    await TableService.deleteTable(userId, String(table.number))
+
+    await expect(prisma.table.findUnique({ where: { id: table.id } })).resolves.toBeNull()
+  })
+
+  it('404s on a number no table of this user has', async () => {
+    await expect(TableService.deleteTable(userId, '9999')).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Table not found',
+    })
+  })
+
   it('allows it once the relation field is gone', async () => {
     const target = await createTable(userId, 'People')
     const source = await createTable(userId, 'Deals')

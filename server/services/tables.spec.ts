@@ -147,6 +147,16 @@ describe('TableService.renameTable', () => {
     )
   })
 
+  it('scopes a numeric address on the owner through the compound unique', async () => {
+    prismaMock.table.update.mockResolvedValue(tableRow)
+
+    await TableService.renameTable(USER_ID, '4', 'Renamed')
+
+    expect(prismaMock.table.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId_number: { userId: USER_ID, number: 4 } } }),
+    )
+  })
+
   it('maps a name already taken onto a 409', async () => {
     prismaMock.table.update.mockRejectedValue(conflict())
 
@@ -171,7 +181,11 @@ describe('TableService.renameTable', () => {
  * between a delete and every link into that table breaking.
  */
 describe('TableService.deleteTable', () => {
+  /** The address is resolved first, so every case here needs the table to be found. */
+  const resolves = () => prismaMock.table.findUnique.mockResolvedValue({ id: TABLE_ID })
+
   it('looks for a relation pointing here before deleting anything', async () => {
+    resolves()
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
 
@@ -188,18 +202,59 @@ describe('TableService.deleteTable', () => {
     )
   })
 
-  it('deletes when nothing links to the table, scoped by owner', async () => {
+  /**
+   * **The guard is handed the resolved id, never the address.** It compares
+   * `options.targetTableId`, which stores a cuid, so a number would match no reference at all —
+   * the guard would pass and the delete would cascade a table every link still points at. This
+   * asserts the argument because the outcome alone cannot tell the two apart.
+   */
+  it('resolves a numeric address before the guard sees it', async () => {
+    resolves()
+    prismaMock.field.findFirst.mockResolvedValue(null)
+    prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
+
+    await TableService.deleteTable(USER_ID, '4')
+
+    expect(prismaMock.table.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId_number: { userId: USER_ID, number: 4 } } }),
+    )
+    expect(prismaMock.field.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          options: { path: ['targetTableId'], equals: TABLE_ID },
+        }),
+      }),
+    )
+  })
+
+  it('404s when the address resolves to nothing, before touching anything else', async () => {
+    prismaMock.table.findUnique.mockResolvedValue(null)
+
+    await expect(TableService.deleteTable(USER_ID, '9999')).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Table not found',
+    })
+
+    expect(prismaMock.field.findFirst).not.toHaveBeenCalled()
+    expect(prismaMock.table.delete).not.toHaveBeenCalled()
+  })
+
+  /** Ownership was settled by the resolve, so the delete targets the id it produced. */
+  it('deletes the row the address resolved to', async () => {
+    resolves()
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
 
     await TableService.deleteTable(USER_ID, TABLE_ID)
 
-    expect(prismaMock.table.delete).toHaveBeenCalledWith({
-      where: { id: TABLE_ID, userId: USER_ID },
-    })
+    expect(prismaMock.table.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: TABLE_ID, userId: USER_ID } }),
+    )
+    expect(prismaMock.table.delete).toHaveBeenCalledWith({ where: { id: TABLE_ID } })
   })
 
   it('refuses with a 409 naming the field to remove first', async () => {
+    resolves()
     prismaMock.field.findFirst.mockResolvedValue({ name: 'Owner', table: { name: 'Deals' } })
 
     await expect(TableService.deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({
@@ -211,6 +266,7 @@ describe('TableService.deleteTable', () => {
   })
 
   it('maps a table that is already gone onto a 404', async () => {
+    resolves()
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockRejectedValue(missing())
 

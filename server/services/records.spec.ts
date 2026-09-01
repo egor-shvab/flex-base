@@ -145,6 +145,20 @@ describe('RecordService.getRecordDetail', () => {
     )
   })
 
+  /**
+   * The record half of the same rule `tableWhere` states one level up — scoped by its table
+   * rather than by its owner, because the table was proven owned before any of this ran.
+   */
+  it('resolves a numeric address through the table’s compound unique', async () => {
+    prismaMock.record.findUnique.mockResolvedValue(row())
+
+    await RecordService.getRecordDetail(table, fields, '7')
+
+    expect(prismaMock.record.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tableId_number: { tableId: TABLE_ID, number: 7 } } }),
+    )
+  })
+
   it('carries the table and its fields, so the dialog can render away from its own page', async () => {
     prismaMock.record.findUnique.mockResolvedValue(row())
 
@@ -239,6 +253,28 @@ describe('RecordService.updateRecord', () => {
         statusMessage: 'Record not found',
       },
     )
+  })
+})
+
+describe('a record address is a number or a cuid, on every write', () => {
+  it('updates through the compound unique when given a number', async () => {
+    prismaMock.record.update.mockResolvedValue(row())
+
+    await RecordService.updateRecord(TABLE_ID, fields, '7', { company: 'Beta' })
+
+    expect(prismaMock.record.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tableId_number: { tableId: TABLE_ID, number: 7 } } }),
+    )
+  })
+
+  it('deletes through it too', async () => {
+    prismaMock.record.delete.mockResolvedValue(row())
+
+    await RecordService.deleteRecord(TABLE_ID, '7')
+
+    expect(prismaMock.record.delete).toHaveBeenCalledWith({
+      where: { tableId_number: { tableId: TABLE_ID, number: 7 } },
+    })
   })
 })
 

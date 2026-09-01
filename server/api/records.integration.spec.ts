@@ -360,3 +360,62 @@ describe('the detail endpoint', () => {
     ).rejects.toMatchObject({ statusCode: 404 })
   })
 })
+
+/**
+ * A record address is the number a URL carries or the cuid a relation stores. The number is
+ * unique **within its table**, so the risk this covers is a record address reaching across
+ * tables — which the `tableId`-scoped compound unique is what prevents.
+ */
+describe('a record is addressable by its number as well as its cuid', () => {
+  const detail = (recordAddress: string) =>
+    recordGet(testEvent({ user: ada, params: { tableId, recordId: recordAddress } }))
+
+  it('reads the same record either way', async () => {
+    const { records } = await list({})
+    const first = records[0]!
+
+    const byNumber = await detail(String(first.number))
+    const byCuid = await detail(first.id)
+
+    expect(byNumber).toEqual(byCuid)
+    expect(byNumber.record.id).toBe(first.id)
+  })
+
+  it('writes through a number, and the change is on the row that number names', async () => {
+    const { records } = await list({})
+    const target = records[0]!
+
+    await recordPatch(
+      testEvent({
+        user: ada,
+        params: { tableId, recordId: String(target.number) },
+        method: 'PATCH',
+        body: { company: 'Renamed', contract_value: 100, stage: 'Won', owner: null },
+      }),
+    )
+
+    const { record } = await detail(target.id)
+    expect(record.data.company).toBe('Renamed')
+  })
+
+  /** Numbers restart per table, so the same address is a different record in each. */
+  it('does not reach across tables — record 1 of one is not record 1 of another', async () => {
+    await createRecord(peopleId, { full_name: 'Ada' })
+
+    const inDeals = await detail('1')
+    const inPeople = await recordGet(
+      testEvent({ user: ada, params: { tableId: peopleId, recordId: '1' } }),
+    )
+
+    expect(inDeals.record.id).not.toBe(inPeople.record.id)
+    expect(inDeals.record.data.company).toBe('Acme')
+    expect(inPeople.record.data.full_name).toBe('Ada')
+  })
+
+  it('404s on a number this table has no record for', async () => {
+    await expect(detail('9999')).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Record not found',
+    })
+  })
+})

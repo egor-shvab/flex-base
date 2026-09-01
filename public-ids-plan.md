@@ -357,47 +357,56 @@ removal of one branch.
 
 ---
 
-### T6. Handler factories and every table-scoped route
+### T6. Records and the factory-free table writes accept an address too
 
-**What.** The four factories in `server/utils/handler.ts` swap `routeParam(event, 'tableId')` for
-`numericRouteParam(event, 'tableId')`. Their **count and their 1:1 correspondence with the
-`require*` helpers do not change** — that rule stands.
+**Status:** done — 2026-08-31, with changes — the factories needed nothing (T5's resolver already
+reads both forms), `numericRouteParam` was **deleted** rather than adopted, and the segment rename
+was **deferred**. All three are written below.
 
-**Rename the dynamic segment to `[tableNumber]`**, here for `server/api/tables/[tableId]/` and in
-T8 for `pages/tables/[tableId]/`. After this task the param holds a number, and a name ending in
-`Id` that carries one is exactly the drift §6 exists to prevent. It moves ~12 files and nothing
-user-visible depends on it — a dynamic segment's name is internal, not one of §6's closed
-vocabularies. Do it as its own commit-sized step so the rename does not hide inside the logic diff.
+**What T5 left.** Three routes bypass the handler factories: `[tableId].patch` and
+`[tableId].delete` (factory-free by design — their services scope on `userId` themselves) and the
+three record routes, which read a `recordId` off the route. T6 finishes the server half so the
+whole API understands both address forms.
 
-Context shapes:
+**Two rules, one per model, side by side in `db/`** — which is what makes them read as one idea
+rather than two coincidences:
 
-- `defineTableHandler` / `defineTableWithFieldsHandler` — hand back `ITable`, which now carries both
-  `id` and `number`. No call-site change beyond what T3 already forces.
-- `defineFieldsHandler` / `defineRecordWriteHandler` — the `tableId` in their context is now the
-  **resolved cuid** from T5 rather than the raw route param. Every route under
-  `server/api/tables/[tableId]/` keeps working unchanged, which is the property worth preserving.
+- `tableWhere(userId, address)` **moves** from `server/utils/ownership.ts` to `server/db/tables.ts`.
+- `recordWhere(tableId, address)` joins it in `server/db/records.ts`, **scoped by its table rather
+  than by its owner**: a handler factory has already proven that table belongs to the caller, so
+  the table id _is_ the ownership scope by then. That asymmetry is the design, not an oversight.
 
-`[tableId].patch.ts` and `[tableId].delete.ts` use no factory by design (their services scope on
-`userId` themselves). Both now take a `tableNumber` and their service signatures change with them —
-`renameTable(userId, tableNumber, name)`, `deleteTable(userId, tableNumber)` — keeping the
-"forgetting ownership is a compile error" property their doc comment claims.
+**The trap this task exists for.** `TableService.deleteTable` used its argument twice — once for
+the delete, once for `assertNotRelationTarget`, which compares `options.targetTableId` and so
+stores a **cuid**. Hand it a number and it matches no reference: the guard passes, and the delete
+cascades a table every relation still points at. Nothing errors; the links simply go blank. So
+`deleteTable` **resolves the address to the id before it guards** — a third query on a rare,
+irreversible operation, which is the right trade against a guard that silently stops guarding.
+`renameTable` uses its argument once, so it stays one query. `getTableListRow` is untouched: all
+four callers hand it an already-resolved id.
 
-**Record routes.** `[recordId].get/patch/delete.ts` read `numericRouteParam(event, 'recordId')` and
-the service scopes on `{ tableId_number: { tableId, number: recordNumber } }` — again the existing
-`@@unique([tableId, number])`, so no new index and no extra round trip.
+**`numericRouteParam` was deleted.** T4 added it expecting routes to parse their own params; the
+dual-accept design put parsing inside the where-builders, leaving it with no caller — and no future
+one, since dropping cuid support removes a branch from `tableWhere` rather than moving parsing back
+to the routes. `parseTableAddress` is the opposite case: still unused, but T8's page reads
+`route.params` through it.
 
-`RecordService.getRecordDetail` / `updateRecord` / `deleteRecord` take a `recordNumber`.
-`createRecord` is unchanged — it allocates one.
+**The `[tableId]` → `[tableNumber]` rename is deferred**, reversing the note this task used to
+carry. The param now legitimately holds _either_ form, so `[tableNumber]` would be a name that
+lies — the very fault the rename exists to fix. `[tableAddress]` is the durable name, but renaming
+~12 files twice is worse than once: do it after the post-T8 decision on whether cuids stay.
 
-**Rejected here: collapsing `defineFieldsHandler` into `defineTableWithFieldsHandler`.** With the
-table row now always resolved, the two differ only in what they select, and merging them would drop
-the factory count from four to three. It is a real simplification and it is out of scope: it changes
-a documented rule for a reason unrelated to identifiers. _Revisit as its own change._
+**Rejected: collapsing `defineFieldsHandler` into `defineTableWithFieldsHandler`.** With the table
+always resolved they differ only in what they select, so merging would drop the factory count from
+four to three. A real simplification, and out of scope — it changes a documented rule for a reason
+unrelated to identifiers. _Revisit as its own change._
 
-**Tests.** `server/api/*.integration.spec.ts` — every seeded fixture addresses by number; add one
-case per verb proving a malformed `:recordId` is a 404 and not a 500.
-
----
+**Tests.** The load-bearing one is an integration twin of _"refuses while a relation still points
+at it"_ addressing the table **by number**: without the resolve-first fix it fails by _deleting the
+table_ rather than by answering 409. Verified by temporarily reverting the fix — it caught it.
+Unit specs pin the `where` argument for both forms on every service that takes an address; the
+records integration spec proves a record reads and writes by either form and that record `1` of one
+table is not record `1` of another.
 
 ### T7. The `?detail=` chain
 

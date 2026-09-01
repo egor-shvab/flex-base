@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { toHttpError } from '#server/utils/http-errors'
-import { tableListSelect, toSharedTableListItem } from '#server/db/tables'
+import { tableListSelect, tableWhere, toSharedTableListItem } from '#server/db/tables'
 import type { ITableListItem } from '#shared/types/table'
 
 const tableErrors = {
@@ -74,11 +74,11 @@ async function createTable(userId: string, name: string): Promise<ITableListItem
   }
 }
 
-async function renameTable(userId: string, tableId: string, name: string): Promise<ITableListItem> {
+async function renameTable(userId: string, address: string, name: string): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
       await prisma.table.update({
-        where: { id: tableId, userId },
+        where: tableWhere(userId, address),
         data: { name },
         select: tableListSelect,
       }),
@@ -111,11 +111,29 @@ async function assertNotRelationTarget(userId: string, tableId: string) {
   }
 }
 
-async function deleteTable(userId: string, tableId: string) {
-  await assertNotRelationTarget(userId, tableId)
+/**
+ * **The address is resolved to the id before the guard runs, and that ordering is load-bearing.**
+ * `assertNotRelationTarget` compares `options.targetTableId`, which stores a cuid — hand it a
+ * number and it matches nothing, the guard silently passes, and the delete cascades a table that
+ * relations still point at. Nothing would error; every stored link would simply go blank.
+ *
+ * Three queries rather than two, on a rare and irreversible operation. That is the right trade:
+ * the alternative is a guard that stops guarding depending on how the URL was written.
+ */
+async function deleteTable(userId: string, address: string) {
+  const table = await prisma.table.findUnique({
+    where: tableWhere(userId, address),
+    select: { id: true },
+  })
+
+  if (!table) {
+    throw createError({ statusCode: 404, statusMessage: tableErrors.notFound })
+  }
+
+  await assertNotRelationTarget(userId, table.id)
 
   try {
-    await prisma.table.delete({ where: { id: tableId, userId } })
+    await prisma.table.delete({ where: { id: table.id } })
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }
