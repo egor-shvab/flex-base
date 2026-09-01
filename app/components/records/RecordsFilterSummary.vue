@@ -76,7 +76,10 @@ const entries = computed(() =>
     const value = props.filters[field.key]
     if (value === undefined) return []
 
-    const phrase = summaryFor(field)(value, field, { linkedRecordFor: relations.linkedRecordFor })
+    const phrase = summaryFor(field)(value, field, {
+      linkedRecordByNumber: relations.linkedRecordByNumber,
+      linkedRecordFor: relations.linkedRecordFor,
+    })
     return [{ field, phrase }]
   }),
 )

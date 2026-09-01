@@ -30,6 +30,9 @@ The folders themselves are readable from `ls`; these are the rules a reader cann
 
 - **`TRecordFilterValues` is the filter model of every layer** — typed values keyed by `Field.key`,
   sparse: an absent key is unfiltered, and the count of filtered fields is `Object.keys(…).length`.
+  **One value is translated on the way to SQL, and only one:** a RELATION filter carries the
+  target's _address_, so `RelationService.resolveFilterTargets` substitutes the stored id before
+  `buildRecordWhere` runs (§8, `decisions.md`). Nothing else is ever rewritten.
 - **`isRangeFilterValue` excludes arrays explicitly.** An array is a non-null object, so without that
   test a list value narrows to a range.
 - **`buildRecordLabel` returns `null`** for a record with nothing to name it by — never
@@ -198,7 +201,7 @@ Plain query params named after the field, the name following from the value's sh
 - A **scalar** value (TEXT, BOOLEAN, single-value RELATION) takes the field's bare key; a **list** (SELECT, and any multi-value field) takes that same key **repeated once per value**; a **range** (NUMBER, DATE) spreads to `_from` / `_to` suffixes.
 - **A multi-value field always filters as a list**, whatever its type declares — `filterShapeFor(field)` is the override. A multi RELATION therefore rides the same repeated-param format SELECT already used, which is why the param **names** did not move: `scalar` and `list` claim the same single name.
 - The record's own columns ride in the same namespace: `?recordNumber=4` as a scalar (partial match, like any text filter), `?createdAt_from=…&updatedAt_to=…` as ranges. All three are accepted `?sort=` keys too.
-- A RELATION carries the target record's **id** (`?company=clx…`) — the picker's own value, so a link cannot decode to a label the server would have to re-resolve.
+- A RELATION carries the target record's **number** (`?company=48`) — an address, like the path, so no cuid appears in a URL. A cuid from an older link still works: the server resolves either before the SQL sees it, and never re-derives a label from what the URL said.
 - **How each is compared is the field type's business on the server** (TEXT partially, scalars exactly, a list as `IN (…)`, ranges inclusively) and never travels in the URL. There are no operators anywhere in the project.
 - Every filter is ANDed; the values **within** one list filter are ORed. A list is capped at `FILTER_VALUES_MAX` and deduplicated, and its values are sorted on serialize so one selection has one canonical URL.
 - One value per param — a repeated param is a 400 **for every shape but `list`**, which is the only one that reads repeats.

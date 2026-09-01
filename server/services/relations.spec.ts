@@ -222,6 +222,105 @@ describe('RelationService.resolveLinkedRecords', () => {
   })
 })
 
+/**
+ * A relation filter carries the target's **address**; the column stores ids. What is pinned here
+ * is the substitution — and above all that **nothing is ever dropped**, because a filter value
+ * that vanished would leave a list empty, make `containsAny` answer `null`, and let
+ * `buildRecordWhere` skip the condition entirely: the list would widen to the whole table with
+ * no error to show for it.
+ */
+describe('RelationService.resolveFilterTargets', () => {
+  const found = (rows: { id: string; number: number }[]) =>
+    prismaMock.record.findMany.mockResolvedValue(rows)
+
+  it('replaces a number with the target record’s id', async () => {
+    found([{ id: 'rec_ada', number: 48 }])
+
+    await expect(RelationService.resolveFilterTargets([owner], { owner: '48' })).resolves.toEqual({
+      owner: 'rec_ada',
+    })
+  })
+
+  it('replaces every entry of a list filter', async () => {
+    found([
+      { id: 'rec_ada', number: 48 },
+      { id: 'rec_grace', number: 51 },
+    ])
+
+    await expect(
+      RelationService.resolveFilterTargets([asMultiple(owner)], { owner: ['48', '51'] }),
+    ).resolves.toEqual({ owner: ['rec_ada', 'rec_grace'] })
+  })
+
+  /** An older link carries a cuid, which is already what the column stores. */
+  it('leaves a value that is not a number exactly as it arrived', async () => {
+    await RelationService.resolveFilterTargets([owner], { owner: 'rec_ada' })
+
+    expect(prismaMock.record.findMany).not.toHaveBeenCalled()
+    await expect(
+      RelationService.resolveFilterTargets([owner], { owner: 'rec_ada' }),
+    ).resolves.toEqual({ owner: 'rec_ada' })
+  })
+
+  /**
+   * The anti-widening property, stated directly: a number nothing answers to stays in the filter
+   * rather than disappearing from it. It then matches no row — every stored relation value is a
+   * live record's cuid, which `assertRelationTargets` enforces on write.
+   */
+  it('keeps an unresolvable number rather than dropping it', async () => {
+    found([])
+
+    await expect(RelationService.resolveFilterTargets([owner], { owner: '9999' })).resolves.toEqual(
+      { owner: '9999' },
+    )
+  })
+
+  it('keeps the ones it cannot resolve alongside the ones it can', async () => {
+    found([{ id: 'rec_ada', number: 48 }])
+
+    await expect(
+      RelationService.resolveFilterTargets([asMultiple(owner)], { owner: ['48', '9999'] }),
+    ).resolves.toEqual({ owner: ['rec_ada', '9999'] })
+  })
+
+  it('queries once per distinct target table, never once per value', async () => {
+    found([])
+
+    await RelationService.resolveFilterTargets([asMultiple(owner), reviewer], {
+      owner: ['1', '2', '3'],
+      reviewer: '4',
+    })
+
+    // Both fields target `tbl_people`, so three values across two fields are still one query
+    expect(prismaMock.record.findMany).toHaveBeenCalledTimes(1)
+    expect(prismaMock.record.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tableId: 'tbl_people', number: { in: [1, 2, 3, 4] } },
+      }),
+    )
+  })
+
+  it('touches nothing when no relation is filtered', async () => {
+    const filters = { company: 'Acme' }
+
+    await expect(RelationService.resolveFilterTargets([textField()], filters)).resolves.toBe(
+      filters,
+    )
+    expect(prismaMock.record.findMany).not.toHaveBeenCalled()
+  })
+
+  it('leaves every other field’s filter untouched', async () => {
+    found([{ id: 'rec_ada', number: 48 }])
+
+    await expect(
+      RelationService.resolveFilterTargets([owner, textField()], {
+        owner: '48',
+        company: 'Acme',
+      }),
+    ).resolves.toEqual({ owner: 'rec_ada', company: 'Acme' })
+  })
+})
+
 describe('RelationService.assertRelationTargets', () => {
   it('passes silently when there is nothing linked', async () => {
     await expect(RelationService.assertRelationTargets([owner], {})).resolves.toBeUndefined()

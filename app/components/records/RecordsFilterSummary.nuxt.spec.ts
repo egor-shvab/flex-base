@@ -91,15 +91,16 @@ describe('RecordsFilterSummary', () => {
         fld_owner: { rec_ada: { number: 7, label: 'Ada Lovelace' } },
       })
 
-      const wrapper = await summary({ owner: 'rec_ada' })
+      // The filter carries the target's *number*, which is what the URL shows
+      const wrapper = await summary({ owner: '7' })
 
       // Flat, unlike a cell: a chip's phrase is a string by contract, so there is nothing
       // to style the number apart from
       expect(chips(wrapper)).toEqual(['Owner is #7 Ada Lovelace'])
     })
 
-    it('degrades a relation id it cannot resolve rather than showing the id', async () => {
-      const wrapper = await summary({ owner: 'rec_missing' })
+    it('degrades a relation address it cannot resolve rather than showing the raw value', async () => {
+      const wrapper = await summary({ owner: '404' })
 
       expect(chips(wrapper)).toEqual(['Owner is Unknown record'])
     })

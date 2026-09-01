@@ -35,7 +35,9 @@ async function seedRows(count = 20000) {
              'company', CASE WHEN g = 1 THEN 'Zzqqxx Unique' ELSE 'Filler ' || g END,
              'contract_value', g,
              'stage', CASE WHEN g = 1 THEN 'Won' ELSE 'Lost' END,
-             'tags', CASE WHEN g = 1 THEN '["unicorn"]'::jsonb ELSE '["common"]'::jsonb END
+             'tags', CASE WHEN g = 1 THEN '["unicorn"]'::jsonb ELSE '["common"]'::jsonb END,
+             'owner', CASE WHEN g = 1 THEN 'rec_sought' ELSE 'rec_other' || g END,
+             'owners', CASE WHEN g = 1 THEN '["rec_sought"]'::jsonb ELSE '["rec_common"]'::jsonb END
            ),
            now(), now()
     FROM generate_series(1, ${count}) g
@@ -188,6 +190,42 @@ describe('a declared index is one the planner actually uses', () => {
 
     expect(plan).toContain(`rec_idx_${tags?.id}_f`)
     expect(plan).not.toContain('Seq Scan')
+  }, 60_000)
+
+  /**
+   * The case Stage 2 turns on. A relation filter arrives as the target's *number*, and
+   * `RelationService.resolveFilterTargets` substitutes the stored id **before** the builder runs
+   * — precisely so the comparison stays a constant against the indexed expression. Comparing
+   * through a subquery on `"Record"."number"` instead would type-check, return the same rows, and
+   * quietly cost a sequential scan; only a plan says otherwise, which is why this asserts one.
+   *
+   * The filters below hold ids, because that is what the builder is handed after resolution.
+   */
+  it('serves a RELATION filter from its B-tree, and a widened one from its GIN', async () => {
+    const target = await createTable((await createUser()).id, 'Targets')
+    const relationOptions = { targetTableId: target.id, labelFieldKey: 'full_name' }
+
+    const [owner, owners] = await createFields(tableId, [
+      { key: 'owner', type: 'RELATION', indexed: true, options: relationOptions },
+      {
+        key: 'owners',
+        type: 'RELATION',
+        indexed: true,
+        options: { ...relationOptions, multiple: true },
+      },
+    ])
+    await seedRows()
+    await syncFieldIndexes(owner as IField)
+    await syncFieldIndexes(owners as IField)
+    await prisma.$executeRaw`ANALYZE "Record"`
+
+    const single = await planForFilter([owner as IField], { owner: 'rec_sought' })
+    expect(single).toContain(`rec_idx_${owner?.id}_f`)
+    expect(single).not.toContain('Seq Scan')
+
+    const widened = await planForFilter([owners as IField], { owners: ['rec_sought'] })
+    expect(widened).toContain(`rec_idx_${owners?.id}_f`)
+    expect(widened).not.toContain('Seq Scan')
   }, 60_000)
 })
 

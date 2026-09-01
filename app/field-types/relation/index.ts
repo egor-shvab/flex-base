@@ -18,12 +18,14 @@ function relationProps(
   field: IField,
   placeholder: string,
   multiple = false,
+  valueBy: 'id' | 'number' = 'id',
 ): Record<string, unknown> {
   return {
     label: field.name,
     fieldId: field.id,
     placeholder,
     clearable: true,
+    valueBy,
     ...(multiple ? { multiple: true } : {}),
   }
 }
@@ -39,17 +41,18 @@ export const RELATION_APP_FIELD_TYPE: IAppFieldType<'RELATION'> = {
     props: (field) => relationProps(field, '— Select —', true),
     ...listValue,
   },
-  // The same picker the form uses, so a filter offers exactly what a record can link to.
-  // Its model is already the filter value — the target record's id — so no adapters.
+  // The same picker the form uses, so a filter offers exactly what a record can link to — but
+  // its model is the target's **number**, because that is what a filter puts in the URL. The
+  // server resolves it back to an id before the SQL sees it (`decisions.md`).
   filter: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => relationProps(field, 'All'),
+    props: (field) => relationProps(field, 'All', false, 'number'),
   },
   // A field holding several values can only be asked whether it holds any of the filtered
   // ones, so its filter is list-shaped whatever its type says
   multiFilter: {
     component: markRaw(RelationFieldSelect),
-    props: (field) => relationProps(field, 'All', true),
+    props: (field) => relationProps(field, 'All', true, 'number'),
   },
   cell: markRaw(RelationFieldCell),
   // The only filter summary needing state beyond its own value. A filtered id outside the

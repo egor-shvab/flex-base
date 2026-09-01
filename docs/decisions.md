@@ -219,6 +219,18 @@ How they are allocated, and why they are high-water marks rather than counts, is
 
 **Rejected: a global sequence** (above), and **a central id-mapping layer** — the mapping is one `where` clause per model, not a service.
 
+### A relation filter is resolved from numbers to ids before the SQL sees it
+
+A RELATION filter carries the target's address (`?company=48`); the column stores cuids. `RelationService.resolveFilterTargets` substitutes one for the other in `listRecords`, immediately before `buildRecordWhere`, so both legs of the transaction — the rows and the capped count — build from the same resolved map.
+
+**It cannot live in the codec.** `parseRecordQueryState` is pure, synchronous and shared by the client's filter panel and the server's endpoint, which must decode a link identically; resolution is I/O.
+
+**Rejected: comparing through a subquery on `"Record"."number"`.** It type-checks and returns the same rows, and it silently costs a sequential scan — the planner can no longer probe an indexed expression with a constant, so RELATION's `filterIndex` (`'btree'`, `'gin'` when widened) stops being used. Only a plan shows it, which is why `field-indexes.integration.spec.ts` now asserts one for RELATION.
+
+**Every requested value survives, resolved or not, and that is load-bearing.** Dropping one that resolves to nothing would leave a list filter empty; `containsAny` answers `null` for an empty list, `buildRecordWhere` skips a `null` condition, and the list **widens to the whole table** with no error and no empty state. Passing the value through unchanged cannot do that — a stray number matches nothing, because `assertRelationTargets` guarantees every stored relation value is a live record's cuid. The integration suite pins it by asserting the **count** as well as the rows, which is where a widened query shows even under a page limit.
+
+**Rejected: an `impossible` flag and a short-circuit in `listRecords`.** That was the first design, and it exists only to make dropping safe. Not dropping is simpler and removes the failure mode rather than handling it.
+
 ### The redundant single-column indexes were dropped — do not re-add them
 
 `Table_userId_idx`, `Field_tableId_idx` and `Record_tableId_idx` were each subsumed by the left prefix of the composite index above them, and only cost write throughput. `EXPLAIN` confirmed the plans are unchanged, and the record list improved (the composite supplies the ordering, so its `Sort` node is gone).

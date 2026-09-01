@@ -4,7 +4,7 @@ import { prisma } from '#server/db/prisma'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecordQuery } from '#shared/types/record'
-import { createFields, createTable, createUser } from '~~/test/integration/seed'
+import { createFields, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 let tableId: string
 let fields: IField[]
@@ -139,5 +139,76 @@ describe('writing a record', () => {
     await RecordService.deleteRecord(tableId, record.id)
 
     await expect(prisma.record.findUnique({ where: { id: record.id } })).resolves.toBeNull()
+  })
+})
+
+/**
+ * A relation filter carries the target's address — the number a URL shows — and the column it
+ * compares against stores ids. `resolveFilterTargets` bridges the two above `buildRecordWhere`,
+ * which a stub cannot demonstrate: what matters is which rows actually come back.
+ */
+describe('filtering a relation by the number its URL carries', () => {
+  let owner: IField
+  let ada: { id: string; number: number }
+  let grace: { id: string; number: number }
+
+  beforeEach(async () => {
+    const people = await createTable((await createUser()).id, 'People')
+    const [nameField] = await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
+    expect(nameField).toBeDefined()
+
+    ada = await createRecord(people.id, { full_name: 'Ada' })
+    grace = await createRecord(people.id, { full_name: 'Grace' })
+    ;[owner] = (await createFields(tableId, [
+      {
+        key: 'owner',
+        type: 'RELATION',
+        order: 1,
+        options: { targetTableId: people.id, labelFieldKey: 'full_name' },
+      },
+    ])) as [IField]
+
+    fields = [...fields, owner]
+
+    await createRecord(tableId, { company: 'Acme', owner: ada.id })
+    await createRecord(tableId, { company: 'Beta', owner: grace.id })
+  })
+
+  const listBy = (value: string) =>
+    RecordService.listRecords(tableId, fields, query({ filters: { owner: value } }))
+
+  it('returns the same rows as the id did', async () => {
+    const byNumber = await listBy(String(ada.number))
+    const byId = await listBy(ada.id)
+
+    expect(byNumber.records.map((r) => r.data.company)).toEqual(['Acme'])
+    expect(byId.records.map((r) => r.data.company)).toEqual(['Acme'])
+  })
+
+  it('narrows to the other record for the other number', async () => {
+    const page = await listBy(String(grace.number))
+
+    expect(page.records.map((r) => r.data.company)).toEqual(['Beta'])
+  })
+
+  /**
+   * **The widening check.** An address nothing answers to must return nothing — not the whole
+   * table. If the resolver dropped the value instead of passing it through, the filter would
+   * vanish, `buildRecordWhere` would skip the condition, and every row would come back with no
+   * error to show for it. The **count** matters as much as the rows: that is where a widened
+   * query is visible even when a page limit hides it.
+   */
+  it('returns nothing for a number no record answers to, rather than everything', async () => {
+    const page = await listBy('9999')
+
+    expect(page.records).toEqual([])
+    expect(page.total).toBe(0)
+  })
+
+  it('does the same for a value that is not an address at all', async () => {
+    const page = await listBy('not-a-record')
+
+    expect(page.records).toEqual([])
+    expect(page.total).toBe(0)
   })
 })

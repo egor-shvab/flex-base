@@ -567,123 +567,45 @@ substitution happens above `buildRecordWhere`, which is left byte-for-byte as it
 
 ---
 
-### T12. A filter value schema that can differ from the stored value schema
+### T12–T14. A relation filter carries a number
 
-**What.** Today `buildFilterValueSchema` reuses `value.base` / `value.fromQuery`. For RELATION the
-two must now diverge: a **stored** value is a cuid, a **filter** value is a record number.
+**Status:** done — 2026-09-01, with two designs simplified away.
 
-`IFieldTypeModule` gains one key beside `value`:
+**T12 was dropped entirely.** It proposed a `filterValue` key on `IFieldTypeModule` so a RELATION's
+filter schema could differ from its stored-value schema — a §9 registry-contract change plus an edit
+to all six type modules. It is not needed: RELATION's value schema is already `z.string().min(1)`,
+which accepts `"48"` and a cuid alike. Its stated justification was that `?company=abc` should be a
+400, but it is not one today either — §7's "a malformed known param is a 400" is about values that
+fail to _parse_, and any non-empty string has always been a syntactically valid relation filter that
+resolves to nothing. So the filter value simply becomes an **address**, and `parseAddressNumber` is
+the discriminator.
 
-```ts
-/**
- * The rules for this type's *filter* value, when they differ from its stored value's — `null`
- * where a filter carries exactly what a record stores, which is every type but RELATION.
- */
-filterValue: IValueSchemaRules | null
-```
+**The `impossible` flag was designed out.** `RelationService.resolveFilterTargets` substitutes what
+it can and **leaves everything else exactly as it arrived** — a cuid, or a number nothing answers
+to. That one rule removes the failure mode rather than handling it: dropping an unresolvable value
+would leave a list filter empty, `containsAny` would answer `null`, `buildRecordWhere` would skip
+the condition, and the list would widen to the whole table with no error. Nothing is dropped, so
+nothing can widen. Correctness rests on `assertRelationTargets`, which guarantees every stored
+relation value is a live record's cuid — so a stray address matches nothing.
 
-Required and nullable, never optional, so a new field type states its position (`CLAUDE.md` §9).
-`shared/field-types/registry.ts` gains one total `FILTER_VALUE_SCHEMA_BY_TYPE` map;
-`buildFilterValueSchema` reads it and falls back to `VALUE_SCHEMA_BY_TYPE`.
+**Verified by breaking it.** Temporarily making the resolver drop unresolvable values turned the
+integration case red exactly as predicted: `expected [{…}, {…}] to deeply equal []` — the whole
+table came back.
 
-**RELATION's filter value stays a `string`, and this is deliberate.** It holds the digits of a
-record number, not a `number`. Making `IFilterValueByType['RELATION']` numeric would force
-`TFilterValue` to admit `number[]`, which would ripple through `isListFilterValue`, `toList`,
-`matchesAny`, `containsAny` and every list-shaped consumer for no gain — a URL carries strings
-either way. What changes is only the **schema**: `z.string().regex(/^\d+$/)` with the same bounds as
-T4, in place of `relationId()`'s `min(1)`.
+**Where it runs.** `listRecords`, immediately before `buildRecordWhere`, so the rows and the capped
+count build from the same resolved map. `server/db/record-sql.ts` and its spec are **untouched** —
+that was the design's own assertion, and it held.
 
-That change is load-bearing rather than cosmetic: without it `?company=abc` passes validation,
-resolves to nothing, and silently returns an empty list — where `architecture.md` §7 promises that
-a malformed **known** param is a 400.
+**Client.** `RelationFieldSelect` gained `valueBy: 'id' | 'number'` and two seams — `valueOf`
+(what an option is worth to the model) and `linkedRecordOf` (how a model value is looked up). The
+relations store gained a by-number index maintained inside `cacheLinkedRecords`.
+`IFilterSummaryContext` carries **both** lookups, not just by-number: a chip for a link still
+carrying a cuid must name its target, or it would say "Unknown record" about rows plainly on screen.
+Reading either form is the same rule the server applies.
 
-**Tests.** `shared/validation/record.spec.ts` — a RELATION filter param accepts digits and rejects a
-cuid, while a RELATION **record value** still accepts a cuid and rejects digits-only… (it must not:
-a cuid schema is `min(1)`, so `"48"` remains a valid stored value and the server's
-`assertRelationTargets` is what rejects it — assert that division rather than inventing a cuid
-regex). Plus a registry-completeness case beside the existing `MULTI_INPUTS` / `MULTI_SQL`
-invariants: **`filterValue` is non-null exactly where a type's filter is not its stored value**.
-
----
-
-### T13. The client speaks numbers
-
-**What.**
-
-- `app/field-types/relation/RelationFieldSelect.vue` gains `valueBy: 'id' | 'number'` (default
-  `'id'`). The `input` / `multiInput` entries keep the default — a record still stores a cuid. The
-  `filter` / `multiFilter` entries in `app/field-types/relation/index.ts` pass `valueBy: 'number'`.
-  The component already reads `optionsFor(fieldId)`, whose `IRecordOption` carries **both** `id`
-  and `number`, so the mapping is local to it and no adapter is needed. (Adapters are pure value
-  functions with no store access, which is why the prop is the right seam and `blankIsNull` is not.)
-- `app/stores/relations.ts` — a reverse index maintained inside `cacheLinkedRecords`, and
-  `linkedRecordByNumber(fieldId, number)` beside the existing `linkedRecordFor`. Merge-only and
-  unbounded like its sibling, for the reason already recorded in `decisions.md`.
-- `IFilterSummaryContext` gains `linkedRecordByNumber`; RELATION's `summary` / `multiSummary` use
-  it. `RecordsFilterSummary` supplies it from the store.
-
-**Unchanged, and worth stating so it is not "fixed":** a filtered number outside the capped
-candidate list still resolves to nothing and degrades to a placeholder — exactly today's behaviour
-with a cuid, so this is not a regression introduced here.
-
-**Tests.** `nuxt` project — the relation filter control round-trips a number through the URL; the
-filter summary renders a label for a seeded target and a placeholder for an unseeded one.
-
----
-
-### T14. The server resolves numbers to ids above the SQL
-
-**What.** One new member on the module that already owns what a RELATION means:
-
-```ts
-RelationService.resolveFilterTargets(
-  fields: IField[],
-  filters: TRecordFilterValues,
-): Promise<{ filters: TRecordFilterValues; impossible: boolean }>
-```
-
-- Batched: one `findMany` per **distinct target table**, `where: { tableId, number: { in: […] } }`,
-  served by `@@unique([tableId, number])`. Never one query per value and never one per row —
-  `CLAUDE.md` §5.
-- Returns a copy of the filter map with each RELATION entry's numbers replaced by the resolved
-  cuids. Every other entry passes through untouched.
-- Called from `RecordService.listRecords` immediately before `buildRecordWhere`, so the handler
-  stays thin and `buildRecordWhere` never learns that a relation filter was ever anything else.
-
-**The trap this task exists to avoid.** A relation filter whose numbers resolve to **nothing** must
-match nothing. It must not become an absent filter: `matchesExactly` and `containsAny` both answer
-`null` for an empty value, `buildRecordWhere` skips a `null` condition, and the list would silently
-**widen to every row in the table** — no error, no empty state, just the wrong data, which is the
-single worst failure mode available here.
-
-So resolution reports it: `impossible` is true when a relation filter was requested with values and
-**none** of them resolved. `listRecords` then returns an empty page without issuing any query at all
-— `records: []`, `total: 0`, `totalCapped: false`, the requested `page` and `pageSize`,
-`linkedRecords: {}`. Cheaper than a `FALSE` predicate and impossible to get subtly wrong.
-
-A **partial** miss is not impossible: a list filter keeps the values that resolved and drops the
-ones that did not, which is what "any of" means.
-
-**Unchanged:** record **writes** still carry cuids in their body (`assertRelationTargets`,
-`buildRecordSchema`), because that is the stored value. Only the query string moved.
-
-**Tests.**
-
-- `server/services/relations.spec.ts` (stub) — one query per distinct target table; the substituted
-  map; `impossible` on a total miss; a partial miss keeps the survivors.
-- `server/services/records.integration.spec.ts` — a numeric relation filter returns the same rows
-  the cuid filter used to; a filter naming a deleted record returns zero rows **and the count is
-  zero, not the table's size** (the widening regression, pinned where it would actually show).
-- `server/db/record-sql.spec.ts` — **unchanged, and that is the assertion.** If a case in that file
-  needs editing, the substitution leaked into the SQL layer and the design is wrong.
-- `field-indexes.integration.spec.ts` — **a new case**, in the existing `a declared index is one
-the planner actually uses` block: an opted-in RELATION filter is served by its B-tree, and a
-  widened one by its GIN. That block covers TEXT, NUMBER and a widened SELECT today and has **no
-  RELATION case at all**, which means the property this whole stage is designed around is currently
-  unguarded. Worth adding even if Stage 2 is dropped.
-- `test/e2e/filters-multi.spec.ts` and `relations.spec.ts` — numeric filter params in the URL.
-
----
+**One gap closed on the way.** `field-indexes.integration.spec.ts` had **no RELATION case at all**,
+so the index this whole stage is designed to preserve was unguarded. It now asserts the plan for
+both the B-tree and the widened GIN.
 
 # Documentation
 

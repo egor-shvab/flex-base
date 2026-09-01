@@ -31,9 +31,21 @@ export const useRelationsStore = defineStore('relations', () => {
    */
   const tableAddressByField = ref<Record<string, string>>({})
 
+  /**
+   * The same linked records keyed by **number** instead of by id. A filter addresses its target
+   * the way a URL does, so the control and the summary behind it both need this direction;
+   * everything else in the app holds an id. Maintained here rather than derived at each read,
+   * so the two indexes cannot drift.
+   */
+  const linkedByFieldNumber = ref<Record<string, Record<number, ILinkedRecord>>>({})
+
   function cacheLinkedRecords(incoming: Record<string, Record<string, ILinkedRecord>>) {
     for (const [fieldId, byRecordId] of Object.entries(incoming)) {
       linkedByField.value[fieldId] = { ...linkedByField.value[fieldId], ...byRecordId }
+
+      const byNumber = { ...linkedByFieldNumber.value[fieldId] }
+      for (const linked of Object.values(byRecordId)) byNumber[linked.number] = linked
+      linkedByFieldNumber.value[fieldId] = byNumber
     }
   }
 
@@ -70,6 +82,11 @@ export const useRelationsStore = defineStore('relations', () => {
     return linkedByField.value[fieldId]?.[recordId]
   }
 
+  /** The same, addressed the way a filter URL addresses it. */
+  function linkedRecordByNumber(fieldId: string, number: number): ILinkedRecord | undefined {
+    return linkedByFieldNumber.value[fieldId]?.[number]
+  }
+
   /**
    * The candidates matching a typed term, straight from the server — how a picker reaches a
    * record beyond the capped seed list.
@@ -98,11 +115,13 @@ export const useRelationsStore = defineStore('relations', () => {
   return {
     optionsByField,
     linkedByField,
+    linkedByFieldNumber,
     tableAddressByField,
     cacheLinkedRecords,
     loadOptions,
     searchOptions,
     optionsFor,
     linkedRecordFor,
+    linkedRecordByNumber,
   }
 })

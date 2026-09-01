@@ -4,7 +4,10 @@ import { prisma } from '#server/db/prisma'
 import { buildRecordLabelOrderBy, buildRecordLabelSearch } from '#server/db/record-sql'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
+import type { TRecordFilterValues } from '#shared/types/filter'
 import type { ILinkedRecord, IRecord, IRecordOption, TRecordData } from '#shared/types/record'
+import { parseAddressNumber } from '#shared/utils/address'
+import { isListFilterValue } from '#shared/utils/filter'
 import { buildRecordLabel } from '#shared/utils/record-label'
 
 /**
@@ -130,6 +133,82 @@ async function resolveLinkedRecords(
 }
 
 /**
+ * A relation filter carries the target's **address** — the number a URL shows, or the cuid an
+ * older link holds — while the column it compares against stores cuids. This is where the two
+ * meet, above `buildRecordWhere` and below the codec: the URL codec is pure, synchronous and
+ * shared by both sides of the wire, so it cannot do I/O, and teaching the SQL to compare through
+ * a subquery on `"Record"."number"` would defeat RELATION's `filterIndex` — the planner can no
+ * longer probe an indexed expression with a constant.
+ *
+ * **Every requested value survives, resolved or not**, and that is the whole safety property.
+ * Dropping one that resolves to nothing would leave a list filter empty, `containsAny` would
+ * answer `null`, `buildRecordWhere` would skip the condition, and the list would **silently
+ * widen to the entire table** — no error, no empty state, just the wrong rows. Passing it
+ * through unchanged cannot do that: a stray number simply matches nothing, because
+ * `assertRelationTargets` guarantees every stored relation value is a live record's cuid.
+ *
+ * One query per distinct target table, never one per value.
+ */
+async function resolveFilterTargets(
+  fields: IField[],
+  filters: TRecordFilterValues,
+): Promise<TRecordFilterValues> {
+  const numbersByTable = new Map<string, Set<number>>()
+  const relations: { field: IField; targetTableId: string }[] = []
+
+  for (const field of fields) {
+    const targetTableId = field.type === 'RELATION' ? field.options?.targetTableId : undefined
+    const value = filters[field.key]
+    if (targetTableId === undefined || value === undefined) continue
+
+    relations.push({ field, targetTableId })
+
+    const numbers = numbersByTable.get(targetTableId) ?? new Set<number>()
+    for (const entry of Array.isArray(value) ? value : [value]) {
+      // `0` is every non-numeric address — a cuid, or anything that is not a row's number
+      const number = typeof entry === 'string' ? parseAddressNumber(entry) : 0
+      if (number !== 0) numbers.add(number)
+    }
+    numbersByTable.set(targetTableId, numbers)
+  }
+
+  if (relations.length === 0) return filters
+
+  const lookups = await Promise.all(
+    [...numbersByTable]
+      .filter(([, numbers]) => numbers.size > 0)
+      .map(async ([tableId, numbers]): Promise<[string, Map<number, string>]> => {
+        const rows = await prisma.record.findMany({
+          where: { tableId, number: { in: [...numbers] } },
+          select: { id: true, number: true },
+        })
+
+        return [tableId, new Map(rows.map((row) => [row.number, row.id]))]
+      }),
+  )
+
+  const idsByTable = new Map(lookups)
+  /** Resolved to its id where possible; otherwise the address exactly as it arrived. */
+  const toStoredValue = (targetTableId: string, entry: string) =>
+    idsByTable.get(targetTableId)?.get(parseAddressNumber(entry)) ?? entry
+
+  const resolved: TRecordFilterValues = { ...filters }
+
+  for (const { field, targetTableId } of relations) {
+    const value = filters[field.key]
+    if (value === undefined) continue
+
+    if (isListFilterValue(value)) {
+      resolved[field.key] = value.map((entry) => toStoredValue(targetTableId, entry))
+    } else if (typeof value === 'string') {
+      resolved[field.key] = toStoredValue(targetTableId, value)
+    }
+  }
+
+  return resolved
+}
+
+/**
  * Referential integrity for a write: the picker only ever offers live records of the target
  * table, so anything else is a crafted payload and is rejected rather than stored dangling.
  */
@@ -184,5 +263,6 @@ export const RelationService = {
   collectRelationTargets,
   resolveLinkedRecords,
   assertRelationTargets,
+  resolveFilterTargets,
   listRelationOptions,
 }

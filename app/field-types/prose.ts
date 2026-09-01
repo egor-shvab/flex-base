@@ -54,9 +54,12 @@ export function summariseList(value: TFilterValue, entry: (value: string) => str
 export function summariseLinkedRecord(
   ctx: IFilterSummaryContext,
   field: IField,
-  recordId: string,
+  address: string,
 ): string {
-  const ref = ctx.linkedRecordFor(field.id, recordId)
+  // Whichever form the address is in — the same either-way reading the server applies before
+  // the query runs, so a chip describes the rows that actually came back
+  const ref =
+    ctx.linkedRecordByNumber(field.id, Number(address)) ?? ctx.linkedRecordFor(field.id, address)
 
   return ref === undefined ? UNKNOWN_RECORD_LABEL : formatLinkedRecord(ref)
 }

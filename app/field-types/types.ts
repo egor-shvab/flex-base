@@ -55,8 +55,14 @@ export interface IMultiValueCellProps {
   value: string[]
 }
 
-/** What a summariser may need beyond the value itself. Only RELATION uses it. */
+/**
+ * What a summariser may need beyond the value itself. Only RELATION uses it, and it needs **both
+ * directions** — a filter value is an address, which is a number going forward and a cuid in a
+ * link written earlier. Reading either is the same rule `resolveFilterTargets` applies on the
+ * server, so a chip cannot disagree with the rows it describes.
+ */
 export interface IFilterSummaryContext {
+  linkedRecordByNumber: (fieldId: string, number: number) => ILinkedRecord | undefined
   linkedRecordFor: (fieldId: string, recordId: string) => ILinkedRecord | undefined
 }
 

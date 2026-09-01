@@ -31,13 +31,23 @@ export interface IFilterValueByType extends Record<TFieldType, TFilterValue> {
   DATE: IDateRange
   /** Several choices, ORed — picking Won and Lost matches either. */
   SELECT: string[]
+  /**
+   * The target record's **address** — the number a URL carries, or a cuid from an older link.
+   * A string either way, because a URL has nothing else; the server resolves it to the stored
+   * id before the comparison.
+   */
   RELATION: string
 }
 
 /**
  * The filter model of every layer: active filters keyed by `Field.key`. A key that is
- * absent — or whose value `isFilterValueEmpty` — is not filtered. The UI holds this, the
- * URL carries it, and the SQL is derived from it; nothing translates it into anything else.
+ * absent — or whose value `isFilterValueEmpty` — is not filtered. The UI holds this and the
+ * URL carries it.
+ *
+ * **Exactly one value is translated before the SQL is derived**, and no other ever is: a
+ * RELATION filter carries the target's *address*, and `RelationService.resolveFilterTargets`
+ * substitutes the id the column stores. It happens above `buildRecordWhere` so the SQL and its
+ * indexes never learn there were two forms (`docs/decisions.md`).
  */
 export type TRecordFilterValues = Record<string, TFilterValue>
 

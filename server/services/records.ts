@@ -87,7 +87,15 @@ async function listRecords(
   query: IRecordQuery,
 ): Promise<IRecordPage> {
   const { page, pageSize, sort, filters, search } = query
-  const where = buildRecordWhere(tableId, fields, filters, search)
+  // A relation filter arrives as the target's *address*; the column stores ids. Substituted
+  // here so both legs of the transaction below build from the same resolved map — and above
+  // the builder, so the SQL and its indexes never learn there were two forms.
+  const where = buildRecordWhere(
+    tableId,
+    fields,
+    await RelationService.resolveFilterTargets(fields, filters),
+    search,
+  )
   const order = buildRecordOrderBy(fields, sort)
 
   const [rows, counts] = await prisma.$transaction([

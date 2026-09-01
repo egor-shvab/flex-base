@@ -14,14 +14,19 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-const REFS: Record<string, ILinkedRecord> = {
-  rec_ada: { number: 7, label: 'Ada Lovelace' },
-  rec_grace: { number: 9, label: 'Grace Hopper' },
-  rec_blank: { number: 11, label: null },
+/** Keyed by **number**, which is what a relation filter value is — see `IFilterSummaryContext`. */
+const REFS: Record<number, ILinkedRecord> = {
+  7: { number: 7, label: 'Ada Lovelace' },
+  9: { number: 9, label: 'Grace Hopper' },
+  11: { number: 11, label: null },
 }
 
+/** A link written before filters carried numbers still names its target. */
+const BY_ID: Record<string, ILinkedRecord> = { rec_ada: REFS[7] as ILinkedRecord }
+
 const ctx: IFilterSummaryContext = {
-  linkedRecordFor: (_fieldId, recordId) => REFS[recordId],
+  linkedRecordByNumber: (_fieldId, number) => REFS[number],
+  linkedRecordFor: (_fieldId, recordId) => BY_ID[recordId],
 }
 
 /** How one field's active filter actually reads — the resolver, not the raw registry entry. */
@@ -131,35 +136,40 @@ describe('RELATION', () => {
 
   /** Flat, because a chip's phrase is a string — the number is stated, not styled apart. */
   it('resolves a single id to its number and label', () => {
-    expect(summarise(field, 'rec_ada')).toBe('is #7 Ada Lovelace')
+    expect(summarise(field, '7')).toBe('is #7 Ada Lovelace')
   })
 
   it('states the number alone for a record nothing names', () => {
-    expect(summarise(field, 'rec_blank')).toBe('is #11')
+    expect(summarise(field, '11')).toBe('is #11')
   })
 
   /** An id outside the capped candidate list resolves to nothing, and degrades like a cell. */
   it('degrades an unresolvable id rather than showing it', () => {
-    expect(summarise(field, 'rec_deleted')).toBe('is Unknown record')
+    expect(summarise(field, '404')).toBe('is Unknown record')
+  })
+
+  /**
+   * A filter link written before relation filters carried numbers holds a cuid. The rows still
+   * come back — the server reads either form — so the chip describing them must too, or it
+   * would say "Unknown record" about rows that are plainly there.
+   */
+  it('names the target of a link that still carries a cuid', () => {
+    expect(summarise(field, 'rec_ada')).toBe('is #7 Ada Lovelace')
   })
 
   describe('holding several', () => {
     const multi = asMultiple(relationField())
 
     it('resolves one id as an equality', () => {
-      expect(summarise(multi, ['rec_ada'])).toBe('is #7 Ada Lovelace')
+      expect(summarise(multi, ['7'])).toBe('is #7 Ada Lovelace')
     })
 
     it('resolves several as an any-of', () => {
-      expect(summarise(multi, ['rec_ada', 'rec_grace'])).toBe(
-        'is any of #7 Ada Lovelace, #9 Grace Hopper',
-      )
+      expect(summarise(multi, ['7', '9'])).toBe('is any of #7 Ada Lovelace, #9 Grace Hopper')
     })
 
     it('degrades per entry, keeping the ones it can resolve', () => {
-      expect(summarise(multi, ['rec_ada', 'rec_deleted'])).toBe(
-        'is any of #7 Ada Lovelace, Unknown record',
-      )
+      expect(summarise(multi, ['7', '404'])).toBe('is any of #7 Ada Lovelace, Unknown record')
     })
 
     it('says nothing for an empty selection', () => {
@@ -179,8 +189,8 @@ describe('summaryFor', () => {
     const multi = asMultiple(relationField())
 
     // The same value, read by the two entries — proof they are genuinely different functions
-    expect(summarise(single, 'rec_ada')).toBe('is #7 Ada Lovelace')
-    expect(summarise(multi, ['rec_ada'])).toBe('is #7 Ada Lovelace')
+    expect(summarise(single, '7')).toBe('is #7 Ada Lovelace')
+    expect(summarise(multi, ['7'])).toBe('is #7 Ada Lovelace')
     expect(summaryFor(single)).not.toBe(summaryFor(multi))
   })
 

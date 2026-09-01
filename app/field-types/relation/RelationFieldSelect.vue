@@ -21,7 +21,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
-import type { ILinkedRecord } from '#shared/types/record'
+import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 import { formatLinkedRecord } from '#shared/utils/record-label'
 // Explicit, because `field-types/` sits outside `~/components` on purpose — nothing here is
 // globally registered, so an unimported tag would silently render nothing
@@ -49,12 +49,18 @@ const props = withDefaults(
     fieldId: string
     /** Several links at once — a multi-value relation field, and its list-shaped filter. */
     multiple?: boolean
+    /**
+     * What this control's model holds: the target's **id**, which is what a record stores, or
+     * its **number**, which is what a filter puts in the URL. Only the model's currency changes
+     * — everything below still reads a linked record the way the store keys them.
+     */
+    valueBy?: 'id' | 'number'
     /** What "no link" reads as — "— Select —" when editing, "All" when filtering. */
     placeholder?: string
     clearable?: boolean
     error?: string
   }>(),
-  { multiple: false, placeholder: undefined, clearable: false, error: undefined },
+  { multiple: false, valueBy: 'id', placeholder: undefined, clearable: false, error: undefined },
 )
 
 const model = defineModel<string | string[]>({ required: true })
@@ -80,9 +86,20 @@ const singleModel = computed<string>({
   set: (value) => (model.value = value),
 })
 
-/** How a candidate reads, for the options below. `undefined` only for a target that is gone. */
-function linkedRecordOf(recordId: string): ILinkedRecord | undefined {
-  return relations.linkedRecordFor(props.fieldId, recordId)
+/** What a candidate is worth to this control's model — the seam `valueBy` turns on. */
+function valueOf(candidate: IRecordOption): string {
+  return props.valueBy === 'number' ? String(candidate.number) : candidate.id
+}
+
+/**
+ * How a model value reads. The other seam: the store keys linked records by id, so a
+ * number-valued model looks up through the by-number index instead. `undefined` only for a
+ * target that is gone — or, for a number, one outside the candidates seen so far.
+ */
+function linkedRecordOf(value: string): ILinkedRecord | undefined {
+  return props.valueBy === 'number'
+    ? relations.linkedRecordByNumber(props.fieldId, Number(value))
+    : relations.linkedRecordFor(props.fieldId, value)
 }
 
 /**
@@ -115,7 +132,7 @@ const selectProps = computed(() => ({
  */
 const options = computed<ISelectOption[]>(() => {
   const candidates = relations.optionsFor(props.fieldId)
-  const offered = new Set(candidates.map((candidate) => candidate.id))
+  const offered = new Set(candidates.map(valueOf))
 
   // A link the candidate list does not offer — a target beyond the listed page, one reached
   // through a search, or one since deleted — is still shown, or opening the form would
@@ -123,18 +140,18 @@ const options = computed<ISelectOption[]>(() => {
   // replaced the visible list with rows that do not include it. Every link is checked, not
   // just the first: dropping one of several is as lossy as dropping the only one. It is also
   // why `BaseSelect`'s own `{ value, label: value }` fallback is unreachable from here.
-  const unlisted = linkedIds.value.filter((id) => !offered.has(id))
+  const unlisted = linkedIds.value.filter((value) => !offered.has(value))
 
   return [
     ...candidates.map((candidate) => ({
-      value: candidate.id,
+      value: valueOf(candidate),
       label: formatLinkedRecord(candidate),
     })),
-    ...unlisted.map((id) => {
-      const ref = linkedRecordOf(id)
+    ...unlisted.map((value) => {
+      const ref = linkedRecordOf(value)
       // Nothing resolved: the target is gone, so there is no number to state either
       return {
-        value: id,
+        value,
         label: ref === undefined ? UNKNOWN_RECORD_LABEL : formatLinkedRecord(ref),
       }
     }),
@@ -144,6 +161,6 @@ const options = computed<ISelectOption[]>(() => {
 function search(term: string, signal: AbortSignal): Promise<ISelectOption[]> {
   return relations
     .searchOptions(props.fieldId, term, signal)
-    .then((rows) => rows.map((row) => ({ value: row.id, label: formatLinkedRecord(row) })))
+    .then((rows) => rows.map((row) => ({ value: valueOf(row), label: formatLinkedRecord(row) })))
 }
 </script>
