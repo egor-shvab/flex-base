@@ -8,7 +8,7 @@ import type { IOkResponse } from '#shared/types/api'
 // the `userId` and scopes on it itself.
 export default defineEventHandler(async (event): Promise<IOkResponse> => {
   const user = requireUser(event)
-  const tableId = routeParam(event, 'tableId')
+  const tableId = routeParam(event, 'tableAddress')
   await TableService.deleteTable(user.id, tableId)
   return { ok: true }
 })

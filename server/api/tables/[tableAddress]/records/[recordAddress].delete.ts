@@ -6,7 +6,7 @@ import type { IRecordDeletedResponse } from '#shared/types/api'
 
 export default defineTableHandler(
   async ({ event, user, table }): Promise<IRecordDeletedResponse> => {
-    await RecordService.deleteRecord(table.id, routeParam(event, 'recordId'))
+    await RecordService.deleteRecord(table.id, routeParam(event, 'recordAddress'))
 
     return { ok: true, table: await TableService.getTableListRow(user.id, table.id) }
   },

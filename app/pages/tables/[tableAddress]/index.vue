@@ -201,7 +201,7 @@ const fieldsStore = useFieldsStore()
 const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
 /** The address the URL carries — a number going forward, a cuid from an older link. */
-const tableAddress = route.params.tableId as string
+const tableAddress = route.params.tableAddress as string
 
 /** The URL is the source of truth for the list query, so a filtered view is shareable. */
 const {

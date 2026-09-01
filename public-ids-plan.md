@@ -447,7 +447,11 @@ shape, path and chain both, still opens the same record.
 
 ### T9. The readable slug — `/tables/12-deals`
 
-**Status note:** this task is separable and can be dropped without affecting anything above it.
+**Status:** declined — 2026-09-01. Recorded in `docs/limitations.md` with the trigger that would
+reopen it. The slug would put a user-authored table name into the pathname, which `error-log.ts`
+records under a redaction contract that is deliberately structural — and the payoff is cosmetic in
+an app with one user per workspace and no sharing. `parseTableAddress` already ignores a `-…`
+suffix, so adding it later costs one function.
 
 **What.** Two halves, and the second is not optional if the first ships.
 
@@ -480,6 +484,10 @@ shape, path and chain both, still opens the same record.
 ---
 
 ### T10. Stage 1 tests
+
+**Status:** done — delivered inside T1–T8 rather than as a step of its own; each task shipped its
+own cases. The one addition worth noting separately is the RELATION index case in
+`field-indexes.integration.spec.ts`, which closed a pre-existing gap.
 
 **Unit (`vitest.unit.config.ts`)**
 
@@ -539,6 +547,10 @@ address bar moves, while the rows behind it refetch asynchronously. Every table 
 ---
 
 ### T11. Old-link compatibility — conditional on D-a
+
+**Status:** superseded — the dual-accept design (T5/T6) delivers this without a redirect: the server
+resolves either address form, so an old link resolves rather than being rewritten. Kept permanently;
+`decisions.md` states it as a rule rather than a transition.
 
 **What (only if D-a says yes).** A route middleware that detects a cuid-shaped `tableId` param,
 resolves it to a number through an endpoint scoped to the caller, and `navigateTo(…, { redirectCode: 301 })`

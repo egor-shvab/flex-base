@@ -81,10 +81,10 @@ export default withNuxt(
   // A table-scoped route reaches its user through a handler factory, never by resolving one
   // itself — the factory is what makes the ownership check unskippable, and it is only
   // unskippable while nothing under here can go around it. The two sibling routes that do use
-  // `requireUser` (`[tableId].patch`, `[tableId].delete`) are files one level up, not in this
+  // `requireUser` (`[tableAddress].patch`, `[tableAddress].delete`) are files one level up, not in this
   // directory, so they are outside this glob by construction rather than by exemption.
   //
-  // `tables/*/**` rather than `tables/[tableId]/**`: minimatch reads `[tableId]` as a character
+  // `tables/*/**` rather than `tables/[tableAddress]/**`: minimatch reads a bracketed name as a character
   // class, so the literal spelling matches a one-character directory name and nothing else.
   {
     files: ['server/api/tables/*/**/*.ts'],

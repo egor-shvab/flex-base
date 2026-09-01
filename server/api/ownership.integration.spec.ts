@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { H3Event } from 'h3'
-import tableGet from '#server/api/tables/[tableId].get'
-import tablePatch from '#server/api/tables/[tableId].patch'
-import tableDelete from '#server/api/tables/[tableId].delete'
-import fieldsGet from '#server/api/tables/[tableId]/fields/index.get'
-import fieldsPost from '#server/api/tables/[tableId]/fields/index.post'
-import fieldPatch from '#server/api/tables/[tableId]/fields/[fieldId].patch'
-import fieldDelete from '#server/api/tables/[tableId]/fields/[fieldId].delete'
-import optionsGet from '#server/api/tables/[tableId]/fields/[fieldId]/options.get'
-import recordsGet from '#server/api/tables/[tableId]/records/index.get'
-import recordsPost from '#server/api/tables/[tableId]/records/index.post'
-import recordGet from '#server/api/tables/[tableId]/records/[recordId].get'
-import recordPatch from '#server/api/tables/[tableId]/records/[recordId].patch'
-import recordDelete from '#server/api/tables/[tableId]/records/[recordId].delete'
+import tableGet from '#server/api/tables/[tableAddress].get'
+import tablePatch from '#server/api/tables/[tableAddress].patch'
+import tableDelete from '#server/api/tables/[tableAddress].delete'
+import fieldsGet from '#server/api/tables/[tableAddress]/fields/index.get'
+import fieldsPost from '#server/api/tables/[tableAddress]/fields/index.post'
+import fieldPatch from '#server/api/tables/[tableAddress]/fields/[fieldId].patch'
+import fieldDelete from '#server/api/tables/[tableAddress]/fields/[fieldId].delete'
+import optionsGet from '#server/api/tables/[tableAddress]/fields/[fieldId]/options.get'
+import recordsGet from '#server/api/tables/[tableAddress]/records/index.get'
+import recordsPost from '#server/api/tables/[tableAddress]/records/index.post'
+import recordGet from '#server/api/tables/[tableAddress]/records/[recordAddress].get'
+import recordPatch from '#server/api/tables/[tableAddress]/records/[recordAddress].patch'
+import recordDelete from '#server/api/tables/[tableAddress]/records/[recordAddress].delete'
 import tablesGet from '#server/api/tables/index.get'
 import tablesPost from '#server/api/tables/index.post'
 import type { IAuthUser } from '#shared/types/auth'
@@ -73,9 +73,9 @@ beforeEach(async () => {
 /** Every endpoint that takes a table id, with a body good enough to reach the ownership check. */
 function scopedEndpoints() {
   const { tableId, fieldId, relationFieldId, recordId } = world
-  const tableParams = { tableId }
-  const fieldParams = { tableId, fieldId }
-  const recordParams = { tableId, recordId }
+  const tableParams = { tableAddress: tableId }
+  const fieldParams = { tableAddress: tableId, fieldId }
+  const recordParams = { tableAddress: tableId, recordAddress: recordId }
   const validField = { name: 'Renamed', type: 'TEXT' }
 
   return [
@@ -117,7 +117,7 @@ function scopedEndpoints() {
     {
       name: 'GET /fields/:id/options',
       handler: optionsGet,
-      params: { tableId, fieldId: relationFieldId },
+      params: { tableAddress: tableId, fieldId: relationFieldId },
     },
     { name: 'GET /records', handler: recordsGet, params: tableParams },
     {
@@ -171,8 +171,8 @@ describe('a stranger gets 404, never 403', () => {
   })
 
   it('does not leak the table through a 403 or a differing message', async () => {
-    const stranger = testEvent({ user: world.mallory, params: { tableId: world.tableId } })
-    const missing = testEvent({ user: world.mallory, params: { tableId: 'tbl_nonexistent' } })
+    const stranger = testEvent({ user: world.mallory, params: { tableAddress: world.tableId } })
+    const missing = testEvent({ user: world.mallory, params: { tableAddress: 'tbl_nonexistent' } })
 
     const [a, b] = await Promise.all([
       tableGet(stranger).catch((error: unknown) => error),
@@ -186,14 +186,14 @@ describe('a stranger gets 404, never 403', () => {
   it('changes nothing when a stranger tries to write', async () => {
     const event = testEvent({
       user: world.mallory,
-      params: { tableId: world.tableId },
+      params: { tableAddress: world.tableId },
       body: { name: 'Pwned' },
       method: 'PATCH',
     })
 
     await expect(tablePatch(event)).rejects.toMatchObject({ statusCode: 404 })
 
-    const owner = testEvent({ user: world.ada, params: { tableId: world.tableId } })
+    const owner = testEvent({ user: world.ada, params: { tableAddress: world.tableId } })
     await expect(tableGet(owner)).resolves.toMatchObject({ table: { name: 'Deals' } })
   })
 
@@ -225,7 +225,9 @@ describe('an anonymous request is 401 before anything else', () => {
     ]
 
     for (const handler of endpoints) {
-      const event = testEvent({ params: { tableId: 'nope', fieldId: 'nope', recordId: 'nope' } })
+      const event = testEvent({
+        params: { tableAddress: 'nope', fieldId: 'nope', recordAddress: 'nope' },
+      })
 
       await expect(handler(event)).rejects.toMatchObject({
         statusCode: 401,
@@ -247,7 +249,7 @@ describe('a relation cannot be pointed across accounts', () => {
 
     const event = testEvent({
       user: world.ada,
-      params: { tableId: world.tableId },
+      params: { tableAddress: world.tableId },
       method: 'POST',
       body: {
         name: 'Stolen',
@@ -266,7 +268,7 @@ describe('a relation cannot be pointed across accounts', () => {
 
     const event = testEvent({
       user: world.ada,
-      params: { tableId: world.tableId },
+      params: { tableAddress: world.tableId },
       method: 'POST',
       body: {
         name: 'Bad label',
@@ -293,9 +295,11 @@ describe('a table is addressable by its number as well as by its cuid', () => {
   it('answers identically either way', async () => {
     const table = await createTable(world.ada.id, 'Addressed')
 
-    const byCuid = await tableGet(testEvent({ user: world.ada, params: { tableId: table.id } }))
+    const byCuid = await tableGet(
+      testEvent({ user: world.ada, params: { tableAddress: table.id } }),
+    )
     const byNumber = await tableGet(
-      testEvent({ user: world.ada, params: { tableId: String(table.number) } }),
+      testEvent({ user: world.ada, params: { tableAddress: String(table.number) } }),
     )
 
     expect(byNumber).toEqual(byCuid)
@@ -313,7 +317,7 @@ describe('a table is addressable by its number as well as by its cuid', () => {
     const theirs = await createTable(world.mallory.id, 'Three')
 
     await expect(
-      tableGet(testEvent({ user: world.ada, params: { tableId: String(theirs.number) } })),
+      tableGet(testEvent({ user: world.ada, params: { tableAddress: String(theirs.number) } })),
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Table not found' })
   })
 
@@ -321,8 +325,10 @@ describe('a table is addressable by its number as well as by its cuid', () => {
   it('gives each account its own table 1', async () => {
     const hers = await createTable(world.mallory.id, 'Hers')
 
-    const ada = await tableGet(testEvent({ user: world.ada, params: { tableId: '1' } }))
-    const mallory = await tableGet(testEvent({ user: world.mallory, params: { tableId: '1' } }))
+    const ada = await tableGet(testEvent({ user: world.ada, params: { tableAddress: '1' } }))
+    const mallory = await tableGet(
+      testEvent({ user: world.mallory, params: { tableAddress: '1' } }),
+    )
 
     expect(ada.table.name).toBe('Deals')
     expect(mallory.table.id).toBe(hers.id)
@@ -333,10 +339,10 @@ describe('a table is addressable by its number as well as by its cuid', () => {
     const number = String((await createTable(world.ada.id, 'Numbered')).number)
 
     await expect(
-      fieldsGet(testEvent({ user: world.ada, params: { tableId: number } })),
+      fieldsGet(testEvent({ user: world.ada, params: { tableAddress: number } })),
     ).resolves.toMatchObject({ fields: [] })
     await expect(
-      recordsGet(testEvent({ user: world.ada, params: { tableId: number } })),
+      recordsGet(testEvent({ user: world.ada, params: { tableAddress: number } })),
     ).resolves.toMatchObject({ records: [], total: 0 })
   })
 })

@@ -183,7 +183,7 @@ There is one factory per `require*` helper and that is the entire list. A single
 
 Each factory is **generic in its return type**. Flattening it to `unknown` would have been invisible — every route would still work, while every response type in the app quietly widened.
 
-`[tableId].patch` and `[tableId].delete` use no factory, and that is not an exemption. Their services take a `userId` and scope on it inside their own `where` clause, which is the form preferred above; a pre-check would be a second round trip for an answer the write already gives. Ownership cannot be forgotten there because the **signature requires the id** — which is exactly the property the factories add to the services that take only a `tableId`.
+`[tableAddress].patch` and `[tableAddress].delete` use no factory, and that is not an exemption. Their services take a `userId` and scope on it inside their own `where` clause, which is the form preferred above; a pre-check would be a second round trip for an answer the write already gives. Ownership cannot be forgotten there because the **signature requires the id** — which is exactly the property the factories add to the services that take only a `tableId`.
 
 ### The persistence layer does not speak HTTP
 
@@ -207,9 +207,11 @@ How they are allocated, and why they are high-water marks rather than counts, is
 
 **Paths address, payloads reference.** A URL — browser or HTTP — names a row by its public number; a payload names it by the cuid the row actually stores. So `Record.data` holds target cuids, `Field.options.targetTableId` holds a table cuid, `linkedRecords` is keyed by record id, and `field-indexes.ts` names indexes from the table cuid — none of which moved.
 
-**The server accepts both forms**, which is what let the client be flipped without a broken window and what keeps a link copied before the change working. `tableWhere` / `recordWhere` are the only two places that know there are two forms; a cuid is never all digits, so they cannot collide.
+**An address is a number _or_ an id, permanently — this is a rule, not a migration aid.** It let the client be flipped without a broken window, but that is not why it stays: it stays because every link anyone has copied keeps working, and because removing it would improve nothing. The whole surface is two functions, `tableWhere` (`db/tables.ts`) and `recordWhere` (`db/records.ts`), six lines between them; a cuid is never all digits, so the forms cannot collide, and a value that is neither takes the id branch and matches nothing.
 
-**What this does not buy:** cuids are still visible in API responses, because `ITable.id` is what a RELATION's config stores and `IRecord.id` is what a relation value stores. The deliverable is a readable URL, not a hidden id.
+**Do not "clean it up".** Dropping the id form would not hide a single id — they are in API _responses_ regardless, since `ITable.id` is what a RELATION's config stores and `IRecord.id` is what a relation value stores. It would only break copied links, in exchange for deleting one ternary.
+
+**What this does not buy:** for the same reason, the deliverable is a readable URL, not a hidden id.
 
 **The enumeration risk is real and is accepted on one condition.** A cuid is unguessable, so a `where` that lost its `userId` used to leak rows nobody could address; with numbers the same bug is a `for i in 1..n` sweep of every tenant. What makes that acceptable is that ownership is not forgettable — `server/utils/handler.ts`'s factories _produce_ the context from the check, so a handler cannot be written that skips it. **Those factories are now load-bearing for security, not merely for tidiness.**
 

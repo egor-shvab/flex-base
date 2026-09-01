@@ -14,6 +14,12 @@ The concept's menu holds full sentences. The stated blocker is gone — `usePopo
 
 ## Accepted
 
+### A table's URL carries no slug, only its number
+
+`/tables/12`, never `/tables/12-deals`. A slug reads better and would be free to resolve — `parseTableAddress` already ignores a `-…` suffix, so adding one later costs a single function — but it would put a **user-authored table name into the pathname**, and `error-log.ts` records pathnames under a redaction contract that is deliberately structural: it never reaches for user data, so it cannot forget to. Shipping the slug means adding a normalisation step at both ends and maintaining it forever, and the payoff is cosmetic here — one user per workspace, no sharing, and the table's name is already the page heading.
+
+_Reopen if a URL ever becomes visible outside the app: a sharing feature, a public link, or anything that puts a path in front of someone who is not its owner._
+
 ### A public number is database-local
 
 A cuid survives a move between environments; `Table.number` and `Record.number` collide, because each database allocates its own from 1. Nothing exports or imports data today, so nothing is broken — but a number is not an identifier to carry across databases.

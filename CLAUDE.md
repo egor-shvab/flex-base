@@ -86,7 +86,7 @@ app/                         # Nuxt 4 frontend (client)
   middleware/                # route guards (auth)
   plugins/                   # client error reporting (`.client` — SSR is Nitro's hook)
   pages/                     # file-based routing
-    tables/[tableId]/          # the table itself (index.vue) + settings.vue
+    tables/[tableAddress]/     # the table itself (index.vue) + settings.vue
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
   types/                     # client-only type declarations (zero runtime exports)
   utils/                     # client-only helpers — formatters, api errors, value shapes
@@ -147,7 +147,7 @@ Rationale for all three: `docs/decisions.md`.
 
 ## 5. API conventions
 
-- Route files are named by HTTP method suffix under `server/api/`: `index.get.ts`, `index.post.ts`, `[tableId].patch.ts`, `[tableId].delete.ts`, …
+- Route files are named by HTTP method suffix under `server/api/`: `index.get.ts`, `index.post.ts`, `[tableAddress].patch.ts`, `[tableAddress].delete.ts`, …
 - Handlers stay thin: validate input with the shared zod schema from `shared/validation/` → assert ownership → delegate all business logic to `server/services/`.
 - **Each service module exports one plain object named for it** — `AuthService` · `TableService` · `FieldService` · `RecordService` · `RelationService`. A handler imports the object and calls `FieldService.createField(…)`, so a call site names the layer it crosses. Method names are never shortened because they are namespaced (`docs/decisions.md`). That rule is the service layer's, not a global one: a handler imports several services, so `FieldService.createField` must name its resource. Each module in `app/api/` covers one resource and is bound inside a store for that same resource (`const api = useTablesApi()`), so its members stay bare — `api.list(tableId)`, with `remove` rather than `delete` to keep the member off a keyword.
 - **A table-scoped route is declared with a factory from `server/utils/handler.ts`**, never with a bare `defineEventHandler` — `defineTableHandler` · `defineFieldsHandler` · `defineTableWithFieldsHandler` · `defineRecordWriteHandler`, one per `require*` helper in `utils/ownership.ts`. The check is what produces the context, so it cannot be skipped, and lint refuses `#server/utils/auth` under `server/api/tables/*/**` so nothing can go around it. A route needing a shape none of the four covers **adds a factory**; it does not resolve the user itself.

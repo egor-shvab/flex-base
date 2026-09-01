@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import tablesGet from '#server/api/tables/index.get'
 import tablesPost from '#server/api/tables/index.post'
-import fieldsPost from '#server/api/tables/[tableId]/fields/index.post'
-import fieldDelete from '#server/api/tables/[tableId]/fields/[fieldId].delete'
-import recordsPost from '#server/api/tables/[tableId]/records/index.post'
-import recordDelete from '#server/api/tables/[tableId]/records/[recordId].delete'
+import fieldsPost from '#server/api/tables/[tableAddress]/fields/index.post'
+import fieldDelete from '#server/api/tables/[tableAddress]/fields/[fieldId].delete'
+import recordsPost from '#server/api/tables/[tableAddress]/records/index.post'
+import recordDelete from '#server/api/tables/[tableAddress]/records/[recordAddress].delete'
 import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createTable, createUser } from '~~/test/integration/seed'
@@ -121,7 +121,7 @@ describe('creating a table', () => {
 describe('a write answers with the counts it caused', () => {
   let tableId: string
 
-  const params = () => ({ tableId })
+  const params = () => ({ tableAddress: tableId })
 
   beforeEach(async () => {
     const table = await createTable(ada.id, 'Deals')
@@ -143,7 +143,7 @@ describe('a write answers with the counts it caused', () => {
     const removed = await fieldDelete(
       testEvent({
         user: ada,
-        params: { tableId, fieldId: created.field.id },
+        params: { tableAddress: tableId, fieldId: created.field.id },
         method: 'DELETE',
       }),
     )
@@ -171,7 +171,7 @@ describe('a write answers with the counts it caused', () => {
     const removed = await recordDelete(
       testEvent({
         user: ada,
-        params: { tableId, recordId: created.record.id },
+        params: { tableAddress: tableId, recordAddress: created.record.id },
         method: 'DELETE',
       }),
     )

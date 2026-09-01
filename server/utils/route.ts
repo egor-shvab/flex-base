@@ -9,11 +9,11 @@ import type { H3Event } from 'h3'
  * scoped query silently widens to every row. An empty string matches nothing instead, which turns
  * a malformed route into the 404 the ownership helpers already answer with.
  *
- * Nitro's routing means a handler under `[tableId]/` is only reached with that param bound, so the
- * fallback is unreachable in production. It is here because being unreachable is not the same as
- * being safe to omit, and because it was once restated at every call site with the reasoning at
- * none of them. The `tableId` reads now live in `utils/handler.ts`; what is left at a route is the
- * second param — a `fieldId` or a `recordId`.
+ * Nitro's routing means a handler under `[tableAddress]/` is only reached with that param bound,
+ * so the fallback is unreachable in production. It is here because being unreachable is not the
+ * same as being safe to omit, and because it was once restated at every call site with the
+ * reasoning at none of them. The `tableAddress` reads now live in `utils/handler.ts`; what is left
+ * at a route is the second param — a `fieldId`, or a `recordAddress`.
  */
 export function routeParam(event: H3Event, name: string): string {
   return getRouterParam(event, name) ?? ''

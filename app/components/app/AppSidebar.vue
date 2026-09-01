@@ -79,7 +79,7 @@ async function submitHandler(name: string) {
  * a cuid — still marks its table.
  */
 const activeTableNumber = computed(() => {
-  const address = String(route.params.tableId ?? '')
+  const address = String(route.params.tableAddress ?? '')
   return parseTableAddress(address) || tablesStore.tableRow(address)?.number
 })
 

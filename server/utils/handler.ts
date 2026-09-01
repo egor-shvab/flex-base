@@ -23,7 +23,8 @@ import type { ITable } from '#shared/types/table'
  * covers adds a factory rather than reaching past them into `requireUser` — an options bag
  * covering four shapes would put the branching back, one level further from the route.
  *
- * **Two table routes deliberately use none of these** — `[tableId].patch` and `[tableId].delete`.
+ * **Two table routes deliberately use none of these** — `[tableAddress].patch` and
+ * `[tableAddress].delete`.
  * Their services take a `userId` and scope on it inside their own `where` clause, which is the
  * form `CLAUDE.md` §5 actually prefers; a pre-check would be a second round trip for an answer
  * the write already gives. Nothing is lost by their absence here, because those signatures
@@ -49,7 +50,7 @@ export function defineTableHandler<T>(
 ) {
   return defineEventHandler(async (event): Promise<T> => {
     const user = requireUser(event)
-    const table = await requireOwnedTable(user.id, routeParam(event, 'tableId'))
+    const table = await requireOwnedTable(user.id, routeParam(event, 'tableAddress'))
 
     return handler({ event, user, table })
   })
@@ -67,7 +68,10 @@ export function defineFieldsHandler<T>(
     const user = requireUser(event)
     // The raw address, whatever form it is in — resolving it is the helper's business, and what
     // comes back is the table's id, which is what everything below builds a `where` from
-    const { tableId, fields } = await requireOwnedTableFields(user.id, routeParam(event, 'tableId'))
+    const { tableId, fields } = await requireOwnedTableFields(
+      user.id,
+      routeParam(event, 'tableAddress'),
+    )
 
     return handler({ event, user, tableId, fields })
   })
@@ -84,7 +88,7 @@ export function defineTableWithFieldsHandler<T>(
     const user = requireUser(event)
     const { table, fields } = await requireOwnedTableWithFields(
       user.id,
-      routeParam(event, 'tableId'),
+      routeParam(event, 'tableAddress'),
     )
 
     return handler({ event, user, table, fields })
@@ -101,7 +105,10 @@ export function defineRecordWriteHandler<T>(
 ) {
   return defineEventHandler(async (event): Promise<T> => {
     const user = requireUser(event)
-    const { tableId, fields } = await requireRecordFields(user.id, routeParam(event, 'tableId'))
+    const { tableId, fields } = await requireRecordFields(
+      user.id,
+      routeParam(event, 'tableAddress'),
+    )
 
     return handler({ event, user, tableId, fields })
   })

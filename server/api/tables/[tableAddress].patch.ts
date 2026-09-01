@@ -11,7 +11,7 @@ import type { ITableListItemResponse } from '#shared/types/api'
 // forgotten here the way it could where a service takes only a `tableId`.
 export default defineEventHandler(async (event): Promise<ITableListItemResponse> => {
   const user = requireUser(event)
-  const tableId = routeParam(event, 'tableId')
+  const tableId = routeParam(event, 'tableAddress')
   const { name } = await readValidatedBody(event, tableInputSchema.parse)
   const table = await TableService.renameTable(user.id, tableId, name)
   return { table }

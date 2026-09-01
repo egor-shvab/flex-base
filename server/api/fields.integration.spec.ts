@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import fieldsGet from '#server/api/tables/[tableId]/fields/index.get'
-import fieldPatch from '#server/api/tables/[tableId]/fields/[fieldId].patch'
+import fieldsGet from '#server/api/tables/[tableAddress]/fields/index.get'
+import fieldPatch from '#server/api/tables/[tableAddress]/fields/[fieldId].patch'
 import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createField, createTable, createUser } from '~~/test/integration/seed'
@@ -18,10 +18,13 @@ let ada: IAuthUser
 let tableId: string
 let peopleId: string
 
-const fields = async () => (await fieldsGet(testEvent({ user: ada, params: { tableId } }))).fields
+const fields = async () =>
+  (await fieldsGet(testEvent({ user: ada, params: { tableAddress: tableId } }))).fields
 
 const patch = (fieldId: string, body: unknown) =>
-  fieldPatch(testEvent({ user: ada, params: { tableId, fieldId }, method: 'PATCH', body }))
+  fieldPatch(
+    testEvent({ user: ada, params: { tableAddress: tableId, fieldId }, method: 'PATCH', body }),
+  )
 
 beforeEach(async () => {
   ada = await createUser()

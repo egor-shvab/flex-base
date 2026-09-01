@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import recordsGet from '#server/api/tables/[tableId]/records/index.get'
-import recordsPost from '#server/api/tables/[tableId]/records/index.post'
-import recordGet from '#server/api/tables/[tableId]/records/[recordId].get'
-import recordPatch from '#server/api/tables/[tableId]/records/[recordId].patch'
+import recordsGet from '#server/api/tables/[tableAddress]/records/index.get'
+import recordsPost from '#server/api/tables/[tableAddress]/records/index.post'
+import recordGet from '#server/api/tables/[tableAddress]/records/[recordAddress].get'
+import recordPatch from '#server/api/tables/[tableAddress]/records/[recordAddress].patch'
 import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import { MULTI_VALUE_MAX_ITEMS, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
 import type { IAuthUser } from '#shared/types/auth'
@@ -15,7 +15,7 @@ let peopleId: string
 
 /** The endpoint's answer for a query string, as a browser would send it. */
 function list(query: Record<string, string | string[]>) {
-  return recordsGet(testEvent({ user: ada, params: { tableId }, query }))
+  return recordsGet(testEvent({ user: ada, params: { tableAddress: tableId }, query }))
 }
 
 const companies = async (query: Record<string, string | string[]>) =>
@@ -154,7 +154,7 @@ describe('what the endpoint refuses', () => {
 
 describe('writing through the endpoint', () => {
   const write = (body: unknown) =>
-    recordsPost(testEvent({ user: ada, params: { tableId }, method: 'POST', body }))
+    recordsPost(testEvent({ user: ada, params: { tableAddress: tableId }, method: 'POST', body }))
 
   it('creates a record and hands it back with its number', async () => {
     const { record } = await write({ company: 'Gamma' })
@@ -196,8 +196,15 @@ describe('writing through the endpoint', () => {
    * as an argument and cannot tell a mis-wired one from a correct one.
    */
   describe('updating one', () => {
-    const patch = (recordId: string, body: unknown) =>
-      recordPatch(testEvent({ user: ada, params: { tableId, recordId }, method: 'PATCH', body }))
+    const patch = (recordAddress: string, body: unknown) =>
+      recordPatch(
+        testEvent({
+          user: ada,
+          params: { tableAddress: tableId, recordAddress },
+          method: 'PATCH',
+          body,
+        }),
+      )
 
     /**
      * The sibling assertion is the point. "Acme became Renamed" also passes when the handler
@@ -311,7 +318,9 @@ describe('writing through the endpoint', () => {
     const bare = await createTable(ada.id, 'Bare')
 
     await expect(
-      recordsPost(testEvent({ user: ada, params: { tableId: bare.id }, method: 'POST', body: {} })),
+      recordsPost(
+        testEvent({ user: ada, params: { tableAddress: bare.id }, method: 'POST', body: {} }),
+      ),
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'This table has no fields yet' })
   })
 })
@@ -321,7 +330,7 @@ describe('the detail endpoint', () => {
     const record = await createRecord(tableId, { company: 'Gamma' })
 
     const detail = await recordGet(
-      testEvent({ user: ada, params: { tableId, recordId: record.id } }),
+      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
     )
 
     expect(detail.table).toMatchObject({ name: 'Deals' })
@@ -339,7 +348,9 @@ describe('the detail endpoint', () => {
     const record = await createRecord(other.id, {})
 
     await expect(
-      recordGet(testEvent({ user: ada, params: { tableId, recordId: record.id } })),
+      recordGet(
+        testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
+      ),
     ).rejects.toMatchObject({ statusCode: 404 })
   })
 
@@ -352,7 +363,7 @@ describe('the detail endpoint', () => {
       recordPatch(
         testEvent({
           user: ada,
-          params: { tableId, recordId: record.id },
+          params: { tableAddress: tableId, recordAddress: record.id },
           method: 'PATCH',
           body: { company: 'Beta' },
         }),
@@ -368,7 +379,9 @@ describe('the detail endpoint', () => {
  */
 describe('a record is addressable by its number as well as its cuid', () => {
   const detail = (recordAddress: string) =>
-    recordGet(testEvent({ user: ada, params: { tableId, recordId: recordAddress } }))
+    recordGet(
+      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: recordAddress } }),
+    )
 
   it('reads the same record either way', async () => {
     const { records } = await list({})
@@ -388,7 +401,7 @@ describe('a record is addressable by its number as well as its cuid', () => {
     await recordPatch(
       testEvent({
         user: ada,
-        params: { tableId, recordId: String(target.number) },
+        params: { tableAddress: tableId, recordAddress: String(target.number) },
         method: 'PATCH',
         body: { company: 'Renamed', contract_value: 100, stage: 'Won', owner: null },
       }),
@@ -404,7 +417,7 @@ describe('a record is addressable by its number as well as its cuid', () => {
 
     const inDeals = await detail('1')
     const inPeople = await recordGet(
-      testEvent({ user: ada, params: { tableId: peopleId, recordId: '1' } }),
+      testEvent({ user: ada, params: { tableAddress: peopleId, recordAddress: '1' } }),
     )
 
     expect(inDeals.record.id).not.toBe(inPeople.record.id)

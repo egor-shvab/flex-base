@@ -128,7 +128,7 @@ const loadTable = useTableLoader()
 const fieldsStore = useFieldsStore()
 const tablesStore = useTablesStore()
 /** The address the URL carries — a number going forward, a cuid from an older link. */
-const tableAddress = route.params.tableId as string
+const tableAddress = route.params.tableAddress as string
 
 // Its own key, never the records page's — a layout and a page must not share one (`decisions.md`)
 const { data, error } = await useAsyncData(`table-${tableAddress}`, () => loadTable(tableAddress))
