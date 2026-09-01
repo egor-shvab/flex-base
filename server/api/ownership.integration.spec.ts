@@ -20,12 +20,10 @@ import { testEvent } from '~~/test/integration/event'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 /**
- * The rule from `CLAUDE.md` §5, proved at the layer that enforces it rather than one below.
- *
- * A resource that exists but belongs to someone else must be **indistinguishable** from one
- * that does not exist: 404, never 403, or the status itself confirms the resource is there.
- * Every endpoint below is driven twice — once by the owner, once by a stranger — against the
- * same real rows, so a handler that reached for the wrong helper would be caught here.
+ * The rule from `CLAUDE.md` §5, proved at the layer that enforces it. Another user's resource
+ * must be **indistinguishable** from a missing one: 404, never 403, or the status confirms the
+ * resource is there. Every endpoint is driven twice, by the owner and by a stranger, against the
+ * same real rows.
  */
 
 type THandler = (event: H3Event) => unknown
@@ -286,10 +284,9 @@ describe('a relation cannot be pointed across accounts', () => {
 })
 
 /**
- * A table-scoped route names its table by the public number a URL carries or by the cuid older
- * links use. Both resolve through one owner-scoped query, which is what a stub cannot show —
- * that the compound unique exists, that it is scoped per user, and that the two forms land on
- * the same row.
+ * A table-scoped route names its table by the public number or by the cuid older links use, both
+ * resolving through one owner-scoped query — which is what a stub cannot show: that the compound
+ * unique exists, is scoped per user, and lands both forms on the same row.
  */
 describe('a table is addressable by its number as well as by its cuid', () => {
   it('answers identically either way', async () => {
@@ -307,9 +304,8 @@ describe('a table is addressable by its number as well as by its cuid', () => {
   })
 
   /**
-   * Numbers are guessable where a cuid was not, so this is the case that matters most. Ada owns
-   * `1` and `2`, so Mallory's third is a number Ada has no row for — asking for it must be a 404
-   * and must never reach across the account.
+   * Numbers are guessable where a cuid is not, so this matters most: Ada owns `1` and `2`, and
+   * Mallory's third is a number Ada has no row for.
    */
   it('404s on a number only another account has', async () => {
     await createTable(world.mallory.id, 'One')

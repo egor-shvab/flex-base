@@ -4,13 +4,10 @@ import type { ISelectOption } from '~/types/select'
 import { mountTracked } from '~~/test/mount'
 
 /**
- * The shared rig for `BaseSelect`'s four spec files. It was one 924-line file until the
- * concerns — what it renders, the keyboard, selection, searching — were split apart; this is
- * what they all needed and none of them owns.
+ * The shared rig for `BaseSelect`'s four spec files — what they all need and none owns.
  *
  * Everything below reads the **document** rather than the wrapper, because the panel teleports
- * to `<body>`: `BaseModal` marks `#__nuxt` inert while a dialog is open and `inert` is
- * inherited, so a panel rendered in place would be unreachable inside one.
+ * to `<body>` (`BaseModal` marks `#__nuxt` inert, and `inert` is inherited).
  */
 export const OPTIONS: ISelectOption[] = [
   { value: 'a', label: 'Alpha' },
@@ -41,11 +38,9 @@ export function keydown(element: Element, key: string, init: KeyboardEventInit =
 }
 
 /**
- * Props are widened at this one boundary on purpose. The component is generic over its model,
- * and one case deliberately passes a shape the declared types forbid — `multiple: ''`, what a
- * bare attribute actually arrives as — which no honest signature can express alongside the
- * typed cases. Everything asserted afterwards is read back off the rendered DOM, which is where
- * the real contract lives.
+ * Props are widened at this one boundary: one case deliberately passes `multiple: ''` — what
+ * a bare attribute arrives as — which the declared types forbid and no honest signature can
+ * express alongside the typed cases. Everything asserted afterwards is read off the DOM.
  */
 export async function select(
   props: Record<string, unknown> = {},

@@ -126,8 +126,7 @@ describe('BaseSelect', () => {
 
   /**
    * The panel is teleported to `<body>`, so the browser's own tab order runs past the whole app
-   * before reaching it — Tab out of the field is the only route to the one control inside. The
-   * button was reachable by pointer alone until this existed.
+   * before reaching it — Tab out of the field is the only route to the one control inside.
    */
   describe('reaching Retry from the keyboard', () => {
     it('moves focus into the panel instead of closing it', async () => {
@@ -175,9 +174,9 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * The default is deliberately **not** cancelled: `dismiss()` returns focus to the control
-     * synchronously, so the browser continues from there and one press leaves the select. Cancel
-     * it and Tab becomes a loop back into the field the user was trying to leave.
+     * The default is **not** cancelled: `dismiss()` returns focus to the control synchronously,
+     * so the browser continues from there and one press leaves the select. Cancel it and Tab
+     * loops back into the field the user was trying to leave.
      */
     it('closes and lets the browser carry on past the control on Tab', async () => {
       const { wrapper } = await failedSearch()
@@ -210,9 +209,9 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * `retry()` flips the status to `loading` synchronously, which unmounts the button being
-     * pressed — without the handoff focus falls to `<body>`, and the keyboard user who just
-     * reached the control would be dropped out of the dialog entirely.
+     * `retry()` flips the status to `loading` synchronously, unmounting the button being pressed
+     * — without the handoff focus falls to `<body>`, dropping the keyboard user out of the
+     * dialog entirely.
      */
     it('re-issues the request and hands focus back to the field', async () => {
       const { wrapper, loadOptions } = await failedSearch()

@@ -139,9 +139,8 @@ if (error.value) {
 
 /**
  * The list row for this table, when the layout's `ensureTables` has loaded one. It carries the
- * counts, and it is the copy a rename writes to — `renameTable` updates the store, not this
- * page's `data`, so reading the name from here is what keeps the heading and the breadcrumbs
- * in step without a refetch.
+ * counts and is what a rename writes to — `renameTable` updates the store, not this page's
+ * `data`, so reading the name here keeps the heading and breadcrumbs in step without a refetch.
  */
 const cachedTableRow = computed(() => tablesStore.tableRow(tableAddress))
 
@@ -169,12 +168,10 @@ const recordCount = computed(() =>
 const fieldCount = computed(() => fieldsStore.fields.length)
 
 /**
- * What a field's configuration line may need beyond the field's own metadata — only a RELATION's
- * target table name. The page owns the store, so the lookup is handed down rather than reached
- * for inside a registry entry.
- *
- * A plain object rather than a computed: `tableName` is *called* during the list's render, so it
- * is `tables` the render effect tracks, and this needs no identity of its own.
+ * What a field's configuration line may need beyond its own metadata — only a RELATION's target
+ * table name. The page owns the store, so the lookup is handed down rather than reached for
+ * inside a registry entry. A plain object rather than a computed: `tableName` is *called* during
+ * the list's render, so it is `tables` the render effect tracks.
  */
 const summaryContext: IFieldConfigSummaryContext = {
   tableName: (id) => tablesStore.tableRow(id)?.name,
@@ -205,9 +202,9 @@ async function submitField(input: TFieldInput) {
 }
 
 /**
- * Deleting the table leaves nowhere to stand, so the navigation is part of the removal rather
- * than something that follows it. A refusal — another table's RELATION points here — is caught
- * by the composable and rendered in the dialog, which is why nothing is rethrown.
+ * Deleting the table leaves nowhere to stand, so the navigation is part of the removal. A
+ * refusal — another table's RELATION points here — is caught by the composable and rendered in
+ * the dialog, which is why nothing is rethrown.
  */
 const {
   target: tableDeleteTarget,
@@ -234,8 +231,8 @@ const {
   &__header {
     @include page-header;
 
-    // The stack above already spaces the sections; `page-header` carries its own bottom
-    // margin for pages that do not stack, and here the two would compound.
+    // The stack above already spaces the sections, and `page-header`'s own bottom margin —
+    // there for pages that do not stack — would compound with it
     margin-bottom: 0;
   }
 
@@ -278,8 +275,8 @@ const {
     font-variant-numeric: tabular-nums;
   }
 
-  // Pushed to the far edge rather than the row being `space-between`: the title, the count
-  // and the action are three items, and only the last one belongs on the right.
+  // Pushed to the far edge rather than `space-between`: three items, and only the last belongs
+  // on the right
   &__action {
     margin-left: auto;
   }

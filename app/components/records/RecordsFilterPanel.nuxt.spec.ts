@@ -59,10 +59,9 @@ const lastFilters = (wrapper: TPanel) =>
   wrapper.emitted('update:filters')?.at(-1)?.[0] as TRecordFilterValues | undefined
 
 /**
- * Types into a control the way `BaseInput` reads it — raw `el.value` plus an input event — and
- * then drives the 300ms debounce every typed filter carries, since a query input must not hit
- * the API on each keystroke. Fake timers are switched on only for the wait: turning them on
- * around a `mountSuspended` would stall the mount itself.
+ * Types the way `BaseInput` reads — raw `el.value` plus an input event — then drives the 300ms
+ * debounce every typed filter carries. Fake timers are switched on only for the wait: around a
+ * `mountSuspended` they would stall the mount itself.
  */
 async function typeInto(element: HTMLInputElement, value: string) {
   vi.useFakeTimers()
@@ -126,9 +125,8 @@ describe('RecordsFilterPanel', () => {
     })
 
     /**
-     * A control that discards what is typed into it is a dead control. A legacy field keyed
-     * like a reserved param claims no query param, so its filter could never round-trip — and
-     * `filterableFields` drops it here rather than offering a box that forgets.
+     * A control that discards what is typed into it is a dead control: a legacy field keyed
+     * like a reserved param claims no query param, so its filter could never round-trip.
      */
     it('offers no control for a field whose filter could not round-trip', async () => {
       await panel({
@@ -242,10 +240,7 @@ describe('RecordsFilterPanel', () => {
       expect(lastFilters(wrapper)).toEqual({})
     })
 
-    /**
-     * Invisible in the values, and the whole reason the map is rebuilt rather than patched: two
-     * users filtering the same columns in a different order must produce the same link.
-     */
+    /** Why the map is rebuilt rather than patched: the same filters must produce one link. */
     it('emits keys in column order, whichever control was touched', async () => {
       const wrapper = await panel({ filters: { active: true } })
 

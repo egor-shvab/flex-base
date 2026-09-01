@@ -15,13 +15,12 @@ import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createTable, createUser } from '~~/test/integration/seed'
 
 /**
- * The half the unit spec cannot reach. It asserts the statements; this executes them and then
- * asks the planner whether it will use what they built.
+ * The half the unit spec cannot reach: it asserts the statements, this executes them and asks
+ * the planner whether it will use what they built.
  *
  * **That question is the point of this file.** The index expression inlines the field key while
- * the query binds it, so the two are generated separately and could drift apart — at which point
- * every row still comes back correct and only the speed is gone. Nothing else in the suite would
- * notice.
+ * the query binds it, so the two could drift apart — at which point every row still comes back
+ * correct and only the speed is gone.
  */
 
 let tableId: string
@@ -66,15 +65,12 @@ async function planForFilter(fields: IField[], filters: TRecordFilterValues): Pr
 /**
  * The plan for the production ORDER BY of one field, **with sorting made expensive**.
  *
- * The filter cases above assert the index is *chosen*, which is the stronger claim. An ordering
- * cannot: whether an index beats sorting the rows outright depends on how many there are, so at
- * a size a test can afford the planner may quite correctly sort instead — and asserting
- * otherwise would only pin the row count.
- *
- * What matters here is that the index is **usable**: that the expression it was built on matches
- * the one the query emits, which is the thing that silently breaks. `SET LOCAL enable_sort`
- * removes the alternative and asks exactly that question. It has to run inside a transaction, or
- * the setting lands on whichever pooled connection took it and not on the `EXPLAIN`.
+ * The filter cases above assert the index is *chosen*, which an ordering cannot: whether an
+ * index beats sorting depends on the row count, so at a size a test can afford the planner may
+ * correctly sort instead. What matters is that the index is **usable** — that the expression it
+ * was built on matches the one the query emits — which `SET LOCAL enable_sort` asks directly. It
+ * must run inside a transaction, or the setting lands on a pooled connection and not the
+ * `EXPLAIN`.
  */
 async function planForSort(
   fields: IField[],
@@ -193,11 +189,10 @@ describe('a declared index is one the planner actually uses', () => {
   }, 60_000)
 
   /**
-   * The case Stage 2 turns on. A relation filter arrives as the target's *number*, and
-   * `RelationService.resolveFilterTargets` substitutes the stored id **before** the builder runs
-   * — precisely so the comparison stays a constant against the indexed expression. Comparing
-   * through a subquery on `"Record"."number"` instead would type-check, return the same rows, and
-   * quietly cost a sequential scan; only a plan says otherwise, which is why this asserts one.
+   * A relation filter arrives as the target's *number*, and `resolveFilterTargets` substitutes
+   * the stored id **before** the builder runs, so the comparison stays a constant against the
+   * indexed expression. A subquery on `"Record"."number"` would type-check, return the same rows
+   * and quietly cost a sequential scan — only a plan says otherwise.
    *
    * The filters below hold ids, because that is what the builder is handed after resolution.
    */
@@ -264,9 +259,8 @@ describe('the index lifecycle', () => {
   }, 60_000)
 
   /**
-   * The failure mode `IF NOT EXISTS` would otherwise make permanent: a `CONCURRENTLY` build that
-   * fails leaves an **invalid** index behind, which costs every write, serves no read, and looks
-   * present enough that a rebuild would skip it forever.
+   * The failure `IF NOT EXISTS` would make permanent: a failed `CONCURRENTLY` build leaves an
+   * **invalid** index that costs every write, serves no read, and looks present enough to skip.
    */
   it('replaces an invalid index rather than leaving it in place', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
@@ -314,9 +308,8 @@ describe('the index lifecycle', () => {
     const [value] = await createFields(tableId, [
       { key: 'contract_value', type: 'NUMBER', indexed: true },
     ])
-    // The same size and filter the case above proves the planner serves from this index — a
-    // smaller table would have it quite reasonably scan instead, and this case would then be
-    // measuring the planner rather than the statistics plumbing it exists to check
+    // The same size and filter the case above proves the planner serves from this index; a
+    // smaller table would scan instead, measuring the planner rather than the statistics
     await seedRows()
     await syncFieldIndexes(value as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
@@ -327,11 +320,10 @@ describe('the index lifecycle', () => {
       query({ filters: { contract_value: { from: 1, to: 5 } } }),
     )
 
-    // **Polled, and that is not flakiness being papered over.** A backend reports index usage
-    // to the shared statistics no more often than once a second, and a session caches the
-    // snapshot it reads — so the counter is genuinely not there yet the instant the query
-    // returns. Measured directly: zero immediately, one after a second. Waiting a fixed second
-    // would be slower and no more certain.
+    // **Polled, and not flakiness papered over.** A backend reports index usage to the shared
+    // statistics at most once a second and a session caches its snapshot, so the counter is
+    // genuinely absent the instant the query returns. A fixed wait would be slower and no more
+    // certain.
     const scanned = await waitForScan()
 
     expect(scanned).toBe(true)

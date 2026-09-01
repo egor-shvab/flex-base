@@ -17,14 +17,14 @@ import type { IOkResponse } from '#shared/types/api'
 import { clientErrorReportSchema } from '#shared/validation/client-error'
 
 /**
- * Where the browser reports an error it raised, so the client half of the app stops being a blind
- * spot. The entry lands in the same NDJSON log as a server fault, tagged `"source":"client"`.
+ * Where the browser reports an error it raised. The entry lands in the same NDJSON log as a
+ * server fault, tagged `"source":"client"`.
  *
- * **Deliberately unauthenticated.** An error on the login page is exactly the kind worth having,
- * so requiring a session would blind the endpoint to it. The auth middleware still runs, so a
- * signed-in report carries its user id — read from the cookie, never from the body.
+ * **Deliberately unauthenticated** — an error on the login page is exactly the kind worth having.
+ * The auth middleware still runs, so a signed-in report carries its user id, read from the
+ * cookie and never from the body.
  *
- * That makes this the app's only write surface open to anyone, and the two guards below are the
+ * That makes this the app's only write surface open to anyone, so the two guards below are the
  * substance of it rather than decoration.
  */
 const limiter = createRateLimiter({
@@ -37,9 +37,8 @@ const limiter = createRateLimiter({
 export default defineEventHandler(async (event): Promise<IOkResponse> => {
   /**
    * Checked **before the stream is read**, so an oversized body is refused rather than buffered.
-   * A missing length is refused too, and that is the load-bearing half: capping only the declared
-   * length would leave chunked encoding as an uncapped path straight into memory. Every browser
-   * `fetch` with a string body sets it.
+   * A missing length is refused too, and that is the load-bearing half: capping only a declared
+   * length leaves chunked encoding as an uncapped path into memory.
    */
   const declaredLength = Number(getRequestHeader(event, 'content-length'))
   if (!Number.isFinite(declaredLength) || declaredLength <= 0) {
@@ -50,10 +49,9 @@ export default defineEventHandler(async (event): Promise<IOkResponse> => {
   }
 
   /**
-   * Keyed on the socket address, **not** on `x-forwarded-for`: nothing here knows which proxies
-   * to trust, and an attacker-controlled header would make the limit opt-out. Behind a proxy this
-   * degrades to one shared allowance — too strict rather than bypassable, which is the right way
-   * for a guard to fail.
+   * Keyed on the socket address, **not** `x-forwarded-for`: nothing here knows which proxies to
+   * trust, and an attacker-controlled header would make the limit opt-out. Behind a proxy it
+   * degrades to one shared allowance — too strict rather than bypassable.
    */
   if (!limiter.check(getRequestIP(event) ?? 'unknown', Date.now())) {
     throw createError({ statusCode: 429, statusMessage: 'Too many reports' })

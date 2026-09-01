@@ -20,9 +20,9 @@ export const RELATION_FIELD_SQL: IFieldSqlModule = {
     sortJoin: targetLabelJoin,
     filter: matchesExactly,
     filterIndex: 'btree',
-    // **No index orders this column**, because the value it orders by is not in it. What the
-    // join does exploit is the `filterIndex` above — it probes the very column that indexes,
-    // which is why opting a relation in speeds its ordering as well as its filter.
+    // **No index orders this column**, because the value it orders by is not in it. The join
+    // does probe the `filterIndex` above, which is why opting a relation in speeds its
+    // ordering as well as its filter.
     sortIndex: null,
   },
   // Same comparison over ids; still not searchable, for the reason above — which the array

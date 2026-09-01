@@ -1,13 +1,12 @@
 /**
  * The one rule standing between a misconfigured connection string and real work.
  *
- * Both the integration and the end-to-end suites wipe every table between cases, and both run
- * against the same PostgreSQL container the development database lives on. A database is
- * treated as disposable only if its name says so — `flexbase_test`, `flexbase_e2e` — and
- * anything else is refused before a single statement runs.
+ * Both suites wipe every table between cases, against the same container the development
+ * database lives on. A database is disposable only if its name says so — `flexbase_test`,
+ * `flexbase_e2e` — and anything else is refused before a statement runs.
  *
- * Never widen this to "the URL differs from `DATABASE_URL`": the development URL is exactly
- * what a forgotten override leaves behind.
+ * Never widen this to "the URL differs from `DATABASE_URL`": the development URL is exactly what
+ * a forgotten override leaves behind.
  */
 const DISPOSABLE_SUFFIX = /_(test|e2e)$/
 

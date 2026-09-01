@@ -11,25 +11,21 @@ const DATABASE_URL =
 
 const JWT_SECRET = 'integration-not-a-real-secret'
 
-// Assigned here as well as declared in `test.env` below: `test.env` reaches the worker
-// processes the specs run in, but `globalSetup` runs in this one — and that is where the
-// guard against pointing at a non-disposable database lives.
+// Assigned here as well as in `test.env` below: `test.env` reaches the worker processes, but
+// `globalSetup` runs in this one — and that is where the disposable-database guard lives
 process.env.DATABASE_URL = DATABASE_URL
 process.env.JWT_SECRET = JWT_SECRET
 
 /**
  * The third project: real PostgreSQL, real Prisma client, real handlers. Deliberately **not**
- * listed in `vitest.config.ts` under `test.projects` — `npm run test` stays database-free, so
- * the inner loop and the main CI job are unaffected by whether a database is running.
+ * listed under `test.projects` — `npm run test` stays database-free.
  *
- * What this project exists to prove is the half a stub cannot: that the SQL the builder emits
- * actually executes, that the raw-SQL widening migration does what it claims to stored rows,
- * that the record counter holds under concurrent writes, and that the ownership rules survive
- * all the way out to the endpoint rather than only one layer below it.
+ * It proves the half a stub cannot: that the SQL executes, that the widening migration does what
+ * it claims to stored rows, that the record counter holds under concurrent writes, and that the
+ * ownership rules survive out to the endpoint.
  *
- * Handlers are invoked directly with a constructed `H3Event` rather than over HTTP: that runs
- * `requireUser` → ownership → zod → service for real, and skips only Nitro's routing, which is
- * generated rather than written and which Playwright covers from the outside.
+ * Handlers are invoked directly with a constructed `H3Event`, which runs `requireUser` →
+ * ownership → zod → service for real and skips only Nitro's routing.
  */
 export default defineConfig({
   test: {
@@ -47,10 +43,9 @@ export default defineConfig({
 
     env: { DATABASE_URL, JWT_SECRET },
 
-    // This project is the only one that reaches `server/api/` and `server/middleware/`, so its
-    // numbers are the only honest ones for those twenty files. It reports nothing on its own:
-    // `npm run coverage:collect` writes a blob here and merges it into the root run's report.
-    // Scoped to the server half deliberately — see `vitest.coverage.config.ts`.
+    // The only project reaching `server/api/` and `server/middleware/`, so its numbers are the
+    // only honest ones there. It reports nothing on its own: `coverage:collect` writes a blob
+    // here and merges it into the root run's report.
     coverage: { ...COVERAGE_BASE, include: SERVER_INCLUDE },
   },
 

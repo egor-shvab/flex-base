@@ -1,9 +1,8 @@
 /**
- * A URL query as the router hands one over: a value, or the repeats of one. Spelled out here
- * rather than imported from `vue-router`, which `shared/` deliberately cannot see — and kept
- * assignable in both directions, so a codec can read `route.query` and hand back something a
- * `<NuxtLink to>` accepts. `undefined` is a value the router drops, which is how a codec
- * removes a param rather than emitting an empty one.
+ * A URL query as the router hands one over: a value, or the repeats of one. Spelled out rather
+ * than imported from `vue-router`, which `shared/` cannot see, and assignable both ways so a
+ * codec can read `route.query` and hand back something `<NuxtLink to>` accepts. `undefined` is
+ * dropped by the router, which is how a codec removes a param.
  */
 export type TUrlQueryValue = string | null | undefined
 

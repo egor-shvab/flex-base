@@ -1,11 +1,8 @@
 /**
- * The one source of variation in the seed, and it is not random.
- *
- * Two tables are large enough that writing every row out by hand would buy nothing over
- * recombining curated pools — but a seed that differs between runs is a seed nobody can write a
- * test or a bug report against. mulberry32 seeded from a constant gives the same sequence every
- * time, on every platform, with no dependency: `Math.random` is exactly what must not be used
- * here.
+ * The one source of variation in the seed, and it is not random: a seed that differs between runs
+ * is one nobody can write a test or a bug report against. mulberry32 from a constant gives the
+ * same sequence every time, on every platform, with no dependency — `Math.random` is exactly
+ * what must not be used here.
  */
 export function createRandom(seed: number): () => number {
   let state = seed >>> 0

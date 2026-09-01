@@ -5,9 +5,8 @@
         <slot />
       </p>
       <!--
-        The server's reason for refusing, which is the useful half of a failed delete — a table
-        still pointed at by a relation names the field to remove first. Rendered here rather
-        than left to each page, because `useDeleteConfirm` already holds it for all three.
+        The server's reason for refusing — a table still pointed at by a relation names the
+        field to remove first. Here rather than per page, since `useDeleteConfirm` holds it.
       -->
       <BaseErrorBanner class="confirm-modal__error" :message="error" />
       <div class="confirm-modal__actions">
@@ -53,8 +52,8 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
     margin: 0 0 rem(16);
   }
 
-  // Placement only — `BaseErrorBanner` owns the look. The rule still reaches it because a child
-  // component's root carries the parent's scope id.
+  // Placement only — `BaseErrorBanner` owns the look; a child's root carries the parent's
+  // scope id, so the rule still reaches it
   &__error {
     margin: 0 0 rem(16);
   }

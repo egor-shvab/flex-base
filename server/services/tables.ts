@@ -20,15 +20,12 @@ async function listTables(userId: string): Promise<ITableListItem[]> {
 }
 
 /**
- * The table's list row as it stands now — what a write to its fields or its records answers
- * with, so the counts the sidebar and the dashboard draw are **received rather than computed**.
- * The client used to move them by a delta of its own, which is arithmetic over a number only
- * the database knows.
+ * The table's list row as it stands — what a write to its fields or records answers with, so the
+ * counts the sidebar and dashboard draw are **received rather than computed**.
  *
  * Scoped by owner like every other write here, even though all four callers reach it through a
- * factory that has already proven ownership. The check costs nothing on a query that has to run
- * anyway, and it is the signature rather than the caller that enforces it — a fifth caller that
- * has proven nothing cannot compile.
+ * factory that has already proven ownership: the check costs nothing on a query that runs
+ * anyway, and it is the signature that enforces it, so a fifth caller cannot compile.
  */
 async function getTableListRow(userId: string, tableId: string): Promise<ITableListItem> {
   try {
@@ -44,10 +41,9 @@ async function getTableListRow(userId: string, tableId: string): Promise<ITableL
 }
 
 /**
- * The table's number is allocated from its owner's counter in the same transaction as the
- * insert — the same shape `createRecord` uses one level down. The atomic increment takes the
- * user's row lock, so two concurrent creates queue rather than racing for one number and no
- * retry loop is needed.
+ * The number is allocated from its owner's counter in the same transaction as the insert — the
+ * shape `createRecord` uses one level down. The atomic increment takes the user's row lock, so
+ * concurrent creates queue rather than race.
  *
  * A failed create leaves no gap: a duplicate name raises inside the transaction, so the
  * increment rolls back with it. Gaps come only from deletes, which is the point of a

@@ -68,16 +68,14 @@ export function formatTimestamp(value: string): string {
 }
 
 /**
- * How many records a narrowed list is showing — the filter drawer's footer and the summary line
- * above the table both state it, and they used to build the sentence separately.
+ * How many records a narrowed list is showing — the filter drawer's footer and the summary
+ * line above the table both state it.
  *
- * Deliberately **not** through `formatNumber`: the count is unseparated today (`1284 matching
- * records`), and routing it through the thousands formatter here would change user-visible copy
- * under the guise of removing a duplicate. A separate decision, if it is ever wanted.
+ * Deliberately **not** through `formatNumber`: the count is unseparated (`1284 matching
+ * records`), and routing it through the thousands formatter would change user-visible copy.
  */
 export function formatMatchingRecords(total: number, capped = false): string {
-  // Past the cap the count is a floor, so it is stated as one — `1000 matching records` would
-  // be a number the server never established
+  // Past the cap the count is a floor, so it is stated as one
   if (capped) return `${total}+ matching records`
 
   return `${total} matching ${total === 1 ? 'record' : 'records'}`

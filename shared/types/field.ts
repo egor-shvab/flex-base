@@ -4,9 +4,8 @@ import type { TBadgeColor } from '#shared/types/color'
 export type TFieldType = (typeof FIELD_TYPES)[number]
 
 /**
- * One SELECT option. `value` is both the label and the identity: a record stores this
- * string, so renaming a choice orphans the records already holding the old one — the same
- * behaviour as before colours existed (see `docs/decisions.md`).
+ * One SELECT option. `value` is both the label and the identity: a record stores this string,
+ * so renaming a choice orphans the records holding the old one (`docs/decisions.md`).
  */
 export interface IFieldChoice {
   value: string
@@ -20,12 +19,9 @@ export interface IFieldOptions {
   /** RELATION: which of the target's fields labels a linked record, in the UI and in ORDER BY. */
   labelFieldKey?: string
   /**
-   * SELECT / RELATION: the field holds a list of values rather than one, stored as a JSON array.
-   * One-way — a single-value field can be widened (its data migrates with it), but narrowing
-   * would have to discard values with no non-arbitrary rule for which survives.
-   *
-   * Read through `isMultiValue`, never directly: only the types `MULTI_VALUE_BY_TYPE` allows
-   * may honour it.
+   * SELECT / RELATION: the field holds a list, stored as a JSON array. One-way — widening
+   * migrates the data, where narrowing would discard values with no rule for which survives.
+   * Read through `isMultiValue`, never directly.
    */
   multiple?: boolean
 }
@@ -39,9 +35,8 @@ export interface IField {
   options: IFieldOptions | null
   order: number
   /**
-   * Whether this field carries indexes for sorting and filtering. Opt-in per field: an index
-   * speeds those reads and slows every write, so the cost lands where someone asked for it.
-   * Which indexes that means is the field type's business (`IFieldSqlRules`).
+   * Whether this field carries indexes for sorting and filtering. Opt-in per field, since an
+   * index slows every write; which indexes it means is the type's business (`IFieldSqlRules`).
    */
   indexed: boolean
 }

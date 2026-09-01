@@ -12,9 +12,8 @@ import {
 } from '~~/test/fixtures'
 
 /**
- * What a field asks the database for, without asking it. The statements are built here and
- * executed in `field-indexes.integration.spec.ts`; only that half can prove the planner
- * actually *uses* what this half emits.
+ * What a field asks the database for, without asking it. `field-indexes.integration.spec.ts`
+ * executes the statements — only that half can prove the planner *uses* what this one emits.
  */
 
 const indexed = <T extends { key: string }>(f: T) => ({ ...f, indexed: true })
@@ -37,8 +36,7 @@ describe('fieldIndexes — what a field asks for', () => {
 
   /**
    * A range type's filter index already stores the column ascending, so it *is* the ascending
-   * sort index — no second copy. The descending one is unavoidable and is the whole reason
-   * sorting is two purposes rather than one.
+   * sort index. The descending one is unavoidable, and the reason sorting is two purposes.
    */
   it('reuses a range type’s filter B-tree for the ascending sort, and adds only the descending one', () => {
     const indexes = fieldIndexes(indexed(numberField()))
@@ -58,9 +56,8 @@ describe('fieldIndexes — what a field asks for', () => {
   })
 
   /**
-   * The cardinality override, which is the reason these rules live on `IFieldSqlRules` rather
-   * than on the module: one SELECT wants a B-tree over the stored text, the other a GIN over the
-   * array it stores instead — and `sqlFor` already knows which is which.
+   * The cardinality override, and why these rules live on `IFieldSqlRules` rather than the
+   * module: one SELECT wants a B-tree over the stored text, the other a GIN over the array.
    */
   it('switches a widened SELECT from a B-tree to a GIN on the sub-path', () => {
     const single = fieldIndexes(indexed(selectField()))
@@ -89,13 +86,12 @@ describe('fieldIndexes — what a field asks for', () => {
   })
 
   /**
-   * Names come from `Field.id`, never the key: a field *name* may be 100 characters, `slugify`
-   * maps it roughly 1:1, and PostgreSQL truncates identifiers past 63 bytes **silently** — so
-   * two long keys on one table would collide into one index.
+   * Names come from `Field.id`, never the key: PostgreSQL truncates identifiers past 63 bytes
+   * **silently**, so two long keys on one table would collide into one index.
    */
   it('names an index from the field id, not its key, and stays inside the identifier limit', () => {
-    // A real id is a cuid whatever the key is — that is the whole point: the key may be 100
-    // characters, and a name built from it would be truncated into a collision
+    // A real id is a cuid whatever the key is — the point, since a 100-character key would be
+    // truncated into a collision
     const id = 'cmsxxxxxxxxxxxxxxxxxxxxxx'
     const longKey = 'a'.repeat(100)
     const [index] = fieldIndexes(indexed(field({ id, key: longKey, type: 'NUMBER' })))

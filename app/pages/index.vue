@@ -62,10 +62,9 @@ import { toTableAddress } from '#shared/utils/address'
 
 useSeoMeta({ title: 'Your tables' })
 
-// No fetch of its own: the layout's `ensureTables` loads the list, and the counts it carries
-// are kept honest at the source — the records and fields stores tell this one when a write
-// moves a count. This page used to refetch the whole list on every client-side entry to paper
-// over that, which fixed Home and left the sidebar's counts stale everywhere else.
+// No fetch of its own: the layout's `ensureTables` loads the list, and the records and fields
+// stores tell this one whenever a write moves a count — refetching here instead would fix Home
+// and leave the sidebar's counts stale everywhere else
 const tablesStore = useTablesStore()
 
 const {
@@ -125,14 +124,14 @@ const {
     box-shadow: var(--shadow-sm);
   }
 
-  // The link fills the card, so the card wears the ring — a ring on the link itself
-  // would draw a square rect straddling the rounded corner and the actions divider.
-  // `:has(:focus-visible)` rather than `:focus-within`, which also fires on a click.
+  // The link fills the card, so the card wears the ring — on the link it would draw a square
+  // rect straddling the rounded corner and the actions divider. `:has(:focus-visible)` rather
+  // than `:focus-within`, which also fires on a click.
   &:has(:focus-visible) {
     outline: var(--focus-ring-width) solid var(--color-focus);
     outline-offset: var(--focus-ring-offset);
     // Composed rather than replaced: the rule above lifts the card on focus, and a bare halo
-    // here would drop that lift instead of sitting behind it
+    // would drop that lift
     box-shadow: var(--shadow-sm), var(--focus-ring-halo);
   }
 

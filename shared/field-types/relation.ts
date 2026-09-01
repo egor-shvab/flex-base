@@ -2,12 +2,10 @@ import { z } from 'zod'
 import type { IFieldTypeModule } from '#shared/field-types/types'
 
 /**
- * A reference to a target record — the same schema whether a field holds one or several.
- *
- * Deliberately no narrower than "non-empty". A stored value is the target's **id**, but a
- * *filter* value is its **address** (the number a URL carries, or an id from an older link),
- * and this one schema validates both: whether the reference resolves is a database question,
- * which `assertRelationTargets` answers for a write and `resolveFilterTargets` for a filter.
+ * A reference to a target record — one schema whether a field holds one or several, and no
+ * narrower than "non-empty": a stored value is the target's **id**, a *filter* value its
+ * **address**. Whether a reference resolves is a database question, answered by
+ * `assertRelationTargets` for a write and `resolveFilterTargets` for a filter.
  */
 function relationReference(): z.ZodType<string> {
   return z.string().min(1, 'Choose a record')

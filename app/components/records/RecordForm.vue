@@ -27,8 +27,8 @@ const props = defineProps<{
   errors: Partial<Record<string, string>>
 }>()
 
-// Values flow down as props and changes flow back up as events — the form object
-// belongs to the parent's `useForm`, so this component never mutates it.
+// Values down as props, changes up as events — the form object belongs to the parent's
+// `useForm`, so this component never mutates it
 const emit = defineEmits<{ update: [key: string, value: TRecordValue] }>()
 
 const formId = useId()

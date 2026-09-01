@@ -14,9 +14,9 @@ interface IUseListboxNavigationInput {
   /** `usePopover`'s `open` — the re-clamp below must not fire while the list is closed. */
   isOpen: Readonly<Ref<boolean>>
   /**
-   * Whether a list that changed underneath *no* cursor should take one. True exactly when the
-   * change is the user's own typing narrowing the list, so `Enter` commits the top match; false
-   * for options merely arriving, which would otherwise light a row up on their own.
+   * Whether a list that changed underneath *no* cursor should take one. True when the user's
+   * own typing narrowed it, so `Enter` commits the top match; false for options merely
+   * arriving, which would light a row up on their own.
    */
   shouldSeedCursor: () => boolean
 }
@@ -25,14 +25,9 @@ interface IUseListboxNavigationInput {
  * The cursor into a listbox: which option is active, how the keys move it, and keeping it
  * visible and valid as the list changes underneath.
  *
- * This is **decomposition of `BaseSelect`, not a general-purpose composable** — it exists
- * because that component is otherwise a popover, two control branches, two keyboard
- * dispatchers, a search model and an async pipeline in one file. There is a single consumer;
- * do not reuse it elsewhere expecting a stable contract. The same warning as
- * `useSelectOptions`, for the same reason.
- *
- * Extracted on SRP grounds, not DRY — `docs/decisions.md` rejects extracting for reuse at
- * one consumer, and that entry is about a different motive.
+ * **Decomposition of `BaseSelect`, not a general-purpose composable.** One consumer; do not
+ * reuse it expecting a stable contract. Extracted on SRP grounds rather than DRY — the same
+ * standing as `useSelectOptions` (`docs/decisions.md`).
  */
 export function useListboxNavigation(input: IUseListboxNavigationInput) {
   const activeIndex = ref(-1)
@@ -114,20 +109,19 @@ export function useListboxNavigation(input: IUseListboxNavigationInput) {
     clearTimeout(typeTimer)
   }
 
-  // Keyed on the option *values*, not the array: the source is rebuilt by a `props(field)`
-  // factory on every parent render, and resetting the highlight on that would fight the user.
+  // Keyed on the option *values*, not the array: a `props(field)` factory rebuilds the source
+  // on every parent render, and resetting the highlight on that would fight the user.
   //
-  // `flush: 'post'` for an ordering that is otherwise invisible: a typed term narrows the list
-  // in the same tick that opens the panel, and this watcher is created before the one that
-  // opens it — a pre-flush run would see `isOpen` still false and skip the seed that term is
-  // owed. Keying on `isOpen` instead would make *opening* re-clamp a cursor a printable key had
-  // just placed, which is the same bug from the other side.
+  // `flush: 'post'` because a typed term narrows the list in the tick that opens the panel,
+  // and this watcher is created first — pre-flush it would see `isOpen` false and skip the
+  // seed. Keying on `isOpen` is the same bug from the other side: opening would re-clamp a
+  // cursor a printable key had just placed.
   watch(
     () => optionValuesKey(input.options()),
     () => {
       if (!input.isOpen.value) return
-      // A changed list re-clamps a cursor; it does not *create* one. Without this an async
-      // select highlights a row the moment its options land, which no one asked it to do.
+      // A changed list re-clamps a cursor; it does not *create* one, or an async select
+      // highlights a row the moment its options land
       if (activeIndex.value < 0 && !input.shouldSeedCursor()) return
 
       activeIndex.value = input.options().length === 0 ? -1 : nextEnabledIndex(0, 1)

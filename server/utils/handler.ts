@@ -13,26 +13,20 @@ import type { ITable } from '#shared/types/table'
 
 /**
  * Handler factories for the table-scoped routes: **the ownership check is how the context comes
- * into existence**, so a handler cannot be written that forgets it. Before these, every one of
- * them opened with the same `requireUser` → `routeParam` → `require*` preamble, and the app's
- * central rule — a table-scoped request proves ownership first — was enforced by review alone: a
- * new handler that skipped it compiled, linted, type-checked and served another user's rows.
+ * into existence**, so a handler cannot be written that forgets it. Otherwise the rule is
+ * enforced by review alone, and a handler that skipped it would compile, lint, type-check and
+ * serve another user's rows.
  *
- * **There is exactly one factory per `require*` helper in `ownership.ts`, and that is the whole
- * list.** They are not a general middleware layer, and a handler needing a shape none of them
- * covers adds a factory rather than reaching past them into `requireUser` — an options bag
- * covering four shapes would put the branching back, one level further from the route.
+ * **Exactly one factory per `require*` helper in `ownership.ts`, and that is the whole list.**
+ * Not a general middleware layer: a handler needing a shape none of them covers adds a factory
+ * rather than reaching past them into `requireUser`.
  *
- * **Two table routes deliberately use none of these** — `[tableAddress].patch` and
- * `[tableAddress].delete`. Their services take a `userId` and scope on it inside their own
- * `where` clause, which is the
- * form `CLAUDE.md` §5 actually prefers; a pre-check would be a second round trip for an answer
- * the write already gives. Nothing is lost by their absence here, because those signatures
- * require the `userId` — forgetting ownership there is already a compile error, which is exactly
- * the property these factories add to the services that take a table and no owner.
+ * **Two table routes deliberately use none of these** — `[tableAddress].patch` and `.delete`.
+ * Their services take a `userId` and scope on it in their own `where` clause, the form
+ * `CLAUDE.md` §5 prefers, and a pre-check would be a second round trip for an answer the write
+ * already gives. Forgetting ownership there is already a compile error.
  *
- * Each is generic in its return type, so Nitro still infers what a route answers with; a factory
- * that flattened it to `unknown` would silently widen every response type in the app.
+ * Each is generic in its return type, so Nitro still infers what a route answers with.
  */
 
 /** What every context below carries: the request, and the user the middleware resolved. */
@@ -58,16 +52,14 @@ export function defineTableHandler<T>(
 
 /**
  * The table's field metadata, from the same scoped query as the ownership check — reads need it
- * to resolve sort and filter params, so fetching it separately would be a second round trip for
- * something the check already had to touch.
+ * to resolve sort and filter params, so fetching it separately is a second round trip.
  */
 export function defineFieldsHandler<T>(
   handler: (context: IHandlerContext & { tableId: string; fields: IField[] }) => Promise<T>,
 ) {
   return defineEventHandler(async (event): Promise<T> => {
     const user = requireUser(event)
-    // The raw address, whatever form it is in — resolving it is the helper's business, and what
-    // comes back is the table's id, which is what everything below builds a `where` from
+    // The raw address, whatever form it is in; the helper resolves it to the table's id
     const { tableId, fields } = await requireOwnedTableFields(
       user.id,
       routeParam(event, 'tableAddress'),
@@ -97,8 +89,7 @@ export function defineTableWithFieldsHandler<T>(
 
 /**
  * The same metadata, guaranteed non-empty. **Writes only:** a table with no fields has no record
- * shape to validate against, so writing to it is a 400 — while a field-less table must still
- * list an empty page, which is why the read factory above does not carry this guard.
+ * shape to validate against, so writing to it is a 400 — but it must still list an empty page.
  */
 export function defineRecordWriteHandler<T>(
   handler: (context: IHandlerContext & { tableId: string; fields: IField[] }) => Promise<T>,

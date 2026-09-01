@@ -21,12 +21,9 @@
               <span class="field-row__label">{{ field.name }}</span>
               <BaseBadge v-if="field.required" variant="label">required</BaseBadge>
             </p>
-            <!-- Type, then how it is configured, then the key it is addressed by. The
-                 detail comes from the registry and the cardinality from `isMultiValue`,
-                 so nothing here branches on the type itself. -->
-            <!-- Every part is an element, never a bare text node: Vue's `condense` drops
-                 the whitespace between two elements but keeps a space beside loose text,
-                 which would space one separator differently from the next. -->
+            <!-- Every part is an element, never a bare text node: Vue's `condense` drops the
+                 whitespace between two elements but keeps a space beside loose text, which
+                 would space one separator differently from the next. -->
             <p class="field-row__meta">
               <span>{{ FIELD_TYPE_LABELS[field.type] }}</span>
               <template v-if="configSummaries.get(field.id)">
@@ -72,20 +69,16 @@ import { FIELD_CONFIG_SUMMARIES, FIELD_TYPE_ICONS } from '~/field-types/registry
 import type { IFieldConfigSummaryContext } from '~/field-types/types'
 
 /**
- * A table's fields as the settings page lists them: one row per field stating its type, how it is
- * configured and the key it is addressed by, so a table's shape reads without opening a dialog per
- * row.
+ * A table's fields as the settings page lists them: type, configuration and key per row, so a
+ * table's shape reads without opening a dialog per row.
  *
- * It renders **metadata**, which is why it does not sit in `components/records/` — those draw
- * records *from* metadata. Nothing here branches on a field type: the word comes from
- * `FIELD_TYPE_LABELS`, the glyph from `FIELD_TYPE_ICONS`, the configuration line from
- * `FIELD_CONFIG_SUMMARIES`, and the cardinality from `isMultiValue`. The one thing a summary
- * may need that a field does not carry — a relation target's name — arrives as
- * `summaryContext`, so the store stays the page's business rather than this component's.
+ * It renders **metadata**, which is why it is not in `components/records/`. Nothing here
+ * branches on a field type — every part comes from a registry, the cardinality from
+ * `isMultiValue`. What a summary needs and a field does not carry (a relation target's name)
+ * arrives as `summaryContext`, keeping the store the page's business.
  *
- * The section around it — its heading, the field count and the primary "Add field" — stays on the
- * page, because `.section-head` is shared with the Table section above it. Only the empty state's
- * own call to action lives here, and it emits rather than acting.
+ * The section around it stays on the page, since `.section-head` is shared with the Table
+ * section above. Only the empty state's call to action lives here, and it emits.
  */
 const props = defineProps<{
   fields: IField[]
@@ -99,9 +92,8 @@ const emit = defineEmits<{
 }>()
 
 /**
- * The configuration phrase per field, keyed by id. Only the types that state something about how
- * they are configured land in the map, so a missing key is what leaves the separator undrawn —
- * a type saying nothing must not draw one.
+ * The configuration phrase per field, keyed by id. Only types that state something land in the
+ * map, so a missing key is what leaves the separator undrawn.
  */
 const configSummaries = computed(
   () =>
@@ -142,8 +134,7 @@ const configSummaries = computed(
     background: var(--color-surface-row-hover);
   }
 
-  // The icon and the text travel together; on a narrow pane the actions drop below them,
-  // so they are one flex item rather than two.
+  // The icon and the text travel together, so on a narrow pane the actions drop below both
   &__lead {
     display: flex;
     align-items: center;
@@ -152,8 +143,7 @@ const configSummaries = computed(
     min-width: 0;
   }
 
-  // Neutral, not accent-tinted: the section's one blue is spent on "Add field", and six
-  // tinted tiles would outrank it.
+  // Neutral, not accent-tinted: the section's one blue is spent on "Add field"
   &__icon {
     display: grid;
     place-items: center;
@@ -187,8 +177,7 @@ const configSummaries = computed(
     @include truncate;
   }
 
-  // Deliberately not a flex row: `truncate` ellipsises a block of inline content, and a
-  // flex container would clip its children mid-word instead.
+  // Not a flex row: `truncate` ellipsises inline content, where flex clips children mid-word
   &__meta {
     margin: rem(2) 0 0;
     font-size: var(--font-size-sm);
@@ -221,8 +210,8 @@ const configSummaries = computed(
     flex: none;
   }
 
-  // Below the shell breakpoint the actions take their own line rather than squeezing the
-  // name to nothing: two 36px targets and a truncating label cannot share 327px.
+  // Below the breakpoint the actions take their own line: two 36px targets and a truncating
+  // label cannot share 327px
   @include below-shell {
     flex-wrap: wrap;
     padding-block: rem(12);

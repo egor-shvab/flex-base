@@ -3,13 +3,12 @@ import { createHash } from 'node:crypto'
 /**
  * When a seeded record was created and last touched.
  *
- * The record's own `createdAt` and `updatedAt` columns sort and range-filter like any field, so
- * a demo where every row shares one timestamp leaves two of the three record columns untestable.
- * They are spread across the window below instead — derived from the row's ref, so the spread is
- * the same on every run and no row's position depends on when the seed was executed.
+ * The record's own `createdAt` and `updatedAt` sort and range-filter like any field, so a demo
+ * where every row shares one timestamp leaves two of the three record columns untestable. Spread
+ * across the window below, derived from the row's ref so the spread is the same on every run.
  *
  * Settable **only on create**: `updatedAt` is `@updatedAt`, which Prisma overwrites on any
- * update. That is the constraint the whole single-pass writer is built around (`ids.ts`).
+ * update — the constraint the whole single-pass writer is built around (`ids.ts`).
  */
 
 const WINDOW_START = Date.UTC(2025, 8, 1)
@@ -35,10 +34,9 @@ export function timestampsFor(ref: string): ISeedTimestamps {
 
   const created = WINDOW_START + Math.floor(placement * WINDOW_MS)
 
-  // Edited up to sixty days later, or up to whatever is left of the window if that is sooner —
-  // so `updatedAt` is always at or after `createdAt` and never past the end. **Scaled rather than
-  // clamped:** clamping piles every row created in the last sixty days onto the same instant, and
-  // a column where a fifth of the table shares one value sorts into an arbitrary block.
+  // Edited up to sixty days later, or whatever is left of the window — so `updatedAt` is always
+  // at or after `createdAt` and never past the end. **Scaled rather than clamped:** clamping
+  // piles every recent row onto one instant, which sorts into an arbitrary block.
   const room = Math.min(60 * DAY_MS, WINDOW_END - created)
   const updated = created + Math.floor(edit * room)
 

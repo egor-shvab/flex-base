@@ -2,17 +2,14 @@ import { onBeforeUnmount, readonly, ref, useId, watch } from 'vue'
 import type { Ref } from 'vue'
 
 /**
- * The dismissal half of a popover: open state, outside-pointer dismissal, and returning
- * focus to whatever opened it. Positioning is deliberately not here — see
- * `useAnchoredPosition`, which has a different set of consumers.
+ * The dismissal half of a popover: open state, outside-pointer dismissal, and returning focus
+ * to whatever opened it. Positioning is `useAnchoredPosition`, which has other consumers.
  *
- * **This owns no Escape listener, and must not grow one.** `BaseModal` listens for Escape on
- * `document`, and two document-level listeners cannot be ordered reliably — one keypress
- * would close both the popover and the dialog around it. Escape stays a template handler on
- * the panel itself, `@keydown.esc.stop="dismiss"`, which works because focus is always inside
- * the panel while it is open. Deleting that `.stop` from a caller will look like a tidy-up
- * and is not one; it also survives a `<Teleport>`, since the panel is still a real DOM child
- * of wherever it landed and the event path runs panel → body → document.
+ * **This owns no Escape listener, and must not grow one.** `BaseModal` listens on `document`,
+ * and two document-level listeners cannot be ordered — one keypress would close both the
+ * popover and the dialog around it. Escape stays a template handler on the panel,
+ * `@keydown.esc.stop="dismiss"`, which works because focus is inside the panel while it is
+ * open and survives a `<Teleport>`. Deleting that `.stop` looks like a tidy-up and is not one.
  */
 export function usePopover() {
   const panelId = useId()
@@ -34,9 +31,8 @@ export function usePopover() {
   }
 
   function onPointerDown(event: PointerEvent) {
-    // No focus restore here: the pointer has already chosen where focus should go.
-    // Both refs are tested because a teleported panel is no longer inside the trigger's
-    // subtree, so `contains` on the trigger alone would call the panel itself "outside".
+    // No focus restore: the pointer has already chosen where focus goes. Both refs are tested
+    // because a teleported panel is outside the trigger's subtree.
     if (!contains(event.target as Node)) open.value = false
   }
 

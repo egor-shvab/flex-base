@@ -43,10 +43,7 @@ describe('RecordsTable', () => {
   // A row's View action goes through `useDetailLink`; a RELATION cell reads the relations store
   beforeEach(() => setActivePinia(useNuxtApp().$pinia as Pinia))
 
-  /**
-   * One list drives the header and the body, so the two cannot drift — the record's own columns
-   * bracket the table's fields rather than being appended anywhere convenient.
-   */
+  /** One list drives header and body, so the two cannot drift. */
   describe('columns', () => {
     it('brackets the table’s fields with the record’s own columns', async () => {
       const wrapper = await table()
@@ -185,10 +182,7 @@ describe('RecordsTable', () => {
   })
 
   describe('row actions', () => {
-    /**
-     * Reading a record is a place, not an event — so View is a real link and the row never has
-     * to mediate a navigation.
-     */
+    /** Reading a record is a place, so View is a real link. */
     it('renders View as a link addressing the record', async () => {
       const wrapper = await table()
 

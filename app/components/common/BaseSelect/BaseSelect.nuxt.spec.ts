@@ -17,9 +17,9 @@ import type { TWrapper } from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
 /**
- * What the component *is* before anything is done to it: which of its two controls renders,
- * how `multiple` is normalised, and the ARIA it exposes. The rig is `~/components/common/BaseSelect/select-harness`,
- * shared with the three sibling files this was split out of.
+ * What the component *is* before anything is done to it: which control renders, how `multiple`
+ * is normalised, and the ARIA it exposes. The rig is `select-harness`, shared with the three
+ * sibling files.
  */
 describe('BaseSelect', () => {
   afterEach(unmountAll)
@@ -73,11 +73,9 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * All three attributes are one decision. The arrow acts, so it is a `<button>`; what it does
-     * is a pointer route to something the keyboard already has, so it is neither a tab stop
-     * before every select's options nor a second announcement of the control beside it. Drop the
-     * `aria-hidden` and screen readers gain a nameless button; drop the `tabindex` and every
-     * select grows a stop for a function bound to ↓, Escape and Alt+↑ already.
+     * All three attributes are one decision: the arrow acts, so it is a `<button>`, but it only
+     * routes a pointer to what the keyboard already has. Drop the `aria-hidden` and screen readers
+     * gain a nameless button; drop the `tabindex` and every select grows a redundant tab stop.
      */
     it('renders the chevron as a button that is neither tabbable nor announced', async () => {
       const wrapper = await select()
@@ -97,11 +95,9 @@ describe('BaseSelect', () => {
   })
 
   /**
-   * The load-bearing normalisation. Vue casts a bare attribute to `true` only for a prop it
-   * knows is `Boolean`, and this one's type is conditional on `TModel`, which gives the SFC
-   * compiler no constructor to emit — so `<BaseSelect multiple />` arrives as `''`. `vue-tsc`
-   * does not catch it: the template checker reads a bare attribute as `true`, so the types agree
-   * and the runtime does not. This test is the only thing standing between the two spellings.
+   * The load-bearing normalisation, and the only thing standing between the two spellings:
+   * `<BaseSelect multiple />` arrives as `''` because the conditional prop type gives the SFC
+   * compiler no constructor, and `vue-tsc` misses it. See `BaseSelect.vue`'s `isMultiple`.
    */
 
   describe('multiple normalisation', () => {
@@ -202,9 +198,8 @@ describe('BaseSelect', () => {
   })
 
   /**
-   * The component's only slot. It replaces an option's **text**, never its row: slot content is
-   * compiled in the caller's scope, so this component's scoped rules cannot reach it — a
-   * row-level slot would hand out `min-width: 0` and the truncation with it.
+   * The only slot. It replaces an option's **text**, never its row: slot content compiles in the
+   * caller's scope, so a row-level slot would hand out `min-width: 0` and the truncation with it.
    */
   describe('the option-label slot', () => {
     it('renders the plain label when no caller passes one', async () => {

@@ -36,9 +36,8 @@ test.beforeEach(async ({ seedTable }) => {
 })
 
 /**
- * The headline SSR contract: a shared link must arrive already filtered. Asserted against the
- * server's own HTML rather than the hydrated page — that is the only way to tell "rendered
- * filtered" from "rendered everything, then filtered in the browser".
+ * The headline SSR contract: a shared link must arrive already filtered. Against the server's
+ * own HTML, the only way to tell that from "rendered everything, then filtered in the browser".
  */
 test.describe('a link loaded cold', () => {
   test('renders filtered server-side, before any JavaScript runs', async ({ page, request }) => {
@@ -83,12 +82,11 @@ test.describe('a link loaded cold', () => {
 })
 
 /**
- * The app's only in-page recovery path. `fetchRecords` sets `failed` **and rethrows**, because
- * a refetch runs from a watcher where swallowing would leave the table showing rows that no
- * longer match the URL — so the banner is what tells the user the view on screen is stale.
+ * The app's only in-page recovery path. `fetchRecords` sets `failed` **and rethrows**, so the
+ * banner tells the user the view on screen is stale.
  *
  * Note the sequencing: the first load is SSR, which `page.route` cannot intercept, and `failed`
- * is set by a *client-side* refetch. So the page is loaded first and the route cut afterwards.
+ * is set by a *client-side* refetch — so the page is loaded first and the route cut afterwards.
  */
 test.describe('when the list cannot be loaded', () => {
   test('says so rather than leaving stale rows looking current', async ({ page }) => {
@@ -121,10 +119,9 @@ test.describe('when the list cannot be loaded', () => {
 })
 
 /**
- * The store drops the previous table's rows *before* requesting the next one's, and this page is
- * the one still on screen until the incoming one resolves — so the body has nothing to draw for the
- * length of that request. "No records yet" there is a claim about a table nothing has looked at
- * yet, which is why the window is held open deliberately rather than raced.
+ * The store drops the previous table's rows *before* requesting the next one's, while this page
+ * is still on screen — so the body has nothing to draw for the length of that request, and
+ * "No records yet" would be a claim about a table nothing has looked at. Held open, not raced.
  */
 test.describe('while another table loads', () => {
   test('shows the skeleton rather than claiming the table is empty', async ({
@@ -260,9 +257,8 @@ test.describe('the filter drawer', () => {
     await page.goto(table.url)
     await page.getByRole('button', { name: 'Filters' }).click()
 
-    // One bound at a time, each awaited into the URL before the next. Both controls debounce
-    // and then re-read their value back from the URL, so filling them instantly lets the
-    // second write build on state the first has not landed yet and lose a bound.
+    // One bound at a time, each awaited into the URL: both controls debounce and re-read from
+    // the URL, so filling them instantly lets the second write lose the first's bound
     await page.getByLabel('From').first().fill('80')
     await expect(page).toHaveURL(/contract_value_from=80/)
 

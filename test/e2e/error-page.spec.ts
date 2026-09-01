@@ -1,12 +1,10 @@
 import { expect, test } from '~~/test/e2e/setup/fixtures'
 
 /**
- * The whole-app error boundary — a page nothing else in any suite renders. Both table pages
- * turn a failed load into `createError(toPageError(…))`, and `app/utils/api-error.spec.ts`
- * pins that mapping; what happens to the result is only observable here.
- *
- * It is deliberately store-free, because data fetching is exactly what failed by the time it
- * renders. That is the property these cases protect: the page must stand on its own.
+ * The whole-app error boundary — a page nothing else in any suite renders.
+ * `app/utils/api-error.spec.ts` pins the mapping; what happens to the result is observable only
+ * here. It is store-free, because data fetching is exactly what failed by the time it renders,
+ * and that is the property these cases protect.
  */
 test('a table that does not exist renders the 404 boundary, not a broken page', async ({
   page,

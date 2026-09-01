@@ -122,10 +122,9 @@ describe('BaseInput', () => {
     })
 
     /**
-     * `trim` is the `.trim` modifier as a prop, for callers that bind props rather than
-     * `v-model` — the field-type registries all do. It behaves like the native modifier: the
-     * trimmed value goes to the model and then echoes back into the field, so the text settles
-     * trimmed rather than staying as typed.
+     * `trim` is the `.trim` modifier as a prop, for callers that bind props rather than `v-model`
+     * — the field-type registries all do. Like the native modifier, the trimmed value echoes back
+     * into the field, so the text settles trimmed rather than staying as typed.
      */
     it('trims on the way to the model', async () => {
       const wrapper = await input({ trim: true })

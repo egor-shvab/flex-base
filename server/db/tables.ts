@@ -7,15 +7,12 @@ import { parseAddressNumber } from '#shared/utils/address'
  * **cuid** older links still use.
  *
  * The two are unambiguous — a cuid is never all digits — so one function answers both, and this
- * is the only place the server knows there are two forms. Its record counterpart is
- * `recordWhere`; keeping them side by side is what makes them read as one rule rather than two
- * coincidences.
+ * is the only place the server knows there are two forms. `recordWhere` is its counterpart.
  *
- * **Both branches scope the owner inside the `where`**, so §5 is untouched: what changes is which
+ * **Both branches scope the owner inside the `where`** (`CLAUDE.md` §5): what changes is which
  * column identifies the row, never whether ownership is part of the query.
  *
- * A malformed address — `12abc`, `0`, empty, anything past a PostgreSQL `Int` — parses to `0` and
- * takes the id branch, where it matches nothing and 404s as it always has.
+ * A malformed address parses to `0` and takes the id branch, where it matches nothing and 404s.
  */
 export function tableWhere(userId: string, address: string): Prisma.TableWhereUniqueInput {
   const number = parseAddressNumber(address)
@@ -46,8 +43,8 @@ export type TTableListRow = Prisma.TableGetPayload<{ select: typeof tableListSel
 
 /**
  * A row as the wire carries it. The timestamps are `Date`s in the database and ISO strings in
- * `ITable`, and writing that conversion down is the point: leaving it to `JSON.stringify` made
- * the two types disagree everywhere except at the one moment they were serialized.
+ * `ITable`; leaving that conversion to `JSON.stringify` makes the two types disagree everywhere
+ * except at the moment they are serialized.
  */
 export function toSharedTable(row: TTableRow): ITable {
   return {

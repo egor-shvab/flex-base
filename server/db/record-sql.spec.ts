@@ -21,8 +21,7 @@ import {
 
 /**
  * The parameterised SQL a fragment carries, on one line. `.text` numbers its placeholders
- * `$1…$n`, so asserting on it pins both the shape of the SQL and the order values bind in —
- * without a connection, since nothing here executes.
+ * `$1…$n`, so asserting on it pins the shape and the order values bind in, without a connection.
  */
 function sqlText(fragment: Prisma.Sql): string {
   return fragment.text.replace(/\s+/g, ' ').trim()
@@ -199,12 +198,9 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   /**
-   * The indexed pre-filter, pinned as an exact string on purpose.
-   *
-   * `Record_search_trgm_idx` is an **expression** index, and PostgreSQL matches those
-   * structurally — a stray cast, a different argument order or a renamed column here silently
-   * costs the index and leaves a query that is merely slow. Nothing else in the suite would
-   * notice, so this string and the migration's are one contract.
+   * The indexed pre-filter, pinned as an exact string: `Record_search_trgm_idx` is an
+   * **expression** index and PostgreSQL matches those structurally, so a stray cast or a renamed
+   * column silently costs the index. This string and the migration's are one contract.
    */
   it('leads with the expression the search index is built on, byte for byte', () => {
     const where = buildRecordWhere(TABLE_ID, table, {}, 'acme')

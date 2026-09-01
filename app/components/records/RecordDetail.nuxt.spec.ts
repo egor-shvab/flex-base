@@ -8,10 +8,9 @@ import { record, relationField, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
- * The dialog's body: the same columns `RecordsTable` renders, stacked as a definition list.
- * Nothing here branches on field type — the cells do that, and `RecordFieldValue` has its own
- * spec — so what is worth pinning is the column *set*, which is the one thing that could
- * silently disagree with the row the dialog was opened from.
+ * The dialog's body: the same columns `RecordsTable` renders, as a definition list. Nothing
+ * branches on field type, so what is worth pinning is the column *set* — the one thing that
+ * could silently disagree with the row the dialog was opened from.
  */
 const terms = (wrapper: { findAll: (selector: string) => { text: () => string }[] }) =>
   wrapper.findAll('.record-detail__term').map((term) => term.text())
@@ -32,10 +31,7 @@ describe('RecordDetail', () => {
     expect(terms(wrapper)).toEqual(['Company', 'stage', 'Created at', 'Updated at'])
   })
 
-  /**
-   * By key rather than by type, and deliberately: the number already names the record in the
-   * dialog's own heading, where a `Record # · #1` row would only say it twice.
-   */
+  /** By key, not type: the dialog's heading already names the record. */
   it('leaves out the record number, which the heading already carries', async () => {
     const wrapper = await mountTracked(RecordDetail, {
       props: { fields: FIELDS, record: record() },

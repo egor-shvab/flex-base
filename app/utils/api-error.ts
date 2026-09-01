@@ -1,10 +1,9 @@
 import type { FetchError } from 'ofetch'
 
 /**
- * Blank counts as absent. `??` alone skips only `null`/`undefined`, so a `statusMessage: ''`
- * used to win over a perfectly good `message` and render an empty error box. The type check
- * closes the same hole from the other side: `data` is untyped at runtime, and a non-string
- * message would otherwise be returned from a `string`-typed function.
+ * Blank counts as absent: `??` alone skips only `null`/`undefined`, so a `statusMessage: ''`
+ * would win over a good `message` and render an empty error box. The type check closes the same
+ * hole from the other side, since `data` is untyped at runtime.
  */
 function nonBlank(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value : undefined
@@ -35,12 +34,9 @@ function pageErrorMessage(statusCode: number): string {
  * Three answers, because three things can go wrong. A **404** names its cause — the table is
  * missing or belongs to someone else. A **5xx** is a fault at our end, and saying so matters:
  * the records page wraps its record fetch in the same `useAsyncData`, so a failing endpoint
- * reaches here and must not be reported as a bad link. Everything else — a 4xx — is a request
- * the server refused to read, a malformed `?search=` or `?sort=` in a hand-edited link being the
- * usual cause, so the code is forwarded and no cause is asserted.
- *
- * Hard-coding "Table not found" here is what previously made a 400 render as a server error
- * claiming a table that had just loaded did not exist.
+ * reaches here and must not read as a bad link. Everything else is a request the server refused
+ * to read — a malformed `?search=` or `?sort=` — so the code is forwarded and no cause asserted.
+ * Hard-coding a cause here makes a 400 claim a table that had just loaded does not exist.
  */
 export function toPageError(error: { statusCode?: number }): {
   statusCode: number

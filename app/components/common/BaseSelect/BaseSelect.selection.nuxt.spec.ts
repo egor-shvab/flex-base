@@ -81,9 +81,9 @@ describe('BaseSelect', () => {
 
   describe('opening', () => {
     /**
-     * The cursor is a position the keyboard asked for, and opening is not a navigation. A ring
-     * drawn before the user has moved reads as a choice already made — and the same applies to
-     * the option under the mouse, which is why hovering is asserted here rather than assumed.
+     * The cursor is a position the keyboard asked for, and opening is not a navigation — a ring
+     * drawn before the user has moved reads as a choice already made. The same applies under the
+     * mouse, which is why hovering is asserted rather than assumed.
      */
     it('highlights nothing, however the panel was opened', async () => {
       const wrapper = await select({ modelValue: 'c' })
@@ -174,8 +174,8 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * The arrow is the pointer route the searchable branch would otherwise lack: the field
-     * itself never closes, so without this the only way back out is a click elsewhere.
+     * The arrow is the pointer route the searchable branch would otherwise lack: the field never
+     * closes itself, so the only way out would be a click elsewhere.
      */
     it('toggles shut on the chevron of the searchable branch', async () => {
       const wrapper = await select({ searchable: true })
@@ -200,8 +200,8 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * `.stop` on the chevron is what this pins: the click bubbles to the control, whose button
-     * branch toggles too — so without it the panel would close and immediately re-open.
+     * `.stop` on the chevron: the click bubbles to the control, whose button branch toggles too,
+     * so without it the panel closes and immediately re-opens.
      */
     it('toggles shut on the chevron of the button branch', async () => {
       const wrapper = await select()
@@ -223,8 +223,8 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * The open-state class the chevron's rotation hangs off. Asserted structurally because
-     * Vitest keeps `test.css` false — the transform itself is only visible in the browser.
+     * The open-state class the chevron's rotation hangs off, asserted structurally because
+     * `test.css` is false and the transform is visible only in a browser.
      */
     it('marks the root open while the panel is', async () => {
       const wrapper = await select()
@@ -291,8 +291,8 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * A value keeps its label when an async search has replaced the visible list with rows that
-     * do not include it — the whole reason `seen` accumulates rather than tracking `options`.
+     * A value keeps its label when an async search replaces the visible list with rows that
+     * exclude it — the reason `seen` accumulates rather than tracking `options`.
      */
     it('remembers a label the option list no longer carries', async () => {
       const wrapper = await select({ modelValue: 'b' })

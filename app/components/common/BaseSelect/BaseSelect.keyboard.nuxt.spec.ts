@@ -15,9 +15,9 @@ import {
 import { unmountAll } from '~~/test/mount'
 
 /**
- * Every key this control answers, in all three positions it can be in: on a closed trigger,
- * inside the open list, and in the combobox input. Escape layering is the case that is silent
- * when broken — `BaseModal` owns the document listener, so one press must never close both.
+ * Every key this control answers, in its three positions: closed trigger, open list, combobox
+ * input. Escape layering is the case that is silent when broken — `BaseModal` owns the
+ * document listener, so one press must never close both.
  */
 describe('BaseSelect', () => {
   afterEach(unmountAll)
@@ -151,8 +151,8 @@ describe('BaseSelect', () => {
     it.each(['Enter', ' '])('chooses the active option on %s', async (key) => {
       const wrapper = await openList()
 
-      // Two presses: the first reveals the cursor on the top option, the second walks to Bravo —
-      // choosing something other than the first is what proves the key reads the cursor
+      // Two presses: the first reveals the cursor, the second walks to Bravo — choosing
+      // something other than the first is what proves the key reads the cursor
       keydown(listbox()!, 'ArrowDown')
       await nextTick()
       keydown(listbox()!, 'ArrowDown')
@@ -218,9 +218,8 @@ describe('BaseSelect', () => {
   })
 
   /**
-   * What may create the cursor, which is the whole rule: a navigation key, and nothing else.
-   * Opening does not, the pointer does not, and options merely arriving do not — each of those
-   * would draw a ring the user never asked for and would then have to notice was not their doing.
+   * The whole rule: a navigation key creates the cursor and nothing else. Opening, the pointer
+   * and options merely arriving would each draw a ring the user never asked for.
    */
   describe('what creates the cursor', () => {
     it('gives the opening arrow the cursor as well, the way a native select does', async () => {
@@ -252,9 +251,8 @@ describe('BaseSelect', () => {
     })
 
     /**
-     * The async case, and the reason the re-clamp is guarded rather than the open path alone: a
-     * relation picker's options land a moment *after* it opens, and re-clamping to the first
-     * enabled option would light a row up with no key pressed and no term typed.
+     * Why the re-clamp is guarded rather than the open path alone: a relation picker's options land
+     * *after* it opens, and re-clamping would light a row up with no key pressed and no term typed.
      */
     it('leaves the cursor alone when options merely arrive', async () => {
       const wrapper = await select({ options: [] })
@@ -269,10 +267,9 @@ describe('BaseSelect', () => {
 
   describe('keyboard on the combobox', () => {
     /**
-     * The condition a `.stop` modifier cannot express, written out in JS for that reason:
-     * `BaseModal` listens on `document`, and focus stays in this input even while the list is
-     * shut — so an unconditional stop would mean a **closed** select ate the surrounding
-     * drawer's Escape.
+     * The condition a `.stop` modifier cannot express: `BaseModal` listens on `document`, and focus
+     * stays in this input while the list is shut, so an unconditional stop would mean a **closed**
+     * select ate the surrounding drawer's Escape.
      */
     it('swallows Escape only while the panel is open', async () => {
       const onDocument = vi.fn()

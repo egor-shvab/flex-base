@@ -14,15 +14,13 @@ export interface IErrorLogRequest {
 }
 
 /**
- * Which half of the app raised it. One log holds both, so the tag leads every line — a browser
- * stack read as a server fault would send the next reader looking in the wrong process.
+ * Which half of the app raised it. One log holds both, so the tag leads every line.
  */
 export type TErrorLogSource = 'server' | 'client'
 
 /**
- * One line of `logs/server-errors.log`. Flat rather than nested so a `grep` or a `jq`
- * one-liner stays trivial; the request half is null for an error raised outside a request,
- * and for a client report there is no request of ours to describe at all.
+ * One line of `logs/server-errors.log`. Flat rather than nested, so a `grep` or `jq` one-liner
+ * stays trivial; the request half is null outside a request, and for a client report entirely.
  */
 export interface IErrorLogEntry {
   source: TErrorLogSource
@@ -49,10 +47,9 @@ interface IErrorLogEventSource {
 }
 
 /**
- * A 4xx is this app's deliberate flow, not a fault: `requireUser`'s 401, the 404 that
- * stands in for another user's row, a 409 on a duplicate name, a zod 400. Logging those
- * would bury the faults under them — and a zod 400 carries `error.data.issues`, which
- * echoes the submitted value.
+ * A 4xx is this app's deliberate flow, not a fault — a 401, the 404 standing in for another
+ * user's row, a 409, a zod 400. Logging them buries the real faults, and a zod 400 carries
+ * `error.data.issues`, which echoes the submitted value.
  */
 export function isLoggableServerError(error: unknown): boolean {
   if (!isError(error)) return true
@@ -60,12 +57,10 @@ export function isLoggableServerError(error: unknown): boolean {
 }
 
 /**
- * The request context worth keeping, read off the event.
- *
- * The redaction is structural: this never reaches for headers (which carry the
- * `auth_token` cookie), for the body (which carries a password on the login route), or
- * for query values (which are the user's own data). Nothing is scrubbed afterwards,
- * because a scrub is a list someone can forget to extend.
+ * The request context worth keeping. The redaction is structural: this never reaches for
+ * headers (the `auth_token` cookie), the body (a password on the login route), or query values
+ * (the user's own data). Nothing is scrubbed afterwards, because a scrub is a list someone can
+ * forget to extend.
  */
 export function readErrorLogRequest(source: IErrorLogEventSource): IErrorLogRequest {
   const [path = '', query = ''] = source.path.split('?')
@@ -81,10 +76,9 @@ export function readErrorLogRequest(source: IErrorLogEventSource): IErrorLogRequ
 }
 
 /**
- * The error worth describing. h3 wraps anything foreign in an `H3Error` whose `name` is the
- * bare `Error`, keeping the original as `cause` — so reading through one level is what puts
- * `PrismaClientKnownRequestError` in the entry rather than a word that says nothing. Only
- * one level: deeper is a chain the thrower built, and its head is the one that was raised.
+ * The error worth describing. h3 wraps anything foreign in an `H3Error` whose `name` is the bare
+ * `Error`, keeping the original as `cause`, so reading one level through puts a real class name
+ * in the entry. Only one level: deeper is a chain the thrower built.
  */
 function originOf(error: unknown): Error {
   if (isError(error) && error.cause instanceof Error) return error.cause
@@ -127,13 +121,11 @@ interface IClientErrorReportSource {
 }
 
 /**
- * A client report as a log entry. **The redaction is the same rule from the other side:** the
- * caller supplies no user id — it is read from the cookie the middleware already resolved, so a
- * report cannot claim to be someone else — and the path is cut at the first `?`, so a query
- * **value** pasted into it never reaches the file.
+ * A client report as a log entry. **The same redaction rule from the other side:** the caller
+ * supplies no user id — it comes from the cookie the middleware resolved — and the path is cut
+ * at the first `?`, so a query **value** pasted into it never reaches the file.
  *
  * `statusCode`, `method` and `queryKeys` are null: there is no request of ours being described.
- * The browser's own request is the report itself, and its shape is not what failed.
  */
 export function buildClientErrorLogEntry(
   report: IClientErrorReportSource,
@@ -157,9 +149,8 @@ export function buildClientErrorLogEntry(
 }
 
 /**
- * NDJSON: one entry is one line, whatever its stack contains, because `JSON.stringify`
- * escapes the newlines inside it. A format that let an entry span lines would need a
- * multi-line rule in every reader downstream.
+ * NDJSON: one entry is one line whatever its stack contains, because `JSON.stringify` escapes
+ * the newlines. A format spanning lines would need a multi-line rule in every reader.
  */
 export function formatErrorLogLine(entry: IErrorLogEntry): string {
   return `${JSON.stringify(entry)}\n`

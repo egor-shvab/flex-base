@@ -29,10 +29,7 @@ function mount(props: Partial<IPageProps> = {}) {
 const rangeOf = async (props: Partial<IPageProps>) =>
   (await mount(props)).find('.pagination__count').text()
 
-/**
- * The range is derived from the page numbers alone — the control never sees the rows — so
- * every boundary is arithmetic that no other test would catch.
- */
+/** Derived from the page numbers alone, so every boundary is arithmetic nothing else catches. */
 describe('the range label', () => {
   afterEach(unmountAll)
 
@@ -133,9 +130,8 @@ describe('a capped total', () => {
   })
 
   /**
-   * The regression this prop exists for: on the cap's own last page `pageCount` says there is
-   * nothing further, while rows the count never reached still sit behind it. Next follows the
-   * page that came back, so it stays right at any table size.
+   * On the cap's own last page `pageCount` says there is nothing further while rows it never
+   * reached sit behind it. Next follows the page that came back, so it holds at any table size.
    */
   it('still offers Next on the last page the cap can describe', async () => {
     const wrapper = await mount({

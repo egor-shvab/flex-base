@@ -8,8 +8,7 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 function mountPicker(props: { modelValue?: TBadgeColor; disabled?: boolean } = {}) {
   return mountTracked(BaseColorPicker, {
     props: { label: 'Colour for choice 1', modelValue: 'blue' as TBadgeColor, ...props },
-    // Attached, or nothing it renders is `isConnected` and every focus assertion is vacuous —
-    // the roving tabindex and the focus restore are half of what this control is
+    // Attached, or nothing rendered is `isConnected` and every focus assertion is vacuous
     attachTo: document.body,
   })
 }
@@ -64,11 +63,9 @@ describe('BaseColorPicker', () => {
     })
 
     /**
-     * The change this spec exists for: the panel used to be `position: absolute` with a `top` in
-     * CSS, so it always opened downward and could run off a short viewport. It is now placed by
-     * `useAnchoredPosition`, which writes viewport coordinates — the arithmetic, including the
-     * flip, is pinned in that composable's own spec, so what matters here is only that the
-     * picker is wired to it.
+     * The panel is placed by `useAnchoredPosition`, which writes viewport coordinates. The
+     * arithmetic and the flip are pinned in that composable's own spec; what matters here is only
+     * that the picker is wired to it.
      */
     it('is positioned by the composable rather than by CSS', async () => {
       const panel = (await opened()).get<HTMLElement>('[role="radiogroup"]')

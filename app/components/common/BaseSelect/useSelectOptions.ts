@@ -18,10 +18,8 @@ interface IUseSelectOptionsInput<TValue extends string> {
 /**
  * Which options a select shows right now, and what state that list is in.
  *
- * This is **decomposition of `BaseSelect`, not a general-purpose composable** — it exists
- * because that component is otherwise popover, positioning, listbox, keyboard, type-ahead,
- * search and async in one file, and this is the one piece with a life of its own. There is a
- * single async consumer today; do not reuse it elsewhere expecting a stable contract.
+ * **Decomposition of `BaseSelect`, not a general-purpose composable.** One async consumer; do
+ * not reuse it expecting a stable contract.
  *
  * Two modes, chosen by whether `loadOptions` is supplied:
  *
@@ -35,8 +33,7 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
   /** The term the last request was made for — the draft's debounced shadow. */
   const committedTerm = ref('')
 
-  // The draft drives local filtering instantly; only the model behind it is debounced, and
-  // only the model triggers a request. One debounce, reused rather than rewritten.
+  // The draft filters locally at once; only the debounced model behind it makes a request
   const searchDraft = useDebouncedModel(committedTerm, {
     delay: QUERY_DEBOUNCE_MS,
     normalize: (value) => value.trim(),
@@ -103,7 +100,7 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
     }
 
     // Stale-while-revalidating: the previous answer stays under the `Searching…` row rather
-    // than blanking on every debounce window, which would flicker for no information gained
+    // than blanking on every debounce window
     if (committedTerm.value === '' && status.value !== 'loading') return seed
 
     return status.value === 'idle' ? seed : remote.value

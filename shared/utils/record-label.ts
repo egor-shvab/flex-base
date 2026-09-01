@@ -2,12 +2,11 @@ import type { ILinkedRecord, IRecord } from '#shared/types/record'
 
 /**
  * What names a record when something links to it. The label field is named by the relation
- * field's own `options.labelFieldKey`, so resolving one needs no metadata beyond the record
- * itself — and a record with nothing to name it by reads as `null` rather than as its number.
+ * field's `options.labelFieldKey`, so resolving one needs no metadata beyond the record; a
+ * record with nothing to name it by reads as `null` rather than as its number.
  *
- * **This function never writes a `#`.** The number travels beside the label as `ILinkedRecord`
- * and is composed in by `formatLinkedRecord` or `BaseLinkedRecord`, the only two that write one.
- * Folding it in here is what used to make it unrecoverable, so appending it produced `#3 #3`.
+ * **This function never writes a `#`.** The number travels beside the label as `ILinkedRecord`,
+ * composed in by `formatLinkedRecord` or `BaseLinkedRecord` — the only two that write one.
  */
 export function buildRecordLabel(
   record: Pick<IRecord, 'number' | 'data'>,

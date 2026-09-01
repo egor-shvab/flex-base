@@ -9,18 +9,14 @@ import { useRelationsStore } from '~/stores/relations'
 import type { ISelectOption } from '~/types/select'
 
 /**
- * How one relation option reads inside a picker row: the number in an element of its own, then the
- * label. It resolves the reference itself so `ISelectOption` need not grow a `number` — the reason
- * `docs/decisions.md` gives for keeping that type flat.
+ * How one relation option reads inside a picker row. It resolves the reference itself so
+ * `ISelectOption` need not grow a `number` (`docs/decisions.md`).
  *
- * A component rather than markup inlined in the slot, because `RelationFieldSelect` renders **two**
- * `BaseSelect` branches and slot content compiles in the caller's scope, so the body cannot be
- * hoisted into a computed. This is what stops it being written out twice — and it resolves the
- * reference once per row, where the inlined form asked the store twice.
+ * A component rather than markup inlined in the slot: `RelationFieldSelect` renders **two**
+ * `BaseSelect` branches, and slot content compiles in the caller's scope, so the body cannot be
+ * hoisted into a computed. It also resolves the reference once per row rather than twice.
  *
- * It adds no wrapper of its own: the rendered node is `BaseLinkedRecord` or a bare text run,
- * exactly as before, so `BaseSelect`'s own `.base-select__option-label` still bounds and truncates
- * it.
+ * It adds no wrapper, so `BaseSelect`'s `.base-select__option-label` still bounds and truncates.
  */
 const props = defineProps<{ fieldId: string; option: ISelectOption }>()
 

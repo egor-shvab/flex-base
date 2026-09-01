@@ -20,9 +20,8 @@ function isSqlFragment(value: unknown): value is { values: unknown[] } {
 }
 
 /**
- * Every value a tagged-template call binds, one level into any nested `Prisma.Sql` — a
- * fragment composed into the template carries its own parameters rather than flattening
- * into the outer call's.
+ * Every value a tagged-template call binds, one level into any nested `Prisma.Sql`: a composed
+ * fragment carries its own parameters rather than flattening into the outer call's.
  */
 function boundValues(args: unknown[]): unknown[] {
   return args.slice(1).flatMap((arg) => (isSqlFragment(arg) ? arg.values : [arg]))
@@ -36,9 +35,8 @@ function targetRow(id: string, number: number, fullName?: string) {
 beforeEach(resetPrismaMock)
 
 /**
- * The normalisation seam. Everything downstream — the label resolver, the write-time check —
- * works in sets and batches, so this is the single place that has to cope with what a JSONB
- * column can actually hold, including values written before a field was widened.
+ * The normalisation seam: everything downstream works in sets and batches, so this is the one
+ * place coping with what a JSONB column can hold, pre-widening values included.
  */
 describe('RelationService.collectRelationTargets', () => {
   it('collects the ids a single-value relation stores', () => {
@@ -223,11 +221,10 @@ describe('RelationService.resolveLinkedRecords', () => {
 })
 
 /**
- * A relation filter carries the target's **address**; the column stores ids. What is pinned here
- * is the substitution — and above all that **nothing is ever dropped**, because a filter value
- * that vanished would leave a list empty, make `containsAny` answer `null`, and let
- * `buildRecordWhere` skip the condition entirely: the list would widen to the whole table with
- * no error to show for it.
+ * A relation filter carries the target's **address** where the column stores ids. What is pinned
+ * is the substitution, and above all that **nothing is ever dropped**: a vanished value would
+ * empty a list filter, make `containsAny` answer `null`, and let `buildRecordWhere` skip the
+ * condition — widening the list to the whole table with no error to show for it.
  */
 describe('RelationService.resolveFilterTargets', () => {
   const found = (rows: { id: string; number: number }[]) =>
@@ -263,9 +260,8 @@ describe('RelationService.resolveFilterTargets', () => {
   })
 
   /**
-   * The anti-widening property, stated directly: a number nothing answers to stays in the filter
-   * rather than disappearing from it. It then matches no row — every stored relation value is a
-   * live record's cuid, which `assertRelationTargets` enforces on write.
+   * The anti-widening property: a number nothing answers to stays in the filter and matches no
+   * row, since `assertRelationTargets` guarantees every stored value is a live record's cuid.
    */
   it('keeps an unresolvable number rather than dropping it', async () => {
     found([])

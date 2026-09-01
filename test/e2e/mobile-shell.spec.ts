@@ -6,13 +6,9 @@ import { axeViolations, undersizedTargets } from '~~/test/e2e/setup/a11y'
  * becomes an off-canvas panel over the content. No other spec renders this layout at all.
  *
  * The rule it protects is `CLAUDE.md` §8: an off-canvas surface must never leave focusable
- * content off-screen. The fix is `visibility: hidden` **as well as** the transform — a panel
- * translated out of view alone is still in the tab order, so Tab from the header walks into
- * a menu nobody can see. Playwright's visibility honours `visibility: hidden`, which is
- * exactly why these assertions can tell the two apart.
- *
- * Scoped to this file: `test.use` at the top level overrides the viewport for its own tests
- * and nothing else.
+ * content off-screen. The fix is `visibility: hidden` **as well as** the transform — translated
+ * alone, the panel is still in the tab order. Playwright's visibility honours `visibility:
+ * hidden`, which is why these assertions can tell the two apart.
  */
 test.use({ viewport: { width: 375, height: 812 } })
 
@@ -127,13 +123,12 @@ test('Escape dismisses it when nothing covers it', async ({ page }) => {
 })
 
 /**
- * The panel takes Escape because it covers the page — which makes it the **second**
- * `document`-level Escape listener in the app, `BaseModal`'s being the other. Nothing else says
- * the two do not both fire on one press, and the overlap is reachable rather than theoretical:
- * the sidebar's own "Add a table" opens a dialog over the still-open panel.
+ * The panel takes Escape because it covers the page, making it the **second** `document`-level
+ * Escape listener in the app. The overlap is reachable rather than theoretical: the sidebar's
+ * own "Add a table" opens a dialog over the still-open panel.
  *
- * The middle pair of assertions is the whole case. Drop them and this passes against an
- * unguarded handler that closes the dialog and the panel under it together.
+ * The middle pair of assertions is the whole case — drop them and this passes against an
+ * unguarded handler closing the dialog and the panel together.
  */
 test('Escape closes a dialog over it without also closing it', async ({ page }) => {
   await page.goto('/')
@@ -174,11 +169,9 @@ test('the records table scrolls inside itself, not the page', async ({ page }) =
 })
 
 /**
- * A dialog at this width has nowhere to overflow to, so it must fit rather than be dragged.
- *
- * Both axes, and the vertical half is the one that was missing: the scrim centres the dialog, so
- * an uncapped one taller than the screen overflows *both* edges at once — and the shell is
- * `height: 100dvh; overflow: hidden`, so the document cannot be scrolled to reach either.
+ * A dialog at this width has nowhere to overflow to, so it must fit. Both axes: the scrim
+ * centres the dialog, so an uncapped one taller than the screen overflows *both* edges at once —
+ * and the shell is `height: 100dvh; overflow: hidden`, so neither can be scrolled to.
  */
 test('a dialog fits the viewport and keeps its actions reachable', async ({ page }) => {
   await page.goto(recordsUrl)
@@ -199,12 +192,11 @@ test('a dialog fits the viewport and keeps its actions reachable', async ({ page
 })
 
 /**
- * The same dialog with more content than the screen can hold, which is where the cap earns its
- * keep: the dialog stops growing and its *body* scrolls, so the header stays on screen and the
- * submit button is reached by scrolling rather than being clipped away.
+ * The same dialog with more content than the screen holds: it stops growing and its *body*
+ * scrolls, so the header stays on screen and the submit button is reachable.
  *
  * `toBeInViewport`, never `toBeVisible`: Playwright counts an element scrolled out of an overflow
- * container as visible, so the weaker assertion passes against the very bug this pins.
+ * container as visible, so the weaker assertion passes against the bug this pins.
  */
 test('a dialog taller than the screen scrolls its body instead of overflowing', async ({
   page,
@@ -232,7 +224,7 @@ test('a dialog taller than the screen scrolls its body instead of overflowing', 
   expect(box!.y).toBeGreaterThanOrEqual(0)
   expect(box!.y + box!.height).toBeLessThanOrEqual((viewport?.height ?? 0) + 1)
 
-  // The header is the half that used to be pushed off the top, and it never scrolls away
+  // The header is the half at risk of being pushed off the top, and it never scrolls away
   const title = dialog.getByRole('heading', { name: 'New record' })
   await expect(title).toBeInViewport()
 
@@ -278,9 +270,9 @@ test.describe('the gates at this width', () => {
 })
 
 /**
- * The field row is a non-wrapping cluster at full width; here the actions take their own line
- * instead. Without that the name truncates to nothing between a 32px tile and two 36px targets
- * in a 327px column — the row would still "work" and be unreadable, which no other gate catches.
+ * The field row is a non-wrapping cluster at full width; here the actions take their own line.
+ * Without that the name truncates to nothing between a 32px tile and two 36px targets in a
+ * 327px column — readable to no gate but this one.
  */
 test('a field row stacks its actions rather than squeezing the name', async ({ page }) => {
   await page.goto(settingsUrl)

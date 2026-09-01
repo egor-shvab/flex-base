@@ -2,9 +2,8 @@ import { expect, openRecordForm, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
 /**
- * The searchable branch as a text field: typing, pasting, clearing, and the overlay that draws
- * the selection over the input. All of it is about the input and its panel staying in step —
- * the kind of thing that is obvious the moment it breaks and invisible until then.
+ * The searchable branch as a text field: typing, pasting, clearing, and the overlay drawing the
+ * selection over the input — all of it about the input and its panel staying in step.
  */
 
 let table: ISeededTable
@@ -136,12 +135,9 @@ test.describe('picking several', () => {
   })
 
   /**
-   * Approximated: a held key is not reproducible through Playwright's API, so this presses
-   * more times than there are values. What it can prove is that the presses past the end are
-   * harmless — the selection empties on the first and the extra five change nothing.
-   *
-   * Asserted on the value overlay, not on the input: nothing is ever typed here, so the
-   * field's own value is `''` throughout and could never have failed.
+   * Approximated: a held key is not reproducible through Playwright's API, so this presses more
+   * times than there are values, proving only that the presses past the end are harmless.
+   * Asserted on the value overlay, since nothing is typed here and the input's value is `''`.
    */
   test('stops at empty rather than running away', async ({ page }) => {
     await openRecordForm(page, table.url)
@@ -260,10 +256,9 @@ test.describe('a relation picker', () => {
   })
 
   /**
-   * The message reads by role rather than by text: it is on screen once, in the panel, and in the
-   * accessibility tree once more, in the control's live region — a `getByText` matches both. The
-   * dialog is a safe scope because this form holds exactly one select; Nuxt's own route announcer
-   * is a `role="status"` too, but it lives outside the shell.
+   * By role rather than by text: the message is on screen once in the panel and once more in the
+   * control's live region, so a `getByText` matches both. The dialog is a safe scope because this
+   * form holds one select, and Nuxt's route announcer lives outside the shell.
    */
   const announcement = (page: import('@playwright/test').Page) =>
     page.getByRole('dialog').getByRole('status')
@@ -285,11 +280,10 @@ test.describe('a relation picker', () => {
   })
 
   /**
-   * The keyboard route to that button, which is the browser's answer rather than happy-dom's:
-   * the panel is teleported to `<body>`, so the real tab order runs past the entire app before
-   * reaching it. Where focus *lands* on each press is pinned in `BaseSelect.search.nuxt.spec.ts`;
-   * what only Chromium can say is what the **default** Tab does after we move focus out of the
-   * panel — the two cases below split on exactly that.
+   * The keyboard route to that button, which only a browser can answer: the panel is teleported
+   * to `<body>`, so the real tab order runs past the entire app. Where focus *lands* per press is
+   * pinned in `BaseSelect.search.nuxt.spec.ts`; what only Chromium says is what the **default**
+   * Tab does after focus moves out of the panel.
    */
   test.describe('reaching Retry from the keyboard', () => {
     const retry = (page: import('@playwright/test').Page) =>
@@ -331,10 +325,9 @@ test.describe('a relation picker', () => {
     })
 
     /**
-     * The half that rests on the browser: the handler closes the panel and hands focus back to
-     * the control **without** cancelling the default, so Chromium must sequence from there. If it
-     * sequenced from the teleported button instead, focus would land somewhere past the whole app
-     * — which is what asserting the very next control catches.
+     * The half resting on the browser: the handler closes the panel and hands focus back to the
+     * control **without** cancelling the default, so Chromium sequences from there. Sequencing
+     * from the teleported button would land focus past the whole app.
      */
     test('Tab past it closes the panel and carries on to the next control', async ({ page }) => {
       await failedSearch(page)

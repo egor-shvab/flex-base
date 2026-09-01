@@ -35,25 +35,21 @@ export const RESERVED_QUERY_PARAMS = [
 ] as const
 
 /**
- * Below this, a search is not run at all. **Three because that is a trigram**: the search index
- * is a `gin_trgm_ops` GIN, which cannot serve a term shorter than three characters — such a
- * term falls back to scanning every row to narrow almost nothing, the case this floor exists to
- * prevent. The floor lives in the query schema, not only in the input, so it holds for any
- * caller.
+ * Below this, a search is not run at all. **Three because that is a trigram**: a `gin_trgm_ops`
+ * GIN cannot serve a shorter term, which then scans every row to narrow almost nothing. The
+ * floor lives in the query schema, not only the input, so it holds for any caller.
  */
 export const SEARCH_MIN_LENGTH = 3
 
 /**
- * How many values one list-shaped filter may carry. A repeated param is the only place a
- * single filter can grow without bound, and every value becomes a term of an `IN (…)`, so a
- * crafted URL would otherwise compose arbitrarily large SQL. Well above any realistic choice
- * count — this is a ceiling, not a product rule.
+ * How many values one list-shaped filter may carry. A repeated param is the only place a single
+ * filter grows without bound, and every value becomes a term of an `IN (…)`, so a crafted URL
+ * would compose arbitrarily large SQL. A ceiling, not a product rule.
  */
 export const FILTER_VALUES_MAX = 50
 
 /**
- * The same keys, as the field-key guard reads them: `slugify` only ever emits `^[a-z0-9_]+$`,
- * so these are already unreachable — stating the reservation keeps that true if the slug rules
- * ever change.
+ * The same keys, as the field-key guard reads them. `slugify` emits only `^[a-z0-9_]+$`, so
+ * these are already unreachable — the reservation keeps that true if the slug rules change.
  */
 export const RESERVED_FIELD_KEYS = [RECORD_NUMBER_KEY, CREATED_AT_KEY, UPDATED_AT_KEY] as const

@@ -62,18 +62,16 @@ describe('filterFor', () => {
   })
 
   /**
-   * The deliberate asymmetry with `inputFor`. A SELECT *filter* has always taken several
-   * choices — picking two is a question about one stored value as much as about a list of them
-   * — so `MULTI_FILTERS.SELECT` is `null` and the flat entry serves both. The invariant that
-   * holds for `MULTI_INPUTS` ("non-null exactly where `MULTI_VALUE_BY_TYPE` is true") is
-   * therefore **not** the invariant here, and making the two symmetric would double the
-   * registry for no behaviour.
+   * The deliberate asymmetry with `inputFor`: a SELECT *filter* already takes several choices,
+   * so `MULTI_FILTERS.SELECT` is `null` and the flat entry serves both. `MULTI_INPUTS`'s
+   * invariant ("non-null exactly where `MULTI_VALUE_BY_TYPE` is true") is therefore **not** the
+   * invariant here, and symmetry would double the registry for no behaviour.
    */
   it('serves a multi SELECT from the flat entry, unlike the input side', () => {
     const multi = asMultiple(selectField())
 
     expect(filterFor(multi)).toBe(FIELD_FILTERS.SELECT)
-    // It was already list-shaped, so it needed no second entry to become one
+    // Already list-shaped, so it needs no second entry to become one
     expect(filterFor(selectField()).props(selectField()).multiple).toBe(true)
   })
 
@@ -167,9 +165,8 @@ describe('the props each control is handed', () => {
   )
 
   /**
-   * A typed query input must not hit the API on every keystroke. Asserted against the constant
-   * rather than against `300`, for the reason the `shouldSearch` case below states: a restated
-   * literal turns a design decision into a broken build the day the figure moves.
+   * A typed query input must not hit the API on every keystroke. Against the constant rather
+   * than `300`, for the reason the `shouldSearch` case below states.
    */
   it.each([textField(), numberField(), dateField()])('debounces a typed filter', (field) => {
     expect(filterFor(field).props(field).debounce).toBe(QUERY_DEBOUNCE_MS)
@@ -216,10 +213,9 @@ describe('the props each control is handed', () => {
   })
 
   /**
-   * Asserted against `shouldSearch` rather than against `true`/`false`, so the case pins that
-   * the registry *consults* the predicate — moving the threshold is a design decision and must
-   * not break a spec that has no opinion on where it sits. It still fails a hardcode: a
-   * registry always answering `false` disagrees with `shouldSearch(20)`.
+   * Against `shouldSearch` rather than `true`/`false`, so the case pins that the registry
+   * *consults* the predicate and moving the threshold breaks nothing. It still fails a hardcode:
+   * a registry always answering `false` disagrees with `shouldSearch(20)`.
    */
   it('decides a SELECT’s search box by consulting shouldSearch', () => {
     const few = selectField(['a', 'b', 'c'])

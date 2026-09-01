@@ -34,17 +34,14 @@ function rowWith(column: IField, value: unknown): IRecord {
 describe('RecordFieldValue', () => {
   afterEach(unmountAll)
 
-  // A RELATION cell resolves its ref through the store the Nuxt app provides, and that store
-  // outlives the case — so its cache is cleared rather than re-created
+  // A RELATION cell resolves its ref through the Nuxt app's store, which outlives the case —
+  // so its cache is cleared rather than re-created
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     useRelationsStore().linkedByField = {}
   })
 
-  /**
-   * Handled here, once, so no cell component has to deal with null — which is what lets
-   * `IFieldCellProps.value` stay a value rather than a value-or-absent.
-   */
+  /** Handled once here, which is what lets `IFieldCellProps.value` stay a value. */
   describe('blank', () => {
     it('says so for a key the record does not carry', async () => {
       const wrapper = await cell(textField('company'))
@@ -59,10 +56,7 @@ describe('RecordFieldValue', () => {
       expect(wrapper.text()).toBe('Not set')
     })
 
-    /**
-     * Without this a cleared multi-value field would render as nothing at all rather than
-     * saying so — an empty list is as blank as a null.
-     */
+    /** An empty list is as blank as a null, or a cleared field renders as nothing. */
     it('says so for an empty list', async () => {
       const column = asMultiple(selectField())
       const wrapper = await cell(column, rowWith(column, []))

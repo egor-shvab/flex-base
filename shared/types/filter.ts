@@ -10,12 +10,9 @@ export interface IRecordSort {
 }
 
 /**
- * Every value a filter control can hold — one per field, whatever its type.
- *
- * `string[]` is the list shape. It is no longer filter-only: a multi-value field stores one
- * too, so `TRecordValue` carries it as well and stays a subset of this union. Anything
- * narrowing this union by `typeof value === 'object'` must exclude arrays — see
- * `isRangeFilterValue`.
+ * Every value a filter control can hold — one per field, whatever its type. `string[]` is the
+ * list shape, which a multi-value field also stores, so `TRecordValue` stays a subset of this.
+ * Anything narrowing by `typeof value === 'object'` must exclude arrays (`isRangeFilterValue`).
  */
 export type TFilterValue = string | string[] | number | boolean | null | INumberRange | IDateRange
 
@@ -40,26 +37,22 @@ export interface IFilterValueByType extends Record<TFieldType, TFilterValue> {
 }
 
 /**
- * The filter model of every layer: active filters keyed by `Field.key`. A key that is
- * absent — or whose value `isFilterValueEmpty` — is not filtered. The UI holds this and the
- * URL carries it.
+ * The filter model of every layer: active filters keyed by `Field.key`. An absent key — or one
+ * whose value `isFilterValueEmpty` — is not filtered.
  *
- * **Exactly one value is translated before the SQL is derived**, and no other ever is: a
- * RELATION filter carries the target's *address*, and `RelationService.resolveFilterTargets`
- * substitutes the id the column stores. It happens above `buildRecordWhere` so the SQL and its
- * indexes never learn there were two forms (`docs/decisions.md`).
+ * **Exactly one value is translated before the SQL is derived**: a RELATION filter carries the
+ * target's *address*, and `RelationService.resolveFilterTargets` substitutes the stored id,
+ * above `buildRecordWhere` so the SQL never learns there were two forms (`docs/decisions.md`).
  */
 export type TRecordFilterValues = Record<string, TFilterValue>
 
 /** What `FILTER_VALUE_BY_TYPE` declares for one field type. */
 export interface IFilterValueRules<TValue extends TFilterValue> {
   /**
-   * One param named after the field (`scalar`), that same param repeated once per value
-   * (`list`), or a `_from` / `_to` pair (`range`). Drives both the params the field claims
-   * and how its value compares in SQL.
-   *
-   * `list` shares `scalar`'s param name on purpose — a repeat is how a URL carries several
-   * values without a delimiter to escape, and a choice's text may contain any character.
+   * One param named after the field (`scalar`), that param repeated per value (`list`), or a
+   * `_from` / `_to` pair (`range`). Drives the params the field claims and how it compares in
+   * SQL. `list` shares `scalar`'s name because a repeat carries several values without a
+   * delimiter to escape, and a choice's text may contain any character.
    */
   shape: 'scalar' | 'list' | 'range'
   /** What a control shows when its field is not filtered. */

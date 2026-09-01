@@ -13,9 +13,8 @@ import { record, relationField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
- * A reactive route stub, so the `computed` chain inside the composable re-evaluates when the
- * query moves — the pattern `useDetailLink.nuxt.spec.ts` established, made reactive because
- * this one watches its own derived key.
+ * A reactive route stub, so the composable's `computed` chain re-evaluates when the query moves
+ * — reactive rather than plain, because this one watches its own derived key.
  */
 const route = vi.hoisted(() => ({ current: { query: {} as TUrlQuery } }))
 mockNuxtImport('useRoute', () => () => route.current)
@@ -50,26 +49,23 @@ for (const [tableId, recordId] of [
 }
 
 /**
- * `useAsyncData`'s watch refresh is asynchronous and not a microtask, so every case here has
- * to wait for one. It waits on the **outcome** rather than on a clock: a fixed sleep is the one
- * thing in a suite that turns a slow machine into a red build, and it also lies in the other
- * direction — a sleep that is long enough today passes a race that is already broken.
+ * `useAsyncData`'s watch refresh is asynchronous and not a microtask, so every case waits for
+ * one — on the **outcome** rather than a clock, since a fixed sleep turns a slow machine into a
+ * red build and, when long enough, passes a race that is already broken.
  */
 const awaitRequests = (expected: string[]) => vi.waitFor(() => expect(requests).toEqual(expected))
 
 /**
- * Opened inside a mounted component, which is the shape the composable actually has: its
- * `useAsyncData` needs a Suspense boundary to await the first fetch, so calling it bare at spec
- * top level would leave the request unmade. The return is captured out of `setup` rather than
- * read off `wrapper.vm`, which unwraps refs.
+ * Opened inside a mounted component, the shape the composable actually has: its `useAsyncData`
+ * needs a Suspense boundary to await the first fetch. The return is captured out of `setup`
+ * rather than off `wrapper.vm`, which unwraps refs.
  */
 let host: { unmount: () => void } | undefined
 
 async function open(query: TUrlQuery = {}) {
-  // Keys are per record (`record-detail-<table>.<record>`), so one case's entry is the next
-  // case's cache whenever two cases open the same record. Tearing the previous owner down and
-  // clearing the keys together is what actually resets it — clearing alone leaves the instance
-  // resolved.
+  // Keys are per record, so one case's entry is the next case's cache whenever two open the
+  // same record. Tearing the previous owner down *and* clearing the keys is what resets it —
+  // clearing alone leaves the instance resolved.
   host?.unmount()
   clearNuxtData((key) => key.startsWith('record-detail'))
 
@@ -159,15 +155,14 @@ describe('useRecordDetail', () => {
 
   /**
    * The watched source is a **string**, not the ref object: `parseDetailChain` returns fresh
-   * objects on every query change, so watching the object would refetch whenever an unrelated
-   * param moved. Both directions are counted, because that is the only way the difference shows.
+   * objects per query change, so watching the object would refetch when an unrelated param
+   * moved. Both directions are counted, the only way the difference shows.
    */
   describe('when it refetches', () => {
     /**
      * A negative is not something to wait for, so this drives a change that *must* refetch
-     * straight after the one that must not. If the unrelated param had queued a fetch, it
-     * would appear between the two — and the watcher is proved alive rather than merely slow,
-     * which a sleep-and-assert-nothing could never distinguish.
+     * straight after the one that must not: a queued fetch would appear between the two, and the
+     * watcher is proved alive rather than merely slow.
      */
     it('does not refetch when an unrelated param moves', async () => {
       await open({ detail: 'tbl_deals.rec_1', page: '1' })

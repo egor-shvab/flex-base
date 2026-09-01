@@ -4,9 +4,8 @@
       {{ pending ? 'Filtering…' : `Showing ${countLabel}:` }}
     </span>
 
-    <!-- Search is not a filter, but it narrows the same list, so it is stated in the same
-         place. The one deliberate special case in a component otherwise driven purely by
-         the filter registry. -->
+    <!-- Search is not a filter but narrows the same list, so it is stated here — the one
+         special case in a component otherwise driven by the filter registry. -->
     <span v-if="search" class="filter-summary__chip">
       <span class="filter-summary__field">Search</span>
       {{ search }}
@@ -67,9 +66,9 @@ const relations = useRelationsStore()
 const columns = computed(() => filterableColumns(props.fields))
 
 /**
- * Walks the table's columns and looks each one up in the filter map — never
- * `Object.entries(filters)`, which would surface a key with no field to pair it with.
- * Field order also keeps the chips matching both the drawer and the URL.
+ * Walks the columns and looks each up in the filter map — never `Object.entries(filters)`,
+ * which would surface a key with no field. Field order keeps the chips matching the drawer
+ * and the URL.
  */
 const entries = computed(() =>
   columns.value.flatMap((field) => {
@@ -114,7 +113,7 @@ function remove(field: IField) {
     border-radius: var(--radius-pill);
     background: var(--color-accent-tint);
     // The tint's own text step, not `--color-text`: at 8.5:1 the chip reads as one
-    // accent-coloured object rather than neutral text sitting on a blue patch.
+    // accent-coloured object rather than neutral text on a blue patch.
     color: var(--color-text-on-accent-tint);
 
     @include truncate;
@@ -124,18 +123,16 @@ function remove(field: IField) {
     font-weight: 600;
   }
 
-  // A `BaseButton` with `variant="icon" size="sm"`, which carries the 24×24 box, the glyph, the
-  // border reset, the cursor, the hover colour and the focus ring. Only the placement is ours.
+  // A `BaseButton` with `variant="icon" size="sm"`, which carries everything but the placement
   &__remove {
     position: absolute;
     right: rem(4);
     top: rem(4);
   }
 
-  // The round disc, the one thing the icon variant does not give: it declares `--radius-md` on
-  // the chassis, at the same specificity this rule would otherwise have, so the two would be
-  // settled by source order. Scoping under the chip breaks the tie deterministically — and says
-  // something true, since the button exists nowhere else.
+  // The round disc, the one thing the icon variant does not give. `--radius-md` on the chassis
+  // has the same specificity this rule would otherwise have, so source order would settle it;
+  // scoping under the chip breaks the tie, and the button exists nowhere else anyway.
   &__chip &__remove {
     border-radius: 50%;
 

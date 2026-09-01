@@ -39,10 +39,9 @@ function relationInput(overrides: Partial<TFieldInput> = {}): TFieldInput {
 beforeEach(resetPrismaMock)
 
 /**
- * The rule these all serve is `CLAUDE.md` §5: ownership is scoped *inside* the query, never
- * checked after the fact. Asserting on the argument rather than only on the outcome is what
- * makes that testable — a fetch-then-compare rewrite would still return the right value here
- * while losing the property the rule exists for.
+ * The rule these serve is `CLAUDE.md` §5: ownership is scoped *inside* the query, never checked
+ * after the fact. Asserting on the argument rather than only the outcome is what makes that
+ * testable — a fetch-then-compare rewrite would still return the right value.
  */
 describe('ownership is scoped in the query', () => {
   it('asks for the table by id and owner together', async () => {
@@ -91,9 +90,8 @@ describe('ownership is scoped in the query', () => {
 })
 
 /**
- * A route may name its table by the public number a URL carries or by the cuid older links use.
- * Which column identifies the row is all that differs — **the owner is inside the `where` either
- * way**, which is the property these cases exist to hold as the second form is added.
+ * A route may name its table by the public number or by the cuid older links use. Which column
+ * identifies the row is all that differs — **the owner is inside the `where` either way**.
  */
 describe('a table is addressable by number as well as by cuid', () => {
   const whereOf = () => prismaMock.table.findUnique.mock.calls[0]?.[0]?.where
@@ -126,9 +124,9 @@ describe('a table is addressable by number as well as by cuid', () => {
   })
 
   /**
-   * A malformed address takes the id branch, where it matches nothing. That is the whole reason
-   * `parseAddressNumber` answers `0` rather than `NaN`: a number that cannot be a row's would
-   * make Prisma throw, turning a mistyped link into a 500 where it owes a 404.
+   * A malformed address takes the id branch, where it matches nothing — the reason
+   * `parseAddressNumber` answers `0` rather than `NaN`, which would make Prisma throw and turn
+   * a mistyped link into a 500 where it owes a 404.
    */
   it.each([
     ['digits with a suffix', '12abc'],
@@ -144,9 +142,9 @@ describe('a table is addressable by number as well as by cuid', () => {
 })
 
 /**
- * A row that exists but belongs to someone else and a row that does not exist are the same
- * answer — the scoped query cannot tell them apart, and that is the point: a 403 would confirm
- * the resource exists. There is no separate "not yours" case to test because the code has none.
+ * Another user's row and a missing row are the same answer: the scoped query cannot tell them
+ * apart, and a 403 would confirm the resource exists. There is no separate "not yours" case
+ * because the code has none.
  */
 describe('another user’s row is indistinguishable from a missing one', () => {
   it('is a 404 from requireOwnedTable, never a 403', async () => {
@@ -177,10 +175,9 @@ describe('another user’s row is indistinguishable from a missing one', () => {
 
 describe('what the helpers return', () => {
   /**
-   * It answers in the shape every layer above the database speaks, not in the row's — the
-   * timestamps are ISO strings here and `Date`s in the stub above. Handing the row back
-   * type-checked only because `JSON.stringify` happened to produce the same text the response
-   * type promised; asserting the strings is what stops that agreement being a coincidence.
+   * It answers in the shape every layer above the database speaks: ISO strings here, `Date`s in
+   * the stub above. Handing the row back type-checks only because `JSON.stringify` produces the
+   * same text, and asserting the strings is what stops that being a coincidence.
    */
   it('hands the table back in the shape the wire carries, timestamps included', async () => {
     prismaMock.table.findUnique.mockResolvedValue(table)

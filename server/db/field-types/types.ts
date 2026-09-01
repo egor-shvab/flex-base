@@ -3,21 +3,17 @@ import type { IField } from '#shared/types/field'
 import type { TFilterValue } from '#shared/types/filter'
 
 /**
- * How a filter value compares against a field's projected expression. Each builder narrows
- * the value by shape and yields no condition when it does not match — validation guarantees
- * the shape, so that branch is a guard rather than behaviour.
- *
- * The value parameter is widened to `TFilterValue` rather than indexed per type: indexing a
- * mapped type by a union in *parameter* position collapses to an intersection, which would
- * make the map uncallable for an arbitrary field.
+ * How a filter value compares against a field's projected expression. Each builder narrows by
+ * shape and yields no condition otherwise — validation guarantees the shape, so that branch is
+ * a guard. The parameter is widened to `TFilterValue` because indexing a mapped type by a union
+ * in *parameter* position collapses to an intersection, making the map uncallable.
  */
 export type TFilterSql = (expr: Prisma.Sql, value: TFilterValue) => Prisma.Sql | null
 
 /**
  * Which kind of index can serve a comparison. The kind follows how the type **compares**, not
- * what it stores: an unanchored `ILIKE` needs trigrams where a range needs a B-tree, and a
- * multi-value overlap needs a GIN on the sub-path. A single kind per field would serve some of
- * them and silently fail to serve the rest.
+ * what it stores: an unanchored `ILIKE` needs trigrams, a range a B-tree, a multi-value overlap
+ * a GIN on the sub-path.
  */
 export type TFieldIndexKind = 'btree' | 'trigram' | 'gin'
 
@@ -33,24 +29,18 @@ export interface IFieldSqlRules {
   /** How the column orders, for a type that reads as something other than the value it stores. */
   sortExpr?: (field: IField) => Prisma.Sql
   /**
-   * How this type orders when the value it sorts by lives in **another row** — the join to bring
-   * that row in, and the expression to order by once it is there. Takes precedence over
-   * `sortExpr`, and `null` for every type whose ordering is local.
-   *
-   * Separate from `sortExpr` because a join belongs to `FROM` and an expression to `ORDER BY`, and
-   * only the caller knows where its `FROM` is. RELATION is the only type that needs it: reading
-   * the target's label per row instead costs a subquery per row, measured at 1 528 ms over 800k
-   * rows against 171 ms for the join.
+   * How this type orders when the value it sorts by lives in **another row**. Takes precedence
+   * over `sortExpr`, and `null` for every type whose ordering is local. Separate because a join
+   * belongs to `FROM` and an expression to `ORDER BY`, and only the caller knows where its
+   * `FROM` is. RELATION alone needs it: a per-row subquery measured 1 528 ms over 800k rows
+   * against 171 ms for the join.
    */
   sortJoin: ((field: IField, alias: string) => IJoinedSort) | null
   /**
    * How free-text search matches this type, as a whole **predicate**, or `null` to exclude it.
-   * Separate from `expr` because two types cannot be searched the way they are filtered:
-   * NUMBER and BOOLEAN cast, and neither `numeric` nor `boolean` has an `ILIKE` operator.
-   *
-   * A predicate rather than an expression the caller appends `ILIKE` to, because a multi-value
-   * column cannot be matched by comparing one expression — it has to ask whether *any element*
-   * matches, which is a shape no projection can express.
+   * Separate from `expr` because NUMBER and BOOLEAN cast, and neither `numeric` nor `boolean`
+   * has an `ILIKE` operator. A predicate rather than an expression the caller appends `ILIKE`
+   * to, because a multi-value column has to ask whether *any element* matches.
    */
   searchPredicate: (key: string, pattern: string) => Prisma.Sql | null
   /** Compares this type's filter value against that expression. */
@@ -62,11 +52,9 @@ export interface IFieldSqlRules {
   filterIndex: TFieldIndexKind | null
   /**
    * Which index kind serves the ordering, or `null` for a projection no index can cover —
-   * RELATION orders by a value in another row, so nothing local to this table can stand in for
-   * it — its `sortJoin` brings that row in instead.
-   *
-   * Only ever `'btree'` today: an ordering wants a sorted structure, which is the one thing GIN
-   * does not give. Typed as the full union anyway so a type that finds another answer can say so.
+   * RELATION orders by a value in another row, and its `sortJoin` brings that row in instead.
+   * Only ever `'btree'` today, since an ordering wants a sorted structure; typed as the full
+   * union so a type that finds another answer can say so.
    */
   sortIndex: TFieldIndexKind | null
 }

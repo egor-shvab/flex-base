@@ -4,23 +4,21 @@ import { CLIENT_ERROR_LIMITS, CLIENT_ERROR_REPORTS_PER_PAGE } from '#shared/cons
 import type { TClientErrorReport } from '#shared/validation/client-error'
 
 /**
- * The browser half of the error log. Until this existed the client was a blind spot: a render
- * error or a rejected promise reached the user and nobody else.
+ * The browser half of the error log: without it a render error or a rejected promise reaches
+ * the user and nobody else.
  *
- * **`.client` on purpose** — during SSR a Vue error already reaches Nitro's `error` hook, which
- * records it as a server fault. Reporting it from here as well would log one failure twice.
+ * **`.client` on purpose** — during SSR a Vue error already reaches Nitro's `error` hook, so
+ * reporting from here too would log one failure twice.
  *
- * The plugin body is a valid setup context, so `useErrorsApi()` is resolved **here** and its
- * function called later from the handlers — the same shape `useTableLoader` uses, and what keeps
- * the URL in `app/api/paths.ts` rather than in this file.
+ * The plugin body is a valid setup context, so `useErrorsApi()` is resolved **here** and called
+ * later from the handlers — which is what keeps the URL in `app/api/paths.ts`.
  */
 export default defineNuxtPlugin((nuxtApp) => {
   const api = useErrorsApi()
 
   /**
    * A render loop raises the same error every frame, so a page is allowed a handful of reports
-   * and no more. Deliberately not reset on navigation: it is a per-load ceiling on how much one
-   * broken build can write, not a quota anyone should be spending.
+   * and no more. Not reset on navigation: a per-load ceiling, not a quota to spend.
    */
   let sent = 0
 
@@ -51,14 +49,14 @@ export default defineNuxtPlugin((nuxtApp) => {
         name: clamp(name, CLIENT_ERROR_LIMITS.name),
         message: clamp(message, CLIENT_ERROR_LIMITS.message),
         stack: stack === undefined ? undefined : clamp(stack, CLIENT_ERROR_LIMITS.stack),
-        // The pathname alone — never `search` or `hash`, which carry the user's own filters and
-        // the record they have open. The server cuts a query off this too, but not sending one
-        // is the half that does not rely on the other end being careful.
+        // The pathname alone — never `search` or `hash`, which carry the user's filters and the
+        // record they have open. The server strips a query too; not sending one is the half
+        // that does not rely on the other end being careful.
         path: clamp(window.location.pathname, CLIENT_ERROR_LIMITS.path),
       })
-      // **This catch is the loop breaker, not tidiness.** An uncaught rejection here would be
-      // caught by the listener below, reported, fail again, and report again — forever. Nothing
-      // is logged in its place: there is nowhere left to report a failure to report.
+      // **The loop breaker, not tidiness.** An uncaught rejection here would be caught by the
+      // listener below, reported, fail, and report again forever. Nothing is logged in its
+      // place: there is nowhere left to report a failure to report.
       .catch(() => {})
   }
 

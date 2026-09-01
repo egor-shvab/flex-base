@@ -6,8 +6,8 @@ import type { ITableListItem } from '#shared/types/table'
 import { useTablesStore } from '~/stores/tables'
 
 /**
- * The number is derived from the id so two rows in one listing never claim the same one. No case
- * here exercises it — the store keys on `id` throughout — so the particular value carries nothing.
+ * Derived from the id so two rows in one listing never claim the same number. No case exercises
+ * it — the store keys on `id` throughout — so the particular value carries nothing.
  */
 function table(
   id: string,
@@ -37,8 +37,7 @@ registerEndpoint('/api/tables', {
   handler: () => {
     calls.push('GET /api/tables')
     // A 4xx rather than a 500 so the request count stays readable: `ofetch` retries a GET once
-    // on 408/409/425/429/5xx, and the store behaves identically either way — it only ever sees
-    // the rejection the retries end in.
+    // on 5xx, and the store only ever sees the rejection the retries end in
     if (listShouldFail) throw createError({ statusCode: 404, statusMessage: 'No tables' })
     return { tables: listing }
   },
@@ -164,9 +163,9 @@ describe('useTablesStore', () => {
 
   /**
    * The cached `_count` is read on two always-visible surfaces, and the writes that move it
-   * belong to the records and fields stores. Those endpoints answer with the table's refreshed
-   * row, so this stores what it was told — it does no arithmetic of its own, which is what the
-   * delta it replaced was doing over a number only the database knows.
+   * belong to the records and fields stores. Those endpoints answer with the refreshed row, so
+   * this stores what it was told rather than doing arithmetic over a number only the database
+   * knows.
    */
   describe('applyTableRow', () => {
     beforeEach(() => {
@@ -223,9 +222,9 @@ describe('useTablesStore', () => {
     })
 
     /**
-     * The list not being loaded yet is the ordinary case on a record page reached by URL —
-     * `ensureTables` may also have failed, which it does silently. Inserting the row instead
-     * would leave the sidebar listing only the table just written to.
+     * An unloaded list is the ordinary case on a record page reached by URL, and `ensureTables`
+     * may also have failed silently. Inserting the row would leave the sidebar listing only the
+     * table just written to.
      */
     it('is a no-op before the list has loaded', () => {
       const store = useTablesStore()

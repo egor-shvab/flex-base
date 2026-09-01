@@ -21,8 +21,8 @@ describe('getApiErrorMessage', () => {
   })
 
   /**
-   * `??` alone skips only `null`/`undefined`, so a server sending an empty `statusMessage`
-   * used to win the chain and render an empty error box. Blank counts as absent.
+   * `??` alone skips only `null`/`undefined`, so an empty `statusMessage` would win the chain
+   * and render an empty error box. Blank counts as absent.
    */
   it('treats a blank statusMessage as absent rather than as an answer', () => {
     expect(getApiErrorMessage({ data: { statusMessage: '', message: 'Conflict' } })).toBe(
@@ -61,9 +61,9 @@ describe('toPageError', () => {
   })
 
   /**
-   * The regression guard. Hard-coding the not-found wording here is what previously made a
-   * malformed `?sort=` render as a server error claiming a table that had just loaded did not
-   * exist — so a 400 forwards its code but asserts no cause.
+   * Hard-coding the not-found wording here makes a malformed `?sort=` render as a server error
+   * claiming a table that had just loaded does not exist, so a 400 forwards its code and
+   * asserts no cause.
    */
   it('blames the address, not the table, for anything else', () => {
     expect(toPageError({ statusCode: 400 })).toEqual({
@@ -78,10 +78,9 @@ describe('toPageError', () => {
   })
 
   /**
-   * This case used to assert a 500 read "That web address could not be read.", which was the
-   * 400 wording reaching a status it does not describe: the records page wraps its record fetch
-   * in the same `useAsyncData`, so a failing endpoint lands here and used to blame the user's
-   * link for a fault at our end. The assertion moved because the behaviour did.
+   * A 500 must not take the 400 wording, which describes a status it is not: the records page
+   * wraps its record fetch in the same `useAsyncData`, so a failing endpoint lands here and
+   * would blame the user's link for a fault at our end.
    */
   it('owns a server fault rather than blaming the address', () => {
     expect(toPageError({ statusCode: 500 })).toEqual({

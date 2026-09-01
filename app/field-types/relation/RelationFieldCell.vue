@@ -31,7 +31,7 @@ const tables = useTablesStore()
 const recordId = computed(() => (typeof props.value === 'string' ? props.value : undefined))
 
 // Linked records come from the page the records were fetched with, so a cell is correct
-// however large the target table is — an id resolving to nothing means the target was deleted
+// however large the target table is — an id resolving to nothing means a deleted target
 const linkedRecord = computed(() =>
   recordId.value === undefined
     ? undefined
@@ -41,13 +41,10 @@ const linkedRecord = computed(() =>
 /**
  * `undefined` when there is nothing to open, so the template falls through to plain text.
  *
- * The target is stored as a **cuid** (`options.targetTableId`) and a link has to carry an
- * address, so the number comes from the tables store — which holds every table the user owns,
- * including one this page is not about. That matters inside the dialog, where a nested relation
- * belongs to a table whose options never passed through `loadOptions`.
- *
- * A number the store cannot supply — `ensureTables` never throws, so the list may be empty —
- * degrades to plain text, exactly as a deleted target already does. Never a broken link.
+ * The target is stored as a **cuid** and a link has to carry an address, so the number comes
+ * from the tables store — which holds every table the user owns, including one this page is
+ * not about (a nested relation inside the dialog). A number the store cannot supply degrades to
+ * plain text, exactly as a deleted target does. Never a broken link.
  */
 const detailTo = computed(() => {
   const targetTableId = props.field.options?.targetTableId
@@ -70,17 +67,15 @@ const detailTo = computed(() => {
 
 <style lang="scss" scoped>
 .relation-cell {
-  // The concept's link treatment: no `text-decoration`, but a rule under the word that goes
-  // from quiet to the full accent on hover. An underline that appeared only on hover would
-  // leave the resting state indistinguishable from text that happens to be blue.
+  // The concept's link treatment: a rule under the word going from quiet to the full accent on
+  // hover. Revealed only on hover, the resting state reads as text that happens to be blue.
   &__link {
     color: var(--color-accent);
     text-decoration: none;
     border-bottom: 1px solid var(--color-accent-underline);
 
-    // Inline text, so it carries no `--control-height` — the same call `.text-link` makes.
-    // The padding is what lifts a ~20px line box over the 24×24 target floor (SC 2.5.8)
-    // without touching the row height, which the cell's own `height` fixes anyway.
+    // Inline text, so no `--control-height` — the same call `.text-link` makes. The padding
+    // lifts a ~20px line box over SC 2.5.8's 24×24 floor without touching the row height.
     padding-block: rem(2);
 
     @include focus-ring;
@@ -90,8 +85,8 @@ const detailTo = computed(() => {
     }
   }
 
-  // Dashed rather than solid, and not a link: the word is still the best name the record had,
-  // but there is nothing behind it any more. `cursor: help` pairs with the `title`.
+  // Dashed and not a link: the word is the best name the record had, but nothing is behind it.
+  // `cursor: help` pairs with the `title`.
   &__dead {
     color: var(--color-text-secondary);
     border-bottom: 1px dashed currentcolor;

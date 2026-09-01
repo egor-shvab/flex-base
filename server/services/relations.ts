@@ -11,10 +11,8 @@ import { isListFilterValue } from '#shared/utils/filter'
 import { buildRecordLabel } from '#shared/utils/record-label'
 
 /**
- * A relation stores a target record's id — which no schema can validate, no cell can display,
- * and no URL should carry. This module resolves all three: it validates a written id, reads a
- * stored one into a label, and turns the address a filter carries back into the id the column
- * holds. The one place that knows what a RELATION field means, so `records.ts` stays generic.
+ * A relation stores a target record's id — which no schema can validate, no cell can display and
+ * no URL should carry. This module does all three, so `records.ts` stays generic.
  */
 export interface IRelationTarget {
   field: IField
@@ -52,9 +50,8 @@ function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelatio
 
     const ids = new Set<string>()
     for (const data of rows) {
-      // A multi-value relation stores a list of ids; every consumer below already works in
-      // sets and batches, so normalising here is the whole of what several links cost this
-      // module. A bare string is also what a row written before the field was widened holds.
+      // A multi-value relation stores a list of ids, and every consumer below works in sets,
+      // so normalising here is the whole cost. A bare string is what a pre-widening row holds.
       const stored = data[field.key]
       for (const id of Array.isArray(stored) ? stored : [stored]) {
         if (typeof id === 'string' && id !== '') ids.add(id)
@@ -134,19 +131,16 @@ async function resolveLinkedRecords(
 }
 
 /**
- * A relation filter carries the target's **address** — the number a URL shows, or the cuid an
- * older link holds — while the column it compares against stores cuids. This is where the two
- * meet, above `buildRecordWhere` and below the codec: the URL codec is pure, synchronous and
- * shared by both sides of the wire, so it cannot do I/O, and teaching the SQL to compare through
- * a subquery on `"Record"."number"` would defeat RELATION's `filterIndex` — the planner can no
- * longer probe an indexed expression with a constant.
+ * A relation filter carries the target's **address** where the column stores cuids. The two meet
+ * here, above `buildRecordWhere` and below the codec: the codec is pure and shared by both sides
+ * of the wire, so it cannot do I/O, and comparing through a subquery on `"Record"."number"`
+ * would defeat RELATION's `filterIndex`.
  *
- * **Every requested value survives, resolved or not**, and that is the whole safety property.
- * Dropping one that resolves to nothing would leave a list filter empty, `containsAny` would
- * answer `null`, `buildRecordWhere` would skip the condition, and the list would **silently
- * widen to the entire table** — no error, no empty state, just the wrong rows. Passing it
- * through unchanged cannot do that: a stray number simply matches nothing, because
- * `assertRelationTargets` guarantees every stored relation value is a live record's cuid.
+ * **Every requested value survives, resolved or not**, and that is the safety property. Dropping
+ * an unresolved one would empty a list filter, `containsAny` would answer `null`,
+ * `buildRecordWhere` would skip the condition, and the list would **silently widen to the whole
+ * table**. Passed through, a stray number simply matches nothing, because `assertRelationTargets`
+ * guarantees every stored value is a live record's cuid.
  *
  * One query per distinct target table, never one per value.
  */
@@ -234,13 +228,12 @@ async function assertRelationTargets(fields: IField[], data: TRecordData): Promi
 }
 
 /**
- * The candidates a relation picker offers, label-ascending, optionally narrowed by a term the
- * user typed. Bounded like every other list — a dropdown is not a place to render a whole
- * table — so the cap applies to the *matches*, which is what search is for: a target past the
- * first `RELATION_OPTIONS_LIMIT` is reached by naming it rather than by scrolling to it.
+ * The candidates a relation picker offers, label-ascending, optionally narrowed by a typed term.
+ * The cap applies to the *matches*, which is what search is for: a target past the first
+ * `RELATION_OPTIONS_LIMIT` is reached by naming it rather than by scrolling.
  *
- * The ORDER BY is deliberately untouched by the search: narrowing and ordering are separate
- * questions, and folding the term into the sort would silently reorder every existing picker.
+ * The ORDER BY is untouched by the search — folding the term into the sort would silently
+ * reorder every existing picker.
  */
 async function listRelationOptions(field: IField, search = ''): Promise<IRecordOption[]> {
   const targetTableId = field.options?.targetTableId

@@ -6,14 +6,11 @@ import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 
 /**
  * Everything a relation needs in order to read as something other than an id, keyed by the
- * relation field throughout — two fields may point at one table through different label
- * fields, so a field is the only key under which both halves are unambiguous.
+ * relation **field** throughout — two fields may point at one table through different label
+ * fields, so nothing else is unambiguous. Linked records arrive from the picker's candidates
+ * and from a page of records, which never disagree: the server builds both the same way.
  *
- * Linked records arrive from two places that never disagree, because the server builds both
- * from the same rule: the candidates a picker offers, and the ones a page of records came with.
- *
- * **Merge-only, and never cleared between tables** — unlike the records store, which drops its
- * state when the table changes. Keying by field is what rules a per-table clear out: the detail
+ * **Merge-only, and never cleared between tables**, unlike the records store — the detail
  * dialog drills across tables and caches fields the current page is not about
  * (`docs/decisions.md`).
  */
@@ -24,18 +21,15 @@ export const useRelationsStore = defineStore('relations', () => {
   const linkedByField = ref<Record<string, Record<string, ILinkedRecord>>>({})
 
   /**
-   * Which table's endpoint answers for a relation field. Remembered here rather than added to
-   * `IField`, which carries no table of its own on purpose: `recordColumn()` synthesises fields for
-   * `Record #` / `Created at` / `Updated at` that belong to no field row and would have to
-   * invent one. `loadOptions` already receives it, so this is the one place that knows.
+   * Which table's endpoint answers for a relation field. Not on `IField`, which carries no
+   * table on purpose: `recordColumn()` synthesises fields belonging to no field row.
    */
   const tableAddressByField = ref<Record<string, string>>({})
 
   /**
-   * The same linked records keyed by **number** instead of by id. A filter addresses its target
-   * the way a URL does, so the control and the summary behind it both need this direction;
-   * everything else in the app holds an id. Maintained here rather than derived at each read,
-   * so the two indexes cannot drift.
+   * The same linked records keyed by **number**. A filter addresses its target the way a URL
+   * does, where everything else holds an id. Maintained rather than derived, so the two indexes
+   * cannot drift.
    */
   const linkedByFieldNumber = ref<Record<string, Record<number, ILinkedRecord>>>({})
 
@@ -88,13 +82,10 @@ export const useRelationsStore = defineStore('relations', () => {
   }
 
   /**
-   * The candidates matching a typed term, straight from the server — how a picker reaches a
-   * record beyond the capped seed list.
-   *
-   * It deliberately does **not** write `optionsByField`: that is the seed every other
-   * consumer of `optionsFor()` reads, and a search result would clobber it. It does cache
-   * the linked records, so one found only through a search still reads as itself in a cell
-   * afterwards without a second round trip.
+   * The candidates matching a typed term — how a picker reaches a record beyond the capped
+   * seed list. It deliberately does **not** write `optionsByField`, the seed every other
+   * consumer of `optionsFor()` reads, but it does cache the linked records so one found only
+   * through a search still reads as itself in a cell afterwards.
    */
   async function searchOptions(
     fieldId: string,

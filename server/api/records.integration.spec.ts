@@ -56,9 +56,9 @@ beforeEach(async () => {
 })
 
 /**
- * The endpoint decodes a link with the same codec the records page uses, over params its own
- * schema validated first. Both halves are covered in isolation; what is only true here is that
- * the endpoint composes them the way the page does, so a shared URL cannot mean two things.
+ * The endpoint decodes a link with the same codec the records page uses, over params its schema
+ * validated first. Both halves are covered in isolation; only here is it true that the endpoint
+ * composes them the way the page does, so a shared URL cannot mean two things.
  */
 describe('reading a list query off the URL', () => {
   it('returns the whole table with no params', async () => {
@@ -191,9 +191,8 @@ describe('writing through the endpoint', () => {
   })
 
   /**
-   * The update path, driven through the handler rather than the service. What only this layer
-   * shows is that the **route params reach the right row**: everything below takes a `recordId`
-   * as an argument and cannot tell a mis-wired one from a correct one.
+   * The update path through the handler rather than the service. Only this layer shows that the
+   * **route params reach the right row** — everything below takes a `recordId` as an argument.
    */
   describe('updating one', () => {
     const patch = (recordAddress: string, body: unknown) =>
@@ -251,13 +250,13 @@ describe('writing through the endpoint', () => {
   })
 
   /**
-   * The two caps a multi-value field carries, at the layer that returns the status code.
-   * `shared/validation/record.spec.ts` proves zod rejects both; what only this layer shows is
-   * that the rejection reaches the caller as a 400 rather than being swallowed or stored.
+   * The two caps a multi-value field carries, at the layer returning the status code.
+   * `shared/validation/record.spec.ts` proves zod rejects both; only here is it shown that the
+   * rejection reaches the caller as a 400 rather than being swallowed or stored.
    *
-   * Duplicates are **rejected rather than deduplicated**: a control cannot produce one, since
-   * picking a chosen option toggles it off, so a repeat is a crafted payload — and dropping it
-   * quietly would put a `.transform()` in a layer whose whole job is to judge.
+   * Duplicates are **rejected rather than deduplicated**: a control cannot produce one, so a
+   * repeat is a crafted payload, and dropping it quietly would put a `.transform()` in a layer
+   * whose whole job is to judge.
    */
   describe('a multi-value field’s caps', () => {
     /** Widened on the table the fixture already built, so the rest of its shape is unchanged. */
@@ -374,8 +373,8 @@ describe('the detail endpoint', () => {
 
 /**
  * A record address is the number a URL carries or the cuid a relation stores. The number is
- * unique **within its table**, so the risk this covers is a record address reaching across
- * tables — which the `tableId`-scoped compound unique is what prevents.
+ * unique **within its table**, so the risk covered here is an address reaching across tables,
+ * which the `tableId`-scoped compound unique prevents.
  */
 describe('a record is addressable by its number as well as its cuid', () => {
   const detail = (recordAddress: string) =>

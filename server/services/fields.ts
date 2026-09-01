@@ -18,19 +18,15 @@ const fieldErrors = {
 /**
  * Brings a field's indexes in line **without making the caller wait**.
  *
- * `CREATE INDEX CONCURRENTLY` on a large table runs for minutes — a trigram GIN over a million
- * rows took over two of them — so awaiting it would hold a request open for as long as the table
- * is big. It cannot block writes either, which is the whole reason for `CONCURRENTLY`, so the
- * only thing waiting would buy is a response that reports the outcome.
- *
- * That is the trade: a failure reaches the error log rather than the user, and the index is
- * simply absent until something asks again. `reconcileFieldIndexes` is the recovery path, and a
- * failed build leaves an invalid index that the next sync drops before rebuilding.
+ * `CREATE INDEX CONCURRENTLY` runs for minutes on a large table — a trigram GIN over a million
+ * rows took over two — and blocks no writes, so waiting would buy only a response that reports
+ * the outcome. The trade: a failure reaches the error log rather than the user, and the index is
+ * absent until something asks again. `reconcileFieldIndexes` is the recovery path.
  */
 function recordBackgroundFailure(error: unknown): void {
-  // Written straight to the sink rather than rethrown. Nitro's `error` hook only sees faults on
-  // the request path, and this deliberately left it — an uncaught throw here would reach Node's
-  // `uncaughtException` and take the process down over an index that failed to build.
+  // Straight to the sink rather than rethrown: Nitro's `error` hook only sees faults on the
+  // request path, which this has left, so an uncaught throw would reach `uncaughtException`
+  // and take the process down over an index that failed to build
   recordErrorEntry(buildErrorLogEntry(error, null, new Date()))
 }
 
@@ -56,15 +52,13 @@ function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma
 }
 
 /**
- * Rewrites every stored value of one field into a single-element array, so widening a field
- * that already holds data does not leave the whole table on the wrong shape. Runs in the same
- * transaction as the field update, so the metadata and the rows it describes move together.
+ * Rewrites every stored value of one field into a single-element array, in the same transaction
+ * as the field update so the metadata and the rows it describes move together.
  *
- * Non-destructive and idempotent: a value already an array is skipped, and so is a missing or
- * JSON-null one — there is nothing to wrap, and `[null]` would be a value where there was none.
- * The `?` operator rather than the `jsonb_exists` function, for one rule with `containsAny` —
- * a literal `?` is a placeholder token on Prisma's *other* drivers, not on the `adapter-pg` this
- * project uses. Nothing here is index-served, so the choice is consistency rather than cost.
+ * Non-destructive and idempotent: an array is skipped, and so is a missing or JSON-null value —
+ * `[null]` would be a value where there was none. The `?` operator rather than `jsonb_exists`,
+ * for one rule with `containsAny`; a literal `?` is a placeholder token on Prisma's *other*
+ * drivers, not on the `adapter-pg` this project uses.
  */
 function widenToList(tx: Prisma.TransactionClient, tableId: string, key: string) {
   return tx.$executeRaw`
@@ -137,8 +131,8 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     throw createError({ statusCode: 400, statusMessage: 'Relation target cannot be changed' })
   }
 
-  // Cardinality is one-way. Widening is a migration this can perform; narrowing would have to
-  // discard every value past the first, and there is no non-arbitrary rule for which survives.
+  // Cardinality is one-way: widening is a migration this can perform, where narrowing would
+  // discard every value past the first with no rule for which survives
   const wasMultiple = currentOptions?.multiple === true
   if (wasMultiple && !input.multiple) {
     throw createError({
@@ -171,10 +165,9 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     })
 
     const saved = toSharedField(updated)
-    // Outside the transaction, and not only because it is fire-and-forget: `CONCURRENTLY` is
-    // refused inside one. Widening also changes which index a field wants — a multi-value
-    // SELECT filters through GIN where the single-value one used a B-tree — so this runs on
-    // every update rather than only when the flag itself moved.
+    // Outside the transaction, since `CONCURRENTLY` is refused inside one. Widening also
+    // changes which index a field wants — a multi-value SELECT filters through GIN where a
+    // single-value one uses a B-tree — so this runs on every update.
     syncIndexesInBackground(saved)
 
     return saved
@@ -190,8 +183,8 @@ async function deleteField(tableId: string, fieldId: string) {
     throw toHttpError(error, fieldErrors)
   }
 
-  // After the delete, and only once it succeeded: an index outlives nothing, but dropping one
-  // for a field that is still there would quietly slow the queries that were using it
+  // After the delete succeeded: dropping one for a field still present would quietly slow the
+  // queries using it
   void dropFieldIndexes(fieldId).catch(recordBackgroundFailure)
 }
 

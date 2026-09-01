@@ -6,8 +6,8 @@ const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
 
 /**
  * The handler spec already covers a *sequential* duplicate. What only a real index can answer is
- * what happens when two registrations for one email overlap — the case the removed `findUnique`
- * pre-check used to lose, by letting both requests past the check and both into the insert.
+ * what happens when two registrations for one email overlap — the case a `findUnique` pre-check
+ * loses, by letting both requests past the check and both into the insert.
  */
 describe('registration is arbitrated by the unique index, not by a pre-check', () => {
   it('lets exactly one of two concurrent registrations win', async () => {

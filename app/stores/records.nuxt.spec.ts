@@ -79,8 +79,8 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
 })
 
 /**
- * The tables store's own list, so a write can be seen replacing the cached row the sidebar and
- * the dashboard draw their `_count` from. Registered here because `registerEndpoint` is per file.
+ * The tables store's list, so a write can be seen replacing the cached row the sidebar and
+ * dashboard draw `_count` from. Registered here because `registerEndpoint` is per file.
  */
 registerEndpoint('/api/tables', {
   method: 'GET',
@@ -169,10 +169,9 @@ describe('useRecordsStore', () => {
     })
 
     /**
-     * A refetch runs from a watcher, where swallowing would leave the table showing rows that no
-     * longer match the URL — so `failed` is set *and* the rejection propagates, which is what
-     * lets the initial load still produce a 404 through `useAsyncData`. The opposite of
-     * `ensureTables`, deliberately.
+     * A refetch runs from a watcher, where swallowing would leave the table showing stale rows —
+     * so `failed` is set *and* the rejection propagates, which lets the initial load still
+     * produce a 404 through `useAsyncData`. The opposite of `ensureTables`, deliberately.
      */
     it('records the failure and still rejects', async () => {
       listShouldFail = true
@@ -248,10 +247,9 @@ describe('useRecordsStore', () => {
   })
 
   /**
-   * Records are newest first, so a new one sits at the top of page 1 — unless a filter or a
-   * custom sort is active, where it may not belong to the current view at all. The URL is the
-   * source of truth, so a differing page is returned for the caller to navigate to rather than
-   * fetched here.
+   * Records are newest first, so a new one sits at the top of page 1 — unless a filter or sort
+   * is active, where it may not belong to the view at all. The URL is the source of truth, so a
+   * differing page is returned for the caller to navigate to rather than fetched here.
    */
   describe('createRecord', () => {
     it('puts a new record on page 1 of the default view', async () => {
@@ -310,8 +308,8 @@ describe('useRecordsStore', () => {
     })
 
     /**
-     * The cached count is read by the sidebar on every page and by the dashboard, and this
-     * store is the only thing that knows it moved — nothing refetches the list to find out.
+     * The cached count is read by the sidebar and the dashboard, and this store is the only
+     * thing that knows it moved — nothing refetches the list to find out.
      */
     it('tells the tables store the record count went up', async () => {
       const tables = await loadedTables()
@@ -408,8 +406,8 @@ describe('useRecordsStore', () => {
 
     /**
      * Deleting the last record on the last page must not land on an empty one. Page 1 is the
-     * default, and `toRecordQueryParams` omits defaults to keep an unfiltered view a clean
-     * link — so stepping back to it shows up as the param disappearing.
+     * default and `toRecordQueryParams` omits defaults, so stepping back shows up as the param
+     * disappearing.
      */
     it('steps back a page when the last record on it goes', async () => {
       response = page({ total: 26, pageSize: 25, page: 2 })

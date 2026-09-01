@@ -7,9 +7,8 @@ import { createUser } from '~~/test/integration/seed'
 
 /**
  * The app's one write surface open to anyone, so what is proved here is mostly what it
- * **refuses**. The recorder is stubbed: what reaches the file is the unit suite's subject
- * (`error-log.spec.ts` asserts the serialized line), while what only a real request can answer
- * is whether the guards fire before the body is read and whether the user comes from the cookie.
+ * **refuses**. The recorder is stubbed — `error-log.spec.ts` owns what reaches the file — while
+ * only a real request can say whether the guards fire before the body is read.
  */
 const recorded: unknown[] = []
 
@@ -27,9 +26,8 @@ const report = {
 /**
  * A real request, with the `content-length` the handler checks before reading anything.
  *
- * **Each case gets its own address.** The limiter is module state by design — it has to outlive a
- * request to count anything — so cases sharing one address would spend each other's allowance and
- * the order of this file would decide whether it passed.
+ * **Each case gets its own address.** The limiter is module state by design, so cases sharing
+ * one address would spend each other's allowance and file order would decide the outcome.
  */
 let address = 0
 
@@ -91,9 +89,8 @@ describe('reporting a client error', () => {
     })
 
     /**
-     * The load-bearing half of the cap. Refusing only an oversized *declared* length would leave
-     * chunked encoding as an uncapped path straight into memory, so a request that declares no
-     * length at all is refused outright.
+     * The load-bearing half of the cap: refusing only an oversized *declared* length leaves
+     * chunked encoding as an uncapped path into memory, so a missing length is refused too.
      */
     it('411s when no length is declared, so chunked encoding is not an uncapped path', async () => {
       const event = testEvent({ method: 'POST', ip: `10.0.0.${address}` })

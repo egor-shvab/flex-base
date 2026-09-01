@@ -94,9 +94,8 @@ describe('buildErrorLogEntry', () => {
     expect(buildErrorLogEntry(new Error('boom'), null, NOW).statusCode).toBeNull()
   })
 
-  // h3 hands the hook an `H3Error` wrapping whatever the service threw, and that wrapper is
-  // named the bare `Error`. Naming it that in the log would lose the one word that says
-  // where to start reading.
+  // h3 wraps whatever the service threw in an `H3Error` named the bare `Error`, which in the
+  // log would lose the one word saying where to start reading
   it('names the error h3 wrapped, not the wrapper', () => {
     const entry = buildErrorLogEntry(createError(new TypeError('bad shape')), null, NOW)
 
@@ -146,9 +145,8 @@ describe('buildErrorLogEntry', () => {
   })
 })
 
-// The redaction is asserted on the serialized line rather than on the entry object: what
-// reaches the file is the only thing that can leak, and a field added later without a
-// thought is exactly what these cases exist to catch.
+// Asserted on the serialized line rather than the entry object: what reaches the file is the
+// only thing that can leak, and a field added later is what these cases exist to catch
 describe('the redaction contract', () => {
   const line = () =>
     formatErrorLogLine(
@@ -187,9 +185,8 @@ describe('the redaction contract', () => {
 })
 
 /**
- * The browser half. It goes through the same formatter and the same file, so the contract above
- * has to hold from this side too — and the ways it could be broken are different ones, because
- * here the *caller* is untrusted rather than the thrower.
+ * The browser half, through the same formatter and file — so the contract above holds from this
+ * side too, broken in different ways because here the *caller* is untrusted.
  */
 describe('buildClientErrorLogEntry', () => {
   const report = {
@@ -236,9 +233,8 @@ describe('buildClientErrorLogEntry', () => {
 })
 
 /**
- * The same contract, asserted from the untrusted side. A client report is a body someone can
- * write by hand, so what matters here is what the builder **refuses to take from it** — the
- * server-side cases above assert what the builder declines to reach for.
+ * The same contract from the untrusted side: a client report is a body someone can write by
+ * hand, so what matters is what the builder **refuses to take from it**.
  */
 describe('the redaction contract, for a client report', () => {
   const line = (path: string, userId: string | null = USER.id) =>
@@ -251,9 +247,9 @@ describe('the redaction contract, for a client report', () => {
     )
 
   /**
-   * The one that would be easy to get wrong: `path` is a string the caller controls, so a query
-   * string pasted into it would put the user's own data in the log by the back door. It is cut at
-   * the first `?` — the same structural cut `readErrorLogRequest` makes on the server side.
+   * `path` is a string the caller controls, so a query string pasted into it would put the
+   * user's data in the log by the back door. Cut at the first `?`, the same structural cut
+   * `readErrorLogRequest` makes server-side.
    */
   it('cuts a query string off the reported path, values and all', () => {
     const written = line('/tables/tbl_1?search=acme%20holdings&stage=Won')
@@ -266,8 +262,7 @@ describe('the redaction contract, for a client report', () => {
 
   /**
    * The user id is a parameter, never a field of the report — the handler reads it from the
-   * cookie the middleware resolved. A body claiming to be someone else cannot reach the entry,
-   * because there is no path for it to arrive by.
+   * cookie. A body claiming to be someone else has no path to arrive by.
    */
   it('takes the user id from the caller, not from anything the report could carry', () => {
     expect(line('/tables/tbl_1', 'usr_from_cookie')).toContain('usr_from_cookie')
@@ -307,8 +302,8 @@ describe('the redaction contract, for a client report', () => {
 })
 
 describe('formatErrorLogLine — the NDJSON invariant', () => {
-  // A stack is multi-line by nature. If an entry could span lines, every reader downstream
-  // would need a multi-line rule to tell one error from the next.
+  // A stack is multi-line by nature, and an entry that could span lines would need a multi-line
+  // rule in every reader downstream
   it('emits exactly one newline, at the end, however many the stack has', () => {
     const error = new Error('boom')
     error.stack = 'Error: boom\n    at one\n    at two'

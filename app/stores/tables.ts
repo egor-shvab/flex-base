@@ -25,9 +25,9 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   /**
-   * The layout's entry point: loads the list once per session and **never throws**.
-   * The root layout has no error boundary above it, so a rejection here would replace
-   * every authenticated page with Nuxt's full-page error instead of a sidebar message.
+   * The layout's entry point: loads the list once per session and **never throws**. The root
+   * layout has no error boundary above it, so a rejection would replace every authenticated
+   * page with Nuxt's full-page error instead of a sidebar message.
    */
   async function ensureTables() {
     if (loaded.value) return
@@ -47,27 +47,22 @@ export const useTablesStore = defineStore('tables', () => {
 
   async function renameTable(tableAddress: string, input: TTableInput) {
     const response = await api.rename(tableAddress, input)
-    // Matched on the id the server answered with, not on the address asked for — the two are
-    // different kinds of thing, and only one of them identifies a cached row
+    // Matched on the id the server answered with, not the address asked for
     tables.value = tables.value.map((table) =>
       table.id === response.table.id ? response.table : table,
     )
   }
 
   /**
-   * Replaces one cached row with the one the server just answered with. `_count` is read on two
-   * always-visible surfaces — the sidebar and the dashboard — so a write to a table's fields or
-   * records has to reach them, and the endpoints that move a count return the refreshed row for
-   * exactly that.
+   * Replaces one cached row with the one the server answered with. `_count` is read by the
+   * sidebar and the dashboard, so every endpoint that moves a count returns the refreshed row.
    *
-   * **The count is received, not computed.** This replaced a delta the client applied itself,
-   * which was arithmetic over a number only the database knows: it needed a floor at zero to
-   * stay presentable, and it drifted the moment a second tab wrote. Rebuilt rather than mutated,
-   * because `tables` is a `shallowRef` and an in-place edit would not be seen.
+   * **The count is received, not computed** — a client-side delta is arithmetic over a number
+   * only the database knows, and drifts the moment a second tab writes. Rebuilt rather than
+   * mutated, because `tables` is a `shallowRef`.
    *
-   * A row for a table the list does not hold is ignored — `ensureTables` never throws, so the
-   * list may legitimately be empty, and inserting one row into an unloaded list would render a
-   * sidebar holding only the table just written to.
+   * A row for a table the list does not hold is ignored: `ensureTables` never throws, so the
+   * list may legitimately be empty, and inserting would render a sidebar holding one table.
    */
   function applyTableRow(row: ITableListItem) {
     tables.value = tables.value.map((table) => (table.id === row.id ? row : table))
@@ -86,10 +81,9 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   /**
-   * A table's public number from its id — the cuid→number direction, which only a relation needs:
-   * a RELATION field's `options.targetTableId` stores an id, and a link to that table has to be
-   * an address. Answers for **any** table the user owns, including one the current page is not
-   * about, which is why it lives here rather than travelling with the relation's options.
+   * A table's public number from its id — the direction only a relation needs, since
+   * `options.targetTableId` stores an id and a link has to carry an address. Answers for **any**
+   * table the user owns, which is why it lives here rather than with the relation's options.
    */
   function tableNumber(tableId: string): number | undefined {
     return tables.value.find((table) => table.id === tableId)?.number

@@ -3,21 +3,17 @@ import type { IRecordSort, TRecordFilterValues, TSortDirection } from '#shared/t
 import type { ITable } from '#shared/types/table'
 
 /**
- * **One** value — what a single-value field stores, what one element of a multi-value field
- * is, and what a per-type cell renders. Named separately from `TRecordValue` because most of
- * the layer genuinely handles one value: a cell, a record column, a decoded filter bound. A
- * position typed with the wider union when it can only ever hold one is a type that lies, and
- * on a component it becomes a runtime prop check that lies with it.
+ * **One** value — what a single-value field stores, one element of a multi-value one, and what
+ * a per-type cell renders. Named apart from `TRecordValue` because most of the layer genuinely
+ * handles one value, and the wider union in such a position is a type that lies — on a
+ * component, a runtime prop check that lies with it.
  */
 export type TRecordSingleValue = string | number | boolean | null
 
 /**
- * Every value a record's `data` can hold, stored as JSONB keyed by `Field.key`.
- *
- * `string[]` is what a **multi-value** field stores (`options.multiple`, see `isMultiValue`) —
- * a SELECT holding several choices, a RELATION holding several target ids. Every guard over
- * this union must therefore separate the array case, exactly as `TFilterValue`'s already do;
- * `TRecordValue` stays a subset of `TFilterValue`, so a control table typed on the latter
+ * Every value a record's `data` can hold, stored as JSONB keyed by `Field.key`. `string[]` is
+ * what a **multi-value** field stores, so every guard over this union must separate the array
+ * case. `TRecordValue` stays a subset of `TFilterValue`, so a control table typed on the latter
  * still accepts a record value.
  */
 export type TRecordValue = TRecordSingleValue | string[]
@@ -27,8 +23,8 @@ export type TRecordData = Record<string, TRecordValue>
 export interface IRecord {
   id: string
   /**
-   * The id a user reads, and what a URL addresses — sequential within its own table. `id` stays
-   * a cuid because it is what a relation *references*, inside `data` with no foreign key.
+   * The id a user reads and a URL addresses, sequential within its table. `id` stays a cuid
+   * because it is what a relation *references*, inside `data` with no foreign key.
    */
   number: number
   data: TRecordData
@@ -45,26 +41,24 @@ export interface IRecordPage {
    */
   total: number
   /**
-   * Whether there are more matches than `total` says. Every reader that renders a total has to
-   * branch on it, because `1000` and "at least 1000" are different claims and only one of them
-   * can be shown as a number.
+   * Whether there are more matches than `total` says. Every reader of a total branches on it:
+   * `1000` and "at least 1000" are different claims.
    */
   totalCapped: boolean
   page: number
   pageSize: number
   /**
-   * How every relation value on this page reads, keyed by the relation field's id and then by
-   * the target record's id. Resolved server-side, so a cell reads correctly however large the
-   * target table is; keyed per field, because two relation fields may point at one table
-   * through different label fields.
+   * How every relation value on this page reads, keyed by relation field id then target record
+   * id. Resolved server-side, so a cell is correct however large the target table is; per
+   * field, because two relation fields may point at one table through different labels.
    */
   linkedRecords: Record<string, Record<string, ILinkedRecord>>
 }
 
 /**
- * How a linked record reads: its own number, plus whatever its label field says. The two travel
- * apart rather than pre-joined, because only a renderer knows whether it can style them
- * differently — and a flattened `#3 Example` can never be taken apart again.
+ * How a linked record reads: its number, plus whatever its label field says. Apart rather than
+ * pre-joined, because only a renderer knows whether it can style them differently — and a
+ * flattened `#3 Example` can never be taken apart again.
  */
 export interface ILinkedRecord {
   number: number
@@ -78,13 +72,12 @@ export interface IRecordOption extends ILinkedRecord {
 }
 
 /**
- * One record addressed from anywhere: a relation only stores the target's id, so the table it
- * belongs to has to travel with it. This is what the `detail` URL param encodes — the trail of
- * records the dialog has open, and the one it is being asked to open next.
+ * One record addressed from anywhere: a relation stores only the target's id, so its table has
+ * to travel with it. This is what the `detail` URL param encodes — the trail of records the
+ * dialog has open.
  *
- * **Addresses, not ids.** Both are what a URL carries — the row's public number going forward,
- * or the cuid an older link still holds — and they travel to the API as-is, which reads either.
- * Strings for the same reason: a URL has nothing else.
+ * **Addresses, not ids**: the row's public number going forward, or the cuid an older link
+ * holds. Strings either way, because a URL has nothing else, and the API reads both.
  */
 export interface IOpenRecord {
   tableAddress: string
@@ -94,8 +87,7 @@ export interface IOpenRecord {
 /**
  * Everything the detail dialog renders, in one response. The fields come along because the
  * dialog draws a record of a table the page is not about, and the server needs them to resolve
- * the relation labels regardless — so they are already in hand, and fetching them separately
- * would cost a second round trip and a second loading state for one dialog.
+ * the relation labels anyway — so fetching them separately would cost a second round trip.
  */
 export interface IRecordDetail {
   table: Pick<ITable, 'id' | 'number' | 'name'>

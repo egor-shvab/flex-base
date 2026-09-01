@@ -234,9 +234,8 @@ const { data, error } = await useAsyncData(`table-records-${tableAddress}`, asyn
 })
 
 // Every list change goes through the URL, so one watcher covers filtering, sorting and paging.
-// The rejection is swallowed deliberately: the store sets `failed`, which the template shows —
-// letting it escape a watcher would be an unhandled rejection and the table would silently keep
-// rows that no longer match the URL.
+// The rejection is swallowed deliberately — the store sets `failed`, which the template shows;
+// escaping a watcher it would be unhandled and the table would keep stale rows.
 watch(queryKey, async () => {
   try {
     await recordsStore.fetchRecords(tableAddress, queryState.value)
@@ -252,9 +251,8 @@ if (error.value) {
 const table = computed(() => data.value)
 
 /**
- * The table's public number, which every link out of this page is built from. Taken from the
- * loaded row rather than from the address, because an older link addresses by cuid and would
- * otherwise leave every `?detail=` entry unable to name its table.
+ * The table's public number, which every link out of this page is built from. From the loaded
+ * row, not the address: an older link addresses by cuid, leaving `?detail=` unable to name it.
  */
 const tableNumber = computed(() => table.value?.number ?? parseTableAddress(tableAddress))
 useSeoMeta({ title: () => table.value?.name ?? 'Records' })
@@ -267,11 +265,10 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 const hasFields = computed(() => fieldsStore.fields.length > 0)
 
 /**
- * Loading is its own state, and both halves of this are needed. The store drops the previous
- * table's rows *before* requesting the next one's — and this page is still the one on screen until
- * the incoming one resolves — so between the two there is nothing here to tell "empty" from "not
- * known yet", exactly as `failed` cannot be told from empty. The row count is what keeps it to a
- * body with nothing to draw: an in-place refetch keeps its rows and says "Filtering…" instead.
+ * Loading is its own state, and both halves are needed. The store drops the previous table's rows
+ * *before* requesting the next one's, while this page is still on screen, so between the two
+ * there is nothing to tell "empty" from "not known yet". The row count keeps it to a body with
+ * nothing to draw: an in-place refetch keeps its rows and says "Filtering…" instead.
  */
 const rowsLoading = computed(() => recordsStore.pending && recordsStore.records.length === 0)
 
@@ -292,8 +289,8 @@ async function submitRecord(data: TRecordData) {
     return
   }
 
-  // A new record lands on page 1 of the default view; keep the URL in step rather than
-  // letting the store show a page the address bar disagrees with
+  // A new record lands on page 1 of the default view; the URL is kept in step rather than the
+  // store showing a page the address bar disagrees with
   const nextPage = await recordsStore.createRecord(tableAddress, data, queryState.value)
   if (nextPage !== queryState.value.page) {
     await goToPage(nextPage, true)
@@ -341,10 +338,9 @@ const {
     @include page-header;
   }
 
-  // The title and its primary action travel together, so this group — not the `<h1>` — is
-  // the header's flex item. `min-width: 0` is what lets `page-title`'s ellipsis engage: a
-  // flex item's automatic minimum is its content, and a nowrap heading contributes the
-  // whole untruncated table name. See `docs/decisions.md`.
+  // The title and its primary action travel together, so this group — not the `<h1>` — is the
+  // header's flex item. `min-width: 0` is what lets `page-title`'s ellipsis engage, since a
+  // flex item's automatic minimum is its content (`docs/decisions.md`).
   &__header-main {
     @include cluster;
 
@@ -365,10 +361,9 @@ const {
     @include cluster;
   }
 
-  // A ghost button is `padding: 0 rem(12)` over a transparent background, so its box edge
-  // is invisible and that padding reads as part of the gap: at the row's rem(16) these two
-  // sit 40px apart optically, against 28px between Filters and the bordered search box.
-  // rem(4) plus the two paddings is the same 28. Do not normalise it back to rem(16).
+  // A ghost button's `padding: 0 rem(12)` sits over a transparent background, so it reads as
+  // part of the gap: at the row's rem(16) these two would be 40px apart optically, against 28px
+  // between Filters and the search box. rem(4) plus the two paddings is that 28.
   &__header-buttons {
     @include cluster(4);
   }
@@ -377,8 +372,7 @@ const {
     width: rem(220);
   }
 
-  // Placement only — `BaseErrorBanner` owns the look. The rule still reaches it because a child
-  // component's root element carries the parent's scope.
+  // Placement only — `BaseErrorBanner` owns the look; a child's root carries the parent's scope
   &__failed {
     margin-bottom: rem(16);
   }
@@ -393,14 +387,10 @@ const {
   }
 
   // Sizes to its rows and stops there; past the pane it shrinks and scrolls inside itself.
-  // `flex-basis: auto` is what makes the base size the content height, `flex-grow: 0` what
-  // keeps a short result from stretching to the bottom edge. Intrinsic throughout, so it
-  // re-resolves on resize — and when the summary or the error banner appears — with no
-  // height stated anywhere.
-  //
-  // `min-height: 0` is belt and braces: a scroll container's automatic minimum is already
-  // zero, which is what lets this shrink at all. It would stop the day `overflow` moved off
-  // this element.
+  // `flex-basis: auto` makes the base size the content height, `flex-grow: 0` keeps a short
+  // result off the bottom edge. Intrinsic throughout, so it re-resolves on resize with no
+  // height stated anywhere. `min-height: 0` is belt and braces — a scroll container's automatic
+  // minimum is already zero, and would stop being so the day `overflow` moved off this element.
   &__table {
     flex: 0 1 auto;
     min-height: 0;
@@ -413,9 +403,8 @@ const {
   }
 
   // An empty state has no natural place in the flow, so it takes the middle of the pane.
-  // `margin` rather than the parent's `justify-content`, which cannot centre this one child
-  // without lifting a short grid off the top too. Nested so it outranks `BaseEmptyState`'s
-  // own `margin` — flat, the two would tie and stylesheet order would decide.
+  // `margin` rather than the parent's `justify-content`, which cannot centre one child without
+  // lifting a short grid off the top. Nested so it outranks `BaseEmptyState`'s own `margin`.
   &__body &__empty {
     margin-block: auto;
   }

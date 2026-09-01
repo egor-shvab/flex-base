@@ -9,29 +9,21 @@ import RecordNumberCell from '~/field-types/cells/RecordNumberCell.vue'
 import TimestampCell from '~/field-types/cells/TimestampCell.vue'
 
 /**
- * How a column of `queryColumns` is read and drawn — shared by the table and the detail dialog, so
- * a value reads the same wherever it is shown. Key before type in both, mirroring the precedence
- * the server's `FIELD_SQL_BY_TYPE` lookup uses. A caller goes through these rather than indexing a
- * registry, so it never learns which record columns exist or which fields hold a list.
+ * How a column of `queryColumns` is read and drawn — shared by the table and the detail dialog.
+ * Key before type in both, mirroring the server's `FIELD_SQL_BY_TYPE` precedence, so a caller
+ * never learns which record columns exist or which fields hold a list.
  *
- * **This is the one resolver that does not live in the registry, and the reason is a cycle.**
- * `inputFor`, `filterFor` and `summaryFor` all sit in `registry.ts` — but `cellComponent` returns
- * `MultiValueCell`, and that component imports `FIELD_CELLS` back out of `registry.ts` to render
- * each entry. Folding this in would make the two import each other. `registry.ts` naming only the
- * six per-type modules, never the shared cell, is what keeps this directory acyclic
- * (`docs/decisions.md`).
+ * **The one resolver that does not live in the registry, because of a cycle:** `cellComponent`
+ * returns `MultiValueCell`, which imports `FIELD_CELLS` back out of `registry.ts`. Keeping that
+ * file to the six per-type modules is what holds this directory acyclic (`docs/decisions.md`).
  *
- * `RECORD_COLUMNS` is the key half of that precedence, and lives here rather than in a module of
- * its own because both resolvers below read it on their first line and nothing else reads it.
- *
- * Only the registry-reading half lives here. The value shapers it pairs with — `toValueList` and
- * `toCellSingleValue` — are pure, and live together in `~/utils/value-shape`.
+ * `RECORD_COLUMNS` lives here because both resolvers read it and nothing else does. The value
+ * shapers it pairs with are pure and live in `~/utils/value-shape`.
  */
 
 interface IRecordColumn {
   /**
-   * Where the value comes from: a column of the record itself, never a key of its `data` —
-   * and therefore always exactly one value, whatever the table's own fields do.
+   * A column of the record itself, never a key of its `data` — so always exactly one value.
    */
   value: (record: IRecord) => TRecordSingleValue
   /** What renders it, since a field type's own cell cannot know about these columns. */
@@ -39,8 +31,8 @@ interface IRecordColumn {
 }
 
 /**
- * The client half of the record-column registry, keyed by the same reserved keys the query layer
- * uses (`shared/utils/filter.ts`) — the same shape as `FIELD_CELLS` is for types.
+ * The client half of the record-column registry, keyed by the reserved keys the query layer
+ * uses (`shared/utils/filter.ts`).
  */
 export const RECORD_COLUMNS: Record<string, IRecordColumn> = {
   [RECORD_NUMBER_KEY]: { value: (record) => record.number, cell: markRaw(RecordNumberCell) },
@@ -57,9 +49,8 @@ export function readCellValue(record: IRecord, column: IField): TRecordValue {
 }
 
 /**
- * Key, then cardinality, then type. A multi-value field renders through one shared cell that
- * delegates each entry back to `FIELD_CELLS`, so the registry needs no list variants and a
- * value reads the same whether it stands alone or in a list.
+ * Key, then cardinality, then type. A multi-value field renders through one shared cell
+ * delegating each entry back to `FIELD_CELLS`, so the registry needs no list variants.
  */
 export function cellComponent(column: IField): Component {
   const recordColumn = RECORD_COLUMNS[column.key]

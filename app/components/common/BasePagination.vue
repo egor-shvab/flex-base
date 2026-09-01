@@ -1,10 +1,9 @@
 <template>
   <nav class="pagination" aria-label="Pagination">
     <!--
-      `role="status"` rather than a bare `aria-live="polite"`: the role *implies* polite-live,
-      so assistive tech hears exactly the same thing, and the range gains a role a reader — and
-      a spec — can address. Which page you are on changes without focus moving, so it has to
-      announce itself or it does not announce at all.
+      `role="status"` rather than bare `aria-live="polite"`: it implies polite-live and gives
+      the range a role a reader — and a spec — can address. The page changes without focus
+      moving, so it has to announce itself.
     -->
     <span class="pagination__count" role="status">{{ rangeLabel }}</span>
     <div class="pagination__pager">
@@ -58,8 +57,8 @@ const rangeLabel = computed(() => {
   return `${first}–${last} of ${of}`
 })
 
-// A capped total cannot say how many pages there are, so the count is dropped rather than
-// stated wrongly — "Page 3 of 20" would be a claim the server never made
+// A capped total cannot say how many pages there are, so "of 20" would be a claim the server
+// never made
 const pageLabel = computed(() =>
   props.totalCapped ? `Page ${props.page}` : `Page ${props.page} of ${props.pageCount}`,
 )

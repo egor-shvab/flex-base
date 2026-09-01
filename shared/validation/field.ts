@@ -4,16 +4,13 @@ import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { nameSchema } from '#shared/validation/name'
 
 /**
- * Flat wire format for creating/updating a field. The server derives the DB `options` JSON
- * from `type` + these per-type keys, so this one schema validates both sides. Per-type rules
- * live in the superRefine branch (SELECT and RELATION today; extend for new types).
+ * Flat wire format for creating/updating a field. The server derives the DB `options` JSON from
+ * `type` plus these per-type keys, so one schema validates both sides; per-type rules live in
+ * the `superRefine` branch.
  *
- * Flat at the top level, not all the way down: a SELECT choice carries its own colour, so
- * `choices` is a list of objects. Uniqueness is judged on `value` alone — two choices
- * differing only by colour are still the same choice.
- *
- * A RELATION's target can only be checked against the database, so the server layers
- * `requireFieldTarget` on top of what is knowable here.
+ * Flat at the top level only: a SELECT choice carries its own colour, so `choices` is a list of
+ * objects, and uniqueness is judged on `value` alone. A RELATION's target can only be checked
+ * against the database, so the server layers `requireFieldTarget` on top.
  */
 export const fieldInputSchema = z
   .object({
@@ -33,9 +30,8 @@ export const fieldInputSchema = z
     /** Whether the field holds several values. Only the types below may set it. */
     multiple: z.boolean().default(false),
     /**
-     * Whether the field carries indexes for sorting and filtering. Unconstrained by type: every
-     * type has *something* an index can serve, and which indexes that means is decided in SQL
-     * rather than here — a RELATION, for instance, gets a filter index and no sort one.
+     * Whether the field carries indexes for sorting and filtering. Unconstrained by type —
+     * which indexes it means is decided in SQL, not here (a RELATION gets no sort index).
      */
     indexed: z.boolean().default(false),
   })

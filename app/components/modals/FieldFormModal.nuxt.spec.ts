@@ -13,14 +13,12 @@ import { asMultiple, relationField, selectField, textField } from '~~/test/fixtu
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
- * The field editor — the one form whose shape changes with what is being edited, and the only
- * place the metadata layer is authored rather than consumed. Built on `BaseModal`, so its body
- * is teleported and every query goes to the document.
+ * The field editor — the one form whose shape changes with what is being edited. Built on
+ * `BaseModal`, so its body is teleported and every query goes to the document.
  *
  * The two fetches are registered rather than stubbed: the modal refreshes the table list itself
- * so it stays self-contained — for RELATION only, which is why the gating case below can assert
- * on a request count — and reads the *target* table's fields directly rather than through the
- * fields store, which holds the table being edited and would be clobbered.
+ * (for RELATION only, which is what the gating case counts) and reads the *target* table's
+ * fields directly rather than through the fields store, which would be clobbered.
  */
 const TABLES = [
   { id: 'tbl_deals', name: 'Deals', _count: { fields: 2, records: 3 } },
@@ -155,9 +153,8 @@ describe('FieldFormModal', () => {
   })
 
   /**
-   * Read off the **saved** field rather than the form: ticking the box in this session must not
-   * lock it, because only a field the server already stores as multi-value is one it refuses to
-   * narrow. Widening migrates the rows that exist; narrowing would have to discard values.
+   * Read off the **saved** field, not the form: ticking the box in this session must not lock
+   * it, because only an already-stored multi-value field is one the server refuses to narrow.
    */
   describe('the multi-value lock', () => {
     it('stays open while the saved field is still single-value', async () => {
@@ -208,9 +205,9 @@ describe('FieldFormModal', () => {
     })
 
     /**
-     * Rows are keyed by an identity of their own because a choice has none — its `value` is
-     * still being typed. Keying by index would let a removal shift every row below it onto the
-     * wrong state, which now includes a colour, so the middle row is the one worth removing.
+     * Rows carry an identity of their own because a choice has none — its `value` is still
+     * being typed. Keying by index would shift every row below a removal onto the wrong state
+     * and colour, so the middle row is the one worth removing.
      */
     it('removes the row asked for, leaving the others intact', async () => {
       await mountForm({
@@ -226,9 +223,8 @@ describe('FieldFormModal', () => {
     })
 
     /**
-     * The choices are copied one level deeper than a spread, because a choice is an object now.
-     * Sharing those references would let an edit here mutate the store's own field metadata —
-     * repainting the page behind the modal before anything is saved.
+     * Choices are copied one level deep, because a choice is an object: sharing the references
+     * would let an edit here mutate the store's field metadata and repaint the page behind.
      */
     it('never writes through to the field it was opened with', async () => {
       const field = selectField([{ value: 'Won', color: 'green' }])
@@ -285,9 +281,7 @@ describe('FieldFormModal', () => {
 
   /**
    * Neither option list may report "there are none" while the answer is unknown or the request
-   * failed — both used to, which stated something about the user's own data that nobody had
-   * established (`CLAUDE.md` §7). Both fetches also ran unguarded, so a failure was an
-   * unhandled rejection and nothing else.
+   * failed — that states something about the user's data nobody established (`CLAUDE.md` §7).
    */
   describe('when an option list cannot be loaded', () => {
     const loadError = () => dialog()?.querySelector('.field-form__load-error')?.textContent ?? ''
@@ -344,8 +338,8 @@ describe('FieldFormModal', () => {
     })
 
     /**
-     * The list is only read by the one type that renders a target select, so every other type
-     * was paying for a table list — with its per-table counts — that it never showed.
+     * Only the type that renders a target select reads the list, so no other type pays for a
+     * table fetch with its per-table counts.
      */
     it('does not ask for the table list for a type that cannot link', async () => {
       await mountForm({ mode: 'edit', field: textField() })

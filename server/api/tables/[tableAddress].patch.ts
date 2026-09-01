@@ -5,10 +5,9 @@ import { TableService } from '#server/services/tables'
 import { tableInputSchema } from '#shared/validation/table'
 import type { ITableListItemResponse } from '#shared/types/api'
 
-// Not a `defineTableHandler`: `renameTable` scopes on `userId` inside its own `where` clause,
-// which is the form CLAUDE.md §5 prefers, so a pre-check would be a second round trip for an
-// answer the update already gives. Its signature requires the `userId`, so ownership cannot be
-// forgotten here the way it could where a service takes a table and no owner.
+// Not a `defineTableHandler`: `renameTable` scopes on `userId` inside its own `where` clause —
+// the form `CLAUDE.md` §5 prefers — so a pre-check would be a second round trip. Its signature
+// requires the `userId`, so ownership cannot be forgotten here.
 export default defineEventHandler(async (event): Promise<ITableListItemResponse> => {
   const user = requireUser(event)
   const tableAddress = routeParam(event, 'tableAddress')

@@ -16,8 +16,8 @@ import { clearError, useHead } from '#imports'
 import type { NuxtError } from '#app'
 
 /**
- * The whole-app error boundary. Deliberately store-free: this page has to render when data
- * fetching is exactly what failed, so it reads nothing but the error it was handed.
+ * The whole-app error boundary. Store-free on purpose: it has to render when data fetching is
+ * exactly what failed, so it reads nothing but the error it was handed.
  */
 const props = defineProps<{ error: NuxtError }>()
 
@@ -36,13 +36,12 @@ const title = computed(() => {
 
 /**
  * Three cases, because three things can go wrong. A **404** names what was missing. A **5xx** is
- * ours to own: the records page's own fetch reaches this boundary, so a failing endpoint used to
- * be reported as "part of that web address could not be read" — blaming the user for a fault
- * they could do nothing about. Anything else is a request the server refused to read, a
- * hand-edited or truncated link being the usual cause.
+ * ours to own — the records page's own fetch reaches this boundary, and reporting it as a bad
+ * address blames the user for a fault they could do nothing about. Anything else is a request
+ * the server refused to read, a hand-edited or truncated link being the usual cause.
  *
  * Both named cases take `statusMessage` where there is one, so `toPageError` stays the single
- * place the wording is decided and the two layers cannot drift.
+ * place the wording is decided.
  */
 const message = computed(() => {
   if (isNotFound.value) {

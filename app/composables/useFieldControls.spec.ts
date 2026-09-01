@@ -46,8 +46,7 @@ describe('useFieldControls', () => {
 
   /**
    * The whole reason this is a composable rather than two inline maps: `props` is a **factory**,
-   * and it must run once per change of the field list rather than on every render. Both renderers
-   * used to assert that in a comment apiece, where nothing checked it.
+   * and it must run once per change of the field list rather than on every render.
    */
   it('calls each props factory once per resolution, not once per read', () => {
     const propsFactory = vi.fn((field: IField) => ({ label: field.name }))

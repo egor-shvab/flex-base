@@ -21,11 +21,9 @@ function option(value: string, label: string, disabled = false): ISelectOption {
 
 /**
  * A host component, because `onBeforeUnmount` needs an instance. `listRef` stays `undefined`:
- * `scrollIntoView` is optional-chained, and where the cursor *scrolls to* is not the subject —
- * where it *lands* is.
- *
- * The composable's return is captured out of `setup` rather than read back off `wrapper.vm`,
- * which unwraps refs and would make `activeIndex` a number the declared type says is a `Ref`.
+ * `scrollIntoView` is optional-chained, and where the cursor *lands* is the subject rather than
+ * where it scrolls to. The return is captured out of `setup` rather than off `wrapper.vm`,
+ * which unwraps refs and would make `activeIndex` a number where the type says `Ref`.
  */
 function setup(initial: ISelectOption[] = OPTIONS, initiallyOpen = true) {
   const options = shallowRef(initial)
@@ -127,9 +125,8 @@ describe('useListboxNavigation', () => {
     })
 
     /**
-     * The case `nextEnabledIndex(from, -step)` exists for: walking forward into a run of disabled
-     * options finds nothing ahead, so the search turns round rather than leaving the cursor
-     * on an unselectable row.
+     * The case `nextEnabledIndex(from, -step)` exists for: walking into a run of disabled options
+     * finds nothing ahead, so the search turns round rather than resting on an unselectable row.
      */
     it('turns round when a run of disabled options ends the list', () => {
       const { nav } = setup([
@@ -359,9 +356,9 @@ describe('useListboxNavigation', () => {
     })
 
     /**
-     * The difference between validating a cursor and inventing one. An async select's options
-     * land while it is open and no key has been pressed; re-seating to the first enabled option
-     * there would light a row up on its own, which is what `shouldSeedCursor` gates.
+     * The difference between validating a cursor and inventing one: an async select's options
+     * land while it is open with no key pressed, and re-seating there would light a row up on
+     * its own. That is what `shouldSeedCursor` gates.
      */
     it('creates no cursor for a list that changes under none', async () => {
       const { nav, options } = setup()

@@ -3,14 +3,12 @@ import { expect, test } from '~~/test/e2e/setup/fixtures'
 import { axeViolations, undersizedTargets } from '~~/test/e2e/setup/a11y'
 
 /**
- * The two gates `CLAUDE.md` §8 has always asked for and review has always had to carry: an
- * automated pass over the WCAG rules a machine can check, and the 24×24 target floor. Both
- * measurements live in `setup/a11y.ts`, since the mobile shell runs them too.
+ * The two gates `CLAUDE.md` §8 asks for: an automated pass over the WCAG rules a machine can
+ * check, and the 24×24 target floor. Both measurements live in `setup/a11y.ts`, since the mobile
+ * shell runs them too, and both walk the same five screens.
  *
- * Both walk the same five screens, so they share one set of navigators rather than two files
- * repeating them. Neither replaces a keyboard walk — axe cannot tell whether a focus order
- * makes sense — but both catch the regressions a human walk misses precisely because nothing
- * on screen looks different.
+ * Neither replaces a keyboard walk — axe cannot tell whether a focus order makes sense — but
+ * both catch what a walk misses precisely because nothing on screen looks different.
  */
 
 /** One table of mixed types, so every screen below has real controls to audit. */
@@ -105,15 +103,10 @@ const focusState = (locator: Locator) =>
   })
 
 /**
- * Both registers of the focus state, neither of which a component spec can see: Vitest keeps
- * `test.css` false. Which one a control gets is decided by whether it already has a border —
- * a field recolours its own, everything else takes a hairline ring — and both add the halo.
- *
- * The halo is the half that vanishes *silently*: a component's own `box-shadow` outranks it in
- * the zero-specificity baseline and a clipping ancestor eats it, so a soft state quietly
- * becoming a bare edge shows up here rather than in a screenshot nobody takes. The field's
- * `outline: none` is asserted for the mirror-image reason — the baseline would otherwise
- * redraw the ring that register exists to drop.
+ * Both registers of the focus state, neither visible to a component spec (`test.css` is false).
+ * The halo is the half that vanishes *silently*: a component's own `box-shadow` outranks it and
+ * a clipping ancestor eats it. The field's `outline: none` is asserted for the mirror-image
+ * reason — the baseline would otherwise redraw the ring that register exists to drop.
  */
 test('a focused field recolours its border, and takes no ring', async ({ page, seedTable }) => {
   const table = await seedTable('Deals', FIELDS, ROWS)
@@ -149,9 +142,8 @@ test('a focused button takes the ring, since it has no border to recolour', asyn
 })
 
 /**
- * The boundary case, and the reason it is asserted rather than excluded: the chip's remove
- * button sits *exactly* on the floor. An accidental padding change in either direction shows
- * up here first, and if it were on the exclusion list it never would.
+ * The boundary case, asserted rather than excluded: the chip's remove button sits *exactly* on
+ * the floor, so a padding change in either direction shows up here first.
  */
 test('the filter-summary chip’s remove button sits exactly on the floor', async ({
   page,

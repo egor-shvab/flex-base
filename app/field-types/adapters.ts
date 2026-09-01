@@ -11,14 +11,12 @@ export const blankIsNull: Pick<TRecordFieldControl, 'toControl' | 'fromControl'>
 }
 
 /**
- * The multi-value counterpart, shared by every list control: the model is the stored array
- * itself, so both directions are a shape guard rather than a conversion — `toValueList` is where
- * the pre-migration scalar case is accounted for, for the cell and this control alike.
+ * The multi-value counterpart: the model *is* the stored array, so both directions are a shape
+ * guard rather than a conversion, and `toValueList` accounts for the pre-migration scalar.
  */
 export const listValue: Pick<TRecordFieldControl, 'toControl' | 'fromControl'> = {
   toControl: (value) => toValueList(value),
-  // Symmetric with `toControl` rather than `Array.isArray(model) ? model : []`. A control that
-  // hands back a bare string is misconfigured, but discarding the value is the worst possible
-  // response to that — it loses the user's edit with nothing on screen to show for it.
+  // Symmetric with `toControl`, not `Array.isArray(model) ? model : []`: a control handing back
+  // a bare string is misconfigured, but discarding the user's edit is the worse answer
   fromControl: (model) => toValueList(model),
 }

@@ -44,8 +44,8 @@ describe('badgeTint', () => {
   it('never lets a literal colour reach a component', () => {
     for (const color of BADGE_COLORS) {
       for (const value of Object.values(badgeTint(color))) {
-        // Every value arrives through `var(--color-*)`; a hex or an rgb() here would mean the
-        // palette had been inlined and could no longer survive a re-theme
+        // Every value arrives through `var(--color-*)`; a hex or an rgb() here would mean an
+        // inlined palette, which cannot survive a re-theme
         expect(value).toMatch(/^var\(--color-/)
         expect(value).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i)
       }

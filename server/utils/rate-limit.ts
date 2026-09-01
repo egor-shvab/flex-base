@@ -3,8 +3,8 @@ interface IRateLimitOptions {
   limit: number
   windowMs: number
   /**
-   * How many keys may be tracked at once. Without it the map is an unbounded write surface —
-   * one request per forged address would grow it forever, which turns the guard into the leak.
+   * How many keys may be tracked at once, or the map is an unbounded write surface and the
+   * guard becomes the leak.
    */
   maxKeys: number
 }
@@ -22,16 +22,14 @@ export interface IRateLimiter {
 /**
  * A fixed-window counter, for guarding an endpoint that answers to anyone.
  *
- * **`now` is a parameter**, the same way `buildErrorLogEntry` takes one: the whole thing is then
- * testable without timers or a fake clock, which is what keeps its spec in the fast project.
+ * **`now` is a parameter**, as `buildErrorLogEntry` takes one, so this is testable without timers
+ * and its spec stays in the fast project.
  *
- * Fixed window rather than a sliding one or a token bucket: the worst case is that a caller gets
- * `2 × limit` across a window boundary, which for a guard whose job is to bound a log file is not
- * worth a second data structure to close.
+ * Fixed window rather than sliding or a token bucket: the worst case is `2 × limit` across a
+ * boundary, which for a guard bounding a log file is not worth a second data structure.
  *
- * **In-memory, so the limit is per process.** Behind more than one instance each gets its own
- * allowance — recorded as an accepted limitation rather than solved, since the shared store that
- * would fix it is the same infrastructure the log file is waiting on.
+ * **In-memory, so the limit is per process** — behind more than one instance each gets its own
+ * allowance, recorded as an accepted limitation.
  */
 export function createRateLimiter({ limit, windowMs, maxKeys }: IRateLimitOptions): IRateLimiter {
   const windows = new Map<string, IRateLimitWindow>()

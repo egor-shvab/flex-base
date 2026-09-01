@@ -12,16 +12,13 @@ import type { ISeedField, ISeedTable, TSeedValue } from '~~/prisma/seed/dataset/
  * Turns the dataset into the rows the writer inserts — and nothing else.
  *
  * **Pure, and it must stay that way.** `server/db/prisma.ts` constructs a real client at module
- * load, so anything reaching it drags a database connection into `npm run test:unit`; keeping the
- * translation here rather than in `run.ts` is what lets a spec check every record in the dataset
- * without one. That is also why `FieldService.buildOptions` is not reused despite being exported
- * for exactly this shape — it lives behind that import. `optionsFor` below owes it no branch
- * anyway: it reads what a seed field declares rather than switching on its type.
+ * load, so anything reaching it drags a database connection into `npm run test:unit` — which is
+ * why `FieldService.buildOptions` is not reused despite being exported for this shape.
+ * `optionsFor` owes it no branch anyway: it reads what a seed field declares.
  *
- * What it does reuse is everything that judges. `buildFieldKey` derives the keys, `fieldInputSchema`
- * validates each field the way the settings form would, and `buildRecordSchema` — the very schema
- * the API validates payloads with — is what every record has to pass. A mistyped SELECT choice or
- * an over-long TEXT fails here rather than reaching the database.
+ * What it does reuse is everything that judges: `buildFieldKey` derives the keys,
+ * `fieldInputSchema` validates each field as the settings form would, and `buildRecordSchema` —
+ * the schema the API validates payloads with — is what every record has to pass.
  */
 
 export interface ICompiledRecord {

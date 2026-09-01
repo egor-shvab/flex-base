@@ -12,10 +12,8 @@ import type { IFilterSummaryContext } from '~/field-types/types'
  */
 
 /**
- * Both range types share this, parameterised by how a bound is written.
- *
- * The wording tracks what the SQL actually does: bounds are **inclusive**, so "or more" and
- * "from" are true where "above" and "after" would not be.
+ * Both range types share this, parameterised by how a bound is written. The wording tracks the
+ * SQL: bounds are **inclusive**, so "or more" and "from" are true where "above" would not be.
  */
 export function summariseRange(
   value: TFilterValue,
@@ -34,10 +32,9 @@ export function summariseRange(
 }
 
 /**
- * Every list-shaped filter reads the same way, parameterised by how one entry is written.
- * One value reads as an equality because that is what it is; several read as the OR the SQL
- * actually runs, rather than a count the user must expand. There is no "all of" spelling,
- * because there is no operator to express it.
+ * Every list-shaped filter reads the same way, parameterised by how one entry is written. One
+ * value reads as an equality; several read as the OR the SQL runs. There is no "all of"
+ * spelling, because there is no operator to express it.
  */
 export function summariseList(value: TFilterValue, entry: (value: string) => string): string {
   if (!isListFilterValue(value) || value.length === 0) return ''
@@ -56,8 +53,8 @@ export function summariseLinkedRecord(
   field: IField,
   address: string,
 ): string {
-  // Whichever form the address is in — the same either-way reading the server applies before
-  // the query runs, so a chip describes the rows that actually came back
+  // Whichever form the address is in — the same either-way reading the server applies, so a
+  // chip describes the rows that came back
   const ref =
     ctx.linkedRecordByNumber(field.id, Number(address)) ?? ctx.linkedRecordFor(field.id, address)
 

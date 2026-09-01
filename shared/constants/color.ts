@@ -1,17 +1,13 @@
 import type { TBadgeColor } from '#shared/types/color'
 
 /**
- * The closed palette a badge can be tinted with — a design-system concept rather than a
- * field one, which is why it lives here and not beside the field metadata that happens to
- * be its first consumer.
+ * The closed palette a badge can be tinted with — a design-system concept rather than a field
+ * one, which is why it is here and not beside the field metadata that first consumes it.
  *
- * A name, never a value: what is stored is `'blue'`, so the colour survives a re-theme and
- * a user can never author a pairing that fails contrast. Each name has a matching
- * `--color-badge-<name>-{bg,border,fg}` trio in `_variables.scss`, and adding a member here
- * without adding those tokens leaves the badge falling back to its neutral default.
- *
- * Widening this to accept a raw hex later needs no data migration — the stored names stay
- * valid members of whatever union replaces the enum.
+ * A name, never a value: `'blue'` is what is stored, so the colour survives a re-theme and no
+ * user can author a pairing that fails contrast. Each name needs a matching
+ * `--color-badge-<name>-{bg,border,fg}` trio in `_variables.scss`, or the badge falls back to
+ * its neutral default.
  */
 export const BADGE_COLORS = [
   'gray',

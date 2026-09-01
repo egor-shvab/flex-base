@@ -2,24 +2,17 @@ import { AxeBuilder } from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 
 /**
- * The two machine-checkable halves of `CLAUDE.md` §8, shared by the desktop audit and the
- * mobile shell — the second caller is what moved them out of the spec that introduced them.
- *
- * Neither replaces a keyboard walk: axe cannot tell whether a focus order makes sense, and a
- * box measurement cannot tell whether a control is findable. What they catch is the class of
- * regression a human walk misses precisely because nothing on screen looks different.
+ * The two machine-checkable halves of `CLAUDE.md` §8, shared by the desktop audit and the mobile
+ * shell. Neither replaces a keyboard walk — axe cannot tell whether a focus order makes sense —
+ * but both catch what a walk misses precisely because nothing on screen looks different.
  */
 
 /** The WCAG levels the project commits to. Anything outside them is not this gate's business. */
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
 /**
- * Serious and critical only. A smoke gate exists to catch regressions, and admitting
- * `moderate`/`minor` on first introduction would have meant either a long disabled-rules list
- * or a stage that never landed — neither of which is a gate. Narrow this to raise the bar.
- *
- * Nothing is disabled today: all five screens pass clean. A rule that ever has to be turned
- * off belongs here with the reason beside it, never silently at the call site.
+ * Serious and critical only; narrow this to raise the bar. Nothing is disabled today — a rule
+ * that ever has to be turned off belongs here with its reason, never at the call site.
  */
 const BLOCKING_IMPACTS = new Set(['serious', 'critical'])
 
@@ -33,19 +26,16 @@ export async function axeViolations(page: Page): Promise<string[]> {
 }
 
 /**
- * Every interactive element's **effective** target, measured in the page. Three exclusions,
- * each a real SC 2.5.8 exception rather than a convenience:
+ * Every interactive element's **effective** target, measured in the page. Three exclusions, each
+ * a real SC 2.5.8 exception rather than a convenience:
  *
- * - `.text-link` sits inside a sentence — the *Inline* exception. Enlarging it would break the
- *   line box it lives in, which is the reason the exception exists.
- * - An `<input>` wrapped by its own `<label>` is not the target; the label is, and a click
- *   anywhere in it toggles the control. `BaseCheckbox`'s input is 20×20 inside a 36px label,
- *   so measuring the input would report a failure no user can experience.
- * - Anything not rendered — a teleported panel's options while closed, and the mobile shell's
- *   `visibility: hidden` sidebar, which is exactly what that rule is for.
+ * - `.text-link` sits inside a sentence — the *Inline* exception;
+ * - an `<input>` wrapped by its own `<label>` is not the target, the label is, so measuring
+ *   `BaseCheckbox`'s 20×20 input inside a 36px label reports a failure no user experiences;
+ * - anything not rendered — a closed panel's options, the mobile shell's hidden sidebar.
  *
- * The filter-summary chip's remove button is deliberately **not** excluded: it sits exactly on
- * the floor, so it is the boundary case that proves the measurement is real.
+ * The filter chip's remove button is **not** excluded: it sits exactly on the floor, so it is
+ * the boundary case that proves the measurement is real.
  */
 const UNDERSIZED = `(() => {
   const FLOOR = 24

@@ -6,15 +6,13 @@ import type { ITable } from '#shared/types/table'
  * What both table screens open with: the table itself and its field metadata, fetched together
  * because neither screen can draw anything without both.
  *
- * **It deliberately owns neither the `useAsyncData` nor the error.** Each page keeps its own call
- * because the two must key differently — `table-records-…` and `table-…` — and a layout and a page
- * sharing a key is the bug `docs/decisions.md` records. Keeping the key at the call site is what
- * keeps that visible. The 404 each page throws stays there too, for the same reason: it is the
- * page's own answer, and `toPageError` is what decides whether a cause may be asserted.
+ * **It owns neither the `useAsyncData` nor the error.** Each page keeps its own call because the
+ * two must key differently, and a shared key is the bug `docs/decisions.md` records — keeping
+ * the key at the call site is what keeps that visible. The 404 stays there too: it is the page's
+ * own answer, and `toPageError` decides whether a cause may be asserted.
  *
- * A composable returning a loader, rather than a plain async function, because `useApi()` wraps
- * `useRequestFetch()` and has to be called during setup — the returned function then runs whenever
- * the caller's fetch does.
+ * A composable returning a loader rather than a plain async function, because `useApi()` wraps
+ * `useRequestFetch()` and has to be called during setup.
  */
 export function useTableLoader() {
   const api = useTablesApi()

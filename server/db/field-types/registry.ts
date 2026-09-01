@@ -9,10 +9,9 @@ import { isMultiValue } from '#shared/field-types/cardinality'
 import type { IField, TFieldType } from '#shared/types/field'
 
 /**
- * **The only file that enumerates the field types on the SQL side.** Total, so a new field
- * type must declare how it projects, how it compares and whether it is searchable. There is no
- * operator to look up: the field type says how it compares, and the value's shape says with
- * how many bounds.
+ * **The only file that enumerates the field types on the SQL side.** Total, so a new type must
+ * declare how it projects, how it compares and whether it is searchable. No operator to look
+ * up: the type says how it compares, and the value's shape with how many bounds.
  */
 const MODULES: Record<TFieldType, IFieldSqlModule> = {
   TEXT: TEXT_FIELD_SQL,

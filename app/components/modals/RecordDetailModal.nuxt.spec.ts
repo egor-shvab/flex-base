@@ -11,11 +11,9 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
  * The dialog around `RecordDetail`. Everything it decides is a function of its props, and
- * `useRecordDetail.nuxt.spec.ts` already owns where the links *point* — so what is pinned here
- * is only what the component adds: which of the four states it renders, and the one link that
- * leaves the page.
- *
- * Built on `BaseModal`, so the body is teleported and every query goes to the document.
+ * `useRecordDetail.nuxt.spec.ts` owns where the links *point* — so what is pinned here is which
+ * of the four states it renders and the one link that leaves the page. Built on `BaseModal`,
+ * so the body is teleported and every query goes to the document.
  */
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
 const link = (name: string | RegExp) =>
@@ -116,9 +114,8 @@ describe('RecordDetailModal', () => {
   })
 
   /**
-   * The one link that leaves the page, so it is a path rather than a query patch. It is
-   * withheld when it would point at the page already on screen — being a bare path it would
-   * drop that page's sort, filters and position just to reopen this very dialog.
+   * The one link that leaves the page, so a path rather than a query patch. Withheld when it
+   * would point at the page already on screen, whose sort, filters and position it would drop.
    */
   describe('Open in …', () => {
     it('is absent when the record belongs to the table behind the dialog', async () => {

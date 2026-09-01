@@ -12,13 +12,12 @@ export const FIELD_TYPES = ['TEXT', 'NUMBER', 'BOOLEAN', 'DATE', 'SELECT', 'RELA
 
 /**
  * **The only file that enumerates the field types.** Each module is pinned to its own key, so
- * a module annotated for the wrong one fails here rather than declaring the wrong filter shape
- * somewhere downstream.
+ * one annotated for the wrong type fails here rather than declaring the wrong filter shape
+ * downstream.
  *
- * Every map below is assembled from this as an explicit total literal. Explicit rather than
- * derived with `Object.fromEntries`, which would need a cast and would lose
- * `FILTER_VALUE_BY_TYPE`'s per-key relation to `IFilterValueByType[K]` — and totality is the
- * whole point: adding a `TFieldType` is a compile error until every map declares it.
+ * Every map below is an explicit total literal rather than `Object.fromEntries`, which would
+ * need a cast and lose `FILTER_VALUE_BY_TYPE`'s per-key relation to `IFilterValueByType[K]`.
+ * Totality is the point: adding a `TFieldType` is a compile error until every map declares it.
  */
 const MODULES: { [K in TFieldType]: IFieldTypeModule<K> } = {
   TEXT: TEXT_FIELD_TYPE,
@@ -52,9 +51,9 @@ export const MULTI_VALUE_BY_TYPE: Record<TFieldType, boolean> = {
 }
 
 /**
- * The single per-field-type branch point for filtering. There is no operator anywhere: a type
- * declares the *shape* of its value, that shape names its query params, and the server derives
- * the comparison from the type and the same shape.
+ * The single per-field-type branch point for filtering. No operator anywhere: a type declares
+ * the *shape* of its value, that shape names its query params, and the server derives the
+ * comparison from the type and the same shape.
  */
 export const FILTER_VALUE_BY_TYPE: {
   [K in TFieldType]: IFilterValueRules<IFilterValueByType[K]>

@@ -27,16 +27,13 @@ const recordErrors = { notFound: 'Record not found' }
 /**
  * The rows of one page — **one shape, searching or not**.
  *
- * A search used to go through `WITH hits AS MATERIALIZED (…)`, to stop the planner walking the
- * `ORDER BY` index and filtering. Measured again at 600k rows, that hint is what makes a search
- * slow rather than what makes it fast: it builds every matching row, full JSONB included, before
- * the `LIMIT` can discard any, so a term matching most of the table cost **7.4 s** against
+ * No `WITH hits AS MATERIALIZED (…)`: that hint builds every matching row, full JSONB included,
+ * before the `LIMIT` can discard any, so at 600k rows a common term cost **7.4 s** against
  * **2.7 ms** without it. The planner picks a bitmap scan for a selective term and the ordering
- * index for a common one, correctly, and it kept doing so under stale statistics — the trigram
- * index the hint shipped alongside is what gives it the estimate it needs (`decisions.md`).
+ * index for a common one, correctly, given the trigram index's estimate (`docs/decisions.md`).
  *
- * **An ordering may bring a join with it** (`IRecordOrder`), and it goes here rather than in the
- * builder because only this knows what the `FROM` is.
+ * **An ordering may bring a join with it** (`IRecordOrder`), composed here because only this
+ * knows what the `FROM` is.
  */
 function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery) {
   const { page, pageSize } = query
@@ -54,7 +51,7 @@ function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery)
 
 /**
  * How many rows match, counted no further than the cap. `LIMIT cap + 1` is what separates
- * "exactly the cap" from "more than the cap" — one extra row is the whole difference.
+ * "exactly the cap" from "more than the cap".
  */
 function selectCount(where: Prisma.Sql) {
   // COUNT(*) is a bigint, which would arrive as a string without the cast
@@ -75,9 +72,9 @@ async function listRecords(
   query: IRecordQuery,
 ): Promise<IRecordPage> {
   const { page, pageSize, sort, filters, search } = query
-  // A relation filter arrives as the target's *address*; the column stores ids. Substituted
-  // here so both legs of the transaction below build from the same resolved map — and above
-  // the builder, so the SQL and its indexes never learn there were two forms.
+  // A relation filter arrives as the target's *address* where the column stores ids.
+  // Substituted here so both legs of the transaction build from one resolved map, and above the
+  // builder, so the SQL and its indexes never learn there were two forms.
   const where = buildRecordWhere(
     tableId,
     fields,
@@ -106,10 +103,9 @@ async function listRecords(
 }
 
 /**
- * One record with everything needed to render it away from its own table: the relation that
- * points at it knows only an id, so the table and its fields travel with the row. The labels
- * come from the same resolver the list uses, which is what lets a relation inside the dialog
- * read as a label and link on again.
+ * One record with everything needed to render it away from its own table, since the relation
+ * pointing at it knows only an id. The labels come from the same resolver the list uses, which
+ * is what lets a relation inside the dialog read as a label and link on again.
  */
 async function getRecordDetail(
   table: Pick<ITable, 'id' | 'number' | 'name'>,
@@ -121,8 +117,8 @@ async function getRecordDetail(
     select: recordSelect,
   })
 
-  // A record of another user's table is already unreachable — the table was scoped by owner —
-  // so this is the ordinary "deleted since the link was rendered" case
+  // Another user's record is already unreachable (the table was scoped by owner), so this is
+  // the ordinary "deleted since the link was rendered" case
   if (!row) {
     throw createError({ statusCode: 404, statusMessage: recordErrors.notFound })
   }
@@ -138,10 +134,9 @@ async function getRecordDetail(
 }
 
 /**
- * The record's number is allocated from its table's counter in the same transaction as the
- * insert: the atomic increment takes the row lock, so two concurrent creates queue rather
- * than racing for the same number, and no retry loop is needed. Because the counter is a
- * high-water mark rather than a count, deleting a record never frees its number for reuse.
+ * The number is allocated from its table's counter in the same transaction as the insert: the
+ * atomic increment takes the row lock, so concurrent creates queue rather than race and no retry
+ * loop is needed. The counter is a high-water mark, so a delete never frees a number for reuse.
  */
 async function createRecord(
   tableId: string,

@@ -4,14 +4,12 @@ import type { IOpenRecord } from '#shared/types/record'
 import { singleParam } from '#shared/utils/query-param'
 
 /**
- * The detail dialog lives in the URL as `?detail=<table>.<record>,<table>.<record>` — the records
- * it has open, outermost first. Only the last one is shown; the entries before it are the trail
- * Back walks up, which is what makes drilling through nested relations a matter of routing rather
- * than of state kept on the side.
+ * The detail dialog lives in the URL as `?detail=<table>.<record>,<table>.<record>` — the
+ * records it has open, outermost first. Only the last is shown; the rest are the trail Back
+ * walks up, which is what makes drilling a matter of routing rather than of state on the side.
  *
- * Each half is an **address**: the row's public number, or the cuid an older link still carries.
- * Neither separator can appear inside either form — digits contain no punctuation and the cuid
- * alphabet has none — so a chain written before this change still decodes and still resolves.
+ * Each half is an **address**: the row's public number, or the cuid an older link carries.
+ * Neither separator can appear inside either form, so an older chain still decodes.
  */
 const CHAIN_SEPARATOR = ','
 const RECORD_SEPARATOR = '.'

@@ -24,8 +24,8 @@ registerEndpoint('/api/auth/me', {
 })
 
 /**
- * Only the two fields the guard reads. A real `RouteLocationNormalized` carries far more, and
- * building one would be describing vue-router rather than this middleware.
+ * Only the two fields the guard reads — a real `RouteLocationNormalized` carries far more, and
+ * building one would describe vue-router rather than this middleware.
  */
 function route(fullPath: string): RouteLocationNormalized {
   const [path = '/', search] = fullPath.split('?')

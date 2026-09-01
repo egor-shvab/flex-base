@@ -49,9 +49,9 @@ describe('RecordsFilterSummary', () => {
   afterEach(unmountAll)
 
   /**
-   * The mounted component resolves `useRelationsStore()` through the pinia `@pinia/nuxt`
-   * provided to the Nuxt app — not through whatever `createPinia()` a spec makes for itself.
-   * Making that one active is what lets a test seed the same store the component will read.
+   * A mounted component resolves `useRelationsStore()` through the pinia `@pinia/nuxt` gave the
+   * Nuxt app, not a spec's own `createPinia()` — making that one active is what lets a case
+   * seed the store the component will read.
    */
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
@@ -94,8 +94,7 @@ describe('RecordsFilterSummary', () => {
       // The filter carries the target's *number*, which is what the URL shows
       const wrapper = await summary({ owner: '7' })
 
-      // Flat, unlike a cell: a chip's phrase is a string by contract, so there is nothing
-      // to style the number apart from
+      // Flat, unlike a cell: a chip's phrase is a string by contract
       expect(chips(wrapper)).toEqual(['Owner is #7 Ada Lovelace'])
     })
 
@@ -106,8 +105,8 @@ describe('RecordsFilterSummary', () => {
     })
 
     /**
-     * Walked in field order rather than over `Object.entries(filters)`, which would surface a
-     * key with no field to pair it with — and would order chips by however the URL was written.
+     * Walked in field order, not over `Object.entries(filters)`, which would surface a key with
+     * no field and order the chips by however the URL was written.
      */
     it('renders chips in field order, not filter-map order', async () => {
       const wrapper = await summary({ stage: ['Won'], company: 'acme' })
@@ -226,8 +225,8 @@ describe('RecordsFilterSummary', () => {
   it('clears filters and search together in one navigation', async () => {
     const wrapper = await summary({ company: 'acme' }, { search: 'lovelace' })
 
-    // By accessible name rather than `.base-button`: every chip's remove ✕ is a `BaseButton`
-    // too, so the bare class matches all of them and picks the first chip's.
+    // By accessible name: every chip's remove ✕ is a `BaseButton`, so the bare class would
+    // match all of them and pick the first
     const showAll = wrapper.findAll('button').find((button) => button.text() === 'Show all records')
 
     await showAll!.trigger('click')

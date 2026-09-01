@@ -61,9 +61,8 @@ function close() {
 }
 
 /**
- * Creating from the sidebar lands you in the new table — the dashboard's own modal
- * stays where it is, because it doubles as the rename form and cannot be shared.
- * Throws (a 409 on a duplicate name) propagate into TableFormModal's `useForm`.
+ * Creating from the sidebar lands you in the new table; the dashboard's own modal stays put,
+ * because it doubles as the rename form. Throws propagate into `TableFormModal`'s `useForm`.
  */
 async function submitHandler(name: string) {
   const table = await tablesStore.createTable({ name })
@@ -71,12 +70,9 @@ async function submitHandler(name: string) {
 }
 
 /**
- * Compared by route param, not by path: `/tables/:address` is a string prefix of
- * `/tables/:address/settings`, so a path check would be ambiguous. The param is exact, and
- * marks the table active on both the table itself and its settings page.
- *
- * Parsed rather than compared as text, so a link written with a slug — or an older one carrying
- * a cuid — still marks its table.
+ * By route param, not path: `/tables/:address` is a prefix of `/tables/:address/settings`, so
+ * a path check would be ambiguous. Parsed rather than compared as text, so a link written with
+ * a slug — or an older one carrying a cuid — still marks its table.
  */
 const activeTableNumber = computed(() => {
   const address = String(route.params.tableAddress ?? '')
@@ -91,11 +87,9 @@ function retry() {
 </script>
 
 <style lang="scss" scoped>
-// The geometry every row in this sidebar shares — a table link, Home, and the "Add a table"
-// button, which is a `<button>` rather than a link and so cannot simply take `&__item`.
-//
-// Local rather than in `_mixins.scss`: §8 sends a second copy to the global sheet, but that is for
-// fragments crossing components, and nothing outside this file draws a sidebar row.
+// The geometry every row here shares, including the "Add a table" `<button>`, which cannot
+// simply take `&__item`. Local rather than in `_mixins.scss`, which is for fragments crossing
+// components.
 @mixin sidebar-row {
   display: flex;
   align-items: center;

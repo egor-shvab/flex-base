@@ -2,19 +2,15 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { getApiErrorMessage } from '~/utils/api-error'
 
 /**
- * The confirm-then-delete flow every list page repeats: a row's Delete button sets the
- * target, the dialog reads it, and the target is cleared only once the request succeeds —
- * so a failed delete leaves the dialog open rather than silently dismissing it.
+ * The confirm-then-delete flow every list page repeats: Delete sets the target, the dialog
+ * reads it, and the target clears only once the request succeeds — so a failed delete leaves
+ * the dialog open rather than silently dismissing it.
  *
- * A failure is **caught here rather than re-thrown**. Every call site binds `confirm` straight
- * to a template's `@confirm`, so there is nobody to catch it: a rejection became an unhandled
- * promise rejection, and the dialog sat there saying nothing. The server's message is the
- * useful part — a refused table delete names the field to remove first — so it is surfaced
- * instead (`docs/decisions.md`).
+ * A failure is **caught here rather than re-thrown**: every call site binds `confirm` straight
+ * to a template's `@confirm`, so a rejection would be unhandled and the dialog would sit there
+ * saying nothing. The server's message is the useful part (`docs/decisions.md`).
  *
- * `dialogProps` is every state prop `ConfirmModal` reads, in one `v-bind`. The three were only
- * ever passed straight through, and a page carrying two of these dialogs had to alias each one
- * twice over to keep them apart.
+ * `dialogProps` is every state prop `ConfirmModal` reads, in one `v-bind`.
  */
 export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<void>) {
   // shallowRef: the target is a fetched object, replaced wholesale rather than mutated
@@ -28,9 +24,8 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
     confirmLabel: pending.value ? 'Deleting…' : 'Delete',
   }))
 
-  // Whatever the dialog is about changed, so the last attempt's message no longer applies.
-  // Covers both exits from a failed state — cancelling, and a target set from the page —
-  // while a *retry* keeps the same target and is cleared below instead.
+  // The dialog's subject changed, so the last attempt's message no longer applies. Covers both
+  // exits from a failed state; a *retry* keeps the same target and is cleared below.
   watch(target, () => {
     error.value = null
   })

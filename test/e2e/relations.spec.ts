@@ -107,9 +107,9 @@ test('a deleted target degrades to an unclickable Unknown record', async ({ page
  * The server refuses, and the table survives — which is the property that matters, because a
  * cascade here would break every link into it silently.
  *
- * The dialog now says **why**. It used to stay open in silence: the 409 named the field to
- * remove first, but `useDeleteConfirm` re-threw into a template binding with nobody to catch
- * it, so the message reached the console instead of the screen.
+ * The dialog says **why**: the 409 names the field to remove first, and `useDeleteConfirm`
+ * catches rather than re-throwing into a template binding with nobody to catch it — which
+ * would leave the dialog open in silence and the message in the console.
  */
 test('deleting a targeted table is refused, and says which field to remove', async ({ page }) => {
   await page.goto('/')

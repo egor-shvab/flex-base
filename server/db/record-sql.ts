@@ -13,15 +13,12 @@ import { queryColumns } from '#shared/utils/filter'
 
 /**
  * The columns of `Record` itself that a query treats as fields. Consulted before the type
- * registry, because these live outside `data` and no JSON path can reach them. Every one
- * declares both halves for the same reason RELATION does — how a column compares is not how
- * it orders:
+ * registry, since these live outside `data`. Each declares both halves because how a column
+ * compares is not how it orders:
  *
- * - the number **filters as text** (`4` matches `#4`, `#14`, `#42`) but **orders as an integer**
- *   (`#9` before `#10`);
- * - a timestamp **filters as a date**, so an inclusive `to` bound covers that whole day rather
- *   than stopping at its midnight, but **orders as a timestamp**, so two records made on one
- *   day still order by time.
+ * - the number **filters as text** (`4` matches `#4`, `#14`, `#42`) but **orders as an integer**;
+ * - a timestamp **filters as a date**, so an inclusive `to` bound covers the whole day, but
+ *   **orders as a timestamp**, so two records made on one day still order by time.
  */
 const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql }> = {
   [RECORD_NUMBER_KEY]: { expr: Prisma.sql`"number"::text`, sortExpr: Prisma.sql`"number"` },
@@ -43,17 +40,16 @@ function sortExpr(field: IField): Prisma.Sql {
 }
 
 /**
- * How a column takes part in free-text search, or `null` to sit it out. Follows the same
- * key-before-type precedence as `valueExpr`, since these columns live outside `data`:
+ * How a column takes part in free-text search, or `null` to sit it out. Same key-before-type
+ * precedence as `valueExpr`:
  *
- * - `recordNumber` already projects to `"number"::text`, which is exactly what a text match
- *   wants — typing `4` finds `#4`, `#14`, `#42`, as its filter already does;
- * - the timestamps project to `::date`, and `date ILIKE text` has no operator. Rather than
- *   add a cast that would let `2026` match every record made this year, they stay
- *   filter-only — the two range controls are the precise tool for a date.
+ * - `recordNumber` projects to `"number"::text`, which is what a text match wants;
+ * - the timestamps project to `::date`, and `date ILIKE text` has no operator. A cast would let
+ *   `2026` match every record made this year, so they stay filter-only — the range controls are
+ *   the precise tool for a date.
  *
- * The record's own columns hold one value each, so they build their predicate here rather
- * than declaring one; nothing about them can be multi-valued.
+ * These columns hold one value each, so they build their predicate here rather than declaring
+ * one.
  */
 function searchPredicate(field: IField, pattern: string): Prisma.Sql | null {
   const column = RECORD_COLUMN_SQL[field.key]
@@ -70,14 +66,12 @@ function searchPredicate(field: IField, pattern: string): Prisma.Sql | null {
  * trigram GIN (`Record_search_trgm_idx`).
  *
  * **This expression must stay byte-identical to the one the index was built on** — the planner
- * matches an expression index structurally, so a stray cast or a renamed argument silently
- * costs the index and leaves a query that is merely slow rather than wrong.
+ * matches an expression index structurally, so a stray cast silently costs the index and leaves
+ * a query that is merely slow rather than wrong.
  *
  * It is a **pre-filter, never the comparison.** `record_search_text` is deliberately
- * over-inclusive — it flattens every stored value, including the booleans and relation ids no
- * field type considers searchable — so the exact per-type OR group below still decides. What it
- * may never do is miss a value some type *does* search; that superset property is what the
- * whole arrangement rests on, and it has its own test.
+ * over-inclusive, so the exact per-type OR group below decides; what it may never do is miss a
+ * value some type *does* search. That superset property has its own test.
  */
 function buildSearchPrefilter(pattern: string): Prisma.Sql {
   return Prisma.sql`record_search_text(data, "number") ILIKE ${pattern}`
@@ -85,13 +79,11 @@ function buildSearchPrefilter(pattern: string): Prisma.Sql {
 
 /**
  * The indexed pre-filter, ANDed with one parenthesised OR group matching `search` across every
- * searchable column. Two terms in an `AND` chain, so it composes with the filters exactly as a
- * single condition would.
+ * searchable column.
  *
- * **The parentheses around the OR group are load-bearing.** `buildRecordWhere` joins its
- * conditions with `AND`, and `withinRange` returns a bare two-bound `a >= x AND a <= y` with
- * none of its own — safe only while every sibling is also `AND`. An unparenthesised OR here
- * would bind to the last bound of a range filter and silently widen it.
+ * **The parentheses around the OR group are load-bearing.** `buildRecordWhere` joins with `AND`,
+ * and `withinRange` returns a bare `a >= x AND a <= y` with none of its own — so an
+ * unparenthesised OR would bind to a range filter's last bound and silently widen it.
  */
 function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null {
   if (search === '') return null
@@ -112,8 +104,7 @@ function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null 
 /**
  * The one WHERE fragment, shared by the rows query and the count so they cannot disagree.
  * Walks the table's fields rather than the filter map, so a key the table does not own has
- * nothing to compare against; every filter is ANDed, and a search is ANDed with them as one
- * parenthesised OR group.
+ * nothing to compare against.
  */
 export function buildRecordWhere(
   tableId: string,
@@ -138,10 +129,9 @@ export function buildRecordWhere(
 }
 
 /**
- * How the rows are ordered, and what the query needs in scope to order them that way.
- *
- * The two travel together because they belong to different clauses: an ordering is `ORDER BY` and
- * a join is `FROM`, and composing a `FROM` is the caller's business, not a builder's.
+ * How the rows are ordered, and what the query needs in scope to order them that way. The two
+ * travel together because they belong to different clauses, and composing a `FROM` is the
+ * caller's business.
  */
 export interface IRecordOrder {
   orderBy: Prisma.Sql
@@ -150,8 +140,7 @@ export interface IRecordOrder {
 }
 
 /**
- * The alias a joined ordering is given. One fixed name is enough: a query orders by exactly one
- * column, so there is never a second join to collide with.
+ * The alias a joined ordering is given. One name is enough: a query orders by one column.
  */
 const SORT_JOIN_ALIAS = 'sort_target'
 
@@ -188,13 +177,9 @@ export function buildRecordLabelOrderBy(labelFieldKey?: string): Prisma.Sql {
 }
 
 /**
- * How a relation picker's candidates are narrowed by a typed term: the label field the
- * options are built from, plus the `#number` that `buildRecordLabel` falls back to when that
- * field is blank — so a record reading as `#42` is found by typing `42`, exactly as the
- * `recordNumber` filter already behaves.
- *
- * Parenthesised on its own for the same reason `buildRecordSearch` is: an OR group must
- * never be able to bind to a sibling condition's last term.
+ * How a relation picker's candidates are narrowed by a typed term: the label field, plus the
+ * `#number` `buildRecordLabel` falls back to when it is blank, so a record reading as `#42` is
+ * found by typing `42`. Parenthesised for the same reason `buildRecordSearch` is.
  */
 export function buildRecordLabelSearch(
   labelFieldKey: string | undefined,

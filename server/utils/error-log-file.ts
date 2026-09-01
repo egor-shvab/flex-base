@@ -27,9 +27,8 @@ interface IErrorLogRotation {
 }
 
 /**
- * Pure, so the ordering can be asserted without a disk: `.4` must move to `.5` before `.3`
- * moves to `.4`, and the live file moves last. Reversing the walk overwrites every
- * generation with the newest one.
+ * Pure, so the ordering can be asserted without a disk: `.4` moves to `.5` before `.3` moves to
+ * `.4`, and the live file moves last. Reversing the walk overwrites every generation.
  */
 export function planErrorLogRotation(basePath: string, generations: number): IErrorLogRotation {
   const extension = extname(basePath)
@@ -68,8 +67,7 @@ function openLog(): void {
 }
 
 function rotateLog(): void {
-  // The descriptor closes **before** the first rename: Windows refuses to rename a file
-  // that is still open, and this is a Windows development machine.
+  // The descriptor closes **before** the first rename: Windows refuses to rename an open file
   closeLog()
 
   const plan = planErrorLogRotation(LOG_PATH, LOG_GENERATIONS)
@@ -80,12 +78,12 @@ function rotateLog(): void {
 }
 
 /**
- * Appends one NDJSON line, and **never throws** — a sink that failed loudly would turn a
- * logged fault into a second, louder one on the response path.
+ * Appends one NDJSON line, and **never throws** — a sink that failed loudly would turn a logged
+ * fault into a second, louder one on the response path.
  *
- * The write is synchronous on purpose. A buffered stream loses its tail when the process
- * dies, and the entry worth having is the last one before a crash; the hook only fires on
- * a 5xx, so this is a rare, small `write(2)` rather than anything on a hot path.
+ * Synchronous on purpose: a buffered stream loses its tail when the process dies, and the entry
+ * worth having is the last one before a crash. The hook only fires on a 5xx, so this is a rare
+ * small `write(2)`.
  */
 export function appendErrorLogLine(line: string): void {
   if (disabled) return
@@ -94,8 +92,7 @@ export function appendErrorLogLine(line: string): void {
     const bytes = Buffer.byteLength(line)
 
     openLog()
-    // A line larger than the cap on its own still gets written — it rotates the file behind
-    // it rather than being dropped
+    // A line larger than the cap is still written; it rotates the file behind it
     if (writtenBytes > 0 && writtenBytes + bytes > MAX_LOG_BYTES) {
       rotateLog()
       openLog()
@@ -105,22 +102,20 @@ export function appendErrorLogLine(line: string): void {
     writeSync(handle, line)
     writtenBytes += bytes
   } catch {
-    // There is nowhere left to report this to, so logging stops for the process lifetime
-    // rather than retrying into the same failure on every subsequent error.
+    // Nowhere left to report to, so logging stops for the process lifetime rather than
+    // retrying into the same failure on every subsequent error
     disabled = true
     closeLog()
   }
 }
 
 /**
- * **The one write path**, and the reason it exists: two sources now record errors — Nitro's hook
- * for a server fault, and `api/client-errors.post.ts` for a browser report — and both must reach
- * the file through the same formatting and the same never-throws guarantee. Composing
- * `appendErrorLogLine(formatErrorLogLine(…))` at each of them would be the same line written
- * twice, and the second copy is where a format drifts.
+ * **The one write path.** Two sources record errors — Nitro's hook for a server fault,
+ * `api/client-errors.post.ts` for a browser report — and both must reach the file through the
+ * same formatting and the same never-throws guarantee.
  *
- * The destination is a local file and that is a **known limitation**, not a seam: swapping it is
- * an edit to this function, which is why no interface stands in front of one implementation
+ * The destination is a local file, a **known limitation** rather than a seam: swapping it is an
+ * edit to this function, which is why no interface stands in front of one implementation
  * (`docs/decisions.md`).
  */
 export function recordErrorEntry(entry: IErrorLogEntry): void {

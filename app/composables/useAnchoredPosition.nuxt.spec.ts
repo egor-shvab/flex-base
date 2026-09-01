@@ -30,19 +30,13 @@ function elementAt(rect: IRect, offsetWidth = rect.width): HTMLElement {
 
 /**
  * Runs the composable inside a **component**, because it releases its window listeners and
- * cancels any queued frame in `onBeforeUnmount` — a hook Vue only registers against an
- * instance. Under a bare `effectScope` it refuses the hook and warns, and `scope.stop()` then
- * disposes the watcher while leaving the listeners attached, so each case had to close the
- * panel by hand to tidy up after it. Mounting is what makes teardown run the same path
- * `BaseSelect` gets, so the cleanup is exercised rather than simulated.
+ * cancels any queued frame in `onBeforeUnmount` — a hook Vue only registers against an instance.
+ * Under a bare `effectScope` it warns and `scope.stop()` leaves the listeners attached, so
+ * mounting is what makes teardown run the same path `BaseSelect` gets.
  *
- * Nothing is rendered: the anchor and panel are detached elements with dictated rects, so a
- * template would contribute no layout. The composable's return is captured out of `setup`
- * rather than read back off `wrapper.vm`, which unwraps refs.
- *
- * Teardown is `~~/test/mount`'s, so a case that fails part-way cannot leak a listener into the
- * next one — which is the whole point here. The wrapper comes back as well as the composable's
- * return, because one case tears the host down *mid-test* to reach the unmount path itself.
+ * Nothing is rendered: the anchor and panel are detached elements with dictated rects. The
+ * composable's return is captured out of `setup` rather than off `wrapper.vm`, which unwraps
+ * refs, and the wrapper comes back too, because one case tears the host down *mid-test*.
  */
 function host<T>(compose: () => T) {
   let value!: T
@@ -252,12 +246,8 @@ describe('useAnchoredPosition', () => {
 
   /**
    * Scroll fires far more often than a frame, so the handler queues at most one re-measure per
-   * frame — without the cancel, a fast scroll would run the arithmetic dozens of times and
-   * every answer but the last would be thrown away anyway.
-   *
-   * Counted through *this* anchor's own rect reads rather than through global
-   * `requestAnimationFrame` calls: the number under test is how many times this panel
-   * re-measured, and a global counter would also see whatever else the environment schedules.
+   * frame. Counted through *this* anchor's own rect reads rather than global
+   * `requestAnimationFrame` calls, which would also see whatever else the environment schedules.
    */
   describe('re-measuring while open', () => {
     /** An anchor that records how many times it was measured. */
@@ -338,12 +328,9 @@ describe('useAnchoredPosition', () => {
     })
 
     /**
-     * The teardown `BaseSelect` actually relies on: a select unmounts with its panel still
-     * open, and nothing closes it on the way out. Both halves of `onBeforeUnmount` are covered
-     * here — the listeners it detaches, and the frame the last event left queued.
-     *
-     * This is the case the old harness could not express at all. Under a bare `effectScope`
-     * the hook never registered, so unmounting was not a path the spec could reach.
+     * The teardown `BaseSelect` relies on: a select unmounts with its panel still open, and
+     * nothing closes it on the way out. Both halves of `onBeforeUnmount` are covered — the
+     * listeners it detaches, and the frame the last event left queued.
      */
     it('stops measuring when its host unmounts, panel still open', async () => {
       const { measured, wrapper } = await openedAt({

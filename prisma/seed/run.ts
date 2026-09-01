@@ -12,19 +12,16 @@ import type { ICompiledTable } from '~~/prisma/seed/compile'
  * Writes the demo workspace for one account, and touches nothing else.
  *
  * **The only destructive statement is a delete of that one user row** — the schema cascades from
- * `User` to its tables, fields and records, so a re-run replaces the demo and leaves every other
- * account on the database untouched. Deliberately not the `TRUNCATE` the integration suite uses:
- * this runs against the *development* database, which is exactly where a real account lives.
+ * `User`, so a re-run replaces the demo and leaves every other account untouched. Deliberately
+ * not the `TRUNCATE` the integration suite uses: this runs against the *development* database.
  *
- * Rows go in through Prisma rather than through the services, for two reasons. The services
- * cannot set `createdAt`/`updatedAt` — `@updatedAt` overwrites the second on any write — and a
- * `RELATION` cannot be created through them at all until its target's records exist, which the
- * self-relation on Tasks makes impossible in any order. Everything the services would have
- * *judged* still runs: see `compile.ts`.
+ * Rows go in through Prisma rather than the services, for two reasons: the services cannot set
+ * `createdAt`/`updatedAt`, and a `RELATION` cannot be created through them until its target's
+ * records exist, which the self-relation on Tasks makes impossible in any order. Everything they
+ * would have *judged* still runs (`compile.ts`).
  *
- * The two display counters are maintained by hand for the same reason `test/integration/seed.ts`
- * maintains them — they have no database default, and a table left behind at zero would hand the
- * next record created through the app a number a seeded row already holds.
+ * The two display counters are maintained by hand: they have no database default, and a table
+ * left at zero hands the next record created through the app a number a seeded row holds.
  */
 
 const DEMO_EMAIL = 'test@test.com'
@@ -104,9 +101,9 @@ async function seed(): Promise<void> {
 
   for (const table of tables) await writeTable(user.id, table)
 
-  // Outside every write above, and unavoidably so: these are `CREATE INDEX CONCURRENTLY`, which
-  // PostgreSQL refuses inside a transaction. Nothing else creates them for a directly inserted
-  // field, so without this pass an `indexed` field would carry the flag and none of the indexes.
+  // Outside every write above, unavoidably: `CREATE INDEX CONCURRENTLY` is refused inside a
+  // transaction. Nothing else creates them for a directly inserted field, so without this pass
+  // an `indexed` field carries the flag and none of the indexes.
   const indexes = await reconcileFieldIndexes()
 
   const report = [

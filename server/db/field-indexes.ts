@@ -7,21 +7,18 @@ import type { IField } from '#shared/types/field'
 /**
  * The indexes a field carries when it is opted in, and the DDL that creates and removes them.
  *
- * **These are expression indexes, which Prisma cannot express** — the same reason the search
- * index lives in a hand-written migration (`architecture.md` §9). Prisma ignores what it cannot
- * represent, so nothing here shows up as schema drift; it also means nothing here is created for
- * you, and this module is the only thing that knows these indexes exist.
+ * **These are expression indexes, which Prisma cannot express** (`architecture.md` §9). Prisma
+ * ignores what it cannot represent, so nothing here shows up as schema drift — and nothing here
+ * is created for you. This module is the only thing that knows these indexes exist.
  */
 
 /**
  * What one index is for.
  *
  * **Sorting needs one index per direction, and that is not a choice.** `buildRecordOrderBy`
- * emits `NULLS LAST` whichever way the column is sorted, because blanks belong at the bottom
- * either way. A B-tree scanned backwards yields the exact reverse of how it was built, so an
- * `ASC NULLS LAST` index reversed gives `DESC NULLS **FIRST**` — which is not what the query
- * asks for, and PostgreSQL will sort the rows outright rather than use it. Verified: with only
- * the ascending index present, a descending sort ignores it even with `enable_sort` off.
+ * emits `NULLS LAST` whichever way the column is sorted, and a B-tree scanned backwards yields
+ * the exact reverse of how it was built — so an `ASC NULLS LAST` index reversed gives
+ * `DESC NULLS FIRST`, which PostgreSQL will not use. Verified with `enable_sort` off.
  */
 type TIndexPurpose = 'filter' | 'sortAsc' | 'sortDesc'
 
@@ -41,11 +38,10 @@ interface IFieldIndex {
 }
 
 /**
- * What a reconcile did. Returned rather than logged because this is the one operator-facing entry
- * point in the module, and a pass that reports nothing is one nobody can act on.
- *
- * `reaped` is kept apart from `dropped`: both were removed, but a dropped index is one no field
- * wants any more, while a reaped one is a build that **failed** and still needs doing.
+ * What a reconcile did. Returned rather than logged, since a pass that reports nothing is one
+ * nobody can act on. `reaped` is kept apart from `dropped`: both were removed, but a dropped
+ * index is one no field wants, where a reaped one is a build that **failed** and still needs
+ * doing.
  */
 export interface IReconcileReport {
   created: string[]
@@ -54,11 +50,10 @@ export interface IReconcileReport {
 }
 
 /**
- * **Named from `Field.id`, never from its key.** A field *name* may be 100 characters and
- * `slugify` maps it roughly 1:1 into the key, so a key-based name would run past PostgreSQL's
- * 63-byte identifier limit — which it truncates **silently**, letting two long keys on one table
- * collide into a single index. A cuid keeps this at 35 characters, and it makes the reverse
- * lookup (which field owns this index?) a substring match rather than a join.
+ * **Named from `Field.id`, never from its key.** A key-based name would run past PostgreSQL's
+ * 63-byte identifier limit, which it truncates **silently**, letting two long keys on one table
+ * collide into a single index. A cuid keeps this at 35 characters, and makes "which field owns
+ * this index?" a substring match.
  */
 function indexName(fieldId: string, purpose: TIndexPurpose): string {
   return `rec_idx_${fieldId}_${PURPOSE_SUFFIX[purpose]}`
@@ -68,13 +63,9 @@ function indexName(fieldId: string, purpose: TIndexPurpose): string {
 const INDEX_PREFIX = 'rec_idx_'
 
 /**
- * A field key is interpolated into DDL rather than bound, because **DDL takes no parameters** —
- * `CREATE INDEX … ON ((data ->> $1))` is not a statement PostgreSQL will accept.
- *
- * That is safe only because `slugify` emits `^[a-z0-9_]+$` and nothing else, which is the same
- * guarantee the raw-SQL layer already rests on. Asserted rather than trusted: this is the one
- * place in the project where a key reaches SQL unbound, so the guarantee is checked where it is
- * relied on rather than at the far end of the system that produces it.
+ * A field key is interpolated into DDL rather than bound, because **DDL takes no parameters**.
+ * Safe only because `slugify` emits `^[a-z0-9_]+$` — asserted rather than trusted, since this is
+ * the one place a key reaches SQL unbound.
  */
 function assertSafeKey(key: string): void {
   if (!/^[a-z0-9_]+$/.test(key)) {
@@ -85,15 +76,13 @@ function assertSafeKey(key: string): void {
 /**
  * The indexed expression, as text with the key inlined.
  *
- * **It is deliberately not byte-identical to what a query emits.** A query binds the key
- * (`data ->> $2::text`); an index must inline it (`data ->> 'company'::text`). PostgreSQL still
- * matches the two, because an unnamed prepared statement is planned at Bind with the parameter
- * values in hand — proven in this codebase by the multi-value plan assertion, which builds a GIN
- * on the literal `(data->'tags')` and watches a parameterised `?|` use it.
+ * **Deliberately not byte-identical to what a query emits**: a query binds the key
+ * (`data ->> $2::text`), an index must inline it. PostgreSQL still matches the two, because an
+ * unnamed prepared statement is planned at Bind with the parameter values in hand.
  *
- * What that costs is a guarantee no type can give: the two expressions are generated separately
- * and could drift apart, at which point the index is built and silently never used. The plan
- * assertions per index kind are what catch it.
+ * The cost is a guarantee no type can give — the two are generated separately and could drift,
+ * at which point the index is built and silently never used. The per-kind plan assertions catch
+ * that.
  */
 function indexExpression(field: IField, purpose: TIndexPurpose): string {
   assertSafeKey(field.key)
@@ -101,8 +90,8 @@ function indexExpression(field: IField, purpose: TIndexPurpose): string {
   const rules = sqlFor(field)
   const literalKey = `'${field.key}'`
 
-  // Rebuilt from the same fragments the query uses, with the key inlined. Kept as one small
-  // branch rather than a second registry: the *kinds* are per type, but this rendering is not.
+  // Rebuilt from the fragments the query uses, with the key inlined. One branch rather than a
+  // second registry: the *kinds* are per type, this rendering is not.
   if (purpose !== 'filter' && rules.sortExpr) {
     // The only indexable `sortExpr` today is a multi-value column's first element
     return `data -> ${literalKey} ->> 0`
@@ -133,10 +122,9 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
     const expression = indexExpression(field, 'sortAsc')
     const filter = wanted[0]
 
-    // The ascending index and an ascending B-tree filter index are the same object — a range
-    // filter's index already stores the column in `ASC NULLS LAST` order. Only a type whose
-    // filter wants a different structure (TEXT wants trigrams) or a different projection (a
-    // widened column filters on the array, sorts on its first element) needs a second one.
+    // The ascending index and an ascending B-tree filter index are the same object. Only a
+    // type whose filter wants a different structure (TEXT wants trigrams) or projection (a
+    // widened column filters on the array, sorts on its first element) needs a second.
     const filterCovers =
       filter && filter.kind === rules.sortIndex && filter.expression === expression
 
@@ -164,19 +152,17 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
 /**
  * The `CREATE INDEX` for one index.
  *
- * **`CONCURRENTLY`, and therefore never inside a transaction** — PostgreSQL refuses it there, and
- * the whole point is that building an index must not block writes to a table someone is using.
- * `IF NOT EXISTS` makes a repeated call a no-op, which is what lets the caller fire this without
- * coordinating against another request doing the same.
+ * **`CONCURRENTLY`, and therefore never inside a transaction** — PostgreSQL refuses it there,
+ * and building an index must not block writes. `IF NOT EXISTS` makes a repeated call a no-op,
+ * so a caller need not coordinate against another request doing the same.
  *
- * A B-tree leads with `"tableId"` so one index serves the table it belongs to rather than every
- * table at once, and trails with `"createdAt"` to cover the tie-break every ordering carries. A
- * GIN cannot compose that way, so it indexes the expression alone and the planner combines it
- * with the `tableId` index through a bitmap AND.
+ * A B-tree leads with `"tableId"` and trails with `"createdAt"`, the tie-break every ordering
+ * carries. A GIN cannot compose that way, so it indexes the expression alone and the planner
+ * combines it with the `tableId` index through a bitmap AND.
  */
 function createStatement(index: IFieldIndex): string {
-  // `NULLS LAST` is spelled out rather than left to the default because it is only the default
-  // ascending — and the ordering this has to match asks for it either way
+  // Spelled out because `NULLS LAST` is only the default ascending, and the ordering this has
+  // to match asks for it either way
   const direction = index.descending ? ' DESC NULLS LAST' : ' ASC NULLS LAST'
 
   const target =
@@ -208,9 +194,9 @@ async function ownedIndexes(): Promise<{ name: string; valid: boolean }[]> {
  * Brings one field's indexes in line with what it declares: drops what it should not have, and
  * creates what it should.
  *
- * **Invalid indexes are dropped first.** A `CONCURRENTLY` build that fails leaves one behind that
- * costs every write and serves no read, and `IF NOT EXISTS` would otherwise see it as present and
- * skip the rebuild forever — so the failure would be permanent and silent.
+ * **Invalid indexes are dropped first.** A failed `CONCURRENTLY` build leaves one that costs
+ * every write and serves no read, and `IF NOT EXISTS` would see it as present and skip the
+ * rebuild forever.
  */
 export async function syncFieldIndexes(field: IField): Promise<void> {
   const wanted = fieldIndexes(field)
@@ -243,12 +229,12 @@ export async function dropFieldIndexes(fieldId: string): Promise<void> {
 }
 
 /**
- * The whole-database pass: every opted-in field gets what it declares, and every index whose field
- * no longer wants it — or no longer exists — is dropped.
+ * The whole-database pass: every opted-in field gets what it declares, and every index no field
+ * wants is dropped.
  *
  * Exported and tested, but **nothing calls it on a schedule**. Field writes keep themselves in
- * step; this exists for drift, for indexes orphaned by a failure, and as the body of the job that
- * runs when there is somewhere to run it (`limitations.md`).
+ * step; this is for drift, for indexes orphaned by a failure, and as the body of the job that
+ * runs when there is somewhere to run it (`docs/limitations.md`).
  */
 export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
   const rows = await prisma.field.findMany({ select: fieldSelect })
@@ -267,13 +253,11 @@ export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
     if (wanted.has(name) && valid) continue
 
     await prisma.$executeRawUnsafe(dropStatement(name))
-    // An index nobody wants and one that failed to build are both dropped here, but they mean
-    // different things: the first is tidying, the second is a build that needs doing again
+    // Both are dropped, but they mean different things: tidying, versus a build to redo
     ;(valid ? dropped : reaped).push(name)
   }
 
-  // Re-read rather than reusing the list above: the drops just changed it, and creating over an
-  // index that is still present would be a no-op that hides a stale one
+  // Re-read rather than reusing the list above, which the drops just changed
   const present = new Set((await ownedIndexes()).map((index) => index.name))
   const created: string[] = []
 
@@ -288,15 +272,10 @@ export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
 }
 
 /**
- * What one owned index has cost and returned.
- *
- * The question this exists to answer is **"was opting this field in worth it?"**, and nothing else
- * in the project can: an index that is never scanned still returns correct results, so it shows up
- * only as writes being slower than they need to be. `scans` at zero on a table with real traffic
- * is the signal to opt the field back out.
- *
- * `valid` catches the other silent case — a `CONCURRENTLY` build that failed leaves an index that
- * costs every write and serves no read, and nothing surfaces that either.
+ * What one owned index has cost and returned — the only answer to **"was opting this field in
+ * worth it?"**. An index that is never scanned still returns correct results, so it shows up
+ * only as slower writes; `scans` at zero on a table with real traffic is the signal to opt back
+ * out. `valid` catches the other silent case, a failed `CONCURRENTLY` build.
  */
 export interface IFieldIndexStat {
   name: string
@@ -325,11 +304,11 @@ export async function fieldIndexStats(): Promise<IFieldIndexStat[]> {
 
   return rows.map((row) => ({
     name: row.name,
-    // `rec_idx_<fieldId>_<purpose>` — the purpose suffix carries no underscore, so one split off
-    // the end recovers the id whatever the cuid contains
+    // `rec_idx_<fieldId>_<purpose>` — the suffix carries no underscore, so one split off the
+    // end recovers the id whatever the cuid contains
     fieldId: row.name.slice(INDEX_PREFIX.length, row.name.lastIndexOf('_')),
     valid: row.valid,
-    // `idx_scan` and `pg_relation_size` are bigints, which arrive as `BigInt` rather than a number
+    // `idx_scan` and `pg_relation_size` are bigints, arriving as `BigInt`
     scans: Number(row.scans),
     bytes: Number(row.bytes),
   }))

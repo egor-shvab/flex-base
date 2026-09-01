@@ -22,10 +22,9 @@ import {
 } from '~~/test/integration/seed'
 
 /**
- * The half `record-query.spec.ts` cannot reach. That spec asserts on `.text` and `.values` and
- * never executes, so a fragment PostgreSQL rejects — a bad cast, a mis-typed `?|` argument, an
- * operator that binds differently than it reads — passes every test in the unit suite.
- * Everything here runs the SQL for real and looks at which rows come back.
+ * The half `record-sql.spec.ts` cannot reach. That spec asserts on `.text` and `.values` and
+ * never executes, so a fragment PostgreSQL rejects passes the whole unit suite. Everything here
+ * runs the SQL for real and looks at which rows come back.
  */
 
 let tableId: string
@@ -153,14 +152,12 @@ describe('the WHERE clause selects the rows it claims to', () => {
   })
 
   /**
-   * A multi-value filter beside a **range**, which is the one neighbour that contributes a bare
-   * two-term `a >= x AND a <= y` to the chain — every other filter contributes a single term.
-   * Beta carries `urgent` but falls outside the range, so it is the row that appears if the
-   * conjunction has come apart.
+   * A multi-value filter beside a **range**, the one neighbour contributing a bare two-term
+   * `a >= x AND a <= y`. Beta carries `urgent` but falls outside the range, so it is the row
+   * that appears if the conjunction has come apart.
    *
-   * Note what this does *not* prove: `?|` is an operator and binds tighter than `AND`, so
-   * precedence alone would keep this correct even unparenthesised. The parentheses are there to
-   * keep the invariant visible rather than inferred, and no test can distinguish that.
+   * What this does *not* prove: `?|` binds tighter than `AND`, so precedence alone would keep it
+   * correct unparenthesised. The parentheses keep the invariant visible, which no test can see.
    */
   it('composes with a bare range bound rather than widening it', async () => {
     expect(await matching({ tags: ['urgent'], contract_value: { from: 50, to: 200 } })).toEqual([
@@ -187,14 +184,12 @@ describe('the WHERE clause selects the rows it claims to', () => {
   })
 
   /**
-   * The `::date` cast on the timestamp columns, which is the whole reason they project to
-   * something other than themselves. A range's bounds are dates, so an uncast `createdAt <=
-   * '2026-01-05'` means *midnight* — and every record made during the day the user asked for
-   * drops out of its own filter. Only the database can answer this: `record-query.spec.ts`
-   * asserts the cast is in the string, not what PostgreSQL does with it.
+   * The `::date` cast on the timestamp columns. A range's bounds are dates, so an uncast
+   * `createdAt <= '2026-01-05'` means *midnight* and every record made that day drops out of
+   * its own filter. Only the database can answer this.
    *
-   * Its own table, because the shared fixture's rows are all created "now", and timestamps at
-   * **midday** so `::date` reads as the same calendar day whatever offset the driver applies.
+   * Its own table, because the shared fixture's rows are all "now", and timestamps at **midday**
+   * so `::date` reads as the same calendar day whatever offset the driver applies.
    */
   it('matches a same-day Created at range, including records made later that day', async () => {
     const table = await createTable((await createUser()).id)
@@ -242,10 +237,9 @@ describe('free-text search', () => {
   })
 
   /**
-   * The bare number, not the `#` form: the projection is `"number"::text`, so typing `4` finds
-   * `#4`, `#14` and `#42` alike. (`#` belongs to the relation picker's own predicate, which
-   * falls back to a `#number` label.) Its own table, because every date in the shared fixture
-   * contains a digit and DATE is searched too.
+   * The bare number, not the `#` form: the projection is `"number"::text`, so `4` finds `#4`,
+   * `#14` and `#42` alike. Its own table, because every date in the shared fixture contains a
+   * digit and DATE is searched too.
    */
   it('matches the record number, which nothing else here carries', async () => {
     const table = await createTable((await createUser()).id)
@@ -258,19 +252,14 @@ describe('free-text search', () => {
   })
 
   /**
-   * The storage format must not leak into results. A multi-value SELECT stores a JSONB array,
-   * and `matchesAnyElement` unnests it through `jsonb_array_elements_text` precisely so the
-   * brackets, quotes and commas holding it together are not searchable text. Projecting with
-   * `->>` instead would still "work" — every term below would simply start matching rows,
-   * which is a lie rather than a near miss.
+   * The storage format must not leak into results: `matchesAnyElement` unnests through
+   * `jsonb_array_elements_text` precisely so the brackets, quotes and commas are not searchable
+   * text. Projecting with `->>` would still "work", with every term below matching rows.
    *
    * The separator is `", "`, not `","`: **jsonb normalises its text output**, so Beta's tags
-   * render as `["renewal", "urgent"]` with a space after the comma. A `","` probe passes even
-   * against the broken projection, which makes it no test at all — found by breaking the
-   * projection and watching which of these three stayed green.
+   * render as `["renewal", "urgent"]`. A `","` probe passes even against the broken projection.
    *
-   * Two characters and up, so each is a term the app could really submit: `SEARCH_MIN_LENGTH`
-   * drops anything shorter before it reaches the endpoint.
+   * Two characters and up, so each is a term the app could really submit.
    */
   it.each(['["', '", "', '"]'])(
     'does not match a multi SELECT on its JSON punctuation: %s',
@@ -281,9 +270,8 @@ describe('free-text search', () => {
 
   /**
    * RELATION opts out of search entirely — the stored value is a cuid, and matching the label
-   * instead would pull the target table into the count query too, which has no `LIMIT` to stop
-   * it. The positive half is what keeps this honest: without it the case would
-   * pass just as well against a table nothing could ever find.
+   * would pull the target table into the count query, which has no `LIMIT`. The positive half
+   * keeps it honest: without it the case would pass against a table nothing could find.
    */
   it('does not search a RELATION column, by its label or by its stored id', async () => {
     const user = await createUser()
@@ -329,11 +317,9 @@ describe('free-text search', () => {
   })
 
   /**
-   * A NUMBER is stored as a JSON **number**, not a string, and is searched through its un-cast
-   * text — so `100` finds `1000` the way a substring search should. Worth its own case because
-   * it is the one type whose searchability depends on how the value is stored rather than on
-   * what its predicate says, and an indexed pre-filter that flattened only strings would drop
-   * it silently.
+   * A NUMBER is stored as a JSON **number** and searched through its un-cast text, so `100`
+   * finds `1000`. Its own case because it is the one type whose searchability depends on how the
+   * value is stored — a pre-filter flattening only strings would drop it silently.
    */
   it('matches a NUMBER through its text, so 100 also finds 1000', async () => {
     expect(await searching('100')).toEqual(['Gamma', 'Acme'])
@@ -341,13 +327,13 @@ describe('free-text search', () => {
 })
 
 /**
- * `record_search_text` is the indexed **pre-filter**, and the exact per-type predicates decide
- * after it. That only works while it is a strict **superset** of what those predicates can
- * match: an over-inclusive blob costs a row the OR group then rejects, but a value it *omits*
- * is a row search can never return, and nothing anywhere would report it.
+ * `record_search_text` is the indexed **pre-filter**, and the per-type predicates decide after
+ * it — which works only while it is a strict **superset** of what they can match. An
+ * over-inclusive blob costs a row the OR group rejects; a value it *omits* is a row search can
+ * never return, and nothing would report it.
  *
- * Asserted on the function's own output rather than through a search, so a gap is attributed to
- * the flatten rather than to whichever predicate happened to be exercised.
+ * Asserted on the function's own output, so a gap is attributed to the flatten rather than to
+ * whichever predicate happened to be exercised.
  */
 describe('the search pre-filter flattens every stored value', () => {
   it('carries every scalar, every list element and the record number', async () => {
@@ -396,9 +382,8 @@ describe('the search pre-filter flattens every stored value', () => {
 })
 
 /**
- * The count stops at `RECORD_COUNT_CAP`. The unit spec pins the arithmetic against a stubbed
- * count; this pins the half a stub cannot — that the `LIMIT` really does stop PostgreSQL, and
- * that a table sitting exactly on the cap is still reported exactly.
+ * The count stops at `RECORD_COUNT_CAP`. The unit spec pins the arithmetic against a stub; this
+ * pins that the `LIMIT` really stops PostgreSQL, and that a table on the cap reports exactly.
  */
 describe('the record count is bounded', () => {
   const fill = (count: number) => prisma.$executeRaw`
@@ -434,17 +419,14 @@ describe('the record count is bounded', () => {
 })
 
 /**
- * The plan assertion for search — the same category as the multi-value one above, and here for
- * the same reason: an unused index returns entirely correct rows, so every other test in this
- * file passes while search quietly scans the table.
- *
- * The pre-filter expression and `Record_search_trgm_idx` are one contract; this is what proves
- * they still match.
+ * The plan assertion for search, for the reason the multi-value one above gives: an unused index
+ * returns entirely correct rows, so every other test here passes while search scans the table.
+ * The pre-filter expression and `Record_search_trgm_idx` are one contract.
  */
 describe('free-text search is served by the trigram index', () => {
   it('uses the index and does not scan', async () => {
-    // Seeded inside the case — `test/integration/setup.ts` truncates in `beforeEach`, and an
-    // EXPLAIN against three rows would simply prefer a scan and prove nothing
+    // Seeded inside the case: `setup.ts` truncates in `beforeEach`, and an EXPLAIN over three
+    // rows would prefer a scan and prove nothing
     await prisma.$executeRaw`
       INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
       SELECT 'seek'||g, ${tableId}, 1000+g,
@@ -508,10 +490,9 @@ describe('ORDER BY', () => {
   })
 
   /**
-   * A RELATION sorts by the target's **label**, through a join that reads the outer row as
-   * `"Record"`. Asserted **with and without** a search: the two build different `WHERE`s over the
-   * same join, and a search is the case where the join sits alongside a predicate the trigram
-   * index serves — so the same order either way is what proves the join composes with both.
+   * A RELATION sorts by the target's **label**, through a join reading the outer row as
+   * `"Record"`. Asserted **with and without** a search: the two build different `WHERE`s over
+   * one join, so the same order either way proves the join composes with both.
    */
   it('sorts by a relation label whether or not a search is narrowing it', async () => {
     const user = await createUser()
@@ -551,9 +532,8 @@ describe('ORDER BY', () => {
   })
 
   /**
-   * The ordering reaches the target through a `LEFT JOIN`, and the three ways that could go wrong
-   * are all invisible in the SQL: a row could vanish, a row could appear twice, or the whole thing
-   * could quietly fall back to a per-row subquery.
+   * The ordering reaches the target through a `LEFT JOIN`, and the three ways that goes wrong are
+   * invisible in the SQL: a row vanishes, a row appears twice, or it falls back to a subquery.
    */
   describe('the join the relation ordering brings with it', () => {
     async function dealsLinkedTo(links: (string | undefined)[]) {
@@ -612,9 +592,9 @@ describe('ORDER BY', () => {
     })
 
     /**
-     * The plan assertion. `targetLabel` used to emit a correlated subquery, which PostgreSQL
-     * reports as a `SubPlan` and runs once per row — the shape this task exists to remove. Both
-     * shapes return identical rows, so nothing else in this file would notice a silent revert.
+     * The plan assertion: a correlated subquery, which PostgreSQL reports as a `SubPlan` and
+     * runs once per row, returns identical rows to the join — so nothing else here would notice
+     * a silent revert.
      */
     it('resolves the label by joining, not by a subquery per row', async () => {
       const { deals, dealFields } = await dealsLinkedTo(['ada'])
@@ -668,21 +648,18 @@ describe('paging and counting', () => {
 /**
  * The one case here that asserts on a **query plan** rather than on rows.
  *
- * An index that is present but unused returns entirely correct results, so it passes every unit,
- * integration and end-to-end test in the project and shows up only as latency under data volume
- * no suite has. That is exactly how `jsonb_exists_any` survived for so long while being
- * documented as the layer's one GIN-indexable comparison — it never was.
+ * An index that is present but unused returns entirely correct results, so it passes every suite
+ * in the project and shows up only as latency under data volume none of them has — which is how
+ * `jsonb_exists_any` was documented as GIN-indexable while never being so.
  *
- * Structural assertions only, never timings: `CLAUDE.md` §10 requires determinism, and a
- * millisecond figure on a laptop container is not that.
+ * Structural assertions only, never timings: `CLAUDE.md` §10 requires determinism.
  */
 describe('the multi-value filter is GIN-indexable', () => {
   const INDEX = 'record_tags_gin_probe'
 
   it('is served by a GIN index on the same expression, and does not scan', async () => {
-    // Seeded *inside* the case: `test/integration/setup.ts` truncates in `beforeEach`, so a
-    // `beforeAll` seed would be gone by now — and an EXPLAIN against an empty table happily
-    // passes while proving nothing.
+    // Seeded *inside* the case: `setup.ts` truncates in `beforeEach`, and an EXPLAIN against an
+    // empty table passes while proving nothing
     await prisma.$executeRaw`
       INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
       SELECT 'probe'||g, ${tableId}, 1000+g, '{"tags":["urgent"]}'::jsonb, now(), now()

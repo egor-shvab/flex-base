@@ -26,8 +26,7 @@
       <tbody>
         <tr v-for="record in records" :key="record.id">
           <td v-for="column in columns" :key="column.key">
-            <!-- The wrapper is what caps the column: a `max-width` on the `td` itself would
-                 not (see the style block) -->
+            <!-- The wrapper is what caps the column; a `max-width` on the `td` would not -->
             <div class="records-table__cell">
               <RecordFieldValue :record="record" :column="column" />
             </div>
@@ -36,8 +35,8 @@
                table cell, and a sticky box cannot move outside its containing block -->
           <td class="records-table__actions">
             <div class="records-table__actions-group">
-              <!-- A link, not a button, like every other way into the record dialog: reading a
-                   record is a place, and the row must not have to mediate a navigation -->
+              <!-- A link, like every other way into the record dialog: reading a record is a
+                   place, and the row must not mediate a navigation -->
               <BaseButton
                 variant="icon"
                 prepend-icon="mdi:eye-outline"
@@ -90,8 +89,8 @@ const props = defineProps<{
 const detailLinkTo = useDetailLink()
 
 /**
- * The record's own columns bracket the table's fields, and one list drives both the header and
- * the body so the two cannot drift. Each sorts through the same helpers as any other column.
+ * The record's own columns bracket the table's fields, and one list drives both header and
+ * body so the two cannot drift.
  */
 const columns = computed(() => queryColumns(props.fields))
 
@@ -113,23 +112,20 @@ function sortIcon(field: IField): string {
 </script>
 
 <style lang="scss" scoped>
-// The widest a data column may get. A column is sized by its content, and a table's columns
-// are user-defined, so nothing bounds a value on its own — one long TEXT record otherwise
-// stretches its column to the width of that value and pushes the rest of the grid off-screen.
-// The one knob: change this and both the header and the body cap follow.
-// Local rather than a `--*` token — it is one component's measure, not a design decision the
-// rest of the app reads.
+// The widest a data column may get. Columns are user-defined and sized by content, so
+// nothing bounds a value on its own and one long TEXT record would push the grid off-screen.
+// The one knob: both the header and the body cap follow it. Local rather than a `--*` token,
+// since it is one component's measure.
 $column-max-width: rem(320);
 
-// Every cell's inset, header and body, scrolling and pinned. One pair of values with no
-// exceptions: the pinned column used to take a wider `rem(20)` gutter for air against the
-// divider and the scrollbar, and the difference read as a misalignment rather than as breathing
-// room. The block figure is also what the row height is built from, below.
+// Every cell's inset — header and body, scrolling and pinned — with no exceptions: a wider
+// gutter on the pinned column reads as a misalignment rather than as air. The block figure is
+// also what the row height is built from, below.
 $cell-padding-y: rem(4);
 $cell-padding-x: rem(16);
 
-// What is left for content once a cell has paid its padding — so a column bounded by a value
-// and a column bounded by its header name both land on `$column-max-width`.
+// What is left for content once a cell has paid its padding, so a column bounded by a value
+// and one bounded by its header name both land on `$column-max-width`.
 $content-max-width: $column-max-width - $cell-padding-x * 2;
 
 .records-table {
@@ -152,45 +148,35 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     white-space: nowrap;
   }
 
-  // `-subtle`, not `--color-border`: a rule between rows sits *inside* a surface whose own
-  // border, sticky-header rule and pinned-column edge already carry the structure. Those
-  // three stay on the heavier tokens.
+  // `-subtle`, not `--color-border`: a row rule sits *inside* a surface whose own border,
+  // header rule and pinned edge already carry the structure, and those keep the heavier tokens.
   td {
     border-bottom: 1px solid var(--color-border-subtle);
   }
 
-  // An explicit height, so no single cell defines the row — before this the action cell's
-  // buttons did, which is why the row would otherwise be however tall a button plus the
-  // generic padding happens to be. Derived rather than restated as a literal: a row is one
-  // control tall plus the cell inset on both sides, so it follows `--control-height` and
-  // `$cell-padding-y` on its own. A table cell treats `height` as a minimum, so the action
-  // cell's buttons land *on* that figure rather than pushing past it — which is why the
-  // padding has to be the same one the height is built from, and why this pair moves together.
+  // An explicit height, so no single cell defines the row — otherwise the action cell's
+  // buttons do. Derived rather than a literal: a row is one control tall plus the cell inset
+  // both sides. A table cell treats `height` as a minimum, so those buttons land *on* the
+  // figure rather than pushing past it — which is why this pair has to move together.
   tbody td {
     height: calc(var(--control-height) + #{$cell-padding-y * 2});
     padding: $cell-padding-y $cell-padding-x;
     vertical-align: middle;
   }
 
-  // Where a value's width is actually bounded. The cap cannot go on the `td`: `max-width` on
-  // a table cell is undefined in CSS 2.2 §17.5.2 and browsers ignore it under the default
-  // `table-layout: auto`. A block child's `max-width` *does* bound the cell's max-content
-  // contribution, which is what sizes the column — so the wrapper is load-bearing, not markup
-  // for its own sake.
+  // Where a value's width is bounded. The cap cannot go on the `td`: `max-width` on a table
+  // cell is undefined in CSS 2.2 §17.5.2 and ignored under `table-layout: auto`, while a block
+  // child's `max-width` *does* bound the cell's max-content contribution.
   &__cell {
     max-width: $content-max-width;
 
     @include truncate;
 
-    // `truncate` clips with `overflow: hidden`, which clips a *descendant's* focus ring too —
-    // and a relation cell puts a link inside this box, the first focusable thing to live in
-    // one. `clip` truncates identically (the ellipsis is still computed at the content edge,
-    // so no more text shows) but honours a margin, so the ring paints and the text does not.
-    // The margin is the focus state's whole reach — the halo's 4px spread, the ring sitting
-    // inside it. Written as a literal because `overflow-clip-margin` takes a bare length —
-    // Chrome drops the declaration to 0 for any `calc()`, `var()` included — so this is the one
-    // place that geometry is restated rather than referenced, and it moves when
-    // `--focus-ring-halo` does.
+    // `truncate`'s `overflow: hidden` clips a *descendant's* focus ring, and a relation cell
+    // puts a link in this box. `clip` truncates identically but honours a margin, so the ring
+    // paints and the text does not. The margin is the focus state's whole reach, written as a
+    // literal because Chrome drops `overflow-clip-margin` to 0 for any `calc()` or `var()` —
+    // the one place that geometry is restated, so it moves when `--focus-ring-halo` does.
     overflow: clip;
     overflow-clip-margin: rem(4);
   }
@@ -203,14 +189,12 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     color: var(--color-text-secondary);
   }
 
-  // Column names and their sort controls stay reachable while the rows scroll under them.
-  // The background has to sit on the cell (the padding lives on the button inside it), or
-  // the rows show through; `z-index` is local — this is `thead` against its own `tbody`,
-  // not the cross-component ordering the `--z-*` ramp exists for.
+  // The background has to sit on the cell (the padding lives on the button inside it), or the
+  // rows show through; `z-index` is local — `thead` against its own `tbody`, not the
+  // cross-component ordering the `--z-*` ramp exists for.
   //
-  // The rule below the header is a shadow rather than a border because `border-collapse:
-  // collapse` paints the collapsed edge with the table, not with the sticky cell, so a
-  // `border-bottom` here would scroll away with the rows.
+  // The rule below is a shadow rather than a border: `border-collapse: collapse` paints the
+  // collapsed edge with the table, so a `border-bottom` here would scroll away with the rows.
   thead th {
     position: sticky;
     top: 0;
@@ -218,13 +202,10 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     background: var(--color-surface);
     box-shadow: inset 0 -1px 0 var(--color-border);
 
-    // The corner of both pinned axes: it has to sit above the sticky header row *and* the
-    // pinned column, and carry both of their edges. Spelled out rather than `&__…`, because
-    // `&` is `.records-table thead th` here.
-    //
-    // It is the one header with no sort button to carry the inset, so `th { padding: 0 }`
-    // would leave the label flat against the divider while every label beside it sits a full
-    // `$cell-padding-x` in. It takes the same pair directly instead.
+    // The corner of both pinned axes: above the header row *and* the pinned column, carrying
+    // both edges. Spelled out rather than `&__…`, since `&` is `.records-table thead th` here.
+    // It is also the one header with no sort button to carry the inset, so it takes the pair
+    // directly or its label sits flat against the divider.
     &.records-table__actions-head {
       right: 0;
       z-index: 2;
@@ -241,8 +222,7 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     gap: rem(4);
     width: 100%;
     // The cell's own inset, carried by the button so the whole header cell is the sort
-    // target. `min-height` is what sizes the header row, so the block figure only has to
-    // stay under it — it is here to match the body, not to set the height.
+    // target. `min-height` sizes the header row; the block figure only has to stay under it.
     min-height: var(--control-height);
     padding: $cell-padding-y $cell-padding-x;
     border: none;
@@ -257,22 +237,17 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
       color: var(--color-accent);
     }
 
-    // Keyboard focus lights it too — on hover alone the affordance only ever fully resolves
-    // for a pointer.
+    // Keyboard focus lights it too, or the affordance only resolves for a pointer
     &:hover .records-table__sort-icon,
     &:focus-visible .records-table__sort-icon {
       opacity: 1;
     }
   }
 
-  // A long field *name* stretches a column exactly as a long value does, so the header takes
-  // the same cap. It sits on the label rather than on `&__sort`, because that button is
-  // deliberately `width: 100%` — capping the button would stop it short of the cell edge on a
-  // column the table has widened, and the whole header cell is meant to be the sort target.
-  //
-  // The gap and the icon ride outside this box, so a column bounded by its header name can run
-  // ~rem(18) over `$column-max-width`. Closing that would mean encoding the icon's rendered
-  // size here, which is not this component's to know.
+  // A long field *name* stretches a column as a long value does, so the header takes the same
+  // cap — on the label rather than on `&__sort`, which is `width: 100%` so the whole header
+  // cell is the sort target. The gap and icon ride outside this box, so such a column can run
+  // ~rem(18) over `$column-max-width`; closing that would mean encoding the icon's size here.
   &__sort-label {
     min-width: 0;
     max-width: $content-max-width;
@@ -283,20 +258,16 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
   &__sort-icon {
     // Never squeezed out by a label sitting at its cap
     flex: none;
-    // `mdi:code-tags` is `< >` — 20×12 of its 24 viewBox. A quarter turn makes it 12×20: a
-    // chevron pointing up stacked over one pointing down, which is what a sortable column
-    // means. `transform` is not a layout property, so the flex box stays square and no
-    // column changes width.
+    // `mdi:code-tags` is `< >` — 20×12 of its 24 viewBox; a quarter turn makes it a chevron
+    // up over a chevron down. `transform` is not a layout property, so no column resizes.
     transform: rotate(90deg);
-    // Always visible: this header is the app's only sort affordance, and a hover-revealed
-    // one does not exist on a touch device. Quiet by transparency rather than a colour step
-    // because the icon has to mute whatever it currently inherits — the header's
-    // `--color-text-secondary` at rest, the button's accent under the pointer.
+    // Always visible: the app's only sort affordance, and a hover-revealed one does not exist
+    // on touch. Quiet by transparency rather than a colour step, because it has to mute
+    // whatever it inherits — secondary at rest, the button's accent under the pointer.
     //
-    // 0.35 composites to ~#C6C8CD, about 1.67:1 — deliberately under the 3:1 non-text floor
-    // in CLAUDE.md §8, as a hint rather than a control outline. Registered in
-    // `docs/limitations.md`; do not raise it back on contrast grounds
-    // alone without reading that entry first.
+    // 0.35 composites to ~1.67:1, deliberately under `CLAUDE.md` §8's 3:1 non-text floor as a
+    // hint rather than a control outline. Registered in `docs/limitations.md`; do not raise it
+    // on contrast grounds without reading that entry first.
     opacity: 0.35;
     transition: opacity 0.15s ease;
 
@@ -312,13 +283,12 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     border-bottom: none;
   }
 
-  // `-row-hover`, not the control hover: a SELECT cell's badge draws no border, and at
-  // `--color-surface-hover` the row is the same value as the badge fill, which erases it.
+  // `-row-hover`, not the control hover: a SELECT badge draws no border, and at
+  // `--color-surface-hover` the row matches the badge fill and erases it.
   tbody tr:hover {
     background: var(--color-surface-row-hover);
 
-    // The pinned cell paints its own background, so it has to follow the row — otherwise
-    // the hovered row has a white notch at its right edge
+    // The pinned cell paints its own background, so it has to follow the row
     .records-table__actions {
       background: var(--color-surface-row-hover);
     }
@@ -329,16 +299,10 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     width: rem(1);
   }
 
-  // Pinned to the right edge, so a row's controls survive a horizontal scroll. Opaque, or
-  // the field columns show through it; the left edge is an inset shadow rather than a
-  // `border-left` for the same reason the header's rule is — `border-collapse: collapse`
-  // paints a real border with the table, so it would scroll away instead of riding with
-  // the cell.
-  // The divider is `-strong`, not the `--color-border-subtle` used between rows: it
-  // separates a frozen column from columns sliding underneath it, which is a heavier job
-  // than a row rule. A tinted fill was the alternative and was rejected — it would have to
-  // restate the row wash to avoid swallowing it, and `--color-accent-tint` already means
-  // "selected" everywhere else.
+  // Pinned right, so a row's controls survive a horizontal scroll. Opaque, or the field
+  // columns show through; the left edge is an inset shadow for the same reason the header's
+  // rule is. The divider is `-strong` rather than `-subtle`: separating a frozen column from
+  // columns sliding under it is a heavier job than a row rule.
   &__actions {
     position: sticky;
     right: 0;

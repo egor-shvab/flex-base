@@ -96,10 +96,9 @@ describe('BaseButton', () => {
     })
 
     /**
-     * `sm` resteps the icon variant's box and glyph through the two custom properties `--icon`
-     * reads, so it is applied *alongside* the variant rather than in place of it — the same
-     * shape as the tone above. The 24×24 geometry it produces is invisible here: `test.css` is
-     * `false`, so the e2e target-size gate is what proves the box.
+     * `sm` resteps the icon variant's two custom properties, so it is applied *alongside* the
+     * variant. The 24×24 geometry it produces is invisible here (`test.css` is `false`) — the e2e
+     * target-size gate proves the box.
      */
     it('adds the small size alongside the variant rather than replacing it', async () => {
       const wrapper = await mountTracked(BaseButton, {
@@ -152,9 +151,8 @@ describe('BaseButton', () => {
     })
 
     /**
-     * The two icons share one element class, so which side each lands on is carried by DOM order
-     * alone — nothing else states it, and swapping the two template lines would be invisible to
-     * every other assertion here.
+     * The two icons share one element class, so DOM order alone carries which side each lands on —
+     * swapping the template lines would be invisible to every other assertion here.
      */
     it('puts the prepended icon before the label and the appended one after', async () => {
       const wrapper = await mountTracked(BaseButton, {
@@ -172,8 +170,8 @@ describe('BaseButton', () => {
   })
 
   describe('interaction', () => {
-    // Nothing is forwarded by hand: a listener reaches the root element by attribute
-    // fallthrough, which is also what makes `NuxtLink`'s own props work in link mode
+    // Nothing is forwarded by hand: attribute fallthrough carries the listener, which is
+    // also what makes `NuxtLink`'s own props work in link mode
     it('forwards clicks by attribute fallthrough', async () => {
       const onClick = vi.fn()
       const wrapper = await mountTracked(BaseButton, { attrs: { onClick } })

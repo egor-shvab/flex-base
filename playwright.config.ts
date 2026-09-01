@@ -22,14 +22,12 @@ process.env.JWT_SECRET = JWT_SECRET
 
 /**
  * The end-to-end suite: the production build, a real database, a real browser. It answers what
- * nothing below it can — what the app *does* with the logic the other three projects pin.
+ * nothing below it can — what the app *does* with the logic the other projects pin.
  *
- * **The server is the built output, started through `scripts/serve-output.mjs`** — the same
- * launcher `npm run preview` uses, minus the `.env` that `scripts/preview.mjs` loads on top of
- * it. That file is exactly what the suite must not read: it points at the *development*
- * database, and the suite creates and truncates tables. Reading env only from `webServer.env`
- * is what makes the target database unambiguous. The launcher itself exists because the output
- * bundle cannot start on Windows without its fix-up — see that file.
+ * **The server is the built output, started through `scripts/serve-output.mjs`** — the launcher
+ * `npm run preview` uses, minus the `.env` `scripts/preview.mjs` loads on top of it. That file
+ * points at the *development* database, and this suite creates and truncates tables, so reading
+ * env only from `webServer.env` is what makes the target unambiguous.
  */
 export default defineConfig({
   testDir: resolve('./test/e2e'),

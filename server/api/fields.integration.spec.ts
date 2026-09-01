@@ -6,13 +6,12 @@ import { testEvent } from '~~/test/integration/event'
 import { createField, createTable, createUser } from '~~/test/integration/seed'
 
 /**
- * The field endpoints at the **handler** layer. What `updateField` refuses — a type change, a
- * retarget, narrowing a multi-value field — and what widening does to the rows below it belong to
- * `server/services/fields.integration.spec.ts`; none of that is repeated here.
+ * The field endpoints at the **handler** layer. What `updateField` refuses, and what widening
+ * does to the rows, belong to `server/services/fields.integration.spec.ts`.
  *
- * What is only true at this layer is that the route's two params reach the right row, and that
- * `requireFieldTarget` runs on the way in. Everything underneath takes a `fieldId` as an argument
- * and cannot tell a mis-wired one from a correct one.
+ * Only true at this layer: the route's two params reach the right row, and `requireFieldTarget`
+ * runs on the way in. Everything underneath takes a `fieldId` and cannot tell a mis-wired one
+ * from a correct one.
  */
 let ada: IAuthUser
 let tableId: string
@@ -88,9 +87,8 @@ describe('updating a field through the endpoint', () => {
 
   /**
    * A relation's target is immutable but **its label field is not** (`architecture.md` §6), so
-   * `requireFieldTarget` is genuinely reachable on this path — it is the one part of a relation's
-   * options an update can still move. The ownership spec proves the same check for *create*;
-   * this is the editable half nothing else drives.
+   * `requireFieldTarget` is genuinely reachable here — the one part of a relation's options an
+   * update can still move. The ownership spec proves the same check for *create*.
    */
   describe('a relation’s label field, which stays editable', () => {
     let ownerId: string

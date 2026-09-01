@@ -3,14 +3,12 @@ import type { ITable } from '#shared/types/table'
 /**
  * How a URL addresses a row.
  *
- * A public number, never the cuid: `id` is what a relation references and what the database
- * joins on, `number` is what a person reads and a link carries. The two parsers below are the
- * only place a URL segment becomes a number, so the bound and the notion of "valid" cannot
- * drift between the page that reads a route param and the server that reads one.
+ * A public number, never the cuid: `id` is what a relation references and the database joins
+ * on, `number` is what a person reads and a link carries. The two parsers below are the only
+ * place a URL segment becomes a number, so "valid" cannot drift between page and server.
  *
- * Framework-free and zod-free by necessity as much as by taste: `shared/utils/` sits above
- * `validation/` in the layer order and may not import it, and this has to be callable from
- * `server/utils/route.ts` as well as from a page.
+ * Framework-free and zod-free by necessity: `shared/utils/` sits above `validation/` in the
+ * layer order, and this has to be callable from `server/utils/route.ts` as well as from a page.
  */
 
 /**

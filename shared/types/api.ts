@@ -4,19 +4,16 @@ import type { IRecord, IRecordOption } from '#shared/types/record'
 import type { ITable, ITableListItem } from '#shared/types/table'
 
 /**
- * What each endpoint answers with — **the contract, declared once and satisfied from both sides**.
- * A handler annotates its return type with one of these; the matching function in `app/api/`
- * reads the same one, so a response shape cannot move on the server without failing to compile
- * on the client. Before this, every call site asserted a shape the compiler never checked
- * against the handler.
+ * What each endpoint answers with — **the contract, declared once and satisfied from both
+ * sides**. A handler annotates its return type with one of these and the matching function in
+ * `app/api/` reads the same one, so a response shape cannot move on the server without failing
+ * to compile on the client.
  *
- * Only the **envelopes** live here. The payloads inside them are the domain types they always
- * were, and `IRecordPage` / `IRecordDetail` are already whole responses in their own right — an
- * alias for either would be a second name for one thing.
+ * Only the **envelopes** live here; the payloads are the domain types, and `IRecordPage` /
+ * `IRecordDetail` are already whole responses.
  *
- * These describe what travels **on the wire**, so every timestamp is an ISO string. That is why
- * `db/` maps a row's `Date`s rather than leaving JSON to do it silently: the two agreed only
- * because `JSON.stringify` happened to produce the same text a declared `string` promised.
+ * These describe what travels **on the wire**, so every timestamp is an ISO string — which is
+ * why `db/` maps a row's `Date`s rather than leaving `JSON.stringify` to agree by coincidence.
  */
 
 /** Every mutation whose whole answer is that it worked. */
@@ -33,9 +30,8 @@ export interface ITablesResponse {
 }
 
 /**
- * A write that answers with the table's list row, counts and all — what the sidebar and the
- * dashboard redraw from, so the client stores what it was told rather than computing a delta
- * against what it last saw (`decisions.md` → _A cached count is received, not computed_).
+ * A write that answers with the table's list row, counts and all, so the client stores what it
+ * was told rather than computing a delta (`docs/decisions.md`).
  */
 export interface ITableListItemResponse {
   table: ITableListItem

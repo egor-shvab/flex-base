@@ -4,9 +4,8 @@
     :class="{ 'base-badge--label': variant === 'label', 'base-badge--dot': hasDot }"
     :style="tint"
   >
-    <!-- The text is wrapped so the badge can truncate itself. A caller that bounds its width
-         cannot do it from outside: this is a flex container, so an overflowing badge would be
-         clipped mid-pill rather than ellipsised. -->
+    <!-- Wrapped so the badge truncates itself: it is a flex container, so a caller bounding
+         its width from outside would clip mid-pill rather than ellipsise. -->
     <span class="base-badge__text"><slot /></span>
   </span>
 </template>
@@ -29,38 +28,31 @@ const props = withDefaults(
   { variant: 'chip', color: undefined },
 )
 
-// Undefined leaves the SCSS defaults below in place, which is what `--label` and an
-// uncoloured chip render as.
+// Undefined leaves the SCSS defaults below — what `--label` and an uncoloured chip render as
 const tint = computed(() => (props.color === undefined ? undefined : badgeTint(props.color)))
 
-// Both conditions, never colour alone: `--label` is a metadata marker with no hue to
-// signal, and an uncoloured chip is a SELECT choice that has since been renamed away —
-// a dot with no hue behind it would assert a status the value no longer has.
+// Both conditions, never colour alone: `--label` has no hue to signal, and an uncoloured chip
+// is a SELECT choice renamed away — a dot with no hue would assert a status it does not have.
 const hasDot = computed(() => props.variant === 'chip' && props.color !== undefined)
 </script>
 
 <style lang="scss" scoped>
 .base-badge {
-  // The defaults every badge starts from; `color` overrides the pair from the template.
-  // `badgeTint` also emits `--badge-border`, which only `BaseColorPicker` reads.
+  // The defaults; `color` overrides the pair from the template. `badgeTint` also emits
+  // `--badge-border`, which only `BaseColorPicker` reads.
   --badge-bg: var(--color-surface-muted);
   --badge-fg: var(--color-text);
 
   display: inline-flex;
   align-items: center;
-  // Both explicit, and this pair is load-bearing. An `inline-flex` box with neither is sized
-  // by the line-height it *inherits*, so one badge stood 25px in a table cell, 21.5px in a
-  // `BaseSelect` overlay and 32px inside `RecordDetail`'s wrapped multi-value row — a
-  // container that set a line-height for its own row spacing silently resized every pill on
-  // it. Declaring `line-height` here ends that inheritance at the badge; `height` then fixes
-  // the box. 14px of text at `tight` is 17.5, so the content sits well inside 24.
+  // Both explicit, and load-bearing: an `inline-flex` box with neither is sized by the
+  // line-height it *inherits*, so any container setting one for its own row spacing silently
+  // resizes every pill on it. 14px of text at `tight` is 17.5, well inside 24.
   height: rem(24);
   line-height: var(--line-height-tight);
-  // Never wider than whatever bounds it — `RecordsTable`'s capped cell is the case that
-  // matters. Inert everywhere the badge already fits.
+  // Never wider than whatever bounds it — `RecordsTable`'s capped cell is the case
   max-width: 100%;
-  // Inline only: `height` sizes the box, so block padding would be a second number that has
-  // to agree with it.
+  // Inline only: `height` sizes the box, so block padding would be a second number to agree
   padding: 0 rem(8);
   border-radius: var(--radius-pill);
   background: var(--badge-bg);
@@ -74,15 +66,12 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
     @include truncate;
   }
 
-  // The dot is what let the border go. The fill is within 1.13:1 of a hovered row and so
-  // carries no edge, but the dot is `--badge-fg`, which clears 4.5:1 on its own fill and
-  // 6:1 on any surface it can land on — the hue survives where the fill does not.
+  // The dot is what let the border go: the fill is within 1.13:1 of a hovered row, but the
+  // dot is `--badge-fg`, which clears 4.5:1 on its own fill and 6:1 anywhere it lands.
   //
-  // A pseudo-element rather than an `<i>`: an empty `content` contributes no accessible
-  // object, so the dot stays the redundant encoding it is (the word carries the meaning),
-  // and `RecordsTable` does not pay a DOM node per SELECT cell. A glyph would be wrong
-  // twice over — §8 bans text glyphs as icons, and a non-empty `content` string does
-  // reach the accessibility tree.
+  // A pseudo-element with empty `content` contributes no accessible object, so the dot stays
+  // redundant encoding and `RecordsTable` pays no DOM node per SELECT cell. A glyph would be
+  // wrong twice over — `CLAUDE.md` §8 bans them, and a non-empty `content` does reach the tree.
   &--dot {
     gap: rem(8);
 
@@ -96,8 +85,7 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
     }
   }
 
-  // A quieter register, held by the same rule: its own height rather than an inherited one.
-  // It takes `line-height` from the base above, so 12px of text is 15 inside 20.
+  // Its own height, by the rule above; `line-height` comes from the base, so 12px is 15 in 20
   &--label {
     height: rem(20);
     padding: 0 rem(6);

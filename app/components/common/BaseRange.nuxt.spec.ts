@@ -91,8 +91,7 @@ describe('BaseRange', () => {
 
     /**
      * A `type="number"` input yields `''` for anything it cannot represent, so the text never
-     * reaches the draft in the first place — `toBound`'s `trim` and `Number.isFinite` guards
-     * are the belt to that brace. Either way the user gets no bound, which is what this pins.
+     * reaches the draft; `toBound`'s `trim` and `Number.isFinite` are the belt to that brace.
      */
     it('ends up with no bound for text a number box cannot hold', async () => {
       const wrapper = await range()

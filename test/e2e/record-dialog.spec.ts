@@ -56,11 +56,10 @@ test.describe('opening it', () => {
   })
 
   /**
-   * The regression this exists for: the dialog's fetch is keyed per record. Under one shared key
-   * it worked on the page you landed on and then silently stopped — the second table page held
-   * the first's resolved entry, so nothing refetched and the dialog opened with no data, no
-   * pending and no error until a full reload. **Navigating between two table pages first is the
-   * whole point**, so do not "simplify" this into a single `goto`.
+   * The dialog's fetch is keyed per record. Under one shared key the second table page holds
+   * the first's resolved entry, so nothing refetches and the dialog opens with no data, no
+   * pending and no error until a reload. **Navigating between two table pages first is the whole
+   * point**, so do not "simplify" this into a single `goto`.
    */
   test('still opens after moving between two tables, which once broke it', async ({ page }) => {
     await page.goto(deals.url)
@@ -68,9 +67,8 @@ test.describe('opening it', () => {
     await expect(dialog(page)).toContainText('Acme')
     await page.getByRole('button', { name: 'Close' }).click()
 
-    // Client-side navigation, not a reload — a reload is what used to mask this. The sidebar
-    // link's accessible name carries its record count, so it is matched loosely, as
-    // `mobile-shell.spec.ts` does.
+    // Client-side navigation, not a reload, which would mask this. The sidebar link's
+    // accessible name carries its record count, so it is matched loosely.
     await page
       .getByRole('navigation', { name: 'Your tables' })
       .getByRole('link', { name: new RegExp(people.name) })
@@ -152,9 +150,8 @@ test('a ?detail= URL loaded cold renders the dialog server-side', async ({ page,
 })
 
 /**
- * The address bar carries numbers now, but a link copied before that change carries cuids — and
- * the server reads either form. This is the case that keeps that promise honest end to end: a
- * whole URL in the old shape, path and chain both, still opens the same record.
+ * The address bar carries numbers, but an older link carries cuids and the server reads either
+ * form. A whole URL in the old shape, path and chain both, still opens the same record.
  */
 test('a link written before the switch to numbers still resolves', async ({ page }) => {
   await page.goto(`/tables/${deals.id}?detail=${people.id}.${adaId}`)
@@ -249,13 +246,12 @@ test('a target deleted since the page was drawn says so, with no retry', async (
 })
 
 /**
- * A deliberate override, and invisible when it breaks: `MultiValueCell` is `nowrap` because a
- * table row has a fixed height and its cell truncates, and `RecordDetail` flips it to `wrap`
- * because reading a value in full is the whole reason that dialog exists. Lose the override
- * and the dialog silently shows the first few values on one clipped line.
+ * A deliberate override, invisible when it breaks: `MultiValueCell` is `nowrap` because a table
+ * row has a fixed height, and `RecordDetail` flips it to `wrap` because reading a value in full
+ * is why that dialog exists. Lose it and the dialog shows the first few values on a clipped line.
  *
- * Both surfaces in one case, because either alone would pass against a component that wrapped
- * — or truncated — everywhere. Counted as distinct `top` offsets, which is what "a line" is.
+ * Both surfaces in one case, because either alone would pass against a component that wrapped —
+ * or truncated — everywhere. Counted as distinct `top` offsets.
  */
 test('a multi-value field is one line in the table and wrapped in the dialog', async ({
   page,
@@ -311,14 +307,12 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
 
   /**
    * One line has to mean *the values that fit, in full* — not twelve stubs squeezed into the
-   * column. That is what the obvious wrong fix would produce: let the entries shrink so they
-   * all "fit", and every one of them ends in `BaseBadge`'s own ellipsis instead of the cell's.
-   * Read off the badge's text box, which is where that truncation would land.
+   * column, which is what letting the entries shrink would produce, each ending in
+   * `BaseBadge`'s own ellipsis instead of the cell's. Read off the badge's text box.
    *
-   * The other half — that the entries past the cap give way to a single ellipsis rather than
-   * being clipped mid-pill — is **paint**, and is recorded as approximated in
-   * `docs/architecture.md` §11: the omitted badge keeps its box, its client rects and its
-   * `checkVisibility()`, so no assertion here can see the difference.
+   * The other half — entries past the cap giving way to one ellipsis rather than being clipped
+   * mid-pill — is **paint**, recorded as approximated in `docs/architecture.md` §11: the omitted
+   * badge keeps its box, rects and `checkVisibility()`.
    */
   const firstTagIsWhole = await badges(row)
     .first()
@@ -336,8 +330,8 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
   expect(await lines(dialog)).toBeGreaterThan(1)
 
   /**
-   * A badge is one height wherever it is drawn, and only a browser can say so: `test.css` is
-   * `false` in both Vitest projects, so a component spec reading a height reads nothing.
+   * A badge is one height wherever it is drawn, and only a browser can say so — `test.css` is
+   * `false` in both Vitest projects.
    *
    * The row and the dialog are the two contexts that disagreed — `RecordDetail` spaces the
    * wrapped rows with a `line-height`, which an unsized `inline-flex` badge inherits and grows

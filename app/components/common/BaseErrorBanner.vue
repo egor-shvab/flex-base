@@ -6,18 +6,15 @@
 
 <script setup lang="ts">
 /**
- * The error a surface failed with — a server refusing a submission, a fetch that could not be
- * completed. Every call site used to hand-build the same `<p v-if role="alert">`, and
- * `role="alert"` is an accessibility contract that should be asserted once rather than at each.
+ * The error a surface failed with, so `role="alert"` is asserted in one place.
  *
- * **It renders nothing at all when there is no message**, rather than an empty element. Two
- * end-to-end cases assert `getByRole('alert')` has a count of zero on a clean page, and an alert
- * that exists but is silent would also announce itself the moment it mounted.
+ * **It renders nothing at all when there is no message.** Two end-to-end cases assert
+ * `getByRole('alert')` is absent on a clean page, and an empty alert would announce itself the
+ * moment it mounted.
  *
- * The default slot is for a message that is not a plain string — the records page's failed view
- * carries an inline `<NuxtLink>` recovery mid-sentence. **A slot caller owns presence**: the guard
- * above can only see that a slot was passed, not that it renders anything, so gate the component
- * itself with `v-if` rather than handing it a slot that may be empty.
+ * The default slot is for a message that is not a plain string (the records page's failed view
+ * carries an inline `<NuxtLink>`). **A slot caller owns presence**: the guard above sees only
+ * that a slot was passed, so gate the component with `v-if` rather than passing an empty slot.
  */
 withDefaults(defineProps<{ message?: string | null }>(), { message: null })
 </script>

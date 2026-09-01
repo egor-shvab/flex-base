@@ -13,11 +13,10 @@ describe('BaseLinkedRecord', () => {
   })
 
   /**
-   * The one failure nothing on screen would show. An option row's accessible name is computed
-   * from its text content, and two adjacent inline elements contribute no space between them —
-   * so a separator that lives in markup rather than in the text would announce `#3Example` and
-   * quietly break every `getByRole` name match. Asserted on raw `textContent`, because
-   * `text()` normalises exactly the whitespace this is about.
+   * The one failure nothing on screen would show: an accessible name is computed from text
+   * content, and two adjacent inline elements contribute no space, so a separator living in
+   * markup announces `#3Example` and breaks every `getByRole` name match. Asserted on raw
+   * `textContent`, since `text()` normalises exactly the whitespace this is about.
    */
   it('separates the number from the label with one real space', async () => {
     const wrapper = await ref({ number: 3, label: 'Example' })

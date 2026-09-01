@@ -1,19 +1,16 @@
 import type { TBadgeColor } from '#shared/types/color'
 
 /**
- * The inline custom properties that paint one badge colour. Two consumers, reading
- * different subsets: `BaseBadge` takes `-bg` and `-fg` (and paints its dot from `-fg`),
- * while the swatches in `BaseColorPicker` take all three — a swatch has no word beside it,
- * so it needs the edge a badge gets from the value it wraps. The swatch therefore previews
- * the *hue* a choice will carry, not the badge's exact silhouette.
+ * The inline custom properties that paint one badge colour. `BaseBadge` reads `-bg` and `-fg`;
+ * `BaseColorPicker`'s swatches read all three, since a swatch has no word beside it and needs
+ * an edge — so it previews the *hue*, not the badge's silhouette.
  *
- * Composes token *names*, so a literal colour still cannot reach a component: the value
- * always arrives through `var(--color-*)`. The alternative, a Sass `@each` emitting one
- * modifier class per hue, would duplicate the palette list in SCSS and TypeScript, where
- * adding a colour to one and forgetting the other yields a silently unstyled badge.
+ * Composes token *names*, so a literal colour still cannot reach a component. A Sass `@each`
+ * emitting a modifier class per hue would duplicate the palette in SCSS and TypeScript, where
+ * adding a colour to one alone yields a silently unstyled badge.
  *
- * The fallbacks are not decoration: the argument is enum-typed, but a stale name read from
- * the untyped `options` JSON would otherwise resolve to an unset custom property and inherit.
+ * The fallbacks are not decoration: the argument is enum-typed, but a stale name from the
+ * untyped `options` JSON would resolve to an unset custom property and inherit.
  */
 export function badgeTint(color: TBadgeColor): Record<string, string> {
   return {

@@ -10,10 +10,9 @@ import { getApiErrorMessage } from '~/utils/api-error'
 /**
  * The record-detail dialog, read from and written to the URL.
  *
- * The `detail` param holds the trail of records the dialog has open, so every control here is
- * a route target rather than a state change: opening, drilling into a nested relation, going
- * back and closing are all ordinary navigations, which is what makes browser Back reverse
- * exactly one step and a shared link render the same dialog server-side.
+ * The `detail` param holds the trail of records the dialog has open, so every control here is a
+ * route target rather than a state change — which is what makes Back reverse exactly one step
+ * and a shared link render the same dialog server-side.
  *
  * One owner per page — the dialog reads what this returns instead of fetching its own.
  */
@@ -38,12 +37,10 @@ export function useRecordDetail() {
   )
 
   const { data, status, error, refresh } = useAsyncData<IRecordDetail | null>(
-    // **The key names the open record, and that is load-bearing.** A constant key is one entry
-    // shared by every page that mounts this: moving between two table pages leaves the second
-    // page holding the first's entry, already `status: 'success'`, so nothing refetches and the
-    // dialog renders with no data, no pending and no error until a full reload. Keying on the
-    // record makes each one its own entry, and Nuxt re-executes on a reactive key — which is
-    // also why no `watch` is needed here.
+    // **The key names the open record, and that is load-bearing.** A constant key would be one
+    // entry shared by every page mounting this, so moving between two table pages leaves the
+    // second holding the first's `status: 'success'` entry and nothing refetches. Keying on the
+    // record gives each its own, and Nuxt re-executes on a reactive key — hence no `watch`.
     () => `record-detail-${currentKey.value}`,
     async () => {
       const openRecord = current.value
@@ -55,8 +52,7 @@ export function useRecordDetail() {
       relations.cacheLinkedRecords(detail.linkedRecords)
       return detail
     },
-    // `null` rather than `undefined` while it loads: "no record open" is a state the dialog
-    // renders, not the absence of an answer
+    // `null`, not `undefined`: "no record open" is a state the dialog renders
     { default: () => null },
   )
 

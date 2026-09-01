@@ -113,9 +113,8 @@ describe('RecordForm', () => {
     it('prefixes the key rather than using it alone', async () => {
       const wrapper = await form([textField('company')])
 
-      // The `useId()` prefix is what keeps two forms on one page apart; asserting the
-      // separation itself is not possible here, since `mountSuspended` gives each mount its
-      // own app and restarts the counter
+      // The `useId()` prefix keeps two forms on one page apart. The separation itself cannot
+      // be asserted here: `mountSuspended` gives each mount its own app and restarts the counter
       expect(wrapper.get('input').attributes('id')).not.toBe('company')
       expect(wrapper.get('input').attributes('id')).toMatch(/^.+-company$/)
     })
@@ -176,10 +175,8 @@ describe('RecordForm', () => {
       expect(lastUpdate(wrapper)).toEqual(['total', 42])
     })
 
-    // The "unparseable input is kept as a string so the schema can say 'Enter a number'" rule
-    // lives on the adapter and is covered in `inputs.nuxt.spec.ts`: it cannot be reached
-    // through this component, because `type="number"` refuses the text before it ever reaches
-    // the model.
+    // Keeping unparseable input as a string is the adapter's rule, covered in
+    // `inputs.nuxt.spec.ts` — unreachable here, since `type="number"` refuses the text first
 
     it('emits null when a value is cleared', async () => {
       const wrapper = await form([textField('company')], { company: 'Acme' })

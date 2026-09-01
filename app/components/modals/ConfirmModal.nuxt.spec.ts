@@ -4,12 +4,9 @@ import ConfirmModal from '~/components/modals/ConfirmModal.vue'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 /**
- * The universal destructive dialog. It is built on `BaseModal`, which teleports its body to
- * `<body>` — so nothing here is reachable through the wrapper and every query goes to the
- * document, exactly as `BaseModal.nuxt.spec.ts` does.
- *
- * What is worth pinning is the half that only appeared once a refused delete had something to
- * say: the error surface, and the pending state that must not let a second request start.
+ * The universal destructive dialog. Built on `BaseModal`, so its body is teleported and every
+ * query goes to the document. What is worth pinning is the error surface and the pending state
+ * that must not let a second request start.
  */
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
 const alert = () => document.querySelector<HTMLElement>('[role="alert"]')
@@ -30,8 +27,7 @@ describe('ConfirmModal', () => {
   afterEach(unmountAll)
 
   beforeEach(() => {
-    // `BaseModal` marks this element inert while it is open and uses `?.`, so an absent one
-    // would make that guard pass vacuously
+    // `BaseModal` marks this element inert through `?.`, so an absent one passes vacuously
     const root = document.createElement('div')
     root.id = '__nuxt'
     document.body.appendChild(root)
@@ -48,9 +44,8 @@ describe('ConfirmModal', () => {
   })
 
   /**
-   * The message a refused delete carries — a table still pointed at by a relation names the
-   * field to remove first. `role="alert"` because it appears in a dialog the user is already
-   * looking at, after an action they took, and nothing else on screen changes to announce it.
+   * The message a refused delete carries. `role="alert"` because it appears after an action the
+   * user took, in a dialog they are already looking at, with nothing else changing on screen.
    */
   it('renders the reason a refusal gave, as an alert', async () => {
     await mountConfirm({ error: 'Remove the field “owner” first' })

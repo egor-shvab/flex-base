@@ -17,8 +17,8 @@ body {
   color: var(--color-text);
 }
 
-// Body text gets the comfortable 1.5; headings would look loose at it, and holding
-// them tight is what keeps page and modal headers from growing.
+// Body text takes the comfortable 1.5; headings hold tight, which is what keeps page and
+// modal headers from growing.
 h1,
 h2,
 h3 {
@@ -38,12 +38,10 @@ textarea {
   font-family: inherit;
 }
 
-// The global focus baseline. `:where()` contributes zero specificity, so any
-// component rule overrides it without a fight — but nothing is left without a ring.
-//
-// That cuts one way for the halo: a component with a `box-shadow` of its own outranks this
-// rule and keeps it, so such an element loses the glow while the outline still draws. The
-// indicator is never what goes missing, which is why it is the outline that carries it.
+// The global focus baseline. `:where()` contributes zero specificity, so a component rule
+// overrides it without a fight while nothing is left without a ring. A component with its own
+// `box-shadow` outranks the halo and loses the glow — the outline, which carries the state,
+// still draws.
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);

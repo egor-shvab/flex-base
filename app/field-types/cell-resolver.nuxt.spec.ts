@@ -32,9 +32,8 @@ describe('readCellValue', () => {
   })
 
   /**
-   * Key before type, mirroring the precedence the server's `FIELD_SQL_BY_TYPE` lookup uses.
-   * `createField` reserves these keys, so the collision cannot arise today — pinning it is what
-   * keeps that true if the lookup is ever reordered.
+   * Key before type, mirroring the server's `FIELD_SQL_BY_TYPE` precedence. `createField`
+   * reserves these keys, so pinning it is what keeps that true if the lookup is reordered.
    */
   it('prefers the record’s own column over a data key of the same name', () => {
     const row = record({ number: 42, data: { [RECORD_NUMBER_KEY]: 'from data' } })

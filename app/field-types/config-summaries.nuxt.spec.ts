@@ -20,9 +20,8 @@ const ctx: IFieldConfigSummaryContext = { tableName: (tableId) => TABLE_NAMES[ta
 const emptyCtx: IFieldConfigSummaryContext = { tableName: () => undefined }
 
 /**
- * How one field's configuration reads beside its type. The registry is indexed directly rather
- * than through a resolver, because cardinality is not this map's business — `isMultiValue`
- * answers that for every type and `TableFieldList` renders it itself.
+ * How one field's configuration reads beside its type. Indexed directly rather than through a
+ * resolver, because cardinality is not this map's business — `isMultiValue` answers that.
  */
 function summarise(field: IField, context = ctx): string {
   const entry = FIELD_CONFIG_SUMMARIES[field.type]

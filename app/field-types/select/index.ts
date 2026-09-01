@@ -9,14 +9,12 @@ import type { IAppFieldType } from '~/field-types/types'
 import { shouldSearch } from '~/utils/select'
 
 /**
- * What a SELECT offers, whether it edits or filters and whether it holds one value or several.
- * The entries differ by `multiple` and by placeholder alone, so they share this rather than
- * restating six keys — and `choiceOptions` is resolved **once** per call, for the list and for
- * the count that decides the search box.
+ * What a SELECT offers, editing or filtering, one value or several. The entries differ by
+ * `multiple` and placeholder alone, and `choiceOptions` is resolved **once** per call — for the
+ * list and for the count that decides the search box.
  *
- * `multiple` is omitted rather than set to `false` when a field holds one value: `BaseSelect`
- * ties the prop to its model's type, and an explicit `false` is a different claim from saying
- * nothing.
+ * `multiple` is omitted rather than set to `false` for a single value: `BaseSelect` ties the
+ * prop to its model's type, and an explicit `false` is a different claim from saying nothing.
  */
 function selectProps(
   field: IField,
@@ -31,8 +29,8 @@ function selectProps(
     options,
     // The registry knows how many choices there are, so the search box is its decision
     searchable: shouldSearch(options.length),
-    // No blank option: a placeholder says "nothing chosen" without pretending to be a choice, and
-    // `clearable` is how a value is taken back. A required field still relies on the schema.
+    // No blank option: a placeholder says "nothing chosen" without posing as a choice, and
+    // `clearable` takes a value back. A required field still relies on the schema.
     placeholder,
     clearable: true,
     emptyLabel: 'No choices defined',
@@ -46,22 +44,21 @@ export const SELECT_APP_FIELD_TYPE: IAppFieldType<'SELECT'> = {
     props: (field) => selectProps(field, '— Select —'),
     ...blankIsNull,
   },
-  // The control shows "3 selected" rather than a chip row: chips make a control's height a
-  // function of its content, which `useAnchoredPosition` does not observe (`docs/decisions.md`).
+  // "3 selected" rather than a chip row: chips make a control's height a function of its
+  // content, which `useAnchoredPosition` does not observe (`docs/decisions.md`).
   multiInput: {
     component: markRaw(BaseSelect),
     props: (field) => selectProps(field, '— Select —', true),
     ...listValue,
   },
   // The only list-shaped filter a single-value field has: several choices at once, ORed. No
-  // adapters, because the control's model already *is* the filter value — `string[]` on both
-  // sides. The choices come from the field's own metadata, so the list needs no extra request.
+  // adapters — the control's model already *is* the filter value, `string[]` on both sides.
   filter: {
     component: markRaw(BaseSelect),
     props: (field) => selectProps(field, 'All', true),
   },
-  // Unchanged from the single-value entry: a SELECT filter has always taken several choices,
-  // because picking two is a question about one stored value as much as about a list of them
+  // Unchanged from the single-value entry: picking two choices is the same question about one
+  // stored value as about a list of them
   multiFilter: null,
   cell: markRaw(SelectFieldCell),
   // Always list-shaped: a choice is its own text, so a filtered value needs no resolving
@@ -69,8 +66,8 @@ export const SELECT_APP_FIELD_TYPE: IAppFieldType<'SELECT'> = {
   // The summary already reads as a list, for the same reason `multiFilter` is `null`
   multiSummary: null,
   icon: 'mdi:form-dropdown',
-  // Through `choiceValues` rather than `options?.choices?.length`, so a field whose options are
-  // missing or malformed counts 0 instead of rendering nothing
+  // Through `choiceValues`, so a field with missing or malformed options counts 0 rather than
+  // rendering nothing
   configSummary: (field) => {
     const count = choiceValues(field).length
 

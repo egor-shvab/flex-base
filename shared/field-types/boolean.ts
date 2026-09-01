@@ -2,9 +2,8 @@ import { z } from 'zod'
 import type { IFieldTypeModule } from '#shared/field-types/types'
 
 /**
- * How a BOOLEAN reads to a user, everywhere it is shown — the cell, the filter control
- * and the filter summary. One source, so a checkbox can never say "Yes" in one place
- * and "True" in another.
+ * How a BOOLEAN reads everywhere it is shown — the cell, the filter control, the summary — so
+ * a checkbox cannot say "Yes" in one place and "True" in another.
  */
 export const BOOLEAN_LABELS = { true: 'Yes', false: 'No' } as const
 

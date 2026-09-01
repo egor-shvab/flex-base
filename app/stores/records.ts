@@ -41,9 +41,8 @@ export const useRecordsStore = defineStore('records', () => {
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
   /**
-   * Whether a next page exists, read off the page that came back rather than off `pageCount`.
-   * A capped total makes `pageCount` a floor, so gating Next on it would strand a user at the
-   * cap with rows still behind it; "the page came back full" is true at any table size.
+   * Read off the page that came back, not `pageCount`: a capped total makes that a floor, so
+   * gating Next on it strands a user at the cap with rows still behind it.
    */
   const hasNextPage = computed(() => records.value.length === pageSize.value)
 
@@ -68,8 +67,8 @@ export const useRecordsStore = defineStore('records', () => {
       relations.cacheLinkedRecords(response.linkedRecords)
     } catch (error) {
       // A refetch runs from a watcher, where a rejection would be unhandled and the table
-      // would silently keep showing rows that no longer match the URL. Surfacing it is the
-      // page's job; the initial load still throws, so `useAsyncData` can produce the 404.
+      // would keep showing rows that no longer match the URL. Surfacing it is the page's job;
+      // the initial load still throws, so `useAsyncData` can produce the 404.
       failed.value = true
       throw error
     } finally {
@@ -78,10 +77,9 @@ export const useRecordsStore = defineStore('records', () => {
   }
 
   /**
-   * Records are ordered newest first, so a new one sits at the top of the first page —
-   * unless a filter or a custom sort is active, where it may not belong to the current view.
-   * Returns the page the new record is on: the URL is the source of truth, so when that
-   * differs from the current one the caller navigates and its watcher does the refetch.
+   * Records are newest first, so a new one sits at the top of page 1 — unless a filter or sort
+   * is active, where it may not belong to the current view. Returns the page it is on: the URL
+   * is the source of truth, so the caller navigates and its watcher does the refetch.
    */
   async function createRecord(
     tableAddress: string,
@@ -124,8 +122,8 @@ export const useRecordsStore = defineStore('records', () => {
   ) {
     const removed = await api.remove(tableAddress, recordAddress)
     tables.applyTableRow(removed.table)
-    // A capped total is a lower bound, so it cannot say which page is last — clamping on it
-    // would drag a user back to the cap's page while rows still sit behind it
+    // A capped total is a lower bound, so clamping on it would drag a user back to the cap's
+    // page while rows still sit behind it
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
     const next = totalCapped.value ? page.value : Math.min(page.value, lastPage)
     await fetchRecords(tableAddress, { ...query, page: next })

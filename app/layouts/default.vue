@@ -40,12 +40,11 @@ const auth = useAuthStore()
 const tablesStore = useTablesStore()
 const route = useRoute()
 
-// Loads the table list once per session. `ensureTables` never throws: there is no
-// error boundary above this layout, so a rejection would replace every authenticated
-// page with Nuxt's full-page error instead of an inline message in the sidebar.
-// Its own key, because `useAsyncData` does not dedupe a layout against a page.
-// Returns a value rather than `void`: an `undefined` result makes Nuxt warn (NUXT_E3006) and
-// re-run the handler on the client. The list itself lives in the store, not in `data`.
+// Loads the table list once per session. `ensureTables` never throws: there is no error
+// boundary above this layout, so a rejection would replace every authenticated page with Nuxt's
+// full-page error instead of an inline message in the sidebar. Its own key, because
+// `useAsyncData` does not dedupe a layout against a page. Returns a value rather than `void` —
+// an `undefined` result makes Nuxt warn (NUXT_E3006) and re-run the handler on the client.
 await useAsyncData('app-tables', async () => {
   await tablesStore.ensureTables()
   return true
@@ -62,16 +61,15 @@ watch(
 const shell = useTemplateRef<HTMLElement>('shell')
 
 /**
- * The off-canvas sidebar is the second thing on the page that covers it, so it takes Escape too —
- * and this is the **second** `document`-level listener in the app, `BaseModal`'s being the other.
+ * The off-canvas sidebar covers the page, so it takes Escape too — the **second**
+ * `document`-level listener in the app, `BaseModal`'s being the other.
  *
- * The guard is what keeps them from both firing on one press. `BaseModal` marks `#__nuxt` `inert`
- * while a dialog is open, and this shell is inside that subtree, so the dialog's key is not ours to
- * read. Reachable rather than theoretical: the sidebar's own "Add a table" button opens a dialog
- * over the open sidebar, and one press used to close both.
+ * The guard is what keeps both from firing on one press: `BaseModal` marks `#__nuxt` `inert`,
+ * and this shell is inside that subtree, so the dialog's key is not ours to read. Reachable
+ * rather than theoretical — the sidebar's "Add a table" opens a dialog over the open sidebar.
  *
- * `closest('[inert]')` rather than a lookup of `#__nuxt` — it states the real condition, that this
- * shell is not interactive right now, and does not restate an id that belongs to another component.
+ * `closest('[inert]')` rather than a lookup of `#__nuxt`, so it states the real condition
+ * without restating an id that belongs to another component.
  */
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
@@ -88,13 +86,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .app-layout {
   display: grid;
   // `minmax(0, 1fr)` is load-bearing: without it the main column's min-content width is
-  // RecordsTable's full intrinsic width, so it never shrinks, `overflow-x` never
-  // engages, and the whole document scrolls sideways instead of the table.
+  // `RecordsTable`'s full intrinsic width, so `overflow-x` never engages and the whole document
+  // scrolls sideways instead of the table
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-rows: var(--header-height) 1fr;
-  // The shell is the viewport, not a document that grows: scrolling belongs to the panes
-  // below, so the header stays put and a page can size itself to what is left. `dvh`, so a
-  // mobile URL bar collapsing does not leave the shell overhanging.
+  // The shell is the viewport, not a document that grows: scrolling belongs to the panes below,
+  // so the header stays put. `dvh`, so a collapsing mobile URL bar leaves nothing overhanging.
   height: 100dvh;
   overflow: hidden;
   background: var(--color-canvas);
@@ -117,14 +114,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     @include focus-ring;
   }
 
-  // Hand-rolled rather than a BaseButton, so it does not inherit the icon variant's
-  // sizing and has to match `--control-height` explicitly
+  // Hand-rolled rather than a `BaseButton`, so it does not inherit the icon variant's sizing
   &__toggle {
     display: none;
     align-items: center;
     justify-content: center;
-    // `flex: none`, or the header's flex layout shrinks the square to its glyph on a narrow
-    // viewport — which is the only viewport this button is shown on
+    // `flex: none`, or the header shrinks the square to its glyph on a narrow viewport — the
+    // only viewport this button is shown on
     flex: none;
     width: var(--control-height);
     height: var(--control-height);
@@ -157,8 +153,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   }
 
   &__sidebar {
-    // A grid item's automatic minimum is its content, so a long table list would push the
-    // row taller than the shell and `overflow-y` would never engage
+    // A grid item's automatic minimum is its content, so a long table list would push the row
+    // taller than the shell and `overflow-y` would never engage
     min-height: 0;
     overflow-y: auto;
     background: var(--color-surface);
@@ -186,16 +182,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
       display: inline-flex;
     }
 
-    // Both sit above the page but below BaseModal's z-index: 100, so a dialog still
-    // covers the shell
+    // Above the page, below `--z-modal`, so a dialog still covers the shell.
+    //
     // `visibility: hidden` as well as the transform: translating alone leaves the panel
-    // off-screen but still focusable, so a keyboard user would Tab into an invisible menu on
-    // every page. `visibility` is animatable, so the slide still works.
+    // off-screen but focusable, so a keyboard user would Tab into an invisible menu.
+    // `visibility` is animatable, so the slide still works.
     &__sidebar {
       position: fixed;
-      // Anchored to the viewport, not to the header: it is a drawer over the whole shell, and
-      // the strip it used to leave above itself was scrimmed header anyway. Both edges are
-      // stated because out of the grid it no longer inherits the row's height.
+      // Anchored to the viewport, not the header — it is a drawer over the whole shell. Both
+      // edges are stated because out of the grid it inherits no row height.
       top: 0;
       bottom: 0;
       left: 0;

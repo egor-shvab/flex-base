@@ -51,9 +51,8 @@ test('two choices repeat the param, sorted, and the table shows the union', asyn
 })
 
 /**
- * One case, not two. That the summary *reaches* the chip is a wiring question and belongs
- * here; which words it chooses for one value versus several is a matrix, and
- * `app/field-types/filter-summaries.spec.ts` owns every cell of it.
+ * One case, not two. That the summary *reaches* the chip is a wiring question and belongs here;
+ * which words it chooses is a matrix, and `app/field-types/summaries.nuxt.spec.ts` owns it.
  */
 test('the summary chip reads as an any-of', async ({ page }) => {
   await page.goto(`${table.url}?stage=Won&stage=Lost`)
@@ -112,9 +111,9 @@ test('removing one chip leaves the rest of the query alone', async ({ page }) =>
 })
 
 /**
- * The two layers answer a crafted value differently, and both are deliberate: the endpoint
- * rejects it outright, while the page's codec *drops* what it cannot decode — so a mangled
- * link degrades to the unfiltered table rather than to an error screen.
+ * The two layers answer a crafted value differently, both deliberately: the endpoint rejects it,
+ * while the page's codec *drops* what it cannot decode, so a mangled link degrades to the
+ * unfiltered table rather than an error screen.
  */
 test.describe('a value the field does not offer', () => {
   test('is a 400 from the endpoint', async ({ request }) => {

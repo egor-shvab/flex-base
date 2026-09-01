@@ -41,9 +41,8 @@ describe('app/error.vue', () => {
   })
 
   /**
-   * The regression this branch exists for. The records page wraps its record fetch in the same
-   * `useAsyncData`, so a failing endpoint reaches this boundary — and used to be reported as a
-   * web address the user had got wrong.
+   * The records page wraps its record fetch in the same `useAsyncData`, so a failing endpoint
+   * reaches this boundary and must not be reported as a web address the user got wrong.
    */
   it('owns a 5xx as a fault at our end, never as a bad address', async () => {
     const wrapper = await mountError({

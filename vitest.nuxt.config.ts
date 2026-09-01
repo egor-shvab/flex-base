@@ -1,18 +1,16 @@
 import { defineVitestConfig } from '@nuxt/test-utils/config'
 
 /**
- * The project for everything the node project cannot reach: Pinia stores (each calls `useApi()`
- * at setup time, which pulls `#imports` into the graph), composables built on `useRoute` or on
- * `document`, and components — whose `.vue` files need a Vue plugin the node project has no
- * reason to carry.
+ * Everything the node project cannot reach: Pinia stores (each calls `useApi()` at setup time,
+ * pulling `#imports` into the graph), composables built on `useRoute` or `document`, and
+ * components, whose `.vue` files need a Vue plugin.
  *
- * `defineVitestConfig` is what supplies all of that: `environment: 'nuxt'` boots the real app
- * from `nuxt.config.ts`, so the aliases (`~`, `~~`, `#shared`, `#imports`, `#components`), the
- * module list, and the Vue/SFC pipeline are the ones the app actually ships with. Nothing here
- * is hand-stubbed, which is the point — a stub would be a second source of truth able to drift.
+ * `defineVitestConfig`'s `environment: 'nuxt'` boots the real app from `nuxt.config.ts`, so the
+ * aliases, the module list and the Vue/SFC pipeline are the ones the app ships with. Nothing is
+ * hand-stubbed — a stub would be a second source of truth able to drift.
  *
- * Specs are colocated like every other spec and marked by the `*.nuxt.spec.ts` suffix, so which
- * project a file runs in is readable from its name and the node project can exclude it by glob.
+ * Specs are colocated and marked by the `*.nuxt.spec.ts` suffix, so the project a file runs in is
+ * readable from its name and the node project can exclude it by glob.
  */
 export default defineVitestConfig({
   test: {

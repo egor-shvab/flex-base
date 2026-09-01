@@ -1,7 +1,7 @@
 <template>
-  <!-- A status, like the empty state it stands in front of: the body changes while focus is
-       elsewhere — a sidebar link, a filter — so nothing else on screen would tell a screen-reader
-       user the rows are on their way. The bars carry no information, hence `aria-hidden`. -->
+  <!-- A status, like the empty state behind it: the body changes while focus is elsewhere, so
+       nothing else would tell a screen-reader user the rows are coming. The bars carry no
+       information, hence `aria-hidden`. -->
   <div class="records-skeleton" role="status">
     <span class="visually-hidden">Loading records…</span>
 
@@ -12,8 +12,8 @@
 </template>
 
 <script setup lang="ts">
-// A placeholder, not a preview: fixed counts rather than the table's own columns, which mid-
-// navigation still belong to the table being left. The figures are the concept's.
+// A placeholder, not a preview: fixed counts, since mid-navigation the table's own columns
+// still belong to the table being left
 const ROW_COUNT = 4
 const BAR_COUNT = 3
 </script>
@@ -30,10 +30,8 @@ const BAR_COUNT = 3
     grid-template-columns: 1fr rem(150) rem(100);
     gap: rem(20);
     align-items: center;
-    // The row height `RecordsTable` derives from `--control-height` plus its cell inset on both
-    // sides. That inset is a component-local SCSS variable there and cannot be reached from here,
-    // so the figure is restated — it has to move whenever that pair does, or the placeholder rows
-    // stop lining up with the real ones and the swap jumps.
+    // `RecordsTable`'s row height, restated because its cell inset is a component-local SCSS
+    // variable there. It has to move whenever that pair does, or the swap jumps.
     height: calc(var(--control-height) + #{rem(8)});
     padding: 0 rem(16);
     // The rule *inside* a surface, same as the table's row divider

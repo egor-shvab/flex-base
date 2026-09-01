@@ -1,14 +1,12 @@
 /**
  * The coverage scope, shared by the two configs that measure it. **Not a runnable Vitest
- * config** — it exports fragments, and `vitest.config.ts` is still the root. It is named
- * `*.config.ts` anyway so `tsconfig.tools.json`'s `./*.config.ts` glob type-checks it; a
- * `vitest.coverage.ts` would fall outside every project and be invisible to `npm run typecheck`.
+ * config** — it exports fragments. Named `*.config.ts` so `tsconfig.tools.json`'s glob
+ * type-checks it; a `vitest.coverage.ts` would be invisible to `npm run typecheck`.
  *
- * It exists because coverage is now collected in two runs and merged: the `unit` and `nuxt`
- * projects reach everything under `app/` and the server's business layer, while `server/api/`
- * and `server/middleware/` are only ever exercised by the `integration` project, which needs a
- * database and so is deliberately absent from `npm run test`. One `include` list restated in
- * two files would drift; see `docs/decisions.md`.
+ * Coverage is collected in two runs and merged: `unit` and `nuxt` reach `app/` and the server's
+ * business layer, while `server/api/` and `server/middleware/` are exercised only by
+ * `integration`, which needs a database. One `include` list in two files would drift
+ * (`docs/decisions.md`).
  */
 
 /** Everything both runs share: the provider, and what is never worth measuring. */
@@ -28,10 +26,9 @@ export const COVERAGE_BASE = {
 }
 
 /**
- * The half both runs can reach. The `integration` project measures exactly this and no more —
- * it cannot execute anything under `app/`, and its v8 provider would have to transform the
- * uncovered `app/field-types/*.ts` modules, which import `.vue` files, in a node environment
- * with no Vue plugin to resolve them.
+ * The half both runs can reach. `integration` measures exactly this: it cannot execute anything
+ * under `app/`, and its v8 provider would have to transform the uncovered `app/field-types/*.ts`
+ * modules — which import `.vue` files — in a node environment with no Vue plugin.
  */
 export const SERVER_INCLUDE = [
   'shared/**/*.ts',
@@ -43,9 +40,9 @@ export const SERVER_INCLUDE = [
 ]
 
 /**
- * The client half, measured by the `unit` + `nuxt` run alone. `.vue` files are deliberately
- * absent: components are pinned by behaviour specs, and ~40 markup files at partial coverage
- * would drown the signal from the modules that matter.
+ * The client half, measured by the `unit` + `nuxt` run alone. `.vue` files are absent on
+ * purpose: components are pinned by behaviour specs, and markup at partial coverage would drown
+ * the signal from the modules that matter.
  */
 export const APP_INCLUDE = [
   'app/api/**/*.ts',
@@ -53,10 +50,8 @@ export const APP_INCLUDE = [
   'app/middleware/**/*.ts',
   'app/stores/**/*.ts',
   'app/utils/**/*.ts',
-  // The assemblers and every per-type module; the `.vue` cells and controls beside them are
-  // components and stay out, like the rest of `app/components/**`. `**`, not `*`: a per-type
-  // module sits a directory down, and a single-level glob would drop it from the report
-  // silently.
+  // The assemblers and every per-type module; the `.vue` cells beside them stay out. `**`, not
+  // `*`: a per-type module sits a directory down, which a single-level glob would drop silently.
   'app/field-types/**/*.ts',
   // A component's own composables sit beside it, and `app/components/**` is otherwise excluded
   // on purpose (markup). Named so they do not leave the report by living where they belong.

@@ -16,15 +16,13 @@ import type {
 } from '#shared/types/filter'
 
 /**
- * One column of `Record` itself, as the query layer sees it: a read-only field over a real
- * column rather than a key of `data`. Declaring these as ordinary `IField`s is what lets the
- * filter control, the URL codec, the query schema and the match count treat them like any
- * other column — only the SQL projection knows they are not JSONB. `order` is inert here,
- * since `queryColumns` fixes where each one sits.
+ * One column of `Record` itself, as the query layer sees it. Declaring these as ordinary
+ * `IField`s lets the filter control, the URL codec, the query schema and the match count treat
+ * them like any other column — only the SQL projection knows they are not JSONB. `order` is
+ * inert; `queryColumns` fixes where each sits.
  */
 function recordColumn(key: string, name: string, type: TFieldType): IField {
-  // `indexed` is inert too: these are real columns, already covered by the table's own indexes,
-  // and there is no `Field` row to opt one in
+  // `indexed` is inert too: real columns, already covered by the table's own indexes
   return { id: key, key, name, type, required: false, options: null, order: 0, indexed: false }
 }
 
@@ -36,12 +34,9 @@ const CREATED_AT_FIELD = recordColumn(CREATED_AT_KEY, 'Created at', 'DATE')
 const UPDATED_AT_FIELD = recordColumn(UPDATED_AT_KEY, 'Updated at', 'DATE')
 
 /**
- * A table's own fields plus the record's own columns that filter and sort alongside them, in
- * the order they are presented — the table and the filter drawer both render from this, so the
- * number leads and the timestamps trail rather than pushing a table's own data to the right.
- *
- * Applied wherever a *query* is built — never where a record's data is read or written, since
- * nothing here is part of that data.
+ * A table's own fields bracketed by the record's own columns, in presentation order — the table
+ * and the filter drawer both render from this. Applied wherever a *query* is built, never where
+ * a record's data is read or written.
  */
 export function queryColumns(fields: IField[]): IField[] {
   return [RECORD_NUMBER_FIELD, ...fields, CREATED_AT_FIELD, UPDATED_AT_FIELD]
@@ -49,11 +44,8 @@ export function queryColumns(fields: IField[]): IField[] {
 
 /**
  * A **field's** filter value shape, which is not a function of its type alone: a multi-value
- * field filters as a list whatever its type says, because "matches this one value" is not a
- * question that can be asked of a column holding several.
- *
- * The shape a field type declares in `FILTER_VALUE_BY_TYPE` is the single-value case; this is
- * the one place multi overrides it, and every caller that has an `IField` reads it here.
+ * field filters as a list whatever its type says. `FILTER_VALUE_BY_TYPE` is the single-value
+ * case, and this is the one place multi overrides it.
  */
 export function filterShapeFor(field: IField): IFilterValueRules<TFilterValue>['shape'] {
   return isMultiValue(field) ? 'list' : FILTER_VALUE_BY_TYPE[field.type].shape
@@ -76,15 +68,12 @@ export function rangeParamName(fieldKey: string, bound: keyof INumberRange): str
 }
 
 /**
- * The params a field's filter claims, each tagged with the part of the value it carries.
- * The one definition of that mapping — the field-key collision guard, the query schema and
- * the URL codec all read it, so they cannot disagree about which name belongs to whom.
+ * The params a field's filter claims, tagged with the part of the value each carries. The one
+ * definition of that mapping, read by the collision guard, the query schema and the URL codec.
  *
- * **Keyed by type rather than by field on purpose, and multi-value does not change that.**
- * `scalar` and `list` already claim the same single param name (a list is that name repeated),
- * and no type `MULTI_VALUE_BY_TYPE` allows is `range` — so the claims a field makes are the
- * same whether it holds one value or several. That is what keeps `filterParamNames` callable
- * from `createField`, where the field row does not exist yet and only its type is known.
+ * **Keyed by type rather than by field, and multi-value does not change that**: `scalar` and
+ * `list` claim the same single name, and no type `MULTI_VALUE_BY_TYPE` allows is `range`. That
+ * is what keeps `filterParamNames` callable from `createField`, where only the type is known.
  */
 function filterParamClaims(
   fieldKey: string,
@@ -117,9 +106,9 @@ export function isReservedParam(name: string): boolean {
 }
 
 /**
- * Maps a table's fields to the query params they own, skipping any name already claimed —
- * reserved params first, then fields in order. Field keys created since the param format
- * landed cannot collide (see `createField`); this keeps older keys deterministic.
+ * A table's fields mapped to the params they own, skipping any name already claimed — reserved
+ * first, then fields in order. `createField` refuses colliding keys; this keeps older ones
+ * deterministic.
  */
 export function claimFilterParams(
   fields: IField[],
@@ -139,43 +128,34 @@ export function claimFilterParams(
 }
 
 /**
- * The columns whose filter can actually round-trip — every field claiming at least one param.
- * A legacy field keyed like a reserved one (`search`, `page`, …) claims nothing at all, so its
- * value can never survive the URL; the filter drawer and the summary render from this rather
- * than from `queryColumns` so that no control is offered for a filter that cannot be applied.
+ * The columns whose filter can round-trip — every field claiming at least one param. A legacy
+ * field keyed like a reserved one claims nothing, so its value cannot survive the URL, and the
+ * drawer renders from this rather than `queryColumns` so no dead control is offered.
  *
- * Only *filtering* is affected. Such a field still sorts and still renders as a column: the
- * sort key travels as the **value** of `?sort=`, where a reserved name collides with nothing.
- *
- * `createField` has refused these keys since the param format landed, so this only ever
- * subtracts anything for data older than that.
+ * Only *filtering* is affected: such a field still sorts and renders, since the sort key travels
+ * as the **value** of `?sort=`. `createField` refuses these keys, so this only subtracts for
+ * older data.
  */
 export function filterableFields(fields: IField[]): IField[] {
-  // By identity rather than by key: two legacy fields can share a key, and `claimFilterParams`
-  // resolves that to the *first* of them — which is the one that must keep its control
+  // By identity, not key: two legacy fields can share one, and `claimFilterParams` resolves to
+  // the *first* — the one that must keep its control
   const claimingFields = new Set(claimFilterParams(fields).map((claim) => claim.field))
 
   return fields.filter((field) => claimingFields.has(field))
 }
 
 /**
- * The columns a table's filter surfaces render — its own fields bracketed by the record's own
- * columns (`queryColumns`), minus any whose filter could not round-trip through the URL
- * (`filterableFields`).
- *
- * The drawer and the summary both read this rather than composing the pair themselves, so a
- * filter one can set and the other cannot chip is not a state either can reach on its own.
- * Distinct from `filterableFields`, which answers the narrower question this is built from: of
- * *these* fields, which claim a param at all.
+ * The columns a table's filter surfaces render — `queryColumns` minus anything whose filter
+ * could not round-trip. The drawer and the summary both read this rather than composing the
+ * pair themselves, so a filter one can set and the other cannot chip is unreachable.
  */
 export function filterableColumns(fields: IField[]): IField[] {
   return filterableFields(queryColumns(fields))
 }
 
 /**
- * `!Array.isArray` is load-bearing, not defensive: an array *is* a non-null object, so
- * without it a list-shaped value would narrow to a range and be read for bounds it does
- * not have. Every guard over `TFilterValue` has to separate the two object shapes.
+ * `!Array.isArray` is load-bearing: an array *is* a non-null object, so without it a
+ * list-shaped value narrows to a range and is read for bounds it does not have.
  */
 export function isRangeFilterValue(value: TFilterValue): value is INumberRange | IDateRange {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -186,9 +166,9 @@ export function isListFilterValue(value: TFilterValue): value is string[] {
 }
 
 /**
- * Neither a range nor a list — the single-value shapes a scalar comparison can accept.
- * Stated positively so a comparison guards on what it *wants* rather than on the one other
- * shape that existed when it was written; a third shape has now been added once.
+ * Neither a range nor a list — the shapes a scalar comparison accepts. Stated positively so a
+ * comparison guards on what it *wants* rather than on whichever shapes existed when it was
+ * written.
  */
 export function isScalarFilterValue(
   value: TFilterValue,
@@ -205,13 +185,11 @@ export function isFilterValueEmpty(value: TFilterValue): boolean {
 }
 
 /**
- * The filter map with one column's value replaced — **rebuilt in column order rather than patched
- * per key**, which is the whole point: the URL a filter serializes to is then stable whichever
- * control the user touched, so two people narrowing the same way share the same link.
+ * The filter map with one column's value replaced, **rebuilt in column order rather than patched
+ * per key** — which is what makes the serialized URL stable whichever control the user touched.
  *
- * Anything `isFilterValueEmpty` is dropped rather than stored, so the map only ever holds active
- * filters and "clear this one" needs no separate path — passing `emptyFilterValueFor(field)`
- * removes it. Both filter surfaces go through here, so neither can lose the ordering on its own.
+ * Anything `isFilterValueEmpty` is dropped, so the map only holds active filters and "clear this
+ * one" needs no separate path. Both filter surfaces go through here.
  */
 export function withFilterValue(
   columns: IField[],

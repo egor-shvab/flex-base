@@ -27,8 +27,7 @@ export const BOOLEAN_APP_FIELD_TYPE: IAppFieldType<'BOOLEAN'> = {
       clearable: true,
     }),
     // The control speaks strings, and `null` is "All" — a two-state control cannot express
-    // "either", so the *absence* of a choice carries it. Clearing emits `''`, which is why
-    // these two adapters are unchanged by the move off a native `<select>`.
+    // "either", so the *absence* of a choice carries it. Clearing emits `''`.
     toControl: (value) => (value === null ? '' : String(value)),
     fromControl: (model) => (model === 'true' ? true : model === 'false' ? false : null),
   },

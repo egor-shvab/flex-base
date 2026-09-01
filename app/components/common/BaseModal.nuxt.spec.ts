@@ -28,8 +28,8 @@ describe('BaseModal', () => {
   afterEach(unmountAll)
 
   beforeEach(() => {
-    // The component marks this element `inert` and uses `?.`, so without one every inert
-    // assertion would pass vacuously. Arranging the DOM the component documents it needs.
+    // The component marks this element `inert` through `?.`, so without one every inert
+    // assertion would pass vacuously
     const root = document.createElement('div')
     root.id = '__nuxt'
     document.body.appendChild(root)
@@ -131,12 +131,10 @@ describe('BaseModal', () => {
 
   describe('focus on close', () => {
     /**
-     * A dialog opened from a cell deep in a scrolled table is the case that makes this matter:
-     * without it, closing drops the keyboard user at the top of the document.
-     *
-     * It also pins the ordering by outcome. The trigger is read *before* `inert` is applied (an
-     * inert ancestor blurs whatever is inside it) and refocused *after* it is lifted (or the
-     * element would still be unfocusable) — get either wrong and this fails.
+     * Without it, closing a dialog opened deep in a scrolled table drops the keyboard user at the
+     * top of the document. It also pins the ordering by outcome: the trigger is read *before*
+     * `inert` is applied (an inert ancestor blurs what is inside it) and refocused *after* it is
+     * lifted (or the element is still unfocusable) — get either wrong and this fails.
      */
     it('returns focus to whatever opened it', async () => {
       const trigger = document.createElement('button')

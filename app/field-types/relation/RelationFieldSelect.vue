@@ -23,24 +23,21 @@ import { computed } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 import { formatLinkedRecord } from '#shared/utils/record-label'
-// Explicit, because `field-types/` sits outside `~/components` on purpose — nothing here is
-// globally registered, so an unimported tag would silently render nothing
+// Explicit: `field-types/` sits outside `~/components`, so nothing here is auto-registered
 import RelationOptionLabel from '~/field-types/relation/RelationOptionLabel.vue'
 import { useRelationsStore } from '~/stores/relations'
 import type { ISelectOption } from '~/types/select'
 import { toValueList } from '~/utils/value-shape'
 
 /**
- * The one control both relation registries name, for editing a record and for filtering one.
- * Every other type's entry is pure data, because a `Base*` control needs nothing but the
- * field; a relation's candidates are records of another table, which no synchronous
- * `props(field)` factory can produce — so the fetching lives in the store this reads, and
- * the registry entry stays an ordinary `IFieldControl`.
+ * The one control both relation registries name, for editing and for filtering. Every other
+ * type's entry is pure data; a relation's candidates are records of another table, which no
+ * synchronous `props(field)` factory can produce — so the fetching lives in the store this
+ * reads and the registry entry stays an ordinary `IFieldControl`.
  *
- * It is now also the only control that fetches on *user input*: the seed list below is
- * capped, so anything past it is reached by searching the target table server-side.
- * `searchable` is therefore unconditional here rather than counted like a SELECT's choices —
- * the cap is on the *seed*, so the option count says nothing about how many records exist.
+ * It is also the only control that fetches on *user input*: the seed list is capped, so
+ * anything past it is reached by searching the target table server-side. `searchable` is
+ * therefore unconditional — the cap is on the seed, so the option count says nothing.
  */
 const props = withDefaults(
   defineProps<{
@@ -68,10 +65,9 @@ const model = defineModel<string | string[]>({ required: true })
 const relations = useRelationsStore()
 
 /**
- * The stored value of a relation field as the list it may hold — which is `toValueList`'s own
- * question, so it is asked there rather than restated here, and everything below is written once
- * for both branches. `BaseSelect` normalises its model too, but that is a control's own business
- * and stays in the control (`docs/decisions.md`).
+ * The stored value as the list it may hold — `toValueList`'s own question, so everything below
+ * is written once for both branches. `BaseSelect` normalises its model too, but that stays a
+ * control's own business (`docs/decisions.md`).
  */
 const linkedIds = computed<string[]>(() => toValueList(model.value))
 
@@ -92,9 +88,9 @@ function valueOf(candidate: IRecordOption): string {
 }
 
 /**
- * How a model value reads. The other seam: the store keys linked records by id, so a
- * number-valued model looks up through the by-number index instead. `undefined` only for a
- * target that is gone — or, for a number, one outside the candidates seen so far.
+ * How a model value reads. The store keys linked records by id, so a number-valued model looks
+ * up through the by-number index. `undefined` only for a target that is gone — or, for a
+ * number, one outside the candidates seen so far.
  */
 function linkedRecordOf(value: string): ILinkedRecord | undefined {
   return props.valueBy === 'number'
@@ -103,16 +99,15 @@ function linkedRecordOf(value: string): ILinkedRecord | undefined {
 }
 
 /**
- * Everything the two branches agree on. They differ by their model's **type** and nothing else —
- * `multiple` is tied to it on purpose (`docs/decisions.md`), which is why the branch exists — so
- * the rest is bound once here rather than written out twice.
+ * Everything the two branches agree on. They differ by their model's **type** alone, which is
+ * why the branch exists at all (`docs/decisions.md`).
  */
 const selectProps = computed(() => ({
   id: props.id,
   label: props.label,
   options: options.value,
-  // The seed is capped, so anything past it is reached by searching the target table, whatever
-  // the option count says — unconditional here rather than counted like a SELECT's choices
+  // The seed is capped, so anything past it is reached by searching — unconditional here
+  // rather than counted like a SELECT's choices
   searchable: true,
   loadOptions: search,
   placeholder: props.placeholder,
@@ -122,24 +117,21 @@ const selectProps = computed(() => ({
 }))
 
 /**
- * The seed `BaseSelect` shows before anything is typed. Still capped by the endpoint, which
- * is exactly why the search below exists.
+ * The seed `BaseSelect` shows before anything is typed, capped by the endpoint — which is why
+ * the search exists.
  *
- * Every option's `label` is the **flat** form of its ref. That is what `BaseSelect` shows in
- * the trigger, matches on type-ahead, filters locally, and remembers in its `seen` map — none
- * of which need to know what a record reference is. The slot restyles the same text; it never
- * adds to it, so the two can never disagree.
+ * Every option's `label` is the **flat** form of its ref: what `BaseSelect` shows in the
+ * trigger, matches on type-ahead, filters locally and remembers in `seen`, none of which need
+ * to know what a record reference is. The slot restyles the same text, never adds to it.
  */
 const options = computed<ISelectOption[]>(() => {
   const candidates = relations.optionsFor(props.fieldId)
   const offered = new Set(candidates.map(valueOf))
 
-  // A link the candidate list does not offer — a target beyond the listed page, one reached
-  // through a search, or one since deleted — is still shown, or opening the form would
-  // silently drop it on save. It is also what keeps the trigger labelled while a search has
-  // replaced the visible list with rows that do not include it. Every link is checked, not
-  // just the first: dropping one of several is as lossy as dropping the only one. It is also
-  // why `BaseSelect`'s own `{ value, label: value }` fallback is unreachable from here.
+  // A link the candidate list does not offer — beyond the listed page, reached by a search, or
+  // since deleted — is still shown, or opening the form would silently drop it on save. It also
+  // keeps the trigger labelled while a search has replaced the visible list. Every link is
+  // checked, not just the first, which is why `BaseSelect`'s own fallback is unreachable here.
   const unlisted = linkedIds.value.filter((value) => !offered.has(value))
 
   return [

@@ -13,13 +13,12 @@ interface IAnchoredPositionOptions {
 }
 
 /**
- * Places a fixed-position panel against an anchor, flipping above when there is not enough
- * room below. Everything is expressed in viewport coordinates, which is what lets a panel
- * escape a scrolling, clipping ancestor — the filter drawer's `overflow-y: auto` is the case
- * this exists for. Pair it with a `<Teleport to="body">`.
+ * Places a fixed-position panel against an anchor, flipping above when there is no room below.
+ * Viewport coordinates throughout, which is what lets a panel escape a scrolling, clipping
+ * ancestor — the filter drawer's `overflow-y: auto` is the case this exists for.
  *
- * Returns a style object to bind with `:style`. Separate from `usePopover` because the two
- * have different consumers: `BaseColorPicker` dismisses but does not measure.
+ * Returns a style object to bind with `:style`. Separate from `usePopover` because the two have
+ * different consumers: `BaseColorPicker` dismisses but does not measure.
  */
 export function useAnchoredPosition(
   anchor: Ref<HTMLElement | undefined>,
@@ -40,16 +39,15 @@ export function useAnchoredPosition(
     const spaceBelow = window.innerHeight - rect.bottom - gap - margin
     const spaceAbove = rect.top - gap - margin
 
-    // Below unless it genuinely does not fit *and* above is roomier — so the panel does not
-    // flip for a few pixels, which would make it jump as the page scrolls
+    // Below unless it genuinely does not fit *and* above is roomier, so it does not flip for
+    // a few pixels and jump as the page scrolls
     const below = spaceBelow >= maxHeight || spaceBelow >= spaceAbove
 
     const width = matchWidth ? rect.width : (panel.value?.offsetWidth ?? rect.width)
     const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))
 
     style.value = {
-      // Anchoring the flipped panel by its *bottom* lets it grow upward on its own, with no
-      // second pass to measure the height it ended up with
+      // Anchoring the flipped panel by its *bottom* lets it grow upward with no second pass
       ...(below
         ? { top: `${rect.bottom + gap}px` }
         : { bottom: `${window.innerHeight - rect.top + gap}px` }),
@@ -70,9 +68,8 @@ export function useAnchoredPosition(
   function toggleReflowListeners(active: boolean) {
     const method = active ? 'addEventListener' : 'removeEventListener'
     window[method]('resize', scheduleMeasure)
-    // Capture, because scroll does not bubble: a capturing listener on `window` sees a
-    // scroll in *any* descendant, which is what keeps the panel pinned to a trigger inside
-    // the filter drawer's own scroll container.
+    // Capture, because scroll does not bubble: a capturing listener on `window` sees a scroll
+    // in *any* descendant, which keeps the panel pinned inside the drawer's scroll container
     window[method]('scroll', scheduleMeasure, true)
   }
 

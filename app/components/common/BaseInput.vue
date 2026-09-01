@@ -50,9 +50,8 @@ const props = withDefaults(
     trim?: boolean
     /**
      * Iconify name (e.g. `mdi:magnify`); renders a decorative leading icon inside the field.
-     * Same shape as `BaseButton`'s `prependIcon`, so there is one icon convention rather than two —
-     * and a prop rather than a slot, because the `field-types` registries hand this component
-     * a `props(field)` object through `v-bind` and cannot pass a slot.
+     * A prop rather than a slot, because the `field-types` registries hand this component a
+     * `props(field)` object through `v-bind` and cannot pass a slot.
      */
     icon?: string
   }>(),
@@ -78,9 +77,9 @@ const draft = useDebouncedModel(model, {
   normalize: (value) => (props.trim || modifiers.trim ? value.trim() : value),
 })
 
-// `v-model` would cast a `type="number"` input's value to a number and write it back as
-// `1.5` while the user is still typing `1.50`, so the raw `el.value` is read instead —
-// which costs us `v-model`'s composition guard, kept by hand below.
+// `v-model` would cast a `type="number"` value to a number and write it back as `1.5` while
+// the user is still typing `1.50`, so the raw `el.value` is read instead — which costs
+// `v-model`'s composition guard, kept by hand below.
 const composing = ref(false)
 
 function onInput(event: Event) {
@@ -103,10 +102,8 @@ function onCompositionEnd(event: CompositionEvent) {
     @include field-label;
   }
 
-  // The box every decoration positions against. It renders unconditionally so the field has
-  // one layout, decorated or not; `form-control`'s chrome deliberately stays on the `<input>`
-  // below, which is what keeps the border, focus ring and `--invalid` state untouched for
-  // every caller that passes no decoration.
+  // The box every decoration positions against, rendered unconditionally so the field has one
+  // layout either way. `form-control`'s chrome stays on the `<input>` (`docs/styling.md`).
   &__control {
     position: relative;
   }
@@ -118,8 +115,8 @@ function onCompositionEnd(event: CompositionEvent) {
     // The gutter is `form-control`'s own inline padding — the icon sits where text would
     left: rem(12);
     transform: translateY(-50%);
-    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`.
-    // 18 is the concept's `.tfind svg`, the search box this first serves.
+    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`. 18 is the
+    // concept's `.tfind svg`.
     font-size: rem(18);
     color: var(--color-text-secondary);
     // The glyph overlaps the field, so a click on it must reach the input beneath
@@ -129,11 +126,10 @@ function onCompositionEnd(event: CompositionEvent) {
   &__input {
     @include form-control;
 
-    // The input is a block-wrapper child now, not a stretched flex item, so it no longer
-    // fills the field on its own
+    // A block-wrapper child rather than a stretched flex item, so it does not fill on its own
     width: 100%;
 
-    // No `opacity` — muted text at 0.6 was ~2.4:1; the subtle token is 4.58:1
+    // The token, not `opacity` — muted text at 0.6 is ~2.4:1, the subtle token 4.58:1
     &::placeholder {
       color: var(--color-text-subtle);
     }

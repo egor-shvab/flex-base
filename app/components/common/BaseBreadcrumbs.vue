@@ -23,8 +23,8 @@ import type { IBreadcrumb } from '~/types/breadcrumb'
 
 /**
  * Prop-driven rather than derived from the route: each page already holds the table it
- * fetched — which is also what produces its 404 — so passing the name down keeps that
- * guard intact. Deriving it from the tables store would quietly delete it.
+ * fetched — which is also what produces its 404 — so deriving the name from the tables store
+ * would quietly delete that guard.
  */
 defineProps<{ items: IBreadcrumb[] }>()
 </script>

@@ -6,9 +6,8 @@ import { parseAddressNumber } from '#shared/utils/address'
  * Which row a record address selects — the same rule `tableWhere` states one level up, and the
  * same two forms: the number a URL carries, or the cuid a relation stores and older links use.
  *
- * **Scoped by its table rather than by its owner**, and that asymmetry is deliberate: every
- * caller reaches this only after a handler factory has proven the table belongs to the user, so
- * the table id *is* the ownership scope by then.
+ * **Scoped by its table rather than by its owner**: every caller reaches this only after a
+ * handler factory has proven the table belongs to the user, so the table id *is* the scope.
  */
 export function recordWhere(tableId: string, address: string): Prisma.RecordWhereUniqueInput {
   const number = parseAddressNumber(address)

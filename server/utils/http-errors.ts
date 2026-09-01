@@ -10,23 +10,19 @@ interface IPrismaErrorMessages {
 
 /**
  * Where a persistence fault becomes a response. `db/prisma-errors.ts` says what a Prisma error
- * **is**; this says what the caller answers with, and it is the one place the mapping is written —
- * every service shares it, so a constraint cannot mean 409 in one and 500 in another.
+ * **is**; this says what the caller answers with, in one place, so a constraint cannot mean 409
+ * in one service and 500 in another.
  *
  * Three properties are deliberate:
  *
- * - **Anything unrecognised is returned untouched**, so an unexpected failure still surfaces as a
- *   500 rather than being disguised as a tidy 4xx.
- * - **Both messages are optional, and an absent one means "do not map this".** A model with no
- *   unique constraint worth naming leaves P2002 unmapped rather than answering 409 with nothing
- *   to say; a service whose writes cannot raise P2025 leaves that unmapped rather than carrying a
- *   404 message that can never be shown.
- * - **It returns rather than throws**, so every call site keeps its own `throw` and the control
- *   flow reads the same as any other guard.
+ * - **Anything unrecognised is returned untouched**, so an unexpected failure still surfaces as
+ *   a 500 rather than being disguised as a tidy 4xx.
+ * - **Both messages are optional, and an absent one means "do not map this"** — better than a
+ *   409 with nothing to say, or a 404 message that can never be shown.
+ * - **It returns rather than throws**, so every call site keeps its own `throw`.
  *
- * The other half of this app's status policy is not here and should not be moved here: a rule's
- * message *is* the rule ("Field type cannot be changed"), so it belongs beside the rule that
- * raises it. What is shared is the mapping, not the wording (`docs/decisions.md`).
+ * The other half of the status policy stays where it is: a rule's message *is* the rule, so it
+ * belongs beside the rule that raises it. What is shared is the mapping (`docs/decisions.md`).
  */
 export function toHttpError(error: unknown, messages: IPrismaErrorMessages): Error {
   if (isUniqueViolation(error) && messages.conflict) {

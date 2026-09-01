@@ -1,14 +1,11 @@
 import { vi, type Mock } from 'vitest'
 
 /**
- * A stand-in for the Prisma singleton, so the five modules that import it are reachable from
- * the fast `unit` project at all: `server/db/prisma.ts` constructs a real `PrismaClient` at
- * module load, and `shared/utils/record-query.ts` is unit-testable today precisely because it is
- * the one module in that path which does not import it.
+ * A stand-in for the Prisma singleton, so the modules importing it are reachable from the fast
+ * `unit` project at all — `server/db/prisma.ts` constructs a real `PrismaClient` at module load.
  *
- * What a stub can prove is the code *around* a query — which guard fires, what shape the
- * `where` clause is built in, how many queries are issued. What it cannot prove is that the
- * query runs, or that the database agrees with it. That half is deliberately left to the
+ * A stub can prove the code *around* a query — which guard fires, what shape the `where` clause
+ * takes, how many queries are issued. It cannot prove the query runs, which is left to the
  * integration stage rather than faked here (`CLAUDE.md` §10).
  */
 interface IModelMock {
@@ -44,9 +41,8 @@ export const prismaMock = {
 }
 
 /**
- * Both call forms are in use — a callback for the writes that must move together, an array for
- * the list query and its count — so the stub answers to both rather than forcing each spec to
- * hand-roll one. The callback receives the mock *itself* as its `tx`, which is what lets a
+ * Both call forms are in use — a callback for writes that must move together, an array for the
+ * list query and its count. The callback receives the mock *itself* as its `tx`, which lets a
  * transactional write and a direct one be asserted through the same spy.
  */
 function installTransaction(): void {

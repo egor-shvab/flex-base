@@ -42,13 +42,10 @@ interface IFixtures {
 }
 
 /**
- * The account the suite runs as, resolved by **identity rather than by position**.
- *
- * It is not the only one in the database: the sign-up case registers a second, which
- * `global-setup` truncates between runs but not within one. `findFirst` has no ordering to
- * promise, so it returns whichever row the scan reaches first — and any write to `User` moves a
- * row in physical order. Seeding then files a table under the wrong account, the cookie's owner
- * cannot see it, and every table-scoped case 404s.
+ * The account the suite runs as, resolved by **identity rather than by position**. It is not the
+ * only one: the sign-up case registers a second, and `findFirst` promises no ordering, so it
+ * returns whichever row the scan reaches first. Seeding would then file a table under the wrong
+ * account and every table-scoped case would 404.
  */
 async function currentUserId(): Promise<string> {
   const user = await prisma.user.findUniqueOrThrow({
@@ -107,10 +104,9 @@ export const test = base.extend<IFixtures>({
 /**
  * Confirms a pending deletion, scoped to the dialog.
  *
- * Never `getByRole('button', { name: /^Delete/ }).last()`: `ConfirmModal` is lazy-loaded, so on
- * a cold chunk cache that locator resolves *before* the dialog mounts and clicks the last row's
- * own Delete button instead — which opens a different dialog and makes the case fail
- * intermittently, dependent on nothing but whether the chunk was already fetched.
+ * Never `getByRole('button', { name: /^Delete/ }).last()`: `ConfirmModal` is lazy-loaded, so on a
+ * cold chunk cache that resolves *before* the dialog mounts and clicks the last row's own Delete
+ * — failing intermittently on nothing but whether the chunk was fetched.
  */
 export async function confirmDeletion(page: import('@playwright/test').Page): Promise<void> {
   const dialog = page.getByRole('dialog')
@@ -131,19 +127,17 @@ export async function openRecordForm(page: Page, url: string): Promise<void> {
 }
 
 /**
- * The Company column, which every list spec reads to say which rows came back.
- *
- * Positional on purpose, and one of the documented exceptions in `CLAUDE.md` §10: a *column*
- * is not a thing a user targets, so no role names it. `getByRole('cell')` would return every
- * cell of every column, which is not what a filter assertion is about.
+ * The Company column, which every list spec reads to say which rows came back. Positional on
+ * purpose — one of the documented exceptions in `CLAUDE.md` §10, since a *column* is not a thing
+ * a user targets and `getByRole('cell')` would return every cell of every column.
  */
 export const companies = (page: Page): Promise<string[]> =>
   page.locator('tbody tr td:nth-child(2)').allInnerTexts()
 
 /**
- * Polled, never read once: a URL change resolves the moment the address bar moves, but the
- * rows behind it are refetched asynchronously — reading straight after would assert on the
- * previous query's results often enough to be flaky and never enough to be noticed.
+ * Polled, never read once: a URL change resolves the moment the address bar moves, but the rows
+ * behind it refetch asynchronously — reading straight after asserts on the previous query's
+ * results often enough to be flaky and rarely enough to go unnoticed.
  */
 export const expectCompanies = (page: Page, expected: string[]) =>
   expect.poll(() => companies(page)).toEqual(expected)

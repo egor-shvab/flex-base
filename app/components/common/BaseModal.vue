@@ -50,20 +50,18 @@ function onKeydown(event: KeyboardEvent) {
 const dialog = useTemplateRef<HTMLElement>('dialog')
 
 /**
- * Where focus was when the dialog opened, so it can be put back. A dialog opened from a cell
- * deep in a scrolled table is the case that makes this matter: without it, closing drops the
- * keyboard user at the top of the document and their place in the table is gone.
+ * Where focus was when the dialog opened, so it can be put back — without it, closing a dialog
+ * opened deep in a scrolled table drops the keyboard user at the top of the document.
  */
 let previouslyFocused: HTMLElement | null = null
 
 /**
- * Focus goes to the dialog itself rather than to its first control: the first control is a
- * destructive Delete in one dialog and a text input in another, and landing on either is a
- * decision the dialog gets to make for itself through `autofocus`. `tabindex="-1"` is what
- * makes the container focusable without adding it to the tab order.
+ * Focus goes to the dialog itself, not its first control — that is a destructive Delete in one
+ * dialog and a text input in another, so each decides for itself through `autofocus`.
+ * `tabindex="-1"` makes the container focusable without adding it to the tab order.
  *
- * This is not a focus trap and does not need to be — `inert` below takes the rest of the page
- * out of the tab order, so Tab already cannot leave.
+ * Not a focus trap, and it needs none: `inert` below takes the rest of the page out of the tab
+ * order, so Tab cannot leave.
  */
 function moveFocusIn() {
   const autofocus = dialog.value?.querySelector<HTMLElement>('[autofocus]')
@@ -76,11 +74,9 @@ function restoreFocus() {
 }
 
 /**
- * `aria-modal="true"` claims the rest of the page is unavailable, so the rest of the page has
- * to actually be unavailable. The dialog teleports to `<body>`, which makes the app root a
- * sibling and therefore a single clean target. Without this the attribute is a false signal:
- * every control behind the scrim stays focusable and in the accessibility tree.
- *
+ * `aria-modal="true"` claims the rest of the page is unavailable, so it has to be. The dialog
+ * teleports to `<body>`, which makes the app root a sibling and a single clean target; without
+ * this the attribute is a false signal and every control behind the scrim stays focusable.
  */
 function setBackgroundInert(inert: boolean) {
   document.getElementById('__nuxt')?.toggleAttribute('inert', inert)
@@ -108,8 +104,7 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   // `inset` alone sizes a fixed box to the *large* viewport, so on mobile a dialog capped
-  // against it puts its last rows under an expanded URL bar. The same reason the shell is
-  // `100dvh` rather than `100vh` — see `decisions.md`.
+  // against it puts its last rows under an expanded URL bar (`docs/decisions.md`).
   max-height: 100dvh;
   z-index: var(--z-modal);
   display: flex;
@@ -124,29 +119,25 @@ onBeforeUnmount(() => {
     width: 100%;
     max-width: rem(420);
     // A percentage, never a `calc()` against the viewport: it resolves against the scrim's own
-    // content box, so it already excludes the scrim's padding and re-resolves for free where
-    // `--drawer` zeroes it. Without a cap the dialog is *centred while overflowing both edges*,
-    // and the shell does not scroll, so its header and its submit button are unreachable.
+    // content box, so it excludes the scrim's padding and re-resolves where `--drawer` zeroes
+    // it. Uncapped, the dialog centres while overflowing both edges — and the shell does not
+    // scroll, so its header and submit button become unreachable.
     max-height: 100%;
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     box-shadow: var(--shadow-md);
 
-    // The one place a focus ring is suppressed rather than restyled, and the exception is
-    // narrow: this container takes focus on open so the keyboard starts inside the dialog, but
-    // it carries `tabindex="-1"`, so it is not in the tab order and nothing on it is operable.
-    // A ring here would circle the whole surface to mark a position rather than a control —
-    // the dialog's own appearance over an inert page is that signal. Every control inside keeps
-    // its ring, and reaching this state at all needs a keyboard-then-pointer sequence for
-    // `:focus-visible` to match a programmatic focus.
+    // The one place a focus ring is suppressed rather than restyled. This container takes
+    // focus on open but carries `tabindex="-1"`, so nothing on it is operable — a ring would
+    // circle the whole surface to mark a position rather than a control, and the dialog's
+    // appearance over an inert page already says that. Every control inside keeps its ring.
     &:focus-visible {
       outline: none;
     }
   }
 
-  // The close button sets this header's height, so the vertical padding is trimmed to
-  // keep the header a control plus its inset rather than letting every dialog gain a
-  // band of empty space. It tracks `--control-height` for free.
+  // The close button sets the height, so the block padding is trimmed to keep the header a
+  // control plus its inset. It tracks `--control-height` for free.
   &__header {
     display: flex;
     align-items: center;
@@ -161,10 +152,8 @@ onBeforeUnmount(() => {
     font-weight: 600;
   }
 
-  // The only part that scrolls, in both variants: the header and the footer stay put, so a
-  // dialog with more content than the screen has room for is reachable rather than clipped.
-  // No `min-height: 0` — `overflow-y: auto` already zeroes a flex item's automatic minimum
-  // size, which is why the drawer has never needed one.
+  // The only part that scrolls, in both variants, so an overlong dialog stays reachable. No
+  // `min-height: 0` — `overflow-y: auto` already zeroes a flex item's automatic minimum size.
   &__body {
     flex: 1;
     overflow-y: auto;
@@ -176,8 +165,7 @@ onBeforeUnmount(() => {
     border-top: 1px solid var(--color-border);
   }
 
-  // Everything it used to restate — the flex column and the scrolling body — is the base rule
-  // now, so what is left is the two things that actually make it a drawer
+  // The flex column and the scrolling body are the base rule; only these make it a drawer
   &--drawer {
     align-items: stretch;
     justify-content: flex-end;

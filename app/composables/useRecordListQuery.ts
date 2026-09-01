@@ -12,9 +12,8 @@ import {
 
 interface IRecordListQueryInput {
   /**
-   * The table's field metadata. A getter rather than the store itself, so this owns the URL
-   * and nothing else — filters decode against metadata, but where that metadata came from is
-   * the page's business.
+   * The table's field metadata. A getter rather than the store, so this owns the URL and
+   * nothing else — where the metadata came from is the page's business.
    */
   fields: () => IField[]
 }
@@ -22,12 +21,12 @@ interface IRecordListQueryInput {
 /**
  * The records list query, read from and written to the URL.
  *
- * The URL is the source of truth: every way of narrowing, ordering or paging the list is a
- * navigation, which is what makes a filtered view shareable, survive a reload, and render
- * server-side already filtered. Nothing here holds list state of its own.
+ * The URL is the source of truth: every way of narrowing, ordering or paging is a navigation,
+ * which is what makes a filtered view shareable, survive a reload, and render server-side
+ * already filtered. Nothing here holds list state of its own.
  *
- * One owner per page — the page reads what this returns and keeps the fetching, because what
- * to fetch and how to say it in a URL are separate questions.
+ * One owner per page — the page keeps the fetching, because what to fetch and how to say it in a
+ * URL are separate questions.
  */
 export function useRecordListQuery({ fields }: IRecordListQueryInput) {
   const route = useRoute()
@@ -112,9 +111,8 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
     emptyMessage,
     emptyIcon,
     /**
-     * A stable string for a watcher to key on. `queryState` is a fresh object whenever *any*
-     * param moves — including the detail dialog's — and the list must not refetch because a
-     * dialog opened.
+     * A stable string for a watcher to key on: `queryState` is a fresh object whenever *any* param
+     * moves, and the list must not refetch because a dialog opened.
      */
     queryKey: computed(() => recordQueryKey(queryState.value)),
     goToPage,

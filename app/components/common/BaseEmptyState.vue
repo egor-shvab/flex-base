@@ -1,17 +1,15 @@
 <template>
   <div class="base-empty-state">
-    <!-- Decoration: the title and the message say everything this names. `aria-hidden` matters
-         more here than it usually does — the records page renders this component *as* a
-         `role="status"` live region, and the tile must add nothing to what it announces. -->
+    <!-- Decoration. `aria-hidden` matters more than usual: the records page renders this
+         component *as* a `role="status"` region, and the tile must add nothing to it. -->
     <span class="base-empty-state__art">
       <Icon :name="icon" aria-hidden="true" />
     </span>
 
     <p v-if="title" class="base-empty-state__title">{{ title }}</p>
 
-    <!-- The wrapper is load-bearing now that the root is a flex column: a flex container
-         blockifies its *direct* children, so a bare slot would put each run of a message mixing
-         text with an inline link on a line of its own. Inside this `<p>` they stay inline. -->
+    <!-- Load-bearing: the root is a flex column, which blockifies its direct children, so a
+         bare slot would put each run of a message with an inline link on its own line. -->
     <p class="base-empty-state__message"><slot /></p>
 
     <div v-if="$slots.action" class="base-empty-state__action">
@@ -24,8 +22,8 @@
 defineProps<{
   title?: string
   /**
-   * Iconify name (`mdi:*`) for the tile above the copy. Required, not optional: an empty state
-   * names what is missing, and the glyph is half of how it says it.
+   * Iconify name (`mdi:*`) for the tile above the copy. Required: the glyph is half of how an
+   * empty state says what is missing.
    */
   icon: string
 }>()
@@ -38,8 +36,7 @@ defineProps<{
   align-items: center;
   gap: rem(8);
   margin: rem(40) 0;
-  // The measure below is what stops long copy running the width of the pane; this is what keeps
-  // it off the edges when the pane is narrower than the measure
+  // Keeps the copy off the edges where the pane is narrower than the measure below
   padding-inline: rem(28);
   text-align: center;
   color: var(--color-text-secondary);
@@ -49,7 +46,7 @@ defineProps<{
     place-items: center;
     width: rem(56);
     height: rem(56);
-    // A step over the shared gap: the tile is the block's opening, not one of its lines
+    // A step over the shared gap — the tile opens the block rather than being a line of it
     margin-bottom: rem(6);
     border-radius: var(--radius-lg);
     background: var(--color-accent-tint);
@@ -66,7 +63,7 @@ defineProps<{
   }
 
   &__message {
-    // Centred copy is unreadable past a measure, and this block is as wide as whatever contains it
+    // Centred copy is unreadable past a measure, and this block is as wide as its container
     max-width: 42ch;
     margin: 0;
   }
