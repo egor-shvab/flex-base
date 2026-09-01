@@ -141,8 +141,7 @@ export function buildRecordWhere(
  * How the rows are ordered, and what the query needs in scope to order them that way.
  *
  * The two travel together because they belong to different clauses: an ordering is `ORDER BY` and
- * a join is `FROM`, and only the caller knows where its `FROM` is — the list has two query shapes
- * (§8) and the join has to land in whichever one is running.
+ * a join is `FROM`, and composing a `FROM` is the caller's business, not a builder's.
  */
 export interface IRecordOrder {
   orderBy: Prisma.Sql

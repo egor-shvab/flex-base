@@ -25,40 +25,28 @@ import type { ITable } from '#shared/types/table'
 const recordErrors = { notFound: 'Record not found' }
 
 /**
- * The rows of one page.
+ * The rows of one page — **one shape, searching or not**.
  *
- * **Two shapes, and which one is used turns on whether a search is running.** Searching narrows
- * hard and its predicate is index-served, so the hits are materialised first and sorted after;
- * left to itself the planner instead walks the `ORDER BY` index and filters, which reads the
- * whole table to fill one page. Without a search there is nothing to narrow by, and
- * materialising would mean building every matching row before taking fifty — so the plain query
- * keeps its index scan.
+ * A search used to go through `WITH hits AS MATERIALIZED (…)`, to stop the planner walking the
+ * `ORDER BY` index and filtering. Measured again at 600k rows, that hint is what makes a search
+ * slow rather than what makes it fast: it builds every matching row, full JSONB included, before
+ * the `LIMIT` can discard any, so a term matching most of the table cost **7.4 s** against
+ * **2.7 ms** without it. The planner picks a bitmap scan for a selective term and the ordering
+ * index for a common one, correctly, and it kept doing so under stale statistics — the trigram
+ * index the hint shipped alongside is what gives it the estimate it needs (`decisions.md`).
  *
  * **An ordering may bring a join with it** (`IRecordOrder`), and it goes here rather than in the
- * builder because only this knows which `FROM` is in play. The CTE keeps its `"Record"` alias so
- * that one join expression reads the source row by the same name under either shape; the joined
- * table inside it resolves to the real `"Record"`, since a non-lateral subquery cannot see its
- * siblings' aliases.
+ * builder because only this knows what the `FROM` is.
  */
 function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery) {
-  const { page, pageSize, search } = query
+  const { page, pageSize } = query
   const offset = (page - 1) * pageSize
   const columns = Prisma.sql`id, "number", data, "createdAt", "updatedAt"`
 
-  if (search === '') {
-    return prisma.$queryRaw<TRecordRow[]>`
-      SELECT ${columns} FROM "Record"
-      ${order.join}
-      ${where}
-      ORDER BY ${order.orderBy}
-      LIMIT ${pageSize} OFFSET ${offset}
-    `
-  }
-
   return prisma.$queryRaw<TRecordRow[]>`
-    WITH hits AS MATERIALIZED (SELECT ${columns} FROM "Record" ${where})
-    SELECT ${columns} FROM hits AS "Record"
+    SELECT ${columns} FROM "Record"
     ${order.join}
+    ${where}
     ORDER BY ${order.orderBy}
     LIMIT ${pageSize} OFFSET ${offset}
   `

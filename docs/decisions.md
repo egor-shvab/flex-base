@@ -440,11 +440,28 @@ dangling or empty link keeps its row and sorts last rather than dropping it.
 `sortIndex` stays `null` for RELATION — no index orders this column, because the value it orders by
 is not in it. What the join exploits is the `filterIndex`.
 
-### A search resolves before the ordering
+### A search is one query shape, and the planner is left to choose
 
-`listRecords` materialises the hits in a CTE when a search is present. Adding the index alone is not enough: the planner faces a choice it cannot win — use the index that satisfies `ORDER BY` and filter, or use the GIN and sort — and it picks the former, reading most of the table to fill one page. `MATERIALIZED` forces the search first. The CTE is aliased back to `"Record"` because a RELATION sort's correlated subquery qualifies the outer row by that name.
+`listRecords` builds the same query searching or not. It once wrapped a search in
+`WITH hits AS MATERIALIZED (…)`, on the reasoning that the planner would otherwise walk the index
+satisfying `ORDER BY` and filter, reading most of the table to fill one page.
 
-Without a search the plain query is kept: there is nothing to narrow by, and materialising would build every matching row in order to take fifty.
+**Re-measured at 600k rows with diverse text, the hint is the problem rather than the fix.** It
+builds every matching row — full JSONB — before the `LIMIT` can discard any, so cost tracks the
+match count rather than the page size: a term matching most of the table took **7.4 s** against
+**2.7 ms** without it. Left alone the planner uses the trigram bitmap for a selective term and the
+ordering index for a common one, and it made that choice correctly at every selectivity tried,
+**including with deliberately stale statistics** — where it was at worst 3.5% slower than the
+hinted shape and up to 2 780× faster.
+
+The original measurement was not wrong; it was taken against a state that no longer exists. The
+hint and the trigram index shipped in the same change, and it is the index that gives the planner
+the selectivity estimate it needs. The hint solved a problem the index had already removed.
+
+**One case regressed and was accepted:** a search combined with a RELATION sort, at a
+mid-selectivity term, is ~28% slower unhinted (≈220 ms against ≈175 ms) — the same query is 44%
+faster at a rarer term and 37% faster at a common one. No plan anywhere degenerated into the
+whole-table walk the hint was bought to prevent.
 
 ### An index is opted into per field, and built out of band
 

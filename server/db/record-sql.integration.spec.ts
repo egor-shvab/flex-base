@@ -442,7 +442,7 @@ describe('the record count is bounded', () => {
  * they still match.
  */
 describe('free-text search is served by the trigram index', () => {
-  it('uses the index and does not scan, with the search resolved before the ordering', async () => {
+  it('uses the index and does not scan', async () => {
     // Seeded inside the case — `test/integration/setup.ts` truncates in `beforeEach`, and an
     // EXPLAIN against three rows would simply prefer a scan and prove nothing
     await prisma.$executeRaw`
@@ -509,14 +509,11 @@ describe('ORDER BY', () => {
 
   /**
    * A RELATION sorts by the target's **label**, through a join that reads the outer row as
-   * `"Record"`. A search sends the query down the
-   * materialised-CTE path, where the outer row is the CTE rather than the table, so the two
-   * features only compose because the CTE is aliased back to `"Record"`.
-   *
-   * Asserted **with and without** the search: the same order either way is what proves the two
-   * query shapes agree, and the searching half is the one that would fail on a missing alias.
+   * `"Record"`. Asserted **with and without** a search: the two build different `WHERE`s over the
+   * same join, and a search is the case where the join sits alongside a predicate the trigram
+   * index serves — so the same order either way is what proves the join composes with both.
    */
-  it('sorts by a relation label under both query shapes, searching or not', async () => {
+  it('sorts by a relation label whether or not a search is narrowing it', async () => {
     const user = await createUser()
     const people = await createTable(user.id, 'People')
     await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
