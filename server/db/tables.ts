@@ -1,6 +1,6 @@
 import type { Prisma } from '#server/generated/prisma/client'
 import type { ITable, ITableListItem } from '#shared/types/table'
-import { parseAddressNumber } from '#shared/utils/address'
+import { parseTableAddress } from '#shared/utils/address'
 
 /**
  * Which row a table-scoped route's address selects: the public **number** a URL carries, or the
@@ -9,13 +9,17 @@ import { parseAddressNumber } from '#shared/utils/address'
  * The two are unambiguous — a cuid is never all digits — so one function answers both, and this
  * is the only place the server knows there are two forms. `recordWhere` is its counterpart.
  *
+ * **`parseTableAddress`, the same reader the page uses**, so a segment resolves to one row on
+ * both sides of the wire — a slugged `12-deals` included, which `parseAddressNumber` alone would
+ * fail and 404 on a page that had already resolved it.
+ *
  * **Both branches scope the owner inside the `where`** (`CLAUDE.md` §5): what changes is which
  * column identifies the row, never whether ownership is part of the query.
  *
  * A malformed address parses to `0` and takes the id branch, where it matches nothing and 404s.
  */
 export function tableWhere(userId: string, address: string): Prisma.TableWhereUniqueInput {
-  const number = parseAddressNumber(address)
+  const number = parseTableAddress(address)
 
   return number === 0 ? { id: address, userId } : { userId_number: { userId, number } }
 }

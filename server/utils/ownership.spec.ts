@@ -104,6 +104,18 @@ describe('a table is addressable by number as well as by cuid', () => {
     expect(whereOf()).toEqual({ userId_number: { userId: USER_ID, number: 4 } })
   })
 
+  /**
+   * The same reader the page uses, so a slugged link resolves to one row on both sides of the
+   * wire rather than rendering on the page and 404ing at the API.
+   */
+  it('resolves a slugged address by its leading number', async () => {
+    prismaMock.table.findUnique.mockResolvedValue(table)
+
+    await requireOwnedTable(USER_ID, '4-deals')
+
+    expect(whereOf()).toEqual({ userId_number: { userId: USER_ID, number: 4 } })
+  })
+
   it('still scopes a cuid address by id and owner', async () => {
     prismaMock.table.findUnique.mockResolvedValue(table)
 
@@ -239,6 +251,23 @@ describe('requireFieldTarget', () => {
     })
 
     await expect(requireFieldTarget(USER_ID, relationInput())).resolves.toBeUndefined()
+  })
+
+  /**
+   * A `targetTableId` arrives in a request body, where the resolver reads a number as an
+   * *address*. Left to resolve, `'4'` would validate against table #4 and then be stored as
+   * written — a target no reader could ever match, and one `assertNotRelationTarget` would
+   * stop recognising, so deleting that table would blank every link pointing at it.
+   */
+  it.each([
+    ['a bare number', '4'],
+    ['a slugged address', '4-people'],
+  ])('refuses %s as a target rather than resolving it', async (_case, targetTableId) => {
+    await expect(
+      requireFieldTarget(USER_ID, relationInput({ targetTableId })),
+    ).rejects.toMatchObject({ statusCode: 404 })
+
+    expect(prismaMock.table.findUnique).not.toHaveBeenCalled()
   })
 
   it('scopes the target table by owner too, so a relation cannot reach across accounts', async () => {

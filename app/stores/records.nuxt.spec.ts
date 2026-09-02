@@ -70,6 +70,15 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   },
 })
 
+/** The same row, addressed the way a URL addresses it — by its number rather than its cuid. */
+registerEndpoint('/api/tables/tbl_1/records/1', {
+  method: 'PATCH',
+  handler: () => {
+    writes.push('PATCH rec_1')
+    return { record: record({ id: 'rec_1', number: 1, data: { company: 'Renamed' } }) }
+  },
+})
+
 registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   method: 'DELETE',
   handler: () => {
@@ -333,6 +342,19 @@ describe('useRecordsStore', () => {
       expect(store.records[1]).toEqual(GLOBEX)
       // Nothing about the view changed, so there is nothing to refetch
       expect(listCalls()).toBe(0)
+    })
+
+    /**
+     * The row is found by the id the server answered with, not the address asked for — a
+     * record is addressable by its number, which matches no `record.id` at all.
+     */
+    it('swaps the row when the record was addressed by its number', async () => {
+      const store = useRecordsStore()
+      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+
+      await store.updateRecord('tbl_1', '1', { company: 'Renamed' }, DEFAULT_QUERY)
+
+      expect(store.records[0]?.data.company).toBe('Renamed')
     })
 
     it('replaces the array rather than mutating it', async () => {

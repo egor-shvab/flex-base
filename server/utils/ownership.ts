@@ -4,6 +4,7 @@ import { prisma } from '#server/db/prisma'
 import { tableSelect, tableWhere, toSharedTable } from '#server/db/tables'
 import type { IField } from '#shared/types/field'
 import type { ITable } from '#shared/types/table'
+import { parseTableAddress } from '#shared/utils/address'
 import type { TFieldInput } from '#shared/validation/field'
 
 /** Another user's table must be indistinguishable from a missing one — never 403. */
@@ -82,7 +83,12 @@ export async function requireOwnedTableWithFields(userId: string, address: strin
 export async function requireFieldTarget(userId: string, input: TFieldInput): Promise<void> {
   if (input.type !== 'RELATION') return
 
-  // A cuid, out of the field's own options — never a route address; the resolver reads either
+  // **A cuid, and only a cuid.** This one comes out of a request body, not a route, and the
+  // resolver below reads either form — so an all-digit target would resolve as a table *number*
+  // and then be stored verbatim in `options.targetTableId`, where every reader expects an id.
+  // Refused rather than resolved, which is the 404 an unknown id already answers with.
+  if (parseTableAddress(input.targetTableId) !== 0) throw tableNotFound()
+
   const { fields } = await requireOwnedTableFields(userId, input.targetTableId)
 
   if (!fields.some((field) => field.key === input.labelFieldKey)) {
