@@ -109,8 +109,10 @@ export const useRecordsStore = defineStore('records', () => {
       return
     }
 
+    // Matched on the id the server answered with, never the address asked for — a number
+    // addresses the same row and would match none of them
     records.value = records.value.map((record) =>
-      record.id === recordAddress ? response.record : record,
+      record.id === response.record.id ? response.record : record,
     )
   }
 

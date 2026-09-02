@@ -149,7 +149,9 @@ Two different jobs, split across two columns:
 
 **The browser addresses by number** — `/tables/12?detail=3.48` — while both forms still resolve, so a link copied before the switch keeps working (`decisions.md` → _Public numbers address, cuids reference_).
 
-**A route names either row by either form**, through one rule per model, side by side in `db/`: `tableWhere` (`server/db/tables.ts`) and `recordWhere` (`server/db/records.ts`). An address parses through `parseAddressNumber` and resolves on the compound unique — `@@unique([userId, number])`, `@@unique([tableId, number])` — or parses to `0` and resolves on `{ id, … }`. The forms cannot collide, since a cuid is never all digits, and a malformed address takes the id branch where it matches nothing and 404s.
+**A route names either row by either form**, through one rule per model, side by side in `db/`: `tableWhere` (`server/db/tables.ts`) and `recordWhere` (`server/db/records.ts`). An address parses through the same reader the page uses — `parseTableAddress` for a table, `parseAddressNumber` for a record — and resolves on the compound unique — `@@unique([userId, number])`, `@@unique([tableId, number])` — or parses to `0` and resolves on `{ id, … }`. The forms cannot collide, since a cuid is never all digits, and a malformed address takes the id branch where it matches nothing and 404s.
+
+**Only a route carries an address.** A `targetTableId` arrives in a request body and is stored as written, so `requireFieldTarget` refuses one that would parse as an address rather than resolving it — left to resolve, `4` would validate against table #4 and then be stored as a target no reader could match, and `assertNotRelationTarget` would stop recognising it, so deleting that table would blank every link pointing at it.
 
 **`tableWhere` scopes the owner inside the `where`; `recordWhere` scopes the table instead** — by the time a record is addressed, a handler factory has already proven that table belongs to the caller, so the table id _is_ the ownership scope. `CLAUDE.md` §5's rule is unchanged either way: what differs is which column identifies the row.
 
