@@ -1,0 +1,16 @@
+import { jsonText, matchesPartially, matchesText } from '#server/db/field-types/fragments'
+import type { IFieldSqlModule } from '#server/db/field-types/types'
+
+export const TEXT_FIELD_SQL: IFieldSqlModule = {
+  sql: {
+    expr: jsonText,
+    searchPredicate: matchesText,
+    filter: matchesPartially,
+    sortJoin: null,
+    // The one type whose filter is an unanchored `ILIKE`, which a B-tree cannot answer — a
+    // sorted structure can seek a prefix, never a substring
+    filterIndex: 'trigram',
+    sortIndex: 'btree',
+  },
+  multi: null,
+}

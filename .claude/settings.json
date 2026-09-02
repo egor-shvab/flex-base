@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm run format)",
+      "Bash(npm run format:check)",
+      "Bash(npx eslint .)",
+      "Bash(npx nuxt typecheck)",
+      "Bash(npx prettier --check .)",
+      "Bash(docker compose ps)",
+      "PowerShell(npm run build)",
+      "PowerShell(npm run typecheck)",
+      "PowerShell(npm run lint)",
+      "PowerShell(npm run format)",
+      "PowerShell(npm run format:check)",
+      "PowerShell(npx eslint .)",
+      "PowerShell(npx nuxt typecheck)",
+      "PowerShell(npx prettier --check .)",
+      "PowerShell(docker compose ps)",
+      "mcp__Claude_Browser__navigate",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__read_network_requests",
+      "mcp__Claude_Browser__find",
+      "mcp__Claude_Browser__preview_logs",
+      "mcp__Claude_Browser__preview_list",
+      "mcp__Claude_Browser__tabs_context",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude-in-chrome__read_page",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__claude-in-chrome__read_console_messages",
+      "mcp__claude-in-chrome__read_network_requests"
+    ]
+  }
+}

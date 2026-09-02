@@ -1,0 +1,23 @@
+// Both, because `additionalData` only reaches entry files and SFC style blocks —
+// never a partial like this one, and `mixins` does not re-export `rem()`.
+@use 'functions' as *;
+@use 'mixins' as *;
+
+// Form-level styles for the login/register pages (field styles live in BaseInput.vue)
+.auth-form {
+  @include stack;
+
+  &__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  &__footer {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    text-align: center;
+    color: var(--color-text-secondary);
+  }
+}

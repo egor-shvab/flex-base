@@ -3,3 +3,8 @@ node_modules
 .output
 dist
 package-lock.json
+coverage
+
+# The generated Prisma client. Also covered by .gitignore (which Prettier reads by
+# default), but stated here so the intent does not depend on that.
+server/generated

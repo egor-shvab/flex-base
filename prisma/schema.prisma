@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../server/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  SELECT
+  RELATION
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  // High-water mark for Table.number, allocated by createTable inside the insert's own
+  // transaction — the same contract Table.recordCounter gives Record.number one level down.
+  // Never decremented: deleting a table must not hand its number to a different one later.
+  tableCounter Int @default(0)
+
+  tables Table[]
+}
+
+model Table {
+  id     String @id @default(cuid())
+  name   String
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The id a user reads: sequential per user, so one account runs 1..n however many tables the
+  // platform holds. Identity stays on the cuid — a relation's options.targetTableId references
+  // that, never this.
+  number Int
+
+  // High-water mark for Record.number, allocated by createRecord inside the insert's own
+  // transaction. Never decremented: deleting a record must not recycle the number a user
+  // has already seen, the same contract an issue tracker gives.
+  recordCounter Int @default(0)
+
+  fields    Field[]
+  records   Record[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // No separate @@index([userId]): the unique above is a btree on (userId, name), and a
+  // left prefix of it already serves every lookup by userId alone. The same holds for the
+  // second unique below, which is why neither warrants an index of its own.
+  @@unique([userId, name])
+  @@unique([userId, number])
+}
+
+model Field {
+  id        String    @id @default(cuid())
+  tableId   String
+  table     Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  name      String // display label, editable
+  key       String // machine key, immutable after creation
+  type      FieldType
+  required  Boolean   @default(false)
+  options   Json? // SELECT: { choices: [{ value, color }] } ; RELATION: { targetTableId, labelFieldKey }
+  order     Int       @default(0)
+
+  // Opt-in: whether this field carries indexes for sorting and filtering. A column rather than a
+  // key in `options` because it is a property of the field like `required`, not per-type
+  // configuration — and the reconciler queries it without unpacking JSON. The indexes themselves
+  // are expression indexes Prisma cannot express, so they live in `server/db/field-indexes.ts`.
+  indexed   Boolean   @default(false)
+
+  createdAt DateTime  @default(now())
+
+  // Likewise: (tableId, key) covers the per-table list by its left prefix.
+  @@unique([tableId, key])
+}
+
+// (tableId, createdAt) covers both the per-table lookup (by its left prefix) and the
+// default ordering, which Postgres scans backwards for newest-first. Sorting by a JSONB
+// key stays unindexed on purpose — keys are user-defined per table, so no general index
+// applies; that is the first scaling limit this schema will hit.
+model Record {
+  id      String @id @default(cuid())
+  tableId String
+  table   Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  // The id a user reads, and what a URL addresses: sequential per table, so one table runs 1..n
+  // however many records the platform holds. Identity stays on the cuid — nothing references
+  // this, which is why renumbering could never orphan a relation.
+  number Int
+
+  data      Json     @default("{}") // keyed by Field.key
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Serves the `#` column's sort, and its left prefix covers the per-table lookup. The
+  // (tableId, createdAt) index stays: the default newest-first order cannot use this one.
+  @@unique([tableId, number])
+  @@index([tableId, createdAt])
+}
