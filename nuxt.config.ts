@@ -11,12 +11,14 @@ export default defineNuxtConfig({
 
   css: ['~/assets/scss/main.scss'],
 
-  components: [{ path: '~/components', pathPrefix: false }],
+  // Not cosmetic: the scanner defaults to every builder extension, so a `.ts` file beside its
+  // component — a private composable, a spec's rig — is registered as a global component of its
+  // own. Every component here is a `.vue` file, so say that.
+  components: [{ path: '~/components', pathPrefix: false, extensions: ['.vue'] }],
 
-  // Components stay auto-imported (this is what makes `<Lazy*>` code-split for free);
-  // everything else — composables, stores, utils, Vue/Nuxt/Nitro APIs — is imported
-  // explicitly. `autoImport: false` also stops the global .d.ts declarations being
-  // generated, so a missed import fails the type check instead of resolving silently.
+  // Components stay auto-imported (what makes `<Lazy*>` code-split for free); everything else is
+  // imported explicitly. `autoImport: false` also stops the global .d.ts declarations being
+  // generated, so a missed import fails the type check rather than resolving silently.
   imports: { autoImport: false },
 
   nitro: { imports: { autoImport: false } },
@@ -40,5 +42,5 @@ export default defineNuxtConfig({
     typeCheck: 'build',
   },
 
-  modules: ['@nuxt/eslint', '@nuxt/icon', '@nuxt/image', '@pinia/nuxt'],
+  modules: ['@nuxt/eslint', '@nuxt/icon', '@pinia/nuxt'],
 })

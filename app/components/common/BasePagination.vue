@@ -1,22 +1,29 @@
 <template>
   <nav class="pagination" aria-label="Pagination">
-    <span class="pagination__count" aria-live="polite">{{ rangeLabel }}</span>
+    <!--
+      `role="status"` rather than bare `aria-live="polite"`: it implies polite-live and gives
+      the range a role a reader — and a spec — can address. The page changes without focus
+      moving, so it has to announce itself.
+    -->
+    <span class="pagination__count" role="status">{{ rangeLabel }}</span>
     <div class="pagination__pager">
+      <span class="pagination__page">{{ pageLabel }}</span>
       <BaseButton
-        variant="icon"
-        icon="mdi:chevron-left"
-        label="Previous page"
+        variant="ghost"
+        prepend-icon="mdi:chevron-left"
         :disabled="page <= 1"
         @click="emit('update:page', page - 1)"
-      />
-      <span class="pagination__page">{{ page }} / {{ pageCount }}</span>
+      >
+        Previous
+      </BaseButton>
       <BaseButton
-        variant="icon"
-        icon="mdi:chevron-right"
-        label="Next page"
-        :disabled="page >= pageCount"
+        variant="ghost"
+        append-icon="mdi:chevron-right"
+        :disabled="!hasNext"
         @click="emit('update:page', page + 1)"
-      />
+      >
+        Next
+      </BaseButton>
     </div>
   </nav>
 </template>
@@ -30,6 +37,13 @@ const props = defineProps<{
   pageCount: number
   pageSize: number
   total: number
+  /** Whether `total` is a floor rather than a count, which changes every label below. */
+  totalCapped: boolean
+  /**
+   * Whether a next page exists. Passed in rather than read off `pageCount`, which is only a
+   * lower bound once the total is capped — see the store's `hasNextPage`.
+   */
+  hasNext: boolean
 }>()
 
 const emit = defineEmits<{ 'update:page': [page: number] }>()
@@ -39,8 +53,15 @@ const rangeLabel = computed(() => {
   if (props.total === 0) return '0 of 0'
   const first = (props.page - 1) * props.pageSize + 1
   const last = Math.min(props.page * props.pageSize, props.total)
-  return `${first}–${last} of ${props.total}`
+  const of = props.totalCapped ? `${props.total}+` : `${props.total}`
+  return `${first}–${last} of ${of}`
 })
+
+// A capped total cannot say how many pages there are, so "of 20" would be a claim the server
+// never made
+const pageLabel = computed(() =>
+  props.totalCapped ? `Page ${props.page}` : `Page ${props.page} of ${props.pageCount}`,
+)
 </script>
 
 <style lang="scss" scoped>
@@ -52,8 +73,8 @@ const rangeLabel = computed(() => {
 
   &__count,
   &__page {
-    font-size: rem(13);
-    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
   }
 
   &__pager {

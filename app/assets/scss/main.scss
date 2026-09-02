@@ -1,3 +1,9 @@
+// The global stylesheet. How the SCSS layer is put together — the partials, the token ramps,
+// the mixin list, the shell — is `docs/styling.md`; the rules for writing styles are
+// `CLAUDE.md` §8.
+
 @use 'variables';
 @use 'reset';
 @use 'auth-form';
+@use 'text-link';
+@use 'visually-hidden';

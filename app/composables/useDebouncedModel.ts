@@ -1,5 +1,12 @@
 import { ref, watch, type Ref } from 'vue'
 
+/**
+ * The house figure for holding a user-driven query input before it reaches the API
+ * (`CLAUDE.md` §7). A **number**, not a predicate like `shouldSearch`: callers need the literal,
+ * since each passes it to a `delay`.
+ */
+export const QUERY_DEBOUNCE_MS = 300
+
 interface IDebouncedModelOptions<TValue> {
   /** Milliseconds to wait before writing to the model; `0` writes through synchronously. */
   delay?: number
@@ -18,15 +25,14 @@ function debounce(callback: () => void, delay: number): () => void {
 }
 
 /**
- * A writable local draft of a `v-model` that writes back on a delay — the pattern every
- * query-driven control needs, since each write costs a request. Bind the returned ref
- * directly; a `delay` of 0 makes it a plain normalising pass-through.
+ * A writable local draft of a `v-model` that writes back on a delay, since each write costs a
+ * request. Bind the returned ref directly; `delay: 0` is a plain normalising pass-through.
  */
 export function useDebouncedModel<TValue>(
   model: Ref<TValue>,
   options: IDebouncedModelOptions<TValue> = {},
 ): Ref<TValue> {
-  const { delay = 300, normalize } = options
+  const { delay = QUERY_DEBOUNCE_MS, normalize } = options
 
   const draft = ref(model.value) as Ref<TValue>
 
@@ -37,13 +43,12 @@ export function useDebouncedModel<TValue>(
     model.value = normalize ? normalize(draft.value) : draft.value
   }
 
-  // Deferring a zero delay by a tick would make every undebounced consumer's model lag
-  // its input by a frame, so it writes inline instead.
+  // Deferring a zero delay by a tick would lag every undebounced consumer's model by a frame
   const flush = delay > 0 ? debounce(write, delay) : write
 
   watch(draft, (value) => {
-    // Nothing to write when the draft already agrees with the model — that is an outside
-    // change echoing back, and scheduling it would re-emit a value nobody edited.
+    // A draft agreeing with the model is an outside change echoing back; scheduling it would
+    // re-emit a value nobody edited
     if ((normalize ? normalize(value) : value) !== model.value) flush()
   })
 

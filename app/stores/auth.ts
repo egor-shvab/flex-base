@@ -1,12 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { navigateTo } from '#imports'
-import { useApi } from '~/composables/useApi'
+import { useAuthApi } from '~/api/auth'
 import type { IAuthUser } from '#shared/types/auth'
 import type { TCredentialsInput } from '#shared/validation/auth'
 
 export const useAuthStore = defineStore('auth', () => {
-  const api = useApi()
+  const api = useAuthApi()
 
   const user = ref<IAuthUser | null>(null)
   const initialized = ref(false)
@@ -15,7 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchUser() {
     try {
-      const response = await api<{ user: IAuthUser }>('/api/auth/me')
+      const response = await api.me()
       user.value = response.user
     } catch {
       user.value = null
@@ -25,23 +25,17 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function register(credentials: TCredentialsInput) {
-    const response = await api<{ user: IAuthUser }>('/api/auth/register', {
-      method: 'POST',
-      body: credentials,
-    })
+    const response = await api.register(credentials)
     user.value = response.user
   }
 
   async function login(credentials: TCredentialsInput) {
-    const response = await api<{ user: IAuthUser }>('/api/auth/login', {
-      method: 'POST',
-      body: credentials,
-    })
+    const response = await api.login(credentials)
     user.value = response.user
   }
 
   async function logout() {
-    await api('/api/auth/logout', { method: 'POST' })
+    await api.logout()
     user.value = null
     await navigateTo('/auth/login')
   }

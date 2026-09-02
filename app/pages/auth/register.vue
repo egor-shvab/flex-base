@@ -2,7 +2,7 @@
   <form class="auth-form" novalidate @submit.prevent="submit">
     <h1 class="auth-form__title">Create an account</h1>
 
-    <p v-if="serverError" role="alert" class="auth-form__server-error">{{ serverError }}</p>
+    <BaseErrorBanner :message="serverError" />
 
     <BaseInput
       id="email"
@@ -41,7 +41,7 @@
 
     <p class="auth-form__footer">
       Already have an account?
-      <NuxtLink class="auth-form__link" to="/auth/login">Log in</NuxtLink>
+      <NuxtLink class="text-link" to="/auth/login">Log in</NuxtLink>
     </p>
   </form>
 </template>

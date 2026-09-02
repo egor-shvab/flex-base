@@ -1,0 +1,15 @@
+// No `@use`: this block references only custom properties.
+
+// An inline navigation link inside a sentence — the one link look that is not a control.
+// Anything standing alone in an action row is a `BaseButton` with `to`, which carries
+// `--control-height` and so clears the 24×24 target floor.
+.text-link {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}

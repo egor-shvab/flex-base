@@ -12,9 +12,28 @@ node_modules
 # Prisma generated client
 server/generated
 
+# `@nuxt/test-utils` writes a `setups.@nuxt/test-utils="<version>"` marker here on install.
+# Generated tooling state, not project config — this project's Nuxt config is nuxt.config.ts.
+.nuxtrc
+
+# Test coverage reports, and the blob reports `coverage:collect` merges them from
+coverage
+.vitest-reports
+
+# Incremental type-checking state — `nuxt typecheck` runs `vue-tsc -b`, which rewrites this
+# on every run
+*.tsbuildinfo
+
 # Logs
 logs
 *.log
+
+# Claude Code — local state (throwaway worktrees under .claude/worktrees, personal settings).
+# Ignored by default so nothing the tool drops here has to be noticed; the two shared configs
+# are checked in and stay so. A new file here needs a matching negation to be committable.
+.claude/*
+!.claude/launch.json
+!.claude/settings.json
 
 # Misc
 .DS_Store
@@ -25,3 +44,8 @@ logs
 .env
 .env.*
 !.env.example
+
+# Playwright
+playwright-report
+test-results
+test/e2e/.auth

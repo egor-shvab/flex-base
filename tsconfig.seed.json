@@ -1,0 +1,23 @@
+{
+  // The demo seed under `prisma/seed/`. Nuxt generates a project for `app/`, one for `server/`,
+  // one for `shared/` and one that claims `nuxt.config.ts`; `tsconfig.tools.json` claims the root
+  // configs beside them. Nothing claims this directory, and an unclaimed file is invisible twice
+  // over — see the comment in `tsconfig.tools.json` for the full argument.
+  //
+  // It extends the **server** project rather than restating its options, because the seed imports
+  // server modules and has to see the same ambient declarations they are written against —
+  // `import.meta.dev` among them, which is Nitro's and which no standalone project has.
+  //
+  // It earns its keep a second time at runtime: `npm run db:seed` points `tsx` at this file, so
+  // the `paths` below are what resolve `#server/…` and `#shared/…` when the seed actually runs.
+  // Redeclared here, root-relative, rather than inherited from a config that lives in `.nuxt/`.
+  "extends": "./.nuxt/tsconfig.server.json",
+  "compilerOptions": {
+    "paths": {
+      "#server/*": ["./server/*"],
+      "#shared/*": ["./shared/*"],
+      "~~/*": ["./*"]
+    }
+  },
+  "include": ["./.nuxt/types/nitro-nuxt.d.ts", "./prisma/seed/**/*.ts"]
+}

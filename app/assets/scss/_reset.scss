@@ -5,13 +5,24 @@ body {
 }
 
 body {
+  background: var(--color-canvas);
   font-family:
     system-ui,
     -apple-system,
     'Segoe UI',
     Roboto,
     sans-serif;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
   color: var(--color-text);
+}
+
+// Body text takes the comfortable 1.5; headings hold tight, which is what keeps page and
+// modal headers from growing.
+h1,
+h2,
+h3 {
+  line-height: var(--line-height-tight);
 }
 
 *,
@@ -21,6 +32,18 @@ body {
 }
 
 input,
-button {
+button,
+select,
+textarea {
   font-family: inherit;
+}
+
+// The global focus baseline. `:where()` contributes zero specificity, so a component rule
+// overrides it without a fight while nothing is left without a ring. A component with its own
+// `box-shadow` outranks the halo and loses the glow — the outline, which carries the state,
+// still draws.
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: var(--focus-ring-halo);
 }

@@ -1,6 +1,6 @@
 import { defineEventHandler, getCookie } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import { prisma } from '#server/utils/prisma'
+import { AuthService } from '#server/services/auth'
 import { AUTH_COOKIE, verifyAuthToken } from '#server/utils/auth'
 
 // Attaches the authenticated user to event.context.user on every request.
@@ -15,10 +15,5 @@ export default defineEventHandler(async (event) => {
   const userId = verifyAuthToken(token, useRuntimeConfig(event).jwtSecret)
   if (!userId) return
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true },
-  })
-
-  event.context.user = user
+  event.context.user = await AuthService.findAuthUser(userId)
 })

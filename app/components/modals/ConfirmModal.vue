@@ -4,8 +4,15 @@
       <p class="confirm-modal__text">
         <slot />
       </p>
+      <!--
+        The server's reason for refusing — a table still pointed at by a relation names the
+        field to remove first. Here rather than per page, since `useDeleteConfirm` holds it.
+      -->
+      <BaseErrorBanner class="confirm-modal__error" :message="error" />
       <div class="confirm-modal__actions">
-        <BaseButton :disabled="pending" @click="emit('close')">Cancel</BaseButton>
+        <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">
+          Cancel
+        </BaseButton>
         <BaseButton
           :variant="danger ? 'danger' : 'primary'"
           :disabled="pending"
@@ -25,11 +32,14 @@ withDefaults(
     confirmLabel?: string
     danger?: boolean
     pending?: boolean
+    /** Why the last attempt was refused; the dialog stays open so it can be read. */
+    error?: string | null
   }>(),
   {
     confirmLabel: 'Confirm',
     danger: false,
     pending: false,
+    error: null,
   },
 )
 
@@ -39,6 +49,12 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
 <style lang="scss" scoped>
 .confirm-modal {
   &__text {
+    margin: 0 0 rem(16);
+  }
+
+  // Placement only — `BaseErrorBanner` owns the look; a child's root carries the parent's
+  // scope id, so the rule still reaches it
+  &__error {
     margin: 0 0 rem(16);
   }
 

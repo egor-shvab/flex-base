@@ -1,0 +1,18 @@
+// No `@use`: this block references no token, function or mixin.
+
+// Removed from the page but **not** from the accessibility tree, which is the whole point:
+// `display: none` and `visibility: hidden` both take the element out of the tree, so a live
+// region hidden either way would never announce. Clipped rather than pushed off-screen —
+// an off-screen element still occupies layout, so a focusable one scrolls the page sideways
+// when it takes focus.
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  overflow: hidden;
+}

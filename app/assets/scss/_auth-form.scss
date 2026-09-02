@@ -9,23 +9,15 @@
 
   &__title {
     margin: 0;
-    font-size: rem(24);
+    font-size: var(--font-size-xl);
     font-weight: 600;
     text-align: center;
   }
 
-  &__server-error {
-    @include error-banner;
-  }
-
   &__footer {
     margin: 0;
-    font-size: rem(14);
+    font-size: var(--font-size-sm);
     text-align: center;
-    color: var(--color-text-muted);
-  }
-
-  &__link {
-    color: var(--color-primary);
+    color: var(--color-text-secondary);
   }
 }

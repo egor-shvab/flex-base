@@ -1,9 +1,9 @@
 <template>
   <BaseModal :title="mode === 'create' ? 'New record' : 'Edit record'" @close="emit('close')">
     <form class="record-form" novalidate @submit.prevent="submit">
-      <DynamicForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
+      <RecordForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
 
-      <p v-if="serverError" role="alert" class="record-form__server-error">{{ serverError }}</p>
+      <BaseErrorBanner :message="serverError" />
 
       <BaseButton type="submit" :disabled="pending">
         {{ mode === 'create' ? 'Create record' : 'Save' }}
@@ -52,9 +52,5 @@ function setValue(key: string, value: TRecordValue) {
 <style lang="scss" scoped>
 .record-form {
   @include stack;
-
-  &__server-error {
-    @include error-banner;
-  }
 }
 </style>
