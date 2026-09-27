@@ -8,9 +8,9 @@ What this project knowingly does not do, and why each entry is a decision rather
 
 ## Open
 
-### Row actions are three inline icons, where the concept draws one `⋯` menu
+### Row actions are three inline icons, where the design reference draws two and a `⋯` menu
 
-The concept's menu holds full sentences. The stated blocker is gone — `usePopover` + `useAnchoredPosition` anchor correctly inside a scrolling, clipping container. What is left is that three targets in a pinned column still fit, so the menu would be work without a user-visible gain. The third button does add one more site where the focus halo crosses a `gap: rem(4)` neighbour — the bargain that row already struck. _Revisit when a fourth row action appears._
+The reference's row is open, edit, and a `⋯` menu holding Delete, so the destructive action sits one step away. The old blocker is gone — `usePopover` + `useAnchoredPosition` anchor correctly inside a scrolling, clipping container — and three targets in a pinned column still fit, so the menu is a question of matching the reference rather than of room. The third inline button adds one more site where the focus halo crosses a `gap: rem(4)` neighbour — the bargain that row already struck. _Settled by `design-plan.md`'s row-actions step, or earlier if a fourth row action appears._
 
 ## Accepted
 

@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&amp;display=swap" rel="stylesheet">
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: #f6f6f7; color: #18181b; font-family: Archivo, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+  * { box-sizing: border-box; }
+  h1, h2, h3, h4, p, ul, ol, dl, dd { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  a { color: #1c6b4a; text-decoration: none; }
+  a:hover { color: #165c3f; }
+  ::selection { background: #d9ecdf; }
+  input, select { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="position:fixed;right:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e4e4e7;border-radius:9px;background:#fff;box-shadow:0 6px 18px rgba(24,24,27,.12)">
+  <button onClick="{{ onDesktop }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ deskTabBg }};color:{{ deskTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">desktop_windows</span>Desktop</button>
+  <button onClick="{{ onMobile }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ mobTabBg }};color:{{ mobTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">smartphone</span>Mobile</button>
+</div>
+
+<sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:stretch;min-height:100vh;background:#f6f6f7">
+
+  <aside style="width:248px;min-width:248px;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh">
+    <button style="display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+      <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+      <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">unfold_more</span>
+    </button>
+
+    <a href="./Home.dc.html" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="color:#5c5c66;width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">home</span>Home</a>
+    <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+    <a href="./Clients Table.dc.html" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">248</span></a>
+    <sc-for list="{{ navTables }}" as="t" hint-placeholder-count="5">
+      <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ t.count }}</span></a>
+    </sc-for>
+    <button style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-top:4px"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">add</span>New table</button>
+
+    <span style="flex:1"></span>
+    <a href="./Workspace Settings.dc.html" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span><span style="flex:1">Workspace settings</span></a>
+    <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;margin-top:8px;border-top:1px solid #ededef">
+      <span style="width:26px;height:26px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fullName }}</span><span style="font-size:11px;color:#1c6b4a;font-weight:600">User settings</span></span>
+      <span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">more_horiz</span>
+    </div>
+  </aside>
+
+  <main data-screen-label="User settings" style="flex:1;min-width:0;display:flex;flex-direction:column;background:#f6f6f7">
+
+    <div style="flex:none;padding:18px 24px 0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:4px;min-height:36px;font-size:13px;overflow:hidden">
+        <a href="./Home.dc.html" style="color:#5c5c66;flex:none">Acme</a>
+        <span style="color:#c4c4cc;font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;flex:none">chevron_right</span>
+        <span style="font-weight:600;color:#18181b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">User settings</span>
+      </div>
+      <h1 style="font-size:32px;font-weight:600;letter-spacing:-.025em">User settings</h1>
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;min-height:36px;display:flex;align-items:center">{{ sectionLabel }}</p>
+    </div>
+
+    <div style="padding:20px 24px 64px;display:flex;align-items:flex-start;gap:28px">
+
+      <nav style="width:216px;flex:none;display:flex;flex-direction:column;gap:2px;position:sticky;top:20px">
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="3">
+          <button onClick="{{ s.onClick }}" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:8px;background:{{ s.bg }};color:{{ s.fg }};font-family:inherit;font-size:14px;font-weight:{{ s.weight }};cursor:pointer;text-align:left" style-hover="background:#f0f0f2">
+            <span style="width:16px;text-align:center;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.label }}</span>
+          </button>
+        </sc-for>
+      </nav>
+
+      <div style="flex:1;min-width:0;max-width:760px;display:flex;flex-direction:column;gap:24px">
+
+        <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px"><h2 style="font-size:18px;font-weight:600">Profile</h2></div>
+            <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px">
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Avatar</span>
+                <span style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:44px;height:44px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+                  <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa">Upload</button>
+                  <button style="height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#5c5c66;font-family:inherit;font-size:14px;cursor:pointer" style-hover="background:#f0f0f2;color:#18181b">Remove</button>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">PNG or JPG · 256×256</span>
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Full name</span>
+                <input value="{{ fullName }}" onChange="{{ onFullName }}" style="width:100%;max-width:340px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Email</span>
+                <span style="display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap">
+                  <input value="{{ email }}" onChange="{{ onEmail }}" style="width:100%;max-width:340px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+                  <span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:#e6f2eb;color:#1c6b4a;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:none">verified</span>
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Job title</span>
+                <input value="{{ jobTitle }}" onChange="{{ onJobTitle }}" style="width:100%;max-width:340px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Language</span>
+                <select style="width:100%;max-width:340px;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+                  <option>Русский</option>
+                  <option>English</option>
+                  <option>Deutsch</option>
+                </select>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Time zone</span>
+                <select style="width:100%;max-width:340px;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+                  <option>Europe/Berlin · UTC+02:00</option>
+                  <option>Europe/Moscow · UTC+03:00</option>
+                  <option>UTC</option>
+                </select>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">User ID</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5c5c66">usr_3a91e0c7</span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px">
+                <span style="font-size:14px;color:#5c5c66">Joined</span>
+                <span style="font-size:15px">14 March 2026 · Owner of Acme Sales</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:2px">
+              <button style="height:36px;padding:0 14px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#165c3f;border-color:#165c3f">Save changes</button>
+              <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa">Discard</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isNotifications }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px"><h2 style="font-size:18px;font-weight:600">Notifications</h2></div>
+
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <li style="display:grid;grid-template-columns:minmax(0,1fr) 84px 84px;gap:16px;align-items:center;min-height:40px;padding:8px 16px;border-bottom:1px solid #ededef;background:#fafafa">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Event</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;text-align:center">Email</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;text-align:center">In-app</span>
+              </li>
+              <sc-for list="{{ notifyRows }}" as="n" hint-placeholder-count="6">
+                <li style="display:grid;grid-template-columns:minmax(0,1fr) 84px 84px;gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                  <span style="min-width:0;display:flex;flex-direction:column;gap:1px">
+                    <span style="font-size:14px;font-weight:500">{{ n.label }}</span>
+                    <span style="font-size:13px;color:#5c5c66">{{ n.desc }}</span>
+                  </span>
+                  <span style="display:flex;justify-content:center">
+                    <button onClick="{{ n.onEmail }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ n.emailBorder }};border-radius:999px;background:{{ n.emailBg }};cursor:pointer;display:flex;justify-content:{{ n.emailKnob }};align-items:center">
+                      <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+                    </button>
+                  </span>
+                  <span style="display:flex;justify-content:center">
+                    <button onClick="{{ n.onApp }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ n.appBorder }};border-radius:999px;background:{{ n.appBg }};cursor:pointer;display:flex;justify-content:{{ n.appKnob }};align-items:center">
+                      <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+                    </button>
+                  </span>
+                </li>
+              </sc-for>
+            </ul>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:14px">Delivery</p>
+            <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px">
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Email digest</span>
+                <select value="{{ digest }}" onChange="{{ onDigest }}" style="width:100%;max-width:340px;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+                  <option value="instant">Send immediately</option>
+                  <option value="daily">Daily summary · 09:00</option>
+                  <option value="weekly">Weekly summary · Monday</option>
+                </select>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Quiet hours</span>
+                <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <input value="22:00" style="width:96px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#18181b">
+                  <span style="font-size:14px;color:#6d6d77">to</span>
+                  <input value="08:00" style="width:96px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#18181b">
+                  <span style="font-size:13px;color:#6d6d77">Europe/Berlin</span>
+                </span>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;min-height:56px;padding:10px 16px">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                  <span style="font-size:14px;font-weight:500">Pause all notifications</span>
+                  <span style="font-size:13px;color:#5c5c66">Nothing is sent by email or shown in the app until you turn this off.</span>
+                </span>
+                <button onClick="{{ onPause }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ pauseBorder }};border-radius:999px;background:{{ pauseBg }};cursor:pointer;display:flex;justify-content:{{ pauseKnob }};align-items:center">
+                  <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+                </button>
+              </div>
+            </div>
+            <p style="font-size:13px;color:#6d6d77">Security alerts about your account are always sent by email and cannot be turned off.</p>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isSecurity }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px"><h2 style="font-size:18px;font-weight:600">Security</h2></div>
+
+            <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px">
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Current password</span>
+                <input type="password" value="dummy-pass" style="width:100%;max-width:340px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">New password</span>
+                <span style="display:flex;flex-direction:column;gap:5px;min-width:0;max-width:340px">
+                  <input type="password" value="dummy-new" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+                  <span style="display:flex;align-items:center;gap:8px">
+                    <span style="flex:1;height:6px;border-radius:999px;background:#f0f0f2;display:block;overflow:hidden"><span style="display:block;height:6px;width:70%;border-radius:999px;background:#2f9e6b"></span></span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#1c6b4a">strong</span>
+                  </span>
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Confirm new password</span>
+                <input type="password" value="dummy-new" style="width:100%;max-width:340px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;min-height:56px;padding:10px 16px;flex-wrap:wrap">
+                <button style="height:36px;padding:0 14px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#165c3f;border-color:#165c3f">Update password</button>
+                <span style="font-size:13px;color:#6d6d77">Last changed 2 June 2026 · at least 10 characters</span>
+              </div>
+            </div>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:14px">Two-factor authentication</p>
+            <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px">
+              <div style="display:flex;align-items:center;gap:14px;min-height:56px;padding:12px 16px;border-bottom:1px solid #ededef;flex-wrap:wrap">
+                <span style="width:32px;height:32px;border-radius:8px;background:{{ twoFaIconBg }};color:{{ twoFaIconFg }};display:flex;align-items:center;justify-content:center;flex:none;font-size:19px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ twoFaGlyph }}</span>
+                <span style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:2px">
+                  <span style="display:flex;align-items:center;gap:8px"><span style="font-size:15px;font-weight:600">Authenticator app</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:{{ twoFaBadgeBg }};color:{{ twoFaBadgeFg }};font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase">{{ twoFaBadge }}</span></span>
+                  <span style="font-size:13px;color:#3f3f46">{{ twoFaDesc }}</span>
+                </span>
+                <button onClick="{{ onToggle2fa }}" style="height:36px;padding:0 14px;flex:none;border:1px solid {{ twoFaBtnBorder }};border-radius:8px;background:{{ twoFaBtnBg }};color:{{ twoFaBtnFg }};font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">{{ twoFaBtn }}</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;min-height:56px;padding:12px 16px;border-bottom:1px solid #ededef;flex-wrap:wrap">
+                <span style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:2px">
+                  <span style="font-size:14px;font-weight:500">Recovery codes</span>
+                  <span style="font-size:13px;color:#5c5c66">8 single-use codes · 6 unused · generated 2 June 2026</span>
+                </span>
+                <button style="height:36px;padding:0 12px;flex:none;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa">Regenerate</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;min-height:56px;padding:12px 16px">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                  <span style="font-size:14px;font-weight:500">SMS backup · +49 •••• 4417</span>
+                  <span style="font-size:13px;color:#5c5c66">Used only if the authenticator app is unavailable.</span>
+                </span>
+                <button onClick="{{ onSmsToggle }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ smsBorder }};border-radius:999px;background:{{ smsBg }};cursor:pointer;display:flex;justify-content:{{ smsKnob }};align-items:center">
+                  <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+                </button>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+              <p style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Active sessions · {{ sessionCount }}</p>
+              <button onClick="{{ onSignOutAll }}" style="height:32px;padding:0 10px;border:none;border-radius:8px;background:none;color:#b4232a;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#fdecec">Sign out everywhere</button>
+            </div>
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="4">
+                <li style="display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid #ededef" style-hover="background:#fafafa">
+                  <span style="width:32px;height:32px;border-radius:8px;background:#f0f0f2;color:#5c5c66;display:flex;align-items:center;justify-content:center;flex:none;font-size:19px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                    <span style="display:flex;align-items:center;gap:8px;min-width:0">
+                      <span style="font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.device }}</span>
+                      <sc-if value="{{ s.current }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:5px;background:#e6f2eb;color:#1c6b4a;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:none">this device</span>
+                      </sc-if>
+                    </span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.meta }}</span>
+                  </span>
+                  <button onClick="{{ s.onRevoke }}" style="height:36px;padding:0 12px;flex:none;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:{{ s.btnFg }};font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fdecec;border-color:#f0c9cb;color:#b4232a">{{ s.btnLabel }}</button>
+                </li>
+              </sc-for>
+            </ul>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:14px">Login history</p>
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ logins }}" as="l" hint-placeholder-count="6">
+                <li style="display:flex;align-items:center;gap:14px;min-height:48px;padding:8px 16px;border-bottom:1px solid #ededef">
+                  <span style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66;white-space:nowrap">{{ l.when }}</span>
+                  <span style="flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.device }}</span>
+                  <span style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66;white-space:nowrap">{{ l.ip }}</span>
+                  <span style="flex:none;display:flex;justify-content:flex-end">
+                    <span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:{{ l.badgeBg }};color:{{ l.badgeFg }};font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase">{{ l.status }}</span>
+                  </span>
+                </li>
+              </sc-for>
+            </ul>
+            <p style="font-size:13px;color:#6d6d77">History keeps the last 90 days. If you do not recognise an entry, change your password and sign out everywhere.</p>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b4232a;margin-top:20px">Danger zone</p>
+            <div style="background:#fff;border:1px solid #f0c9cb;border-radius:10px;overflow:hidden">
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:16px;flex-wrap:wrap">
+                <span style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:15px;font-weight:600">Delete account</span>
+                  <span style="font-size:13px;color:#3f3f46">Your profile, sessions and personal views are removed. You are the owner of Acme Sales — transfer ownership first, otherwise the workspace is deleted with the account.</span>
+                </span>
+                <button onClick="{{ onDeleteAccount }}" style="height:36px;padding:0 14px;border:1px solid #b4232a;border-radius:8px;background:#b4232a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;flex:none" style-hover="background:#96181f;border-color:#96181f">Delete account</button>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+      </div>
+    </div>
+  </main>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 64px;background:#f0f0f2">
+  <div data-screen-label="User settings · mobile" style="position:relative;width:390px;max-width:100%;height:844px;overflow:hidden;border:1px solid #d1d1d6;border-radius:26px;background:#f6f6f7;box-shadow:0 18px 44px rgba(24,24,27,.16);display:flex;flex-direction:column">
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">
+      <span>9:41</span>
+      <span style="display:flex;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">battery_full</span></span>
+    </div>
+
+    <div style="flex:none;padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onClick="{{ onToggleNav }}" style="width:36px;height:36px;flex:none;border:1px solid #e4e4e7;border-radius:8px;background:#fff;color:#18181b;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">menu</button>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:3px;font-size:12px;overflow:hidden">
+          <a href="./Home.dc.html" style="color:#5c5c66;flex:none">Acme</a>
+          <span style="color:#c4c4cc;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;flex:none">chevron_right</span>
+          <span style="font-weight:600;color:#18181b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">User settings</span>
+        </div>
+      </div>
+      <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em">User settings</h1>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="3">
+          <button onClick="{{ s.onClick }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;flex:none;border:1px solid {{ s.chipBorder }};border-radius:8px;background:{{ s.chipBg }};color:{{ s.fg }};font-family:inherit;font-size:13px;font-weight:{{ s.weight }};cursor:pointer;white-space:nowrap"><span style="font-size:17px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>{{ s.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:0 12px 24px;display:flex;flex-direction:column;align-items:stretch;gap:16px">
+
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="width:44px;height:44px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">Avatar</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">PNG or JPG · 256×256</span></span>
+            <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;flex:none">Upload</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Full name</span>
+            <input value="{{ fullName }}" onChange="{{ onFullName }}" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;color:#5c5c66">Email</span><span style="display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;background:#e6f2eb;color:#1c6b4a;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase">verified</span></span>
+            <input value="{{ email }}" onChange="{{ onEmail }}" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Job title</span>
+            <input value="{{ jobTitle }}" onChange="{{ onJobTitle }}" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Language</span>
+            <select style="width:100%;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              <option>Русский</option>
+              <option>English</option>
+              <option>Deutsch</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Time zone</span>
+            <select style="width:100%;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              <option>Europe/Berlin · UTC+02:00</option>
+              <option>Europe/Moscow · UTC+03:00</option>
+              <option>UTC</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px">
+            <span style="font-size:13px;color:#5c5c66">User ID</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5c5c66">usr_3a91e0c7</span>
+          </div>
+        </div>
+        <button style="flex:none;height:36px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Save changes</button>
+      </sc-if>
+
+      <sc-if value="{{ isNotifications }}" hint-placeholder-val="{{ false }}">
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ notifyRows }}" as="n" hint-placeholder-count="6">
+            <li style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-bottom:1px solid #ededef">
+              <span style="display:flex;flex-direction:column;gap:1px">
+                <span style="font-size:14px;font-weight:500">{{ n.label }}</span>
+                <span style="font-size:12px;color:#5c5c66">{{ n.desc }}</span>
+              </span>
+              <span style="display:flex;align-items:center;gap:18px">
+                <span style="display:flex;align-items:center;gap:8px">
+                  <button onClick="{{ n.onEmail }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ n.emailBorder }};border-radius:999px;background:{{ n.emailBg }};cursor:pointer;display:flex;justify-content:{{ n.emailKnob }};align-items:center">
+                    <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+                  </button>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">email</span>
+                </span>
+                <span style="display:flex;align-items:center;gap:8px">
+                  <button onClick="{{ n.onApp }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ n.appBorder }};border-radius:999px;background:{{ n.appBg }};cursor:pointer;display:flex;justify-content:{{ n.appKnob }};align-items:center">
+                    <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+                  </button>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">in-app</span>
+                </span>
+              </span>
+            </li>
+          </sc-for>
+        </ul>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Delivery</p>
+        <div style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Email digest</span>
+            <select value="{{ digest }}" onChange="{{ onDigest }}" style="width:100%;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              <option value="instant">Send immediately</option>
+              <option value="daily">Daily summary · 09:00</option>
+              <option value="weekly">Weekly summary · Monday</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Quiet hours</span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <input value="22:00" style="flex:1;min-width:0;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#18181b">
+              <span style="font-size:14px;color:#6d6d77">to</span>
+              <input value="08:00" style="flex:1;min-width:0;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#18181b">
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">Pause all notifications</span><span style="font-size:12px;color:#5c5c66">Nothing is sent until you turn this off.</span></span>
+            <button onClick="{{ onPause }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ pauseBorder }};border-radius:999px;background:{{ pauseBg }};cursor:pointer;display:flex;justify-content:{{ pauseKnob }};align-items:center">
+              <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+            </button>
+          </div>
+        </div>
+        <p style="flex:none;font-size:13px;color:#6d6d77">Security alerts about your account are always sent by email.</p>
+      </sc-if>
+
+      <sc-if value="{{ isSecurity }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Current password</span>
+            <input type="password" value="dummy-pass" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">New password</span>
+            <input type="password" value="dummy-new" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+            <span style="display:flex;align-items:center;gap:8px">
+              <span style="flex:1;height:6px;border-radius:999px;background:#f0f0f2;display:block;overflow:hidden"><span style="display:block;height:6px;width:70%;border-radius:999px;background:#2f9e6b"></span></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#1c6b4a">strong</span>
+            </span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Confirm new password</span>
+            <input type="password" value="dummy-new" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px">
+            <button style="height:36px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Update password</button>
+            <span style="font-size:12px;color:#6d6d77">Last changed 2 June 2026</span>
+          </div>
+        </div>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Two-factor authentication</p>
+        <div style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="display:flex;align-items:center;gap:10px">
+              <span style="width:30px;height:30px;border-radius:8px;background:{{ twoFaIconBg }};color:{{ twoFaIconFg }};display:flex;align-items:center;justify-content:center;flex:none;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ twoFaGlyph }}</span>
+              <span style="flex:1;min-width:0;font-size:15px;font-weight:600">Authenticator app</span>
+              <span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:{{ twoFaBadgeBg }};color:{{ twoFaBadgeFg }};font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:none">{{ twoFaBadge }}</span>
+            </span>
+            <span style="font-size:13px;color:#3f3f46">{{ twoFaDesc }}</span>
+            <button onClick="{{ onToggle2fa }}" style="height:36px;border:1px solid {{ twoFaBtnBorder }};border-radius:8px;background:{{ twoFaBtnBg }};color:{{ twoFaBtnFg }};font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">{{ twoFaBtn }}</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">Recovery codes</span><span style="font-size:12px;color:#5c5c66">6 of 8 unused</span></span>
+            <button style="height:36px;padding:0 12px;flex:none;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Regenerate</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">SMS backup</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">+49 •••• 4417</span></span>
+            <button onClick="{{ onSmsToggle }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ smsBorder }};border-radius:999px;background:{{ smsBg }};cursor:pointer;display:flex;justify-content:{{ smsKnob }};align-items:center">
+              <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+            </button>
+          </div>
+        </div>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Active sessions · {{ sessionCount }}</p>
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="4">
+            <li style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #ededef">
+              <span style="width:30px;height:30px;border-radius:8px;background:#f0f0f2;color:#5c5c66;display:flex;align-items:center;justify-content:center;flex:none;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                  <span style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.device }}</span>
+                  <sc-if value="{{ s.current }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;background:#e6f2eb;color:#1c6b4a;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;flex:none">now</span>
+                  </sc-if>
+                </span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.meta }}</span>
+              </span>
+              <button onClick="{{ s.onRevoke }}" style="height:36px;padding:0 10px;flex:none;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:{{ s.btnFg }};font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">{{ s.btnLabel }}</button>
+            </li>
+          </sc-for>
+        </ul>
+        <button onClick="{{ onSignOutAll }}" style="flex:none;height:36px;border:1px solid #f0c9cb;border-radius:8px;background:#fff;color:#b4232a;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Sign out everywhere</button>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Login history</p>
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ logins }}" as="l" hint-placeholder-count="6">
+            <li style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #ededef">
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                <span style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.device }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.when }} · {{ l.ip }}</span>
+              </span>
+              <span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:{{ l.badgeBg }};color:{{ l.badgeFg }};font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:none">{{ l.status }}</span>
+            </li>
+          </sc-for>
+        </ul>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b4232a;margin-top:6px">Danger zone</p>
+        <div style="flex:none;background:#fff;border:1px solid #f0c9cb;border-radius:10px;overflow:hidden">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:14px">
+            <span style="font-size:15px;font-weight:600">Delete account</span>
+            <span style="font-size:13px;color:#3f3f46">Your profile, sessions and personal views are removed. Transfer ownership of Acme Sales first, otherwise the workspace is deleted too.</span>
+            <button onClick="{{ onDeleteAccount }}" style="height:36px;border:1px solid #b4232a;border-radius:8px;background:#b4232a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Delete account</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:30;display:flex">
+        <div style="width:288px;max-width:84%;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+          <button onClick="{{ onToggleNav }}" style="display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+            <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+            <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">unfold_more</span>
+          </button>
+          <a href="./Home.dc.html" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="color:#5c5c66;width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">home</span>Home</a>
+          <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+          <a href="./Clients Table.dc.html" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">248</span></a>
+          <sc-for list="{{ navTables }}" as="t" hint-placeholder-count="5">
+            <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ t.count }}</span></a>
+          </sc-for>
+          <span style="flex:1;min-height:16px"></span>
+          <a href="./Workspace Settings.dc.html" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span><span style="flex:1">Workspace settings</span></a>
+          <div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 10px;margin-top:8px;border-top:1px solid #ededef">
+            <span style="width:28px;height:28px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fullName }}</span><span style="font-size:11px;color:#1c6b4a;font-weight:600">User settings</span></span>
+            <span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">more_horiz</span>
+          </div>
+        </div>
+        <div onClick="{{ onToggleNav }}" style="flex:1;background:rgba(24,24,27,.34)"></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ mobileSheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:50;background:rgba(24,24,27,.42);display:flex;align-items:flex-end;padding:12px">
+        <div style="width:100%;background:#fff;border:1px solid #e4e4e7;border-radius:14px;box-shadow:0 -8px 32px rgba(24,24,27,.2);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #ededef">
+            <span style="width:30px;height:30px;border-radius:8px;background:{{ sheetIconBg }};color:{{ sheetIconFg }};display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ sheetGlyph }}</span>
+            <span style="font-size:16px;font-weight:600">{{ sheetTitle }}</span>
+          </div>
+          <sc-if value="{{ setupOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px;padding:16px">
+              <span style="font-size:14px;color:#3f3f46">Scan the setup key in your authenticator app, then enter the six-digit code it shows.</span>
+              <span style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">K7QX 4M2P 9ZDF 1A8B</span>
+                <button style="height:32px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Copy</button>
+              </span>
+              <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#5c5c66">Six-digit code</span><input placeholder="000000" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px"></span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+            <p style="padding:16px;font-size:14px;color:#3f3f46">{{ confirmBody }}</p>
+          </sc-if>
+          <div style="display:flex;gap:8px;padding:12px 16px;background:#fafafa;border-top:1px solid #ededef">
+            <button onClick="{{ onCloseSheet }}" style="flex:1;height:36px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Cancel</button>
+            <button onClick="{{ onConfirm }}" style="flex:1;height:36px;border:1px solid {{ sheetActionBorder }};border-radius:8px;background:{{ sheetActionBg }};color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">{{ sheetAction }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ desktopSheetOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:80;background:rgba(24,24,27,.42);display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%;max-width:460px;background:#fff;border:1px solid #e4e4e7;border-radius:12px;box-shadow:0 20px 48px rgba(24,24,27,.24);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #ededef">
+        <span style="width:30px;height:30px;border-radius:8px;background:{{ sheetIconBg }};color:{{ sheetIconFg }};display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ sheetGlyph }}</span>
+        <span style="font-size:16px;font-weight:600">{{ sheetTitle }}</span>
+      </div>
+      <sc-if value="{{ setupOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px;padding:16px">
+          <span style="font-size:14px;color:#3f3f46">Scan the setup key in your authenticator app, then enter the six-digit code it shows.</span>
+          <span style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">K7QX 4M2P 9ZDF 1A8B</span>
+            <button style="height:32px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Copy</button>
+          </span>
+          <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#5c5c66">Six-digit code</span><input placeholder="000000" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px"></span>
+          <span style="font-size:13px;color:#6d6d77">You will be asked for a code every time you sign in on a new device.</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+        <p style="padding:16px;font-size:14px;color:#3f3f46">{{ confirmBody }}</p>
+      </sc-if>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:#fafafa;border-top:1px solid #ededef">
+        <button onClick="{{ onCloseSheet }}" style="height:36px;padding:0 14px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Cancel</button>
+        <button onClick="{{ onConfirm }}" style="height:36px;padding:0 14px;border:1px solid {{ sheetActionBorder }};border-radius:8px;background:{{ sheetActionBg }};color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">{{ sheetAction }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop' | 'mobile'&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;],&quot;default&quot;:&quot;profile&quot;,&quot;tsType&quot;:&quot;'profile' | 'notifications' | 'security'&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const SECTIONS = [
+  { id: 'profile', label: 'Profile', glyph: 'person' },
+  { id: 'notifications', label: 'Notifications', glyph: 'notifications' },
+  { id: 'security', label: 'Security', glyph: 'lock' },
+];
+
+const NOTIFY = [
+  { id: 'mentions', label: 'Mentions and comments', desc: 'Someone mentions you or replies to your comment', email: true, app: true },
+  { id: 'assigned', label: 'Records assigned to you', desc: 'A record is assigned to you or its status changes', email: true, app: true },
+  { id: 'invites', label: 'Invitations and access', desc: 'You are invited to a workspace or your role changes', email: true, app: true },
+  { id: 'changes', label: 'Table changes', desc: 'Fields are added, renamed or removed in tables you use', email: false, app: true },
+  { id: 'imports', label: 'Imports and exports', desc: 'A CSV import or export you started has finished', email: false, app: true },
+  { id: 'product', label: 'Product updates', desc: 'New features and monthly release notes', email: false, app: false },
+];
+
+const SESSIONS = [
+  { id: 's1', device: 'MacBook Pro · Chrome 128', meta: 'Berlin, Germany · 78.54.10.2 · current session', glyph: 'laptop_mac', current: true },
+  { id: 's2', device: 'iPhone 15 · FlexBase app', meta: 'Berlin, Germany · 84.19.220.7 · active 3 hours ago', glyph: 'smartphone' },
+  { id: 's3', device: 'iPad Air · Safari', meta: 'Munich, Germany · 91.66.4.18 · active 2 days ago', glyph: 'tablet_mac' },
+  { id: 's4', device: 'Windows 11 · Edge 127', meta: 'Warsaw, Poland · 188.2.71.90 · active 12 days ago', glyph: 'desktop_windows' },
+];
+
+const LOGINS = [
+  { when: '7 Sep 2026 · 09:12', device: 'MacBook Pro · Chrome 128', ip: '78.54.10.2', status: 'success' },
+  { when: '7 Sep 2026 · 06:40', device: 'iPhone 15 · FlexBase app', ip: '84.19.220.7', status: 'success' },
+  { when: '5 Sep 2026 · 21:03', device: 'Unknown device · Chrome', ip: '45.132.8.71', status: 'blocked' },
+  { when: '5 Sep 2026 · 20:58', device: 'Unknown device · Chrome', ip: '45.132.8.71', status: 'failed' },
+  { when: '4 Sep 2026 · 11:26', device: 'iPad Air · Safari', ip: '91.66.4.18', status: 'success' },
+  { when: '2 Sep 2026 · 08:15', device: 'Windows 11 · Edge 127', ip: '188.2.71.90', status: 'success' },
+];
+
+const LOGIN_STYLE = {
+  success: ['#e6f2eb', '#1c6b4a'],
+  failed: ['#fdf3e2', '#8a5a12'],
+  blocked: ['#fdecec', '#b4232a'],
+};
+
+class Component extends DCLogic {
+  state = {
+    section: null, layout: null, navOpen: false, modal: null,
+    fullName: 'Ирина Петрова', email: 'irina@acme.co', jobTitle: 'Head of Sales',
+    notify: NOTIFY.reduce((a, n) => { a[n.id] = { email: n.email, app: n.app }; return a; }, {}),
+    digest: 'daily', paused: false,
+    twoFa: true, sms: false,
+    sessions: SESSIONS,
+  };
+
+  renderVals() {
+    const section = this.state.section ?? (this.props.section ?? 'profile');
+    const layout = this.state.layout ?? (this.props.layout ?? 'desktop');
+    const isMobile = layout === 'mobile';
+    const modal = this.state.modal;
+    const twoFa = this.state.twoFa;
+    const paused = this.state.paused;
+    const sms = this.state.sms;
+
+    const sw = on => ({
+      bg: on ? '#1c6b4a' : '#e4e4e7',
+      border: on ? '#1c6b4a' : '#d1d1d6',
+      knob: on ? 'flex-end' : 'flex-start',
+    });
+
+    const setModal = m => this.setState({ modal: m });
+
+    const confirmBody = !modal ? '' :
+      modal.kind === 'revoke' ? 'Sign out ' + modal.name + '? The session ends immediately and the device has to sign in again.' :
+      modal.kind === 'signoutAll' ? 'Sign out of all other devices? Your current session on this device stays active.' :
+      modal.kind === 'disable2fa' ? 'Turn off two-factor authentication? Your account will be protected by the password alone.' :
+      'Delete your account? Your profile, sessions and personal views are removed permanently. You are the owner of Acme Sales, so the workspace and its 6 tables are deleted with it. This cannot be undone.';
+
+    const notifyRows = NOTIFY.map(n => {
+      const cur = this.state.notify[n.id];
+      const e = sw(cur.email && !paused), a = sw(cur.app && !paused);
+      return {
+        label: n.label, desc: n.desc,
+        emailBg: e.bg, emailBorder: e.border, emailKnob: e.knob,
+        appBg: a.bg, appBorder: a.border, appKnob: a.knob,
+        onEmail: () => this.setState(s => ({ notify: { ...s.notify, [n.id]: { ...s.notify[n.id], email: !s.notify[n.id].email } } })),
+        onApp: () => this.setState(s => ({ notify: { ...s.notify, [n.id]: { ...s.notify[n.id], app: !s.notify[n.id].app } } })),
+      };
+    });
+
+    const pause = sw(paused);
+    const smsSw = sw(sms);
+
+    return {
+      sections: SECTIONS.map(sec => ({
+        label: sec.label,
+        glyph: sec.glyph,
+        bg: section === sec.id ? '#e6f2eb' : 'transparent',
+        chipBg: section === sec.id ? '#e6f2eb' : '#fff',
+        chipBorder: section === sec.id ? '#b9dbc8' : '#e4e4e7',
+        fg: section === sec.id ? '#1c6b4a' : '#18181b',
+        weight: section === sec.id ? 600 : 400,
+        onClick: () => this.setState({ section: sec.id }),
+      })),
+      sectionLabel: (SECTIONS.find(s => s.id === section) || SECTIONS[0]).label,
+      isProfile: section === 'profile',
+      isNotifications: section === 'notifications',
+      isSecurity: section === 'security',
+
+      fullName: this.state.fullName,
+      email: this.state.email,
+      jobTitle: this.state.jobTitle,
+      onFullName: e => this.setState({ fullName: e.target.value }),
+      onEmail: e => this.setState({ email: e.target.value }),
+      onJobTitle: e => this.setState({ jobTitle: e.target.value }),
+
+      notifyRows,
+      digest: this.state.digest,
+      onDigest: e => this.setState({ digest: e.target.value }),
+      pauseBg: pause.bg, pauseBorder: pause.border, pauseKnob: pause.knob,
+      onPause: () => this.setState(s => ({ paused: !s.paused })),
+
+      twoFaGlyph: twoFa ? 'verified_user' : 'gpp_maybe',
+      twoFaIconBg: twoFa ? '#e6f2eb' : '#fdf3e2',
+      twoFaIconFg: twoFa ? '#1c6b4a' : '#8a5a12',
+      twoFaBadge: twoFa ? 'on' : 'off',
+      twoFaBadgeBg: twoFa ? '#e6f2eb' : '#fdf3e2',
+      twoFaBadgeFg: twoFa ? '#1c6b4a' : '#8a5a12',
+      twoFaDesc: twoFa
+        ? 'Codes come from your authenticator app. Added 2 June 2026 · iPhone 15.'
+        : 'Protect the account with a six-digit code from an authenticator app in addition to the password.',
+      twoFaBtn: twoFa ? 'Turn off' : 'Set up',
+      twoFaBtnBg: twoFa ? '#fff' : '#1c6b4a',
+      twoFaBtnFg: twoFa ? '#b4232a' : '#fff',
+      twoFaBtnBorder: twoFa ? '#f0c9cb' : '#1c6b4a',
+      onToggle2fa: () => setModal(twoFa ? { kind: 'disable2fa' } : { kind: 'setup2fa' }),
+      smsBg: smsSw.bg, smsBorder: smsSw.border, smsKnob: smsSw.knob,
+      onSmsToggle: () => this.setState(s => ({ sms: !s.sms })),
+
+      sessionCount: this.state.sessions.length,
+      sessions: this.state.sessions.map(s => ({
+        device: s.device, meta: s.meta, glyph: s.glyph, current: !!s.current,
+        btnLabel: s.current ? 'This device' : 'Sign out',
+        btnFg: s.current ? '#6d6d77' : '#18181b',
+        onRevoke: () => { if (!s.current) setModal({ kind: 'revoke', id: s.id, name: s.device }); },
+      })),
+      onSignOutAll: () => setModal({ kind: 'signoutAll' }),
+
+      logins: LOGINS.map(l => {
+        const st = LOGIN_STYLE[l.status];
+        return { when: l.when, device: l.device, ip: l.ip, status: l.status, badgeBg: st[0], badgeFg: st[1] };
+      }),
+
+      onDeleteAccount: () => setModal({ kind: 'delete' }),
+
+      setupOpen: !!modal && modal.kind === 'setup2fa',
+      confirmOpen: !!modal && modal.kind !== 'setup2fa',
+      confirmBody,
+      sheetTitle: !modal ? '' :
+        modal.kind === 'setup2fa' ? 'Set up two-factor authentication' :
+        modal.kind === 'revoke' ? 'Sign out session' :
+        modal.kind === 'signoutAll' ? 'Sign out everywhere' :
+        modal.kind === 'disable2fa' ? 'Turn off two-factor' : 'Delete account',
+      sheetAction: !modal ? '' :
+        modal.kind === 'setup2fa' ? 'Verify and turn on' :
+        modal.kind === 'revoke' ? 'Sign out' :
+        modal.kind === 'signoutAll' ? 'Sign out everywhere' :
+        modal.kind === 'disable2fa' ? 'Turn off' : 'Delete account',
+      sheetGlyph: !modal ? '' : modal.kind === 'setup2fa' ? 'verified_user' : 'warning',
+      sheetIconBg: !modal || modal.kind === 'setup2fa' ? '#e6f2eb' : '#fdecec',
+      sheetIconFg: !modal || modal.kind === 'setup2fa' ? '#1c6b4a' : '#b4232a',
+      sheetActionBg: !modal || modal.kind === 'setup2fa' ? '#1c6b4a' : '#b4232a',
+      sheetActionBorder: !modal || modal.kind === 'setup2fa' ? '#1c6b4a' : '#b4232a',
+      desktopSheetOpen: !!modal && !isMobile,
+      mobileSheetOpen: !!modal && isMobile,
+      onCloseSheet: () => setModal(null),
+      onConfirm: () => this.setState(s => {
+        const m = s.modal;
+        if (!m) return { modal: null };
+        if (m.kind === 'revoke') return { modal: null, sessions: s.sessions.filter(x => x.id !== m.id) };
+        if (m.kind === 'signoutAll') return { modal: null, sessions: s.sessions.filter(x => x.current) };
+        if (m.kind === 'disable2fa') return { modal: null, twoFa: false, sms: false };
+        if (m.kind === 'setup2fa') return { modal: null, twoFa: true };
+        return { modal: null };
+      }),
+
+      isDesktop: !isMobile,
+      isMobile,
+      deskTabBg: isMobile ? 'transparent' : '#e6f2eb',
+      deskTabFg: isMobile ? '#5c5c66' : '#1c6b4a',
+      mobTabBg: isMobile ? '#e6f2eb' : 'transparent',
+      mobTabFg: isMobile ? '#1c6b4a' : '#5c5c66',
+      onDesktop: () => this.setState({ layout: 'desktop', navOpen: false }),
+      onMobile: () => this.setState({ layout: 'mobile' }),
+      navOpen: this.state.navOpen,
+      onToggleNav: () => this.setState(s => ({ navOpen: !s.navOpen })),
+      navTables: [
+        { name: 'People', count: '96' },
+        { name: 'Projects', count: '31' },
+        { name: 'Tasks', count: '412' },
+        { name: 'Invoices', count: '1 204' },
+        { name: 'Suppliers', count: '18' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

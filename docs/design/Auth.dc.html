@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&amp;display=swap" rel="stylesheet">
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: #f6f6f7; color: #18181b; font-family: Archivo, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+  * { box-sizing: border-box; }
+  h1, h2, h3, h4, p, ul, ol { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  a { color: #1c6b4a; text-decoration: none; }
+  a:hover { color: #165c3f; }
+  ::selection { background: #d9ecdf; }
+  input { font-family: inherit; }
+  input::placeholder { color: #a1a1aa; }
+</style>
+</helmet>
+
+<div style="position:fixed;right:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e4e4e7;border-radius:9px;background:#fff;box-shadow:0 6px 18px rgba(24,24,27,.12)">
+  <button onClick="{{ onDesktop }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ deskTabBg }};color:{{ deskTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">desktop_windows</span>Desktop</button>
+  <button onClick="{{ onMobile }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ mobTabBg }};color:{{ mobTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">smartphone</span>Mobile</button>
+</div>
+
+<sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Auth · sign in, sign up, reset" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;background:#f6f6f7">
+  <div style="width:100%;max-width:412px;display:flex;flex-direction:column;align-items:stretch;gap:20px">
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+      <span style="width:30px;height:30px;border-radius:9px;background:#1c6b4a;color:#fff;display:flex;align-items:center;justify-content:center;flex:none;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+      <span style="font-size:16px;font-weight:600;letter-spacing:-.01em">FlexBase</span>
+    </div>
+
+    <section style="min-width:0;display:flex;flex-direction:column;gap:16px">
+      <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:20px">
+
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em">{{ title }}</h1>
+          <p style="font-size:14px;color:#5c5c66">{{ subtitle }}</p>
+        </div>
+
+        <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:2px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:8px">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+            <button onClick="{{ t.onClick }}" style="flex:1;min-width:0;height:30px;border:none;border-radius:6px;background:{{ t.bg }};color:{{ t.fg }};box-shadow:{{ t.shadow }};font-family:inherit;font-size:13px;font-weight:{{ t.weight }};cursor:pointer">{{ t.label }}</button>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isSent }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid #cfe3d7;border-radius:10px;background:#e6f2eb">
+          <span style="flex:none;font-size:19px;color:#1c6b4a;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">mark_email_read</span>
+          <p style="font-size:13px;color:#18181b;line-height:1.45">We sent a password reset link to <span style="font-weight:600">{{ sentTo }}</span>. The link is valid for 30 minutes.</p>
+        </div>
+        <button onClick="{{ onSignIn }}" style="height:36px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa;border-color:#a1a1aa">Back to sign in</button>
+        </sc-if>
+
+        <sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:14px">
+
+          <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+          <label style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:13px;font-weight:500">Full name</span>
+            <input value="{{ name }}" onChange="{{ onName }}" placeholder="Ирина Петрова" style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb" style-hover="border-color:#a1a1aa">
+          </label>
+          </sc-if>
+
+          <label style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:13px;font-weight:500">Work email</span>
+            <input value="{{ email }}" onChange="{{ onEmail }}" placeholder="you@acme.co" style="height:36px;padding:0 12px;border:1px solid {{ emailBorder }};border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb" style-hover="border-color:#a1a1aa">
+            <span style="font-size:12px;color:{{ emailHintFg }}">{{ emailHint }}</span>
+          </label>
+
+          <sc-if value="{{ hasPassword }}" hint-placeholder-val="{{ true }}">
+          <label style="display:flex;flex-direction:column;gap:6px">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500">Password<a href="#" onClick="{{ onReset }}" style="margin-left:auto;font-size:12px;font-weight:500;display:{{ forgotDisplay }}">Forgot password?</a></span>
+            <span style="position:relative;display:flex;align-items:center">
+              <input value="{{ password }}" onChange="{{ onPassword }}" type="{{ passwordType }}" placeholder="••••••••" style="flex:1;min-width:0;height:36px;padding:0 40px 0 12px;border:1px solid {{ passBorder }};border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb" style-hover="border-color:#a1a1aa">
+              <button onClick="{{ onTogglePassword }}" title="{{ revealTitle }}" style="position:absolute;right:4px;width:28px;height:28px;border:none;border-radius:6px;background:transparent;color:#6d6d77;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">{{ revealGlyph }}</button>
+            </span>
+            <span style="font-size:12px;color:{{ passHintFg }}">{{ passHint }}</span>
+          </label>
+          </sc-if>
+
+          <sc-if value="{{ isSignin }}" hint-placeholder-val="{{ true }}">
+          <label style="display:flex;align-items:center;gap:9px;min-height:24px;cursor:pointer">
+            <span onClick="{{ onToggleRemember }}" style="width:18px;height:18px;flex:none;border:1px solid {{ rememberBorder }};border-radius:5px;background:{{ rememberBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 20">{{ rememberGlyph }}</span>
+            <span onClick="{{ onToggleRemember }}" style="font-size:14px">Keep me signed in</span>
+          </label>
+          </sc-if>
+
+          <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+          <p style="font-size:12px;color:#5c5c66">By creating an account you accept the <a href="#">terms of service</a> and <a href="#">privacy policy</a>.</p>
+          </sc-if>
+
+          <button onClick="{{ onSubmit }}" style="height:38px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#165c3f;border-color:#165c3f">{{ submitLabel }}<span style="font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ submitGlyph }}</span></button>
+
+          <sc-if value="{{ isReset }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ onSignIn }}" style="height:36px;border:1px solid transparent;border-radius:8px;background:transparent;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#f0f0f2">Back to sign in</button>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ showSSO }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77"><span style="flex:1;height:1px;background:#ededef"></span>or<span style="flex:1;height:1px;background:#ededef"></span></span>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+            <button style="height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#fafafa;border-color:#a1a1aa"><span style="width:16px;height:16px;border-radius:50%;background:#3b3f9c;flex:none"></span>Google</button>
+            <button style="height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#fafafa;border-color:#a1a1aa"><span style="width:16px;height:16px;border-radius:4px;background:#18181b;flex:none"></span>SAML SSO</button>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+
+      <p style="text-align:center;font-size:13px;color:#5c5c66">{{ footerText }} <a href="#" onClick="{{ onFooter }}" style="font-weight:600">{{ footerLink }}</a></p>
+    </section>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 64px;background:#f0f0f2">
+  <div data-screen-label="Auth · mobile" style="position:relative;width:390px;max-width:100%;height:844px;overflow:hidden;border:1px solid #d1d1d6;border-radius:26px;background:#fff;box-shadow:0 18px 44px rgba(24,24,27,.16);display:flex;flex-direction:column">
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">
+      <span>9:41</span>
+      <span style="display:flex;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">battery_full</span></span>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:22px;padding:32px 20px 24px">
+
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:34px;height:34px;border-radius:10px;background:#1c6b4a;color:#fff;display:flex;align-items:center;justify-content:center;flex:none;font-size:20px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+        <span style="font-size:17px;font-weight:600;letter-spacing:-.01em">FlexBase</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em">{{ title }}</h1>
+        <p style="font-size:15px;color:#5c5c66">{{ subtitle }}</p>
+      </div>
+
+      <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:2px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:10px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+          <button onClick="{{ t.onClick }}" style="flex:1;min-width:0;height:30px;border:none;border-radius:6px;background:{{ t.bg }};color:{{ t.fg }};box-shadow:{{ t.shadow }};font-family:inherit;font-size:14px;font-weight:{{ t.weight }};cursor:pointer">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isSent }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border:1px solid #cfe3d7;border-radius:12px;background:#e6f2eb">
+          <span style="flex:none;font-size:21px;color:#1c6b4a;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">mark_email_read</span>
+          <p style="font-size:14px;color:#18181b;line-height:1.45">We sent a password reset link to <span style="font-weight:600">{{ sentTo }}</span>. The link is valid for 30 minutes.</p>
+        </div>
+        <button onClick="{{ onSignIn }}" style="height:36px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa;border-color:#a1a1aa">Back to sign in</button>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+        <label style="display:flex;flex-direction:column;gap:7px">
+          <span style="font-size:14px;font-weight:500">Full name</span>
+          <input value="{{ name }}" onChange="{{ onName }}" placeholder="Ирина Петрова" style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb">
+        </label>
+        </sc-if>
+
+        <label style="display:flex;flex-direction:column;gap:7px">
+          <span style="font-size:14px;font-weight:500">Work email</span>
+          <input value="{{ email }}" onChange="{{ onEmail }}" placeholder="you@acme.co" style="height:36px;padding:0 12px;border:1px solid {{ emailBorder }};border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb">
+          <span style="font-size:12px;color:{{ emailHintFg }}">{{ emailHint }}</span>
+        </label>
+
+        <sc-if value="{{ hasPassword }}" hint-placeholder-val="{{ true }}">
+        <label style="display:flex;flex-direction:column;gap:7px">
+          <span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500">Password<a href="#" onClick="{{ onReset }}" style="margin-left:auto;font-size:13px;font-weight:500;display:{{ forgotDisplay }}">Forgot password?</a></span>
+          <span style="position:relative;display:flex;align-items:center">
+            <input value="{{ password }}" onChange="{{ onPassword }}" type="{{ passwordType }}" placeholder="••••••••" style="flex:1;min-width:0;height:36px;padding:0 40px 0 12px;border:1px solid {{ passBorder }};border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb">
+            <button onClick="{{ onTogglePassword }}" title="{{ revealTitle }}" style="position:absolute;right:4px;width:28px;height:28px;border:none;border-radius:6px;background:transparent;color:#6d6d77;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">{{ revealGlyph }}</button>
+          </span>
+          <span style="font-size:12px;color:{{ passHintFg }}">{{ passHint }}</span>
+        </label>
+        </sc-if>
+
+        <sc-if value="{{ isSignin }}" hint-placeholder-val="{{ true }}">
+        <label style="display:flex;align-items:center;gap:9px;min-height:24px;cursor:pointer">
+          <span onClick="{{ onToggleRemember }}" style="width:18px;height:18px;flex:none;border:1px solid {{ rememberBorder }};border-radius:5px;background:{{ rememberBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 20">{{ rememberGlyph }}</span>
+          <span onClick="{{ onToggleRemember }}" style="font-size:14px">Keep me signed in</span>
+        </label>
+        </sc-if>
+
+        <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+        <p style="font-size:13px;color:#5c5c66">By creating an account you accept the <a href="#">terms of service</a> and <a href="#">privacy policy</a>.</p>
+        </sc-if>
+
+        <button onClick="{{ onSubmit }}" style="height:36px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#165c3f;border-color:#165c3f">{{ submitLabel }}<span style="font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ submitGlyph }}</span></button>
+
+        <sc-if value="{{ isReset }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onSignIn }}" style="height:36px;border:1px solid transparent;border-radius:8px;background:transparent;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#f0f0f2">Back to sign in</button>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ showSSO }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77"><span style="flex:1;height:1px;background:#ededef"></span>or<span style="flex:1;height:1px;background:#ededef"></span></span>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#fafafa;border-color:#a1a1aa"><span style="width:16px;height:16px;border-radius:50%;background:#3b3f9c;flex:none"></span>Continue with Google</button>
+          <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#fafafa;border-color:#a1a1aa"><span style="width:16px;height:16px;border-radius:4px;background:#18181b;flex:none"></span>Continue with SAML SSO</button>
+        </div>
+      </div>
+      </sc-if>
+
+      <p style="font-size:14px;color:#5c5c66">{{ footerText }} <a href="#" onClick="{{ onFooter }}" style="font-weight:600">{{ footerLink }}</a></p>
+    </div>
+
+    <div style="flex:none;display:flex;justify-content:center;padding:8px 0 10px"><span style="width:132px;height:5px;border-radius:3px;background:#18181b;opacity:.24"></span></div>
+  </div>
+</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signin&quot;,&quot;signup&quot;,&quot;reset&quot;,&quot;sent&quot;],&quot;default&quot;:&quot;signin&quot;,&quot;tsType&quot;:&quot;'signin' | 'signup' | 'reset' | 'sent'&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showSSO&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop' | 'mobile'&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+class Component extends DCLogic {
+  state = { layout: null, mode: null, email: '', password: '', name: '', reveal: false, remember: true, touched: false, sentTo: '' };
+
+  set(k) { return (e) => this.setState({ [k]: e.target.value }); }
+
+  renderVals() {
+    const mode = this.state.mode ?? (this.props.mode ?? 'signin');
+    const { email, password, name, reveal, remember, touched } = this.state;
+    const isSignin = mode === 'signin', isSignup = mode === 'signup', isReset = mode === 'reset', isSent = mode === 'sent';
+
+    const emailBad = touched && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email);
+    const passBad = touched && !isReset && password.length < 8;
+
+    const copy = {
+      signin: { title: 'Sign in to FlexBase', subtitle: 'Use the email and password of your work account.', submit: 'Sign in', glyph: 'arrow_forward' },
+      signup: { title: 'Create an account', subtitle: 'Your first workspace is created for you — rename it any time.', submit: 'Create account', glyph: 'arrow_forward' },
+      reset: { title: 'Reset your password', subtitle: 'Enter your account email and we will send a reset link.', submit: 'Send reset link', glyph: 'send' },
+      sent: { title: 'Check your email', subtitle: 'One link left to follow.', submit: '', glyph: '' },
+    }[mode];
+
+    const seg = (active) => ({
+      bg: active ? '#fff' : 'transparent',
+      fg: active ? '#1c6b4a' : '#5c5c66',
+      shadow: active ? '0 1px 2px rgba(24,24,27,.08)' : 'none',
+      weight: active ? 600 : 500,
+    });
+
+    const go = (m) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ mode: m, touched: false }); };
+
+    const isMobile = (this.state.layout ?? (this.props.layout ?? 'desktop')) === 'mobile';
+
+    return {
+      isDesktop: !isMobile,
+      isMobile,
+      deskTabBg: isMobile ? 'transparent' : '#e6f2eb',
+      deskTabFg: isMobile ? '#5c5c66' : '#1c6b4a',
+      mobTabBg: isMobile ? '#e6f2eb' : 'transparent',
+      mobTabFg: isMobile ? '#1c6b4a' : '#5c5c66',
+      onDesktop: () => this.setState({ layout: 'desktop' }),
+      onMobile: () => this.setState({ layout: 'mobile' }),
+
+      isSignin, isSignup, isReset, isSent,
+      isForm: !isSent,
+      isAuth: isSignin || isSignup,
+      hasPassword: !isReset && !isSent,
+      showSSO: (this.props.showSSO ?? true) && (isSignin || isSignup),
+
+      title: copy.title,
+      subtitle: copy.subtitle,
+      submitLabel: copy.submit,
+      submitGlyph: copy.glyph,
+      sentTo: this.state.sentTo || 'you@acme.co',
+
+      tabs: [
+        Object.assign({ label: 'Sign in', onClick: go('signin') }, seg(isSignin)),
+        Object.assign({ label: 'Sign up', onClick: go('signup') }, seg(isSignup)),
+      ],
+
+      name, email, password,
+      onName: this.set('name'),
+      onEmail: this.set('email'),
+      onPassword: this.set('password'),
+
+      emailBorder: emailBad ? '#b42318' : '#d1d1d6',
+      emailHint: emailBad ? 'Enter an address like name@company.com' : isSignup ? 'Use your work email — colleagues are matched by domain.' : 'The same address the invite was sent to.',
+      emailHintFg: emailBad ? '#b42318' : '#5c5c66',
+
+      passBorder: passBad ? '#b42318' : '#d1d1d6',
+      passHint: passBad ? 'At least 8 characters' : isSignup ? '8 characters minimum, one digit.' : 'Case sensitive.',
+      passHintFg: passBad ? '#b42318' : '#5c5c66',
+      passwordType: reveal ? 'text' : 'password',
+      revealGlyph: reveal ? 'visibility_off' : 'visibility',
+      revealTitle: reveal ? 'Hide password' : 'Show password',
+      onTogglePassword: (e) => { e.preventDefault(); this.setState(s => ({ reveal: !s.reveal })); },
+      forgotDisplay: isSignin ? 'inline' : 'none',
+
+      rememberGlyph: remember ? 'check' : '',
+      rememberBg: remember ? '#1c6b4a' : '#fff',
+      rememberBorder: remember ? '#1c6b4a' : '#d1d1d6',
+      onToggleRemember: (e) => { e.preventDefault(); this.setState(s => ({ remember: !s.remember })); },
+
+      onSubmit: (e) => {
+        e.preventDefault();
+        this.setState({ touched: true });
+        const okEmail = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email);
+        if (isReset && okEmail) this.setState({ mode: 'sent', sentTo: email, touched: false });
+      },
+      onReset: go('reset'),
+      onSignIn: go('signin'),
+
+      footerText: isSignup ? 'Already have an account?' : 'No account yet?',
+      footerLink: isSignup ? 'Sign in' : 'Create an account',
+      onFooter: go(isSignup ? 'signin' : 'signup'),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

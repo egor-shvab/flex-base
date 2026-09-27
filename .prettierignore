@@ -8,3 +8,6 @@ coverage
 # The generated Prisma client. Also covered by .gitignore (which Prettier reads by
 # default), but stated here so the intent does not depend on that.
 server/generated
+
+# The exported visual reference (CLAUDE.md §8) — kept byte-for-byte as delivered.
+docs/design

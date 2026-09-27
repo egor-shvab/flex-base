@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&amp;display=swap" rel="stylesheet">
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: #f6f6f7; color: #18181b; font-family: Archivo, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+  * { box-sizing: border-box; }
+  h1, h2, h3, h4, p, ul, ol { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  a { color: #1c6b4a; text-decoration: none; }
+  a:hover { color: #165c3f; }
+  ::selection { background: #d9ecdf; }
+  input { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="position:fixed;right:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e4e4e7;border-radius:9px;background:#fff;box-shadow:0 6px 18px rgba(24,24,27,.12)">
+  <button onClick="{{ onDesktop }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ deskTabBg }};color:{{ deskTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">desktop_windows</span>Desktop</button>
+  <button onClick="{{ onMobile }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ mobTabBg }};color:{{ mobTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">smartphone</span>Mobile</button>
+</div>
+
+<sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:stretch;min-height:100vh;background:#f6f6f7">
+
+  <aside style="width:248px;min-width:248px;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh">
+    <button style="display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+      <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+      <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">unfold_more</span>
+    </button>
+
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;background:#e6f2eb;color:#1c6b4a;font-size:14px;font-weight:600"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">home</span>Home</a>
+    <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+    <a href="./Clients Table.dc.html" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">248</span></a>
+    <sc-for list="{{ navTables }}" as="t" hint-placeholder-count="5">
+      <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ t.count }}</span></a>
+    </sc-for>
+    <button style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-top:4px"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">add</span>New table</button>
+
+    <span style="flex:1"></span>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">group</span><span style="flex:1">Members</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">12</span></a>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span><span style="flex:1">Workspace settings</span></a>
+    <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;margin-top:8px;border-top:1px solid #ededef">
+      <span style="width:26px;height:26px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ирина Петрова</span><span style="font-size:11px;color:#5c5c66">Admin</span></span>
+      <span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">more_horiz</span>
+    </div>
+  </aside>
+
+  <main data-screen-label="Home · workspace overview" style="flex:1;min-width:0;display:flex;flex-direction:column;background:#f6f6f7">
+
+    <div style="flex:none;padding:18px 24px 0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:4px;min-height:36px;font-size:13px">
+        <a href="#" style="color:#5c5c66;flex:none">Acme</a>
+        <span style="color:#c4c4cc;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;flex:none">chevron_right</span>
+        <span style="font-weight:600;color:#18181b">Home</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex:none">
+          <button style="height:36px;padding:0 12px;border:1px solid transparent;border-radius:8px;background:transparent;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px" style-hover="background:#f0f0f2"><span style="font-size:17px;color:#5c5c66;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">person_add</span>Invite people</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
+        <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+          <h1 style="font-size:32px;font-weight:600;letter-spacing:-.025em">Acme Sales</h1>
+          <p style="font-size:14px;color:#5c5c66">6 tables · 2 009 records · 12 members</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex:none">
+          <span style="display:inline-flex;align-items:center;gap:2px;height:36px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:8px">
+            <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="2">
+              <button onClick="{{ r.onClick }}" style="display:inline-flex;align-items:center;height:28px;padding:0 12px;border:none;border-radius:6px;background:{{ r.bg }};color:{{ r.fg }};box-shadow:{{ r.shadow }};font-family:inherit;font-size:13px;font-weight:{{ r.weight }};cursor:pointer">{{ r.label }}</button>
+            </sc-for>
+          </span>
+          <button style="height:36px;padding:0 14px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px" style-hover="background:#165c3f;border-color:#165c3f"><span style="font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px;flex:none">add</span>New table</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:0;padding:20px 24px 32px;display:flex;flex-direction:column;gap:20px">
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+          <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+            <span style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77"><span style="font-size:16px;color:#a1a1aa;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>{{ s.label }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums;color:#18181b">{{ s.value }}</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:{{ s.deltaFg }}"><span style="font-size:15px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.deltaGlyph }}</span>{{ s.delta }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+
+        <section style="flex:1 1 480px;min-width:0;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fafafa;border-bottom:1px solid #e4e4e7;flex-wrap:wrap">
+            <h2 style="font-size:16px;font-weight:600">Tables</h2>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ tableSubLabel }}</span>
+            <span style="display:inline-flex;align-items:center;gap:2px;height:32px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:8px;margin-left:auto">
+              <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="3">
+                <button onClick="{{ s.onClick }}" style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border:none;border-radius:6px;background:{{ s.bg }};color:{{ s.fg }};box-shadow:{{ s.shadow }};font-family:inherit;font-size:12px;font-weight:{{ s.weight }};cursor:pointer">{{ s.label }}</button>
+              </sc-for>
+            </span>
+          </div>
+          <sc-for list="{{ tables }}" as="t" hint-placeholder-count="6">
+            <a href="{{ t.href }}" style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #ededef;color:#18181b" style-hover="background:#fafafa">
+              <span style="width:32px;height:32px;border-radius:8px;background:{{ t.iconBg }};color:{{ t.iconFg }};display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+              <span style="flex:1 1 auto;min-width:110px;display:flex;flex-direction:column;gap:5px">
+                <span style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+                  <span style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:60px">{{ t.name }}</span>
+                  <span style="font-size:12px;color:#6d6d77;white-space:nowrap;flex:none">{{ t.fields }} fields</span>
+                </span>
+                <span style="display:block;height:4px;border-radius:2px;background:#f0f0f2;overflow:hidden"><span style="display:block;height:4px;width:{{ t.barW }};border-radius:2px;background:{{ t.barBg }}"></span></span>
+              </span>
+              <span style="flex:0 1 auto;min-width:56px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums">{{ t.records }}</span>
+              <span style="flex:0 1 auto;min-width:0;text-align:right;font-size:12px;color:#5c5c66;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.edited }}</span>
+              <span style="width:24px;height:24px;border-radius:50%;background:{{ t.ownerBg }};color:{{ t.ownerFg }};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ t.ownerInitials }}</span>
+              <span style="color:#c4c4cc;font-size:18px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">chevron_right</span>
+            </a>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:#f6f6f7">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77">Total</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;margin-left:auto">2 009 records</span>
+          </div>
+        </section>
+
+        <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:20px">
+
+          <section style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fafafa;border-bottom:1px solid #e4e4e7">
+              <h2 style="font-size:16px;font-weight:600;flex:none">Members</h2>
+              <span style="flex:1 1 auto;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">12 · 2 pending</span>
+              <a href="#" style="flex:none;font-size:13px;font-weight:500;white-space:nowrap">See all</a>
+            </div>
+            <sc-for list="{{ members }}" as="m" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="width:28px;height:28px;border-radius:50%;background:{{ m.bg }};color:{{ m.fg }};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ m.initials }}</span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column">
+                  <span style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span>
+                  <span style="font-size:11px;color:#6d6d77">{{ m.seen }}</span>
+                </span>
+                <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:{{ m.roleBg }};color:{{ m.roleFg }};font-size:12px;font-weight:500;flex:none">{{ m.role }}</span>
+              </div>
+            </sc-for>
+            <button style="display:flex;align-items:center;gap:8px;width:100%;height:44px;padding:0 16px;border:none;background:#f6f6f7;color:#1c6b4a;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;text-align:left"><span style="font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">person_add</span>Invite a member</button>
+          </section>
+
+          <sc-if value="{{ showActivity }}" hint-placeholder-val="{{ true }}">
+          <section style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#fafafa;border-bottom:1px solid #e4e4e7">
+              <h2 style="font-size:16px;font-weight:600">Activity</h2>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ activitySubLabel }}</span>
+            </div>
+            <div style="padding:6px 16px 12px;display:flex;flex-direction:column">
+              <sc-for list="{{ activity }}" as="a" hint-placeholder-count="6">
+                <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0">
+                  <span style="width:26px;height:26px;border-radius:7px;background:{{ a.iconBg }};color:{{ a.iconFg }};display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;margin-top:1px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ a.glyph }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column">
+                    <span style="font-size:13px;line-height:1.4"><span style="font-weight:500">{{ a.who }}</span> {{ a.what }} <span style="font-weight:500">{{ a.target }}</span></span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ a.when }}</span>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 64px;background:#f0f0f2">
+  <div data-screen-label="Home · mobile" style="position:relative;width:390px;max-width:100%;height:844px;overflow:hidden;border:1px solid #d1d1d6;border-radius:26px;background:#f6f6f7;box-shadow:0 18px 44px rgba(24,24,27,.16);display:flex;flex-direction:column">
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">
+      <span>9:41</span>
+      <span style="display:flex;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">battery_full</span></span>
+    </div>
+
+    <div style="flex:none;padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onClick="{{ onToggleNav }}" style="width:36px;height:36px;flex:none;border:1px solid #e4e4e7;border-radius:8px;background:#fff;color:#18181b;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">menu</button>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px">
+          <span style="width:26px;height:26px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+          <span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Acme Sales</span>
+        </div>
+        <button style="width:36px;height:36px;flex:none;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">person_add</button>
+      </div>
+      <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em">Home</h1>
+      <span style="display:inline-flex;align-items:center;gap:2px;height:36px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:8px;width:max-content">
+        <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="2">
+          <button onClick="{{ r.onClick }}" style="display:inline-flex;align-items:center;height:28px;padding:0 14px;border:none;border-radius:6px;background:{{ r.bg }};color:{{ r.fg }};box-shadow:{{ r.shadow }};font-family:inherit;font-size:13px;font-weight:{{ r.weight }};cursor:pointer">{{ r.label }}</button>
+        </sc-for>
+      </span>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:0 12px 24px;display:flex;flex-direction:column;gap:16px">
+
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+          <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px">
+            <span style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77"><span style="font-size:15px;color:#a1a1aa;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>{{ s.label }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums">{{ s.value }}</span>
+            <span style="font-size:11px;color:{{ s.deltaFg }}">{{ s.delta }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <section style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;background:#fafafa;border-bottom:1px solid #e4e4e7">
+          <h2 style="font-size:15px;font-weight:600">Tables</h2>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77;margin-left:auto">{{ tableSubLabel }}</span>
+        </div>
+        <sc-for list="{{ tables }}" as="t" hint-placeholder-count="6">
+          <a href="{{ t.href }}" style="display:flex;align-items:center;gap:10px;min-height:56px;padding:10px 14px;border-bottom:1px solid #ededef;color:#18181b">
+            <span style="width:30px;height:30px;border-radius:8px;background:{{ t.iconBg }};color:{{ t.iconFg }};display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+            <span style="flex:1 1 auto;min-width:110px;display:flex;flex-direction:column">
+              <span style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:60px">{{ t.name }}</span>
+              <span style="font-size:11px;color:#6d6d77;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.mobileMeta }}</span>
+            </span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;flex:none">{{ t.records }}</span>
+            <span style="color:#c4c4cc;font-size:18px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">chevron_right</span>
+          </a>
+        </sc-for>
+      </section>
+
+      <section style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;background:#fafafa;border-bottom:1px solid #e4e4e7">
+          <h2 style="font-size:15px;font-weight:600">Members</h2>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">12 · 2 pending</span>
+        </div>
+        <sc-for list="{{ members }}" as="m" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 14px;border-bottom:1px solid #ededef">
+            <span style="width:28px;height:28px;border-radius:50%;background:{{ m.bg }};color:{{ m.fg }};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ m.initials }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column">
+              <span style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span>
+              <span style="font-size:11px;color:#6d6d77">{{ m.seen }}</span>
+            </span>
+            <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:{{ m.roleBg }};color:{{ m.roleFg }};font-size:12px;font-weight:500;flex:none">{{ m.role }}</span>
+          </div>
+        </sc-for>
+      </section>
+
+      <sc-if value="{{ showActivity }}" hint-placeholder-val="{{ true }}">
+      <section style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;background:#fafafa;border-bottom:1px solid #e4e4e7">
+          <h2 style="font-size:15px;font-weight:600">Activity</h2>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77;margin-left:auto">{{ activitySubLabel }}</span>
+        </div>
+        <div style="padding:6px 14px 12px;display:flex;flex-direction:column">
+          <sc-for list="{{ activity }}" as="a" hint-placeholder-count="6">
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0">
+              <span style="width:26px;height:26px;border-radius:7px;background:{{ a.iconBg }};color:{{ a.iconFg }};display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;margin-top:1px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ a.glyph }}</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column">
+                <span style="font-size:13px;line-height:1.4"><span style="font-weight:500">{{ a.who }}</span> {{ a.what }} <span style="font-weight:500">{{ a.target }}</span></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ a.when }}</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:30;display:flex">
+        <div style="width:288px;max-width:84%;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+          <button onClick="{{ onToggleNav }}" style="display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+            <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+            <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">unfold_more</span>
+          </button>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;background:#e6f2eb;color:#1c6b4a;font-size:14px;font-weight:600"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">home</span>Home</a>
+          <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+          <a href="./Clients Table.dc.html" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">248</span></a>
+          <sc-for list="{{ navTables }}" as="t" hint-placeholder-count="5">
+            <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ t.count }}</span></a>
+          </sc-for>
+          <button style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-top:4px"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">add</span>New table</button>
+          <span style="flex:1;min-height:16px"></span>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">group</span><span style="flex:1">Members</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">12</span></a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span><span style="flex:1">Workspace settings</span></a>
+        </div>
+        <div onClick="{{ onToggleNav }}" style="flex:1;background:rgba(24,24,27,.42)"></div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop' | 'mobile'&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;range&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;7 days&quot;,&quot;30 days&quot;],&quot;default&quot;:&quot;7 days&quot;,&quot;tsType&quot;:&quot;'7 days' | '30 days'&quot;,&quot;section&quot;:&quot;Overview&quot;},&quot;showActivity&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Overview&quot;}}">
+const TABLES = [
+  { name: 'Clients', records: 248, fields: 8, editedMin: 12, owner: 'Ирина Петрова', initials: 'ИП', href: './Clients Table.dc.html' },
+  { name: 'People', records: 96, fields: 11, editedMin: 90, owner: 'Марк Дьюи', initials: 'МД', href: '#' },
+  { name: 'Projects', records: 31, fields: 9, editedMin: 260, owner: 'Ирина Петрова', initials: 'ИП', href: '#' },
+  { name: 'Tasks', records: 412, fields: 7, editedMin: 5, owner: 'Sofia Reyes', initials: 'SR', href: '#' },
+  { name: 'Invoices', records: 1204, fields: 12, editedMin: 1500, owner: 'Ян Ковач', initials: 'ЯК', href: '#' },
+  { name: 'Suppliers', records: 18, fields: 6, editedMin: 6100, owner: 'Марк Дьюи', initials: 'МД', href: '#' },
+];
+
+const MEMBERS = [
+  { name: 'Ирина Петрова', initials: 'ИП', role: 'Admin', seen: 'active now' },
+  { name: 'Марк Дьюи', initials: 'МД', role: 'Editor', seen: 'seen 20 min ago' },
+  { name: 'Sofia Reyes', initials: 'SR', role: 'Editor', seen: 'seen 2 h ago' },
+  { name: 'Ян Ковач', initials: 'ЯК', role: 'Viewer', seen: 'seen yesterday' },
+  { name: 'nina@acme.co', initials: 'N', role: 'Pending', seen: 'invited 3 days ago' },
+];
+
+const ACTIVITY = {
+  '7 days': [
+    { who: 'Sofia Reyes', what: 'added 14 records to', target: 'Tasks', when: '5 min ago', glyph: 'add', kind: 'green' },
+    { who: 'Ирина Петрова', what: 'renamed a field in', target: 'Clients', when: '12 min ago', glyph: 'edit', kind: 'grey' },
+    { who: 'Ян Ковач', what: 'exported', target: 'Invoices', when: '3 h ago', glyph: 'download', kind: 'grey' },
+    { who: 'Марк Дьюи', what: 'created a board view in', target: 'People', when: 'yesterday', glyph: 'view_kanban', kind: 'indigo' },
+    { who: 'Ирина Петрова', what: 'invited', target: 'nina@acme.co', when: '3 days ago', glyph: 'person_add', kind: 'indigo' },
+    { who: 'Sofia Reyes', what: 'deleted 2 records from', target: 'Suppliers', when: '5 days ago', glyph: 'delete', kind: 'red' },
+  ],
+  '30 days': [
+    { who: 'Sofia Reyes', what: 'added 14 records to', target: 'Tasks', when: '5 min ago', glyph: 'add', kind: 'green' },
+    { who: 'Марк Дьюи', what: 'created a board view in', target: 'People', when: 'yesterday', glyph: 'view_kanban', kind: 'indigo' },
+    { who: 'Ирина Петрова', what: 'invited', target: 'nina@acme.co', when: '3 days ago', glyph: 'person_add', kind: 'indigo' },
+    { who: 'Ян Ковач', what: 'added a relation field to', target: 'Invoices', when: '9 days ago', glyph: 'arrow_outward', kind: 'grey' },
+    { who: 'Ирина Петрова', what: 'created', target: 'Suppliers', when: '18 days ago', glyph: 'table', kind: 'green' },
+    { who: 'Марк Дьюи', what: 'archived 31 records in', target: 'Clients', when: '26 days ago', glyph: 'inventory_2', kind: 'grey' },
+  ],
+};
+
+const ICON_KIND = {
+  green: { bg: '#e6f2eb', fg: '#1c6b4a' },
+  indigo: { bg: '#e9e9fa', fg: '#3b3f9c' },
+  grey: { bg: '#f0f0f2', fg: '#5c5c66' },
+  red: { bg: '#fdecec', fg: '#b4232a' },
+};
+
+const AVATAR = [
+  { bg: '#e9e9fa', fg: '#3b3f9c' },
+  { bg: '#e6f2eb', fg: '#1c6b4a' },
+  { bg: '#f0f0f2', fg: '#5c5c66' },
+];
+
+const num = (n) => n.toLocaleString('ru-RU').replace(/\u00a0/g, ' ');
+
+const ago = (m) => {
+  if (m < 60) return m + ' min ago';
+  if (m < 60 * 24) return Math.round(m / 60) + ' h ago';
+  const d = Math.round(m / 1440);
+  return d === 1 ? 'yesterday' : d + ' days ago';
+};
+
+class Component extends DCLogic {
+  state = { range: null, sort: 'Recent', layout: null, navOpen: false };
+
+  renderVals() {
+    const range = this.state.range ?? (this.props.range ?? '7 days');
+    const sort = this.state.sort;
+    const layout = this.state.layout ?? (this.props.layout ?? 'desktop');
+    const isMobile = layout === 'mobile';
+    const showActivity = this.props.showActivity ?? true;
+
+    const seg = (active) => ({
+      bg: active ? '#fff' : 'transparent',
+      fg: active ? '#1c6b4a' : '#5c5c66',
+      shadow: active ? '0 1px 2px rgba(24,24,27,.08)' : 'none',
+      weight: active ? 600 : 500,
+    });
+
+    const total = TABLES.reduce((a, t) => a + t.records, 0);
+    const max = Math.max.apply(null, TABLES.map(t => t.records));
+
+    const sorted = TABLES.slice().sort((a, b) => {
+      if (sort === 'Name') return a.name.localeCompare(b.name);
+      if (sort === 'Size') return b.records - a.records;
+      return a.editedMin - b.editedMin;
+    });
+
+    const stats = [
+      { label: 'Tables', glyph: 'table', value: '6', delta: '1 added this month', deltaGlyph: 'trending_up', deltaFg: '#1c6b4a' },
+      { label: 'Records', glyph: 'database', value: num(total), delta: (range === '7 days' ? '+184' : '+742') + ' in ' + range, deltaGlyph: 'trending_up', deltaFg: '#1c6b4a' },
+      { label: 'Members', glyph: 'group', value: '12', delta: '2 invites pending', deltaGlyph: 'schedule', deltaFg: '#5c5c66' },
+      { label: 'Edits', glyph: 'edit_note', value: range === '7 days' ? '1 042' : '4 318', delta: range === '7 days' ? 'across 5 tables' : 'across 6 tables', deltaGlyph: 'history', deltaFg: '#5c5c66' },
+    ];
+
+    return {
+      isDesktop: !isMobile,
+      isMobile,
+      showActivity,
+      deskTabBg: isMobile ? 'transparent' : '#e6f2eb',
+      deskTabFg: isMobile ? '#5c5c66' : '#1c6b4a',
+      mobTabBg: isMobile ? '#e6f2eb' : 'transparent',
+      mobTabFg: isMobile ? '#1c6b4a' : '#5c5c66',
+      onDesktop: () => this.setState({ layout: 'desktop', navOpen: false }),
+      onMobile: () => this.setState({ layout: 'mobile' }),
+      navOpen: this.state.navOpen,
+      onToggleNav: () => this.setState(s => ({ navOpen: !s.navOpen })),
+      navTables: [
+        { name: 'People', count: '96' },
+        { name: 'Projects', count: '31' },
+        { name: 'Tasks', count: '412' },
+        { name: 'Invoices', count: '1 204' },
+        { name: 'Suppliers', count: '18' },
+      ],
+
+      ranges: ['7 days', '30 days'].map(label => Object.assign({
+        label,
+        onClick: () => this.setState({ range: label }),
+      }, seg(label === range))),
+
+      sorts: ['Recent', 'Name', 'Size'].map(label => Object.assign({
+        label,
+        onClick: () => this.setState({ sort: label }),
+      }, seg(label === sort))),
+
+      stats,
+
+      tables: sorted.map((t, i) => {
+        const av = AVATAR[i % AVATAR.length];
+        return {
+          name: t.name,
+          href: t.href,
+          fields: t.fields,
+          records: num(t.records),
+          edited: ago(t.editedMin),
+          mobileMeta: t.fields + ' fields · ' + ago(t.editedMin),
+          barW: Math.max(4, Math.round((t.records / max) * 100)) + '%',
+          barBg: t.name === 'Clients' ? '#1c6b4a' : '#c4c4cc',
+          iconBg: t.name === 'Clients' ? '#e6f2eb' : '#f0f0f2',
+          iconFg: t.name === 'Clients' ? '#1c6b4a' : '#5c5c66',
+          ownerInitials: t.initials,
+          ownerBg: av.bg,
+          ownerFg: av.fg,
+        };
+      }),
+      tableSubLabel: sort === 'Recent' ? 'newest edits first' : sort === 'Name' ? 'a → z' : 'largest first',
+
+      members: MEMBERS.map((m, i) => {
+        const av = AVATAR[i % AVATAR.length];
+        const pending = m.role === 'Pending';
+        return {
+          name: m.name,
+          initials: m.initials,
+          seen: m.seen,
+          role: m.role,
+          bg: pending ? '#f0f0f2' : av.bg,
+          fg: pending ? '#6d6d77' : av.fg,
+          roleBg: m.role === 'Admin' ? '#e6f2eb' : pending ? '#fdf3e3' : '#f0f0f2',
+          roleFg: m.role === 'Admin' ? '#1c6b4a' : pending ? '#8a5a0b' : '#5c5c66',
+        };
+      }),
+
+      activity: (ACTIVITY[range] || []).map(a => ({
+        who: a.who,
+        what: a.what,
+        target: a.target,
+        when: a.when,
+        glyph: a.glyph,
+        iconBg: ICON_KIND[a.kind].bg,
+        iconFg: ICON_KIND[a.kind].fg,
+      })),
+      activitySubLabel: 'last ' + range,
+    };
+  }
+}
+</script>
+</body>
+</html>

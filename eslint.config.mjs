@@ -27,7 +27,8 @@ export default withNuxt(
   // file and all. ESLint 10 resolves a config **per linted file**, so `eslint .` loads that
   // copy — which fails on its absent `.nuxt/`, taking the whole run down. `.gitignore` cannot
   // say this: flat config does not read it. An `ignores`-only object is a global ignore.
-  { ignores: ['.claude/**'] },
+  // `docs/design/` is the exported visual reference, vendored as it came — not source.
+  { ignores: ['.claude/**', 'docs/design/**'] },
 
   // Imports are always aliased — `../../../../utils/auth` says nothing about which layer it
   // reaches into and silently rots when a file moves. Scoped to the source directories so the

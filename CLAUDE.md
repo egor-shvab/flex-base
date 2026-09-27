@@ -26,7 +26,7 @@ Two more that shape every change: **full TypeScript coverage**, with zod schemas
 
 **Not in scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, third-party integrations. Do not build them speculatively — but the architecture **may** be shaped to accommodate them where doing so also improves the code that exists.
 
-**No phase is in progress.** The feature set is done, the quality/UX/accessibility pass is done (which is where the four test projects and the axe gate came from), and so is the architectural restructuring. A change therefore starts from a request rather than from a backlog: **no roadmap or plan file is kept**, and one is written only where a request asks for it — while one exists it is kept current (§2). The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/limitations.md` marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. The one **Open** row is parked behind a stated trigger, so "Open" is something to read the register for rather than a queue to work through.
+**One phase is in progress: the visual redesign** to the reference in `docs/design/` (§8), executed stage by stage from `docs/design-plan.md`. Everything else is done — the feature set, the quality/UX/accessibility pass (which is where the four test projects and the axe gate came from), and the architectural restructuring. The redesign changes how the app looks, never what it does: a design element whose feature is out of scope (above) is not built. Outside that plan a change starts from a request rather than from a backlog: **no other roadmap or plan file is kept**, and one is written only where a request asks for it — while one exists it is kept current (§2). The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/limitations.md` marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. The one **Open** row is parked behind a stated trigger, so "Open" is something to read the register for rather than a queue to work through.
 
 ---
 
@@ -108,7 +108,8 @@ shared/                      # code used by BOTH client & server — one rule pe
 prisma/migrations/           # Prisma migration history
 prisma/seed/                 # the demo seed: a pure dataset + the writer (`npm run db:seed`)
 test/                        # fixtures, mount/prisma helpers, the integration and e2e suites
-docs/                        # architecture.md, styling.md, decisions.md, limitations.md + the concept
+docs/                        # architecture.md, styling.md, decisions.md, limitations.md, design-plan.md
+  design/                    # the visual reference (§8) — read-only mockups, never imported
 public/                      # static assets
 ```
 
@@ -236,7 +237,9 @@ All styles are **SCSS**, never plain CSS. Global styles live in `app/assets/scss
 
 ### Design principles
 
-A deliberately plain, familiar office-app look for a largely non-technical audience: **16px base, 36px control height, 8px control radius, a single accent blue (`#1C64D8`), two shadows, borders doing the structural work.** New UI matches that register; it is not a blank canvas. `docs/concept-d-workspace.html` is the visual reference — where code and concept disagree, propose a concept update rather than changing code to match.
+Neutral chrome, coloured data. **Light grey surfaces carry the interface; one deep green accent (`#1C6B4A`) marks primary actions, focus and selected state and never fills a large area; the closed ten-hue badge palette is the user's, for their values — the two colour systems never mix.** **Archivo** for everything a person reads, **IBM Plex Mono** for anything a machine produced (record numbers, field keys, addresses, timestamps) — the mono face is a signal, not an accent. **36px control height, 8px control radius, 14px control and cell text**; borders do the structural work, and a shadow only says a surface floats — it always keeps a real border too. New UI matches that register; it is not a blank canvas.
+
+**`docs/design/` is the visual reference** — `FlexBase Design System.dc.html` for foundations, components and rules, the other files for pages. They render through `support.js`, so open them from a local static server rather than as `file://`. Until `docs/design-plan.md` is complete, an area no stage has reached still carries the previous look, and each stage moves code **to** the reference. The reference does not win against a project rule — the accessibility floors below, the scope in §1, the closed vocabularies in §6 — nor does it bring a feature the app lacks (workspaces, members, views, bulk selection): the rule holds, and a reference update is proposed. Once the plan is done, any disagreement between code and reference is settled the same way — propose a reference update rather than changing code to match.
 
 ### Accessibility target: WCAG 2.2 AA
 

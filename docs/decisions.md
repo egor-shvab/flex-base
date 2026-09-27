@@ -651,7 +651,7 @@ Both of the form's fetches — that one and the table list — **catch rather th
 
 ### The open record lives in the URL, not in a store
 
-A `recordDetail` store would have been fewer moving parts, and it was rejected: a relation is a **link** in the concept, and a link needs an `href`. Putting the chain in `?detail=` makes the cell a real `<a>` — middle-click, "copy link address" and the SSR'd markup all work — and buys three things a store cannot: browser Back closes the dialog (and Forward reopens it), a refresh or a shared link renders the same dialog server-side, and the drill-down trail is history rather than a stack to maintain. A store would still have left the link an `href="#"`.
+A `recordDetail` store would have been fewer moving parts, and it was rejected: a relation is a **link** in the design reference, and a link needs an `href`. Putting the chain in `?detail=` makes the cell a real `<a>` — middle-click, "copy link address" and the SSR'd markup all work — and buys three things a store cannot: browser Back closes the dialog (and Forward reopens it), a refresh or a shared link renders the same dialog server-side, and the drill-down trail is history rather than a stack to maintain. A store would still have left the link an `href="#"`.
 
 ### Reading a record is a link, everywhere
 
@@ -862,7 +862,7 @@ It used to, because Chrome ignores `line-height` on `<select>` and left it 1px t
 
 ### A coloured badge carries a dot, not a border
 
-`BaseBadge` draws no border: a border's only job was surviving the hovered row, and the lightened row wash carries that instead. What is left is the design concept's badge — fill, word, and an 8px dot in the `-fg` step.
+`BaseBadge` draws no border: a border's only job was surviving the hovered row, and the lightened row wash carries that instead. What is left is fill, word, and an 8px dot in the `-fg` step.
 
 The dot is a `::before` with **empty** `content`, not an `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word beside it, and `RecordsTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — `CLAUDE.md` §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
 
@@ -924,7 +924,7 @@ A media query cannot read a custom property, and `additionalData` injects that f
 
 `_reset.scss` carries a zero-specificity baseline — `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` — so nothing can end up with no ring, and any component rule overrides it without a fight.
 
-**The state is two layers, and the split is the load-bearing part.** The indicator is `--color-focus` — `$blue-500`, a step lighter than the accent so it reads as a signal rather than a second border, and floored by the halo drawn against it at 3.63:1 rather than by the page behind it, which is the pairing to check if it ever moves. Behind it sits `--focus-ring-halo`, the pale glow taken from the concept's search field.
+**The state is two layers, and the split is the load-bearing part.** The indicator is `--color-focus` — `$blue-500`, a step lighter than the accent so it reads as a signal rather than a second border, and floored by the halo drawn against it at 3.63:1 rather than by the page behind it, which is the pairing to check if it ever moves. Behind it sits `--focus-ring-halo`, the pale glow the design reference draws around every focused control.
 
 **Where that indicator is drawn depends on whether the control already has an edge.** A button, link, row or option has none, so `focus-ring` gives it a hairline `outline`. A form control has one, so `form-control` recolours **that** border and suppresses the ring: drawing both puts two blue edges a hairline apart, which reads as a rendering fault rather than as emphasis. That is the reason behind `CLAUDE.md` §8's rule that the two mixins are mutually exclusive.
 
@@ -992,7 +992,7 @@ The scrim carries `max-height: 100dvh` because `inset: 0` on a fixed box sizes i
 
 The body needs no `min-height: 0`: `overflow-y: auto` already zeroes a flex item's automatic minimum size. That is why this rule worked in `--drawer` for as long as it lived there, and hoisting it left the drawer with only the two declarations that make it a drawer.
 
-A submit button inside the body scrolls out of view on a short screen, which is how forms behave everywhere and leaves it reachable — the complaint was that it was **unreachable**. Moving the four form dialogs' buttons into the pinned `footer` would repurpose a slot the concept draws for a secondary link. Rejected outright: a bottom-sheet or full-screen dialog below a new breakpoint, for one layout that a viewport-relative cap already handles at every width.
+A submit button inside the body scrolls out of view on a short screen, which is how forms behave everywhere and leaves it reachable — the complaint was that it was **unreachable**. The four form dialogs still keep their buttons in the body; the design reference draws them in the pinned `footer`, and `design-plan.md` moves them there. Rejected outright: a bottom-sheet or full-screen dialog below a new breakpoint, for one layout that a viewport-relative cap already handles at every width.
 
 ### The records grid sizes to its rows, not to the pane
 
