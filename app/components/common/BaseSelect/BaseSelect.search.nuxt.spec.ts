@@ -70,7 +70,7 @@ describe('BaseSelect', () => {
       await input(wrapper).setValue('zzz')
       await nextTick()
 
-      expect(status()?.textContent?.trim()).toBe('No results for “zzz”')
+      expect(status()?.textContent?.trim()).toBe('No option matches “zzz”')
     })
 
     it('says nothing while there are options to show', async () => {

@@ -21,7 +21,8 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
   const dialogProps = computed(() => ({
     pending: pending.value,
     error: error.value,
-    confirmLabel: pending.value ? 'Deleting…' : 'Delete',
+    // Constant: the button's `loading` spinner says "in flight", and a label swap would jump its width
+    confirmLabel: 'Delete',
   }))
 
   // The dialog's subject changed, so the last attempt's message no longer applies. Covers both

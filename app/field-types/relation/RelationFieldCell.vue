@@ -1,6 +1,10 @@
 <template>
   <!-- A link is the most widely understood control there is, so a relation is one -->
-  <NuxtLink v-if="detailTo && linkedRecord" class="relation-cell__link" :to="detailTo">
+  <NuxtLink
+    v-if="detailTo && linkedRecord"
+    class="relation-cell__chip relation-cell__chip--link"
+    :to="detailTo"
+  >
     <BaseLinkedRecord :number="linkedRecord.number" :label="linkedRecord.label" />
   </NuxtLink>
   <!-- Nothing to open: the target is gone, so this is a statement rather than a control -->
@@ -11,7 +15,9 @@
   >
     {{ UNKNOWN_RECORD_LABEL }}
   </span>
-  <BaseLinkedRecord v-else :number="linkedRecord.number" :label="linkedRecord.label" />
+  <span v-else class="relation-cell__chip">
+    <BaseLinkedRecord :number="linkedRecord.number" :label="linkedRecord.label" />
+  </span>
 </template>
 
 <script setup lang="ts">
@@ -67,21 +73,31 @@ const detailTo = computed(() => {
 
 <style lang="scss" scoped>
 .relation-cell {
-  // The concept's link treatment: a rule under the word going from quiet to the full accent on
-  // hover. Revealed only on hover, the resting state reads as text that happens to be blue.
-  &__link {
-    color: var(--color-accent);
-    text-decoration: none;
-    border-bottom: 1px solid var(--color-accent-underline);
+  // The reference's record chip: a bordered plate holding the mono number and the label.
+  //
+  // **`inline`, never `inline-flex`** — inside `MultiValueCell` an atomic box is what
+  // `text-overflow: ellipsis` cannot reach into (`docs/decisions.md`). An inline box still
+  // paints its border and padding; its height is the font's content area plus the padding, so
+  // the block padding is what lifts it to SC 2.5.8's 24px (the reference draws 22, under it).
+  &__chip {
+    display: inline;
+    padding: rem(5) rem(8);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text);
+    background: var(--color-surface);
+  }
 
-    // Inline text, so no `--control-height` — the same call `.text-link` makes. The padding
-    // lifts a ~20px line box over SC 2.5.8's 24×24 floor without touching the row height.
-    padding-block: rem(2);
+  // A link, because opening a record is a place — so the chip lights up as one
+  &__chip--link {
+    text-decoration: none;
 
     @include focus-ring;
 
     &:hover {
-      border-bottom-color: var(--color-accent);
+      border-color: var(--color-border-strong);
+      background: var(--color-surface-hover);
     }
   }
 

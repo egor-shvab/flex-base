@@ -26,6 +26,16 @@ function mount(props: Partial<IPageProps> = {}) {
   })
 }
 
+type TPager = Awaited<ReturnType<typeof mount>>
+
+const previousOf = (wrapper: TPager) => wrapper.get('button[aria-label="Previous"]')
+const nextOf = (wrapper: TPager) => wrapper.get('button[aria-label="Next"]')
+const pagesOf = (wrapper: TPager) =>
+  wrapper
+    .findAll('.pagination__pager > *')
+    .slice(1, -1)
+    .map((cell) => cell.text())
+
 const rangeOf = async (props: Partial<IPageProps>) =>
   (await mount(props)).find('.pagination__count').text()
 
@@ -61,10 +71,34 @@ describe('the range label', () => {
 })
 
 describe('the pager', () => {
-  it('names the page and the total count of pages', async () => {
+  it('draws the window of pages between the two arrows', async () => {
+    const wrapper = await mount({ page: 5, pageCount: 10, total: 500, hasNext: true })
+
+    expect(pagesOf(wrapper)).toEqual(['1', '…', '4', '5', '6', '…', '10'])
+  })
+
+  it('marks the current page, and names every page for assistive tech', async () => {
+    const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
+    const current = wrapper.get('[aria-current="page"]')
+
+    expect(current.text()).toBe('2')
+    expect(current.attributes('aria-label')).toBe('Page 2')
+    expect(wrapper.find('.pagination__gap').exists()).toBe(false)
+  })
+
+  it('jumps to a page it is given, and ignores the current one', async () => {
     const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
 
-    expect(wrapper.find('.pagination__page').text()).toBe('Page 2 of 3')
+    await wrapper.get('button[aria-label="Page 3"]').trigger('click')
+    await wrapper.get('button[aria-label="Page 2"]').trigger('click')
+
+    expect(wrapper.emitted('update:page')).toEqual([[3]])
+  })
+
+  it('hides the gap from assistive tech', async () => {
+    const wrapper = await mount({ page: 5, pageCount: 10, total: 500, hasNext: true })
+
+    expect(wrapper.get('.pagination__gap').attributes('aria-hidden')).toBe('true')
   })
 
   /**
@@ -79,34 +113,30 @@ describe('the pager', () => {
 
   it('offers no way back from the first page', async () => {
     const wrapper = await mount({ page: 1, pageCount: 3, total: 120, hasNext: true })
-    const [previous, next] = wrapper.findAll('button')
 
-    expect(previous?.attributes('disabled')).toBeDefined()
-    expect(next?.attributes('disabled')).toBeUndefined()
+    expect(previousOf(wrapper).attributes('disabled')).toBeDefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeUndefined()
   })
 
   it('offers no way on from the last page', async () => {
     const wrapper = await mount({ page: 3, pageCount: 3, total: 120 })
-    const [previous, next] = wrapper.findAll('button')
 
-    expect(previous?.attributes('disabled')).toBeUndefined()
-    expect(next?.attributes('disabled')).toBeDefined()
+    expect(previousOf(wrapper).attributes('disabled')).toBeUndefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeDefined()
   })
 
   it('disables both ends when there is only one page', async () => {
     const wrapper = await mount({ page: 1, pageCount: 1, total: 3 })
 
-    for (const button of wrapper.findAll('button')) {
-      expect(button.attributes('disabled')).toBeDefined()
-    }
+    expect(previousOf(wrapper).attributes('disabled')).toBeDefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeDefined()
   })
 
   it('steps one page at a time in each direction', async () => {
     const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
-    const [previous, next] = wrapper.findAll('button')
 
-    await previous?.trigger('click')
-    await next?.trigger('click')
+    await previousOf(wrapper).trigger('click')
+    await nextOf(wrapper).trigger('click')
 
     expect(wrapper.emitted('update:page')).toEqual([[1], [3]])
   })
@@ -123,10 +153,10 @@ describe('a capped total', () => {
     )
   })
 
-  it('drops the page count, which a capped total cannot establish', async () => {
+  it('draws no last page, which a capped total cannot establish', async () => {
     const wrapper = await mount({ page: 3, pageCount: 20, total: 1000, totalCapped: true })
 
-    expect(wrapper.find('.pagination__page').text()).toBe('Page 3')
+    expect(pagesOf(wrapper)).toEqual(['1', '2', '3', '4', '…'])
   })
 
   /**
@@ -141,15 +171,11 @@ describe('a capped total', () => {
       totalCapped: true,
       hasNext: true,
     })
-    const next = wrapper.findAll('button')[1]
-
-    expect(next?.attributes('disabled')).toBeUndefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeUndefined()
   })
 
   it('stops offering Next once a page comes back short', async () => {
     const wrapper = await mount({ page: 21, pageCount: 20, total: 1000, totalCapped: true })
-    const next = wrapper.findAll('button')[1]
-
-    expect(next?.attributes('disabled')).toBeDefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeDefined()
   })
 })

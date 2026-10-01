@@ -34,17 +34,17 @@ Nuxt's import protection rejects it in app and shared code. The Vue layer reache
 
 `app/utils/api-error.ts` imports `FetchError` from `ofetch` by name; without the declaration it resolves only through npm hoisting of Nuxt's tree, so a hoisting change would silently break `typecheck`. `vue-router` is deliberately **not** declared — nothing imports it, and Nuxt owns the version.
 
-### `@iconify-json/mdi` is declared even though nothing imports it
+### `@iconify-json/material-symbols` is declared even though nothing imports it
 
-`@nuxt/icon`'s default `serverBundle: 'auto'` serves an installed collection from disk and otherwise falls back to the public Iconify API — so without the package every icon is a runtime fetch of a third-party host, on a render path with no fallback if it is slow or unreachable. Dropping it fails no build; it just quietly puts the icons back on the network.
+The app draws one icon family, Material Symbols in its outline-rounded names (`material-symbols:edit-outline-rounded`), because that is the design reference's family; a second collection would put two glyph styles side by side. `@nuxt/icon`'s default `serverBundle: 'auto'` serves an installed collection from disk and otherwise falls back to the public Iconify API — so without the package every icon is a runtime fetch of a third-party host, on a render path with no fallback if it is slow or unreachable. Dropping it fails no build; it just quietly puts the icons back on the network. The price is size: the whole collection is bundled into the server output (~8 MB).
 
 No `icon: { … }` block in `nuxt.config.ts`: `serverBundle: 'local'` would only restate what `auto` already resolves to, and would not keep the remote fallback away if the package were ever dropped.
 
-### Neither `@nuxt/fonts` nor `@nuxt/image` is installed
+### Webfonts come from `@fontsource`, and `@nuxt/image` is not installed
 
-Neither has anything to work on. The app ships no webfonts, and `@nuxt/fonts` tries to resolve the `Segoe UI` / `Roboto` names in `_reset.scss`'s system stack from font providers. It renders no images either — no `<NuxtImg>`, no `<img>`, and `public/` holds only a favicon — so `@nuxt/image` would be a module in the build graph and a runtime dependency paying for nothing.
+Archivo and IBM Plex Mono are npm packages, and `nuxt.config.ts` lists one CSS file per weight in use. Each file declares every subset behind a `unicode-range`, so the browser downloads only what a page's text needs, and nothing is fetched from a font host — the same reason `@iconify-json/*` is installed. The Google Fonts `<link>` the design reference uses was rejected for that third-party request on the render path; `@nuxt/fonts` was rejected as a module whose job — resolving families from providers — is done by two import lines. **A weight that is not imported is synthesised by the browser**, so `font-weight` in a component stays within the imported set (Archivo 400–700, Plex Mono 400–500), or a new import comes with it.
 
-Re-add either if and when there is a real webfont or a real image, and the rule it carried in `CLAUDE.md` comes back with it — not before. Contrast `@iconify-json/mdi` above, which nothing imports and which is kept precisely because dropping it changes what ships.
+The app renders no images — no `<NuxtImg>`, no `<img>`, and `public/` holds only a favicon — so `@nuxt/image` would be a module in the build graph and a runtime dependency paying for nothing. Re-add it when a real image exists, and the rule it carried in `CLAUDE.md` comes back with it.
 
 ### The built output is started by one launcher, and its import must stay dynamic
 
@@ -601,6 +601,8 @@ Unconditional `deep` was rejected: it costs nothing on a scalar (`traverse` retu
 
 It has to render when data fetching is exactly what failed.
 
+**"Go back" reads vue-router's `history.state.back`**, never `window.history.back()`: a cold-loaded error URL has no in-app entry behind it, and the browser's Back would leave the app for wherever the user was before. With no entry it falls back to Home, the one place that always exists.
+
 It exists because both inner pages forwarded the upstream `statusCode` but hard-coded `statusMessage: 'Table not found'` — so a malformed `?search=`/`?sort=` returned 400, failed Nuxt's `is404` check, and rendered the 500 template claiming a table that had just loaded did not exist.
 
 **Three branches, because three things go wrong**, and the same mistake had been made again one status along: everything that was not a 404 read "part of that web address could not be read", so a **5xx** blamed the user's link for a fault at our end. The records page wraps its record fetch in the same `useAsyncData`, so a failing endpoint genuinely reaches this boundary. `toPageError` decides the wording for all three and the page echoes it, so the layers cannot drift — which is the half that was missing before: `error.vue` read `statusMessage` on the 404 path only, and every other message it rendered was its own.
@@ -667,7 +669,7 @@ The View action in a row could have been a button emitting `view`, as every othe
 
 ### The dialog's title is static
 
-`Record details`, with `{table} · #{number}` as the first line of the body — not the label the user clicked. A record's label is a property of the **relation field** (`options.labelFieldKey`), not of the table it lives in, so it is only knowable on the click path: a shared `?detail=` link could not reproduce it, and the same dialog would carry two titles depending on how it was reached. The label is still on screen — it is one of the record's own values.
+`Record details`, with `{table} · #{number}` as the header's mono subtitle — not the label the user clicked. A record's label is a property of the **relation field** (`options.labelFieldKey`), not of the table it lives in, so it is only knowable on the click path: a shared `?detail=` link could not reproduce it, and the same dialog would carry two titles depending on how it was reached. The label is still on screen — it is one of the record's own values.
 
 ---
 
@@ -746,7 +748,7 @@ Rejected: keeping the duplicate; and having the atom import the helper from its 
 
 ### In `multiple`, the control shows a count, not chips
 
-One selection reads as itself; several read as "3 selected". Chips were rejected on a structural argument: they make the control's height a function of its content, and **nothing in the positioning layer observes that**. `useAnchoredPosition` measures on open, on `resize` and on capture-phase `scroll` — the moment a chip wrapped to a second row the control would grow, the panel would not move, and it would visibly detach from the field. Fixing that means a `ResizeObserver` in a composable whose other consumer has no use for one.
+The first selection reads as itself and the rest as a count — `Enterprise +2` on screen, "Enterprise and 2 more" to assistive tech, since the overlay is the trigger's accessible name and a bare `+2` reads as nothing. The counter never truncates; the value gives way to it. Chips were rejected on a structural argument: they make the control's height a function of its content, and **nothing in the positioning layer observes that**. `useAnchoredPosition` measures on open, on `resize` and on capture-phase `scroll` — the moment a chip wrapped to a second row the control would grow, the panel would not move, and it would visibly detach from the field. Fixing that means a `ResizeObserver` in a composable whose other consumer has no use for one.
 
 Independently sufficient: the control height is a design invariant, and in the filter drawer every control below a growing chip field would shift down as the user picks — moving the control they were aiming at.
 
@@ -766,7 +768,7 @@ The shell's returns early while it finds itself inside an `inert` subtree, which
 
 A popover must never eat an Escape that belongs to the dialog around it either. **`usePopover` registers no Escape listener and must never grow one** — the key is the caller's, in one of two spellings:
 
-- **Where focus lives inside the panel, `@keydown.esc.stop` on the panel says so structurally** — the panel only exists while open, so the handler cannot fire otherwise. That is `BaseColorPicker` and `BaseSelect`'s non-searchable branch. Two document-level listeners could not be ordered instead: `stopPropagation` between listeners on the _same_ node does nothing, and registration order is an accident of mount order.
+- **Where focus lives inside the panel, `@keydown.esc.stop` on the panel says so structurally** — the panel only exists while open, so the handler cannot fire otherwise. That is `BaseColorPicker`, `RecordRowMenu` and `BaseSelect`'s non-searchable branch. Two document-level listeners could not be ordered instead: `stopPropagation` between listeners on the _same_ node does nothing, and registration order is an accident of mount order.
 - **Where the control keeps focus outside its panel, the modifier is actively wrong.** A combobox holds focus in its input whether the list is open or shut, so an unconditional `.stop` would mean _the filter drawer can never be closed by keyboard while any searchable select has focus_. The condition is not expressible as a modifier, so that branch handles the key in JS and calls `stopPropagation()` only when `open`.
 
 The invariant is the sentence, not the spelling.
@@ -819,9 +821,9 @@ While a request is in flight the previous results stay on screen under an explic
 
 `loadOptions` is passed through **only when `searchable`**. Handing it a loader nothing can call would leave a half-built async machine — `status` pinned at `idle`, `retry` unreachable, the abort and request-id pair dead code. One ternary, and "never ship a dead control" holds a layer below the UI. Rejected: letting `loadOptions` imply `searchable`, which would re-couple the two props and silently override an explicit `false`.
 
-### The active option's indicator is an inset outline, and only the keyboard creates one
+### The active option's indicator is a 2px accent edge, and only the keyboard creates one
 
-Under `aria-activedescendant` the active option is not focused, so `:focus-visible` — and with it the `focus-ring` mixin — can never match it. A background wash fails twice over: `--color-surface-hover` on `--color-surface` is ~1.05:1, under SC 1.4.11's 3:1 floor for a non-text indicator, and it is indistinguishable from the pointer hover on the same row. Hence a real outline in `--color-focus`, written out rather than `@include`d, with a negative offset so the scrolling list cannot clip it.
+Under `aria-activedescendant` the active option is not focused, so `:focus-visible` — and with it the `focus-ring` mixin — can never match it. A background wash alone fails twice over: `--color-surface-hover` on `--color-surface` is ~1.05:1, under SC 1.4.11's 3:1 floor for a non-text indicator, and it is indistinguishable from the pointer hover on the same row. Hence the pointer's grey **plus** an inset 2px `--color-accent` edge (5.67:1 on that grey), written out rather than `@include`d — inset, so the scrolling list cannot clip it. The edge is a `box-shadow`, which `forced-colors` does not paint, so that mode gets an inset outline instead; dropping the media block looks like dead code and leaves those users no cursor at all.
 
 **`activeIndex === -1` is a real state, not just the value before the first open.** The cursor is a position the keyboard asked for: ↑/↓ and Page (through `moveCursor`, which _reveals_ on the current value before it walks), Home/End, type-ahead, and a term narrowing the list. Opening does not create one — a ring drawn before the user has navigated reads as a choice already made — and neither does the pointer or a set of options merely arriving, which is why the re-clamp watcher returns early rather than falling through to `nextEnabledIndex(0, 1)`. An arrow that _opens_ the list does place the cursor: it is a navigation key, and the alternative costs a press on the most common keyboard path.
 
@@ -829,7 +831,7 @@ Three consequences to leave alone. **`Enter` with no cursor does nothing** — t
 
 ### The blank option is a placeholder, and the wire format still says `''`
 
-`— Select —` / `All` are placeholder text plus `clearable`, never a real `<option value="">`: a native select has nowhere but the option list to say "nothing chosen", and a listbox does. Clearing still emits `''`, which is why `blankIsNull` in `adapters.ts` and the BOOLEAN filter's adapters need no adjustment, `isFilterValueEmpty` drops it, and a shared filter URL means what it always meant.
+`— Select —` / `All` are placeholder text plus `clearable`, never a real `<option value="">`: a native select has nowhere but the option list to say "nothing chosen", and a listbox does. Clearing still emits `''`, which is why `blankIsNull` in `adapters.ts` and the BOOLEAN filter's adapters need no adjustment — the BOOLEAN filter's All segment emits the same `''` — `isFilterValueEmpty` drops it, and a shared filter URL means what it always meant.
 
 `FieldFormModal`'s **Type** select is the exception that proves the rule — it has no blank state at all, its model is `TFieldType`, and it is therefore neither clearable nor placeholdered.
 
@@ -862,15 +864,13 @@ It used to, because Chrome ignores `line-height` on `<select>` and left it 1px t
 
 ### A coloured badge carries a dot, not a border
 
-`BaseBadge` draws no border: a border's only job was surviving the hovered row, and the lightened row wash carries that instead. What is left is fill, word, and an 8px dot in the `-fg` step.
+`BaseBadge` draws no border: a border's only job was surviving the hovered row, and the lightened row wash carries that instead. What is left is fill, word, and a 6px square dot in the palette's `-dot` step — the one step that clears 3:1 on both white and the row wash, where the fill all but vanishes.
 
 The dot is a `::before` with **empty** `content`, not an `<i>`: an empty pseudo-element contributes no accessible object, which is correct because the colour is redundant with the word beside it, and `RecordsTable` renders one badge per SELECT cell so a real node would cost one per cell. A glyph (`content: '●'`) is wrong twice over — `CLAUDE.md` §8 bans text glyphs as icons, and a non-empty `content` string _does_ reach the accessibility tree.
 
 The guard is `variant === 'chip' && color !== undefined`, so `--label` never draws one: it is a metadata marker with no hue to signal. **Do not "simplify" it to `color !== undefined`** — a SELECT cell always resolves to a real hue (`badgeColorFor` falls back to `DEFAULT_BADGE_COLOR`, so a renamed choice renders grey with a grey dot), which makes the first half look redundant, and `--label` is what the second half is for.
 
-The padding is `rem(2) rem(8)`, absorbing the pixel the border gave up so the box keeps the size the row height is built around. Do not "tidy" it back to a round number.
-
-`BaseColorPicker` keeps the border on its swatches, and that asymmetry is the point: a swatch is pure colour with no word beside it, so its edge is the only thing bounding it. It is the sole consumer of the `-border` step.
+`BaseColorPicker` keeps the border on its swatches, and that asymmetry is the point: a swatch is pure colour with no word beside it, so its edge is the only thing bounding it. It reads the same `-dot` step as that edge.
 
 ### The badge palette is selected in JavaScript, by token name
 
@@ -882,7 +882,7 @@ It displays a **value** — SELECT choices are user data. `--label` is the upper
 
 ### Never ship a dead control
 
-The header deliberately has no global "Search everything" box: cross-table search is not built, and a dead input is worse than a gap. The principle outlives the instance — if cross-table search is built, the box arrives with it.
+The shell deliberately has no global "Search everything" box, though the reference draws one in the sidebar: cross-table search is not built, and a dead input is worse than a gap. The principle outlives the instance — if cross-table search is built, the box arrives with it.
 
 ---
 
@@ -890,23 +890,23 @@ The header deliberately has no global "Search everything" box: cross-table searc
 
 ### The token layer is three layers, and the build enforces the boundary
 
-`_palette.scss` holds primitives as SCSS variables. Because `additionalData` injects only `functions` and `mixins`, a component **cannot** reference `$blue-600` without an `@use` it will never have. Components consume `var(--color-*)` and nothing else — a compile-time fact, not a convention.
+`_palette.scss` holds primitives as SCSS variables. Because `additionalData` injects only `functions` and `mixins`, a component **cannot** reference `$green-600` without an `@use` it will never have. Components consume `var(--color-*)` and nothing else — a compile-time fact, not a convention.
 
 ### Surfaces are split even where two share a value
 
-`--color-surface-hover` / `-disabled` / `-muted` are separate tokens with the same value, and `--color-surface-row-hover` / `--color-canvas` are a second such pair. The previous single `--color-bg` meant page background, row hover, disabled fill and chip fill at once; re-collapsing them just relocates that bug.
+`--color-surface-hover` / `-disabled` / `-muted` are separate tokens with the same value. The previous single `--color-bg` meant page background, row hover, disabled fill and chip fill at once; re-collapsing them just relocates that bug.
 
 ### The row wash is not the control wash
 
-`--color-surface-row-hover` (`$gray-50`) is lighter than `--color-surface-hover` (`$gray-100`) because a hovered row is the one surface a **badge** has to survive. Every badge fill sits within 1.05:1 of `$gray-100`, so a row painted at the control-hover value erases the badge outright. Raising the badge fills instead would break their 4.5:1 text pairings; giving the badge a border back is what that change removed. The row moved because it is the only one of the three with no other job.
+`--color-surface-row-hover` (`$gray-25`) is lighter than `--color-surface-hover` (`$gray-100`) because a hovered row is the one surface a **badge** has to survive. Every badge fill sits within ~1.05:1 of `$gray-100`, and the palette's `-dot` step clears 3:1 on `$gray-25` (3.11:1 at the lowest) but not on `$gray-100` (2.85:1) — a row painted at the control-hover value erases the badge outright. Raising the badge fills instead would break their 4.5:1 text pairings; giving the badge a border back is what that change removed. The row moved because it is the only one of the three with no other job.
 
 ### The border ramp is four steps, by job
 
-`-subtle` is a rule **inside** a surface (a table's row divider), plain is structural (the box itself), `-strong` is a heavier structural job (a pinned column against columns sliding under it), and `-control` is the only one carrying a contrast floor: a control's outline is the only thing identifying the control, so it needs 3:1 non-text. Neither `$gray-200` (1.3:1) nor `$gray-300` (1.66:1) clears that — `$gray-400` (3.17:1) exists for exactly this. A row rule has no floor at all, which is why `-subtle` can be as light as it is.
+`-subtle` is a rule **inside** a surface (a table's row divider), plain is structural (the box itself), `-strong` is a heavier structural job (a dialog's edge against the scrim), and `-control` is the only one carrying a contrast floor: a control's outline is the only thing identifying the control, so it needs 3:1 non-text. Neither `$gray-200` (1.27:1) nor `$gray-300` (1.52:1) clears that — `$gray-450` (3.29:1) exists for exactly this, and is why an input here is darker-edged than the reference draws it (its `#d1d1d6` is `$gray-300`). A row rule has no floor at all, which is why `-subtle` can be as light as it is.
 
 ### The accent and danger tints are opaque
 
-Both were `rgb(… / 8%)`. A translucent tint composites against whatever is under it, and each of these lands on `--color-surface` _and_ `--color-canvas` — the ghost button's hover, the filter chip and the error banner all appear on both. Flat steps make the two renderings identical; the danger banner on canvas went 4.66:1 → 4.92:1 as a side effect. The comment that used to justify the alpha form ("a custom property's alpha cannot be modified in CSS") explained why they were _spelled out_, not why they were translucent.
+Both were `rgb(… / 8%)`. A translucent tint composites against whatever is under it, and each of these lands on `--color-surface` _and_ `--color-canvas` — the ghost button's hover, the filter chip and the error banner all appear on both. Flat steps make the two renderings identical. The comment that used to justify the alpha form ("a custom property's alpha cannot be modified in CSS") explained why they were _spelled out_, not why they were translucent.
 
 ### The sort icon is muted with `opacity`, not a colour step
 
@@ -914,7 +914,7 @@ Both were `rgb(… / 8%)`. A translucent tint composites against whatever is und
 
 The value is `0.35`, deliberately under the 3:1 SC 1.4.11 bar — a considered trade, whose reason and revisit trigger are in `limitations.md`. The `BaseInput` rule still stands for **text**, which needs 4.5:1 and cannot reach it through transparency.
 
-The glyph is `mdi:code-tags` under `transform: rotate(90deg)`, not the nominally correct `mdi:unfold-more-horizontal`. Turned a quarter turn, `code-tags` is a chevron pointing up stacked over one pointing down, and its two halves are more open and further apart — which is what makes it read as an affordance at 14px. `--active` resets the rotation, because the sorted column's arrow must stay upright.
+The glyph is `swap_vert` at rest and `arrow_upward` / `arrow_downward` on the sorted column — the reference's own three.
 
 ### Breakpoints live in `_mixins.scss`, in `em`
 
@@ -924,13 +924,13 @@ A media query cannot read a custom property, and `additionalData` injects that f
 
 `_reset.scss` carries a zero-specificity baseline — `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` — so nothing can end up with no ring, and any component rule overrides it without a fight.
 
-**The state is two layers, and the split is the load-bearing part.** The indicator is `--color-focus` — `$blue-500`, a step lighter than the accent so it reads as a signal rather than a second border, and floored by the halo drawn against it at 3.63:1 rather than by the page behind it, which is the pairing to check if it ever moves. Behind it sits `--focus-ring-halo`, the pale glow the design reference draws around every focused control.
+**The state is two layers, and the split is the load-bearing part.** The indicator is `--color-focus` — `$green-focus`, a step lighter than the accent so it reads as a signal rather than a second border, and floored by the halo drawn against it at 3.23:1 rather than by the page behind it, which is the pairing to check if it ever moves. The reference's own focus green, `#2f9e6b`, is 2.93:1 on that halo, which is why the step is darker than drawn. Behind it sits `--focus-ring-halo`, the pale glow the design reference draws around every focused control.
 
-**Where that indicator is drawn depends on whether the control already has an edge.** A button, link, row or option has none, so `focus-ring` gives it a hairline `outline`. A form control has one, so `form-control` recolours **that** border and suppresses the ring: drawing both puts two blue edges a hairline apart, which reads as a rendering fault rather than as emphasis. That is the reason behind `CLAUDE.md` §8's rule that the two mixins are mutually exclusive.
+**Where that indicator is drawn depends on whether the control already has an edge.** A button, link, row or option has none, so `focus-ring` gives it a hairline `outline`. A form control has one, so `control-focus` (which `form-control` includes) recolours **that** border and suppresses the ring: drawing both puts two edges a hairline apart, which reads as a rendering fault rather than as emphasis. That is the reason behind `CLAUDE.md` §8's rule that the two mixins are mutually exclusive.
 
-That leaves fields with **no** outline, and both of their signals are ones `forced-colors` mode erases: every border resolves to the same system colour and `box-shadow` is not painted. `form-control` restores a real outline inside `@media (forced-colors: active)` for exactly that reason. Removing it looks like dead code in every normal rendering and takes the focus state away from the users least able to spare it. The halo is a `box-shadow`, which means an ancestor's `overflow` can clip it and a component's own shadow outranks it in the zero-specificity baseline — both acceptable **only** because it carries nothing. Never move the indicator into the shadow to save a declaration: the states where the glow silently vanishes are exactly the ones where a ring is needed most, a truncating table cell first among them.
+That leaves fields with **no** outline, and both of their signals are ones `forced-colors` mode erases: every border resolves to the same system colour and `box-shadow` is not painted. `control-focus` restores a real outline inside `@media (forced-colors: active)` for exactly that reason. Removing it looks like dead code in every normal rendering and takes the focus state away from the users least able to spare it. The halo is a `box-shadow`, which means an ancestor's `overflow` can clip it and a component's own shadow outranks it in the zero-specificity baseline — both acceptable **only** because it carries nothing. Never move the indicator into the shadow to save a declaration: the states where the glow silently vanishes are exactly the ones where a ring is needed most, a truncating table cell first among them.
 
-Two consequences worth knowing. A component that sets its own `box-shadow` **and** wants the glow must compose them in one declaration — `pages/index.vue`'s table card is the only such site. A control whose ring is inset (a negative offset, because it sits inside another control) sets `--focus-ring-halo: none`, since a glow there spreads outward over whatever encloses it — `BaseSelect`'s clear button is the only such site.
+Two consequences worth knowing. A component that sets its own `box-shadow` **and** wants the glow must compose them in one declaration, or the glow replaces the shadow. A control whose ring is inset (a negative offset, because it sits inside another control) sets `--focus-ring-halo: none`, since a glow there spreads outward over whatever encloses it — `BaseSelect`'s clear button is the only such site.
 
 ### A truncating cell clips with `overflow: clip`, not `hidden`
 
@@ -948,7 +948,7 @@ The focus state's geometry did not move with it: it paints outside the border bo
 
 ### Every sized control is one height; `link` alone has none
 
-There is a single control height and no secondary size. `primary`/`secondary`/`danger`/`ghost` take it as `min-height`, `icon` takes it on both axes, `BaseCheckbox` gives it to the whole label row, `AppSidebar` to its items, `RecordsTable` to its sort button. `--link` is the exception and not an oversight: it is a text run with the semantics of a button, and it is what sizes `.table-card__actions` and `.field-row` — giving it the full height would grow both surfaces for no gain.
+There is a single control height for anything that edits or commits a value. The one tier below it is **compact chrome** — the pager's 30px cells and a chip's 24px remove button — taken from the design reference and still ≥ 24 on both axes; a control joins it only by being navigation or a remove inside another surface, never to save room. `primary`/`secondary`/`danger`/`ghost` take it as `min-height`, `icon` takes it on both axes, `BaseCheckbox` gives it to the whole label row, `AppSidebar` to its items, `RecordsTable` to its sort button. `--link` is the exception and not an oversight: it is a text run with the semantics of a button, and it is what sizes `.table-card__actions` and `.field-row` — giving it the full height would grow both surfaces for no gain.
 
 Heights _derived_ from the control are all in one direction — a control plus its own inset — and are written that way rather than as literals. Anything that restates the number by hand drifts the next time the token moves, which is exactly what happened at 44px.
 
@@ -960,21 +960,19 @@ Unfloored, `--link` is ~18px tall, and it is what every row action uses. Row act
 
 ### A ghost button's padding is spacing, so the gaps beside it are unequal on purpose
 
-`ghost` is `padding: 0 rem(12)` over a transparent background: nothing paints at its box edge, so that padding reads as part of the gap. In the records header a uniform `cluster` at `rem(16)` therefore put **40px** of visible space between Settings and Filters (12 + 16 + 12) and **28px** between Filters and the bordered search box (12 + 16 + 0) — the two controls that belong together looked the furthest apart.
-
-The ghost pair sits in its own `cluster(4)`: 12 + 4 + 12 is the same 28. **The two gaps in that row are deliberately different numbers producing equal space** — normalising them back to one value is the regression, and it will look like a tidy-up.
+`ghost` is `padding: 0 rem(12)` over a transparent background: nothing paints at its box edge, so that padding reads as part of the gap. Space a ghost from its neighbour's **ink**, not its box: in the records toolbar the ghost Filters sits `rem(10)` from the bordered search, which reads as 22px — the reference's own spacing — and two ghosts side by side need far less than two bordered controls would. **A gap next to a ghost is deliberately a different number from the gaps around it** — normalising it to the row's value is the regression, and it will look like a tidy-up. A `selected` ghost paints its plate, so its padding stops being gap.
 
 ### The header group needs `min-width: 0`, same as the panes
 
-The two table headers group the `<h1>` with its primary action, so the **group** — not the title — is `page-header`'s flex item. `page-title`'s own `min-width: 0` lets the text shrink _inside_ the group and does nothing for the group itself. A flex item's automatic minimum is its content-based minimum, and a nowrap flex container's min-content size is the sum of its items' contributions — for a `white-space: nowrap` heading, the whole untruncated table name. `overflow: hidden` on the `<h1>` does not rescue it: `overflow` zeroes a box's own _automatic minimum_, not its min-content _contribution_ to its parent. It reads like a redundant line and is not.
+`page-title-row` puts the `<h1>` beside its primary action, and where the title shares a group with a second line (Home's meta line) the **group** — not the title — is the row's flex item. `page-title`'s own `min-width: 0` lets the text shrink _inside_ the group and does nothing for the group itself. A flex item's automatic minimum is its content-based minimum, and a nowrap flex container's min-content size is the sum of its items' contributions — for a `white-space: nowrap` heading, the whole untruncated table name. `overflow: hidden` on the `<h1>` does not rescue it: `overflow` zeroes a box's own _automatic minimum_, not its min-content _contribution_ to its parent. It reads like a redundant line and is not.
 
-**Rejected: `flex: 1` on the group.** That implies `flex-basis: 0`, so the group's base size stops being its content, it never reaches the wrap threshold, and the title starts ellipsising at widths where it would have fitted whole.
+**Rejected: `flex: 1` on the group.** That implies `flex-basis: 0`, so the group's base size stops being its content and it pushes the action to the far edge, where the reference keeps it beside the title.
 
 The primary button takes `flex: none`, through a page-owned class rather than a bare `.base-button` selector — a page must not reach for another component's internal class name. Shrink is distributed in proportion to flex base size, so an unfrozen button reaches its min-content and wraps its label onto two lines; freezing it sends every pixel of the deficit to the title, which is the one child that can absorb it.
 
 ### `text-link` is a class, not a mixin
 
-It had three `@include`s and no per-site variation, which is a shared block, not a fragment. Converting the two page-header links to `BaseButton` with `to` was the point rather than a side effect: at 14px with no padding they were ~21px tall, standing alone in an action cluster rather than inline in prose, so SC 2.5.8's inline exception did not cover them. `.text-link` now carries the one look — a link _inside a sentence_ — and anything standing on its own in an action row is a `BaseButton` with `to`.
+It had three `@include`s and no per-site variation, which is a shared block, not a fragment. Converting the two header links to `BaseButton` with `to` was the point rather than a side effect: at 14px with no padding they were ~21px tall, standing alone in an action cluster rather than inline in prose, so SC 2.5.8's inline exception did not cover them. `.text-link` now carries the one look — a link _inside a sentence_ — and anything standing on its own in an action row is a `BaseButton` with `to`.
 
 ### The viewport lock lives in the shell, not in the records page
 
@@ -992,7 +990,7 @@ The scrim carries `max-height: 100dvh` because `inset: 0` on a fixed box sizes i
 
 The body needs no `min-height: 0`: `overflow-y: auto` already zeroes a flex item's automatic minimum size. That is why this rule worked in `--drawer` for as long as it lived there, and hoisting it left the drawer with only the two declarations that make it a drawer.
 
-A submit button inside the body scrolls out of view on a short screen, which is how forms behave everywhere and leaves it reachable — the complaint was that it was **unreachable**. The four form dialogs still keep their buttons in the body; the design reference draws them in the pinned `footer`, and `design-plan.md` moves them there. Rejected outright: a bottom-sheet or full-screen dialog below a new breakpoint, for one layout that a viewport-relative cap already handles at every width.
+A form dialog's actions sit in the pinned `footer` — Cancel, then the primary — so the submit stays on screen however long the form is. The submit button is outside its `<form>` and joined to it by the `form` attribute (a `useId()`), which also keeps Enter in a field submitting: a button associated that way is still the form's default button. The server error banner goes first inside the form, where a failed submit is seen. Below `below-compact` every variant becomes a bottom sheet, and the same rule holds there: the sheet is capped at `max-height: 90%` of the scrim's box, never a viewport `calc()`, and only its body scrolls. It has no grabber — one that cannot be swiped would be a dead control. The entry animation leaves nothing behind (`animation-fill-mode: none`): a `transform` resting on the dialog would become the containing block of the colour picker's `position: fixed` panel inside it.
 
 ### The records grid sizes to its rows, not to the pane
 
@@ -1014,7 +1012,7 @@ The action buttons' flex row lives on a `div` **inside** the `<td>`, not on the 
 
 Its left edge is a `box-shadow` for the same reason the sticky header's rule is. The hairline is permanent rather than appearing on scroll — a scroll-aware shadow would put a scroll listener and reactive state into a component that is otherwise pure CSS, and in this design borders already do the structural work.
 
-It is the one divider drawn in `--color-border-strong`: separating a frozen column from columns sliding underneath it is a heavier job than ruling off a row. **A tinted fill was rejected** — `--color-surface-muted` equals `--color-surface-hover`, so filling the column would swallow the row hover exactly where the buttons are, and `--color-accent-tint` reads as "selected" everywhere else in the app. **A wider gutter was tried and dropped**: the extra 4px read as a misalignment against the header label rather than as breathing room. Every cell now takes the same inset, with no per-cell exception.
+The hairline is only `--color-border-subtle`; `--shadow-pinned-edge`, cast leftwards, is what separates a frozen column from columns sliding underneath it — like every shadow here it rides with a real line, never alone. **A tinted fill was rejected** — `--color-surface-muted` equals `--color-surface-hover`, so filling the column would swallow the row hover exactly where the buttons are, and `--color-accent-tint` reads as "selected" everywhere else in the app. **A wider gutter was tried and dropped**: the extra 4px read as a misalignment against the header label rather than as breathing room. Every cell now takes the same inset, with no per-cell exception.
 
 The Actions corner header still needs its own padding rule, because it is the only header with no sort button to carry the inset. It is nested inside `thead th` and spells its class out rather than being written as a sibling `&__…` block: that is specificity, not style — `.records-table thead th` outranks a bare class, so the same declarations written as a sibling block are silently dead. Moving it out of its parent will not error; it will simply stop applying.
 

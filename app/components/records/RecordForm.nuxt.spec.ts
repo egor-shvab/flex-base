@@ -148,12 +148,13 @@ describe('RecordForm', () => {
       expect(wrapper.get('input').element.value).toBe('')
     })
 
-    it('shows a multi SELECT’s selection as a count', async () => {
+    it('shows a multi SELECT’s selection as its first value and a count', async () => {
       const wrapper = await form([asMultiple(selectField(['Won', 'Lost']))], {
         stage: ['Won', 'Lost'],
       })
 
-      expect(wrapper.get('.base-select__value').text()).toBe('2 selected')
+      expect(wrapper.get('.base-select__value .base-badge').text()).toBe('Won')
+      expect(wrapper.get('.base-select__more').text()).toBe('+1')
     })
   })
 

@@ -1,5 +1,7 @@
 <template>
-  <span :title="typeof value === 'string' ? value : undefined">{{ formatted }}</span>
+  <span class="timestamp-cell" :title="typeof value === 'string' ? value : undefined">{{
+    formatted
+  }}</span>
 </template>
 
 <script setup lang="ts">
@@ -19,3 +21,12 @@ const formatted = computed(() =>
   typeof props.value === 'string' ? formatTimestamp(props.value) : String(props.value),
 )
 </script>
+
+<style lang="scss" scoped>
+// Machine-made metadata rather than something the user typed, so mono and secondary
+.timestamp-cell {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+</style>

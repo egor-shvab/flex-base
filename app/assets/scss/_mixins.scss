@@ -6,7 +6,7 @@
 //
 // What each mixin is for is `docs/styling.md`; when to reach for one is `CLAUDE.md` §8.
 
-/// The one breakpoint: below it the sidebar stops being persistent. Here rather than in
+/// The shell breakpoint: below it the sidebar stops being persistent. Here rather than in
 /// `_variables.scss` because a media query cannot read a custom property, and in `em` so it
 /// honours the browser's font-size setting.
 $breakpoint-shell: 56.25em; // 900px at the 16px default
@@ -14,6 +14,17 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 /// Applies its content only below the shell breakpoint.
 @mixin below-shell {
   @media (max-width: $breakpoint-shell) {
+    @content;
+  }
+}
+
+/// The compact layout: below it a breadcrumb trail becomes one step back, and every overlay
+/// arrives from the bottom edge as a sheet.
+$breakpoint-compact: 40em; // 640px at the 16px default
+
+/// Applies its content only below the compact breakpoint.
+@mixin below-compact {
+  @media (max-width: $breakpoint-compact) {
     @content;
   }
 }
@@ -45,9 +56,8 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 }
 
 /// A horizontal cluster — the row counterpart to `stack`, for controls sharing a centre
-/// line. No `flex-wrap`: every cluster in the app keeps its controls on one line, and the
-/// row that must wrap is `page-header`, which bakes it in. Add it after the include if a
-/// caller ever needs it.
+/// line. No `flex-wrap`: every cluster in the app keeps its controls on one line — a page's
+/// title row truncates the title instead. Add it after the include if a caller ever needs it.
 @mixin cluster($gap: 16) {
   display: flex;
   align-items: center;
@@ -68,7 +78,7 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 /// only — collapsing a hover or a ring in would put them on surfaces that are not interactive.
 @mixin surface-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
@@ -80,19 +90,26 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
-  padding: rem(16);
+  padding: rem(32) rem(16);
   background: var(--color-canvas);
 }
 
-/// The card such a page centres — the whole content, so it carries its own padding and lift
-/// rather than only an edge. The measure is a parameter; it is all the two callers disagree on.
-@mixin centred-card($max-width) {
+/// The column such a page centres: the product mark above the card. The measure is a
+/// parameter — it is what the two callers disagree on.
+@mixin centred-column($max-width) {
+  @include stack(20);
+
   width: 100%;
   max-width: $max-width;
-  padding: rem(32);
-  border-radius: var(--radius-lg);
+}
+
+/// The card in that column — the whole content, so it carries its own padding. A border and no
+/// shadow: it sits on the canvas rather than floating over anything.
+@mixin centred-card($padding: 24) {
+  padding: rem($padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
 }
 
 /// The caption above a form control.
@@ -104,33 +121,72 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
 @mixin field-label {
   align-self: flex-start;
   font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/// The line below a form control — a hint, or the error that replaces it on the same line.
+@mixin field-hint {
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
 /// The validation message below a form control.
 @mixin field-error {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-danger);
 }
 
 /// The chrome shared by every text-like control (`<input>`, `<select>`).
-/// Callers add their own background, placeholder and disabled rules.
 @mixin form-control {
   min-height: var(--control-height);
-  // The block padding is what `--control-height` is spent on: 6 + 20 (16px text at
-  // `tight`) + 6 + 2 border = 34, so the height binds with 2px to spare. It moves with
+  // The block padding is what `--control-height` is spent on: 6 + 17.5 (14px text at
+  // `tight`) + 6 + 2 border = 31.5, so the height binds with room to spare. It moves with
   // the token — trimming the height without trimming this clips the text instead.
   padding: rem(6) rem(12);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-control);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
   font-size: var(--font-size-md);
   // Explicit, because `<select>` and `<input>` resolve `normal` differently — without
   // it a select sits 1px taller than the input beside it
   line-height: var(--line-height-tight);
+  color: var(--color-text);
 
-  // Two signals, neither an outline: the border says "active" on any focus, autofocus
-  // included; the halo says "you are on the keyboard". A field already draws an edge, so it
-  // recolours that rather than gaining a second one a hairline outside it.
+  // The token, not `opacity` — muted text at 0.6 is ~2.4:1, the subtle token 5.12:1 on white
+  &::placeholder {
+    color: var(--color-text-subtle);
+  }
+
+  @include control-focus;
+
+  // `:where()` keeps this at the specificity of `&--invalid:hover` below, so an invalid field
+  // stays red under the pointer; a focused one is left to the focus border.
+  &:hover:where(:not(:disabled, :focus)) {
+    border-color: var(--color-border-control-hover);
+    background: var(--color-surface-raised);
+  }
+
+  &:disabled {
+    border-color: var(--color-border);
+    background: var(--color-surface-disabled);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+
+  &--invalid,
+  &--invalid:hover {
+    border-color: var(--color-danger);
+  }
+}
+
+/// The focus state of a control that draws its own border — every `form-control`, and the
+/// drawn box of `BaseCheckbox`. Mutually exclusive with `focus-ring` (`CLAUDE.md` §8).
+///
+/// Two signals, neither an outline: the border says "active" on any focus, autofocus included;
+/// the halo says "you are on the keyboard". A field already draws an edge, so it recolours that
+/// rather than gaining a second one a hairline outside it.
+@mixin control-focus {
   &:focus {
     border-color: var(--color-focus);
   }
@@ -150,29 +206,109 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
       outline-offset: rem(1);
     }
   }
+}
 
-  &--invalid {
-    border-color: var(--color-danger);
+/// The track of a segmented control — one 36px field holding every choice at once. 28px
+/// segments plus the 3px inset and the 1px border make the control height exactly.
+@mixin segmented-track {
+  display: flex;
+  gap: rem(2);
+  min-height: var(--control-height);
+  padding: rem(3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+/// One segment. The chosen one is a white plate, and its edge is
+/// `--color-border-control-hover` rather than the reference's bare shadow: that edge is what
+/// tells the state apart at 3:1 (4.5:1 on the track), where plate on track is ~1.1:1. The state
+/// is read from ARIA — `aria-checked` on a radio, `aria-current` on a link — so it cannot
+/// disagree with what is announced.
+@mixin segmented-segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: rem(6);
+  min-height: rem(28);
+  padding: 0 rem(12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  @include focus-ring;
+
+  &:hover {
+    color: var(--color-text);
+  }
+
+  &[aria-checked='true'],
+  &[aria-current='page'] {
+    border-color: var(--color-border-control-hover);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    font-weight: 600;
+    color: var(--color-accent);
   }
 }
 
-/// A page's title row: heading left, actions right. Either side may be one control or a
-/// `cluster`; a group on the left must carry `min-width: 0` itself, or `page-title`'s ellipsis
-/// cannot engage. Wraps rather than collides — the title is a user-supplied table name.
-@mixin page-header {
+/// The breadcrumb row, with the page's own actions on its right. One control tall, so a row
+/// holding only the trail is the same height as one holding a button.
+@mixin page-crumbs {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: rem(12) rem(16);
-  margin-bottom: rem(20);
+  gap: rem(12);
+  min-height: var(--control-height);
 }
 
-/// A page's `<h1>`. Truncates instead of pushing the actions off the row.
+/// A page's `<h1>` with its primary action directly beside it. `min-width: 0` is what lets
+/// `page-title`'s ellipsis engage, since a flex item's automatic minimum is its content; the
+/// action takes `flex: none` itself, or the row's shrink wraps its label onto two lines.
+@mixin page-title-row {
+  @include cluster(14);
+
+  min-width: 0;
+}
+
+/// A page's `<h1>`. Truncates instead of pushing the actions off the row; a phone takes the
+/// heading step, where 32px would leave room for a word or two.
 @mixin page-title {
   min-width: 0;
   margin: 0;
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  letter-spacing: var(--letter-spacing-display);
 
   @include truncate;
+  @include below-compact {
+    font-size: var(--font-size-xl);
+  }
+}
+
+/// A floating panel anchored to its trigger — a select's list, the colour grid, a row menu —
+/// so every popover in the app is one surface. `position: fixed` because `useAnchoredPosition`
+/// places it in viewport coordinates, which is what lets it escape a scrolling ancestor.
+@mixin popover-panel {
+  position: fixed;
+  z-index: var(--z-popover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+/// A machine-voiced label over a group — mono, uppercase, tracked, subtle.
+@mixin eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
 }

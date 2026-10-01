@@ -91,6 +91,9 @@ export type TFilterSummary = (
   ctx: IFilterSummaryContext,
 ) => string
 
+/** Which edge a column's values — and its header — sit against. */
+export type TCellAlign = 'start' | 'end'
+
 /**
  * The whole client half of one field type. Its siblings are the isomorphic half in
  * `#shared/field-types` and the SQL half in `#server/db/field-types` — three modules split by
@@ -111,5 +114,7 @@ export interface IAppFieldType<K extends TFieldType> {
   multiSummary: TFilterSummary | null
   /** The glyph shown beside the type's word — never instead of it. */
   icon: string
+  /** `end` where values are compared by magnitude, so the digits line up down the column. */
+  align: TCellAlign
   configSummary: TFieldConfigSummary | null
 }

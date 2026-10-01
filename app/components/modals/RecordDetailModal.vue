@@ -1,8 +1,9 @@
 <template>
-  <BaseModal title="Record details" @close="emit('close')">
+  <!-- Modal, where the reference draws a non-modal panel (`docs/limitations.md`) -->
+  <BaseModal title="Record details" variant="drawer" :subtitle="subtitle" @close="emit('close')">
     <div class="record-detail-modal">
       <NuxtLink v-if="backTo" class="record-detail-modal__back" :to="backTo">
-        <Icon name="mdi:arrow-left" aria-hidden="true" />
+        <Icon name="material-symbols:arrow-back-rounded" aria-hidden="true" />
         Back
       </NuxtLink>
 
@@ -15,12 +16,7 @@
         >
       </div>
 
-      <template v-else-if="detail">
-        <p class="record-detail-modal__table">
-          {{ detail.table.name }} · #{{ detail.record.number }}
-        </p>
-        <RecordDetail :fields="detail.fields" :record="detail.record" />
-      </template>
+      <RecordDetail v-else-if="detail" :fields="detail.fields" :record="detail.record" />
     </div>
 
     <template v-if="detail && crossesTables && !pending && !errorMessage" #footer>
@@ -52,6 +48,14 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{ retry: []; close: [] }>()
+
+/**
+ * Where the record came from — the dialog can be opened from a different table. The header's
+ * mono line, so the title stays static and the dialog's name stays "Record details".
+ */
+const subtitle = computed(() =>
+  props.detail ? `${props.detail.table.name} · #${props.detail.record.number}` : undefined,
+)
 
 /**
  * Whether the record on show belongs to a different table from the one behind the dialog —
@@ -115,14 +119,6 @@ const openInTableTo = computed(() => {
   // to opt back into the full width.
   &__error-text {
     align-self: stretch;
-  }
-
-  // The record's table above its values: the dialog can be opened from a different table, so
-  // it has to say where the record came from
-  &__table {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 }
 </style>

@@ -1,6 +1,10 @@
 <template>
   <div class="field-card">
-    <BaseEmptyState v-if="fields.length === 0" title="No fields yet" icon="mdi:view-column-outline">
+    <BaseEmptyState
+      v-if="fields.length === 0"
+      title="No fields yet"
+      icon="material-symbols:view-column-outline-rounded"
+    >
       Fields decide what each record stores. Add one and it becomes a column here and a question on
       the form.
       <template #action>
@@ -25,7 +29,7 @@
                  whitespace between two elements but keeps a space beside loose text, which
                  would space one separator differently from the next. -->
             <p class="field-row__meta">
-              <span>{{ FIELD_TYPE_LABELS[field.type] }}</span>
+              <span class="field-row__type">{{ FIELD_TYPE_LABELS[field.type] }}</span>
               <template v-if="configSummaries.get(field.id)">
                 <span class="field-row__sep" aria-hidden="true">·</span>
                 <span>{{ configSummaries.get(field.id) }}</span>
@@ -43,13 +47,13 @@
         <div class="field-row__actions">
           <BaseButton
             variant="icon"
-            prepend-icon="mdi:pencil-outline"
+            prepend-icon="material-symbols:edit-outline-rounded"
             :label="`Edit field ${field.name}`"
             @click="emit('edit', field)"
           />
           <BaseButton
             variant="icon"
-            prepend-icon="mdi:trash-can-outline"
+            prepend-icon="material-symbols:delete-outline-rounded"
             tone="danger"
             :label="`Delete field ${field.name}`"
             @click="emit('delete', field)"
@@ -143,7 +147,7 @@ const configSummaries = computed(
     min-width: 0;
   }
 
-  // Neutral, not accent-tinted: the section's one blue is spent on "Add field"
+  // Neutral, not accent-tinted: the page's one green is spent on "Add field"
   &__icon {
     display: grid;
     place-items: center;
@@ -171,7 +175,7 @@ const configSummaries = computed(
   // The only run at full text colour on the row: it is the one thing the user named
   &__label {
     min-width: 0;
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-body);
     font-weight: 500;
 
     @include truncate;
@@ -190,17 +194,22 @@ const configSummaries = computed(
     }
   }
 
+  // The type leads the line, a step heavier than the configuration that qualifies it
+  &__type {
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
   &__sep {
     margin: 0 rem(6);
     color: var(--color-border-strong);
   }
 
-  // A URL contract rather than a category, so it stops sharing the type's grey
+  // A URL contract rather than a category; the mono face sets it apart, so it needs no plate
   &__key {
-    padding: rem(1) rem(6);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-muted);
+    font-family: var(--font-mono);
     font-size: var(--font-size-xs);
+    color: var(--color-text-subtle);
   }
 
   &__actions {

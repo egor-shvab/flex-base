@@ -46,10 +46,10 @@ test.beforeEach(async ({ seedTable }) => {
  * of the same answer.
  *
  * What no component spec can reach is whether the highlight is **painted**: `--active` renders
- * an inset outline, and Vitest keeps `test.css: false`, so happy-dom sees the class and nothing
+ * an inset 2px accent edge, and Vitest keeps `test.css: false`, so happy-dom sees the class and nothing
  * else. A cursor the user cannot see is the failure this one case exists for.
  */
-test('the keyboard cursor is visibly outlined, not just class-marked', async ({ page }) => {
+test('the keyboard cursor is visibly edged, not just class-marked', async ({ page }) => {
   await openRecordForm(page, table.url)
   await fewTrigger(page).focus()
 
@@ -59,14 +59,10 @@ test('the keyboard cursor is visibly outlined, not just class-marked', async ({ 
   const active = activeOption(page)
   await expect(active).toHaveText('Lost')
 
-  const outline = await active.evaluate((option) => {
-    const { outlineStyle, outlineWidth, outlineColor } = getComputedStyle(option)
-    return { outlineStyle, width: Number.parseFloat(outlineWidth), outlineColor }
-  })
+  // The edge is an inset `box-shadow` in `--color-accent`
+  const edge = await active.evaluate((option) => getComputedStyle(option).boxShadow)
 
-  expect(outline.outlineStyle).toBe('solid')
-  expect(outline.width).toBeGreaterThan(0)
-  expect(outline.outlineColor).not.toBe('rgba(0, 0, 0, 0)')
+  expect(edge).toBe('rgb(28, 107, 74) 2px 0px 0px 0px inset')
 })
 
 test.describe('the searchable branch', () => {

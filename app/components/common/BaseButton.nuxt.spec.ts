@@ -122,7 +122,7 @@ describe('BaseButton', () => {
       const wrapper = await mountTracked(BaseButton, {
         props: {
           variant: 'icon',
-          prependIcon: 'mdi:trash-can-outline',
+          prependIcon: 'material-symbols:delete-outline-rounded',
           label: 'Delete this table',
         },
       })
@@ -135,7 +135,7 @@ describe('BaseButton', () => {
       'renders the %s and hides it from assistive tech',
       async (side) => {
         const wrapper = await mountTracked(BaseButton, {
-          props: { [side]: 'mdi:plus', label: 'Add' },
+          props: { [side]: 'material-symbols:add-rounded', label: 'Add' },
         })
 
         const icon = wrapper.find('.base-button__icon')
@@ -156,7 +156,10 @@ describe('BaseButton', () => {
      */
     it('puts the prepended icon before the label and the appended one after', async () => {
       const wrapper = await mountTracked(BaseButton, {
-        props: { prependIcon: 'mdi:chevron-left', appendIcon: 'mdi:chevron-right' },
+        props: {
+          prependIcon: 'material-symbols:chevron-left-rounded',
+          appendIcon: 'material-symbols:chevron-right-rounded',
+        },
         slots: { default: () => 'Next' },
       })
 
@@ -166,6 +169,59 @@ describe('BaseButton', () => {
       expect(icons[1]?.element).toBe(wrapper.element.lastElementChild)
       // The label sits between them, so the accessible name is unchanged by either icon
       expect(wrapper.text()).toBe('Next')
+    })
+  })
+
+  describe('selected and loading', () => {
+    it('adds the selected state alongside the variant', async () => {
+      const wrapper = await mountTracked(BaseButton, {
+        props: { variant: 'ghost', selected: true },
+      })
+
+      expect(wrapper.classes()).toEqual(
+        expect.arrayContaining(['base-button--ghost', 'base-button--selected']),
+      )
+      // A look, not a toggle — nothing is announced beyond the label
+      expect(wrapper.attributes('aria-pressed')).toBeUndefined()
+    })
+
+    it('is busy and inert while loading, and keeps its label', async () => {
+      const onClick = vi.fn()
+      const wrapper = await mountTracked(BaseButton, {
+        props: { loading: true },
+        attrs: { onClick },
+        slots: { default: () => 'Saving…' },
+      })
+
+      expect(wrapper.attributes('aria-busy')).toBe('true')
+      expect(wrapper.attributes('disabled')).toBeDefined()
+      expect(wrapper.text()).toBe('Saving…')
+
+      await wrapper.trigger('click')
+      expect(onClick).not.toHaveBeenCalled()
+    })
+
+    it('draws the spinner in place of the leading icon', async () => {
+      const wrapper = await mountTracked(BaseButton, {
+        props: { loading: true, prependIcon: 'material-symbols:add-rounded' },
+      })
+
+      expect(wrapper.find('.base-button__spinner').attributes('aria-hidden')).toBe('true')
+      expect(wrapper.find('.base-button__icon').exists()).toBe(false)
+    })
+
+    it('sets no busy state when idle', async () => {
+      const wrapper = await mountTracked(BaseButton)
+
+      expect(wrapper.attributes('aria-busy')).toBeUndefined()
+      expect(wrapper.find('.base-button__spinner').exists()).toBe(false)
+    })
+
+    it('falls back to a button while a link is loading', async () => {
+      const wrapper = await mountTracked(BaseButton, { props: { to: '/tables/1', loading: true } })
+
+      expect(wrapper.element.tagName).toBe('BUTTON')
+      expect(wrapper.attributes('href')).toBeUndefined()
     })
   })
 

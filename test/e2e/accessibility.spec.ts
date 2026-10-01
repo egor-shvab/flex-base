@@ -85,9 +85,39 @@ test.describe('the five screens', () => {
   }
 })
 
+/**
+ * The `/ui-test` showcase: every `common/` atom in every state, so a regression in one atom's
+ * markup fails here even when no product screen happens to render that state. Fixtures only, so
+ * nothing is seeded.
+ */
+test.describe('the component showcase', () => {
+  const SUBPAGES = ['buttons', 'inputs', 'select', 'display', 'navigation', 'overlays']
+
+  for (const subpage of SUBPAGES) {
+    const open = async (page: Page) => {
+      await page.goto(`/ui-test/${subpage}`)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    }
+
+    test(`/ui-test/${subpage} has no serious or critical accessibility violations`, async ({
+      page,
+    }) => {
+      await open(page)
+
+      expect(await axeViolations(page)).toEqual([])
+    })
+
+    test(`/ui-test/${subpage} has no target below 24×24`, async ({ page }) => {
+      await open(page)
+
+      expect(await undersizedTargets(page)).toEqual([])
+    })
+  }
+})
+
 /** `--color-focus` and `--color-accent-tint`, the two values the state is made of. */
-const FOCUS = 'rgb(52, 120, 229)'
-const HALO = '231, 238, 252'
+const FOCUS = 'rgb(44, 150, 101)'
+const HALO = '230, 242, 235'
 
 const focusState = (locator: Locator) =>
   locator.evaluate((element) => {

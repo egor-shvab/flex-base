@@ -9,7 +9,19 @@ export default defineNuxtConfig({
     },
   },
 
-  css: ['~/assets/scss/main.scss'],
+  // Self-hosted faces, one file per weight in use. Each declares every subset behind a
+  // `unicode-range`, so the browser fetches only the subsets a page's text needs — and no
+  // request ever leaves for a font CDN. Archivo has no Cyrillic; that text takes the stack's
+  // next family, as the design reference does.
+  css: [
+    '@fontsource/archivo/400.css',
+    '@fontsource/archivo/500.css',
+    '@fontsource/archivo/600.css',
+    '@fontsource/archivo/700.css',
+    '@fontsource/ibm-plex-mono/400.css',
+    '@fontsource/ibm-plex-mono/500.css',
+    '~/assets/scss/main.scss',
+  ],
 
   // Not cosmetic: the scanner defaults to every builder extension, so a `.ts` file beside its
   // component — a private composable, a spec's rig — is registered as a global component of its

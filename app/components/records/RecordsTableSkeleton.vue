@@ -5,6 +5,10 @@
   <div class="records-skeleton" role="status">
     <span class="visually-hidden">Loading records…</span>
 
+    <!-- The table's own frame: a raised header row, then the body rows -->
+    <div class="records-skeleton__row records-skeleton__row--head" aria-hidden="true">
+      <span v-for="bar in BAR_COUNT" :key="bar" class="records-skeleton__bar" />
+    </div>
     <div v-for="row in ROW_COUNT" :key="row" class="records-skeleton__row" aria-hidden="true">
       <span v-for="bar in BAR_COUNT" :key="bar" class="records-skeleton__bar" />
     </div>
@@ -21,9 +25,9 @@ const BAR_COUNT = 3
 <style lang="scss" scoped>
 .records-skeleton {
   // The chrome of the table it stands in for, so the body does not jump when the rows arrive
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  @include surface-card;
+  // The header row's fill would otherwise square off the frame's top corners
+  overflow: hidden;
 
   &__row {
     display: grid;
@@ -40,11 +44,22 @@ const BAR_COUNT = 3
     &:last-child {
       border-bottom: none;
     }
+
+    // The table's header row: one control tall, on the raised wash, ruled off structurally
+    &--head {
+      height: var(--control-height);
+      border-bottom-color: var(--color-border);
+      background: var(--color-surface-raised);
+
+      .records-skeleton__bar {
+        height: rem(10);
+      }
+    }
   }
 
   &__bar {
-    height: rem(14);
-    border-radius: var(--radius-sm);
+    height: rem(12);
+    border-radius: var(--radius-xs);
     background: var(--color-surface-muted);
     animation: pulse 1.6s ease-in-out infinite;
   }

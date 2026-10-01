@@ -26,6 +26,11 @@ function cell(column: IField, row: IRecord = record()) {
   return mountTracked(RecordFieldValue, { props: { record: row, column } })
 }
 
+/** What a blank reads as — the dash is `aria-hidden`, so the words are the whole name. */
+function blankName(wrapper: Awaited<ReturnType<typeof cell>>) {
+  return wrapper.find('.record-field-value__blank .visually-hidden').text()
+}
+
 /** A row carrying one value under the column's own key. */
 function rowWith(column: IField, value: unknown): IRecord {
   return record({ data: { [column.key]: value } as IRecord['data'] })
@@ -46,14 +51,21 @@ describe('RecordFieldValue', () => {
     it('says so for a key the record does not carry', async () => {
       const wrapper = await cell(textField('company'))
 
-      expect(wrapper.text()).toBe('Not set')
-      expect(wrapper.find('.record-field-value__blank').exists()).toBe(true)
+      expect(blankName(wrapper)).toBe('Not set')
+    })
+
+    /** The dash is for the eye; a screen reader would otherwise announce "em dash". */
+    it('draws a dash that the accessibility tree does not see', async () => {
+      const wrapper = await cell(textField('company'))
+      const dash = wrapper.get('.record-field-value__blank [aria-hidden="true"]')
+
+      expect(dash.text()).toBe('—')
     })
 
     it('says so for a stored null', async () => {
       const wrapper = await cell(textField('company'), rowWith(textField('company'), null))
 
-      expect(wrapper.text()).toBe('Not set')
+      expect(blankName(wrapper)).toBe('Not set')
     })
 
     /** An empty list is as blank as a null, or a cleared field renders as nothing. */
@@ -61,7 +73,7 @@ describe('RecordFieldValue', () => {
       const column = asMultiple(selectField())
       const wrapper = await cell(column, rowWith(column, []))
 
-      expect(wrapper.text()).toBe('Not set')
+      expect(blankName(wrapper)).toBe('Not set')
       expect(wrapper.findComponent(MultiValueCell).exists()).toBe(false)
     })
 
@@ -69,7 +81,7 @@ describe('RecordFieldValue', () => {
       const column = booleanField('active')
       const wrapper = await cell(column, rowWith(column, false))
 
-      expect(wrapper.text()).not.toBe('Not set')
+      expect(wrapper.find('.record-field-value__blank').exists()).toBe(false)
       expect(wrapper.text()).toBe('No')
     })
 

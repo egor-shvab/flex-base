@@ -3,48 +3,59 @@
 // one: `additionalData` (nuxt.config.ts) injects only `functions` and `mixins` into SFC style
 // blocks, which is what enforces `CLAUDE.md` §8's "components consume `var(--color-*)`".
 //
-// Contrast against white: $gray-500 4.58:1 · $gray-600 6.07:1 · $gray-900 16.1:1 ·
-// $blue-600 5.43:1 · $red-600 5.62:1. $blue-500 is never text and carries the 3:1 floor.
+// Values follow `docs/design/` → Foundations, except the two steps its own contrast rule
+// overrules (`$gray-450`, `$green-focus`). Contrast against white: $gray-500 5.12:1 ·
+// $gray-600 6.61:1 · $gray-900 17.7:1 · $green-600 6.46:1 · $red-600 6.57:1.
 
-// Neutrals
+// Neutrals — a pure grey ramp
 $white: #fff;
-$gray-50: #f7f8fa;
-$gray-100: #eef0f3;
+$gray-25: #fafafa;
+$gray-50: #f6f6f7;
+$gray-100: #f0f0f2;
 // The rule *inside* a surface — a table's row divider. Lighter than $gray-200 because the box
 // around it already carries the structure: it only has to separate, not to bound.
-$gray-150: #e8eaee;
-$gray-200: #dcdfe4;
-$gray-300: #c4c9d1;
-// 3.17:1 on white — the floor for a control boundary that is the only thing identifying the
-// control, as on a bordered button
-$gray-400: #8a919e;
-$gray-500: #6e7684;
-$gray-600: #5b6370;
-$gray-900: #1f2126;
+$gray-150: #ededef;
+$gray-200: #e4e4e7;
+$gray-300: #d1d1d6;
+// Decorative glyphs only — a separator, a trailing chevron, a locked tick's fill. ~1.7:1, so
+// never on anything that is the sole cue for a state or a control (SC 1.4.11).
+$gray-350: #c4c4cc;
+// Disabled ink — exempt from contrast (SC 1.4.3 excludes inactive components), and light
+// enough that nobody mistakes it for live text.
+$gray-400: #a1a1aa;
+// 3.29:1 on white, 3.15:1 on $gray-25 — the floor for a control boundary that is the only
+// thing identifying the control. The reference draws inputs at $gray-300 (1.52:1), under its
+// own 3:1 rule; this step is the correction.
+$gray-450: #8d8d96;
+$gray-500: #6d6d77;
+$gray-600: #5c5c66;
+$gray-900: #18181b;
 
-// Accent
+// Accent — one deep green
 // The focus ring, and the one accent step that is never text. Floored by its tightest
-// neighbour — the halo drawn against it, at 3.63:1 (3.71 on the hover wash, 4.23 on white) —
-// so a lighter step here fails SC 1.4.11 against the tint before it fails against the page.
+// neighbour — the halo drawn against it, at 3.23:1 — so the reference's lighter `#2f9e6b`
+// (2.93:1 on the halo) fails SC 1.4.11 against the tint before it fails against the page.
 // Check that pairing first if this moves.
-$blue-500: #3478e5;
-$blue-600: #1c64d8;
-$blue-700: #1750b0;
-$blue-800: #123f8c;
+$green-focus: #2c9665;
+$green-600: #1c6b4a;
+$green-700: #165c3f;
 // The flat wash behind accent-coloured text. A real step rather than the accent at 8% alpha:
 // a translucent tint composites differently on each surface, and this lands on both
 // `--color-surface` and `--color-canvas`.
-$blue-tint: #e7eefc;
-// The resting underline under an accent link. Flat for the same reason $blue-tint is — the
-// rule sits on `--color-surface` and on the row-hover wash and must not shift between them.
-$blue-underline: #c6d8f5;
+$green-tint: #e6f2eb;
+// The tint's edge, and the resting underline under an accent link. Flat for the same reason
+// $green-tint is — the rule sits on `--color-surface` and on the row-hover wash.
+$green-tint-edge: #b9dbc8;
+// One step deeper than the tint — a tinted surface under the pointer.
+$green-tint-strong: #d9ecdf;
 
 // Danger
-$red-600: #c62828;
-$red-700: #a51f1f;
-$red-800: #8c1a1a;
-// Opaque for the same reason as $blue-tint — the error banner appears on both surfaces.
+$red-600: #b42318;
+$red-700: #941a11;
+// Opaque for the same reason as $green-tint — the error banner appears on both surfaces.
 $red-tint: #fdeceb;
+// The danger tint's edge, and the resting underline under a danger link.
+$red-tint-edge: #f0c8c4;
 
 // Categorical hues — the badge palette a SELECT choice is coloured from. A separate ramp from
 // the accent and danger steps on purpose: those are interaction colours, and retuning the
@@ -52,34 +63,35 @@ $red-tint: #fdeceb;
 //
 // Three steps per hue; which component reads which, and the contrast each clears, is
 // `docs/styling.md` → *Tokens*. Verified: lowest `fg` on its own `bg` 5.65:1 (green); lowest
-// `border` 3.47:1 on white and 3.04:1 on `--color-surface-hover`, the binding one.
-$badge-gray-bg: #e9ebef;
-$badge-gray-border: #848a94;
-$badge-gray-fg: #41474f;
+// `dot` 3.25:1 on white and 3.11:1 on `--color-surface-row-hover`, the binding one. The
+// reference calls the fourth hue `amber`; `yellow` is the stored name and stays.
+$badge-gray-bg: #f0f0f2;
+$badge-gray-dot: #8d8d96;
+$badge-gray-fg: #46464f;
 $badge-red-bg: #fdeaea;
-$badge-red-border: #c96b6d;
+$badge-red-dot: #ca7878;
 $badge-red-fg: #a02020;
 $badge-orange-bg: #fbeddf;
-$badge-orange-border: #b17140;
+$badge-orange-dot: #b78451;
 $badge-orange-fg: #8a4a11;
-$badge-yellow-bg: #f9f0d5;
-$badge-yellow-border: #997f22;
-$badge-yellow-fg: #725602;
+$badge-yellow-bg: #fbf3d8;
+$badge-yellow-dot: #a68c28;
+$badge-yellow-fg: #6f5502;
 $badge-green-bg: #e4f2e8;
-$badge-green-border: #548f64;
+$badge-green-dot: #629b74;
 $badge-green-fg: #1e6b39;
 $badge-teal-bg: #ddf0ee;
-$badge-teal-border: #438a82;
+$badge-teal-dot: #569a93;
 $badge-teal-fg: #0f645c;
 $badge-blue-bg: #e5eefb;
-$badge-blue-border: #5883c2;
+$badge-blue-dot: #6a90c6;
 $badge-blue-fg: #18509e;
 $badge-indigo-bg: #e9e9fa;
-$badge-indigo-border: #7a7cc6;
+$badge-indigo-dot: #8789c9;
 $badge-indigo-fg: #3b3f9c;
 $badge-purple-bg: #f1e9fa;
-$badge-purple-border: #9b78c1;
+$badge-purple-dot: #a280c5;
 $badge-purple-fg: #68339a;
 $badge-pink-bg: #fce8f0;
-$badge-pink-border: #c0648c;
+$badge-pink-dot: #c47799;
 $badge-pink-fg: #9a2b5e;

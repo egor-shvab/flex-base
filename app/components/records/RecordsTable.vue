@@ -8,10 +8,31 @@
             :key="column.key"
             scope="col"
             :aria-sort="ariaSort(column)"
-            :class="{ 'records-table__number-head': column.key === RECORD_NUMBER_KEY }"
+            :class="{
+              'records-table__number-head': column.key === RECORD_NUMBER_KEY,
+              'records-table__cell-end': alignFor(column) === 'end',
+            }"
           >
-            <button type="button" class="records-table__sort" @click="emit('sort', column.key)">
-              <span class="records-table__sort-label">{{ column.name }}</span>
+            <!-- The record number is headed `#`, and keeps its name for a screen reader; it is
+                 the one column with no type glyph, since its TEXT type is an implementation
+                 detail of the query layer -->
+            <button
+              type="button"
+              class="records-table__sort"
+              :aria-label="column.key === RECORD_NUMBER_KEY ? column.name : undefined"
+              @click="emit('sort', column.key)"
+            >
+              <span v-if="column.key === RECORD_NUMBER_KEY" class="records-table__number-label">
+                #
+              </span>
+              <template v-else>
+                <Icon
+                  :name="FIELD_TYPE_ICONS[column.type]"
+                  class="records-table__type-icon"
+                  aria-hidden="true"
+                />
+                <span class="records-table__sort-label">{{ column.name }}</span>
+              </template>
               <Icon
                 :name="sortIcon(column)"
                 class="records-table__sort-icon"
@@ -25,7 +46,11 @@
       </thead>
       <tbody>
         <tr v-for="record in records" :key="record.id">
-          <td v-for="column in columns" :key="column.key">
+          <td
+            v-for="column in columns"
+            :key="column.key"
+            :class="{ 'records-table__cell-end': alignFor(column) === 'end' }"
+          >
             <!-- The wrapper is what caps the column; a `max-width` on the `td` would not -->
             <div class="records-table__cell">
               <RecordFieldValue :record="record" :column="column" />
@@ -39,7 +64,7 @@
                    place, and the row must not mediate a navigation -->
               <BaseButton
                 variant="icon"
-                prepend-icon="mdi:eye-outline"
+                prepend-icon="material-symbols:open-in-full-rounded"
                 label="View record"
                 :to="
                   detailLinkTo({
@@ -50,17 +75,13 @@
               />
               <BaseButton
                 variant="icon"
-                prepend-icon="mdi:pencil-outline"
+                prepend-icon="material-symbols:edit-outline-rounded"
                 label="Edit record"
                 @click="emit('edit', record)"
               />
-              <BaseButton
-                variant="icon"
-                prepend-icon="mdi:trash-can-outline"
-                label="Delete record"
-                tone="danger"
-                @click="emit('delete', record)"
-              />
+              <!-- Delete sits one step away, in the menu: the destructive action is never the
+                   neighbour of the everyday ones -->
+              <RecordRowMenu @delete="emit('delete', record)" />
             </div>
           </td>
         </tr>
@@ -77,6 +98,7 @@ import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord } from '#shared/types/record'
 import { queryColumns } from '#shared/utils/filter'
 import { useDetailLink } from '~/composables/useDetailLink'
+import { FIELD_TYPE_ICONS, alignFor } from '~/field-types/registry'
 
 const props = defineProps<{
   /** The table these records belong to — a row's View action has to *address* its record. */
@@ -106,8 +128,10 @@ function ariaSort(field: IField): 'ascending' | 'descending' | 'none' {
 }
 
 function sortIcon(field: IField): string {
-  if (props.sort?.key !== field.key) return 'mdi:code-tags'
-  return props.sort.direction === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+  if (props.sort?.key !== field.key) return 'material-symbols:swap-vert-rounded'
+  return props.sort.direction === 'asc'
+    ? 'material-symbols:arrow-upward-rounded'
+    : 'material-symbols:arrow-downward-rounded'
 }
 </script>
 
@@ -131,14 +155,13 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
 .records-table {
   // Both axes: given a bounded height, long tables scroll here instead of growing the page
   overflow: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+
+  @include surface-card;
 
   &__table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
   }
 
   th,
@@ -146,6 +169,13 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     text-align: left;
     // Load-bearing: `&__number-head` / `&__actions-head` shrink to fit via `width: rem(1)`
     white-space: nowrap;
+  }
+
+  // A column of figures sits against its right edge, header included, so the digits line up.
+  // Which columns is the registry's call (`alignFor`), never a type check here.
+  th.records-table__cell-end,
+  td.records-table__cell-end {
+    text-align: right;
   }
 
   // `-subtle`, not `--color-border`: a row rule sits *inside* a surface whose own border,
@@ -199,7 +229,7 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     position: sticky;
     top: 0;
     z-index: 1;
-    background: var(--color-surface);
+    background: var(--color-surface-raised);
     box-shadow: inset 0 -1px 0 var(--color-border);
 
     // The corner of both pinned axes: above the header row *and* the pinned column, carrying
@@ -212,14 +242,15 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
       padding: $cell-padding-y $cell-padding-x;
       box-shadow:
         inset 0 -1px 0 var(--color-border),
-        inset 1px 0 0 var(--color-border-strong);
+        inset 1px 0 0 var(--color-border-subtle),
+        var(--shadow-pinned-edge);
     }
   }
 
   &__sort {
     display: flex;
     align-items: center;
-    gap: rem(4);
+    gap: rem(6);
     width: 100%;
     // The cell's own inset, carried by the button so the whole header cell is the sort
     // target. `min-height` sizes the header row; the block figure only has to stay under it.
@@ -231,6 +262,10 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     background: none;
     text-align: left;
     cursor: pointer;
+
+    .records-table__cell-end > & {
+      justify-content: flex-end;
+    }
 
     &:hover,
     &:focus-visible {
@@ -255,25 +290,38 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     @include truncate;
   }
 
+  // Decoration beside the name — the type is stated in the field list, not here — so it takes
+  // the quietest text step and stays put when the button lights up
+  &__type-icon {
+    flex: none;
+    font-size: rem(18);
+    color: var(--color-text-subtle);
+  }
+
+  // Machine-made, so mono, and a step smaller and quieter as the reference draws the `#` head
+  &__number-label {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--color-text-subtle);
+  }
+
   &__sort-icon {
     // Never squeezed out by a label sitting at its cap
     flex: none;
-    // `mdi:code-tags` is `< >` — 20×12 of its 24 viewBox; a quarter turn makes it a chevron
-    // up over a chevron down. `transform` is not a layout property, so no column resizes.
-    transform: rotate(90deg);
+    // A glyph size, or `<Icon>` takes the header's 13px text
+    font-size: rem(16);
     // Always visible: the app's only sort affordance, and a hover-revealed one does not exist
     // on touch. Quiet by transparency rather than a colour step, because it has to mute
     // whatever it inherits — secondary at rest, the button's accent under the pointer.
     //
-    // 0.35 composites to ~1.67:1, deliberately under `CLAUDE.md` §8's 3:1 non-text floor as a
+    // 0.35 composites to ~1.70:1, deliberately under `CLAUDE.md` §8's 3:1 non-text floor as a
     // hint rather than a control outline. Registered in `docs/limitations.md`; do not raise it
     // on contrast grounds without reading that entry first.
     opacity: 0.35;
     transition: opacity 0.15s ease;
 
     &--active {
-      // A direction arrow must not be turned on its side
-      transform: none;
       opacity: 1;
       color: var(--color-accent);
     }
@@ -301,14 +349,16 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
 
   // Pinned right, so a row's controls survive a horizontal scroll. Opaque, or the field
   // columns show through; the left edge is an inset shadow for the same reason the header's
-  // rule is. The divider is `-strong` rather than `-subtle`: separating a frozen column from
-  // columns sliding under it is a heavier job than a row rule.
+  // rule is. The divider is only `-subtle` because the soft outer shadow does the separating:
+  // columns read as sliding *under* a frozen one, rather than meeting a rule.
   &__actions {
     position: sticky;
     right: 0;
     z-index: 1;
     background: var(--color-surface);
-    box-shadow: inset 1px 0 0 var(--color-border-strong);
+    box-shadow:
+      inset 1px 0 0 var(--color-border-subtle),
+      var(--shadow-pinned-edge);
   }
 
   &__actions-group {

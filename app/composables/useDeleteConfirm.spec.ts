@@ -145,7 +145,8 @@ describe('useDeleteConfirm', () => {
     const settled = confirmer.confirm()
 
     expect(confirmer.dialogProps.value.pending).toBe(true)
-    expect(confirmer.dialogProps.value.confirmLabel).toBe('Deleting…')
+    // The spinner carries it, so the label — and the button's width — never moves
+    expect(confirmer.dialogProps.value.confirmLabel).toBe('Delete')
 
     release()
     await settled

@@ -1,5 +1,6 @@
 <template>
   <div ref="shell" class="app-layout" :class="{ 'app-layout--nav-open': navOpen }">
+    <!-- The narrow-viewport bar only: at desktop the sidebar carries the mark and the user -->
     <header class="app-layout__header">
       <button
         type="button"
@@ -9,15 +10,10 @@
         aria-label="Show tables"
         @click="navOpen = !navOpen"
       >
-        <Icon name="mdi:menu" aria-hidden="true" />
+        <Icon name="material-symbols:menu-rounded" aria-hidden="true" />
       </button>
 
-      <NuxtLink to="/" class="app-layout__brand">FlexBase</NuxtLink>
-
-      <div v-if="auth.isAuthenticated" class="app-layout__user">
-        <span class="app-layout__email">{{ auth.user?.email }}</span>
-        <BaseButton variant="secondary" @click="auth.logout()">Log out</BaseButton>
-      </div>
+      <AppMark />
     </header>
 
     <div class="app-layout__scrim" role="presentation" @click="navOpen = false"></div>
@@ -33,10 +29,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
-import { useAuthStore } from '~/stores/auth'
 import { useTablesStore } from '~/stores/tables'
 
-const auth = useAuthStore()
 const tablesStore = useTablesStore()
 const route = useRoute()
 
@@ -89,75 +83,51 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   // `RecordsTable`'s full intrinsic width, so `overflow-x` never engages and the whole document
   // scrolls sideways instead of the table
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  grid-template-rows: var(--header-height) 1fr;
-  // The shell is the viewport, not a document that grows: scrolling belongs to the panes below,
-  // so the header stays put. `dvh`, so a collapsing mobile URL bar leaves nothing overhanging.
+  grid-template-rows: minmax(0, 1fr);
+  // The shell is the viewport, not a document that grows: scrolling belongs to the panes below.
+  // `dvh`, so a collapsing mobile URL bar leaves nothing overhanging.
   height: 100dvh;
   overflow: hidden;
   background: var(--color-canvas);
 
+  // Shown below the shell breakpoint only
   &__header {
-    @include cluster;
-
-    grid-column: 1 / -1;
-    padding: 0 rem(24);
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  &__brand {
-    font-size: var(--font-size-lg);
-    font-weight: 700;
-    color: var(--color-accent);
-    text-decoration: none;
-
-    @include focus-ring;
-  }
-
-  // Hand-rolled rather than a `BaseButton`, so it does not inherit the icon variant's sizing
-  &__toggle {
     display: none;
+  }
+
+  // Hand-rolled rather than a `BaseButton`: a bordered square, identified by its 3:1 edge
+  &__toggle {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    // `flex: none`, or the header shrinks the square to its glyph on a narrow viewport — the
-    // only viewport this button is shown on
+    // `flex: none`, or the bar shrinks the square to its glyph
     flex: none;
     width: var(--control-height);
     height: var(--control-height);
-    padding: rem(4);
-    border: none;
+    padding: 0;
+    border: 1px solid var(--color-border-control);
     border-radius: var(--radius-md);
-    background: none;
+    background: var(--color-surface);
     // Matches `BaseButton --icon`'s glyph, so the app has one icon size
     font-size: rem(20);
-    color: var(--color-text-secondary);
+    color: var(--color-text);
     cursor: pointer;
 
     @include focus-ring;
 
     &:hover {
-      color: var(--color-text);
+      border-color: var(--color-border-control-hover);
+      background: var(--color-surface-raised);
     }
-  }
-
-  &__user {
-    display: flex;
-    align-items: center;
-    gap: rem(12);
-    margin-left: auto;
-  }
-
-  &__email {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 
   &__sidebar {
     // A grid item's automatic minimum is its content, so a long table list would push the row
-    // taller than the shell and `overflow-y` would never engage
+    // taller than the shell. `overflow: hidden` because the sidebar's own middle region scrolls,
+    // keeping its mark and user block in place.
     min-height: 0;
-    overflow-y: auto;
-    background: var(--color-surface);
+    overflow: hidden;
+    background: var(--color-surface-raised);
     border-right: 1px solid var(--color-border);
   }
 
@@ -172,14 +142,24 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     // itself to the pane (the records list) leaves nothing here to scroll
     min-height: 0;
     overflow-y: auto;
-    padding: rem(24);
+    padding: rem(18) rem(24) rem(32);
   }
 
   @include below-shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
 
-    &__toggle {
-      display: inline-flex;
+    // In the flow on the canvas, unruled, as drawn
+    &__header {
+      display: flex;
+      align-items: center;
+      gap: rem(8);
+      min-height: var(--header-height);
+      padding: rem(8) rem(12);
+    }
+
+    &__main {
+      padding: 0 rem(12) rem(24);
     }
 
     // Above the page, below `--z-modal`, so a dialog still covers the shell.
@@ -189,13 +169,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     // `visibility` is animatable, so the slide still works.
     &__sidebar {
       position: fixed;
-      // Anchored to the viewport, not the header — it is a drawer over the whole shell. Both
+      // Anchored to the viewport, not the bar — it is a drawer over the whole shell. Both
       // edges are stated because out of the grid it inherits no row height.
       top: 0;
       bottom: 0;
       left: 0;
       z-index: var(--z-sidebar);
-      width: var(--sidebar-width);
+      // Wider than the persistent column, as the reference's drawer is, but never so wide the
+      // scrim beside it stops being a target
+      width: min(#{rem(288)}, 84%);
       visibility: hidden;
       transform: translateX(-100%);
       transition:

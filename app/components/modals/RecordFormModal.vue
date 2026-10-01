@@ -1,18 +1,27 @@
 <template>
-  <BaseModal :title="mode === 'create' ? 'New record' : 'Edit record'" @close="emit('close')">
-    <form class="record-form" novalidate @submit.prevent="submit">
-      <RecordForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
-
+  <BaseModal
+    :title="mode === 'create' ? 'New record' : 'Edit record'"
+    size="lg"
+    @close="emit('close')"
+  >
+    <form :id="formId" class="record-form" novalidate @submit.prevent="submit">
+      <!-- First, where it is seen on submit: the footer is pinned, the fields may scroll -->
       <BaseErrorBanner :message="serverError" />
 
-      <BaseButton type="submit" :disabled="pending">
+      <RecordForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
+    </form>
+
+    <template #footer>
+      <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">Cancel</BaseButton>
+      <BaseButton type="submit" :form="formId" :loading="pending">
         {{ mode === 'create' ? 'Create record' : 'Save' }}
       </BaseButton>
-    </form>
+    </template>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
+import { useId } from 'vue'
 import { useForm } from '~/composables/useForm'
 import type { IField } from '#shared/types/field'
 import type { IRecord, TRecordData, TRecordValue } from '#shared/types/record'
@@ -29,6 +38,8 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{ saved: []; close: [] }>()
+
+const formId = useId()
 
 // Both the initial values and the validation schema come straight from field metadata
 const initial: TRecordData = Object.fromEntries(

@@ -1,5 +1,8 @@
 <template>
-  <div class="base-select" :class="{ 'base-select--open': open }">
+  <div
+    class="base-select"
+    :class="{ 'base-select--open': open, 'base-select--disabled': disabled }"
+  >
     <label v-if="label" :id="`${id}-label`" class="base-select__label" :for="id">{{ label }}</label>
 
     <div ref="containerRef" class="base-select__control" @click="onControlClick">
@@ -70,17 +73,33 @@
         class="base-select__value"
         :class="{ 'base-select__value--clearable': showClear }"
       >
-        <BaseBadge v-if="valueBadge" :color="valueBadge.color" class="base-select__badge">
-          {{ valueBadge.label }}
+        <BaseBadge
+          v-if="firstSelected?.color"
+          :color="firstSelected.color"
+          class="base-select__badge"
+        >
+          {{ firstSelected.label }}
         </BaseBadge>
-        <template v-else>{{ valueText }}</template>
+        <span v-else class="base-select__value-text">{{ firstSelected?.label }}</span>
+        <!-- The rest is a count, never a second value: the box holds one value at any number.
+             Seen as "+2", read as "and 2 more" — the overlay is the button's accessible name. -->
+        <template v-if="moreCount > 0">
+          <span class="base-select__more" aria-hidden="true">+{{ moreCount }}</span>
+          <span class="visually-hidden"> and {{ moreCount }} more</span>
+        </template>
       </span>
 
-      <!-- A button has no `placeholder` attribute; the input above uses the native one -->
+      <!--
+        A button has no `placeholder` attribute; the input above uses the native one. `inert`
+        while disabled: the text is part of an inactive control, which WCAG 1.4.3 exempts from
+        contrast, but it sits beside the disabled `<button>` rather than inside its name, so no
+        checker can know that. Nothing refers to it, so the announced name does not change.
+      -->
       <span
         v-else-if="!searchable"
         class="base-select__placeholder"
         :class="{ 'base-select__placeholder--clearable': showClear }"
+        :inert="disabled || undefined"
       >
         {{ placeholder }}
       </span>
@@ -105,7 +124,7 @@
         @click.stop="togglePanel"
         @mousedown.prevent
       >
-        <Icon name="mdi:chevron-down" />
+        <Icon name="material-symbols:expand-more-rounded" />
       </button>
 
       <!--
@@ -117,7 +136,7 @@
         v-if="showClear"
         variant="icon"
         size="sm"
-        prepend-icon="mdi:close"
+        prepend-icon="material-symbols:close-rounded"
         class="base-select__clear"
         :label="`Clear ${label ?? ariaLabel ?? 'selection'}`"
         @click.stop="clear"
@@ -152,7 +171,7 @@
           {{ statusText }}
           <BaseButton
             v-if="status === 'failed'"
-            variant="link"
+            variant="secondary"
             @click="onRetry"
             @keydown="onRetryKeydown"
           >
@@ -202,7 +221,7 @@
             <!-- Colour alone cannot carry the selected state (WCAG 1.4.1) -->
             <Icon
               v-if="selected.includes(option.value)"
-              name="mdi:check"
+              name="material-symbols:check-rounded"
               class="base-select__check"
               aria-hidden="true"
             />
@@ -379,7 +398,7 @@ const statusText = computed(() => {
 
   const typed = searchDraft.value.trim()
 
-  return typed === '' ? props.emptyLabel : `No results for “${typed}”`
+  return typed === '' ? props.emptyLabel : `No option matches “${typed}”`
 })
 
 /**
@@ -491,19 +510,12 @@ const showValue = computed(
   () => selectedOptions.value.length > 0 && (!props.searchable || searchDraft.value === ''),
 )
 
-/** One selection reads as itself; several read as a count — a 36px control cannot list them. */
-const valueBadge = computed(() =>
-  selectedOptions.value.length === 1 && selectedOptions.value[0]?.color
-    ? selectedOptions.value[0]
-    : undefined,
-)
-
-const valueText = computed(() => {
-  const count = selectedOptions.value.length
-  if (count === 1) return selectedOptions.value[0]?.label ?? ''
-
-  return `${count} selected`
-})
+/**
+ * The first selection reads as itself and the rest as a count — a 36px control cannot list
+ * them, and a bare "3 selected" says nothing about what is chosen.
+ */
+const firstSelected = computed<ISelectOption | undefined>(() => selectedOptions.value[0])
+const moreCount = computed(() => Math.max(selectedOptions.value.length - 1, 0))
 
 /**
  * A `<button>` carries its selection in its accessible *name*; an `<input>`'s value is the
@@ -741,6 +753,12 @@ watch(open, (isOpen) => {
 </script>
 
 <style lang="scss" scoped>
+// The strip at the right the caret owns (its 24px box, 10px in, and a 2px breath), and that
+// strip plus the 24px clear button with a 4px gap. The value, the text and the clear all
+// stop at these, so they move together.
+$caret-gutter: rem(36);
+$clearable-gutter: rem(64);
+
 .base-select {
   @include stack(4);
 
@@ -762,19 +780,11 @@ watch(open, (isOpen) => {
 
     display: block;
     width: 100%;
-    // Room for the chevron
-    padding-right: rem(36);
-    background: var(--color-surface);
+    padding-right: $caret-gutter;
     text-align: left;
 
     &--clearable {
-      padding-right: rem(64);
-    }
-
-    &:disabled {
-      background: var(--color-surface-disabled);
-      color: var(--color-text-secondary);
-      cursor: not-allowed;
+      padding-right: $clearable-gutter;
     }
   }
 
@@ -785,18 +795,10 @@ watch(open, (isOpen) => {
     cursor: pointer;
   }
 
-  &__input {
-    // Only shown while nothing is selected; the overlay covers the field otherwise
-    &::placeholder {
-      // The token, not `opacity` — muted text at 0.6 is ~2.4:1, the subtle token 4.58:1
-      color: var(--color-text-subtle);
-    }
-  }
-
   // On branch A focus lives inside the panel while open, so the trigger's own `:focus` never
-  // matches and the control would read as inactive
+  // matches and the control would read as inactive. Open keeps the focus look, the caret flipped.
   &--open &__trigger {
-    border-color: var(--color-accent);
+    border-color: var(--color-focus);
   }
 
   &--open &__chevron {
@@ -812,27 +814,62 @@ watch(open, (isOpen) => {
     top: 50%;
     // `form-control`'s own inline padding, so the overlay sits exactly where text would
     left: rem(12);
-    right: rem(36);
+    right: $caret-gutter;
     transform: translateY(-50%);
     font-size: var(--font-size-md);
     line-height: var(--line-height-tight);
     pointer-events: none;
 
-    @include truncate;
-
     &--clearable {
-      right: rem(64);
+      right: $clearable-gutter;
     }
+  }
+
+  // A row, so the count keeps its width and only the value gives way to it
+  &__value {
+    display: flex;
+    align-items: center;
+    gap: rem(6);
   }
 
   &__placeholder {
     color: var(--color-text-subtle);
+
+    @include truncate;
+  }
+
+  // Grey ink over the grey plate, as a disabled `BaseButton` draws its label. A coloured value
+  // keeps its badge: a locked value is still a value.
+  &--disabled &__placeholder,
+  &--disabled &__value-text {
+    color: var(--color-text-disabled);
+  }
+
+  &__value-text {
+    min-width: 0;
+
+    @include truncate;
+  }
+
+  // A counter chip, never shortened and never pushed out — the value truncates first. Mono,
+  // being a figure the app computed rather than a value the user chose.
+  &__more {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: rem(22);
+    padding: 0 rem(7);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
   }
 
   &__badge {
     // A flex item will not shrink below its content without this, so the ellipsis never engages
     min-width: 0;
-    vertical-align: middle;
   }
 
   &__chevron,
@@ -840,12 +877,12 @@ watch(open, (isOpen) => {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--color-text-secondary);
   }
 
+  // Subtle at rest and accent while the control is active, so the caret agrees with the border
   &__chevron {
     // `rem(10)` with a 24px box, not `rem(12)` with a bare glyph: the arrow is drawn in the same
-    // place either way, and the target now clears SC 2.5.8's 24×24 floor
+    // place either way, and the target clears SC 2.5.8's 24×24 floor
     right: rem(10);
     display: flex;
     align-items: center;
@@ -857,19 +894,27 @@ watch(open, (isOpen) => {
     background: none;
     // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
     font-size: rem(20);
+    color: var(--color-text-subtle);
     cursor: pointer;
     transition: transform 0.15s ease;
 
     // Inert with the control, so the `not-allowed` cursor beneath shows through
     &:disabled {
+      color: var(--color-glyph-faint);
       pointer-events: none;
     }
+  }
+
+  &__trigger:focus ~ &__chevron,
+  &__input:focus ~ &__chevron,
+  &--open &__chevron {
+    color: var(--color-accent);
   }
 
   // A `BaseButton` with `variant="icon" size="sm"` — the 24×24 step, SC 2.5.8's floor and
   // what fits beside the chevron in a 36px control. Only the two call-site facts stay here.
   &__clear {
-    right: rem(36);
+    right: $caret-gutter;
 
     // Inset, or the control's own rounded corner clips the ring; and inset, the halo would
     // glow outward over that border and the chevron. Both are custom properties, so
@@ -885,26 +930,24 @@ watch(open, (isOpen) => {
   // Positioned entirely by `useAnchoredPosition`, in viewport coordinates — `position: fixed`
   // is what lets it escape the filter drawer's scroll container
   &__panel {
-    position: fixed;
-    z-index: var(--z-popover);
+    @include popover-panel;
+
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-md);
     overflow: hidden;
   }
 
+  // Said out loud, centred in the panel's own box so the width never changes with the state
   &__status {
     flex: none;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: rem(8);
+    gap: rem(4);
     margin: 0;
-    padding: rem(10) rem(12);
+    padding: rem(14) rem(16);
     font-size: var(--font-size-sm);
+    text-align: center;
     color: var(--color-text-secondary);
   }
 
@@ -913,7 +956,10 @@ watch(open, (isOpen) => {
     flex: 1;
     min-height: 0;
     margin: 0;
-    padding: rem(4);
+    display: flex;
+    flex-direction: column;
+    gap: rem(2);
+    padding: rem(6);
     list-style: none;
     overflow-y: auto;
   }
@@ -921,10 +967,10 @@ watch(open, (isOpen) => {
   &__option {
     display: flex;
     align-items: center;
-    gap: rem(8);
+    gap: rem(9);
     // SC 2.5.8 with the house floor to spare, and the same rhythm as every other control
     min-height: var(--control-height);
-    padding: rem(6) rem(10);
+    padding: rem(6) rem(8);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-md);
     cursor: pointer;
@@ -933,16 +979,35 @@ watch(open, (isOpen) => {
       background: var(--color-surface-hover);
     }
 
+    // Selection is a tint and a check — never a checkbox, never a border. Under the pointer
+    // or the keyboard it deepens, because that row now unpicks the value.
     &--selected {
       background: var(--color-accent-tint);
+
+      &:hover {
+        background: var(--color-accent-tint-strong);
+      }
     }
 
-    // Written out rather than `@include`d, and an outline rather than a wash:
-    // `docs/decisions.md`. One class, because only the keyboard places the cursor — neither
-    // opening nor the pointer sets it.
+    // The keyboard row: the pointer's grey plus a 2px accent edge, so the two can be told apart
+    // when both exist. Written out rather than `@include`d (`docs/decisions.md`). One class,
+    // because only the keyboard places the cursor — neither opening nor the pointer sets it.
     &--active {
-      outline: var(--focus-ring-width) solid var(--color-focus);
-      outline-offset: calc(-1 * var(--focus-ring-width));
+      background: var(--color-surface-hover);
+      box-shadow: inset rem(2) 0 0 var(--color-accent);
+    }
+
+    &--active.base-select__option--selected {
+      background: var(--color-accent-tint-strong);
+    }
+
+    // The edge is a `box-shadow`, which `forced-colors` does not paint; an inset outline is
+    // what survives there
+    @media (forced-colors: active) {
+      &--active {
+        outline: rem(2) solid;
+        outline-offset: rem(-2);
+      }
     }
 
     &[aria-disabled='true'] {

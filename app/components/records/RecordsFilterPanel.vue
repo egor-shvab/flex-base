@@ -1,6 +1,10 @@
 <template>
   <BaseModal title="Filters" variant="drawer" @close="emit('close')">
     <div class="filter-panel">
+      <!-- Said once, up front, because there are no operators to say it row by row -->
+      <p class="filter-panel__intro">
+        Each field filters on its own. A record has to match every filter to show.
+      </p>
       <component
         :is="control.component"
         v-for="control in controls"
@@ -14,17 +18,19 @@
 
     <template #footer>
       <div class="filter-panel__footer">
-        <span class="filter-panel__count">
-          {{ pending ? 'Filtering…' : formatMatchingRecords(total, totalCapped) }}
-        </span>
         <BaseButton
           v-if="activeFilterCount > 0"
-          variant="ghost"
-          prepend-icon="mdi:filter-remove-outline"
+          variant="secondary"
           @click="emit('update:filters', {})"
         >
           Clear all
         </BaseButton>
+        <span class="filter-panel__count">
+          {{ pending ? 'Filtering…' : formatMatchingRecords(total, totalCapped) }}
+        </span>
+        <!-- Filters apply as they change, so this only dismisses — the way out a pointer user
+             reaches for at the end of the task, rather than the × in the corner -->
+        <BaseButton @click="emit('close')">Done</BaseButton>
       </div>
     </template>
   </BaseModal>
@@ -91,15 +97,24 @@ function applyFieldValue(changed: IField, value: TFilterValue) {
 .filter-panel {
   @include stack;
 
-  // Placement only — BaseModal's drawer variant owns the footer's chrome
+  &__intro {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  // Placement only — BaseModal's drawer variant owns the footer's chrome. The count takes the
+  // slack, so Clear all stays left and Done right whether or not the first is shown
   &__footer {
     display: flex;
+    flex: 1;
     align-items: center;
-    justify-content: space-between;
-    gap: rem(12);
+    gap: rem(8);
   }
 
   &__count {
+    flex: 1;
+    min-width: 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
   }

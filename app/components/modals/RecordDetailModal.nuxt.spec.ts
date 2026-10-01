@@ -60,11 +60,26 @@ describe('RecordDetailModal', () => {
   })
 
   describe('which state it shows', () => {
-    it('names the record’s table and number above the values', async () => {
+    /** In the header's mono line, so the title — and the dialog's name — stays static. */
+    it('names the record’s table and number under the title', async () => {
       await mountModal()
 
-      expect(dialog()?.textContent).toContain('Deals · #7')
+      expect(document.querySelector('.base-modal__subtitle')?.textContent).toBe('Deals · #7')
+      expect(dialog()?.getAttribute('aria-label')).toBe('Record details')
       expect(dialog()?.textContent).toContain('Acme')
+    })
+
+    it('names nothing under the title until the record has arrived', async () => {
+      await mountModal({ detail: null, pending: true })
+
+      expect(document.querySelector('.base-modal__subtitle')).toBeNull()
+    })
+
+    /** A record is a place beside the table, so it is the side sheet — still modal (`docs/limitations.md`). */
+    it('opens as the side sheet', async () => {
+      await mountModal()
+
+      expect(document.querySelector('.base-modal--drawer')).not.toBeNull()
     })
 
     /** Loading, error and loaded are distinct states with distinct copy — never inferred. */

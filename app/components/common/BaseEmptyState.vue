@@ -22,7 +22,7 @@
 defineProps<{
   title?: string
   /**
-   * Iconify name (`mdi:*`) for the tile above the copy. Required: the glyph is half of how an
+   * Iconify name (`material-symbols:*`) for the tile above the copy. Required: the glyph is half of how an
    * empty state says what is missing.
    */
   icon: string
@@ -44,20 +44,20 @@ defineProps<{
   &__art {
     display: grid;
     place-items: center;
-    width: rem(56);
-    height: rem(56);
+    width: rem(40);
+    height: rem(40);
     // A step over the shared gap — the tile opens the block rather than being a line of it
-    margin-bottom: rem(6);
+    margin-bottom: rem(2);
     border-radius: var(--radius-lg);
     background: var(--color-accent-tint);
     // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
-    font-size: rem(28);
+    font-size: rem(22);
     color: var(--color-accent);
   }
 
   &__title {
     margin: 0;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-md);
     font-weight: 600;
     color: var(--color-text);
   }
@@ -66,6 +66,7 @@ defineProps<{
     // Centred copy is unreadable past a measure, and this block is as wide as its container
     max-width: 42ch;
     margin: 0;
+    font-size: var(--font-size-xs);
   }
 
   &__action {

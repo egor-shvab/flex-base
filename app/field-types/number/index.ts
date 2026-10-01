@@ -40,6 +40,7 @@ export const NUMBER_APP_FIELD_TYPE: IAppFieldType<'NUMBER'> = {
       (to) => `${to} or less`,
     ),
   multiSummary: null,
-  icon: 'mdi:numeric',
+  icon: 'material-symbols:numbers-rounded',
+  align: 'end',
   configSummary: null,
 }

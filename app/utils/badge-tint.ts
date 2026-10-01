@@ -15,7 +15,7 @@ import type { TBadgeColor } from '#shared/types/color'
 export function badgeTint(color: TBadgeColor): Record<string, string> {
   return {
     '--badge-bg': `var(--color-badge-${color}-bg, var(--color-surface-muted))`,
-    '--badge-border': `var(--color-badge-${color}-border, transparent)`,
+    '--badge-dot': `var(--color-badge-${color}-dot, transparent)`,
     '--badge-fg': `var(--color-badge-${color}-fg, var(--color-text))`,
   }
 }

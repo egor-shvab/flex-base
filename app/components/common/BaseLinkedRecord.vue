@@ -34,7 +34,8 @@ const labelText = computed(() => (props.label === null ? '' : ` ${props.label}`)
 
   &__number {
     color: var(--color-text-secondary);
-    // Tabular figures so the numbers line up down the column, as in `NumberFieldCell`
+    // Mono because the number is machine-made; tabular so the numbers line up down a column
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
 }

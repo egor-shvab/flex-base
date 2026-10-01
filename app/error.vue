@@ -1,11 +1,35 @@
 <template>
   <div class="error-page">
-    <div class="error-page__card">
-      <p class="error-page__code">{{ error.statusCode }}</p>
-      <h1 class="error-page__title">{{ title }}</h1>
-      <p class="error-page__message">{{ message }}</p>
+    <div class="error-page__column">
+      <AppMark class="error-page__mark" />
 
-      <BaseButton class="error-page__action" @click="goHome">Back to your tables</BaseButton>
+      <section class="error-page__card">
+        <span class="error-page__tile" :class="`error-page__tile--${tone}`" aria-hidden="true">
+          <Icon :name="glyph" />
+        </span>
+
+        <div class="error-page__text">
+          <!-- The code keeps an element of its own, so it can be read without the word -->
+          <p class="error-page__eyebrow">
+            Error <span class="error-page__code">{{ error.statusCode }}</span>
+          </p>
+          <h1 class="error-page__title">{{ title }}</h1>
+          <p class="error-page__message">{{ message }}</p>
+        </div>
+
+        <div class="error-page__actions">
+          <BaseButton
+            variant="secondary"
+            prepend-icon="material-symbols:arrow-back-rounded"
+            @click="goBack"
+          >
+            Go back
+          </BaseButton>
+          <BaseButton prepend-icon="material-symbols:home-outline-rounded" @click="goHome">
+            Back to home
+          </BaseButton>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -55,8 +79,30 @@ const message = computed(() => {
   return 'Part of that web address could not be read. Going back to your tables and trying again usually fixes it.'
 })
 
+/** The same three cases as the copy, said in a glyph — and only a fault of ours is red. */
+const glyph = computed(() => {
+  if (isNotFound.value) return 'material-symbols:search-off-rounded'
+
+  return isServerFault.value
+    ? 'material-symbols:error-outline-rounded'
+    : 'material-symbols:link-off-rounded'
+})
+
+const tone = computed(() => (isServerFault.value ? 'danger' : 'neutral'))
+
 function goHome() {
   return clearError({ redirect: '/' })
+}
+
+/**
+ * Where the router says the user came from, when they came from inside the app. A cold-loaded
+ * error URL has no such entry, and Home is the one place that always exists — never the
+ * browser's own Back, which could leave the app altogether.
+ */
+function goBack() {
+  const back: unknown = window.history.state?.back
+
+  return clearError({ redirect: typeof back === 'string' ? back : '/' })
 }
 </script>
 
@@ -64,31 +110,85 @@ function goHome() {
 .error-page {
   @include centred-viewport;
 
-  &__card {
-    @include centred-card(rem(440));
+  &__column {
+    @include centred-column(rem(512));
+  }
 
+  &__mark {
+    align-self: center;
+  }
+
+  &__card {
+    @include centred-card(32);
+    @include stack(20);
+
+    align-items: center;
     text-align: center;
   }
 
-  &__code {
+  // The mock's 56px tile at its own 16px radius — larger than any panel's, as the one glyph
+  // the page carries
+  &__tile {
+    display: grid;
+    place-items: center;
+    width: rem(56);
+    height: rem(56);
+    border-radius: rem(16);
+    font-size: rem(30);
+
+    &--neutral {
+      color: var(--color-text-secondary);
+      background: var(--color-surface-muted);
+    }
+
+    &--danger {
+      color: var(--color-danger);
+      background: var(--color-danger-tint);
+    }
+  }
+
+  &__text {
+    @include stack(8);
+
+    align-items: center;
+  }
+
+  &__eyebrow {
+    @include eyebrow;
+
     margin: 0;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--color-text-subtle);
   }
 
   &__title {
-    margin: rem(4) 0 rem(8);
-    font-size: var(--font-size-xl);
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    letter-spacing: var(--letter-spacing-display);
   }
 
   &__message {
+    max-width: rem(380);
     margin: 0;
     color: var(--color-text-secondary);
   }
 
-  &__action {
-    margin-top: rem(24);
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: rem(8);
+
+    // Stacked full width on a phone. In source order, not the reference's home-first: a visual
+    // reversal would make the tab order climb the screen
+    @include below-compact {
+      flex-direction: column;
+      // The card centres its children, which would hold this row at its content's width
+      align-self: stretch;
+
+      > * {
+        width: 100%;
+      }
+    }
   }
 }
 </style>

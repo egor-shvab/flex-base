@@ -26,7 +26,8 @@ export const TEXT_APP_FIELD_TYPE: IAppFieldType<'TEXT'> = {
   cell: markRaw(TextFieldCell),
   summary: (value) => `contains ${String(value)}`,
   multiSummary: null,
-  icon: 'mdi:format-text',
+  icon: 'material-symbols:text-fields-rounded',
+  align: 'start',
   // A TEXT field is entirely described by the word "Text"
   configSummary: null,
 }

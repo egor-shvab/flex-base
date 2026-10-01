@@ -72,14 +72,42 @@ test.describe('every field type', () => {
     await page.getByRole('button', { name: 'Create record' }).click()
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Delete record' }).click()
+    // One step away, in the row's menu
+    await page.getByRole('button', { name: 'More actions' }).click()
+    await page.getByRole('menuitem', { name: 'Delete record' }).click()
     await page.getByRole('button', { name: 'Close' }).click()
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Delete record' }).click()
+    await page.getByRole('button', { name: 'More actions' }).click()
+    await page.getByRole('menuitem', { name: 'Delete record' }).click()
     await confirmDeletion(page)
 
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeHidden()
+  })
+
+  /**
+   * Where focus goes is the half a component spec cannot vouch for in a real browser: into the
+   * menu on opening, back to the trigger on Escape — and the Escape closes the menu alone.
+   */
+  test('the row menu is keyboard-operable and returns focus', async ({ page }) => {
+    await page.goto(table.url)
+    await page.getByRole('button', { name: 'Add record' }).first().click()
+    await page.getByLabel('Company').fill('Acme')
+    await page.getByRole('button', { name: 'Create record' }).click()
+    await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+
+    const trigger = page.getByRole('button', { name: 'More actions' })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+
+    const item = page.getByRole('menuitem', { name: 'Delete record' })
+    await expect(item).toBeFocused()
+
+    await page.keyboard.press('Escape')
+
+    await expect(page.getByRole('menu')).toBeHidden()
+    await expect(trigger).toBeFocused()
+    await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
   })
 
   test('shows an unfilled value as Not set rather than blank', async ({ page }) => {

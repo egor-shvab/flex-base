@@ -112,9 +112,8 @@ test('a deleted target degrades to an unclickable Unknown record', async ({ page
  * would leave the dialog open in silence and the message in the console.
  */
 test('deleting a targeted table is refused, and says which field to remove', async ({ page }) => {
-  await page.goto('/')
-  const card = page.getByRole('listitem').filter({ hasText: 'People' })
-  await card.getByRole('button', { name: 'Delete' }).click()
+  await page.goto(people.settingsUrl)
+  await page.getByRole('button', { name: 'Delete table' }).click()
   await confirmDeletion(page)
 
   // The dialog stays open, because the delete never succeeded — and now explains itself,
@@ -125,38 +124,36 @@ test('deleting a targeted table is refused, and says which field to remove', asy
   await expect(dialog.getByRole('alert')).toContainText('Deals')
 
   await page.reload()
-  await expect(page.getByRole('listitem').filter({ hasText: 'People' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'People', level: 1 })).toBeVisible()
 })
 
 /** Cancelling after a refusal must not carry the message into the next dialog. */
 test('the refusal is forgotten once the dialog is dismissed', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(people.settingsUrl)
 
-  const people = page.getByRole('listitem').filter({ hasText: 'People' })
-  await people.getByRole('button', { name: 'Delete' }).click()
+  const deleteTable = page.getByRole('button', { name: 'Delete table' })
+  await deleteTable.click()
   await confirmDeletion(page)
   await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible()
 
   await page.getByRole('button', { name: 'Close' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
 
-  await page
-    .getByRole('listitem')
-    .filter({ hasText: 'Deals' })
-    .getByRole('button', { name: 'Delete' })
-    .click()
+  // The same table again: a fresh dialog, with nothing left over from the last one
+  await deleteTable.click()
 
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.getByRole('dialog').getByRole('alert')).toHaveCount(0)
 })
 
 test('deleting a table nothing points at succeeds', async ({ page }) => {
-  await page.goto('/')
-  const card = page.getByRole('listitem').filter({ hasText: 'Deals' })
-  await card.getByRole('button', { name: 'Delete' }).click()
+  await page.goto(deals.settingsUrl)
+  await page.getByRole('button', { name: 'Delete table' }).click()
   await confirmDeletion(page)
 
-  await expect(page.getByRole('listitem').filter({ hasText: 'Deals' })).toHaveCount(0)
+  // Deleting the table leaves nowhere to stand, so the page lands on Home without it
+  await expect(page).toHaveURL('/')
+  await expect(page.getByRole('main').getByRole('link', { name: /Deals/ })).toHaveCount(0)
 })
 
 test.describe('a multi-value relation', () => {

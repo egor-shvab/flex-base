@@ -7,11 +7,26 @@
 .auth-form {
   @include stack;
 
+  &__heading {
+    @include stack(4);
+  }
+
   &__title {
     margin: 0;
     font-size: var(--font-size-xl);
     font-weight: 600;
-    text-align: center;
+    letter-spacing: var(--letter-spacing-display);
+  }
+
+  &__subtitle {
+    margin: 0;
+    font-size: var(--font-size-md);
+    color: var(--color-text-secondary);
+  }
+
+  // Full width: the one thing the card asks for, so it spans it
+  &__submit {
+    width: 100%;
   }
 
   &__footer {
@@ -19,5 +34,10 @@
     font-size: var(--font-size-sm);
     text-align: center;
     color: var(--color-text-secondary);
+
+    // The way to the other form, so it carries the line's weight
+    .text-link {
+      font-weight: 600;
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import BaseInput from '~/components/common/BaseInput.vue'
 import BaseRange from '~/components/common/BaseRange.vue'
+import BaseSegmented from '~/components/common/BaseSegmented.vue'
 import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
 import { FIELD_TYPES } from '#shared/field-types/registry'
 import type { TFieldType } from '#shared/types/field'
@@ -27,7 +28,7 @@ describe('FIELD_FILTERS', () => {
   it.each([
     ['TEXT', BaseInput],
     ['NUMBER', BaseRange],
-    ['BOOLEAN', BaseSelect],
+    ['BOOLEAN', BaseSegmented],
     ['DATE', BaseRange],
     ['SELECT', BaseSelect],
     ['RELATION', RelationFieldSelect],
@@ -156,13 +157,10 @@ describe('the props each control is handed', () => {
    * A filter's blank means "every record", never "nothing chosen" — which is why the copy
    * differs from the form's `— Select —` on the same controls.
    */
-  it.each([booleanField(), selectField(), relationField()])(
-    'placeholders a clearable filter with All',
-    (field) => {
-      expect(filterFor(field).props(field).placeholder).toBe('All')
-      expect(filterFor(field).props(field).clearable).toBe(true)
-    },
-  )
+  it.each([selectField(), relationField()])('placeholders a clearable filter with All', (field) => {
+    expect(filterFor(field).props(field).placeholder).toBe('All')
+    expect(filterFor(field).props(field).clearable).toBe(true)
+  })
 
   /**
    * A typed query input must not hit the API on every keystroke. Against the constant rather
@@ -190,10 +188,12 @@ describe('the props each control is handed', () => {
     expect(filterFor(dateField()).props(dateField()).type).toBe('date')
   })
 
-  it('offers a BOOLEAN the same two words the cell uses', () => {
+  /** Every answer at once, so "All" is a segment — the empty value — rather than a placeholder. */
+  it('offers a BOOLEAN All plus the same two words the cell uses', () => {
     const field = booleanField()
 
     expect(filterFor(field).props(field).options).toEqual([
+      { value: '', label: 'All' },
       { value: 'true', label: 'Yes' },
       { value: 'false', label: 'No' },
     ])

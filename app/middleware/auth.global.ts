@@ -10,6 +10,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await auth.fetchUser()
   }
 
+  // The component showcase renders fixtures only, so it is open to anyone. Exact-or-slash, so a
+  // lookalike path such as `/ui-testing` stays guarded.
+  if (to.path === '/ui-test' || to.path.startsWith('/ui-test/')) return
+
   const isAuthRoute = to.path.startsWith('/auth')
 
   if (!auth.isAuthenticated && !isAuthRoute) {

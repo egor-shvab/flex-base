@@ -17,19 +17,23 @@
         :autofocus="autofocus"
         :aria-label="ariaLabel"
         :aria-invalid="error || invalid ? true : undefined"
-        :aria-describedby="error ? `${id}-error` : undefined"
+        :aria-describedby="describedBy"
         @input="onInput"
         @compositionstart="composing = true"
         @compositionend="onCompositionEnd"
       />
     </div>
+    <!-- One line under the field: the error replaces the hint rather than stacking under it,
+         so a field that fails does not push the row below it down -->
     <span v-if="error" :id="`${id}-error`" class="base-input__error">{{ error }}</span>
+    <span v-else-if="hint" :id="`${id}-hint`" class="base-input__hint">{{ hint }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useDebouncedModel } from '~/composables/useDebouncedModel'
+import { toDescribedBy } from '~/utils/field-message'
 
 const props = withDefaults(
   defineProps<{
@@ -39,6 +43,8 @@ const props = withDefaults(
     autocomplete?: string
     placeholder?: string
     error?: string
+    /** A standing line under the field — what it expects. An `error` takes its place. */
+    hint?: string
     autofocus?: boolean
     /** Names the input when its visible label lives on a wrapping group (see BaseRange). */
     ariaLabel?: string
@@ -49,7 +55,7 @@ const props = withDefaults(
     /** The `.trim` modifier as a prop, for callers that bind props rather than `v-model`. */
     trim?: boolean
     /**
-     * Iconify name (e.g. `mdi:magnify`); renders a decorative leading icon inside the field.
+     * Iconify name (e.g. `material-symbols:search-rounded`); renders a decorative leading icon inside the field.
      * A prop rather than a slot, because the `field-types` registries hand this component a
      * `props(field)` object through `v-bind` and cannot pass a slot.
      */
@@ -61,6 +67,7 @@ const props = withDefaults(
     autocomplete: undefined,
     placeholder: undefined,
     error: undefined,
+    hint: undefined,
     autofocus: false,
     ariaLabel: undefined,
     invalid: false,
@@ -71,6 +78,8 @@ const props = withDefaults(
 )
 
 const [model, modifiers] = defineModel<string>({ default: '' })
+
+const describedBy = computed(() => toDescribedBy(props.id, props))
 
 const draft = useDebouncedModel(model, {
   delay: props.debounce,
@@ -116,9 +125,9 @@ function onCompositionEnd(event: CompositionEvent) {
     left: rem(12);
     transform: translateY(-50%);
     // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`. 18 is the
-    // concept's `.tfind svg`.
+    // design reference's search glyph.
     font-size: rem(18);
-    color: var(--color-text-secondary);
+    color: var(--color-text-subtle);
     // The glyph overlaps the field, so a click on it must reach the input beneath
     pointer-events: none;
   }
@@ -129,15 +138,14 @@ function onCompositionEnd(event: CompositionEvent) {
     // A block-wrapper child rather than a stretched flex item, so it does not fill on its own
     width: 100%;
 
-    // The token, not `opacity` — muted text at 0.6 is ~2.4:1, the subtle token 4.58:1
-    &::placeholder {
-      color: var(--color-text-subtle);
-    }
-
-    // The gutter, the glyph, and the rem(10) the concept sets between the two
+    // The 12px gutter, the 18px glyph, and the 8px the design reference sets between the two
     &--with-icon {
-      padding-left: rem(40);
+      padding-left: rem(38);
     }
+  }
+
+  &__hint {
+    @include field-hint;
   }
 
   &__error {

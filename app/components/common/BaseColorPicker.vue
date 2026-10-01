@@ -17,8 +17,8 @@
     <!--
       Rendered in place rather than teleported: this opens inside the teleported dialog, which
       is not inert. `--z-popover` orders it within `.base-modal`'s stacking context, and
-      `.base-modal` declares no `transform`, so `position: fixed` still resolves against the
-      viewport.
+      neither `.base-modal` nor its dialog carries a `transform` at rest (its entrance animation
+      keeps one only while it runs), so `position: fixed` still resolves against the viewport.
     -->
     <div
       v-if="open"
@@ -50,8 +50,11 @@
         :tabindex="color === model ? 0 : -1"
         @click="choose(color)"
       >
-        <!-- Colour alone cannot carry the selected state (WCAG 1.4.1) -->
-        <Icon v-if="color === model" name="mdi:check" aria-hidden="true" />
+        <!-- A 22px swatch in a 36px target. Colour alone cannot carry the selected state
+             (WCAG 1.4.1), so the picked one takes a ring and a check. -->
+        <span class="base-color-picker__swatch">
+          <Icon v-if="color === model" name="material-symbols:check-rounded" aria-hidden="true" />
+        </span>
       </button>
     </div>
   </div>
@@ -131,77 +134,101 @@ function step(delta: number) {
   // No `position: relative`: the panel is positioned against the viewport. The container is
   // the outside-click boundary `usePopover` reads.
 
-  // Bordered like any other control — the swatch inside is content, not the control's own
-  // boundary, so `--color-border-control` and its 3:1 floor apply.
+  // A tinted square and nothing else — no caret, no label — drawn inside a 36px target
+  // because it edits a value, and every control that does is one control tall (`CLAUDE.md` §8).
+  // Borderless, so it takes `focus-ring`.
   &__trigger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: var(--control-height);
     height: var(--control-height);
-    border: 1px solid var(--color-border-control);
+    padding: 0;
+    border: none;
     border-radius: var(--radius-md);
-    background: var(--color-surface);
+    background: none;
     cursor: pointer;
 
     @include focus-ring;
 
+    // The raised wash, not `--color-surface-hover`: every `-dot` edge clears 3:1 on this one
     &:hover {
-      background: var(--color-surface-hover);
+      background: var(--color-surface-raised);
     }
 
     &:disabled {
-      opacity: 0.6;
       cursor: not-allowed;
     }
   }
 
   // Bordered where `BaseBadge` is not: a swatch is pure colour with no word beside it, so its
-  // edge is the only thing bounding it. The sole consumer of the `-border` step.
-  &__preview {
-    width: rem(18);
-    height: rem(18);
-    border: 1px solid var(--badge-border);
-    border-radius: var(--radius-sm);
+  // edge is the only thing bounding it — the `-dot` step, which clears 3:1 on white.
+  &__preview,
+  &__swatch {
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--badge-dot);
     background: var(--badge-bg);
   }
 
-  // Positioned by `useAnchoredPosition` in viewport coordinates; `position: fixed` is what
-  // lets it flip above the trigger. `overflow-y` matters only where the composable caps
-  // `max-height` below the panel's own — a viewport too short for two rows scrolls rather
-  // than clipping a swatch away.
+  &__preview {
+    width: rem(26);
+    height: rem(26);
+    border-radius: var(--radius-md);
+  }
+
+  // Greyed with the trigger: nothing here can change
+  &__trigger:disabled &__preview {
+    border-color: var(--color-border);
+    background: var(--color-surface-disabled);
+  }
+
+  // `overflow-y` matters only where `useAnchoredPosition` caps `max-height` below the panel's
+  // own — a viewport too short for two rows scrolls rather than clipping a swatch away.
   &__panel {
-    position: fixed;
-    z-index: var(--z-popover);
+    @include popover-panel;
+
     display: grid;
     overflow-y: auto;
-    // Five columns of one control: 254px wide, inside the 380px a dialog offers
+    // Five columns of one control: 180px of targets plus the padding, inside any dialog. No
+    // gap: each 36px target already sets its 22px swatch 7px in, which is more than the 4px
+    // the focus halo reaches — so a ring never touches a neighbouring swatch.
     grid-template-columns: repeat(5, var(--control-height));
-    // Wide enough that two neighbouring focus states cannot touch — the halo reaches 4px
-    gap: rem(12);
-    padding: rem(12);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-md);
+    padding: rem(8);
   }
 
   // `--control-height` square: the house floor, well over SC 2.5.8's 24×24
   &__option {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     width: var(--control-height);
     height: var(--control-height);
-    border: 1px solid var(--badge-border);
+    padding: 0;
+    border: none;
     border-radius: var(--radius-md);
-    background: var(--badge-bg);
-    font-size: rem(18);
-    line-height: 1;
-    color: var(--badge-fg);
+    background: none;
     cursor: pointer;
 
     @include focus-ring;
+
+    &:hover {
+      background: var(--color-surface-raised);
+    }
+
+    // The picked swatch: a ring outside it, so nothing changes size and the grid never reflows
+    &[aria-checked='true'] .base-color-picker__swatch {
+      outline: rem(2) solid var(--color-accent);
+      outline-offset: rem(2);
+    }
+  }
+
+  &__swatch {
+    width: rem(22);
+    height: rem(22);
+    border-radius: var(--radius-sm);
+    font-size: rem(16);
+    line-height: 1;
+    color: var(--badge-fg);
   }
 }
 </style>

@@ -13,8 +13,13 @@ const scrim = () => document.querySelector<HTMLElement>('.base-modal')
 const appRoot = () => document.getElementById('__nuxt')
 
 function mountModal(
-  props: { title?: string; variant?: 'dialog' | 'drawer' } = {},
-  slots: { default?: () => unknown; footer?: () => unknown } = {},
+  props: {
+    title?: string
+    variant?: 'dialog' | 'drawer'
+    size?: 'sm' | 'md' | 'lg'
+    subtitle?: string
+  } = {},
+  slots: { default?: () => unknown; footer?: () => unknown; leading?: () => unknown } = {},
 ) {
   return mountTracked(BaseModal, { props: { title: 'Edit record', ...props }, slots })
 }
@@ -70,6 +75,32 @@ describe('BaseModal', () => {
       expect(scrim()?.classList.contains('base-modal--drawer')).toBe(true)
     })
 
+    it('is the medium width by default and takes the size it is given', async () => {
+      const medium = await mountModal()
+      expect(scrim()?.classList.contains('base-modal--md')).toBe(true)
+      medium.unmount()
+
+      await mountModal({ size: 'sm' })
+      expect(scrim()?.classList.contains('base-modal--sm')).toBe(true)
+      expect(scrim()?.classList.contains('base-modal--md')).toBe(false)
+    })
+
+    it('renders a subtitle under the title only when given', async () => {
+      const without = await mountModal()
+      expect(document.querySelector('.base-modal__subtitle')).toBeNull()
+      without.unmount()
+
+      await mountModal({ subtitle: 'Deals · #1042' })
+      expect(document.querySelector('.base-modal__subtitle')?.textContent).toBe('Deals · #1042')
+    })
+
+    /** Context, not a second name — the accessible name is the title alone. */
+    it('keeps the dialog named by its title when a subtitle is shown', async () => {
+      await mountModal({ subtitle: 'Deals · #1042' })
+
+      expect(dialog()?.getAttribute('aria-label')).toBe('Edit record')
+    })
+
     it('renders the default slot in the body', async () => {
       await mountModal({}, { default: () => 'Body content' })
 
@@ -83,6 +114,17 @@ describe('BaseModal', () => {
 
       await mountModal({}, { footer: () => 'Save' })
       expect(document.querySelector('.base-modal__footer')?.textContent).toContain('Save')
+    })
+
+    /** Beside the title, in the header — a glyph the caller draws, never a second name. */
+    it('renders a leading slot in the header, before the title', async () => {
+      await mountModal({}, { leading: () => h('span', { class: 'glyph' }, '!') })
+
+      const header = document.querySelector('.base-modal__header')
+      expect(header?.firstElementChild?.classList.contains('glyph')).toBe(true)
+      expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
+        'Edit record',
+      )
     })
   })
 

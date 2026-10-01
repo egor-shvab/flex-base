@@ -1,6 +1,10 @@
 <template>
-  <!-- Blank is handled here, once, so no cell component has to deal with null -->
-  <span v-if="isBlank" class="record-field-value__blank">Not set</span>
+  <!-- Blank is handled here, once, so no cell component has to deal with null. The dash is what
+       the eye scans for down a column; the words are what a screen reader — and the accessible
+       name a test selects by — reads instead of "em dash" -->
+  <span v-if="isBlank" class="record-field-value__blank"
+    ><span aria-hidden="true">—</span><span class="visually-hidden">Not set</span></span
+  >
   <!--
     Two branches because the two cell shapes take different values — a list, or one value. The
     split is what lets each component declare what it renders rather than the union of both.
@@ -40,9 +44,14 @@ const isBlank = computed(() =>
 </script>
 
 <style lang="scss" scoped>
-// A text role, not a border one. `-secondary` rather than `-subtle`: this is real content,
-// and `-subtle` is 3.9:1 on a hovered table row, under the 4.5:1 body-text floor.
+// Quiet, so a sparse column reads as mostly empty at a glance. `-subtle` still clears 4.5:1 on
+// white and on a hovered row — never put it on anything darker.
+//
+// `relative`, because `.visually-hidden` is absolutely positioned: with no positioned ancestor
+// it lands against the page at its static position, outside the table's scroll container, and
+// a blank in a far-right column scrolls the whole document sideways.
 .record-field-value__blank {
-  color: var(--color-text-secondary);
+  position: relative;
+  color: var(--color-text-subtle);
 }
 </style>

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
@@ -34,7 +35,12 @@ function table(props: { fields?: IField[]; records?: IRecord[]; sort?: IRecordSo
 type TTable = Awaited<ReturnType<typeof table>>
 
 const headers = (wrapper: TTable) => wrapper.findAll('thead th')
-const headerNames = (wrapper: TTable) => headers(wrapper).map((th) => th.text().trim())
+/** Each header's accessible name — the record number is drawn `#` and named by its label. */
+const headerNames = (wrapper: TTable) =>
+  headers(wrapper).map((th) => {
+    const button = th.find('button')
+    return (button.exists() && button.attributes('aria-label')) || th.text().trim()
+  })
 const rows = (wrapper: TTable) => wrapper.findAll('tbody tr')
 
 describe('RecordsTable', () => {
@@ -113,8 +119,45 @@ describe('RecordsTable', () => {
       const cells = rows(wrapper)[0]!
         .findAll('td')
         .map((td) => td.text().trim())
-      expect(cells[2]).toBe('Not set')
-      expect(cells[3]).toBe('Not set')
+      expect(cells[2]).toContain('Not set')
+      expect(cells[3]).toContain('Not set')
+    })
+  })
+
+  describe('header', () => {
+    it('draws the record number as `#`, keeping its name', async () => {
+      const wrapper = await table()
+      const button = headers(wrapper)[0]!.get('button')
+
+      expect(button.text()).toBe('#')
+      expect(button.attributes('aria-label')).toBe('Record #')
+    })
+
+    /** Decoration beside the name, from the registry — the record number is the one without. */
+    it('puts a type glyph before every field name but the record number', async () => {
+      const wrapper = await table()
+      const glyphs = headers(wrapper).map((th) => th.find('.records-table__type-icon').exists())
+
+      expect(glyphs).toEqual([false, true, true, true, true, false])
+    })
+  })
+
+  /** Figures sit against the right edge, header and body alike — the registry decides which. */
+  describe('alignment', () => {
+    const END = 'records-table__cell-end'
+
+    it('right-aligns a NUMBER column, header included', async () => {
+      const wrapper = await table()
+
+      expect(headers(wrapper)[2]!.classes()).toContain(END)
+      expect(rows(wrapper)[0]!.findAll('td')[2]!.classes()).toContain(END)
+    })
+
+    it('leaves every other column at the start', async () => {
+      const wrapper = await table()
+
+      expect(headers(wrapper)[1]!.classes()).not.toContain(END)
+      expect(rows(wrapper)[0]!.findAll('td')[1]!.classes()).not.toContain(END)
     })
   })
 
@@ -211,10 +254,13 @@ describe('RecordsTable', () => {
       expect(wrapper.emitted('edit')).toEqual([[RECORDS[1]]])
     })
 
-    it('emits delete with the row’s record', async () => {
+    it('emits delete with the row’s record, from its menu', async () => {
       const wrapper = await table()
 
-      await rows(wrapper)[0]!.get('[aria-label="Delete record"]').trigger('click')
+      // One step away: the row's menu, then its item — teleported, so found through the document
+      await rows(wrapper)[0]!.get('[aria-label="More actions"]').trigger('click')
+      await nextTick()
+      document.querySelector<HTMLElement>('[role="menuitem"]')!.click()
 
       expect(wrapper.emitted('delete')).toEqual([[RECORDS[0]]])
     })

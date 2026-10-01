@@ -34,7 +34,10 @@ describe('BaseLinkedRecord', () => {
     const wrapper = await ref({ number: 3, label: 'Example' })
 
     expect(wrapper.get('.linked-record__number').text()).toBe('#3')
-    expect(wrapper.find('.linked-record__label').exists()).toBe(false)
+    // The label is a bare text node beside it, so the number is the root's only element
+    expect(wrapper.element.children).toHaveLength(1)
+    expect(wrapper.element.lastChild?.nodeType).toBe(Node.TEXT_NODE)
+    expect(wrapper.element.lastChild?.textContent).toBe(' Example')
   })
 
   /**

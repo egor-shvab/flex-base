@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { BADGE_COLORS } from '#shared/constants/color'
 import { badgeTint } from '~/utils/badge-tint'
 
-const SLOTS = ['bg', 'border', 'fg'] as const
+const SLOTS = ['bg', 'dot', 'fg'] as const
 
 describe('badgeTint', () => {
   it('composes the three custom properties a badge paints from', () => {
     expect(badgeTint('blue')).toEqual({
       '--badge-bg': 'var(--color-badge-blue-bg, var(--color-surface-muted))',
-      '--badge-border': 'var(--color-badge-blue-border, transparent)',
+      '--badge-dot': 'var(--color-badge-blue-dot, transparent)',
       '--badge-fg': 'var(--color-badge-blue-fg, var(--color-text))',
     })
   })
@@ -21,7 +21,7 @@ describe('badgeTint', () => {
   it.each(BADGE_COLORS)('names every token after the %s hue', (color) => {
     const tint = badgeTint(color)
 
-    expect(Object.keys(tint)).toEqual(['--badge-bg', '--badge-border', '--badge-fg'])
+    expect(Object.keys(tint)).toEqual(['--badge-bg', '--badge-dot', '--badge-fg'])
 
     for (const slot of SLOTS) {
       expect(tint[`--badge-${slot}`]).toContain(`--color-badge-${color}-${slot}`)
@@ -37,7 +37,7 @@ describe('badgeTint', () => {
     const tint = badgeTint(color)
 
     expect(tint['--badge-bg']).toMatch(/,\s*var\(--color-surface-muted\)\)$/)
-    expect(tint['--badge-border']).toMatch(/,\s*transparent\)$/)
+    expect(tint['--badge-dot']).toMatch(/,\s*transparent\)$/)
     expect(tint['--badge-fg']).toMatch(/,\s*var\(--color-text\)\)$/)
   })
 

@@ -49,6 +49,9 @@ export default defineConfig({
     baseURL: BASE_URL,
     // Every spec starts signed in; `global-setup` registers the one account and saves this
     storageState: resolve('./test/e2e/.auth/user.json'),
+    // The app's own opt-out: overlays animate in only under `no-preference`, so a geometry
+    // assertion measures the settled dialog rather than a frame of its entrance
+    contextOptions: { reducedMotion: 'reduce' },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

@@ -94,8 +94,8 @@ test('that URL loaded cold renders filtered with both options ticked', async ({
 test('clearing removes the param rather than leaving it empty', async ({ page }) => {
   await page.goto(`${table.url}?stage=Won&stage=Lost`)
 
-  // The summary's own control — "Clear all" lives in the drawer footer
-  await page.getByRole('button', { name: 'Show all records' }).click()
+  // The summary's own "Clear all"; the drawer, which has one too, is closed
+  await page.getByRole('button', { name: 'Clear all' }).click()
 
   await expect(page).not.toHaveURL(/stage=/)
   await expect.poll(() => companies(page)).toHaveLength(3)

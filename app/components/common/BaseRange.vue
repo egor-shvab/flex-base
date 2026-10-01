@@ -17,6 +17,8 @@
         :debounce="debounce"
         @update:model-value="onBoundInput('from', $event)"
       />
+      <!-- Punctuation between the two halves, not an icon; each box already names itself -->
+      <span class="base-range__dash" aria-hidden="true">–</span>
       <BaseInput
         :id="`${id}-to`"
         :model-value="toText"
@@ -101,10 +103,17 @@ function onBoundInput(bound: 'from' | 'to', raw: string) {
     @include field-label;
   }
 
+  // Two equal boxes read as one field, joined by the dash rather than by a gap
   &__bounds {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
     gap: rem(8);
+  }
+
+  &__dash {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-subtle);
   }
 }
 </style>

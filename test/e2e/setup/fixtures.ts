@@ -112,8 +112,7 @@ export async function confirmDeletion(page: import('@playwright/test').Page): Pr
   const dialog = page.getByRole('dialog')
 
   await expect(dialog).toBeVisible()
-  // `Delet` rather than `Delete`: the button reads "Deleting…" while the request is in flight
-  await dialog.getByRole('button', { name: /^Delet/ }).click()
+  await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
 }
 
 /**

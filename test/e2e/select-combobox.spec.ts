@@ -125,13 +125,15 @@ test.describe('picking several', () => {
     await page.getByRole('option', { name: 'Choice 01', exact: true }).click()
     await page.getByRole('option', { name: 'Choice 02', exact: true }).click()
     await page.getByRole('option', { name: 'Choice 03', exact: true }).click()
-    await expect(page.locator('.base-select__value')).toContainText('3')
+    // The overlay mirrors the accessible name: the first value, then "and N more"
+    const value = page.locator('.base-select__value')
+    await expect(value).toContainText('and 2 more')
 
     await input.press('Backspace')
-    await expect(page.locator('.base-select__value')).toContainText('2')
+    await expect(value).toContainText('and 1 more')
 
     await input.press('Backspace')
-    await expect(page.locator('.base-select__value')).toContainText('1')
+    await expect(value).toHaveText('Choice 01')
   })
 
   /**
@@ -338,7 +340,8 @@ test.describe('a relation picker', () => {
       await page.keyboard.press('Tab')
 
       await expect(page.getByRole('listbox')).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Create record' })).toBeFocused()
+      // The select is the form's last field, so the next control is the footer's first action
+      await expect(page.getByRole('button', { name: 'Cancel' })).toBeFocused()
     })
   })
 })

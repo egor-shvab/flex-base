@@ -1,17 +1,31 @@
 <template>
   <div class="table-page">
-    <BaseBreadcrumbs :items="breadcrumbs" />
-
-    <header class="table-page__header">
-      <div class="table-page__heading">
-        <h1 class="table-page__title">{{ table?.name }}</h1>
-        <!-- Both table screens open with the same name; this line is what says which one -->
-        <p class="table-page__subtitle">Table settings</p>
+    <div class="table-page__top">
+      <div class="table-page__crumbs">
+        <BaseBreadcrumbs :items="breadcrumbs" />
+        <BaseButton
+          variant="ghost"
+          prepend-icon="material-symbols:table-outline-rounded"
+          :to="`/tables/${tableAddress}`"
+        >
+          Records
+        </BaseButton>
       </div>
-      <BaseButton variant="ghost" prepend-icon="mdi:table" :to="`/tables/${tableAddress}`">
-        Records
-      </BaseButton>
-    </header>
+
+      <div class="table-page__title-row">
+        <h1 class="table-page__title">{{ table?.name }}</h1>
+        <BaseButton
+          class="table-page__create"
+          prepend-icon="material-symbols:add-rounded"
+          @click="openCreateField"
+        >
+          Add field
+        </BaseButton>
+      </div>
+
+      <!-- Both table screens open with the same name; this line is what says which one -->
+      <p class="table-page__eyebrow">Table settings</p>
+    </div>
 
     <section class="table-page__section">
       <div class="section-head">
@@ -24,20 +38,29 @@
             <dt class="detail-card__term">Name</dt>
             <dd class="detail-card__value">{{ table?.name }}</dd>
           </div>
-          <div class="detail-card__row">
-            <dt class="detail-card__term">Created</dt>
-            <dd class="detail-card__value">{{ createdAt }}</dd>
-          </div>
           <!-- Omitted rather than zeroed: the count comes from the tables store, and
                `ensureTables` fails silently — a 0 here would be a claim, not a reading -->
           <div v-if="recordCount !== null" class="detail-card__row">
             <dt class="detail-card__term">Records</dt>
-            <dd class="detail-card__value">{{ recordCount }}</dd>
+            <dd class="detail-card__value detail-card__value--mono">{{ recordCount }}</dd>
+          </div>
+          <div class="detail-card__row">
+            <dt class="detail-card__term">Fields</dt>
+            <dd class="detail-card__value detail-card__value--mono">{{ fieldCount }}</dd>
+          </div>
+          <div class="detail-card__row">
+            <dt class="detail-card__term">Created</dt>
+            <dd class="detail-card__value">{{ createdAt }}</dd>
+          </div>
+          <!-- Where the table lives: machine-made, so mono, and quieter than what the user named -->
+          <div v-if="address" class="detail-card__row">
+            <dt class="detail-card__term">Address</dt>
+            <dd class="detail-card__value detail-card__value--address">{{ address }}</dd>
           </div>
         </dl>
 
-        <!-- Words, not icons: a one-off action in a card footer, the same pair the
-             dashboard's table card carries. The repeated row actions below are icons. -->
+        <!-- Words, not icons: a one-off action in a card footer. The repeated row actions
+             below are icons. -->
         <div class="detail-card__actions">
           <BaseButton variant="link" @click="renameOpen = true">Rename</BaseButton>
           <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableAddress">
@@ -51,7 +74,6 @@
       <div class="section-head">
         <h2 class="section-head__title">Fields</h2>
         <span v-if="fieldCount > 0" class="section-head__count">{{ fieldCount }}</span>
-        <BaseButton class="section-head__action" @click="openCreateField">Add field</BaseButton>
       </div>
 
       <TableFieldList
@@ -122,6 +144,7 @@ import { formatNumber, formatTimestamp } from '~/utils/format'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
+import { toTableAddress } from '#shared/utils/address'
 
 const route = useRoute()
 const loadTable = useTableLoader()
@@ -166,6 +189,9 @@ const recordCount = computed(() =>
 )
 
 const fieldCount = computed(() => fieldsStore.fields.length)
+
+/** The path the table is reached by — its number, whatever form the URL arrived in. */
+const address = computed(() => (table.value ? `/tables/${toTableAddress(table.value)}` : ''))
 
 /**
  * What a field's configuration line may need beyond its own metadata — only a RELATION's target
@@ -225,31 +251,38 @@ const {
 </script>
 
 <style lang="scss" scoped>
+// The reference's reading column: label/value panels past this width only spread the pair apart
 .table-page {
   @include stack(24);
 
-  &__header {
-    @include page-header;
+  max-width: rem(928);
 
-    // The stack above already spaces the sections, and `page-header`'s own bottom margin —
-    // there for pages that do not stack — would compound with it
-    margin-bottom: 0;
+  // The records page's top rows in the same order — crumbs, title — then the line that sets
+  // this screen apart from that one
+  &__top {
+    @include stack(14);
   }
 
-  // `min-width: 0` — the group, not the `<h1>`, is the header's flex item. See the records
-  // page and `docs/decisions.md`.
-  &__heading {
-    min-width: 0;
+  &__crumbs {
+    @include page-crumbs;
+  }
+
+  &__title-row {
+    @include page-title-row;
   }
 
   &__title {
     @include page-title;
   }
 
-  &__subtitle {
-    margin: rem(2) 0 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+  &__create {
+    flex: none;
+  }
+
+  &__eyebrow {
+    @include eyebrow;
+
+    margin: 0;
   }
 
   &__section {
@@ -270,15 +303,9 @@ const {
   }
 
   &__count {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  // Pushed to the far edge rather than `space-between`: three items, and only the last belongs
-  // on the right
-  &__action {
-    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-md);
+    color: var(--color-text-subtle);
   }
 }
 
@@ -308,7 +335,7 @@ const {
   }
 
   &__term {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     color: var(--color-text-secondary);
   }
 
@@ -317,6 +344,18 @@ const {
     min-width: 0;
 
     @include truncate;
+
+    // A count is a figure, so mono like every other figure in the app
+    &--mono {
+      font-family: var(--font-mono);
+      font-size: var(--font-size-md);
+    }
+
+    &--address {
+      font-family: var(--font-mono);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
   }
 
   &__actions {

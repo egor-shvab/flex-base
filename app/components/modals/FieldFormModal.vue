@@ -1,6 +1,8 @@
 <template>
   <BaseModal :title="mode === 'create' ? 'New field' : 'Edit field'" @close="emit('close')">
-    <form class="field-form" novalidate @submit.prevent="submit">
+    <form :id="formId" class="field-form" novalidate @submit.prevent="submit">
+      <BaseErrorBanner :message="serverError" />
+
       <BaseInput
         :id="nameId"
         v-model.trim="form.name"
@@ -25,28 +27,28 @@
         Opt-in, because an index is a trade: faster sorting and filtering on this field, slower
         saves on this table. Labelled by what it buys, not by the mechanism.
       -->
-      <div class="field-form__indexed">
-        <BaseCheckbox v-model="form.indexed" label="Speed up sorting and filtering" />
-        <span class="field-form__hint">
-          Worth it for fields you sort or filter by often. Saving records gets a little slower.
-        </span>
-      </div>
+      <BaseCheckbox
+        v-model="form.indexed"
+        label="Speed up sorting and filtering"
+        hint="Worth it for fields you sort or filter by often. Saving records gets a little slower."
+      />
 
       <!--
         Cardinality is a per-field setting rather than a second field type, which is what makes
         an existing field convertible. Widening migrates the records that exist; narrowing would
         discard values, so the server refuses it and the control locks once on.
       -->
-      <div v-if="MULTI_VALUE_BY_TYPE[form.type]" class="field-form__multiple">
-        <BaseCheckbox
-          v-model="form.multiple"
-          label="Allow multiple values"
-          :disabled="lockedMultiple"
-        />
-        <span v-if="lockedMultiple" class="field-form__hint">
-          A multi-value field cannot be changed back to a single value.
-        </span>
-      </div>
+      <BaseCheckbox
+        v-if="MULTI_VALUE_BY_TYPE[form.type]"
+        v-model="form.multiple"
+        label="Allow multiple values"
+        :hint="
+          lockedMultiple
+            ? 'A multi-value field cannot be changed back to a single value.'
+            : undefined
+        "
+        :disabled="lockedMultiple"
+      />
 
       <div v-if="form.type === 'SELECT'" class="field-form__choices">
         <span class="field-form__label">Choices</span>
@@ -62,7 +64,7 @@
             <BaseInput :id="`${choicesId}-${index}`" v-model.trim="choice.value" />
             <BaseButton
               variant="icon"
-              prepend-icon="mdi:trash-can-outline"
+              prepend-icon="material-symbols:delete-outline-rounded"
               label="Remove choice"
               tone="danger"
               @click="removeChoice(index)"
@@ -71,7 +73,7 @@
         </div>
         <BaseButton
           variant="ghost"
-          prepend-icon="mdi:plus"
+          prepend-icon="material-symbols:add-rounded"
           class="field-form__add-choice"
           @click="addChoice"
         >
@@ -123,13 +125,14 @@
           </p>
         </div>
       </template>
+    </form>
 
-      <BaseErrorBanner :message="serverError" />
-
-      <BaseButton type="submit" :disabled="pending">
+    <template #footer>
+      <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">Cancel</BaseButton>
+      <BaseButton type="submit" :form="formId" :loading="pending">
         {{ mode === 'create' ? 'Create field' : 'Save' }}
       </BaseButton>
-    </form>
+    </template>
   </BaseModal>
 </template>
 
@@ -155,6 +158,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{ saved: []; close: [] }>()
 
+const formId = useId()
 const nameId = useId()
 const typeId = useId()
 const choicesId = useId()
@@ -365,25 +369,13 @@ const labelEmptyLabel = computed(() => {
     @include field-label;
   }
 
-  &__multiple,
-  &__indexed {
-    @include stack(4);
-  }
-
-  // A statement about the control above, not an error — the field-error step would read as
-  // something having gone wrong
-  &__hint {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
   // A select plus the line saying why it is empty, as one `stack(4)` item so the message sits
   // against its control rather than a form gap away
   &__source {
     @include stack(4);
   }
 
-  // The validation register, unlike `__hint` above, because a failed load *is* a fault.
+  // The validation register, unlike a checkbox hint, because a failed load *is* a fault.
   // `inline-flex` so the Retry link shares the sentence's baseline.
   &__load-error {
     @include field-error;

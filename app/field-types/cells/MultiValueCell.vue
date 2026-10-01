@@ -38,8 +38,8 @@ defineProps<IMultiValueCellProps>()
 .multi-value-cell {
   display: inline;
 
-  // Wider than the 4px between two controls: a relation renders each entry as an underlined
-  // link, and at 4px the underlines run together. A margin rather than `gap`, which needs a
+  // Wider than the 4px between two controls: a relation renders each entry as a bordered chip,
+  // and at 4px two chips read as one. A margin rather than `gap`, which needs a
   // flex or grid box; every cell has a single root, so the adjacent-sibling rule is exact.
   > * + * {
     margin-left: rem(8);

@@ -43,6 +43,14 @@ export function formatNumber(value: number): string {
 }
 
 /**
+ * A count with its noun — "1 table", "2,009 records". The plural is a bare `s`, which every
+ * noun it is called with takes; an irregular one needs its own branch, not this.
+ */
+export function formatCount(count: number, noun: string): string {
+  return `${formatNumber(count)} ${count === 1 ? noun : `${noun}s`}`
+}
+
+/**
  * Parses a date-only `YYYY-MM-DD` as local midnight, so the displayed day never shifts
  * across time zones. An unparseable value is returned as-is rather than rendered as
  * "Invalid Date".

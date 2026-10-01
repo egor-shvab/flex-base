@@ -8,11 +8,17 @@ What this project knowingly does not do, and why each entry is a decision rather
 
 ## Open
 
-### Row actions are three inline icons, where the design reference draws two and a `⋯` menu
+Nothing is open. A new entry lands here when a change knowingly leaves a gap the current phase should close.
 
-The reference's row is open, edit, and a `⋯` menu holding Delete, so the destructive action sits one step away. The old blocker is gone — `usePopover` + `useAnchoredPosition` anchor correctly inside a scrolling, clipping container — and three targets in a pinned column still fit, so the menu is a question of matching the reference rather than of room. The third inline button adds one more site where the focus halo crosses a `gap: rem(4)` neighbour — the bargain that row already struck. _Settled by `design-plan.md`'s row-actions step, or earlier if a fourth row action appears._
+---
 
 ## Accepted
+
+### The record opens in a modal side sheet, where the reference draws a non-modal panel
+
+The reference keeps the table live behind the record, so choosing another row updates the panel in place. Here the sheet is `BaseModal`'s `drawer`: a scrim, `inert` on the page, focus returned on close, Escape owned by the dialog. A non-modal panel would rewrite all four of those contracts and the record-dialog e2e suite for a restyle. Reading one record at a time loses nothing today: every row's View is one click from the next.
+
+_Reopen if moving from one record to the next with the panel open becomes a need._
 
 ### A table's URL carries no slug, only its number
 
@@ -48,13 +54,17 @@ The integration suite imports each handler and invokes it with a constructed `H3
 
 A flat 36 was chosen over a `@media (pointer: coarse)` override restoring 44: a second geometry mode means every derived height has to hold at two values, and the app's touch use is secondary. Clears SC 2.5.8 (24×24) with 50% margin; it is SC 2.5.5 **AAA** that is given up. _Revisit if touch becomes a primary surface._
 
+### A date field uses the browser's own picker
+
+The design reference draws a typed field with a calendar panel attached — two months side by side for a range, today as an outline, the reason for a blocked day under the panel. The app keeps the native `<input type="date">` in the house box: typing and a calendar both work, in whatever form the browser gives them, and a range is two such boxes. A panel of our own is a new component with a keyboard grid, locale rules and a positioning story, for a look rather than a capability. _Reopen when a date field needs something the browser cannot show — a blocked day, a range drawn as one span._
+
 ### A select no longer opens the OS-native picker on touch
 
 A searchable one also raises the soft keyboard where a `<button>` did not. The price of a listbox that can render a choice's colour, search, and load asynchronously — none of which a `<select>` can do. Every option row is `--control-height`, so SC 2.5.8 is clear either way; the keyboard half is bounded by `shouldSearch()`, which keeps short pickers on the button branch. _Revisit if touch becomes a primary surface._
 
-### In `multiple`, the closed control shows a count, not which values are chosen
+### In `multiple`, the closed control names only the first value
 
-Chips would make the control's height content-dependent, which `useAnchoredPosition` does not observe. In a filter the information is restated in `RecordsFilterSummary` above the table; in the **record form** it is not, which is the one place multi-value reads as less than single-value did. A chip row _below_ the control, leaving its height fixed, is the cheap fix if it is ever wanted. _The form case is the one worth revisiting._
+The rest are a count (`Enterprise +2`). Chips would make the control's height content-dependent, which `useAnchoredPosition` does not observe. In a filter the others are restated in `RecordsFilterSummary` above the table; in the **record form** they are not, which is the one place multi-value reads as less than single-value did. A chip row _below_ the control, leaving its height fixed, is the cheap fix if it is ever wanted. _The form case is the one worth revisiting._
 
 ### A multi-value filter can only mean _any of_, never _all of_
 
@@ -112,13 +122,13 @@ It announces as _button, dimmed_ rather than _link, dimmed_. Rebuilding it by ha
 
 No `title`, no expand affordance — **except for a relation**, whose dialog shows the target in full. The rendered text is produced by the cell _component_ (a label resolved from a store, `Yes`/`No`, a formatted date), so it is not recoverable from the raw value. Both routes to it buy a **pointer-only** tooltip: a text projection per field type is a fifth registry against the "only cells are components" contract, and reading it back off the DOM means a `scrollWidth` pass over every cell plus a `ResizeObserver`, re-run on every fetch. Against that, the View action is one click away on every row. _Revisit if something else earns the table a measurement pass, which would make the tooltip nearly free._
 
-### The unsorted sort icon is ~1.67:1
+### The unsorted sort icon is ~1.70:1
 
 That is under the 3:1 SC 1.4.11 floor for non-text UI. `--color-text-secondary` at `opacity: 0.35`. A compliant `0.7` was shipped first and read as clutter — the glyph repeats on every column at once. Nothing depends on seeing it: the header's own text names the column, the button is in the tab order with a visible focus ring, and sort state reaches assistive tech through `aria-sort` on the `th`. It is an affordance hint, not a control boundary — unlike `--color-border-control`, which is why that token carries the floor and this does not. _Raise it only on a real report of users missing the affordance._
 
-### A badge's fill is ~1.1:1 against a hovered row
+### A badge's fill is ~1.05:1 against a hovered row
 
-The pill shape barely reads there. The badge draws no border by design. The dot (its `-fg` step, ≥6:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings.
+The pill shape barely reads there. The badge draws no border by design. The dot (its `-dot` step, ≥3.1:1 on that row) and the word both survive, and neither the fill nor the dot is the meaning. Raising the fills to bound the pill would break their 4.5:1 text pairings.
 
 ### The error log is a local file, and the rate limit in front of it is per process
 

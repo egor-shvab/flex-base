@@ -65,7 +65,8 @@ export const SELECT_APP_FIELD_TYPE: IAppFieldType<'SELECT'> = {
   summary: (value) => summariseList(value, (choice) => choice),
   // The summary already reads as a list, for the same reason `multiFilter` is `null`
   multiSummary: null,
-  icon: 'mdi:form-dropdown',
+  icon: 'material-symbols:radio-button-checked-outline-rounded',
+  align: 'start',
   // Through `choiceValues`, so a field with missing or malformed options counts 0 rather than
   // rendering nothing
   configSummary: (field) => {

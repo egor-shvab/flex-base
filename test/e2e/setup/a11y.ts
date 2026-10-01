@@ -31,7 +31,7 @@ export async function axeViolations(page: Page): Promise<string[]> {
  *
  * - `.text-link` sits inside a sentence — the *Inline* exception;
  * - an `<input>` wrapped by its own `<label>` is not the target, the label is, so measuring
- *   `BaseCheckbox`'s 20×20 input inside a 36px label reports a failure no user experiences;
+ *   `BaseCheckbox`'s 18×18 input inside a 36px label reports a failure no user experiences;
  * - anything not rendered — a closed panel's options, the mobile shell's hidden sidebar.
  *
  * The filter chip's remove button is **not** excluded: it sits exactly on the floor, so it is

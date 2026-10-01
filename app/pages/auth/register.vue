@@ -1,6 +1,11 @@
 <template>
   <form class="auth-form" novalidate @submit.prevent="submit">
-    <h1 class="auth-form__title">Create an account</h1>
+    <div class="auth-form__heading">
+      <h1 class="auth-form__title">Create an account</h1>
+      <p class="auth-form__subtitle">It takes a minute — your first table is one click away.</p>
+    </div>
+
+    <AuthModeSwitch />
 
     <BaseErrorBanner :message="serverError" />
 
@@ -21,7 +26,7 @@
       label="Password"
       type="password"
       autocomplete="new-password"
-      placeholder="At least 8 characters"
+      hint="At least 8 characters."
       :error="errors.password"
     />
 
@@ -35,8 +40,13 @@
       :error="errors.passwordConfirm"
     />
 
-    <BaseButton type="submit" :disabled="pending">
-      {{ pending ? 'Creating account…' : 'Register' }}
+    <BaseButton
+      type="submit"
+      class="auth-form__submit"
+      append-icon="material-symbols:arrow-forward-rounded"
+      :loading="pending"
+    >
+      Register
     </BaseButton>
 
     <p class="auth-form__footer">

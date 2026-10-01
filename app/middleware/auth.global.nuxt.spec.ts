@@ -101,6 +101,20 @@ describe('an anonymous visitor', () => {
 
     expect(navigateTo).not.toHaveBeenCalled()
   })
+
+  /** The showcase renders fixtures only, so a tester needs no account to reach it. */
+  it('is left alone on the component showcase and its subpages', async () => {
+    await guard('/ui-test')
+    await guard('/ui-test/select')
+
+    expect(navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('is still sent to login from a path that only starts like the showcase', async () => {
+    await guard('/ui-testing')
+
+    expect(navigateTo).toHaveBeenCalledWith(expect.objectContaining({ path: '/auth/login' }))
+  })
 })
 
 describe('a signed-in visitor', () => {
@@ -110,6 +124,12 @@ describe('a signed-in visitor', () => {
 
   it('is left alone on an app route', async () => {
     await guard('/tables/tbl_1')
+
+    expect(navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('is left alone on the component showcase', async () => {
+    await guard('/ui-test')
 
     expect(navigateTo).not.toHaveBeenCalled()
   })

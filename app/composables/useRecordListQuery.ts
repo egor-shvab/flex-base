@@ -63,8 +63,10 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
 
   /** The same decision the copy above makes, in a glyph: what is keeping the list empty. */
   const emptyIcon = computed(() => {
-    if (!isNarrowed.value) return 'mdi:table'
-    return activeFilterCount.value === 0 ? 'mdi:magnify' : 'mdi:filter-variant'
+    if (!isNarrowed.value) return 'material-symbols:table-outline-rounded'
+    return activeFilterCount.value === 0
+      ? 'material-symbols:search-rounded'
+      : 'material-symbols:filter-list-rounded'
   })
 
   function applyQuery(params: IRecordQueryState, replace = false) {
@@ -106,6 +108,8 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
   return {
     queryState,
     filters,
+    /** How many filters are set — the search is not one. */
+    activeFilterCount,
     isNarrowed,
     emptyTitle,
     emptyMessage,

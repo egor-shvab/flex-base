@@ -62,7 +62,7 @@ describe('BaseInput', () => {
 
     /** Same shape as `BaseButton`'s `prependIcon`, and a prop because the registries bind objects. */
     it('renders a decorative leading icon', async () => {
-      const wrapper = await input({ icon: 'mdi:magnify' })
+      const wrapper = await input({ icon: 'material-symbols:search-rounded' })
 
       const icon = wrapper.get('.base-input__icon')
       expect(icon.attributes('aria-hidden')).toBe('true')
@@ -95,6 +95,24 @@ describe('BaseInput', () => {
 
       expect(field(wrapper).attributes('aria-invalid')).toBeUndefined()
       expect(field(wrapper).classes()).not.toContain('base-input__input--invalid')
+    })
+  })
+
+  describe('the hint line', () => {
+    it('shows a hint and describes the input by it', async () => {
+      const wrapper = await input({ hint: 'Net of VAT' })
+
+      expect(wrapper.get('.base-input__hint').text()).toBe('Net of VAT')
+      expect(field(wrapper).attributes('aria-describedby')).toBe('company-hint')
+    })
+
+    /** One line under the field, so a failing field never grows the row it sits in. */
+    it('gives the line to an error, and describes the input by that instead', async () => {
+      const wrapper = await input({ hint: 'Net of VAT', error: 'Enter a number' })
+
+      expect(wrapper.find('.base-input__hint').exists()).toBe(false)
+      expect(wrapper.get('.base-input__error').text()).toBe('Enter a number')
+      expect(field(wrapper).attributes('aria-describedby')).toBe('company-error')
     })
   })
 

@@ -267,7 +267,12 @@ test.describe('the filter drawer', () => {
 
     await expectCompanies(page, ['Acme'])
 
-    await page.getByRole('button', { name: /clear all/i }).click()
+    // The drawer's own: the filter summary behind it has a "Clear all" too, and Playwright's role
+    // query does not skip the inert page
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: /clear all/i })
+      .click()
 
     // The control has to follow the URL back to empty, or it shows a filter that is not applied
     await expect(page.getByLabel('From').first()).toHaveValue('')

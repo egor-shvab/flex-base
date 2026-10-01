@@ -1,35 +1,62 @@
 <template>
   <nav class="app-sidebar" aria-label="Your tables">
-    <NuxtLink to="/" class="app-sidebar__item" :class="{ 'app-sidebar__item--on': isHome }">
-      <Icon name="mdi:home-outline" class="app-sidebar__icon" aria-hidden="true" />
-      <span class="app-sidebar__name">Home</span>
-    </NuxtLink>
+    <div class="app-sidebar__mark">
+      <AppMark />
+    </div>
 
-    <p class="app-sidebar__group">Your tables</p>
+    <!-- The one part that scrolls, so the mark and the user block stay put under a long list -->
+    <div class="app-sidebar__scroll">
+      <NuxtLink to="/" class="app-sidebar__item" :class="{ 'app-sidebar__item--on': isHome }">
+        <Icon
+          name="material-symbols:home-outline-rounded"
+          class="app-sidebar__icon"
+          aria-hidden="true"
+        />
+        <span class="app-sidebar__name">Home</span>
+      </NuxtLink>
 
-    <p v-if="tablesStore.failed" class="app-sidebar__failed">
-      Couldn't load your tables.
-      <BaseButton variant="link" @click="retry">Try again</BaseButton>
-    </p>
+      <p class="app-sidebar__group">Tables</p>
 
-    <p v-else-if="tablesStore.tables.length === 0" class="app-sidebar__empty">No tables yet.</p>
+      <p v-if="tablesStore.failed" class="app-sidebar__failed">
+        Couldn't load your tables.
+        <BaseButton variant="link" @click="retry">Try again</BaseButton>
+      </p>
 
-    <NuxtLink
-      v-for="table in tablesStore.tables"
-      :key="table.id"
-      :to="`/tables/${toTableAddress(table)}`"
-      class="app-sidebar__item"
-      :class="{ 'app-sidebar__item--on': table.number === activeTableNumber }"
-    >
-      <Icon name="mdi:table" class="app-sidebar__icon" aria-hidden="true" />
-      <span class="app-sidebar__name">{{ table.name }}</span>
-      <span class="app-sidebar__count">{{ table._count.records }}</span>
-    </NuxtLink>
+      <p v-else-if="tablesStore.tables.length === 0" class="app-sidebar__empty">No tables yet.</p>
 
-    <button type="button" class="app-sidebar__add" @click="start">
-      <Icon name="mdi:plus" class="app-sidebar__icon" aria-hidden="true" />
-      Add a table
-    </button>
+      <NuxtLink
+        v-for="table in tablesStore.tables"
+        :key="table.id"
+        :to="`/tables/${toTableAddress(table)}`"
+        class="app-sidebar__item"
+        :class="{ 'app-sidebar__item--on': table.number === activeTableNumber }"
+      >
+        <Icon
+          name="material-symbols:table-outline-rounded"
+          class="app-sidebar__icon"
+          aria-hidden="true"
+        />
+        <span class="app-sidebar__name">{{ table.name }}</span>
+        <span class="app-sidebar__count">{{ table._count.records }}</span>
+      </NuxtLink>
+
+      <button type="button" class="app-sidebar__add" @click="start">
+        <Icon name="material-symbols:add-rounded" class="app-sidebar__icon" aria-hidden="true" />
+        Add a table
+      </button>
+    </div>
+
+    <!-- Who is signed in, and the way out. No menu: Log out is its only entry. -->
+    <div v-if="auth.user" class="app-sidebar__user">
+      <span class="app-sidebar__avatar" aria-hidden="true">{{ toInitials(auth.user.email) }}</span>
+      <span class="app-sidebar__email">{{ auth.user.email }}</span>
+      <BaseButton
+        variant="icon"
+        prepend-icon="material-symbols:logout-rounded"
+        label="Log out"
+        @click="auth.logout()"
+      />
+    </div>
 
     <LazyTableFormModal
       v-if="open"
@@ -45,10 +72,13 @@
 import { computed, ref } from 'vue'
 import { navigateTo, useRoute } from '#imports'
 import { parseTableAddress, toTableAddress } from '#shared/utils/address'
+import { useAuthStore } from '~/stores/auth'
 import { useTablesStore } from '~/stores/tables'
+import { toInitials } from '~/utils/initials'
 
 const route = useRoute()
 const tablesStore = useTablesStore()
+const auth = useAuthStore()
 
 const open = ref(false)
 
@@ -93,27 +123,50 @@ function retry() {
 @mixin sidebar-row {
   display: flex;
   align-items: center;
-  gap: rem(12);
+  gap: rem(10);
   min-height: var(--control-height);
-  padding: 0 rem(12);
+  padding: 0 rem(10);
   border-radius: var(--radius-md);
   font-size: var(--font-size-md);
 
   @include focus-ring;
 }
 
+// Fills the panel the layout gives it: the mark on top, the list in the middle, the user at
+// the bottom
 .app-sidebar {
   display: flex;
   flex-direction: column;
-  gap: rem(2);
-  padding: rem(16) rem(12);
+  height: 100%;
+  padding: rem(12);
+
+  &__mark {
+    display: flex;
+    flex: none;
+    align-items: center;
+    min-height: var(--control-height);
+    margin-bottom: rem(10);
+    padding: 0 rem(10);
+  }
+
+  // `min-height: 0`, or a flex item's automatic minimum keeps the list from ever scrolling
+  &__scroll {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: rem(2);
+    min-height: 0;
+    overflow-y: auto;
+    // Room for a row's focus halo at the pane's edges, which `overflow` would clip
+    margin: 0 rem(-4);
+    padding: rem(4);
+  }
 
   &__group {
-    margin: rem(20) 0 rem(4);
-    padding: 0 rem(12);
-    font-size: var(--font-size-sm);
-    font-weight: 700;
-    color: var(--color-text-secondary);
+    @include eyebrow;
+
+    margin: rem(16) 0 rem(4);
+    padding: 0 rem(10);
   }
 
   &__item {
@@ -135,7 +188,13 @@ function retry() {
 
   &__icon {
     flex: none;
-    font-size: rem(20);
+    font-size: rem(18);
+    color: var(--color-text-secondary);
+  }
+
+  &__item--on &__icon,
+  &__add &__icon {
+    color: inherit;
   }
 
   &__name {
@@ -146,12 +205,13 @@ function retry() {
   }
 
   &__count {
-    font-size: var(--font-size-sm);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    font-variant-numeric: tabular-nums;
   }
 
   &__item--on &__count {
+    font-weight: 600;
     color: var(--color-accent);
   }
 
@@ -175,9 +235,43 @@ function retry() {
   &__empty,
   &__failed {
     margin: 0;
-    padding: rem(4) rem(12);
+    padding: rem(4) rem(10);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+  }
+
+  &__user {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: rem(10);
+    min-height: rem(44);
+    margin-top: rem(8);
+    padding: rem(4) 0 0 rem(10);
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  // Neutral on purpose: the categorical hues are the user's, for their data
+  &__avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: rem(26);
+    height: rem(26);
+    border-radius: 50%;
+    background: var(--color-surface-muted);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  &__email {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+
+    @include truncate;
   }
 }
 </style>

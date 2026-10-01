@@ -259,17 +259,47 @@ describe('BaseSelect', () => {
       expect(wrapper.find('.base-select__value').exists()).toBe(false)
     })
 
+    /**
+     * An inactive control's text is exempt from contrast, but the placeholder sits beside the
+     * disabled button rather than inside its name — `inert` is what says so to a checker.
+     */
+    it('marks the placeholder inert only while the control is disabled', async () => {
+      const enabled = await select({})
+      expect(enabled.get('.base-select__placeholder').attributes('inert')).toBeUndefined()
+
+      const disabled = await select({ disabled: true })
+      expect(disabled.get('.base-select__placeholder').attributes('inert')).toBeDefined()
+      expect(disabled.classes()).toContain('base-select--disabled')
+    })
+
     it('shows a single selection as its label', async () => {
       const wrapper = await select({ modelValue: 'b' })
 
       expect(wrapper.get('.base-select__value').text()).toBe('Bravo')
     })
 
-    /** A 36px control cannot list them, so several read as a count. */
-    it('shows several selections as a count', async () => {
+    /** A 36px control cannot list them, so the first reads as itself and the rest as a count. */
+    it('shows the first of several selections, then a count of the rest', async () => {
       const wrapper = await select({ modelValue: ['a', 'c'], multiple: true })
+      const value = wrapper.get('.base-select__value')
 
-      expect(wrapper.get('.base-select__value').text()).toBe('2 selected')
+      expect(value.get('.base-select__value-text').text()).toBe('Alpha')
+      expect(value.get('.base-select__more').text()).toBe('+1')
+    })
+
+    /** The overlay is the trigger's accessible name, so the count must read as words. */
+    it('reads the count as words and hides the "+N" from assistive tech', async () => {
+      const wrapper = await select({ modelValue: ['a', 'b', 'c'], multiple: true })
+      const value = wrapper.get('.base-select__value')
+
+      expect(value.get('.base-select__more').attributes('aria-hidden')).toBe('true')
+      expect(value.get('.visually-hidden').text()).toBe('and 2 more')
+    })
+
+    it('shows no count for a single selection', async () => {
+      const wrapper = await select({ modelValue: ['b'], multiple: true })
+
+      expect(wrapper.find('.base-select__more').exists()).toBe(false)
     })
 
     it('shows a coloured choice as a badge', async () => {

@@ -150,6 +150,15 @@ describe('RecordsFilterSummary', () => {
       expect(chips(wrapper)).toEqual(['Search lovelace', 'Company contains acme'])
     })
 
+    /** The field and the phrase are styled apart — muted name, weighted value — so each has its own element. */
+    it('renders the field and its phrase as separate parts of the chip', async () => {
+      const wrapper = await summary({ company: 'acme' })
+      const chip = wrapper.get('.filter-summary__chip')
+
+      expect(chip.get('.filter-summary__field').text()).toBe('Company')
+      expect(chip.get('.filter-summary__phrase').text()).toBe('contains acme')
+    })
+
     it('shows no search chip when nothing is searched', async () => {
       const wrapper = await summary({ company: 'acme' })
 
@@ -227,9 +236,9 @@ describe('RecordsFilterSummary', () => {
 
     // By accessible name: every chip's remove ✕ is a `BaseButton`, so the bare class would
     // match all of them and pick the first
-    const showAll = wrapper.findAll('button').find((button) => button.text() === 'Show all records')
+    const clearAll = wrapper.findAll('button').find((button) => button.text() === 'Clear all')
 
-    await showAll!.trigger('click')
+    await clearAll!.trigger('click')
 
     expect(wrapper.emitted('clear')).toHaveLength(1)
     expect(wrapper.emitted('update:filters')).toBeUndefined()

@@ -59,7 +59,8 @@ export const RELATION_APP_FIELD_TYPE: IAppFieldType<'RELATION'> = {
   summary: (value, field, ctx) => `is ${summariseLinkedRecord(ctx, field, String(value))}`,
   multiSummary: (value, field, ctx) =>
     summariseList(value, (id) => summariseLinkedRecord(ctx, field, id)),
-  icon: 'mdi:link-variant',
+  icon: 'material-symbols:arrow-outward-rounded',
+  align: 'start',
   // The one config summary needing state beyond its field: the target's *name* is not in the
   // metadata, only its id. The fallback is a phrase, never blank — `ensureTables` never throws,
   // so the store may hold nothing, and the caller has already drawn the separator.

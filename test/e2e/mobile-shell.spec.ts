@@ -40,7 +40,12 @@ test.beforeEach(async ({ seedTable }) => {
         },
       },
     ],
-    [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won' }],
+    [
+      { company: 'Acme', contract_value: 100, active: true, stage: 'Won' },
+      // Blanks in columns past the viewport's edge: each carries a visually hidden "Not set",
+      // absolutely positioned, which must stay inside the table's scroll container
+      { company: 'Beta' },
+    ],
   )
   recordsUrl = table.url
   settingsUrl = table.settingsUrl
@@ -104,7 +109,10 @@ test('the scrim behind it dismisses it without navigating', async ({ page }) => 
   await toggle(page).click()
   await expect(sidebar(page)).toBeVisible()
 
-  await page.locator('.app-layout__scrim').click()
+  // The visible strip, right of the panel: the scrim's centre lies under the sidebar at this width
+  const scrim = page.locator('.app-layout__scrim')
+  const box = await scrim.boundingBox()
+  await scrim.click({ position: { x: box!.width - 20, y: box!.height / 2 } })
 
   await expect(sidebar(page)).toBeHidden()
   await expect(page).toHaveURL('/')
@@ -161,6 +169,7 @@ test('Escape closes a dialog over it without also closing it', async ({ page }) 
 test('the records table scrolls inside itself, not the page', async ({ page }) => {
   await page.goto(recordsUrl)
   await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Not set' }).first()).toBeAttached()
 
   const pageOverflows = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
@@ -193,7 +202,8 @@ test('a dialog fits the viewport and keeps its actions reachable', async ({ page
 
 /**
  * The same dialog with more content than the screen holds: it stops growing and its *body*
- * scrolls, so the header stays on screen and the submit button is reachable.
+ * scrolls, so the header stays on screen — and the submit button, pinned in the footer, is on
+ * screen without scrolling at all.
  *
  * `toBeInViewport`, never `toBeVisible`: Playwright counts an element scrolled out of an overflow
  * container as visible, so the weaker assertion passes against the bug this pins.
@@ -236,8 +246,8 @@ test('a dialog taller than the screen scrolls its body instead of overflowing', 
     true,
   )
 
+  // No scrolling first: the footer never moves, so the action is in view from the start
   const submit = dialog.getByRole('button', { name: 'Create record' })
-  await submit.scrollIntoViewIfNeeded()
   await expect(submit).toBeInViewport()
   await expect(title).toBeInViewport()
 })

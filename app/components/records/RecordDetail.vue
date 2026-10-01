@@ -66,6 +66,7 @@ const columns = computed(() =>
   // pills standing on it.
   &__value {
     margin: 0;
+    font-size: var(--font-size-md);
     overflow-wrap: anywhere;
 
     :deep(.multi-value-cell) {

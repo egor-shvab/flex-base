@@ -1,47 +1,57 @@
 <template>
   <section class="records-page">
-    <BaseBreadcrumbs :items="breadcrumbs" />
-
-    <header class="records-page__header">
-      <div class="records-page__header-main">
-        <h1 class="records-page__title">{{ table?.name }}</h1>
-        <BaseButton class="records-page__create" :disabled="!hasFields" @click="openCreateRecord">
-          Add record
+    <!-- The fixed band: where you are, what this is, and what narrows it -->
+    <div class="records-page__top">
+      <div class="records-page__crumbs">
+        <BaseBreadcrumbs :items="breadcrumbs" />
+        <BaseButton
+          variant="ghost"
+          prepend-icon="material-symbols:settings-outline-rounded"
+          :to="`/tables/${tableAddress}/settings`"
+        >
+          Settings
         </BaseButton>
       </div>
-      <div class="records-page__header-actions">
-        <div class="records-page__header-buttons">
-          <BaseButton
-            variant="ghost"
-            prepend-icon="mdi:cog-outline"
-            :to="`/tables/${tableAddress}/settings`"
-          >
-            Settings
-          </BaseButton>
-          <BaseButton
-            v-if="hasFields"
-            variant="ghost"
-            prepend-icon="mdi:filter-variant"
-            @click="filterPanelOpen = true"
-          >
-            Filters
-          </BaseButton>
-        </div>
+
+      <header class="records-page__title-row">
+        <h1 class="records-page__title">{{ table?.name }}</h1>
+        <BaseButton
+          class="records-page__create"
+          prepend-icon="material-symbols:add-rounded"
+          :disabled="!hasFields"
+          @click="openCreateRecord"
+        >
+          Add record
+        </BaseButton>
+      </header>
+
+      <div v-if="hasFields" class="records-page__toolbar">
         <BaseInput
-          v-if="hasFields"
           id="records-search"
           class="records-page__search"
           :model-value="queryState.search"
           type="text"
-          icon="mdi:magnify"
+          icon="material-symbols:search-rounded"
           aria-label="Search this table"
-          placeholder="Search…"
+          placeholder="Search records"
           trim
           :debounce="QUERY_DEBOUNCE_MS"
           @update:model-value="applySearch"
         />
+        <!-- Tinted while it holds filters, with their count — "Filters 2" to a screen reader -->
+        <BaseButton
+          variant="ghost"
+          prepend-icon="material-symbols:filter-list-rounded"
+          :selected="activeFilterCount > 0"
+          @click="filterPanelOpen = true"
+        >
+          Filters
+          <span v-if="activeFilterCount > 0" class="records-page__filter-count">{{
+            activeFilterCount
+          }}</span>
+        </BaseButton>
       </div>
-    </header>
+    </div>
 
     <!-- The active filters are stated above the data rather than hidden behind the
          drawer that covers it -->
@@ -75,7 +85,7 @@
       <BaseEmptyState
         v-else-if="!hasFields"
         class="records-page__empty"
-        icon="mdi:view-column-outline"
+        icon="material-symbols:view-column-outline-rounded"
       >
         This table has no fields yet —
         <NuxtLink :to="`/tables/${tableAddress}/settings`" class="text-link"
@@ -207,6 +217,7 @@ const tableAddress = route.params.tableAddress as string
 const {
   queryState,
   filters,
+  activeFilterCount,
   isNarrowed,
   emptyTitle,
   emptyMessage,
@@ -334,42 +345,59 @@ const {
   flex-direction: column;
   height: 100%;
 
-  &__header {
-    @include page-header;
+  // Three rows — breadcrumb, title, toolbar — in the fixed band above the rows
+  &__top {
+    @include stack(14);
+
+    flex: none;
+    margin-bottom: rem(20);
   }
 
-  // The title and its primary action travel together, so this group — not the `<h1>` — is the
-  // header's flex item. `min-width: 0` is what lets `page-title`'s ellipsis engage, since a
-  // flex item's automatic minimum is its content (`docs/decisions.md`).
-  &__header-main {
-    @include cluster;
+  &__crumbs {
+    @include page-crumbs;
+  }
 
-    min-width: 0;
+  &__title-row {
+    @include page-title-row;
   }
 
   &__title {
     @include page-title;
   }
 
-  // `flex: none`, or the group's shrink is split in proportion to base size, the button
-  // reaches its min-content and wraps its label onto two lines. The title absorbs it all.
+  // `flex: none`, or the row's shrink is split in proportion to base size, the button reaches
+  // its min-content and wraps its label onto two lines. The title absorbs it all.
   &__create {
     flex: none;
   }
 
-  &__header-actions {
-    @include cluster;
-  }
-
-  // A ghost button's `padding: 0 rem(12)` sits over a transparent background, so it reads as
-  // part of the gap: at the row's rem(16) these two would be 40px apart optically, against 28px
-  // between Filters and the search box. rem(4) plus the two paddings is that 28.
-  &__header-buttons {
-    @include cluster(4);
+  // Wraps rather than overflows: on a phone the search shrinks first, so it and Filters keep
+  // one line, and only a narrower screen still would push Filters down
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: rem(10);
   }
 
   &__search {
-    width: rem(220);
+    flex: 1 1 rem(160);
+    min-width: 0;
+    max-width: rem(300);
+  }
+
+  &__filter-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: rem(18);
+    height: rem(18);
+    padding: 0 rem(4);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    line-height: 1;
+    color: var(--color-text-on-accent);
   }
 
   // Placement only — `BaseErrorBanner` owns the look; a child's root carries the parent's scope

@@ -62,11 +62,31 @@ describe('ConfirmModal', () => {
     expect(dialog()).not.toBeNull()
   })
 
+  /** `loading` rather than a relabel, so the button keeps its width and still says it is busy. */
   it('disables both controls while a request is in flight', async () => {
-    await mountConfirm({ pending: true, confirmLabel: 'Deleting…' })
+    await mountConfirm({ pending: true, confirmLabel: 'Delete', danger: true })
 
     expect(button('Cancel')?.disabled).toBe(true)
-    expect(button('Deleting')?.disabled).toBe(true)
+    expect(button('Delete')?.disabled).toBe(true)
+    expect(button('Delete')?.getAttribute('aria-busy')).toBe('true')
+  })
+
+  /** A stray Enter on open must keep the data, so focus starts on the way out. */
+  it('puts focus on Cancel when it opens', async () => {
+    await mountConfirm({ confirmLabel: 'Delete', danger: true })
+
+    expect(document.activeElement).toBe(button('Cancel'))
+  })
+
+  it('shows the warning tile beside the title only for a destructive confirmation', async () => {
+    const tile = () => dialog()?.querySelector('.base-modal__header .confirm-modal__warning')
+
+    await mountConfirm({ danger: true })
+    expect(tile()).not.toBeNull()
+
+    unmountAll()
+    await mountConfirm()
+    expect(tile()).toBeNull()
   })
 
   it('emits confirm and close rather than acting itself', async () => {

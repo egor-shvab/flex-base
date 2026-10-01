@@ -38,8 +38,8 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
 
 <style lang="scss" scoped>
 .base-badge {
-  // The defaults; `color` overrides the pair from the template. `badgeTint` also emits
-  // `--badge-border`, which only `BaseColorPicker` reads.
+  // The uncoloured look; `color` overrides both through `badgeTint`, which also supplies the
+  // `--badge-dot` only a coloured badge draws
   --badge-bg: var(--color-surface-muted);
   --badge-fg: var(--color-text);
 
@@ -47,16 +47,17 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
   align-items: center;
   // Both explicit, and load-bearing: an `inline-flex` box with neither is sized by the
   // line-height it *inherits*, so any container setting one for its own row spacing silently
-  // resizes every pill on it. 14px of text at `tight` is 17.5, well inside 24.
-  height: rem(24);
+  // resizes every badge on it. 12px of text at `tight` is 15, well inside 22.
+  height: rem(22);
   line-height: var(--line-height-tight);
   // Never wider than whatever bounds it — `RecordsTable`'s capped cell is the case
   max-width: 100%;
   // Inline only: `height` sizes the box, so block padding would be a second number to agree
   padding: 0 rem(8);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--badge-bg);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
   color: var(--badge-fg);
 
   &__text {
@@ -66,31 +67,35 @@ const hasDot = computed(() => props.variant === 'chip' && props.color !== undefi
     @include truncate;
   }
 
-  // The dot is what let the border go: the fill is within 1.13:1 of a hovered row, but the
-  // dot is `--badge-fg`, which clears 4.5:1 on its own fill and 6:1 anywhere it lands.
+  // The dot, not the fill, is what bounds a coloured badge: the fill is within ~1.05:1 of a
+  // hovered row, but the palette's `-dot` step clears 3:1 on white and on
+  // `--color-surface-row-hover`.
   //
   // A pseudo-element with empty `content` contributes no accessible object, so the dot stays
   // redundant encoding and `RecordsTable` pays no DOM node per SELECT cell. A glyph would be
   // wrong twice over — `CLAUDE.md` §8 bans them, and a non-empty `content` does reach the tree.
   &--dot {
-    gap: rem(8);
+    gap: rem(6);
 
     &::before {
       content: '';
       flex: none;
-      width: rem(8);
-      height: rem(8);
-      border-radius: 50%;
-      background: currentcolor;
+      width: rem(6);
+      height: rem(6);
+      border-radius: rem(2);
+      background: var(--badge-dot);
     }
   }
 
-  // Its own height, by the rule above; `line-height` comes from the base, so 12px is 15 in 20
+  // Our word about a thing, not the user's: a machine label, so mono, uppercase and tracked.
+  // Its own height, by the rule above.
   &--label {
     height: rem(20);
-    padding: 0 rem(6);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
+    padding: 0 rem(7);
+    border-radius: var(--radius-xs);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-text-secondary);
   }

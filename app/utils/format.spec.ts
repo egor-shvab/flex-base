@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatCount,
   formatDate,
   formatDateProse,
   formatMatchingRecords,
@@ -16,6 +17,21 @@ import {
 function spaces(value: string): string {
   return value.replace(/\s/g, ' ')
 }
+
+describe('formatCount', () => {
+  it('uses the singular for exactly one', () => {
+    expect(formatCount(1, 'table')).toBe('1 table')
+  })
+
+  it('uses the plural for none and for many', () => {
+    expect(formatCount(0, 'table')).toBe('0 tables')
+    expect(formatCount(6, 'table')).toBe('6 tables')
+  })
+
+  it('separates thousands in the count', () => {
+    expect(spaces(formatCount(2009, 'record'))).toBe('2,009 records')
+  })
+})
 
 describe('formatNumber', () => {
   it('separates thousands', () => {

@@ -93,6 +93,27 @@ describe('whether the list is narrowed', () => {
   })
 })
 
+/** What the Filters button shows beside its label. */
+describe('the active filter count', () => {
+  it('is zero on a bare table', () => {
+    expect(setup().activeFilterCount.value).toBe(0)
+  })
+
+  it('counts filtered fields, a two-bound range as one', () => {
+    const { activeFilterCount } = setup({
+      company: 'acme',
+      contract_value_from: '10',
+      contract_value_to: '90',
+    })
+
+    expect(activeFilterCount.value).toBe(2)
+  })
+
+  it('does not count a search, which is not a filter', () => {
+    expect(setup({ search: 'acme' }).activeFilterCount.value).toBe(0)
+  })
+})
+
 /**
  * A range spreads to two params but is one filtered field, so the copy below counts fields
  * rather than conditions — "this filter" must not appear for a single range.
@@ -149,20 +170,20 @@ describe('the empty-state icon', () => {
   const icon = (query: Record<string, string | string[]>) => setup(query).emptyIcon.value
 
   it('is the table itself when nothing is narrowing the list', () => {
-    expect(icon({})).toBe('mdi:table')
+    expect(icon({})).toBe('material-symbols:table-outline-rounded')
   })
 
   it('is the search glyph when only a search is narrowing it', () => {
-    expect(icon({ search: 'acme' })).toBe('mdi:magnify')
+    expect(icon({ search: 'acme' })).toBe('material-symbols:search-rounded')
   })
 
   it('is the filter glyph for a filter', () => {
-    expect(icon({ company: 'acme' })).toBe('mdi:filter-variant')
+    expect(icon({ company: 'acme' })).toBe('material-symbols:filter-list-rounded')
   })
 
   it('stays the filter glyph when a search and a filter are combined', () => {
     // The filter is the narrower claim of the two, and the one the user can clear wholesale
-    expect(icon({ company: 'acme', search: 'beta' })).toBe('mdi:filter-variant')
+    expect(icon({ company: 'acme', search: 'beta' })).toBe('material-symbols:filter-list-rounded')
   })
 })
 

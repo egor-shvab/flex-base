@@ -46,7 +46,21 @@ test('the recovery action returns to the dashboard', async ({ page }) => {
   await page.goto('/tables/does-not-exist')
   await expect(page.locator('.error-page__code')).toHaveText('404')
 
-  await page.getByRole('button', { name: 'Back to your tables' }).click()
+  await page.getByRole('button', { name: 'Back to home' }).click()
+
+  await expect(page).toHaveURL('/')
+  await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
+})
+
+/**
+ * A cold-loaded error URL has no in-app entry behind it, so "Go back" must land somewhere real
+ * rather than wherever the browser was before the app — Home is the one place that always is.
+ */
+test('going back from a cold load falls back to the dashboard', async ({ page }) => {
+  await page.goto('/tables/does-not-exist')
+  await expect(page.locator('.error-page__code')).toHaveText('404')
+
+  await page.getByRole('button', { name: 'Go back' }).click()
 
   await expect(page).toHaveURL('/')
   await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()

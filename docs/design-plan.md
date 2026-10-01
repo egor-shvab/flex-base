@@ -78,6 +78,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 1 — Foundations: colour, type scale, geometry and elevation tokens
 
+**Status:** done, with changes — 2026-09-29 — `TableFieldList`'s field key also moved to `--radius-xs` (it is a marker); the colour picker's trigger hover leaves its swatch edge at ~2.87:1 until Stage 7 (noted there)
+
 **Change**
 
 - `_palette.scss`: replace the neutral, accent and danger primitives with the reference ramps (Foundations → _Neutrals_, _Accent and status_), plus the D1 control step and the D2 focus step. Retune the ten badge hues to the reference's _Categorical palette_ values, renaming each `-border` primitive `-dot` (the three steps become bg / dot / fg; `yellow` keeps its name — D10). Refresh the contrast notes in the file header.
@@ -113,6 +115,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 2 — Webfonts
 
+**Status:** done, with changes — 2026-09-29 — `@fontsource` per-weight files carry every subset behind `unicode-range` (the browser fetches only Latin in practice) rather than hand-picked subset files
+
 **Change** Install Archivo (400, 500, 600, 700) and IBM Plex Mono (400, 500) from npm — `@fontsource/archivo` and `@fontsource/ibm-plex-mono`, or `@nuxt/fonts` with a local provider if it resolves both without a network call. Load only those weights and the `latin` + `latin-ext` subsets (Plex Mono also `cyrillic`), with `font-display: swap`.
 
 **Files** `package.json`, `nuxt.config.ts` (`css` or `modules`), `app/assets/scss/main.scss` if the faces are `@use`d there.
@@ -128,6 +132,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 3 — Icon set
+
+**Status:** done — 2026-09-29
 
 **Change** Replace `@iconify-json/mdi` with `@iconify-json/material-symbols` and rename every `mdi:*` reference to its outline-rounded Material Symbols equivalent, taking the glyph the reference draws for the same job — e.g. `settings`, `filter_list`, `search`, `add`, `close`, `edit`, `delete`, `open_in_full` for View, `table`, `home`, `chevron_left/right`, `expand_more`, `check`, `menu`, the field-type glyphs (`text_fields`, `numbers`, `check_box`, `calendar_today`, `radio_button_checked`, `arrow_outward`) and the sort glyphs `swap_vert` / `arrow_upward` / `arrow_downward`. Glyph size stays per call site (18–20px).
 
@@ -147,6 +153,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 4 — `BaseButton`
+
+**Status:** done, with changes — 2026-09-29 — also introduced `--color-border-control-hover`, `--color-accent-tint-strong` (selected-ghost hover) and `--color-danger-edge` (the danger link's rule), each first consumed here rather than in Stages 5, 6 and 9
 
 **Change**
 
@@ -176,9 +184,11 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 5 — Text fields: `form-control`, `BaseInput`, `BaseRange`, `BaseCheckbox`
 
+**Status:** done, with changes — 2026-09-29 — the checkbox is the native input with `appearance: none` (not a hidden input under a drawn box), sharing a new `control-focus` mixin split out of `form-control`; `FieldFormModal`'s hint lines sit beside checkboxes, so they wait for Stage 15
+
 **Change**
 
-- `form-control` mixin: 14px value text, `--color-border-control` border with the darker hover border (new `--color-border-control-hover`) and a `--color-surface-raised` hover fill; disabled `--color-surface-disabled` + `--color-border`; the invalid border unchanged. The focus and `forced-colors` rules stay as they are.
+- `form-control` mixin: 14px value text, `--color-border-control` border with the darker hover border (`--color-border-control-hover`, from Stage 4) and a `--color-surface-raised` hover fill; disabled `--color-surface-disabled` + `--color-border`; the invalid border unchanged. The focus and `forced-colors` rules stay as they are.
 - `field-label`: 13px, weight 500, `--color-text` (the reference labels in ink, not grey). `field-error`: 12px. `BaseInput` gains an optional `hint` shown on the error's line; the error replaces the hint rather than stacking under it.
 - `BaseInput`: 18px leading glyph in a 12px gutter; the date type keeps the native control (D9).
 - `BaseRange`: an en dash between the two halves instead of a gap.
@@ -202,12 +212,14 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 6 — `BaseSelect`
 
+**Status:** done, with changes — 2026-09-29 — a relation's `#number` still shows only in the panel (the value overlay has no slot, by `decisions.md`); loading keeps its "Searching…" row, since stale options stay visible under it. The first e2e run since Stage 1 also caught three regressions, fixed here: the specs' hard-coded blue focus colour, breadcrumb links under 24px at 13px text, and the `icon` button's new border pushing `sm` to 26px (padding is now `rem(3)`)
+
 **Change**
 
 - Trigger: 14px value, caret `expand_more` (flipping to `expand_less` while open), the clear as a 24px icon button left of the caret; the open state keeps the focus border rather than an accent one.
 - The value overlay: a SELECT value renders as its badge; a relation shows the label with its `#number` in mono beside it, and the number never truncates; in `multiple`, the first value followed by a `+N` counter — never a bare "3 selected". Only the main text truncates.
 - Panel: radius 10, `--shadow-md`, 6px inner padding, 2px row gap. Option rows keep the 36px height (rule 07; the reference's 34 is its own inconsistency), radius 6, 9px gap.
-- Option states: pointer hover `--color-surface-hover`; selected the accent tint + check; selected-and-hovered a deeper tint (new `--color-accent-tint-strong` `#D9ECDF`); the keyboard row the hover grey with a 2px inset accent edge.
+- Option states: pointer hover `--color-surface-hover`; selected the accent tint + check; selected-and-hovered a deeper tint (`--color-accent-tint-strong`, from Stage 4); the keyboard row the hover grey with a 2px inset accent edge.
 - The four panel states (no options, no matches with the query quoted back, loading skeleton rows at option height, failed with Retry) keep the panel's width and take the reference's copy and layout.
 
 **Files** `BaseSelect/BaseSelect.vue` and its four spec files over `select-harness`; `RelationOptionLabel.vue`; `_variables.scss`.
@@ -228,6 +240,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 7 — Badges and the colour picker
 
+**Status:** done, with changes — 2026-09-29 — the panel's 22px swatches sit in 36px targets too (they edit a value, like the trigger), so the grid needs no gap; the picked swatch takes a ring **and** keeps its check; the marker badge is mono, uppercase and tracked, per the Table Settings mock
+
 **Change**
 
 - `BaseBadge` `chip`: 22px tall, radius 6, 12px weight 500, the dot a 6px **square** (radius 2) in the `-dot` step. `label`: the reference's marker — 20px, radius 4, 11px weight 500 on `--color-surface-muted`.
@@ -239,13 +253,15 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 **Depends on** Stage 1 (the `-dot` step).
 
-**Watch for** The dot is now the `-dot` step, not `currentColor`: rewrite `decisions.md` → _A coloured badge carries a dot, not a border_ (geometry, step and the 22px height the padding note describes) and `docs/styling.md` → _Tokens_ / _Other atoms_ (`BaseBadge`'s heights). Each dot clears 3:1 on white and on `--color-surface-row-hover` — re-verify the latter if the row hover moves.
+**Watch for** The picker's trigger currently hovers to `--color-surface-hover`, where its swatch's `-dot` edge is ~2.87:1 — the restyle moves that hover to `--color-surface-raised` (3.1:1+). The dot is now the `-dot` step, not `currentColor`: rewrite `decisions.md` → _A coloured badge carries a dot, not a border_ (geometry, step and the 22px height the padding note describes) and `docs/styling.md` → _Tokens_ / _Other atoms_ (`BaseBadge`'s heights). Each dot clears 3:1 on white and on `--color-surface-row-hover` — re-verify the latter if the row hover moves.
 
 **Not in this stage** where badges are placed (table, field list) — their stages.
 
 ---
 
 ### Stage 8 — Segmented control, and the BOOLEAN filter
+
+**Status:** done, with changes — 2026-09-29 — the chosen plate carries a `--color-border-control-hover` edge the reference omits (plate on track is ~1.1:1); the look lives in `segmented-track` / `segmented-segment` mixins that read `aria-checked` or `aria-current`, ready for Stage 19; the control is always full width, its only use today
 
 **Change** A new `BaseSegmented` atom: a 36px track with 28px segments, radius 8 / 6, 13px labels, two to five options, one plate on the selected segment, optional leading glyph. Semantics: a `radiogroup` of radios with roving tabindex — one tab stop, arrows move and select. Exactly one segment is always selected; the whole control disables, never a single segment. Then switch the BOOLEAN **filter** control in `app/field-types/boolean/index.ts` from `BaseSelect` to `BaseSegmented` with All / Yes / No, All being the absent param.
 
@@ -263,9 +279,11 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 9 — Feedback and navigation atoms
 
+**Status:** done, with changes — 2026-09-29 — the empty state stays unboxed (callers place it); the pager's range keeps its `1–50 of 60` copy (the e2e suite selects by it) rather than the reference's "Showing …" prefix, which the filter summary already uses
+
 **Change**
 
-- `BaseErrorBanner`: radius 10, 12px × 14px padding, a `--color-danger-edge` border (new, `#F0C8C4`), a leading `error` glyph, 14px text in the danger ink. Still renders nothing without a message.
+- `BaseErrorBanner`: radius 10, 12px × 14px padding, a `--color-danger-edge` border (from Stage 4), a leading `error` glyph, 14px text in the danger ink. Still renders nothing without a message.
 - `BaseEmptyState`: 40px icon tile (radius 10, accent tint), 15px title weight 600, 13px secondary message, one action — the reference's _Empty and loading states_.
 - `BaseBreadcrumbs`: 13px, 28px row, `--color-text-secondary` links with an ink hover, the last step in ink weight 500; a 16px chevron separator; each step truncates at 120px and keeps its full name in `title`. Under 640px the trail becomes one back step to the parent — through a new `$breakpoint-compact` (40em) + `below-compact` mixin in `_mixins.scss`, the compact layout Stage 10 reuses for bottom sheets.
 - `BasePagination`: "Showing 1–25 of 248" on the left; on the right 30px bordered cells — previous, a window of page numbers in mono with `…`, next — the current page filled with the accent (D5). When the total is capped (`1000+`), number only the pages that are known and leave Next driven by `hasNext`, as today.
@@ -288,6 +306,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 10 — `BaseModal`
+
+**Status:** done, with changes — 2026-09-29 — the title is 15px `body`, not 18px; the side sheet shares `--shadow-lg`; closing is instant (open-only motion); Playwright now runs with `reducedMotion: 'reduce'`, which exposed a mobile-shell scrim test that only passed mid-animation (fixed to click the scrim's visible strip)
 
 **Change**
 
@@ -313,6 +333,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 11 — The shell: layout and sidebar
+
+**Status:** done, with changes — 2026-09-29 — the mark is a shared `AppMark`, not a link (Home sits directly under it); the avatar is neutral, since the categorical hues are the user's; the sidebar's middle region scrolls so the mark and user block stay pinned; the visible group label reads "Tables" while the nav keeps its "Your tables" name
 
 **Change**
 
@@ -340,6 +362,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 12 — Records page: header, toolbar and filter summary
 
+**Status:** done, with changes — 2026-09-29 — the chip mutes the field and weights the value (per the mock, not "field in 600"), with a real `{{ ' ' }}` between them; its remove stays 24px (D5); `useRecordListQuery` now returns `activeFilterCount` for the Filters count; `BaseBreadcrumbs` lost its outer margin and sits in a new `page-crumbs` row; the drawer e2e case scopes its "Clear all" to the dialog, since the summary now has one of the same name
+
 **Change**
 
 - The breadcrumb row with the page action on its right (Settings, a ghost button); the title (32px, the display tracking) with "Add record" primary directly beside it.
@@ -355,6 +379,7 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 **Watch for**
 
+- At 375px the search box overflows the header row today (it is `rem(220)` wide beside the ghost pair); the new toolbar row must fit a phone.
 - The page is a flex column filling the pane, with only the rows scrolling (`styling.md` → _The records page_); the new rows join the fixed band.
 - `decisions.md` → _A ghost button's padding is spacing_ describes the old Settings / Filters / search row. Settings moves to the breadcrumb row, so re-derive the spacing for the new pair and rewrite the entry.
 - Labels kept: "Filters", "Add record", "Show all records" in the empty state. "Clear all" replaces the summary's "Show all records" link — update the `filters-multi` e2e case that clicks it.
@@ -364,6 +389,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 13 — `RecordsTable` and the cells
+
+**Status:** done, with changes — 2026-09-29 — the relation chip is 26px, not 22 (an inline box, so its padding sets a height that must clear 24 under the fallback font too); DATE cells stay ink Archivo, since they are user data; the header glyphs take `--color-text-subtle` rather than the disabled grey; the new hidden "Not set" escaped the table's scroll container and scrolled the page, so the blank box is `position: relative` and the mobile e2e table now seeds blanks; `alignFor` reads a private `FIELD_CELL_ALIGN`
 
 **Change**
 
@@ -390,6 +417,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 14 — Row actions: open, edit and a `⋯` menu (D14)
 
+**Status:** done, with changes — 2026-09-30 — the menu is `RecordRowMenu` in `components/records/` (no second consumer foresees a `BaseMenu`); its panel is teleported because the pinned cell's `sticky` + `z-index` is a stacking context later rows would paint over; Tab closes it onto its trigger; the `limitations.md` **Open** section is now empty and `CLAUDE.md` §1 no longer says "the one Open row"
+
 **Change** The Actions cell becomes `open_in_full` (the existing "View record" link, name kept), `edit` ("Edit record") and a `more_horiz` button opening a menu built on `usePopover` + `useAnchoredPosition`, teleported out of the clipping table. The menu holds "Delete record" in the danger colour; choosing it opens the existing confirm dialog.
 
 **Files** `RecordsTable.vue`; a small menu component (in `common/` as `BaseMenu` if a second consumer is foreseeable, otherwise in `RecordsTable/`); the records-crud e2e cases for Delete (now `menuitem`); specs.
@@ -405,6 +434,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 15 — Form and confirm dialogs
+
+**Status:** done, with changes — 2026-09-30 — the warning tile rides a new `BaseModal` `leading` slot; `BaseCheckbox` gained `hint` (the field form's two hint lines moved onto it); `useDeleteConfirm`'s label no longer swaps to "Deleting…" — `loading` carries it, and the e2e helper matches `Delete` exactly; the combobox e2e's "next control" is now the footer's Cancel, and the tall-dialog case asserts the submit is in view without scrolling
 
 **Change**
 
@@ -426,6 +457,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 16 — Filter drawer and record side sheet
 
+**Status:** done, with changes — 2026-09-30 — the drawer's Clear all is a secondary button shown only while something is filtered (never a dead control), so Done is its only fixed action; the intro line states the AND rule without operators (D8); D7 is registered in `limitations.md`
+
 **Change**
 
 - `RecordsFilterPanel`: the side sheet with the reference's header ("Filters" + close), a one-line intro in 13px secondary, one control per field (D8), and a footer — "Clear all" on the left, the matching count, and a Done button (primary) closing the sheet on the right.
@@ -444,6 +477,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 17 — Table settings page
+
+**Status:** done, with changes — 2026-09-30 — the title-and-action pair became a shared `page-title-row` mixin (the records page reads it too); `surface-card` moved to `--radius-lg`, so Home's cards take it early; the field key lost its plate (plain mono, as the mock draws it); `page-header` stays for Home until Stage 18
 
 **Change** Match `Table Settings.dc.html`:
 
@@ -467,6 +502,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 
 ### Stage 18 — Home
 
+**Status:** done, with changes — 2026-09-30 — the row link wears `focus-ring` itself (it fills the row), so the `:has(:focus-visible)` card rule was deleted rather than moved; the crumb row hides `below-compact`, where a trail with no parent is empty; `page-header` lost its last consumer and was removed; a small `formatCount` util carries the "N tables / records" copy; the three relations delete cases now run from the settings page
+
 **Change** Match `Home.dc.html` minus what §1 excludes: the breadcrumb row, the 32px title with a meta line ("6 tables · 2 009 records", from the list already loaded), "Add table" primary beside it, and one "Tables" panel — rows linking each table: glyph tile, name, "N fields", the record count in mono, a chevron — with a total row. The empty state keeps its copy and action (D13).
 
 **Files** `pages/index.vue`; the relations and table-setup e2e cases that rename or delete from a Home card (move them to the settings page).
@@ -482,6 +519,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 19 — Auth and error pages
+
+**Status:** done, with changes — 2026-09-30 — `centred-card` split into `centred-column` (the mark above the card) and a bordered, shadowless `centred-card($padding)`; the switch is a new `AuthModeSwitch` whose links take `NuxtLink`'s own `aria-current`; the auth title uses `--font-size-xl` (24) rather than a one-off 22; the error tile is the mock's 56px, not 40, with the glyph and tint following the status; "Go back" reads `history.state.back` and falls back to Home
 
 **Change**
 
@@ -505,6 +544,8 @@ Where the reference conflicts with a project rule or with scope, the plan takes 
 ---
 
 ### Stage 20 — Consistency pass and close-out
+
+**Status:** done — 2026-09-30
 
 **Change**
 

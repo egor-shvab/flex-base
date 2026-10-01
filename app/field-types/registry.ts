@@ -11,6 +11,7 @@ import { TEXT_APP_FIELD_TYPE } from '~/field-types/text'
 import type {
   IAppFieldType,
   IFieldControl,
+  TCellAlign,
   TFieldConfigSummary,
   TFilterSummary,
   TRecordFieldControl,
@@ -133,7 +134,8 @@ const MULTI_SUMMARIES: Record<TFieldType, TFilterSummary | null> = {
 }
 
 /**
- * The glyph each field type is drawn with — never without the type's word beside it. Plain
+ * The glyph each field type is drawn with — never the only statement of the type: beside the
+ * type's word in the field list, decorative beside the field's name in a table header. Plain
  * strings, so there is nothing for Vue to proxy and no `markRaw` to forget.
  */
 export const FIELD_TYPE_ICONS: Record<TFieldType, string> = {
@@ -143,6 +145,16 @@ export const FIELD_TYPE_ICONS: Record<TFieldType, string> = {
   DATE: MODULES.DATE.icon,
   SELECT: MODULES.SELECT.icon,
   RELATION: MODULES.RELATION.icon,
+}
+
+/** Which edge a column sits against, header included. Read through `alignFor`. */
+const FIELD_CELL_ALIGN: Record<TFieldType, TCellAlign> = {
+  TEXT: MODULES.TEXT.align,
+  NUMBER: MODULES.NUMBER.align,
+  BOOLEAN: MODULES.BOOLEAN.align,
+  DATE: MODULES.DATE.align,
+  SELECT: MODULES.SELECT.align,
+  RELATION: MODULES.RELATION.align,
 }
 
 /**
@@ -176,6 +188,14 @@ export function inputFor(field: IField): TRecordFieldControl {
  */
 export function filterFor(field: IField): IFieldControl<TFilterValue> {
   return (isMultiValue(field) ? MULTI_FILTERS[field.type] : null) ?? FIELD_FILTERS[field.type]
+}
+
+/**
+ * How one column aligns, so the table never asks which type is numeric. Record columns need no
+ * override: the record number is TEXT-typed and the timestamps DATE-typed, both `start`.
+ */
+export function alignFor(field: IField): TCellAlign {
+  return FIELD_CELL_ALIGN[field.type]
 }
 
 /** How one field's active filter reads — the summary-side twin of `inputFor`/`filterFor`. */

@@ -26,7 +26,7 @@ Two more that shape every change: **full TypeScript coverage**, with zod schemas
 
 **Not in scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity history, workflows, automations, file uploads, import/export, third-party integrations. Do not build them speculatively — but the architecture **may** be shaped to accommodate them where doing so also improves the code that exists.
 
-**One phase is in progress: the visual redesign** to the reference in `docs/design/` (§8), executed stage by stage from `docs/design-plan.md`. Everything else is done — the feature set, the quality/UX/accessibility pass (which is where the four test projects and the axe gate came from), and the architectural restructuring. The redesign changes how the app looks, never what it does: a design element whose feature is out of scope (above) is not built. Outside that plan a change starts from a request rather than from a backlog: **no other roadmap or plan file is kept**, and one is written only where a request asks for it — while one exists it is kept current (§2). The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/limitations.md` marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. The one **Open** row is parked behind a stated trigger, so "Open" is something to read the register for rather than a queue to work through.
+**No phase is in progress.** The feature set, the quality/UX/accessibility pass (which is where the four test projects and the axe gate came from), the architectural restructuring and the visual redesign to the reference in `docs/design/` (§8) are all done. A design element whose feature is out of scope (above) is not built. A change starts from a request rather than from a backlog: **no roadmap or plan file is kept**, and one is written only where a request asks for it — while one exists it is kept current (§2). The test suite is **built** — four projects, every layer gated (§10) — so it is a gate to keep passing, not work to schedule. Entries in `docs/limitations.md` marked **Open** are in scope; **Accepted** entries are not, unless a request says otherwise. An **Open** row is parked behind its stated trigger, so "Open" is something to read the register for rather than a queue to work through.
 
 ---
 
@@ -74,11 +74,12 @@ A plan file exists only where a request asked for one (§1). While it exists it 
 app/                         # Nuxt 4 frontend (client)
   assets/scss/               # global SCSS (main.scss + partials, incl. _mixins.scss)
   components/
-    app/                     # the shell — AppSidebar
+    app/                     # the shell and the auth chrome — AppSidebar, AppMark, AuthModeSwitch
     common/                  # generic UI atoms, all `Base*` — one gets a folder (see below)
     fields/                  # surfaces that render field *metadata* rather than records
     modals/                  # dialogs built on BaseModal
-    records/                 # the metadata renderers — RecordForm, RecordsTable, the filter panel & summary
+    records/                 # the metadata renderers — RecordForm, RecordsTable, its row menu, the filter panel & summary
+    ui-test/                 # the /ui-test showcase chrome — page, section, specimen; used by no other page
   field-types/               # the client half of a field type: one folder per type + the assemblers
   api/                       # the transport layer: paths.ts + one use*Api() per resource
   composables/               # useForm, useDeleteConfirm, … (imported explicitly — see §4)
@@ -87,6 +88,7 @@ app/                         # Nuxt 4 frontend (client)
   plugins/                   # client error reporting (`.client` — SSR is Nitro's hook)
   pages/                     # file-based routing
     tables/[tableAddress]/     # the table itself (index.vue) + settings.vue
+    ui-test/                   # the public component showcase — visual QA of common/, fixtures only
   stores/                    # Pinia stores (auth, tables, fields, records, relations)
   types/                     # client-only type declarations (zero runtime exports)
   utils/                     # client-only helpers — formatters, api errors, value shapes
@@ -108,7 +110,7 @@ shared/                      # code used by BOTH client & server — one rule pe
 prisma/migrations/           # Prisma migration history
 prisma/seed/                 # the demo seed: a pure dataset + the writer (`npm run db:seed`)
 test/                        # fixtures, mount/prisma helpers, the integration and e2e suites
-docs/                        # architecture.md, styling.md, decisions.md, limitations.md, design-plan.md
+docs/                        # architecture.md, styling.md, decisions.md, limitations.md
   design/                    # the visual reference (§8) — read-only mockups, never imported
 public/                      # static assets
 ```
@@ -225,7 +227,7 @@ Rationale for all three: `docs/decisions.md`.
 - Derive state with `computed`, don't sync it with watchers; never deep-`watch` large arrays/objects.
 - **Debounce** user-driven query inputs ~300 ms before hitting the API (`useDebouncedModel`).
 - Fetch page data through `useAsyncData` with an explicit key so the SSR result transfers in the payload; never re-fetch in `onMounted` what SSR already loaded. A layout and a page must never share a key.
-- **No image pipeline ships.** `@nuxt/image` was removed because the app renders none — re-add it, and this rule, when a real image exists (`docs/decisions.md` → _Neither `@nuxt/fonts` nor `@nuxt/image` is installed_).
+- **No image pipeline ships.** `@nuxt/image` was removed because the app renders none — re-add it, and this rule, when a real image exists (`docs/decisions.md` → _Webfonts come from `@fontsource`, and `@nuxt/image` is not installed_).
 
 These rules target collections that grow with user data. Static UI — auth pages, layout chrome — does not warrant `shallowRef`/lazy machinery; KISS wins there.
 
@@ -239,14 +241,14 @@ All styles are **SCSS**, never plain CSS. Global styles live in `app/assets/scss
 
 Neutral chrome, coloured data. **Light grey surfaces carry the interface; one deep green accent (`#1C6B4A`) marks primary actions, focus and selected state and never fills a large area; the closed ten-hue badge palette is the user's, for their values — the two colour systems never mix.** **Archivo** for everything a person reads, **IBM Plex Mono** for anything a machine produced (record numbers, field keys, addresses, timestamps) — the mono face is a signal, not an accent. **36px control height, 8px control radius, 14px control and cell text**; borders do the structural work, and a shadow only says a surface floats — it always keeps a real border too. New UI matches that register; it is not a blank canvas.
 
-**`docs/design/` is the visual reference** — `FlexBase Design System.dc.html` for foundations, components and rules, the other files for pages. They render through `support.js`, so open them from a local static server rather than as `file://`. Until `docs/design-plan.md` is complete, an area no stage has reached still carries the previous look, and each stage moves code **to** the reference. The reference does not win against a project rule — the accessibility floors below, the scope in §1, the closed vocabularies in §6 — nor does it bring a feature the app lacks (workspaces, members, views, bulk selection): the rule holds, and a reference update is proposed. Once the plan is done, any disagreement between code and reference is settled the same way — propose a reference update rather than changing code to match.
+**`docs/design/` is the visual reference** — `FlexBase Design System.dc.html` for foundations, components and rules, the other files for pages. They render through `support.js`, so open them from a local static server rather than as `file://`. The reference does not win against a project rule — the accessibility floors below, the scope in §1, the closed vocabularies in §6 — nor does it bring a feature the app lacks (workspaces, members, views, bulk selection): the rule holds, and a reference update is proposed. Any other disagreement between code and reference is settled the same way — propose a reference update rather than changing code to match.
 
 ### Accessibility target: WCAG 2.2 AA
 
 Two halves are machine-checked by `npm run test:e2e`: an **axe** pass over the WCAG A/AA rules, failing on `serious` and `critical`, and the target-size floor below. Neither replaces the keyboard walk in step 5 of the definition of done — axe cannot tell whether a focus order makes sense — but both catch what a walk misses because nothing on screen looks different.
 
-- Every interactive element is keyboard-operable and has a visible `:focus-visible` state. **Focus is never removed, only restyled** — `_reset.scss` carries a zero-specificity baseline so nothing can end up bare. **Two registers, chosen by whether the control has a border of its own:** a button, link, row or option takes the `focus-ring` mixin; a **form control** takes `form-control`, which recolours its own border instead. **The two are mutually exclusive** — a control taking `form-control` must never also take `focus-ring`. Both add `--focus-ring-halo`, which is **never the indicator**: it is a `box-shadow`, so it is clippable and outrankable. Why each half is shaped that way, and what `forced-colors` changes: `docs/decisions.md`.
-- Minimum target size **24×24** — SC 2.5.8, the AA requirement. The house floor is `--control-height` (**36px**), which every sized control including icon-only buttons meets; nothing may go below 24. A content-sized control needs **both** axes floored, because a short label ("Edit" is 23px) is narrow however tall it is. 44×44 is SC 2.5.5, which is **AAA** — do not quote it as the AA bar.
+- Every interactive element is keyboard-operable and has a visible `:focus-visible` state. **Focus is never removed, only restyled** — `_reset.scss` carries a zero-specificity baseline so nothing can end up bare. **Two registers, chosen by whether the control has a border of its own:** a button, link, row or option takes the `focus-ring` mixin; a **form control** takes `form-control` (or `control-focus`, its focus half, for a bordered control that is not a text field), which recolours its own border instead. **The two are mutually exclusive** — a control taking `form-control` or `control-focus` must never also take `focus-ring`. Both add `--focus-ring-halo`, which is **never the indicator**: it is a `box-shadow`, so it is clippable and outrankable. Why each half is shaped that way, and what `forced-colors` changes: `docs/decisions.md`.
+- Minimum target size **24×24** — SC 2.5.8, the AA requirement. The house floor is `--control-height` (**36px**), which every control that edits or commits a value meets, icon-only buttons included. **Compact chrome** — pager cells (30px) and a chip's remove button (24px) — is the one tier below it, and nothing may go below 24. A content-sized control needs **both** axes floored, because a short label ("Edit" is 23px) is narrow however tall it is. 44×44 is SC 2.5.5, which is **AAA** — do not quote it as the AA bar.
 - The gate lives in `test/e2e/accessibility.spec.ts` + `test/e2e/setup/a11y.ts`, which encode three real SC 2.5.8 exceptions (the _Inline_ exception for `.text-link`, an `<input>` whose wrapping `<label>` is the actual target, and anything not rendered). **Do not add a fourth to make a failure go away.**
 - Text contrast ≥ 4.5:1; control outlines and other non-text UI ≥ 3:1 (this is why `--color-border-control` is a separate token from `--color-border-strong`).
 - Dialogs and off-canvas surfaces are `inert`-guarded and must never leave focusable content off-screen — `visibility: hidden`, not translation alone.
@@ -258,11 +260,11 @@ Two halves are machine-checked by `npm run test:e2e`: an **axe** pass over the W
 - **`functions` and `mixins` reach every SFC `<style>` block and entry file automatically** (Vite `additionalData`). They do **not** reach a transitively `@use`d partial — a standalone partial like `_auth-form.scss` must `@use` both itself, and `main.scss` must **not** re-`@use` either.
 - Use SCSS **nesting with `&`**; never duplicate a parent selector that could be nested.
 - **Reuse before you paste.** A declaration block that would be a second copy belongs in `_mixins.scss` — check the list there first. A block with no per-site variation is a **class** in its own partial instead (`.auth-form`, `.text-link`, `.visually-hidden`), `@use`d from `main.scss`. `.visually-hidden` is the one to reach for rather than reinvent: it clips rather than hiding, because `display: none` and `visibility: hidden` both take an element out of the accessibility tree — which would silence the live region it exists for.
-- **Components consume `var(--color-*)` and nothing else.** The palette primitives (`$gray-200`, `$blue-600`) are unreachable from an SFC by construction, and it must stay that way.
+- **Components consume `var(--color-*)` and nothing else.** The palette primitives (`$gray-200`, `$green-600`) are unreachable from an SFC by construction, and it must stay that way.
 - **Tokens are added as coherent sets, not one-offs.** A new token must be semantic (name the role, not the value), belong to an existing ramp or establish a complete one, and be consumed by real UI in the same change. Never add a value to `_variables.scss` that no component reads.
 - **Sass parses custom-property values literally** — every `rem()` in `_variables.scss` must be interpolated: `--radius-md: #{rem(8)}`.
-- **Breakpoints live in `_mixins.scss`**, never `_variables.scss` (a media query cannot read a custom property), and are written in `em`. There is currently one — `$breakpoint-shell: 56.25em` (900px) + the `below-shell` mixin. Add another only for a real layout need, and name it for the layout it governs.
-- **Icons:** use `@nuxt/icon` (`<Icon name="mdi:close" />`) for all iconography — **never text glyphs** (`×`, `+`, `✓`, `→`) as icons. For icon buttons use `BaseButton`'s `icon` prop.
+- **Breakpoints live in `_mixins.scss`**, never `_variables.scss` (a media query cannot read a custom property), and are written in `em`. There are two — `$breakpoint-shell: 56.25em` (900px, the off-canvas sidebar) + `below-shell`, and `$breakpoint-compact: 40em` (640px, the one-step breadcrumb and bottom-sheet overlays) + `below-compact`. Add another only for a real layout need, and name it for the layout it governs.
+- **Icons:** use `@nuxt/icon` (`<Icon name="material-symbols:close-rounded" />`, the outline-rounded name where both exist) for all iconography — **never text glyphs** (`×`, `+`, `✓`, `→`) as icons. For icon buttons use `BaseButton`'s `icon` prop.
 
 ```scss
 .card {
@@ -295,7 +297,7 @@ A field type is **three modules — one per slice — and one line in each of th
 | `prisma/schema.prisma`            | the `FieldType` enum member (+ migration)                                                                                                                                                                                                                                                                                                               |
 | `shared/field-types/<type>.ts`    | its `IFieldTypeModule`: `label`, `multiValue`, `filter` (shape + empty), `value` (`base` schema, `listBase`, `blank`, `fromQuery`)                                                                                                                                                                                                                      |
 | `server/db/field-types/<type>.ts` | its `IFieldSqlModule`: `sql` (`expr` · `filter` · `searchPredicate`, `null` to opt out of search · `sortExpr` only if it orders differently from how it filters · `sortJoin` when the value it orders by is in another row, which only RELATION needs · **`filterIndex` and `sortIndex`**, which index kind serves each or `null` for none) and `multi` |
-| `app/field-types/<type>/index.ts` | its `IAppFieldType`: `input`, `multiInput`, `filter`, `multiFilter`, `cell`, `summary`, `multiSummary`, `icon`, `configSummary` — plus **one** cell component beside it                                                                                                                                                                                 |
+| `app/field-types/<type>/index.ts` | its `IAppFieldType`: `input`, `multiInput`, `filter`, `multiFilter`, `cell`, `summary`, `multiSummary`, `icon`, `align`, `configSummary` — plus **one** cell component beside it                                                                                                                                                                        |
 
 Then one line per map in each registry — `shared/field-types/registry.ts`, `server/db/field-types/registry.ts`, `app/field-types/registry.ts` — plus its value shape in `IFilterValueByType` (`shared/types/filter.ts`), a zod branch in `shared/validation/field.ts` if it takes `options` (and the matching branch in `FieldService.buildOptions`, `server/services/fields.ts`), and a fixture in `test/fixtures.ts`.
 
@@ -401,7 +403,7 @@ Configuration lives in a gitignored `.env` at the repo root (copy `.env.example`
 - `tsconfig.json` references the project configs generated into `.nuxt/` by `nuxt prepare`. Do not edit those directly.
 - `compatibilityDate` is pinned to `2025-07-15`.
 - Modules: `@nuxt/eslint`, `@nuxt/icon`, `@pinia/nuxt`.
-- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/mdi` (nothing imports it — `@nuxt/icon` detects it and serves `mdi` from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate; dev-only, and it injects axe into the page rather than shipping in the bundle), `tsx` (the demo seed's runner: the generated Prisma client is emitted as TypeScript whose imports carry `.js` specifiers, so plain `node` cannot load it — `tsx` also reads `tsconfig.seed.json` for the `#server`/`#shared` aliases). `vue-router` is deliberately **not** declared. `@nuxt/fonts` was removed; do not re-add it until a real webfont exists. See `docs/decisions.md`.
+- Direct dependencies that exist for a reason: `h3` and `nitropack` (server code imports them by name — keep versions in step with Nuxt's), `ofetch` (`app/utils/api-error.ts` imports `FetchError` by name), `@iconify-json/material-symbols` (nothing imports it — `@nuxt/icon` detects it and serves the set from disk; without it every icon is a runtime fetch of `api.iconify.design`), `@axe-core/playwright` (the accessibility gate; dev-only, and it injects axe into the page rather than shipping in the bundle), `tsx` (the demo seed's runner: the generated Prisma client is emitted as TypeScript whose imports carry `.js` specifiers, so plain `node` cannot load it — `tsx` also reads `tsconfig.seed.json` for the `#server`/`#shared` aliases). `vue-router` is deliberately **not** declared. `@fontsource/archivo` and `@fontsource/ibm-plex-mono` are the self-hosted webfonts, imported per weight in `nuxt.config.ts`'s `css`; `@nuxt/fonts` is deliberately not used. See `docs/decisions.md`.
 
 ---
 

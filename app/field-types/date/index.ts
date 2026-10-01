@@ -31,6 +31,7 @@ export const DATE_APP_FIELD_TYPE: IAppFieldType<'DATE'> = {
       (to) => `until ${to}`,
     ),
   multiSummary: null,
-  icon: 'mdi:calendar-outline',
+  icon: 'material-symbols:calendar-today-outline-rounded',
+  align: 'start',
   configSummary: null,
 }
