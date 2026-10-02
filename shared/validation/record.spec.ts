@@ -24,7 +24,6 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-/** The first issue path of a failed parse, which is what a form binds its message to. */
 function issuePaths(schema: { safeParse: (value: unknown) => unknown }, value: unknown): string[] {
   const result = schema.safeParse(value) as {
     success: boolean
@@ -101,7 +100,6 @@ describe('buildRecordSchema — per type', () => {
 
   it('requires a RELATION value to be a non-empty id', () => {
     expect(parseOne(relationField(), 'rec_1').success).toBe(true)
-    // `''` preprocesses to the blank value, so it reads as "no link" rather than as a bad id
     expect(parseOne(relationField(), '').success).toBe(true)
     expect(parseOne(relationField(), '   ')).toMatchObject({ success: true })
   })
@@ -144,7 +142,6 @@ describe('buildRecordSchema — multi-value', () => {
   })
 
   it('rejects duplicates rather than deduplicating them', () => {
-    // A control cannot produce them, so a repeat is a crafted payload and is answered
     expect(parseList(multiSelect, ['Won', 'Won']).success).toBe(false)
   })
 
@@ -225,8 +222,6 @@ describe('buildRecordQuerySchema — base params', () => {
   })
 
   it(`enforces the ${SEARCH_MIN_LENGTH}-character search floor`, () => {
-    // Derived from the constant rather than spelled out: the floor tracks what the trigram
-    // index can serve, so a term written in here would silently stop testing the boundary
     expect(schema.safeParse({ search: 'a'.repeat(SEARCH_MIN_LENGTH - 1) }).success).toBe(false)
     expect(schema.safeParse({ search: 'a'.repeat(SEARCH_MIN_LENGTH) }).success).toBe(true)
     expect(schema.safeParse({}).success).toBe(true)
@@ -237,8 +232,6 @@ describe('buildRecordQuerySchema — base params', () => {
   })
 
   it('reads a blank search as absent rather than answering a 400', () => {
-    // `?search=` is what a cleared box looks like in a link, and `parseRecordQueryState` has
-    // always read it as "not searching" — the floor must not fire on a term that is not there
     for (const search of ['', '   ']) {
       expect(schema.parse({ search }).search).toBeUndefined()
     }
@@ -320,8 +313,6 @@ describe('buildRecordQuerySchema — filter params', () => {
   })
 
   it('does not reject a param the table has never heard of', () => {
-    // A filter name is a plain field name now, so a stray `utm_source` is indistinguishable
-    // from a typo and must not break the page
     expect(schema.safeParse({ utm_source: 'newsletter' }).success).toBe(true)
   })
 

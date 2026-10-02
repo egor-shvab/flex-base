@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
 
-/**
- * The create-or-edit dialog state every list page opens. A plain `*.spec.ts`: two refs and three
- * setters, so it needs no Nuxt runtime and no DOM (`CLAUDE.md` §10).
- */
 interface ITestRow {
   id: string
   name: string
@@ -38,11 +34,6 @@ describe('useEntityFormModal', () => {
     expect(modal.editing.value).toBe(ROW)
   })
 
-  /**
-   * The one way this can go wrong: a create opened straight after an edit would hand the form the
-   * previous row and render it pre-filled. Each page binds `editing` to the dialog's own prop, so
-   * a stale value there is a filled-in "New record" form.
-   */
   it('clears the previous row when a create follows an edit', () => {
     const modal = useEntityFormModal<ITestRow>()
 

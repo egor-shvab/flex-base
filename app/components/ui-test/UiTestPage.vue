@@ -9,7 +9,6 @@
 </template>
 
 <script setup lang="ts">
-/** A `/ui-test` subpage: its `<h1>`, an optional lede, then its sections. */
 defineProps<{ title: string }>()
 </script>
 

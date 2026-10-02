@@ -306,7 +306,6 @@ const MANY_OPTIONS: ISelectOption[] = [
   'Uruguay',
 ].map((name) => ({ value: name.toLowerCase().replaceAll(' ', '-'), label: name }))
 
-/** Record numbers as values, so the `option-label` slot can draw each as a linked record. */
 const RECORDS: ISelectOption[] = [
   { value: '1', label: 'Acme renewal' },
   { value: '2', label: 'Globex pilot' },
@@ -318,7 +317,6 @@ const RECORDS: ISelectOption[] = [
 
 const LOAD_DELAY_MS = 600
 
-/** Rejects with the signal's reason if a newer term supersedes this one before it resolves. */
 function wait(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, ms)
@@ -333,7 +331,6 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-/** A stand-in for the relation loader: filters the local records after a delay. */
 const loadRecords: TLoadSelectOptions = async (term, signal) => {
   await wait(LOAD_DELAY_MS, signal)
   const needle = term.trim().toLowerCase()

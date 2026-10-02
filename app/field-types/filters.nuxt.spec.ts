@@ -20,10 +20,6 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-/**
- * In the Nuxt project only because the registry imports `.vue` control components. Nothing here
- * mounts anything — the entries are data.
- */
 describe('FIELD_FILTERS', () => {
   it.each([
     ['TEXT', BaseInput],
@@ -36,10 +32,6 @@ describe('FIELD_FILTERS', () => {
     expect(filterFor(ALL_TYPE_FIELDS[type as TFieldType]).component).toBe(component)
   })
 
-  /**
-   * No control knows an operator — the value is the whole contract, and `FILTER_VALUE_BY_TYPE`
-   * maps it to conditions at the serialization boundary.
-   */
   it('gives no control an operator to choose from', () => {
     for (const type of FIELD_TYPES) {
       const field = ALL_TYPE_FIELDS[type]
@@ -52,7 +44,6 @@ describe('FIELD_FILTERS', () => {
 })
 
 describe('filterFor', () => {
-  /** A field holding several values can only be asked whether it holds *any* of the filtered. */
   it('gives a multi RELATION its own list control', () => {
     const single = relationField()
     const multi = asMultiple(relationField())
@@ -62,17 +53,10 @@ describe('filterFor', () => {
     expect(filterFor(single).props(single).multiple).toBeUndefined()
   })
 
-  /**
-   * The deliberate asymmetry with `inputFor`: a SELECT *filter* already takes several choices,
-   * so `MULTI_FILTERS.SELECT` is `null` and the flat entry serves both. `MULTI_INPUTS`'s
-   * invariant ("non-null exactly where `MULTI_VALUE_BY_TYPE` is true") is therefore **not** the
-   * invariant here, and symmetry would double the registry for no behaviour.
-   */
   it('serves a multi SELECT from the flat entry, unlike the input side', () => {
     const multi = asMultiple(selectField())
 
     expect(filterFor(multi)).toBe(FIELD_FILTERS.SELECT)
-    // Already list-shaped, so it needs no second entry to become one
     expect(filterFor(selectField()).props(selectField()).multiple).toBe(true)
   })
 
@@ -89,10 +73,6 @@ describe('filterFor', () => {
   })
 })
 
-/**
- * Four of the six entries need no adapters at all: their control's model already **is** the
- * filter value. Adding a redundant pair is as much a regression as dropping a needed one.
- */
 describe('adapters', () => {
   it.each(['TEXT', 'NUMBER', 'DATE', 'SELECT', 'RELATION'] as const)(
     'leaves %s unadapted, because its model is already the filter value',
@@ -117,10 +97,6 @@ describe('adapters', () => {
       expect(toControl!(false)).toBe('false')
     })
 
-    /**
-     * A two-state control cannot express "either", so the *absence* of a choice carries it —
-     * `null` is "All", and clearing emits `''`.
-     */
     it('shows no choice at all for an unfiltered field', () => {
       expect(toControl!(null)).toBe('')
     })
@@ -153,19 +129,11 @@ describe('the props each control is handed', () => {
     }
   })
 
-  /**
-   * A filter's blank means "every record", never "nothing chosen" — which is why the copy
-   * differs from the form's `— Select —` on the same controls.
-   */
   it.each([selectField(), relationField()])('placeholders a clearable filter with All', (field) => {
     expect(filterFor(field).props(field).placeholder).toBe('All')
     expect(filterFor(field).props(field).clearable).toBe(true)
   })
 
-  /**
-   * A typed query input must not hit the API on every keystroke. Against the constant rather
-   * than `300`, for the reason the `shouldSearch` case below states.
-   */
   it.each([textField(), numberField(), dateField()])('debounces a typed filter', (field) => {
     expect(filterFor(field).props(field).debounce).toBe(QUERY_DEBOUNCE_MS)
   })
@@ -188,7 +156,6 @@ describe('the props each control is handed', () => {
     expect(filterFor(dateField()).props(dateField()).type).toBe('date')
   })
 
-  /** Every answer at once, so "All" is a segment — the empty value — rather than a placeholder. */
   it('offers a BOOLEAN All plus the same two words the cell uses', () => {
     const field = booleanField()
 
@@ -199,7 +166,6 @@ describe('the props each control is handed', () => {
     ])
   })
 
-  /** The choices come from the field's own metadata, so the list needs no extra request. */
   it('hands a SELECT its choices, colours and all', () => {
     const field = selectField([
       { value: 'Won', color: 'green' },
@@ -212,11 +178,6 @@ describe('the props each control is handed', () => {
     ])
   })
 
-  /**
-   * Against `shouldSearch` rather than `true`/`false`, so the case pins that the registry
-   * *consults* the predicate and moving the threshold breaks nothing. It still fails a hardcode:
-   * a registry always answering `false` disagrees with `shouldSearch(20)`.
-   */
   it('decides a SELECT’s search box by consulting shouldSearch', () => {
     const few = selectField(['a', 'b', 'c'])
     expect(filterFor(few).props(few).searchable).toBe(shouldSearch(3))
@@ -225,7 +186,6 @@ describe('the props each control is handed', () => {
     expect(filterFor(many).props(many).searchable).toBe(shouldSearch(20))
   })
 
-  /** The same picker the form uses, so a filter offers exactly what a record can link to. */
   it('addresses a RELATION by its field id', () => {
     const field = relationField()
 

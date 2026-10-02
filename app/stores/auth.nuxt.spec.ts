@@ -10,7 +10,6 @@ const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com' }
 const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)
 
-/** Which routes are currently prepared to fail, reassigned per case. */
 const failing = new Set<string>()
 
 function endpoint(path: string, method: 'GET' | 'POST', user: IAuthUser | null = ADA) {
@@ -55,10 +54,6 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(true)
     })
 
-    /**
-     * It runs before the app knows whether anyone is signed in, so a 401 is the *answer* rather
-     * than an error — throwing here would turn "signed out" into a crash on first paint.
-     */
     it('reads a rejection as signed out rather than throwing', async () => {
       failing.add('/api/auth/me')
       const store = useAuthStore()
@@ -92,7 +87,6 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(true)
     })
 
-    /** Unlike `fetchUser`, these are user-initiated — the form has to be able to say why. */
     it.each([
       ['register', '/api/auth/register'],
       ['login', '/api/auth/login'],
@@ -118,7 +112,6 @@ describe('useAuthStore', () => {
       expect(navigateTo).toHaveBeenCalledWith('/auth/login')
     })
 
-    /** The cookie is the server's to clear, so a failed request must not look signed out. */
     it('keeps the session when the request fails', async () => {
       const store = useAuthStore()
       await store.login(CREDENTIALS)

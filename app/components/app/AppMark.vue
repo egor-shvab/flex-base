@@ -1,8 +1,4 @@
 <template>
-  <!--
-    Not a link: in the sidebar Home sits directly under it, so a second link to `/` would only be
-    a duplicate tab stop. Pure — no store — so the screens outside the shell can use it too.
-  -->
   <span class="app-mark">
     <span class="app-mark__tile" aria-hidden="true">
       <Icon name="material-symbols:table-outline-rounded" />
@@ -26,7 +22,6 @@
     height: rem(28);
     border-radius: var(--radius-md);
     background: var(--color-accent);
-    // A glyph size, not a type step — `<Icon>` sizes off `font-size`
     font-size: rem(18);
     color: var(--color-text-on-accent);
   }

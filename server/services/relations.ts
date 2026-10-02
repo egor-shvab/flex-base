@@ -10,30 +10,22 @@ import { parseAddressNumber } from '#shared/utils/address'
 import { isListFilterValue } from '#shared/utils/filter'
 import { buildRecordLabel } from '#shared/utils/record-label'
 
-/**
- * A relation stores a target record's id — which no schema can validate, no cell can display and
- * no URL should carry. This module does all three, so `records.ts` stays generic.
- */
 export interface IRelationTarget {
   field: IField
   targetTableId: string
-  /** The ids this field actually references in the rows at hand — never the whole table. */
   ids: Set<string>
 }
 
-/** Just enough of a target record to say how it reads — its number, and its label field. */
 interface ITargetRow {
   id: string
   number: number
   data: unknown
 }
 
-/** Prisma's JSON column is untyped; every row was written through the record schema. */
 function toLabelSource(row: ITargetRow): Pick<IRecord, 'number' | 'data'> {
   return { number: row.number, data: (row.data as TRecordData | null) ?? {} }
 }
 
-/** The one mapping from a stored row to how it reads — both producers below go through it. */
 function toLinkedRecord(
   source: Pick<IRecord, 'number' | 'data'>,
   labelFieldKey?: string,
@@ -50,8 +42,6 @@ function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelatio
 
     const ids = new Set<string>()
     for (const data of rows) {
-      // A multi-value relation stores a list of ids, and every consumer below works in sets,
-      // so normalising here is the whole cost. A bare string is what a pre-widening row holds.
       const stored = data[field.key]
       for (const id of Array.isArray(stored) ? stored : [stored]) {
         if (typeof id === 'string' && id !== '') ids.add(id)
@@ -64,10 +54,6 @@ function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelatio
   return targets
 }
 
-/**
- * Every referenced record, in one query per distinct target table — never one per row.
- * Kept grouped by table so a foreign id cannot pass as found through another table's row.
- */
 async function fetchTargetRecords(
   targets: IRelationTarget[],
 ): Promise<Map<string, Map<string, Pick<IRecord, 'number' | 'data'>>>> {
@@ -97,11 +83,6 @@ async function fetchTargetRecords(
   )
 }
 
-/**
- * How every linked record on a page of results reads, keyed by relation field and then by
- * target record id. An id that no longer resolves is simply absent, so a deleted target
- * degrades to a placeholder in the cell rather than breaking the list.
- */
 async function resolveLinkedRecords(
   fields: IField[],
   records: IRecord[],
@@ -131,18 +112,9 @@ async function resolveLinkedRecords(
 }
 
 /**
- * A relation filter carries the target's **address** where the column stores cuids. The two meet
- * here, above `buildRecordWhere` and below the codec: the codec is pure and shared by both sides
- * of the wire, so it cannot do I/O, and comparing through a subquery on `"Record"."number"`
- * would defeat RELATION's `filterIndex`.
- *
- * **Every requested value survives, resolved or not**, and that is the safety property. Dropping
- * an unresolved one would empty a list filter, `containsAny` would answer `null`,
- * `buildRecordWhere` would skip the condition, and the list would **silently widen to the whole
- * table**. Passed through, a stray number simply matches nothing, because `assertRelationTargets`
- * guarantees every stored value is a live record's cuid.
- *
- * One query per distinct target table, never one per value.
+ * Every requested value survives, resolved or not. Dropping an unresolved one would empty a list
+ * filter, `buildRecordWhere` would skip the condition, and the list would silently widen to the
+ * whole table; a stray number passed through simply matches nothing.
  */
 async function resolveFilterTargets(
   fields: IField[],
@@ -160,7 +132,6 @@ async function resolveFilterTargets(
 
     const numbers = numbersByTable.get(targetTableId) ?? new Set<number>()
     for (const entry of Array.isArray(value) ? value : [value]) {
-      // `0` is every non-numeric address — a cuid, or anything that is not a row's number
       const number = typeof entry === 'string' ? parseAddressNumber(entry) : 0
       if (number !== 0) numbers.add(number)
     }
@@ -183,7 +154,6 @@ async function resolveFilterTargets(
   )
 
   const idsByTable = new Map(lookups)
-  /** Resolved to its id where possible; otherwise the address exactly as it arrived. */
   const toStoredValue = (targetTableId: string, entry: string) =>
     idsByTable.get(targetTableId)?.get(parseAddressNumber(entry)) ?? entry
 
@@ -203,10 +173,6 @@ async function resolveFilterTargets(
   return resolved
 }
 
-/**
- * Referential integrity for a write: the picker only ever offers live records of the target
- * table, so anything else is a crafted payload and is rejected rather than stored dangling.
- */
 async function assertRelationTargets(fields: IField[], data: TRecordData): Promise<void> {
   const targets = collectRelationTargets(fields, [data])
   if (targets.length === 0) return
@@ -227,14 +193,6 @@ async function assertRelationTargets(fields: IField[], data: TRecordData): Promi
   }
 }
 
-/**
- * The candidates a relation picker offers, label-ascending, optionally narrowed by a typed term.
- * The cap applies to the *matches*, which is what search is for: a target past the first
- * `RELATION_OPTIONS_LIMIT` is reached by naming it rather than by scrolling.
- *
- * The ORDER BY is untouched by the search — folding the term into the sort would silently
- * reorder every existing picker.
- */
 async function listRelationOptions(field: IField, search = ''): Promise<IRecordOption[]> {
   const targetTableId = field.options?.targetTableId
   if (targetTableId === undefined) return []

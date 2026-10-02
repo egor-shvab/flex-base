@@ -32,7 +32,6 @@ describe('badgeColorFor', () => {
   })
 
   it('falls back to the default for a value the field no longer offers', () => {
-    // A choice renamed after records were written — the stale cell still shows its text
     expect(badgeColorFor(selectField(['Won']), 'Renamed')).toBe(DEFAULT_BADGE_COLOR)
   })
 

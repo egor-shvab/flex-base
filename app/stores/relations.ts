@@ -4,33 +4,14 @@ import { useRelationsApi } from '~/api/relations'
 import type { IField } from '#shared/types/field'
 import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 
-/**
- * Everything a relation needs in order to read as something other than an id, keyed by the
- * relation **field** throughout — two fields may point at one table through different label
- * fields, so nothing else is unambiguous. Linked records arrive from the picker's candidates
- * and from a page of records, which never disagree: the server builds both the same way.
- *
- * **Merge-only, and never cleared between tables**, unlike the records store — the detail
- * dialog drills across tables and caches fields the current page is not about
- * (`docs/decisions.md`).
- */
 export const useRelationsStore = defineStore('relations', () => {
   const api = useRelationsApi()
 
   const optionsByField = ref<Record<string, IRecordOption[]>>({})
   const linkedByField = ref<Record<string, Record<string, ILinkedRecord>>>({})
 
-  /**
-   * Which table's endpoint answers for a relation field. Not on `IField`, which carries no
-   * table on purpose: `recordColumn()` synthesises fields belonging to no field row.
-   */
   const tableAddressByField = ref<Record<string, string>>({})
 
-  /**
-   * The same linked records keyed by **number**. A filter addresses its target the way a URL
-   * does, where everything else holds an id. Maintained rather than derived, so the two indexes
-   * cannot drift.
-   */
   const linkedByFieldNumber = ref<Record<string, Record<number, ILinkedRecord>>>({})
 
   function cacheLinkedRecords(incoming: Record<string, Record<string, ILinkedRecord>>) {
@@ -43,17 +24,12 @@ export const useRelationsStore = defineStore('relations', () => {
     }
   }
 
-  /** An option already carries everything a linked record does; the id is the key it is filed under. */
   function linkedRecordsFromOptions(options: IRecordOption[]): Record<string, ILinkedRecord> {
     return Object.fromEntries(
       options.map((option) => [option.id, { number: option.number, label: option.label }]),
     )
   }
 
-  /**
-   * Loads the candidates for every relation field of a table at once. Called with the table's
-   * field metadata, so a table without relations makes no request at all.
-   */
   async function loadOptions(tableAddress: string, fields: IField[]) {
     const relationFields = fields.filter((field) => field.type === 'RELATION')
     if (relationFields.length === 0) return
@@ -76,24 +52,16 @@ export const useRelationsStore = defineStore('relations', () => {
     return linkedByField.value[fieldId]?.[recordId]
   }
 
-  /** The same, addressed the way a filter URL addresses it. */
   function linkedRecordByNumber(fieldId: string, number: number): ILinkedRecord | undefined {
     return linkedByFieldNumber.value[fieldId]?.[number]
   }
 
-  /**
-   * The candidates matching a typed term — how a picker reaches a record beyond the capped
-   * seed list. It deliberately does **not** write `optionsByField`, the seed every other
-   * consumer of `optionsFor()` reads, but it does cache the linked records so one found only
-   * through a search still reads as itself in a cell afterwards.
-   */
   async function searchOptions(
     fieldId: string,
     term: string,
     signal: AbortSignal,
   ): Promise<IRecordOption[]> {
     const tableAddress = tableAddressByField.value[fieldId]
-    // Never seeded — nothing has told this store which table answers for the field
     if (tableAddress === undefined) return []
 
     const response = await api.search(tableAddress, fieldId, term, signal)

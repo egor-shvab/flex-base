@@ -5,16 +5,6 @@ import { isListFilterValue, isRangeFilterValue } from '#shared/utils/filter'
 import { formatLinkedRecord } from '#shared/utils/record-label'
 import type { IFilterSummaryContext } from '~/field-types/types'
 
-/**
- * The phrasings a filter summary is written from — the fragments more than one field type
- * shares, kept here so a type's own module reads as its own wording rather than as a
- * near-copy of its neighbour's.
- */
-
-/**
- * Both range types share this, parameterised by how a bound is written. The wording tracks the
- * SQL: bounds are **inclusive**, so "or more" and "from" are true where "above" would not be.
- */
 export function summariseRange(
   value: TFilterValue,
   format: (bound: string | number) => string,
@@ -31,11 +21,6 @@ export function summariseRange(
   return ''
 }
 
-/**
- * Every list-shaped filter reads the same way, parameterised by how one entry is written. One
- * value reads as an equality; several read as the OR the SQL runs. There is no "all of"
- * spelling, because there is no operator to express it.
- */
 export function summariseList(value: TFilterValue, entry: (value: string) => string): string {
   if (!isListFilterValue(value) || value.length === 0) return ''
 
@@ -44,17 +29,11 @@ export function summariseList(value: TFilterValue, entry: (value: string) => str
   return entries.length === 1 ? `is ${entries[0]}` : `is any of ${entries.join(', ')}`
 }
 
-/**
- * How one linked record reads inside a chip: the flat form, because a summary is a string by
- * contract. Nothing resolved means there is no number to state either, so it degrades whole.
- */
 export function summariseLinkedRecord(
   ctx: IFilterSummaryContext,
   field: IField,
   address: string,
 ): string {
-  // Whichever form the address is in — the same either-way reading the server applies, so a
-  // chip describes the rows that came back
   const ref =
     ctx.linkedRecordByNumber(field.id, Number(address)) ?? ctx.linkedRecordFor(field.id, address)
 

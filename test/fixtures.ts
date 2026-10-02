@@ -3,11 +3,6 @@ import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
 import { queryColumns } from '#shared/utils/filter'
 
-/**
- * Metadata and record builders for both suites, so an `IField` or `IRecord` is not restated per
- * spec. Outside `app/`, `server/` and `shared/` because nothing here ships; specs reach it
- * through `~~/…`, the project-root alias Nuxt generates into every tsconfig.
- */
 export function field(overrides: Partial<IField> & Pick<IField, 'key' | 'type'>): IField {
   return {
     id: `fld_${overrides.key}`,
@@ -36,7 +31,6 @@ export function dateField(key = 'signed_on', overrides: Partial<IField> = {}): I
   return field({ key, type: 'DATE', ...overrides })
 }
 
-/** Choices default to the neutral colour — every spec here judges values, not hues. */
 export function selectField(
   choices: (string | { value: string; color: TBadgeColor })[] = ['Won', 'Lost'],
   overrides: Partial<IField> = {},
@@ -66,19 +60,13 @@ export function relationField(
   })
 }
 
-/** The same field, widened to hold a list — the one axis that is per-field rather than per-type. */
 export function asMultiple(source: IField): IField {
   return { ...source, options: { ...source.options, multiple: true } }
 }
 
 /**
- * The record's own columns, exactly as `queryColumns` wraps them around a table's fields.
- *
- * **Derived, never hand-written**: building the timestamps by hand silently gives them
- * `type: 'TEXT'` where the app builds them `'DATE'`, so the fixture asserts against a column the
- * app never produces. It is also why `shared/utils/filter.ts` need export none of the three.
- *
- * The tuple assertion is `noUncheckedIndexedAccess`; `queryColumns` always yields these three.
+ * Derived, never hand-written: built by hand, the timestamps silently get `type: 'TEXT'` where the
+ * app builds them `'DATE'`.
  */
 export const [recordNumberColumn, createdAtColumn, updatedAtColumn] = queryColumns([]) as [
   IField,
@@ -86,7 +74,6 @@ export const [recordNumberColumn, createdAtColumn, updatedAtColumn] = queryColum
   IField,
 ]
 
-/** One field of every type, in registry order — for tests that must cover the whole matrix. */
 export const ALL_TYPE_FIELDS: Record<TFieldType, IField> = {
   TEXT: textField(),
   NUMBER: numberField(),
@@ -96,10 +83,6 @@ export const ALL_TYPE_FIELDS: Record<TFieldType, IField> = {
   RELATION: relationField(),
 }
 
-/**
- * A stored record. The timestamps are fixed rather than `new Date()`: a `TimestampCell` renders
- * them, so a spec asserting on that output must not depend on the clock.
- */
 export function record(overrides: Partial<IRecord> = {}): IRecord {
   return {
     id: 'rec_1',

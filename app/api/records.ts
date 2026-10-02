@@ -13,13 +13,6 @@ import type {
 } from '#shared/types/record'
 import { toRecordQueryParams } from '#shared/utils/record-query'
 
-/**
- * The record endpoints. `list` takes the query as the domain model every other layer holds and
- * serializes it here — the flat params are the wire's shape, and this is the wire.
- *
- * `IRecordPage` and `IRecordDetail` are whole responses already, so neither is wrapped in an
- * envelope the way a single record is.
- */
 export function useRecordsApi() {
   const api = useApi()
 

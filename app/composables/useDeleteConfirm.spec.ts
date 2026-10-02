@@ -9,7 +9,6 @@ interface ITable {
 
 const TABLE: ITable = { id: 'tbl_1', name: 'Deals' }
 
-/** `dialogProps` is a `computed`, so the composable needs a scope to own it. */
 function setup(remove: (target: ITable) => Promise<void>) {
   const scope = effectScope()
   const composable = scope.run(() => useDeleteConfirm(remove))!
@@ -54,15 +53,6 @@ describe('useDeleteConfirm', () => {
     confirmer.stop()
   })
 
-  /**
-   * The reason the target is cleared after the await rather than before it: clearing first
-   * would dismiss the dialog, and a failed request would leave the user with no way back to
-   * the thing they were trying to delete and no statement that it did not happen.
-   *
-   * It **does not re-throw.** Every call site binds `confirm` to a template's `@confirm`, so
-   * a rejection had nobody to catch it and became an unhandled promise rejection while the
-   * dialog said nothing (`docs/decisions.md`).
-   */
   it('keeps the target when remove rejects, and surfaces the reason', async () => {
     const remove = vi.fn(async () => {
       throw { data: { statusMessage: 'Remove the field “owner” first' } }
@@ -79,7 +69,6 @@ describe('useDeleteConfirm', () => {
     confirmer.stop()
   })
 
-  /** An error the API did not explain still says *something* — never an empty box. */
   it('falls back to the generic message when the failure carries none', async () => {
     const confirmer = setup(
       vi.fn(async () => {
@@ -95,7 +84,6 @@ describe('useDeleteConfirm', () => {
     confirmer.stop()
   })
 
-  /** A retry keeps the same target, so the watch below cannot be what clears the message. */
   it('clears the message when the same target is retried', async () => {
     let fail = true
     const confirmer = setup(
@@ -145,7 +133,6 @@ describe('useDeleteConfirm', () => {
     const settled = confirmer.confirm()
 
     expect(confirmer.dialogProps.value.pending).toBe(true)
-    // The spinner carries it, so the label — and the button's width — never moves
     expect(confirmer.dialogProps.value.confirmLabel).toBe('Delete')
 
     release()

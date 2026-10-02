@@ -34,7 +34,6 @@
         </span>
       </template>
 
-      <!-- The body per demo -->
       <div v-if="openDemo === 'overflow'" class="body-stack">
         <p v-for="n in 30" :key="n" class="body-text">
           Paragraph {{ n }} of 30. Only the body scrolls; the header and footer stay put.
@@ -230,7 +229,6 @@ const MODAL_DEMOS: Record<TDemo, IModalDemo> = {
 
 const openDemo = ref<TDemo | null>(null)
 
-// Only read while a demo is open; `sm` stands in so the type never widens to undefined
 const modal = computed(() => MODAL_DEMOS[openDemo.value ?? 'sm'])
 
 const STAGES: ISelectOption[] = [
@@ -279,7 +277,6 @@ const form = reactive<{
   margin-right: auto;
 }
 
-// The confirmation's warning tile, as `ConfirmModal` draws it
 .warning-tile {
   display: grid;
   flex: none;

@@ -11,9 +11,7 @@ const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)
 
 const routeQuery = ref<Record<string, string | string[]>>({})
-// A getter, not a snapshot: the composable calls `useRoute()` once and reads `route.query`
-// from inside computeds, so the query has to stay reactive after setup for a navigation to
-// be observable at all
+// A getter: the composable reads `route.query` inside computeds after setup
 const route = {
   get query() {
     return routeQuery.value
@@ -28,7 +26,6 @@ function setup(query: Record<string, string | string[]> = {}, fields: IField[] =
   return useRecordListQuery({ fields: () => fields })
 }
 
-/** The target of the single navigation a call produced. */
 function navigation() {
   expect(navigateTo).toHaveBeenCalledTimes(1)
   const [target, options] = navigateTo.mock.calls[0] ?? []
@@ -36,11 +33,6 @@ function navigation() {
   return { query: target?.query as Record<string, unknown>, replace: options?.replace as boolean }
 }
 
-/**
- * The sort the emitted URL actually means, read back through the codec. Necessary because
- * `desc` is the default direction and is therefore *absent* from the params — asserting on
- * `dir` being undefined would read as "unsorted" when it means "descending".
- */
 function emittedSort() {
   return parseRecordQueryState(FIELDS, navigation().query).sort
 }
@@ -62,8 +54,6 @@ describe('reading the URL', () => {
   })
 
   it('follows the fields as they arrive, since metadata is fetched after the first read', () => {
-    // The page renders before `fetchFields` resolves; a filter must not be dropped for good
-    // because the field it names was not known yet
     const fields = ref<IField[]>([])
     const { filters } = useRecordListQuery({ fields: () => fields.value })
     routeQuery.value = { company: 'acme' }
@@ -93,7 +83,6 @@ describe('whether the list is narrowed', () => {
   })
 })
 
-/** What the Filters button shows beside its label. */
 describe('the active filter count', () => {
   it('is zero on a bare table', () => {
     expect(setup().activeFilterCount.value).toBe(0)
@@ -114,10 +103,6 @@ describe('the active filter count', () => {
   })
 })
 
-/**
- * A range spreads to two params but is one filtered field, so the copy below counts fields
- * rather than conditions — "this filter" must not appear for a single range.
- */
 describe('the empty-state copy', () => {
   const copy = (query: Record<string, string | string[]>) => {
     const { emptyTitle, emptyMessage } = setup(query)
@@ -165,7 +150,6 @@ describe('the empty-state copy', () => {
   })
 })
 
-/** The same four cases as the copy above, said in a glyph: what is keeping the list empty. */
 describe('the empty-state icon', () => {
   const icon = (query: Record<string, string | string[]>) => setup(query).emptyIcon.value
 
@@ -182,7 +166,6 @@ describe('the empty-state icon', () => {
   })
 
   it('stays the filter glyph when a search and a filter are combined', () => {
-    // The filter is the narrower claim of the two, and the one the user can clear wholesale
     expect(icon({ company: 'acme', search: 'beta' })).toBe('material-symbols:filter-list-rounded')
   })
 })
@@ -220,8 +203,6 @@ describe('sorting', () => {
 })
 
 describe('searching', () => {
-  // Both terms are derived from the floor, which tracks what the trigram index can serve —
-  // a literal here would quietly stop testing the boundary the next time it moves
   const atFloor = 'a'.repeat(SEARCH_MIN_LENGTH)
   const belowFloor = 'a'.repeat(SEARCH_MIN_LENGTH - 1)
 
@@ -249,7 +230,6 @@ describe('searching', () => {
     expect(navigation().query).toMatchObject({ search: 'acme' })
   })
 
-  /** A debounced input re-emits the settled value; navigating again would flood history. */
   it('does not navigate when the term has not actually changed', () => {
     setup({ search: 'acme' }).applySearch('acme')
 
@@ -317,11 +297,6 @@ describe('paging', () => {
   })
 })
 
-/**
- * Which actions leave a history entry is invisible until someone presses Back. Steps the user
- * asked for are worth an entry; a live filter edit fires per keystroke and would bury the page
- * they arrived from.
- */
 describe('what browser Back walks through', () => {
   it('records a sort as a step', () => {
     setup().applySort('company')
@@ -367,7 +342,6 @@ describe('queryKey', () => {
     expect(queryKey.value).not.toBe(before)
   })
 
-  /** The whole reason it exists: opening the detail dialog must not refetch the list. */
   it('is unmoved by a param the list does not own', () => {
     const { queryKey } = setup({ company: 'acme' })
     const before = queryKey.value

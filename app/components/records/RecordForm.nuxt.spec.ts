@@ -31,7 +31,6 @@ function form(
 
 type TForm = Awaited<ReturnType<typeof form>>
 
-/** The `(key, value)` pairs the form has emitted upward. */
 const updates = (wrapper: TForm) =>
   wrapper.emitted('update') as [string, TRecordValue][] | undefined
 const lastUpdate = (wrapper: TForm) => updates(wrapper)?.at(-1)
@@ -39,7 +38,6 @@ const lastUpdate = (wrapper: TForm) => updates(wrapper)?.at(-1)
 describe('RecordForm', () => {
   afterEach(unmountAll)
 
-  // A RELATION field renders `RelationFieldSelect`, which reads the relations store
   beforeEach(() => setActivePinia(useNuxtApp().$pinia as Pinia))
 
   describe('which control each field gets', () => {
@@ -90,7 +88,6 @@ describe('RecordForm', () => {
     })
   })
 
-  /** What pairs each label with its control, and what keeps two forms on one page apart. */
   describe('control ids', () => {
     it('suffixes every id with the field key', async () => {
       const wrapper = await form([textField('company'), numberField('total')])
@@ -113,14 +110,13 @@ describe('RecordForm', () => {
     it('prefixes the key rather than using it alone', async () => {
       const wrapper = await form([textField('company')])
 
-      // The `useId()` prefix keeps two forms on one page apart. The separation itself cannot
-      // be asserted here: `mountSuspended` gives each mount its own app and restarts the counter
+      // `mountSuspended` restarts the `useId()` counter per mount, so the separation itself is
+      // untestable here
       expect(wrapper.get('input').attributes('id')).not.toBe('company')
       expect(wrapper.get('input').attributes('id')).toMatch(/^.+-company$/)
     })
   })
 
-  /** Values flow down through the registry's `toControl`. */
   describe('reading values in', () => {
     it('puts a stored string in the field', async () => {
       const wrapper = await form([textField('company')], { company: 'Acme' })
@@ -158,7 +154,6 @@ describe('RecordForm', () => {
     })
   })
 
-  /** Changes flow up as events, converted by the registry's `fromControl`. */
   describe('emitting changes out', () => {
     it('emits the field key with what the control produced', async () => {
       const wrapper = await form([textField('company')])
@@ -175,9 +170,6 @@ describe('RecordForm', () => {
 
       expect(lastUpdate(wrapper)).toEqual(['total', 42])
     })
-
-    // Keeping unparseable input as a string is the adapter's rule, covered in
-    // `inputs.nuxt.spec.ts` — unreachable here, since `type="number"` refuses the text first
 
     it('emits null when a value is cleared', async () => {
       const wrapper = await form([textField('company')], { company: 'Acme' })
@@ -204,10 +196,6 @@ describe('RecordForm', () => {
       expect(lastUpdate(wrapper)).toEqual(['total', 42])
     })
 
-    /**
-     * The form object belongs to the parent's `useForm`: values flow down as props and changes
-     * flow back up as events, so this component never writes to what it was given.
-     */
     it('never mutates the values it was handed', async () => {
       const values: TRecordData = { company: 'Acme' }
       const wrapper = await form([textField('company')], values)

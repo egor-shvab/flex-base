@@ -11,7 +11,6 @@ import { formatDateProse } from '~/utils/format'
 export const DATE_APP_FIELD_TYPE: IAppFieldType<'DATE'> = {
   input: {
     component: markRaw(BaseInput),
-    // A date input already speaks YYYY-MM-DD, which is exactly how dates are stored
     props: (field) => ({ label: field.name, type: 'date' }),
     ...blankIsNull,
   },

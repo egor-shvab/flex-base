@@ -4,7 +4,6 @@
     <div class="ui-test-specimen__stage">
       <slot />
     </div>
-    <!-- The live model, so a tester can confirm what the control emits, not only how it looks -->
     <output v-if="$slots.readout" class="ui-test-specimen__readout">
       <slot name="readout" />
     </output>
@@ -12,11 +11,9 @@
 </template>
 
 <script setup lang="ts">
-/** One state of one component on a `/ui-test` page, captioned with the state it shows. */
 withDefaults(
   defineProps<{
     label: string
-    /** Spans the whole row — for a matrix of variants, or a control that needs the width. */
     wide?: boolean
   }>(),
   { wide: false },

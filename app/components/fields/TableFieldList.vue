@@ -15,7 +15,6 @@
     <ul v-else class="field-list">
       <li v-for="field in fields" :key="field.id" class="field-row">
         <div class="field-row__lead">
-          <!-- The scannable column. Never without the type's word beside it, below. -->
           <span class="field-row__icon">
             <Icon :name="FIELD_TYPE_ICONS[field.type]" aria-hidden="true" />
           </span>
@@ -25,8 +24,7 @@
               <span class="field-row__label">{{ field.name }}</span>
               <BaseBadge v-if="field.required" variant="label">required</BaseBadge>
             </p>
-            <!-- Every part is an element, never a bare text node: Vue's `condense` drops the
-                 whitespace between two elements but keeps a space beside loose text, which
+            <!-- Every part is an element: Vue's `condense` spaces loose text differently, which
                  would space one separator differently from the next. -->
             <p class="field-row__meta">
               <span class="field-row__type">{{ FIELD_TYPE_LABELS[field.type] }}</span>
@@ -72,18 +70,6 @@ import { isMultiValue } from '#shared/field-types/cardinality'
 import { FIELD_CONFIG_SUMMARIES, FIELD_TYPE_ICONS } from '~/field-types/registry'
 import type { IFieldConfigSummaryContext } from '~/field-types/types'
 
-/**
- * A table's fields as the settings page lists them: type, configuration and key per row, so a
- * table's shape reads without opening a dialog per row.
- *
- * It renders **metadata**, which is why it is not in `components/records/`. Nothing here
- * branches on a field type — every part comes from a registry, the cardinality from
- * `isMultiValue`. What a summary needs and a field does not carry (a relation target's name)
- * arrives as `summaryContext`, keeping the store the page's business.
- *
- * The section around it stays on the page, since `.section-head` is shared with the Table
- * section above. Only the empty state's call to action lives here, and it emits.
- */
 const props = defineProps<{
   fields: IField[]
   summaryContext: IFieldConfigSummaryContext
@@ -95,10 +81,6 @@ const emit = defineEmits<{
   delete: [field: IField]
 }>()
 
-/**
- * The configuration phrase per field, keyed by id. Only types that state something land in the
- * map, so a missing key is what leaves the separator undrawn.
- */
 const configSummaries = computed(
   () =>
     new Map(
@@ -134,11 +116,9 @@ const configSummaries = computed(
   }
 
   &:hover {
-    // The row wash, not the control hover — the same pairing `RecordsTable` uses
     background: var(--color-surface-row-hover);
   }
 
-  // The icon and the text travel together, so on a narrow pane the actions drop below both
   &__lead {
     display: flex;
     align-items: center;
@@ -147,7 +127,6 @@ const configSummaries = computed(
     min-width: 0;
   }
 
-  // Neutral, not accent-tinted: the page's one green is spent on "Add field"
   &__icon {
     display: grid;
     place-items: center;
@@ -156,7 +135,6 @@ const configSummaries = computed(
     flex: none;
     border-radius: var(--radius-md);
     background: var(--color-surface-muted);
-    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
     font-size: rem(20);
     color: var(--color-text-secondary);
   }
@@ -172,7 +150,6 @@ const configSummaries = computed(
     margin: 0;
   }
 
-  // The only run at full text colour on the row: it is the one thing the user named
   &__label {
     min-width: 0;
     font-size: var(--font-size-body);
@@ -181,7 +158,6 @@ const configSummaries = computed(
     @include truncate;
   }
 
-  // Not a flex row: `truncate` ellipsises inline content, where flex clips children mid-word
   &__meta {
     margin: rem(2) 0 0;
     font-size: var(--font-size-sm);
@@ -194,7 +170,6 @@ const configSummaries = computed(
     }
   }
 
-  // The type leads the line, a step heavier than the configuration that qualifies it
   &__type {
     font-weight: 500;
     color: var(--color-text);
@@ -205,7 +180,6 @@ const configSummaries = computed(
     color: var(--color-border-strong);
   }
 
-  // A URL contract rather than a category; the mono face sets it apart, so it needs no plate
   &__key {
     font-family: var(--font-mono);
     font-size: var(--font-size-xs);
@@ -219,15 +193,12 @@ const configSummaries = computed(
     flex: none;
   }
 
-  // Below the breakpoint the actions take their own line: two 36px targets and a truncating
-  // label cannot share 327px
   @include below-shell {
     flex-wrap: wrap;
     padding-block: rem(12);
 
     &__actions {
       flex-basis: 100%;
-      // Aligned under the text, not the icon tile
       margin-left: rem(48);
     }
   }

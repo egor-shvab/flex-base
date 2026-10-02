@@ -5,11 +5,6 @@ import { CLIENT_ERROR_MAX_BYTES, CLIENT_ERROR_RATE_LIMIT } from '#shared/constan
 import { testEvent } from '~~/test/integration/event'
 import { createUser } from '~~/test/integration/seed'
 
-/**
- * The app's one write surface open to anyone, so what is proved here is mostly what it
- * **refuses**. The recorder is stubbed — `error-log.spec.ts` owns what reaches the file — while
- * only a real request can say whether the guards fire before the body is read.
- */
 const recorded: unknown[] = []
 
 vi.mock('#server/utils/error-log-file', () => ({
@@ -24,10 +19,8 @@ const report = {
 }
 
 /**
- * A real request, with the `content-length` the handler checks before reading anything.
- *
- * **Each case gets its own address.** The limiter is module state by design, so cases sharing
- * one address would spend each other's allowance and file order would decide the outcome.
+ * Each case gets its own address: the limiter is module state, so shared addresses would spend
+ * each other's allowance and file order would decide the outcome.
  */
 let address = 0
 
@@ -51,7 +44,6 @@ describe('reporting a client error', () => {
     expect(recorded[0]).toMatchObject({ source: 'client', name: 'TypeError', userId: null })
   })
 
-  /** The id comes from the cookie the middleware resolved, so a body cannot claim to be anyone. */
   it('attaches the signed-in user itself, never taking one from the body', async () => {
     await post({ ...report, userId: 'usr_someone_else' }, ada)
 
@@ -74,7 +66,6 @@ describe('reporting a client error', () => {
       expect(recorded).toHaveLength(0)
     })
 
-    /** Rooted, so an absolute URL to another origin cannot be logged as though it were a route. */
     it('400s on a path that is not rooted', async () => {
       await expect(post({ ...report, path: 'https://evil.test/x' })).rejects.toMatchObject({
         statusCode: 400,
@@ -88,10 +79,6 @@ describe('reporting a client error', () => {
       expect(recorded).toHaveLength(0)
     })
 
-    /**
-     * The load-bearing half of the cap: refusing only an oversized *declared* length leaves
-     * chunked encoding as an uncapped path into memory, so a missing length is refused too.
-     */
     it('411s when no length is declared, so chunked encoding is not an uncapped path', async () => {
       const event = testEvent({ method: 'POST', ip: `10.0.0.${address}` })
       event.node.req.headers['content-length'] = undefined

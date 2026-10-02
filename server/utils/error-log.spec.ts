@@ -14,7 +14,6 @@ const NOW = new Date('2026-08-16T09:12:04.113Z')
 
 const USER: IAuthUser = { id: 'usr_1', email: 'owner@example.com' }
 
-/** An `H3Event` as this module reads it — the three members `readErrorLogRequest` declares. */
 function eventSource(path: string, user: IAuthUser | null = USER, method = 'GET') {
   return { method, path, context: { user } }
 }
@@ -34,8 +33,6 @@ describe('isLoggableServerError', () => {
     expect(isLoggableServerError('boom')).toBe(true)
   })
 
-  // Every one of these is a deliberate outcome this app produces on purpose: `requireUser`,
-  // the 404 standing in for another user's row, a duplicate name, a zod rejection
   it('skips the 4xx family, which is the app working as designed', () => {
     expect(isLoggableServerError(createError({ statusCode: 400 }))).toBe(false)
     expect(isLoggableServerError(createError({ statusCode: 401 }))).toBe(false)
@@ -94,8 +91,6 @@ describe('buildErrorLogEntry', () => {
     expect(buildErrorLogEntry(new Error('boom'), null, NOW).statusCode).toBeNull()
   })
 
-  // h3 wraps whatever the service threw in an `H3Error` named the bare `Error`, which in the
-  // log would lose the one word saying where to start reading
   it('names the error h3 wrapped, not the wrapper', () => {
     const entry = buildErrorLogEntry(createError(new TypeError('bad shape')), null, NOW)
 
@@ -145,8 +140,6 @@ describe('buildErrorLogEntry', () => {
   })
 })
 
-// Asserted on the serialized line rather than the entry object: what reaches the file is the
-// only thing that can leak, and a field added later is what these cases exist to catch
 describe('the redaction contract', () => {
   const line = () =>
     formatErrorLogLine(
@@ -184,10 +177,6 @@ describe('the redaction contract', () => {
   })
 })
 
-/**
- * The browser half, through the same formatter and file — so the contract above holds from this
- * side too, broken in different ways because here the *caller* is untrusted.
- */
 describe('buildClientErrorLogEntry', () => {
   const report = {
     name: 'TypeError',
@@ -214,7 +203,6 @@ describe('buildClientErrorLogEntry', () => {
     expect(buildClientErrorLogEntry(report, null, NOW).timestamp).toBe('2026-08-16T09:12:04.113Z')
   })
 
-  /** There is no request of ours being described — the browser's own is not what failed. */
   it('nulls the status, the method and the query names', () => {
     const entry = buildClientErrorLogEntry(report, USER.id, NOW)
 
@@ -232,10 +220,6 @@ describe('buildClientErrorLogEntry', () => {
   })
 })
 
-/**
- * The same contract from the untrusted side: a client report is a body someone can write by
- * hand, so what matters is what the builder **refuses to take from it**.
- */
 describe('the redaction contract, for a client report', () => {
   const line = (path: string, userId: string | null = USER.id) =>
     formatErrorLogLine(
@@ -246,11 +230,6 @@ describe('the redaction contract, for a client report', () => {
       ),
     )
 
-  /**
-   * `path` is a string the caller controls, so a query string pasted into it would put the
-   * user's data in the log by the back door. Cut at the first `?`, the same structural cut
-   * `readErrorLogRequest` makes server-side.
-   */
   it('cuts a query string off the reported path, values and all', () => {
     const written = line('/tables/tbl_1?search=acme%20holdings&stage=Won')
 
@@ -260,10 +239,6 @@ describe('the redaction contract, for a client report', () => {
     expect(written).not.toContain('Won')
   })
 
-  /**
-   * The user id is a parameter, never a field of the report — the handler reads it from the
-   * cookie. A body claiming to be someone else has no path to arrive by.
-   */
   it('takes the user id from the caller, not from anything the report could carry', () => {
     expect(line('/tables/tbl_1', 'usr_from_cookie')).toContain('usr_from_cookie')
     expect(line('/tables/tbl_1', null)).toContain('"userId":null')
@@ -273,10 +248,6 @@ describe('the redaction contract, for a client report', () => {
     expect(line('/tables/tbl_1')).not.toContain('owner@example.com')
   })
 
-  /**
-   * The entry shape is closed. A field added to the report schema later would reach the file
-   * silently without this, which is exactly the failure the server-side block was written for.
-   */
   it('writes the declared fields and nothing else', () => {
     const entry = buildClientErrorLogEntry(
       { name: 'Error', message: 'boom', stack: 'Error: boom', path: '/x' },
@@ -302,8 +273,6 @@ describe('the redaction contract, for a client report', () => {
 })
 
 describe('formatErrorLogLine — the NDJSON invariant', () => {
-  // A stack is multi-line by nature, and an entry that could span lines would need a multi-line
-  // rule in every reader downstream
   it('emits exactly one newline, at the end, however many the stack has', () => {
     const error = new Error('boom')
     error.stack = 'Error: boom\n    at one\n    at two'

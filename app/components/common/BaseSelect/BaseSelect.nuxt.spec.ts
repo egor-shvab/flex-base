@@ -16,11 +16,6 @@ import {
 import type { TWrapper } from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
-/**
- * What the component *is* before anything is done to it: which control renders, how `multiple`
- * is normalised, and the ARIA it exposes. The rig is `select-harness`, shared with the three
- * sibling files.
- */
 describe('BaseSelect', () => {
   afterEach(unmountAll)
 
@@ -48,11 +43,6 @@ describe('BaseSelect', () => {
       expect(control.attributes('aria-autocomplete')).toBe('list')
     })
 
-    /**
-     * On an `<input>`, a self-referencing `aria-labelledby` reads the element's **value**, so the
-     * control's accessible name would change with every keystroke. The button branch can use it;
-     * this one must not.
-     */
     it('does not point the searchable branch at its own value for its name', async () => {
       const wrapper = await select({ searchable: true, label: 'Stage' })
 
@@ -72,11 +62,6 @@ describe('BaseSelect', () => {
       expect(trigger(wrapper).attributes('aria-labelledby')).toBeUndefined()
     })
 
-    /**
-     * All three attributes are one decision: the arrow acts, so it is a `<button>`, but it only
-     * routes a pointer to what the keyboard already has. Drop the `aria-hidden` and screen readers
-     * gain a nameless button; drop the `tabindex` and every select grows a redundant tab stop.
-     */
     it('renders the chevron as a button that is neither tabbable nor announced', async () => {
       const wrapper = await select()
       const arrow = chevron(wrapper)
@@ -93,12 +78,6 @@ describe('BaseSelect', () => {
       expect(chevron(wrapper).attributes('disabled')).toBeDefined()
     })
   })
-
-  /**
-   * The load-bearing normalisation, and the only thing standing between the two spellings:
-   * `<BaseSelect multiple />` arrives as `''` because the conditional prop type gives the SFC
-   * compiler no constructor, and `vue-tsc` misses it. See `BaseSelect.vue`'s `isMultiple`.
-   */
 
   describe('multiple normalisation', () => {
     async function isMultiple(wrapper: TWrapper) {
@@ -149,7 +128,6 @@ describe('BaseSelect', () => {
       const wrapper = await select()
       await open(wrapper)
 
-      // Nothing is highlighted until a key says so, and the attribute says the same
       expect(listbox()?.getAttribute('aria-activedescendant')).toBeNull()
 
       keydown(listbox()!, 'ArrowDown')
@@ -185,11 +163,6 @@ describe('BaseSelect', () => {
       expect(wrapper.get('.base-select__error').text()).toBe('Choose a stage')
     })
 
-    /**
-     * A `<button>` carries its selection in its accessible name; an `<input>`'s value is the
-     * search term, so on that branch the selection would otherwise reach assistive tech nowhere
-     * outside the option rows.
-     */
     it('describes the searchable branch by the value overlay', async () => {
       const wrapper = await select({ searchable: true, modelValue: 'a' })
 
@@ -197,10 +170,6 @@ describe('BaseSelect', () => {
     })
   })
 
-  /**
-   * The only slot. It replaces an option's **text**, never its row: slot content compiles in the
-   * caller's scope, so a row-level slot would hand out `min-width: 0` and the truncation with it.
-   */
   describe('the option-label slot', () => {
     it('renders the plain label when no caller passes one', async () => {
       const wrapper = await select()
@@ -220,7 +189,6 @@ describe('BaseSelect', () => {
       expect(options()[0]?.textContent?.trim()).toBe('a')
     })
 
-    /** The row, its classes and its check icon stay the component's own either way. */
     it('keeps the row around whatever the slot renders', async () => {
       const wrapper = await select(
         { modelValue: 'a' },
@@ -233,7 +201,6 @@ describe('BaseSelect', () => {
       expect(options()[0]?.querySelector('.base-select__option-label')).not.toBeNull()
     })
 
-    /** A coloured choice is a badge, which is already the whole of its row. */
     it('leaves a coloured option to its badge', async () => {
       const wrapper = await select(
         { options: [{ value: 'won', label: 'Won', color: 'green' }] },
@@ -246,12 +213,6 @@ describe('BaseSelect', () => {
     })
   })
 
-  /**
-   * The announcement cannot live on the visible row: that row is inside `<Teleport v-if="open">`,
-   * and a live region inserted in the same frame as its content is not reliably read — so the
-   * *first* message of every open would be silent. The region is in the control instead, mounted
-   * for the component's whole life.
-   */
   describe('the status announcement', () => {
     const emptyField = () => select({ options: [], emptyLabel: 'No choices defined' })
 
@@ -269,7 +230,6 @@ describe('BaseSelect', () => {
       expect(liveRegion()?.textContent).toBe('No choices defined')
     })
 
-    /** Empty again on close, or reopening would change nothing and announce nothing. */
     it('empties on close', async () => {
       const wrapper = await emptyField()
       await open(wrapper)

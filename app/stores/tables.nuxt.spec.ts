@@ -5,10 +5,6 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { ITableListItem } from '#shared/types/table'
 import { useTablesStore } from '~/stores/tables'
 
-/**
- * Derived from the id so two rows in one listing never claim the same number. No case exercises
- * it — the store keys on `id` throughout — so the particular value carries nothing.
- */
 function table(
   id: string,
   name: string,
@@ -24,10 +20,6 @@ function table(
   }
 }
 
-/**
- * What the stubbed API is currently prepared to answer with. Reassigned per case rather than
- * re-registering the endpoint, which `registerEndpoint` only does once per URL.
- */
 let listing: ITableListItem[] = []
 let listShouldFail = false
 const calls: string[] = []
@@ -36,8 +28,7 @@ registerEndpoint('/api/tables', {
   method: 'GET',
   handler: () => {
     calls.push('GET /api/tables')
-    // A 4xx rather than a 500 so the request count stays readable: `ofetch` retries a GET once
-    // on 5xx, and the store only ever sees the rejection the retries end in
+    // A 4xx: `ofetch` retries a GET once on 5xx, which would muddle the request count
     if (listShouldFail) throw createError({ statusCode: 404, statusMessage: 'No tables' })
     return { tables: listing }
   },
@@ -94,10 +85,6 @@ describe('useTablesStore', () => {
     expect(calls).toHaveLength(1)
   })
 
-  /**
-   * The root layout has no error boundary above it, so a rejection here would replace every
-   * authenticated page with Nuxt's full-page error instead of an inline sidebar message.
-   */
   it('never throws from ensureTables, reporting failure on the store instead', async () => {
     listShouldFail = true
     const store = useTablesStore()
@@ -139,7 +126,6 @@ describe('useTablesStore', () => {
     expect(created).toEqual(table('tbl_new', 'Invoices'))
     expect(store.tables).toHaveLength(3)
     expect(store.tables.at(-1)).toEqual(created)
-    // shallowRef: a mutation in place would not re-render the sidebar
     expect(store.tables).not.toBe(before)
   })
 
@@ -161,12 +147,6 @@ describe('useTablesStore', () => {
     expect(store.tables).toEqual([table('tbl_2', 'People')])
   })
 
-  /**
-   * The cached `_count` is read on two always-visible surfaces, and the writes that move it
-   * belong to the records and fields stores. Those endpoints answer with the refreshed row, so
-   * this stores what it was told rather than doing arithmetic over a number only the database
-   * knows.
-   */
   describe('applyTableRow', () => {
     beforeEach(() => {
       listing = [
@@ -191,8 +171,6 @@ describe('useTablesStore', () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      // A row the client could not have arrived at by a delta — both counts moved, and the
-      // name changed with them. Whatever the server says is what the sidebar draws.
       store.applyTableRow(table('tbl_2', 'Renamed', { fields: 9, records: 0 }))
 
       expect(store.tables[1]).toEqual(table('tbl_2', 'Renamed', { fields: 9, records: 0 }))
@@ -205,7 +183,6 @@ describe('useTablesStore', () => {
 
       store.applyTableRow(table('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
-      // shallowRef: an in-place edit would leave the sidebar drawing the old number
       expect(store.tables).not.toBe(before)
       expect(store.tables[0]).not.toBe(before[0])
     })
@@ -221,11 +198,6 @@ describe('useTablesStore', () => {
       expect(calls).toHaveLength(0)
     })
 
-    /**
-     * An unloaded list is the ordinary case on a record page reached by URL, and `ensureTables`
-     * may also have failed silently. Inserting the row would leave the sidebar listing only the
-     * table just written to.
-     */
     it('is a no-op before the list has loaded', () => {
       const store = useTablesStore()
 
@@ -235,11 +207,6 @@ describe('useTablesStore', () => {
     })
   })
 
-  /**
-   * The single place `tables` is read by identity — the settings page's cached row and the field
-   * list's relation target both go through it. Reads only what is cached: `ensureTables` may
-   * legitimately have loaded nothing, and a miss must never become a request.
-   */
   describe('tableRow', () => {
     it('answers with the cached row for a known id', async () => {
       listing = [table('tbl_1', 'Deals', { fields: 3, records: 7 })]

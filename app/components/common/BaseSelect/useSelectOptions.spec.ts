@@ -13,10 +13,6 @@ function option(value: string): ISelectOption {
   return { value, label: value }
 }
 
-/**
- * A `load` whose every call is settled by hand, so a spec can resolve two in-flight requests in
- * whatever order it likes — which is the only way to exercise the `requestId` guard.
- */
 function deferredLoad() {
   const calls: {
     term: string
@@ -42,7 +38,6 @@ function setup(loadOptions: TLoadSelectOptions | undefined, options: ISelectOpti
   return { ...composable, stop: () => scope.stop() }
 }
 
-/** Commits the draft to `committedTerm`, which is the only thing that starts a request. */
 async function type(draft: { value: string }, value: string) {
   draft.value = value
   await nextTick()
@@ -67,7 +62,6 @@ describe('useSelectOptions', () => {
     it('filters the seed on the draft, case-insensitively, without waiting for the debounce', async () => {
       const select = setup(undefined)
 
-      // The draft filters instantly — only the model behind it is debounced
       select.searchDraft.value = 'aLaN'
       await nextTick()
 
@@ -137,7 +131,6 @@ describe('useSelectOptions', () => {
 
       await type(select.searchDraft, 'ab')
 
-      // Stale-while-revalidating: blanking on every debounce window would flicker for nothing
       expect(select.status.value).toBe('loading')
       expect(select.visibleOptions.value).toEqual([option('ada')])
 
@@ -216,12 +209,10 @@ describe('useSelectOptions', () => {
       await type(select.searchDraft, 'a')
       await type(select.searchDraft, 'ab')
 
-      // The newer request answers first
       calls[1]!.resolve([option('newer')])
       await nextTick()
       expect(select.visibleOptions.value).toEqual([option('newer')])
 
-      // …and the abandoned one answers late
       calls[0]!.resolve([option('stale')])
       await nextTick()
 
@@ -244,7 +235,6 @@ describe('useSelectOptions', () => {
       calls[0]!.reject(new Error('the abandoned request failed'))
       await nextTick()
 
-      // This is what stops a fast typist seeing an error from a request they walked away from
       expect(select.status.value).toBe('ready')
       expect(select.visibleOptions.value).toEqual([option('newer')])
 
@@ -257,8 +247,6 @@ describe('useSelectOptions', () => {
 
       await type(select.searchDraft, 'a')
 
-      // Rejected on its own id, so the guard lets it through — the DOMException check is
-      // the only thing standing between an abort and a visible error state
       calls[0]!.reject(new DOMException('aborted', 'AbortError'))
       await nextTick()
 

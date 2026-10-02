@@ -2,10 +2,6 @@
   <div class="base-segmented">
     <span v-if="label" :id="`${id}-label`" class="base-segmented__label">{{ label }}</span>
 
-    <!--
-      A radiogroup: every answer is on screen at once, exactly one is always chosen, and the
-      whole control is one tab stop — the arrows move *and* choose, with no Apply.
-    -->
     <div
       :id="id"
       class="base-segmented__track"
@@ -39,10 +35,8 @@ import type { ISelectOption } from '~/types/select'
 const props = withDefaults(
   defineProps<{
     id: string
-    /** Two to five short options; more, or a label that wraps, means this is a select. */
     options: ISelectOption[]
     label?: string
-    /** Names the group when no visible label does. */
     ariaLabel?: string
   }>(),
   { label: undefined, ariaLabel: undefined },
@@ -56,7 +50,6 @@ function setSegment(el: Element | ComponentPublicInstance | null, index: number)
   if (el instanceof HTMLButtonElement) segments[index] = el
 }
 
-/** The one tab stop: the chosen segment, or the first while the model matches none. */
 const tabStop = computed(() =>
   Math.max(
     props.options.findIndex((o) => o.value === model.value),
@@ -69,7 +62,6 @@ function choose(index: number) {
   if (option && option.value !== model.value) model.value = option.value
 }
 
-/** Arrow keys move and choose together, wrapping at the ends, as a native radio group does. */
 function moveTo(index: number) {
   const count = props.options.length
   const next = (index + count) % count
@@ -107,7 +99,6 @@ function onKeydown(event: KeyboardEvent) {
     @include segmented-track;
   }
 
-  // Equal segments, so the control reads as one field rather than as a row of buttons
   &__segment {
     @include segmented-segment;
 

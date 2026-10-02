@@ -11,13 +11,11 @@ import { numberField, textField } from '~~/test/fixtures'
 const COMPANY = textField('company', { name: 'Company' })
 const TOTAL = numberField('total', { name: 'Total' })
 
-/** What each stubbed route answers with, reassigned per case. */
 let listing: IField[] = []
 let created: IField = COMPANY
 let updated: IField = COMPANY
 let shouldFail = false
 
-/** The list row the count-moving endpoints answer with — what the store applies verbatim. */
 function tableRow(counts: { fields: number; records: number }) {
   return {
     id: 'tbl_1',
@@ -51,16 +49,11 @@ registerEndpoint('/api/tables/tbl_1/fields/fld_company', {
   handler: () => ({ ok: true, table: tableRow({ fields: 1, records: 7 }) }),
 })
 
-/**
- * The tables store's own list, so a write can be seen replacing the cached row the dashboard
- * draws its `_count` from. Registered here because `registerEndpoint` is per file.
- */
 registerEndpoint('/api/tables', {
   method: 'GET',
   handler: () => ({ tables: [tableRow({ fields: 2, records: 7 })] }),
 })
 
-/** The tables store loaded, so a bump has something to land on. */
 async function loadedTables() {
   const tables = useTablesStore()
   await tables.fetchTables()
@@ -68,10 +61,6 @@ async function loadedTables() {
   return tables
 }
 
-/**
- * Built through the schema rather than by hand: `TFieldInput` is the schema's *output*, so
- * every default is required on the type, and this is exactly the shape `useForm` hands over.
- */
 const INPUT = fieldInputSchema.parse({ name: 'Company', type: 'TEXT' })
 
 describe('useFieldsStore', () => {
@@ -95,7 +84,6 @@ describe('useFieldsStore', () => {
     expect(store.fields).toEqual([COMPANY, TOTAL])
   })
 
-  /** Unlike `ensureTables`, nothing here is called from a place with no error boundary. */
   it('lets a failed fetch reject', async () => {
     shouldFail = true
     const store = useFieldsStore()
@@ -131,12 +119,6 @@ describe('useFieldsStore', () => {
     expect(store.fields).toEqual([TOTAL])
   })
 
-  /**
-   * The dashboard's field count arrives with the table list and nothing refetches it, so this
-   * store is the only thing that can say it moved — the same contract the records store has for
-   * the count beside it.
-   */
-  /** Received from the endpoint, not derived — the store applies the row it was handed. */
   describe('the cached field count', () => {
     it('goes up on a create', async () => {
       const tables = await loadedTables()
@@ -166,10 +148,6 @@ describe('useFieldsStore', () => {
     })
   })
 
-  /**
-   * `shallowRef` is what makes the form and the table re-render, and it only tracks a whole
-   * new array — an in-place splice would update the data and paint nothing.
-   */
   it.each([
     [
       'createField',

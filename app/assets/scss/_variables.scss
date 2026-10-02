@@ -1,68 +1,39 @@
-// Both, because `additionalData` reaches only entry files and SFC style blocks, never a
-// partial like this one. `palette` supplies the primitives, `functions` the `rem()` below.
 @use 'palette' as *;
 @use 'functions' as *;
 
-// The public token surface. Components consume these and nothing else.
-//
 // Sass parses custom-property values literally, so every `rem()` here must be interpolated.
 :root {
-  // ── Surfaces ──────────────────────────────────────────────────────────────
-  // A hovered control, a disabled field and a chip share `$gray-100` and stay separate
-  // deliberately — different jobs, and collapsing them is what makes one token mean three.
   --color-canvas: #{$gray-50};
   --color-surface: #{$white};
   --color-surface-hover: #{$gray-100};
   --color-surface-disabled: #{$gray-100};
   --color-surface-muted: #{$gray-100};
-  // One step off white: a bordered control under the pointer. The same value as the row wash
-  // and kept apart from it for the reason the three above are.
   --color-surface-raised: #{$gray-25};
-  // Lighter than the control hover above on purpose: a badge's dot clears 3:1 on this wash
-  // (3.11:1 at the lowest) and not on `--color-surface-hover` (2.85:1).
   --color-surface-row-hover: #{$gray-25};
 
-  // ── Text ──────────────────────────────────────────────────────────────────
   --color-text: #{$gray-900};
   --color-text-secondary: #{$gray-600};
-  // 4.50:1 on `--color-surface-hover` — the darkest surface it may sit on.
   --color-text-subtle: #{$gray-500};
   --color-text-disabled: #{$gray-400};
   --color-text-on-accent: #{$white};
-  // Not text and not a control edge: ornament beside something that already carries the meaning
   --color-glyph-faint: #{$gray-350};
 
-  // ── Borders ───────────────────────────────────────────────────────────────
-  // A rule *inside* a surface — a table's row divider. Separate from `--color-border` so
-  // softening a row rule cannot soften the box containing it.
   --color-border-subtle: #{$gray-150};
   --color-border: #{$gray-200};
   --color-border-strong: #{$gray-300};
-  // Separate from `-strong`: a divider only has to be visible, but a control's outline is
-  // what identifies the control, so it carries the 3:1 non-text floor
   --color-border-control: #{$gray-450};
   --color-border-control-hover: #{$gray-500};
 
-  // ── Accent & danger ───────────────────────────────────────────────────────
-  // Both tints are flat steps rather than the accent at 8% alpha: each lands on
-  // `--color-surface` *and* on `--color-canvas`, and a translucent tint would composite to a
-  // different colour on each. No `-active` step: the reference draws no pressed state.
   --color-accent: #{$green-600};
   --color-accent-hover: #{$green-700};
   --color-accent-tint: #{$green-tint};
   --color-accent-tint-strong: #{$green-tint-strong};
-  // A link's underline at rest, going to the full accent on hover. Quieter than the word it
-  // sits under: the accent text identifies the link (6.46:1), the rule reinforces it.
   --color-accent-underline: #{$green-tint-edge};
   --color-danger: #{$red-600};
   --color-danger-hover: #{$red-700};
   --color-danger-tint: #{$red-tint};
   --color-danger-edge: #{$red-tint-edge};
 
-  // ── Badge hues ────────────────────────────────────────────────────────────
-  // The closed set a SELECT choice is coloured from, stored as a name so the choice survives
-  // a re-theme and no user pairing can fail contrast. Defined here and nowhere else; which
-  // component reads which step is `docs/styling.md` → *Tokens*.
   --color-badge-gray-bg: #{$badge-gray-bg};
   --color-badge-gray-dot: #{$badge-gray-dot};
   --color-badge-gray-fg: #{$badge-gray-fg};
@@ -94,33 +65,19 @@
   --color-badge-pink-dot: #{$badge-pink-dot};
   --color-badge-pink-fg: #{$badge-pink-fg};
 
-  // ── Focus ─────────────────────────────────────────────────────────────────
-  // Custom properties so `_reset.scss` can carry the global focus rule without its own
-  // `@use 'functions'`. Which of the two registers a control takes is `CLAUDE.md` §8; why
-  // the state is split into an indicator and a halo is `docs/decisions.md`.
-  //
-  // The halo's 4px spread is the state's whole reach, and the number three containers are
-  // sized against — `RecordsTable`'s clip margin, `FieldFormModal`'s scroll inset, and the
-  // colour picker's 7px swatch inset. Changing it moves all three.
+  // The halo's 4px spread is the number three containers are sized against — `RecordsTable`'s
+  // clip margin, `FieldFormModal`'s scroll inset and the colour picker's swatch inset.
   --color-focus: #{$green-focus};
   --focus-ring-width: #{rem(1)};
   --focus-ring-offset: 0;
   --focus-ring-halo: 0 0 0 #{rem(4)} var(--color-accent-tint);
 
-  // ── Overlay & elevation ───────────────────────────────────────────────────
-  // Keyed off the text neutral rather than pure black. Neither shadow is load-bearing:
-  // `--color-scrim` is what separates a dialog from the page, and every surface carrying a
-  // shadow also carries a real border. The shadow says it floats; the border says where it ends.
   --color-scrim: rgb(24 24 27 / 40%);
   --shadow-sm: 0 1px 2px rgb(24 24 27 / 6%);
   --shadow-md: 0 8px 24px rgb(24 24 27 / 10%), 0 1px 2px rgb(24 24 27 / 6%);
   --shadow-lg: 0 20px 48px rgb(24 24 27 / 18%);
-  // Cast leftwards off a column pinned to the right edge, so what scrolls reads as passing under it
   --shadow-pinned-edge: -8px 0 8px -8px rgb(24 24 27 / 10%);
 
-  // ── Geometry ──────────────────────────────────────────────────────────────
-  // By job: a marker, a badge or option row, a control, a panel (card, table, dialog), and
-  // the centred card that is a whole page.
   --radius-xs: #{rem(4)};
   --radius-sm: #{rem(6)};
   --radius-md: #{rem(8)};
@@ -130,29 +87,14 @@
   --control-height: #{rem(36)};
   --control-padding-x: #{rem(16)};
 
-  // ── Shell ─────────────────────────────────────────────────────────────────
-  // The breakpoint that pairs with these is an SCSS variable in `_mixins.scss`, because a
-  // media query cannot read a custom property. There is no desktop header: `--header-height`
-  // sizes the bar that holds the menu toggle below the shell breakpoint.
   --header-height: #{rem(56)};
   --sidebar-width: #{rem(248)};
 
-  // ── Layering ──────────────────────────────────────────────────────────────
-  // The whole stack in one place: the off-canvas sidebar sits above the page and below a
-  // dialog.
   --z-scrim: 40;
   --z-sidebar: 50;
   --z-modal: 100;
-  // Above the dialog, for two different reasons. `BaseColorPicker` renders in place, and
-  // `.base-modal` is positioned with `--z-modal`, so it forms a stacking context the panel
-  // cannot escape — 110 only orders it within that. `BaseSelect` teleports to `<body>`,
-  // making its panel a *sibling* of `.base-modal`, where 110 > 100 is what does the work.
   --z-popover: 110;
 
-  // ── Type ──────────────────────────────────────────────────────────────────
-  // Archivo for everything a person reads, Plex Mono for anything a machine produced. The
-  // scale ships as a set, because a ramp is only reviewable as a whole: markers · meta ·
-  // secondary · controls and cells · running text · section · heading · page title.
   --font-sans: Archivo, Helvetica, Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --font-size-2xs: #{rem(11)};

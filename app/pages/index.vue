@@ -40,8 +40,6 @@
         <span class="table-panel__count">{{ tablesStore.tables.length }}</span>
       </header>
 
-      <!-- Each row is one link: a table is a place, and renaming or deleting it lives on its
-           settings page, one click further in -->
       <ul class="table-panel__list">
         <li v-for="table in tablesStore.tables" :key="table.id">
           <NuxtLink :to="`/tables/${toTableAddress(table)}`" class="table-panel__row">
@@ -92,23 +90,18 @@ import { toTableAddress } from '#shared/utils/address'
 
 useSeoMeta({ title: 'Your tables' })
 
-// No fetch of its own: the layout's `ensureTables` loads the list, and the records and fields
-// stores tell this one whenever a write moves a count — refetching here instead would fix Home
-// and leave the sidebar's counts stale everywhere else
 const tablesStore = useTablesStore()
 
 const breadcrumbs: IBreadcrumb[] = [{ label: 'Home' }]
 
 const panelTitleId = useId()
 
-/** Summed from the list already held, so the meta line and the Total row cost no request. */
 const totalRecords = computed(() =>
   tablesStore.tables.reduce((sum, table) => sum + table._count.records, 0),
 )
 
 const createOpen = ref(false)
 
-// Throws (e.g. 409) propagate into TableFormModal's useForm, which shows the error
 async function submitTable(name: string) {
   await tablesStore.createTable({ name })
 }
@@ -122,8 +115,6 @@ async function submitTable(name: string) {
     margin-bottom: rem(20);
   }
 
-  // Home has no parent, and the compact trail shows only the parent step — so below that
-  // width the row would be an empty band
   &__crumbs {
     @include page-crumbs;
 
@@ -132,8 +123,6 @@ async function submitTable(name: string) {
     }
   }
 
-  // Home's action sits at the far edge, where the pages below it keep theirs beside the
-  // title: here the heading carries a meta line, and the button aligns with its baseline
   &__title-row {
     display: flex;
     flex-wrap: wrap;
@@ -142,7 +131,6 @@ async function submitTable(name: string) {
     gap: rem(12) rem(24);
   }
 
-  // The group, not the `<h1>`, is the row's flex item, so it carries the `min-width: 0`
   &__heading {
     @include stack(4);
 
@@ -167,8 +155,6 @@ async function submitTable(name: string) {
 .table-panel {
   @include surface-card;
 
-  // No `overflow: hidden` for the corners: the header and the total round their own, so a
-  // row's focus ring is never clipped by the panel
   &__head {
     display: flex;
     align-items: center;
@@ -197,7 +183,6 @@ async function submitTable(name: string) {
     list-style: none;
   }
 
-  // The link is the whole row, so it wears the ring itself — nothing to hoist to a parent
   &__row {
     display: flex;
     align-items: center;
@@ -226,7 +211,6 @@ async function submitTable(name: string) {
     background: var(--color-surface-muted);
   }
 
-  // Truncates the name first; the field count beside it never wraps
   &__name-line {
     display: flex;
     flex: 1;
@@ -256,7 +240,6 @@ async function submitTable(name: string) {
     font-variant-numeric: tabular-nums;
   }
 
-  // Ornament: the whole row is the link, and says so on hover and focus
   &__chevron {
     flex: none;
     font-size: rem(18);

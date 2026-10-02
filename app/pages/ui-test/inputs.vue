@@ -304,7 +304,6 @@ const FIVE_OPTIONS: ISelectOption[] = [
 
 const segments = reactive({ two: 'all', three: 'desc', five: '3', none: 'missing' })
 
-// Keyed by the colour each picker starts on, so every swatch opens once with its own check
 const pickerColors = reactive(
   Object.fromEntries(BADGE_COLORS.map((color) => [color, color])) as Record<
     TBadgeColor,

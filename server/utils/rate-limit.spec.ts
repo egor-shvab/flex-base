@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createRateLimiter } from '#server/utils/rate-limit'
 
-/**
- * `now` is a parameter, so none of this needs a timer or a fake clock — the same reason
- * `buildErrorLogEntry` takes one.
- */
 const limiter = () => createRateLimiter({ limit: 3, windowMs: 1000, maxKeys: 10 })
 
 describe('createRateLimiter', () => {
@@ -43,16 +39,10 @@ describe('createRateLimiter', () => {
     expect(rate.check('a', 999)).toBe(false)
   })
 
-  /**
-   * The guard must not become the leak it guards against: one call per forged key would grow the
-   * map forever. Expired keys go first, and if that frees nothing the map is cleared outright —
-   * losing counts is the right trade against unbounded growth.
-   */
   describe('the key bound', () => {
     it('stays bounded under keys that never repeat', () => {
       const rate = createRateLimiter({ limit: 3, windowMs: 1000, maxKeys: 4 })
 
-      // Every key distinct and every call inside one window — nothing can expire
       for (let key = 0; key < 200; key += 1) {
         expect(rate.check(`key-${key}`, 0)).toBe(true)
       }
@@ -65,8 +55,6 @@ describe('createRateLimiter', () => {
       rate.check('old-2', 0)
       for (let call = 0; call < 3; call += 1) rate.check('kept', 1500)
 
-      // `kept` opened its window at 1500 and is still inside it, so eviction at 2000 takes the
-      // two stale keys and leaves its count standing
       rate.check('new', 2000)
 
       expect(rate.check('kept', 2000)).toBe(false)

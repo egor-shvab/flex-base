@@ -39,7 +39,6 @@ const pagesOf = (wrapper: TPager) =>
 const rangeOf = async (props: Partial<IPageProps>) =>
   (await mount(props)).find('.pagination__count').text()
 
-/** Derived from the page numbers alone, so every boundary is arithmetic nothing else catches. */
 describe('the range label', () => {
   afterEach(unmountAll)
 
@@ -101,10 +100,6 @@ describe('the pager', () => {
     expect(wrapper.get('.pagination__gap').attributes('aria-hidden')).toBe('true')
   })
 
-  /**
-   * `role="status"` rather than a bare `aria-live="polite"`: the role implies polite-live, so
-   * assistive tech hears the same thing, and the range gains a role a reader can address.
-   */
   it('announces the range politely, since it changes without focus moving', async () => {
     const wrapper = await mount({ total: 120, pageCount: 3 })
 
@@ -142,10 +137,6 @@ describe('the pager', () => {
   })
 })
 
-/**
- * Past `RECORD_COUNT_CAP` the server stops counting, so `total` becomes a floor. Every label
- * that would otherwise read as an exact figure has to say so.
- */
 describe('a capped total', () => {
   it('marks the range as a floor rather than a count', async () => {
     expect(await rangeOf({ page: 1, pageSize: 50, total: 1000, totalCapped: true })).toBe(
@@ -159,10 +150,6 @@ describe('a capped total', () => {
     expect(pagesOf(wrapper)).toEqual(['1', '2', '3', '4', '…'])
   })
 
-  /**
-   * On the cap's own last page `pageCount` says there is nothing further while rows it never
-   * reached sit behind it. Next follows the page that came back, so it holds at any table size.
-   */
   it('still offers Next on the last page the cap can describe', async () => {
     const wrapper = await mount({
       page: 20,

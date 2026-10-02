@@ -4,7 +4,6 @@
       <AppMark />
     </div>
 
-    <!-- The one part that scrolls, so the mark and the user block stay put under a long list -->
     <div class="app-sidebar__scroll">
       <NuxtLink to="/" class="app-sidebar__item" :class="{ 'app-sidebar__item--on': isHome }">
         <Icon
@@ -46,7 +45,6 @@
       </button>
     </div>
 
-    <!-- Who is signed in, and the way out. No menu: Log out is its only entry. -->
     <div v-if="auth.user" class="app-sidebar__user">
       <span class="app-sidebar__avatar" aria-hidden="true">{{ toInitials(auth.user.email) }}</span>
       <span class="app-sidebar__email">{{ auth.user.email }}</span>
@@ -90,20 +88,11 @@ function close() {
   open.value = false
 }
 
-/**
- * Creating from the sidebar lands you in the new table; the dashboard's own modal stays put,
- * because it doubles as the rename form. Throws propagate into `TableFormModal`'s `useForm`.
- */
 async function submitHandler(name: string) {
   const table = await tablesStore.createTable({ name })
   await navigateTo(`/tables/${toTableAddress(table)}`)
 }
 
-/**
- * By route param, not path: `/tables/:address` is a prefix of `/tables/:address/settings`, so
- * a path check would be ambiguous. Parsed rather than compared as text, so a link written with
- * a slug — or an older one carrying a cuid — still marks its table.
- */
 const activeTableNumber = computed(() => {
   const address = String(route.params.tableAddress ?? '')
   return parseTableAddress(address) || tablesStore.tableRow(address)?.number
@@ -117,9 +106,6 @@ function retry() {
 </script>
 
 <style lang="scss" scoped>
-// The geometry every row here shares, including the "Add a table" `<button>`, which cannot
-// simply take `&__item`. Local rather than in `_mixins.scss`, which is for fragments crossing
-// components.
 @mixin sidebar-row {
   display: flex;
   align-items: center;
@@ -132,8 +118,6 @@ function retry() {
   @include focus-ring;
 }
 
-// Fills the panel the layout gives it: the mark on top, the list in the middle, the user at
-// the bottom
 .app-sidebar {
   display: flex;
   flex-direction: column;
@@ -149,7 +133,6 @@ function retry() {
     padding: 0 rem(10);
   }
 
-  // `min-height: 0`, or a flex item's automatic minimum keeps the list from ever scrolling
   &__scroll {
     display: flex;
     flex: 1;
@@ -157,7 +140,6 @@ function retry() {
     gap: rem(2);
     min-height: 0;
     overflow-y: auto;
-    // Room for a row's focus halo at the pane's edges, which `overflow` would clip
     margin: 0 rem(-4);
     padding: rem(4);
   }
@@ -219,7 +201,6 @@ function retry() {
     @include sidebar-row;
 
     margin-top: rem(4);
-    // A `<button>`, so the UA chrome has to be cleared where the link above brings none
     border: none;
     background: none;
     font-weight: 600;
@@ -251,7 +232,6 @@ function retry() {
     border-top: 1px solid var(--color-border-subtle);
   }
 
-  // Neutral on purpose: the categorical hues are the user's, for their data
   &__avatar {
     display: grid;
     flex: none;

@@ -25,8 +25,6 @@
     @include centred-card;
   }
 
-  // A phone is all card: the page turns white and the frame goes, rather than nesting a box
-  // inside a screen barely wider than it
   @include below-compact {
     background: var(--color-surface);
 

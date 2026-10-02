@@ -5,14 +5,6 @@ import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createField, createTable, createUser } from '~~/test/integration/seed'
 
-/**
- * The field endpoints at the **handler** layer. What `updateField` refuses, and what widening
- * does to the rows, belong to `server/services/fields.integration.spec.ts`.
- *
- * Only true at this layer: the route's two params reach the right row, and `requireFieldTarget`
- * runs on the way in. Everything underneath takes a `fieldId` and cannot tell a mis-wired one
- * from a correct one.
- */
 let ada: IAuthUser
 let tableId: string
 let peopleId: string
@@ -40,11 +32,6 @@ beforeEach(async () => {
 })
 
 describe('updating a field through the endpoint', () => {
-  /**
-   * The sibling assertion is the point. "Company became Client" also passes when the handler
-   * reaches for the first field of the table regardless of the id it was given; "and Notes did
-   * not" is what fails on a mis-wired param.
-   */
   it('updates the field the route names, and leaves its siblings alone', async () => {
     const [company, notes] = await fields()
 
@@ -57,7 +44,6 @@ describe('updating a field through the endpoint', () => {
     expect(after[1]).toMatchObject({ id: notes!.id, name: 'Notes' })
   })
 
-  /** The key is immutable, so a rename moves the label and nothing a record is stored under. */
   it('keeps the key a rename cannot touch', async () => {
     const [company] = await fields()
 
@@ -85,11 +71,6 @@ describe('updating a field through the endpoint', () => {
     })
   })
 
-  /**
-   * A relation's target is immutable but **its label field is not** (`architecture.md` §6), so
-   * `requireFieldTarget` is genuinely reachable here — the one part of a relation's options an
-   * update can still move. The ownership spec proves the same check for *create*.
-   */
   describe('a relation’s label field, which stays editable', () => {
     let ownerId: string
 

@@ -1,12 +1,6 @@
 import { expect, prisma, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
-/**
- * The linked-record dialog, which is URL state rather than component state. Every control is a
- * navigation, and that is precisely what makes Back, Forward and a cold link testable at all —
- * and what makes them worth testing, because none of it is visible until it breaks.
- */
-
 let people: ISeededTable
 let deals: ISeededTable
 let adaId: string
@@ -25,7 +19,6 @@ test.beforeEach(async ({ seedTable }) => {
     where: { tableId: people.id, data: { path: ['full_name'], equals: 'Ada' } },
     select: { id: true, number: true },
   })
-  // The id is what a relation *stores*; the number is what a URL *addresses*. Both are needed.
   adaId = ada.id
   adaNumber = ada.number
 
@@ -55,20 +48,14 @@ test.describe('opening it', () => {
     await expect(page).toHaveURL(/detail=/)
   })
 
-  /**
-   * The dialog's fetch is keyed per record. Under one shared key the second table page holds
-   * the first's resolved entry, so nothing refetches and the dialog opens with no data, no
-   * pending and no error until a reload. **Navigating between two table pages first is the whole
-   * point**, so do not "simplify" this into a single `goto`.
-   */
+  /** Moving between two table pages first is the point, so do not simplify this into one `goto`. */
   test('still opens after moving between two tables, which once broke it', async ({ page }) => {
     await page.goto(deals.url)
     await page.getByRole('link', { name: 'View record' }).click()
     await expect(dialog(page)).toContainText('Acme')
     await page.getByRole('button', { name: 'Close' }).click()
 
-    // Client-side navigation, not a reload, which would mask this. The sidebar link's
-    // accessible name carries its record count, so it is matched loosely.
+    // Client-side, since a reload would mask this; the link's name carries a count, hence loose
     await page
       .getByRole('navigation', { name: 'Your tables' })
       .getByRole('link', { name: new RegExp(people.name) })
@@ -77,8 +64,6 @@ test.describe('opening it', () => {
 
     await page.getByRole('link', { name: 'View record' }).first().click()
 
-    // Named by its table and carrying a field, rather than the empty box the bug produced.
-    // Which row is newest is not this case's business, so nothing here depends on it.
     await expect(dialog(page)).toBeVisible()
     await expect(dialog(page)).toContainText(people.name)
     await expect(dialog(page)).toContainText('Full name')
@@ -93,15 +78,9 @@ test.describe('opening it', () => {
     await expect(dialog(page)).toContainText('Ada')
   })
 
-  /**
-   * The list behind it must not refetch — the dialog's param is not part of the list query, and
-   * a refetch would be a visible flicker and a wasted round trip on every open.
-   */
   test('does not refetch the list behind it', async ({ page }) => {
     await page.goto(deals.url)
 
-    // The list endpoint is `…/records` with or without a query; the detail endpoint appends
-    // `/<recordId>`, so it never matches either form
     let listRequests = 0
     page.on('request', (request) => {
       const { pathname } = new URL(request.url())
@@ -149,10 +128,6 @@ test('a ?detail= URL loaded cold renders the dialog server-side', async ({ page,
   await expect(dialog(page)).toBeVisible()
 })
 
-/**
- * The address bar carries numbers, but an older link carries cuids and the server reads either
- * form. A whole URL in the old shape, path and chain both, still opens the same record.
- */
 test('a link written before the switch to numbers still resolves', async ({ page }) => {
   await page.goto(`/tables/${deals.id}?detail=${people.id}.${adaId}`)
 
@@ -191,7 +166,6 @@ test.describe('Open in …', () => {
     await expect(dialog(page).getByRole('link', { name: /Open in People/ })).toBeVisible()
   })
 
-  /** It would point at the page already on screen, dropping its sort and filters to get there. */
   test('is absent for the table already on screen', async ({ page }) => {
     await page.goto(deals.url)
     await page.getByRole('link', { name: 'View record' }).click()
@@ -210,9 +184,7 @@ test.describe('closing it', () => {
     await opener.click()
     await expect(dialog(page)).toBeVisible()
 
-    // Drill in, so the chain is two deep and Escape has more than one level to close.
-    // Waited on by the *table* name, not by "Ada": the Deals record already shows Ada as its
-    // owner, so asserting on that would pass before the drill had navigated at all.
+    // Waited on by table name: the Deals record already shows Ada, so that would pass too early
     await dialog(page).getByRole('link', { name: 'Ada' }).click()
     await expect(dialog(page)).toContainText('People')
 
@@ -241,18 +213,9 @@ test('a target deleted since the page was drawn says so, with no retry', async (
   await page.goto(url)
 
   await expect(dialog(page).getByRole('alert')).toContainText('This record no longer exists.')
-  // Retrying a 404 cannot help, so it is not offered
   await expect(dialog(page).getByRole('button', { name: /try again/i })).toHaveCount(0)
 })
 
-/**
- * A deliberate override, invisible when it breaks: `MultiValueCell` is `nowrap` because a table
- * row has a fixed height, and `RecordDetail` flips it to `wrap` because reading a value in full
- * is why that dialog exists. Lose it and the dialog shows the first few values on a clipped line.
- *
- * Both surfaces in one case, because either alone would pass against a component that wrapped —
- * or truncated — everywhere. Counted as distinct `top` offsets.
- */
 test('a multi-value field is one line in the table and wrapped in the dialog', async ({
   page,
   seedTable,
@@ -292,7 +255,6 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
   const badges = (scope: import('@playwright/test').Locator) =>
     scope.locator('.multi-value-cell .base-badge')
 
-  /** How many distinct lines the entries occupy, however many entries there are. */
   const lines = (scope: import('@playwright/test').Locator) =>
     badges(scope).evaluateAll(
       (entries) =>
@@ -305,15 +267,6 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
   await expect(badges(row).first()).toBeVisible()
   expect(await lines(row)).toBe(1)
 
-  /**
-   * One line has to mean *the values that fit, in full* — not twelve stubs squeezed into the
-   * column, which is what letting the entries shrink would produce, each ending in
-   * `BaseBadge`'s own ellipsis instead of the cell's. Read off the badge's text box.
-   *
-   * The other half — entries past the cap giving way to one ellipsis rather than being clipped
-   * mid-pill — is **paint**, recorded as approximated in `docs/architecture.md` §11: the omitted
-   * badge keeps its box, rects and `checkVisibility()`.
-   */
   const firstTagIsWhole = await badges(row)
     .first()
     .locator('.base-badge__text')
@@ -325,19 +278,9 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
 
-  // Every value on screen, not the first few — the point of wrapping rather than truncating
   await expect(badges(dialog)).toHaveCount(TAGS.length)
   expect(await lines(dialog)).toBeGreaterThan(1)
 
-  /**
-   * A badge is one height wherever it is drawn, and only a browser can say so — `test.css` is
-   * `false` in both Vitest projects.
-   *
-   * The row and the dialog are the two contexts that disagreed — `RecordDetail` spaces the
-   * wrapped rows with a `line-height`, which an unsized `inline-flex` badge inherits and grows
-   * on. Assert across both scopes at once: one distinct height, or the badge is being measured
-   * off its container again.
-   */
   const heights = async (scope: import('@playwright/test').Locator) =>
     badges(scope).evaluateAll((entries) =>
       entries.map((entry) => Math.round(entry.getBoundingClientRect().height)),
@@ -346,11 +289,6 @@ test('a multi-value field is one line in the table and wrapped in the dialog', a
   expect(new Set([...(await heights(row)), ...(await heights(dialog))]).size).toBe(1)
 })
 
-/**
- * Approximated, and deliberately so: a clipped focus ring is a paint concern. Asserting the
- * focused link's box sits inside its scrolling ancestor catches the structural cause — a cell
- * that clips its own content — without claiming to see the outline itself.
- */
 test('the focus ring on a relation link is not clipped by its cell', async ({ page }) => {
   await page.goto(deals.url)
 

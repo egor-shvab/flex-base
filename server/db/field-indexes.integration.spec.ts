@@ -14,18 +14,8 @@ import type { TRecordFilterValues, TSortDirection } from '#shared/types/filter'
 import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createTable, createUser } from '~~/test/integration/seed'
 
-/**
- * The half the unit spec cannot reach: it asserts the statements, this executes them and asks
- * the planner whether it will use what they built.
- *
- * **That question is the point of this file.** The index expression inlines the field key while
- * the query binds it, so the two could drift apart — at which point every row still comes back
- * correct and only the speed is gone.
- */
-
 let tableId: string
 
-/** Enough rows that an index beats a scan, with one rare value per column to seek. */
 async function seedRows(count = 20000) {
   await prisma.$executeRaw`
     INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
@@ -53,7 +43,6 @@ const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
   ...overrides,
 })
 
-/** The plan for the production WHERE of one filter. */
 async function planForFilter(fields: IField[], filters: TRecordFilterValues): Promise<string> {
   const where = buildRecordWhere(tableId, fields, filters)
   const rows = await prisma.$queryRaw<Record<string, string>[]>`
@@ -63,14 +52,8 @@ async function planForFilter(fields: IField[], filters: TRecordFilterValues): Pr
 }
 
 /**
- * The plan for the production ORDER BY of one field, **with sorting made expensive**.
- *
- * The filter cases above assert the index is *chosen*, which an ordering cannot: whether an
- * index beats sorting depends on the row count, so at a size a test can afford the planner may
- * correctly sort instead. What matters is that the index is **usable** — that the expression it
- * was built on matches the one the query emits — which `SET LOCAL enable_sort` asks directly. It
- * must run inside a transaction, or the setting lands on a pooled connection and not the
- * `EXPLAIN`.
+ * With sorting disabled, so it asks whether the index is usable rather than chosen. `SET LOCAL`
+ * must run inside a transaction, or it lands on a pooled connection and not the `EXPLAIN`.
  */
 async function planForSort(
   fields: IField[],
@@ -89,7 +72,6 @@ async function planForSort(
   })
 }
 
-/** Whether any owned index has recorded a scan yet, waiting out the statistics flush. */
 async function waitForScan(attempts = 40): Promise<boolean> {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     await prisma.$executeRaw`SELECT pg_stat_clear_snapshot()`
@@ -110,8 +92,6 @@ const indexNames = async () => {
 }
 
 beforeEach(async () => {
-  // `test/integration/setup.ts` truncates rows, but an index is a schema object and survives
-  // that — so without this every case inherits the last one's indexes
   for (const name of await indexNames()) {
     await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "${name}"`)
   }
@@ -134,8 +114,6 @@ describe('a declared index is one the planner actually uses', () => {
     expect(filterPlan).toContain(`rec_idx_${company?.id}_f`)
     expect(filterPlan).not.toContain('Seq Scan')
 
-    // The default direction is descending, and that is deliberately its own index: a B-tree
-    // reversed gives NULLS FIRST, which is not the ordering the app asks for
     const sortPlan = await planForSort(fields, 'company')
     expect(sortPlan).toContain(`rec_idx_${company?.id}_sd`)
   }, 60_000)
@@ -162,9 +140,6 @@ describe('a declared index is one the planner actually uses', () => {
     const fields = [value as IField]
     const plan = await planForFilter(fields, { contract_value: { from: 1, to: 5 } })
 
-    // Either of this field's B-trees serves a range — they hold the same expression and differ
-    // only in the order they store it, which a bounded scan does not care about. Asserting a
-    // particular one would pin a planner preference rather than the property that matters.
     expect(plan).toContain(`rec_idx_${value?.id}_`)
     expect(plan).not.toContain('Seq Scan')
   }, 60_000)
@@ -188,14 +163,6 @@ describe('a declared index is one the planner actually uses', () => {
     expect(plan).not.toContain('Seq Scan')
   }, 60_000)
 
-  /**
-   * A relation filter arrives as the target's *number*, and `resolveFilterTargets` substitutes
-   * the stored id **before** the builder runs, so the comparison stays a constant against the
-   * indexed expression. A subquery on `"Record"."number"` would type-check, return the same rows
-   * and quietly cost a sequential scan — only a plan says otherwise.
-   *
-   * The filters below hold ids, because that is what the builder is handed after resolution.
-   */
   it('serves a RELATION filter from its B-tree, and a widened one from its GIN', async () => {
     const target = await createTable((await createUser()).id, 'Targets')
     const relationOptions = { targetTableId: target.id, labelFieldKey: 'full_name' }
@@ -258,15 +225,10 @@ describe('the index lifecycle', () => {
     expect(await indexNames()).toEqual([])
   }, 60_000)
 
-  /**
-   * The failure `IF NOT EXISTS` would make permanent: a failed `CONCURRENTLY` build leaves an
-   * **invalid** index that costs every write, serves no read, and looks present enough to skip.
-   */
   it('replaces an invalid index rather than leaving it in place', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
     await syncFieldIndexes(company as IField)
 
-    // Mark one invalid, exactly as an interrupted concurrent build would leave it
     const name = `rec_idx_${company?.id}_f`
     await prisma.$executeRaw`
       UPDATE pg_index SET indisvalid = false
@@ -280,11 +242,6 @@ describe('the index lifecycle', () => {
     expect(await indexNames()).toContain(name)
   }, 60_000)
 
-  /**
-   * The diagnostic half. An index that is never scanned returns entirely correct results, so the
-   * only way to notice it is costing writes for nothing is to ask PostgreSQL — which is what
-   * these two exist for.
-   */
   it('reports what each index has cost and returned, and which field owns it', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
     await syncFieldIndexes(company as IField)
@@ -296,10 +253,8 @@ describe('the index lifecycle', () => {
       `rec_idx_${company?.id}_sa`,
       `rec_idx_${company?.id}_sd`,
     ])
-    // The cuid is recovered from the name, which is the only place the ownership is recorded
     expect(new Set(stats.map((stat) => stat.fieldId))).toEqual(new Set([company?.id]))
     expect(stats.every((stat) => stat.valid)).toBe(true)
-    // Freshly built and never queried — exactly the shape that says "opt this back out"
     expect(stats.every((stat) => stat.scans === 0)).toBe(true)
     expect(stats.every((stat) => stat.bytes > 0)).toBe(true)
   }, 60_000)
@@ -308,8 +263,6 @@ describe('the index lifecycle', () => {
     const [value] = await createFields(tableId, [
       { key: 'contract_value', type: 'NUMBER', indexed: true },
     ])
-    // The same size and filter the case above proves the planner serves from this index; a
-    // smaller table would scan instead, measuring the planner rather than the statistics
     await seedRows()
     await syncFieldIndexes(value as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
@@ -320,10 +273,8 @@ describe('the index lifecycle', () => {
       query({ filters: { contract_value: { from: 1, to: 5 } } }),
     )
 
-    // **Polled, and not flakiness papered over.** A backend reports index usage to the shared
-    // statistics at most once a second and a session caches its snapshot, so the counter is
-    // genuinely absent the instant the query returns. A fixed wait would be slower and no more
-    // certain.
+    // Polled: usage reaches the shared statistics at most once a second and a session caches its
+    // snapshot, so the counter is genuinely absent the instant the query returns
     const scanned = await waitForScan()
 
     expect(scanned).toBe(true)
@@ -352,11 +303,8 @@ describe('the index lifecycle', () => {
     expect(first.created).toHaveLength(3)
     expect(first).toMatchObject({ dropped: [], reaped: [] })
 
-    // A second pass has nothing to do — the report is what makes that visible
     expect(await reconcileFieldIndexes()).toEqual({ created: [], dropped: [], reaped: [] })
 
-    // A failed concurrent build, and a field that no longer wants its indexes: both are removed,
-    // and they are reported apart because only one of them still needs doing
     await prisma.$executeRaw`
       UPDATE pg_index SET indisvalid = false
       WHERE indexrelid = ${`rec_idx_${company?.id}_f`}::regclass
@@ -377,7 +325,6 @@ describe('the index lifecycle', () => {
     await syncFieldIndexes(company as IField)
     expect(await indexNames()).toHaveLength(3)
 
-    // Opt the field out behind the reconciler's back, the way drift actually happens
     await prisma.field.update({ where: { id: company?.id }, data: { indexed: false } })
     await reconcileFieldIndexes()
 

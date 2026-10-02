@@ -10,7 +10,6 @@ export default defineRecordWriteHandler(
     const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
     const record = await RecordService.createRecord(tableId, fields, data)
 
-    // Read after the insert's own transaction, so the count includes the row just written
     return { record, table: await TableService.getTableListRow(user.id, tableId) }
   },
 )

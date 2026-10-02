@@ -13,7 +13,6 @@ const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
 
 const post = (body: unknown) => testEvent({ method: 'POST', body })
 
-/** The token a Set-Cookie header carries, for feeding back into the middleware. */
 function tokenFrom(header: string): string {
   return header.split(';')[0]?.split('=')[1] ?? ''
 }
@@ -72,10 +71,6 @@ describe('registering', () => {
   })
 })
 
-/**
- * Both failure modes answer identically on purpose: a different message or status for "no such
- * account" would turn the login form into an account-existence oracle.
- */
 describe('logging in', () => {
   it('accepts the right password and sets the cookie', async () => {
     await register(post(CREDENTIALS))
@@ -131,7 +126,6 @@ describe('the session endpoints', () => {
     expect(await me(event)).toEqual({ user })
   })
 
-  /** Synchronous, so it throws rather than returning a rejected promise. */
   it('401s for an anonymous caller', () => {
     expect(() => me(testEvent())).toThrow(expect.objectContaining({ statusCode: 401 }))
   })
@@ -144,10 +138,6 @@ describe('the session endpoints', () => {
   })
 })
 
-/**
- * The middleware never rejects — it attaches whoever the cookie proves and lets each handler
- * decide. Every path below therefore ends in a `context.user`, not in an error.
- */
 describe('the auth middleware', () => {
   it('attaches the user a valid token names', async () => {
     const registration = post(CREDENTIALS)
@@ -185,7 +175,6 @@ describe('the auth middleware', () => {
     expect(event.context.user).toBeNull()
   })
 
-  /** A validly signed token for an account that has since been deleted must not authenticate. */
   it('leaves a token for a deleted user anonymous', async () => {
     const user = await createUser()
     const token = signAuthToken(user.id, process.env.JWT_SECRET ?? '')

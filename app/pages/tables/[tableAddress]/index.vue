@@ -1,6 +1,5 @@
 <template>
   <section class="records-page">
-    <!-- The fixed band: where you are, what this is, and what narrows it -->
     <div class="records-page__top">
       <div class="records-page__crumbs">
         <BaseBreadcrumbs :items="breadcrumbs" />
@@ -38,7 +37,6 @@
           :debounce="QUERY_DEBOUNCE_MS"
           @update:model-value="applySearch"
         />
-        <!-- Tinted while it holds filters, with their count — "Filters 2" to a screen reader -->
         <BaseButton
           variant="ghost"
           prepend-icon="material-symbols:filter-list-rounded"
@@ -53,8 +51,6 @@
       </div>
     </div>
 
-    <!-- The active filters are stated above the data rather than hidden behind the
-         drawer that covers it -->
     <RecordsFilterSummary
       v-if="hasFields && isNarrowed"
       :fields="fieldsStore.fields"
@@ -75,11 +71,7 @@
       >.
     </BaseErrorBanner>
 
-    <!-- Everything above this is the fixed band; the rows below are the only thing that scrolls -->
     <div class="records-page__body">
-      <!-- Ahead of the fieldless state below, not only of the empty one: leaving a table that has
-           no fields would otherwise keep claiming that about the table being fetched, and the two
-           are the same mistake. A fieldless table at rest is not pending, so it still says so. -->
       <RecordsTableSkeleton v-if="rowsLoading" class="records-page__skeleton" />
 
       <BaseEmptyState
@@ -95,13 +87,6 @@
       </BaseEmptyState>
 
       <template v-else>
-        <!-- Not when the load failed: an empty result and an unknown result look the same in
-             the store, and claiming the table is empty would be a guess -->
-        <!--
-          A status, unlike the fieldless state above it: this one appears and changes in
-          answer to a filter or a search, with focus still in the box that caused it, so
-          nothing else on screen would tell a screen-reader user the table just emptied.
-        -->
         <BaseEmptyState
           v-if="recordsStore.records.length === 0 && !recordsStore.failed"
           class="records-page__empty"
@@ -210,10 +195,8 @@ const loadTable = useTableLoader()
 const fieldsStore = useFieldsStore()
 const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
-/** The address the URL carries — a number going forward, a cuid from an older link. */
 const tableAddress = route.params.tableAddress as string
 
-/** The URL is the source of truth for the list query, so a filtered view is shareable. */
 const {
   queryState,
   filters,
@@ -230,23 +213,17 @@ const {
   clearNarrowing,
 } = useRecordListQuery({ fields: () => fieldsStore.fields })
 
-// Its own key, never the settings page's — a layout and a page must not share one (`decisions.md`)
 const { data, error } = await useAsyncData(`table-records-${tableAddress}`, async () => {
   const table = await loadTable(tableAddress)
-  // Filters decode against field metadata, so these wait for the loader rather than running
-  // beside it — otherwise a shared filter URL would render unfiltered on first load.
   await Promise.all([
     recordsStore.fetchRecords(tableAddress, queryState.value),
-    // A relation filter is a picker over the target's records, so its candidates have to be
-    // there on first paint for a shared link to show what it is filtered by
     relationsStore.loadOptions(tableAddress, fieldsStore.fields),
   ])
   return table
 })
 
-// Every list change goes through the URL, so one watcher covers filtering, sorting and paging.
-// The rejection is swallowed deliberately — the store sets `failed`, which the template shows;
-// escaping a watcher it would be unhandled and the table would keep stale rows.
+// Swallowed deliberately: the store sets `failed`, which the template shows; out of a watcher a
+// rejection would be unhandled
 watch(queryKey, async () => {
   try {
     await recordsStore.fetchRecords(tableAddress, queryState.value)
@@ -261,10 +238,6 @@ if (error.value) {
 
 const table = computed(() => data.value)
 
-/**
- * The table's public number, which every link out of this page is built from. From the loaded
- * row, not the address: an older link addresses by cuid, leaving `?detail=` unable to name it.
- */
 const tableNumber = computed(() => table.value?.number ?? parseTableAddress(tableAddress))
 useSeoMeta({ title: () => table.value?.name ?? 'Records' })
 
@@ -275,12 +248,6 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 
 const hasFields = computed(() => fieldsStore.fields.length > 0)
 
-/**
- * Loading is its own state, and both halves are needed. The store drops the previous table's rows
- * *before* requesting the next one's, while this page is still on screen, so between the two
- * there is nothing to tell "empty" from "not known yet". The row count keeps it to a body with
- * nothing to draw: an in-place refetch keeps its rows and says "Filtering…" instead.
- */
 const rowsLoading = computed(() => recordsStore.pending && recordsStore.records.length === 0)
 
 const filterPanelOpen = ref(false)
@@ -293,25 +260,18 @@ const {
   close: closeRecordModal,
 } = useEntityFormModal<IRecord>()
 
-// Throws (400/404) propagate into RecordFormModal's useForm, which shows the error
 async function submitRecord(data: TRecordData) {
   if (editingRecord.value) {
     await recordsStore.updateRecord(tableAddress, editingRecord.value.id, data, queryState.value)
     return
   }
 
-  // A new record lands on page 1 of the default view; the URL is kept in step rather than the
-  // store showing a page the address bar disagrees with
   const nextPage = await recordsStore.createRecord(tableAddress, data, queryState.value)
   if (nextPage !== queryState.value.page) {
     await goToPage(nextPage, true)
   }
 }
 
-/**
- * The linked-record dialog is URL state exactly as the list query is, so it is read back from
- * the route rather than held here — and closing it is a navigation, not a state change.
- */
 const {
   chain: detailChain,
   detail,
@@ -339,13 +299,10 @@ const {
 
 <style lang="scss" scoped>
 .records-page {
-  // Fills the shell's main pane exactly, so the header, the active filters and the pager
-  // stay in place while the rows move
   display: flex;
   flex-direction: column;
   height: 100%;
 
-  // Three rows — breadcrumb, title, toolbar — in the fixed band above the rows
   &__top {
     @include stack(14);
 
@@ -365,14 +322,10 @@ const {
     @include page-title;
   }
 
-  // `flex: none`, or the row's shrink is split in proportion to base size, the button reaches
-  // its min-content and wraps its label onto two lines. The title absorbs it all.
   &__create {
     flex: none;
   }
 
-  // Wraps rather than overflows: on a phone the search shrinks first, so it and Filters keep
-  // one line, and only a narrower screen still would push Filters down
   &__toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -400,7 +353,6 @@ const {
     color: var(--color-text-on-accent);
   }
 
-  // Placement only — `BaseErrorBanner` owns the look; a child's root carries the parent's scope
   &__failed {
     margin-bottom: rem(16);
   }
@@ -408,36 +360,24 @@ const {
   &__body {
     display: flex;
     flex-direction: column;
-    // `min-height: 0` — without it the item's automatic minimum is the whole table, so it
-    // would never shrink and the table's own `overflow` would stay inert
+    // `min-height: 0`, or the item's automatic minimum is the whole table and it never scrolls
     flex: 1;
     min-height: 0;
   }
 
-  // Sizes to its rows and stops there; past the pane it shrinks and scrolls inside itself.
-  // `flex-basis: auto` makes the base size the content height, `flex-grow: 0` keeps a short
-  // result off the bottom edge. Intrinsic throughout, so it re-resolves on resize with no
-  // height stated anywhere. `min-height: 0` is belt and braces — a scroll container's automatic
-  // minimum is already zero, and would stop being so the day `overflow` moved off this element.
   &__table {
     flex: 0 1 auto;
     min-height: 0;
   }
 
-  // Where the rows will be, not the middle of the pane like the empty states below: it stands in
-  // for the table, so it takes the table's place.
   &__skeleton {
     flex: none;
   }
 
-  // An empty state has no natural place in the flow, so it takes the middle of the pane.
-  // `margin` rather than the parent's `justify-content`, which cannot centre one child without
-  // lifting a short grid off the top. Nested so it outranks `BaseEmptyState`'s own `margin`.
   &__body &__empty {
     margin-block: auto;
   }
 
-  // Placement only — BasePagination owns its internal layout
   &__pagination {
     flex: none;
     margin-top: rem(12);

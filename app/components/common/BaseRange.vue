@@ -17,7 +17,6 @@
         :debounce="debounce"
         @update:model-value="onBoundInput('from', $event)"
       />
-      <!-- Punctuation between the two halves, not an icon; each box already names itself -->
       <span class="base-range__dash" aria-hidden="true">–</span>
       <BaseInput
         :id="`${id}-to`"
@@ -39,10 +38,8 @@ import type { IDateRange, INumberRange } from '#shared/types/range'
 const props = withDefaults(
   defineProps<{
     id: string
-    /** Which bound the range speaks — a finite number, or an ISO `YYYY-MM-DD` string. */
     type: 'number' | 'date'
     label?: string
-    /** Forwarded to both bounds — a range filter costs a request per edit. */
     debounce?: number
   }>(),
   {
@@ -53,13 +50,10 @@ const props = withDefaults(
 
 const model = defineModel<INumberRange | IDateRange>({ required: true })
 
-// The displayed text is kept, not derived from the bound: re-deriving would rewrite the field
-// mid-typing and collapse `1.50` to `1.5`. A date round-trips losslessly but runs through the
-// same drafts, which is what lets one component serve both.
+// Kept rather than derived from the bound, which would collapse `1.50` to `1.5` mid-typing
 const fromText = ref('')
 const toText = ref('')
 
-/** A blank or unparseable bound is no bound at all — never zero, never an empty string. */
 function toBound(raw: string): number | string | null {
   if (raw.trim() === '') return null
   if (props.type === 'date') return raw
@@ -71,8 +65,7 @@ function toBound(raw: string): number | string | null {
 watch(
   model,
   (range) => {
-    // Only a bound disagreeing with the screen came from outside (clear all, a shared URL,
-    // the back button); resyncing the rest would undo the text being typed
+    // Only a bound disagreeing with the screen came from outside; resyncing the rest undoes typing
     if (range.from !== toBound(fromText.value)) {
       fromText.value = range.from === null ? '' : String(range.from)
     }
@@ -87,9 +80,6 @@ function onBoundInput(bound: 'from' | 'to', raw: string) {
   if (bound === 'from') fromText.value = raw
   else toText.value = raw
 
-  // Both bounds re-read from the drafts, the source of truth for what is on screen. `type`
-  // decides which arm of the union `toBound` produces, so the cast states what the prop
-  // already guarantees.
   model.value = { from: toBound(fromText.value), to: toBound(toText.value) } as
     INumberRange | IDateRange
 }
@@ -103,7 +93,6 @@ function onBoundInput(bound: 'from' | 'to', raw: string) {
     @include field-label;
   }
 
-  // Two equal boxes read as one field, joined by the dash rather than by a gap
   &__bounds {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

@@ -14,10 +14,6 @@ interface IRect {
   width: number
 }
 
-/**
- * An element whose rect is dictated rather than laid out — happy-dom reports zeroes for
- * everything, and the arithmetic under test is entirely a function of these numbers.
- */
 function elementAt(rect: IRect, offsetWidth = rect.width): HTMLElement {
   const element = document.createElement('div')
 
@@ -29,19 +25,12 @@ function elementAt(rect: IRect, offsetWidth = rect.width): HTMLElement {
 }
 
 /**
- * Runs the composable inside a **component**, because it releases its window listeners and
- * cancels any queued frame in `onBeforeUnmount` — a hook Vue only registers against an instance.
- * Under a bare `effectScope` it warns and `scope.stop()` leaves the listeners attached, so
- * mounting is what makes teardown run the same path `BaseSelect` gets.
- *
- * Nothing is rendered: the anchor and panel are detached elements with dictated rects. The
- * composable's return is captured out of `setup` rather than off `wrapper.vm`, which unwraps
- * refs, and the wrapper comes back too, because one case tears the host down *mid-test*.
+ * Inside a component: teardown runs in `onBeforeUnmount`, which a bare `effectScope` never
+ * registers. The return is captured from `setup`, since `wrapper.vm` unwraps refs.
  */
 function host<T>(compose: () => T) {
   let value!: T
 
-  // `mount` runs setup synchronously, so `value` is assigned by the time this returns
   const wrapper = track(
     mount(
       defineComponent({
@@ -57,10 +46,6 @@ function host<T>(compose: () => T) {
   return { value, wrapper }
 }
 
-/**
- * Opens the panel and returns the resulting style. `measure` runs inside a `nextTick`, so the
- * panel's own width is measurable by the time it is read.
- */
 async function positionOf(
   anchorRect: IRect,
   options: Parameters<typeof useAnchoredPosition>[3] = {},
@@ -92,7 +77,6 @@ describe('useAnchoredPosition', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('sits below the anchor when there is room', async () => {
-    // 800 - 140 - 4 - 8 = 648 below, comfortably over the 280 cap
     const style = await positionOf({ top: 100, bottom: 140, left: 200, width: 300 })
 
     expect(style.top).toBe('144px')
@@ -107,21 +91,13 @@ describe('useAnchoredPosition', () => {
   })
 
   it('lowers maxHeight to the space actually left below', async () => {
-    // A tall anchor: 800 - 600 - 12 = 188 below, but only 50 - 12 = 38 above, so it stays put
-    // and takes what room there is
     const style = await positionOf({ top: 50, bottom: 600, left: 200, width: 300 })
 
     expect(style.top).toBe('604px')
     expect(style.maxHeight).toBe('188px')
   })
 
-  /**
-   * Below unless it genuinely does not fit *and* above is roomier — the panel must not flip for
-   * a few pixels, which would make it jump as the page scrolls.
-   */
   it('stays below whenever the panel still fits there', async () => {
-    // Below 800-420-12 = 368, above 400-12 = 388 — above is roomier, but below still clears
-    // the 280 cap, so `spaceBelow >= maxHeight` keeps it in place
     const style = await positionOf({ top: 400, bottom: 420, left: 0, width: 100 })
 
     expect(style.top).toBe('424px')
@@ -129,11 +105,9 @@ describe('useAnchoredPosition', () => {
   })
 
   it('stays below when neither side fits but below is the roomier one', async () => {
-    // Below 800-600-12 = 188, above 300-12 = 288… above is roomier, so this one flips
     const flipped = await positionOf({ top: 300, bottom: 600, left: 0, width: 100 })
     expect(flipped.bottom).toBe('504px')
 
-    // Below 188, above 38 — neither fits, and below wins
     const stayed = await positionOf({ top: 50, bottom: 600, left: 0, width: 100 })
     expect(stayed.top).toBe('604px')
   })
@@ -141,14 +115,12 @@ describe('useAnchoredPosition', () => {
   it('flips above when below does not fit and above is roomier', async () => {
     const style = await positionOf({ top: 700, bottom: 740, left: 200, width: 300 })
 
-    // Anchored by its bottom, so it grows upward with no second measuring pass
     expect(style.bottom).toBe(`${VIEWPORT_HEIGHT - 700 + 4}px`)
     expect(style.top).toBeUndefined()
     expect(style.maxHeight).toBe('280px')
   })
 
   it('clamps a panel that would overflow the right edge', async () => {
-    // 1000 - 400 - 8 = 592 is as far right as a 400-wide panel may start
     const style = await positionOf({ top: 100, bottom: 140, left: 900, width: 400 })
 
     expect(style.left).toBe('592px')
@@ -161,7 +133,6 @@ describe('useAnchoredPosition', () => {
   })
 
   it('measures against the panel’s own width by default', async () => {
-    // A 500-wide panel under a 100-wide anchor at x=800 would end at 1300
     const style = await positionOf({ top: 100, bottom: 140, left: 800, width: 100 }, {}, 500)
 
     expect(style.left).toBe(`${VIEWPORT_WIDTH - 500 - 8}px`)
@@ -196,8 +167,6 @@ describe('useAnchoredPosition', () => {
   })
 
   it('never reports a negative maxHeight', async () => {
-    // An anchor taller than the viewport and overflowing both ends: below -112, above -512.
-    // Below is still the roomier side, so the panel stays there with nothing left to give it.
     const style = await positionOf({ top: -500, bottom: 900, left: 0, width: 300 })
 
     expect(style.maxHeight).toBe('0px')
@@ -233,8 +202,6 @@ describe('useAnchoredPosition', () => {
     await nextTick()
 
     expect(add).toHaveBeenCalledWith('resize', expect.any(Function))
-    // Capture, because scroll does not bubble — this is what keeps a panel pinned to a trigger
-    // inside the filter drawer's own scroll container
     expect(add).toHaveBeenCalledWith('scroll', expect.any(Function), true)
 
     open.value = false
@@ -244,13 +211,7 @@ describe('useAnchoredPosition', () => {
     expect(remove).toHaveBeenCalledWith('scroll', expect.any(Function), true)
   })
 
-  /**
-   * Scroll fires far more often than a frame, so the handler queues at most one re-measure per
-   * frame. Counted through *this* anchor's own rect reads rather than global
-   * `requestAnimationFrame` calls, which would also see whatever else the environment schedules.
-   */
   describe('re-measuring while open', () => {
-    /** An anchor that records how many times it was measured. */
     function countingAnchor(rect: IRect) {
       const element = elementAt(rect)
       const measured = vi.fn(element.getBoundingClientRect.bind(element))
@@ -259,7 +220,6 @@ describe('useAnchoredPosition', () => {
       return { element, measured }
     }
 
-    /** Lets one real animation frame elapse, running whatever `scheduleMeasure` queued. */
     function frame() {
       return new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
     }
@@ -267,15 +227,13 @@ describe('useAnchoredPosition', () => {
     async function openedAt(rect: IRect) {
       const { element, measured } = countingAnchor(rect)
       const anchor = ref<HTMLElement | undefined>(element)
-      // Starts closed and is opened, because the watch has no `immediate` — it binds the
-      // listeners on the transition, so a ref born `true` would never attach any
+      // Born closed: the watch has no `immediate`, so a ref born `true` would attach nothing
       const open = ref(false)
 
       const { value: style, wrapper } = host(() =>
         useAnchoredPosition(anchor, ref(undefined), open),
       )
       open.value = true
-      // The watch fires on the next tick and defers `measure` one further, matching `positionOf`
       await nextTick()
       await nextTick()
 
@@ -327,11 +285,6 @@ describe('useAnchoredPosition', () => {
       expect(measured).not.toHaveBeenCalled()
     })
 
-    /**
-     * The teardown `BaseSelect` relies on: a select unmounts with its panel still open, and
-     * nothing closes it on the way out. Both halves of `onBeforeUnmount` are covered — the
-     * listeners it detaches, and the frame the last event left queued.
-     */
     it('stops measuring when its host unmounts, panel still open', async () => {
       const { measured, wrapper } = await openedAt({
         top: 100,
@@ -340,8 +293,6 @@ describe('useAnchoredPosition', () => {
         width: 300,
       })
 
-      // Queue a re-measure and tear the host down before the frame runs, so an uncancelled
-      // frame would still fire during the `frame()` below
       window.dispatchEvent(new Event('scroll'))
       wrapper.unmount()
       measured.mockClear()

@@ -1,41 +1,21 @@
 @use 'functions' as *;
 
-// Shared style fragments, injected into every SFC `<style>` block alongside `rem()` (see
-// `additionalData` in nuxt.config.ts). A standalone partial must `@use 'mixins' as *` itself,
-// since additionalData does not reach one.
-//
-// What each mixin is for is `docs/styling.md`; when to reach for one is `CLAUDE.md` §8.
+$breakpoint-shell: 56.25em;
 
-/// The shell breakpoint: below it the sidebar stops being persistent. Here rather than in
-/// `_variables.scss` because a media query cannot read a custom property, and in `em` so it
-/// honours the browser's font-size setting.
-$breakpoint-shell: 56.25em; // 900px at the 16px default
-
-/// Applies its content only below the shell breakpoint.
 @mixin below-shell {
   @media (max-width: $breakpoint-shell) {
     @content;
   }
 }
 
-/// The compact layout: below it a breadcrumb trail becomes one step back, and every overlay
-/// arrives from the bottom edge as a sheet.
-$breakpoint-compact: 40em; // 640px at the 16px default
+$breakpoint-compact: 40em;
 
-/// Applies its content only below the compact breakpoint.
 @mixin below-compact {
   @media (max-width: $breakpoint-compact) {
     @content;
   }
 }
 
-/// The keyboard focus state for a control **with no border of its own** — a button, link,
-/// row or option. A field takes `form-control` instead, and the two are mutually exclusive
-/// (`CLAUDE.md` §8). Why the outline is the indicator and the halo carries nothing:
-/// `docs/decisions.md`.
-///
-/// Pass a negative `$offset` for a ring that must sit inside its own box; such a control also
-/// sets `--focus-ring-halo: none`, since a glow there washes outward over what encloses it.
 @mixin focus-ring($offset: var(--focus-ring-offset)) {
   &:focus {
     outline: none;
@@ -48,43 +28,30 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   }
 }
 
-/// A vertical stack — the layout every form and labelled control uses.
 @mixin stack($gap: 16) {
   display: flex;
   flex-direction: column;
   gap: rem($gap);
 }
 
-/// A horizontal cluster — the row counterpart to `stack`, for controls sharing a centre
-/// line. No `flex-wrap`: every cluster in the app keeps its controls on one line — a page's
-/// title row truncates the title instead. Add it after the include if a caller ever needs it.
 @mixin cluster($gap: 16) {
   display: flex;
   align-items: center;
   gap: rem($gap);
 }
 
-/// Keeps text on one line and ends it with an ellipsis instead of overflowing.
-/// The box must be bounded for this to engage: give it a `max-width`, or `min-width: 0`
-/// when it is a flex item that would otherwise refuse to shrink below its content.
 @mixin truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/// A bordered surface on the canvas. The edge is the structure, hence `--color-border`
-/// rather than `-subtle`, which is for a rule drawn *inside* one of these. Geometry and colour
-/// only — collapsing a hover or a ring in would put them on surfaces that are not interactive.
 @mixin surface-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
-/// A page that is nothing but one centred card — the auth screens and the error boundary,
-/// which render outside the shell and so own the viewport themselves. `dvh`, not `vh`: on
-/// mobile a collapsing URL bar leaves a `100vh` box overhanging the visible area.
 @mixin centred-viewport {
   display: flex;
   align-items: center;
@@ -94,8 +61,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   background: var(--color-canvas);
 }
 
-/// The column such a page centres: the product mark above the card. The measure is a
-/// parameter — it is what the two callers disagree on.
 @mixin centred-column($max-width) {
   @include stack(20);
 
@@ -103,8 +68,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   max-width: $max-width;
 }
 
-/// The card in that column — the whole content, so it carries its own padding. A border and no
-/// shadow: it sits on the canvas rather than floating over anything.
 @mixin centred-card($padding: 24) {
   padding: rem($padding);
   border: 1px solid var(--color-border);
@@ -112,12 +75,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   background: var(--color-surface);
 }
 
-/// The caption above a form control.
-///
-/// `align-self` is load-bearing: as the first item of a `stack` the caption would otherwise
-/// `stretch` across the whole field, and a `<label for>` turns that empty space into a click
-/// target for a control nothing is drawn under. `BaseCheckbox` opts out by hand for the same
-/// reason.
 @mixin field-label {
   align-self: flex-start;
   font-size: var(--font-size-sm);
@@ -125,43 +82,32 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   color: var(--color-text);
 }
 
-/// The line below a form control — a hint, or the error that replaces it on the same line.
 @mixin field-hint {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
-/// The validation message below a form control.
 @mixin field-error {
   font-size: var(--font-size-xs);
   color: var(--color-danger);
 }
 
-/// The chrome shared by every text-like control (`<input>`, `<select>`).
 @mixin form-control {
   min-height: var(--control-height);
-  // The block padding is what `--control-height` is spent on: 6 + 17.5 (14px text at
-  // `tight`) + 6 + 2 border = 31.5, so the height binds with room to spare. It moves with
-  // the token — trimming the height without trimming this clips the text instead.
   padding: rem(6) rem(12);
   border: 1px solid var(--color-border-control);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   font-size: var(--font-size-md);
-  // Explicit, because `<select>` and `<input>` resolve `normal` differently — without
-  // it a select sits 1px taller than the input beside it
   line-height: var(--line-height-tight);
   color: var(--color-text);
 
-  // The token, not `opacity` — muted text at 0.6 is ~2.4:1, the subtle token 5.12:1 on white
   &::placeholder {
     color: var(--color-text-subtle);
   }
 
   @include control-focus;
 
-  // `:where()` keeps this at the specificity of `&--invalid:hover` below, so an invalid field
-  // stays red under the pointer; a focused one is left to the focus border.
   &:hover:where(:not(:disabled, :focus)) {
     border-color: var(--color-border-control-hover);
     background: var(--color-surface-raised);
@@ -180,26 +126,18 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   }
 }
 
-/// The focus state of a control that draws its own border — every `form-control`, and the
-/// drawn box of `BaseCheckbox`. Mutually exclusive with `focus-ring` (`CLAUDE.md` §8).
-///
-/// Two signals, neither an outline: the border says "active" on any focus, autofocus included;
-/// the halo says "you are on the keyboard". A field already draws an edge, so it recolours that
-/// rather than gaining a second one a hairline outside it.
 @mixin control-focus {
   &:focus {
     border-color: var(--color-focus);
   }
 
   &:focus-visible {
-    // `_reset.scss`'s zero-specificity baseline would otherwise still draw the ring
     outline: none;
     box-shadow: var(--focus-ring-halo);
   }
 
-  // Not dead code: forced-colors resolves every border to one system colour and paints no
-  // `box-shadow`, so both signals above vanish together. An outline is the only indicator
-  // that survives, and these are the users least able to spare one.
+  // Not dead code: forced-colors paints no `box-shadow` and one border colour, so an outline is
+  // the only indicator that survives
   @media (forced-colors: active) {
     &:focus-visible {
       outline: rem(2) solid;
@@ -208,8 +146,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   }
 }
 
-/// The track of a segmented control — one 36px field holding every choice at once. 28px
-/// segments plus the 3px inset and the 1px border make the control height exactly.
 @mixin segmented-track {
   display: flex;
   gap: rem(2);
@@ -220,11 +156,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   background: var(--color-surface-muted);
 }
 
-/// One segment. The chosen one is a white plate, and its edge is
-/// `--color-border-control-hover` rather than the reference's bare shadow: that edge is what
-/// tells the state apart at 3:1 (4.5:1 on the track), where plate on track is ~1.1:1. The state
-/// is read from ARIA — `aria-checked` on a radio, `aria-current` on a link — so it cannot
-/// disagree with what is announced.
 @mixin segmented-segment {
   display: inline-flex;
   align-items: center;
@@ -258,8 +189,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   }
 }
 
-/// The breadcrumb row, with the page's own actions on its right. One control tall, so a row
-/// holding only the trail is the same height as one holding a button.
 @mixin page-crumbs {
   display: flex;
   align-items: center;
@@ -268,17 +197,12 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   min-height: var(--control-height);
 }
 
-/// A page's `<h1>` with its primary action directly beside it. `min-width: 0` is what lets
-/// `page-title`'s ellipsis engage, since a flex item's automatic minimum is its content; the
-/// action takes `flex: none` itself, or the row's shrink wraps its label onto two lines.
 @mixin page-title-row {
   @include cluster(14);
 
   min-width: 0;
 }
 
-/// A page's `<h1>`. Truncates instead of pushing the actions off the row; a phone takes the
-/// heading step, where 32px would leave room for a word or two.
 @mixin page-title {
   min-width: 0;
   margin: 0;
@@ -292,9 +216,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   }
 }
 
-/// A floating panel anchored to its trigger — a select's list, the colour grid, a row menu —
-/// so every popover in the app is one surface. `position: fixed` because `useAnchoredPosition`
-/// places it in viewport coordinates, which is what lets it escape a scrolling ancestor.
 @mixin popover-panel {
   position: fixed;
   z-index: var(--z-popover);
@@ -304,7 +225,6 @@ $breakpoint-compact: 40em; // 640px at the 16px default
   box-shadow: var(--shadow-md);
 }
 
-/// A machine-voiced label over a group — mono, uppercase, tracked, subtle.
 @mixin eyebrow {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);

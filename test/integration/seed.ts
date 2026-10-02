@@ -3,16 +3,8 @@ import { prisma } from '#server/db/prisma'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 
-/**
- * Rows written straight through Prisma rather than through the services, so a spec about
- * `createRecord` is not seeded by `createRecord`. The exceptions are the two display counters —
- * `User.tableCounter` and `Table.recordCounter` — which are maintained by hand here for the
- * same reason.
- */
-
 let sequence = 0
 
-/** Unique per call, so a case never collides with the row a previous one left behind. */
 const unique = (prefix: string) => `${prefix}_${(sequence += 1)}`
 
 export function createUser(email = `${unique('user')}@example.com`) {
@@ -22,11 +14,6 @@ export function createUser(email = `${unique('user')}@example.com`) {
   })
 }
 
-/**
- * A table with its number allocated the way the service would, so a spec that seeds tables and
- * then creates one through `createTable` sees a continuous sequence — the same reason
- * `createRecord` below maintains `recordCounter` by hand.
- */
 export async function createTable(userId: string, name = unique('Table')) {
   const { tableCounter } = await prisma.user.update({
     where: { id: userId },
@@ -77,7 +64,6 @@ export async function createField(tableId: string, seed: IFieldSeed): Promise<IF
   return { ...field, options: (field.options as IFieldOptions | null) ?? null }
 }
 
-/** Several fields in declaration order, which is the order every reader depends on. */
 export function createFields(tableId: string, seeds: IFieldSeed[]): Promise<IField[]> {
   return seeds.reduce<Promise<IField[]>>(
     async (previous, seed, index) => [
@@ -88,21 +74,12 @@ export function createFields(tableId: string, seeds: IFieldSeed[]): Promise<IFie
   )
 }
 
-/**
- * Timestamps a spec dictates rather than inherits. Settable only **on create**: `createdAt`
- * defaults to `now()` and `updatedAt` is `@updatedAt`, which Prisma overwrites on every update
- * — so there is no second seam, and a spec about how a timestamp column is queried has to
- * seed the row it wants in one statement.
- */
+/** Settable only on create: `updatedAt` is `@updatedAt`, which Prisma overwrites on update. */
 interface IRecordTimestamps {
   createdAt?: Date
   updatedAt?: Date
 }
 
-/**
- * A record with its number allocated the way the service would, so a spec that seeds rows and
- * then creates one through `createRecord` sees a continuous sequence.
- */
 export async function createRecord(
   tableId: string,
   data: TRecordData = {},

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { Prisma } from '#server/generated/prisma/client'
 import { toSharedRecord } from '#server/db/records'
 
-/** A row as Prisma returns it — `data` as opaque JSON, timestamps as `Date`. */
 function row(overrides: Partial<{ id: string; number: number; data: Prisma.JsonValue }> = {}) {
   return {
     id: 'rec_1',

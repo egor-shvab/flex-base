@@ -8,11 +8,6 @@ import type { IFieldSqlModule, IFieldSqlRules } from '#server/db/field-types/typ
 import { isMultiValue } from '#shared/field-types/cardinality'
 import type { IField, TFieldType } from '#shared/types/field'
 
-/**
- * **The only file that enumerates the field types on the SQL side.** Total, so a new type must
- * declare how it projects, how it compares and whether it is searchable. No operator to look
- * up: the type says how it compares, and the value's shape with how many bounds.
- */
 const MODULES: Record<TFieldType, IFieldSqlModule> = {
   TEXT: TEXT_FIELD_SQL,
   NUMBER: NUMBER_FIELD_SQL,
@@ -31,10 +26,6 @@ export const FIELD_SQL_BY_TYPE: Record<TFieldType, IFieldSqlRules> = {
   RELATION: MODULES.RELATION.sql,
 }
 
-/**
- * How a field behaves when it holds **several** values. Consulted before `FIELD_SQL_BY_TYPE`
- * for a field whose `options.multiple` is set; `null` means the type has no multi form.
- */
 export const MULTI_SQL: Record<TFieldType, IFieldSqlRules | null> = {
   TEXT: MODULES.TEXT.multi,
   NUMBER: MODULES.NUMBER.multi,
@@ -44,10 +35,6 @@ export const MULTI_SQL: Record<TFieldType, IFieldSqlRules | null> = {
   RELATION: MODULES.RELATION.multi,
 }
 
-/**
- * The one place a field's cardinality is resolved into SQL behaviour. Every projection,
- * comparison and ordering goes through it, so no builder branches on `multiple` itself.
- */
 export function sqlFor(field: IField): IFieldSqlRules {
   return (isMultiValue(field) ? MULTI_SQL[field.type] : null) ?? FIELD_SQL_BY_TYPE[field.type]
 }

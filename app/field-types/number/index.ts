@@ -18,13 +18,12 @@ export const NUMBER_APP_FIELD_TYPE: IAppFieldType<'NUMBER'> = {
       const trimmed = model.trim()
       if (trimmed === '') return null
 
-      // Unparseable input is kept as-is so the schema reports "Enter a number"
+      // Kept as-is when unparseable, so the schema reports "Enter a number"
       const parsed = Number(trimmed)
       return Number.isNaN(parsed) ? trimmed : parsed
     },
   },
   multiInput: null,
-  // The control's model already *is* the range filter value, so no adapters
   filter: {
     component: markRaw(BaseRange),
     props: (field) => ({ label: field.name, type: 'number', debounce: QUERY_DEBOUNCE_MS }),

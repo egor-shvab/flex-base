@@ -19,7 +19,6 @@ const TABLE: ITable = {
   updatedAt: '2026-01-05T09:14:00.000Z',
 }
 
-/** The order each endpoint was hit in, so the two can be asserted to run together. */
 const requests: string[] = []
 let tableFails = false
 
@@ -34,11 +33,6 @@ registerEndpoint('/api/tables/tbl_deals/fields', () => {
   return { fields: [textField('company')] }
 })
 
-/**
- * `useApi()` wraps `useRequestFetch()`, which has to be called during setup — so the composable is
- * exercised through a mounted host rather than called bare, the same seam the other composable
- * specs use.
- */
 async function load(tableId = 'tbl_deals') {
   let loader: ReturnType<typeof useTableLoader> | undefined
 
@@ -68,7 +62,6 @@ describe('useTableLoader', () => {
     expect(await load()).toEqual(TABLE)
   })
 
-  /** Both screens need both before they can draw anything, so neither waits on the other. */
   it('fetches the table and its fields together', async () => {
     await load()
 
@@ -83,10 +76,6 @@ describe('useTableLoader', () => {
     expect(useFieldsStore().fields.map((field) => field.key)).toEqual(['company'])
   })
 
-  /**
-   * It never turns a failure into a page error itself — `toPageError` decides whether a cause may
-   * be asserted, and that judgement belongs to the page throwing the 404 (`docs/decisions.md`).
-   */
   it('rejects rather than swallowing a failed table fetch', async () => {
     tableFails = true
 

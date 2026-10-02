@@ -30,7 +30,6 @@ describe('parseDetailChain', () => {
   })
 
   it('stops at a malformed entry rather than skipping it', () => {
-    // A Back that silently jumped over a record would be worse than a shorter trail
     expect(parseDetailChain({ [DETAIL_PARAM]: 'tbl1.rec1,broken,tbl3.rec3' })).toEqual([
       ref('tbl1', 'rec1'),
     ])

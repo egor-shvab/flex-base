@@ -15,18 +15,8 @@ const fieldErrors = {
   notFound: 'Field not found',
 }
 
-/**
- * Brings a field's indexes in line **without making the caller wait**.
- *
- * `CREATE INDEX CONCURRENTLY` runs for minutes on a large table — a trigram GIN over a million
- * rows took over two — and blocks no writes, so waiting would buy only a response that reports
- * the outcome. The trade: a failure reaches the error log rather than the user, and the index is
- * absent until something asks again. `reconcileFieldIndexes` is the recovery path.
- */
 function recordBackgroundFailure(error: unknown): void {
-  // Straight to the sink rather than rethrown: Nitro's `error` hook only sees faults on the
-  // request path, which this has left, so an uncaught throw would reach `uncaughtException`
-  // and take the process down over an index that failed to build
+  // Not rethrown: off the request path an uncaught throw would take the process down
   recordErrorEntry(buildErrorLogEntry(error, null, new Date()))
 }
 
@@ -34,11 +24,6 @@ function syncIndexesInBackground(field: IField): void {
   void syncFieldIndexes(field).catch(recordBackgroundFailure)
 }
 
-/**
- * SELECT stores its choices, RELATION its target and label field; other types have none.
- * Both multi-capable types carry their cardinality alongside — the schema has already refused
- * `multiple` on a type that has no list form, so nothing needs re-checking here.
- */
 function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   if (input.type === 'SELECT') return { choices: input.choices, multiple: input.multiple }
   if (input.type === 'RELATION') {
@@ -52,13 +37,8 @@ function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma
 }
 
 /**
- * Rewrites every stored value of one field into a single-element array, in the same transaction
- * as the field update so the metadata and the rows it describes move together.
- *
- * Non-destructive and idempotent: an array is skipped, and so is a missing or JSON-null value —
- * `[null]` would be a value where there was none. The `?` operator rather than `jsonb_exists`,
- * for one rule with `containsAny`; a literal `?` is a placeholder token on Prisma's *other*
- * drivers, not on the `adapter-pg` this project uses.
+ * Idempotent: an array is skipped, and so is a missing or JSON-null value. A literal `?` is a
+ * placeholder token on Prisma's other drivers, not on `adapter-pg`.
  */
 function widenToList(tx: Prisma.TransactionClient, tableId: string, key: string) {
   return tx.$executeRaw`
@@ -124,15 +104,11 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
 
   const currentOptions = toFieldOptions(field.options)
 
-  // Retargeting would orphan every id already stored, so the target is immutable like the
-  // key and the type. The label field is pure display and stays editable.
   const currentTarget = currentOptions?.targetTableId
   if (currentTarget !== undefined && currentTarget !== input.targetTableId) {
     throw createError({ statusCode: 400, statusMessage: 'Relation target cannot be changed' })
   }
 
-  // Cardinality is one-way: widening is a migration this can perform, where narrowing would
-  // discard every value past the first with no rule for which survives
   const wasMultiple = currentOptions?.multiple === true
   if (wasMultiple && !input.multiple) {
     throw createError({
@@ -143,7 +119,6 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
-      // key is immutable — only name/required/options are updated
       const row = await tx.field.update({
         where: { id: fieldId, tableId },
         data: {
@@ -155,8 +130,6 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
         select: fieldSelect,
       })
 
-      // The rows move with the metadata that describes them, or a value stored as a scalar
-      // would be read by a schema and a projection that both expect a list
       if (!wasMultiple && input.multiple) {
         await widenToList(tx, tableId, field.key)
       }
@@ -165,9 +138,8 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     })
 
     const saved = toSharedField(updated)
-    // Outside the transaction, since `CONCURRENTLY` is refused inside one. Widening also
-    // changes which index a field wants — a multi-value SELECT filters through GIN where a
-    // single-value one uses a B-tree — so this runs on every update.
+    // Outside the transaction, which refuses `CONCURRENTLY`; on every update, since widening
+    // changes which index a field wants
     syncIndexesInBackground(saved)
 
     return saved
@@ -183,16 +155,9 @@ async function deleteField(tableId: string, fieldId: string) {
     throw toHttpError(error, fieldErrors)
   }
 
-  // After the delete succeeded: dropping one for a field still present would quietly slow the
-  // queries using it
   void dropFieldIndexes(fieldId).catch(recordBackgroundFailure)
 }
 
-/**
- * The field rules a handler may reach. `buildOptions` is public because a new field type adds a
- * branch to it (`CLAUDE.md` §9); `widenToList` is not — it is an implementation detail of
- * widening, and nothing outside this module has a reason to run it.
- */
 export const FieldService = {
   buildOptions,
   listFields,

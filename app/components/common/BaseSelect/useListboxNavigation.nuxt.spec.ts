@@ -5,7 +5,6 @@ import { useListboxNavigation } from '~/components/common/BaseSelect/useListboxN
 import type { ISelectOption } from '~/types/select'
 import { track, unmountAll } from '~~/test/mount'
 
-/** Six enabled options, so a PAGE_STEP of 10 always overshoots and has to clamp. */
 const OPTIONS: ISelectOption[] = [
   { value: 'a', label: 'Alpha' },
   { value: 'b', label: 'Bravo' },
@@ -19,17 +18,10 @@ function option(value: string, label: string, disabled = false): ISelectOption {
   return { value, label, disabled }
 }
 
-/**
- * A host component, because `onBeforeUnmount` needs an instance. `listRef` stays `undefined`:
- * `scrollIntoView` is optional-chained, and where the cursor *lands* is the subject rather than
- * where it scrolls to. The return is captured out of `setup` rather than off `wrapper.vm`,
- * which unwraps refs and would make `activeIndex` a number where the type says `Ref`.
- */
 function setup(initial: ISelectOption[] = OPTIONS, initiallyOpen = true) {
   const options = shallowRef(initial)
   const isOpen = ref(initiallyOpen)
   const listRef = ref<HTMLElement>()
-  /** What a typed term would say. False here, which is the plain case: no term, no seeding. */
   const shouldSeedCursor = ref(false)
 
   let nav!: ReturnType<typeof useListboxNavigation>
@@ -46,7 +38,6 @@ function setup(initial: ISelectOption[] = OPTIONS, initiallyOpen = true) {
     },
   })
 
-  // `mount` runs setup synchronously, so `nav` is assigned by the time this returns
   const wrapper = track(mount(Host))
 
   return { wrapper, options, isOpen, shouldSeedCursor, nav }
@@ -87,7 +78,6 @@ describe('useListboxNavigation', () => {
       expect(nav.activeIndex.value).toBe(2)
     })
 
-    /** A listbox that loops has no felt end; Home/End are the way to the extremes. */
     it('does not wrap at either end', () => {
       const { nav } = setup()
 
@@ -124,10 +114,6 @@ describe('useListboxNavigation', () => {
       expect(nav.activeIndex.value).toBe(0)
     })
 
-    /**
-     * The case `nextEnabledIndex(from, -step)` exists for: walking into a run of disabled options
-     * finds nothing ahead, so the search turns round rather than resting on an unselectable row.
-     */
     it('turns round when a run of disabled options ends the list', () => {
       const { nav } = setup([
         option('a', 'Alpha'),
@@ -229,10 +215,6 @@ describe('useListboxNavigation', () => {
     })
   })
 
-  /**
-   * A native `<select>` jumps to the first option starting with what you type, and replacing it
-   * with a listbox deletes that silently.
-   */
   describe('typeAhead', () => {
     it('jumps to the first option starting with the character', () => {
       const { nav } = setup()
@@ -256,8 +238,6 @@ describe('useListboxNavigation', () => {
       nav.typeAhead('c')
       expect(nav.activeIndex.value).toBe(2)
 
-      // 'ca' matches nothing, so the cursor holds. A buffer that restarted per key would read
-      // this as a bare 'a' and jump to Alpha.
       nav.typeAhead('a')
       expect(nav.activeIndex.value).toBe(2)
     })
@@ -281,7 +261,6 @@ describe('useListboxNavigation', () => {
 
       vi.advanceTimersByTime(500)
 
-      // A fresh 'd' rather than 'cd', which would match nothing
       nav.typeAhead('d')
       expect(nav.activeIndex.value).toBe(3)
     })
@@ -308,10 +287,6 @@ describe('useListboxNavigation', () => {
     })
   })
 
-  /**
-   * Keyed on the option *values* rather than the array, because both sources come from a
-   * `props(field)` factory that returns a fresh array on every parent render.
-   */
   describe('re-clamping as the list changes', () => {
     it('re-seats the cursor on the first enabled option when the list is replaced', async () => {
       const { nav, options } = setup()
@@ -340,7 +315,6 @@ describe('useListboxNavigation', () => {
       options.value = OPTIONS.map((entry) => ({ ...entry }))
       await nextTick()
 
-      // Resetting the highlight on every parent render would fight the user
       expect(nav.activeIndex.value).toBe(4)
     })
 
@@ -355,11 +329,6 @@ describe('useListboxNavigation', () => {
       expect(nav.activeIndex.value).toBe(4)
     })
 
-    /**
-     * The difference between validating a cursor and inventing one: an async select's options
-     * land while it is open with no key pressed, and re-seating there would light a row up on
-     * its own. That is what `shouldSeedCursor` gates.
-     */
     it('creates no cursor for a list that changes under none', async () => {
       const { nav, options } = setup()
 
@@ -376,7 +345,6 @@ describe('useListboxNavigation', () => {
       options.value = [option('x', 'Xray', true), option('y', 'Yankee')]
       await nextTick()
 
-      // The first *enabled* match, so Enter commits what the term found
       expect(nav.activeIndex.value).toBe(1)
     })
   })
@@ -397,7 +365,6 @@ describe('useListboxNavigation', () => {
       nav.typeAhead('c')
       nav.reset()
 
-      // 'd' fresh, not 'cd' — which would match nothing and leave the cursor at -1
       nav.typeAhead('d')
       expect(nav.activeIndex.value).toBe(3)
     })

@@ -22,7 +22,6 @@ describe('buildPageWindow', () => {
     expect(buildPageWindow(10, 10, false)).toEqual([1, 'gap', 9, 10])
   })
 
-  /** A gap that would hide exactly one page draws that page: the cell is the same size. */
   it('never lets a gap stand in for a single page', () => {
     expect(buildPageWindow(4, 10, false)).toEqual([1, 2, 3, 4, 5, 'gap', 10])
     expect(buildPageWindow(7, 10, false)).toEqual([1, 'gap', 6, 7, 8, 9, 10])
@@ -33,7 +32,6 @@ describe('buildPageWindow', () => {
   })
 
   describe('a capped total', () => {
-    /** `pageCount` is a floor, so drawing it as the last page would be a claim. */
     it('never draws the last page, and trails a gap for the pages past the count', () => {
       expect(buildPageWindow(1, 20, true)).toEqual([1, 2, 'gap'])
       expect(buildPageWindow(5, 20, true)).toEqual([1, 'gap', 4, 5, 6, 'gap'])

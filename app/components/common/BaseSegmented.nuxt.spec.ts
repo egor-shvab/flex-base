@@ -43,7 +43,6 @@ describe('BaseSegmented', () => {
     ])
   })
 
-  /** The whole control is one tab stop — the chosen segment. */
   it('puts the only tab stop on the chosen segment', async () => {
     const wrapper = await segmented({ modelValue: 'false' })
 

@@ -1,12 +1,6 @@
 import { confirmDeletion, expect, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
-/**
- * Record CRUD across **every** field type, through the generated form and the generated table.
- * The point is that no per-type code exists on either side: one form renders all six, and one
- * table renders them back.
- */
-
 test.describe('every field type', () => {
   let table: ISeededTable
 
@@ -72,7 +66,6 @@ test.describe('every field type', () => {
     await page.getByRole('button', { name: 'Create record' }).click()
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
 
-    // One step away, in the row's menu
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitem', { name: 'Delete record' }).click()
     await page.getByRole('button', { name: 'Close' }).click()
@@ -85,10 +78,6 @@ test.describe('every field type', () => {
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeHidden()
   })
 
-  /**
-   * Where focus goes is the half a component spec cannot vouch for in a real browser: into the
-   * menu on opening, back to the trigger on Escape — and the Escape closes the menu alone.
-   */
   test('the row menu is keyboard-operable and returns focus', async ({ page }) => {
     await page.goto(table.url)
     await page.getByRole('button', { name: 'Add record' }).first().click()
@@ -120,11 +109,6 @@ test.describe('every field type', () => {
     await expect(row).toContainText('Not set')
   })
 
-  /**
-   * The NUMBER control is a native number input, so letters never become a value in the first
-   * place — the schema's rejection of a non-numeric payload is a server concern and is covered
-   * there. What only a browser can show is that the control refuses the keystrokes.
-   */
   test('will not let letters into a number field at all', async ({ page }) => {
     await page.goto(table.url)
     await page.getByRole('button', { name: 'Add record' }).first().click()
@@ -135,8 +119,7 @@ test.describe('every field type', () => {
     await value.pressSequentially('not a number')
     await expect(value).toHaveValue('')
 
-    // Cleared first: the control keeps the rejected text in its buffer, so appending digits to
-    // it would still read as invalid — which is the browser's behaviour, not a bug
+    // Cleared first: the control keeps the rejected text in its buffer
     await value.fill('')
     await value.pressSequentially('1200')
     await expect(value).toHaveValue('1200')
@@ -153,13 +136,10 @@ test.describe('a required field', () => {
     await page.getByRole('button', { name: 'Add record' }).first().click()
     await page.getByRole('button', { name: 'Create record' }).click()
 
-    // The field's own name, not a bare "required": the schema emits `${field.name} is
-    // required` per field, and a form that said only "required" would leave the user hunting
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByText('Company is required')).toBeVisible()
   })
 
-  /** `false` is a real value, so a checkbox can never be "missing" — a documented no-op. */
   test('is a no-op on a checkbox', async ({ page, seedTable }) => {
     const table = await seedTable('Deals', [
       { key: 'active', type: 'BOOLEAN', name: 'Active', required: true },
@@ -198,7 +178,6 @@ test.describe('a multi-value field', () => {
     await page.goto(table.url)
 
     await expect(page.getByRole('row').filter({ hasText: 'urgent' })).toContainText('renewal')
-    // An empty list is as blank as a null — not a blank cell
     await expect(page.getByRole('cell', { name: 'Not set' })).toBeVisible()
   })
 
@@ -217,8 +196,6 @@ test.describe('a multi-value field', () => {
     await page.getByRole('button', { name: 'Add record' }).first().click()
     await page.getByRole('button', { name: 'Create record' }).click()
 
-    // "Per-field" is the claim, so the field's own message is what proves it — a dialog that
-    // merely stayed open would satisfy a form-level error just as well
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByText('Tags is required')).toBeVisible()
   })

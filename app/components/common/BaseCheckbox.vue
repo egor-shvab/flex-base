@@ -1,8 +1,6 @@
 <template>
   <div class="base-checkbox">
     <label class="base-checkbox__control" :class="{ 'base-checkbox__control--disabled': disabled }">
-      <!-- The native input *is* the drawn box (`appearance: none`), so it keeps its role, its
-           focus and its checked state; the check is an icon laid over it -->
       <span class="base-checkbox__box">
         <input
           :id="inputId"
@@ -22,7 +20,6 @@
       </span>
       <span class="base-checkbox__text">{{ label }}</span>
     </label>
-    <!-- One line under the label, as `BaseInput` does it: the error replaces the hint -->
     <span v-if="error" :id="`${inputId}-error`" class="base-checkbox__error">{{ error }}</span>
     <span v-else-if="hint" :id="`${inputId}-hint`" class="base-checkbox__hint">{{ hint }}</span>
   </div>
@@ -37,12 +34,8 @@ const props = withDefaults(
     label: string
     id?: string
     error?: string
-    /** What ticking it costs or means — a statement, not a fault, so it is not the error line. */
     hint?: string
-    /**
-     * Native `disabled` on the `<input>`, not the root: fallthrough would put it on the
-     * wrapping `<div>`, where it means nothing and the control stays operable.
-     */
+    /** Declared, or fallthrough would put it on the wrapping `<div>`, where it means nothing. */
     disabled?: boolean
   }>(),
   {
@@ -55,8 +48,6 @@ const props = withDefaults(
 
 const model = defineModel<boolean>({ required: true })
 
-// A generated id rather than `undefined` interpolated into the error id and
-// `aria-describedby`, which two id-less checkboxes on one page would collide on
 const fallbackId = useId()
 const inputId = computed(() => props.id ?? fallbackId)
 
@@ -67,9 +58,6 @@ const describedBy = computed(() => toDescribedBy(inputId.value, props))
 .base-checkbox {
   @include stack(4);
 
-  // The label wraps the input, so its box *is* the target — the 18px box would not clear the
-  // 24px floor, hence the control height. `align-self` is the other half: stretched, the
-  // label spans the whole form and empty space beside the text toggles the box.
   &__control {
     display: flex;
     align-items: center;
@@ -91,8 +79,6 @@ const describedBy = computed(() => toDescribedBy(inputId.value, props))
     flex: none;
   }
 
-  // A square is a value you save. It draws its own border, so it takes `control-focus` — the
-  // border recolours and the halo marks the keyboard — never `focus-ring` (`CLAUDE.md` §8).
   &__input {
     width: rem(18);
     height: rem(18);
@@ -124,7 +110,6 @@ const describedBy = computed(() => toDescribedBy(inputId.value, props))
       cursor: not-allowed;
     }
 
-    // Still visibly ticked: a locked value is a value, so the fill greys rather than empties
     &:checked:disabled {
       border-color: var(--color-glyph-faint);
       background: var(--color-glyph-faint);
@@ -140,13 +125,10 @@ const describedBy = computed(() => toDescribedBy(inputId.value, props))
       background: var(--color-danger);
     }
 
-    // Last, so a focused box shows the focus border whatever state it is in
     @include control-focus;
   }
 
-  // White on the accent fill. Under `forced-colors` the fill is dropped, but an icon's
-  // `currentColor` is forced to the text colour, so the check still shows — the reason the
-  // mark is an icon over the input rather than a background image on it.
+  // An icon rather than a background image: under `forced-colors` its `currentColor` still shows
   &__check {
     position: absolute;
     inset: 0;
@@ -161,8 +143,6 @@ const describedBy = computed(() => toDescribedBy(inputId.value, props))
     visibility: visible;
   }
 
-  // Under the label text rather than the box — the 18px box plus its 9px gap — so the line
-  // reads as about the words it follows
   &__error,
   &__hint {
     padding-left: rem(27);

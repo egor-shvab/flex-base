@@ -23,21 +23,12 @@
 
       <BaseCheckbox v-model="form.required" label="Required" />
 
-      <!--
-        Opt-in, because an index is a trade: faster sorting and filtering on this field, slower
-        saves on this table. Labelled by what it buys, not by the mechanism.
-      -->
       <BaseCheckbox
         v-model="form.indexed"
         label="Speed up sorting and filtering"
         hint="Worth it for fields you sort or filter by often. Saving records gets a little slower."
       />
 
-      <!--
-        Cardinality is a per-field setting rather than a second field type, which is what makes
-        an existing field convertible. Widening migrates the records that exist; narrowing would
-        discard values, so the server refuses it and the control locks once on.
-      -->
       <BaseCheckbox
         v-if="MULTI_VALUE_BY_TYPE[form.type]"
         v-model="form.multiple"
@@ -52,8 +43,6 @@
 
       <div v-if="form.type === 'SELECT'" class="field-form__choices">
         <span class="field-form__label">Choices</span>
-        <!-- Only when there are rows: an empty wrapper is still a flex item, so it would open
-             a second `stack` gap under the label. -->
         <div v-if="form.choices.length > 0" class="field-form__choice-list">
           <div
             v-for="(choice, index) in form.choices"
@@ -96,11 +85,6 @@
             :error="errors.targetTableId"
             :disabled="mode === 'edit'"
           />
-          <!--
-            Beside the control, not only inside its panel: a failure a user has to open a select
-            to discover reads as an empty account instead. `v-if`, so the alert exists only
-            while it has something to say.
-          -->
           <p v-if="tablesStatus === 'failed'" class="field-form__load-error" role="alert">
             Couldn’t load your tables.
             <BaseButton variant="link" @click="loadTables">Try again</BaseButton>
@@ -170,8 +154,7 @@ const typeOptions: { value: TFieldType; label: string }[] = FIELD_TYPES.map((typ
   label: FIELD_TYPE_LABELS[type],
 }))
 
-// Copied one level deep, because a choice is an object: sharing the references would let an
-// edit here mutate the store's field metadata and repaint the page behind the modal
+// Copied deep: shared references would let an edit mutate the store's metadata behind the modal
 const initialChoices = (props.field?.options?.choices ?? []).map((choice) => ({ ...choice }))
 
 const { form, errors, serverError, pending, submit } = useForm({
@@ -192,16 +175,8 @@ const { form, errors, serverError, pending, submit } = useForm({
   },
 })
 
-/**
- * Read off the saved field, not the form, so ticking the box in this session does not lock it
- * — only an *already* multi-value field is one the server refuses to narrow.
- */
 const lockedMultiple = computed(() => props.field?.options?.multiple === true)
 
-/**
- * Identity for the choice rows, since a choice has none — its `value` is still being typed.
- * Keying by index would shift every row below a removal onto the wrong state and colour.
- */
 let nextRowId = 0
 const rowIds = ref(initialChoices.map(() => nextRowId++))
 
@@ -218,22 +193,10 @@ function removeChoice(index: number) {
 const fieldsApi = useFieldsApi()
 const tablesStore = useTablesStore()
 
-/**
- * Where one of this form's two option lists is in its lifecycle. Both need one: an empty list
- * and an unanswered request are indistinguishable from a `.length`, and a select saying "there
- * are none" would state a fact about the user's data nobody has established (`CLAUDE.md` §7).
- */
 type TOptionsStatus = 'idle' | 'loading' | 'ready' | 'failed'
 
 const tablesStatus = ref<TOptionsStatus>('idle')
 
-/**
- * A relation may point at any of the user's tables, its own included — "parent task" is a real
- * shape. Refreshed here so the modal stays self-contained.
- *
- * **Never rethrown**: it runs from a watcher, where a rejection would be unhandled and the
- * select below would simply read "No other tables yet".
- */
 async function loadTables() {
   tablesStatus.value = 'loading'
 
@@ -245,12 +208,6 @@ async function loadTables() {
   }
 }
 
-/**
- * Fetched for the one type that reads the list, and once — no other type renders the target
- * select. `immediate`, so editing an existing relation still loads on open. The `idle` guard is
- * what makes it once, which is also why a failure is retried through the control's own Retry
- * rather than by switching type away and back.
- */
 watch(
   () => form.type,
   (type) => {
@@ -259,28 +216,15 @@ watch(
   { immediate: true },
 )
 
-// No blank entry: a placeholder says "nothing chosen" without posing as a choice, and
-// `clearable` takes the choice back.
-//
-// This and `labelOptions` are `searchable` unconditionally rather than counted with
-// `shouldSearch`: both arrive after mount, so a derived value would start `false`, render a
-// `<button>`, and flip to an `<input>` when the fetch lands — swapping the focused element out
-// from under the user. Neither list has an upper bound anyway.
+// `searchable` unconditionally rather than `shouldSearch`: these lists arrive after mount, so a
+// derived value would swap the focused element when the fetch lands
 const targetOptions = computed(() =>
   tablesStore.tables.map((table) => ({ value: table.id, label: table.name })),
 )
 
-/**
- * Fetched directly rather than through the fields store, which holds the table being edited —
- * loading another table's fields into it would clobber the page behind this modal.
- */
+/** Not through the fields store, which holds the table being edited. */
 const targetFields = shallowRef<IField[]>([])
 
-/**
- * A link labelled by another link would read as an id, and a multi-value field names nothing —
- * so neither can label. (One already serving as a label can still be widened afterwards, which
- * `buildRecordLabel` degrades rather than guards against.)
- */
 const labelCandidates = computed(() =>
   targetFields.value.filter((field) => field.type !== 'RELATION' && !isMultiValue(field)),
 )
@@ -291,17 +235,9 @@ const labelOptions = computed(() =>
 
 const targetFieldsStatus = ref<TOptionsStatus>('idle')
 
-/**
- * Monotonic, so a slow answer for a target the user has already moved off cannot overwrite the
- * one they are now looking at — the same guard `useSelectOptions` applies to a typed search.
- */
+/** Monotonic, so a slow answer for a target already left cannot overwrite the current one. */
 let targetFieldsRequestId = 0
 
-/**
- * The target's own fields. Like `loadTables`, a failure is **caught rather than thrown**: from
- * an async watcher a rejection is unhandled, and the select would claim the table has no fields
- * to label by while the schema keeps the form unsubmittable.
- */
 async function loadTargetFields(targetTableId: string) {
   const requestId = (targetFieldsRequestId += 1)
 
@@ -321,7 +257,6 @@ async function loadTargetFields(targetTableId: string) {
     targetFields.value = response.fields
     targetFieldsStatus.value = 'ready'
 
-    // Keep a choice that still exists, otherwise fall back to the target's first field
     if (!labelCandidates.value.some((field) => field.key === form.labelFieldKey)) {
       form.labelFieldKey = labelCandidates.value[0]?.key ?? ''
     }
@@ -343,10 +278,6 @@ watch(
   },
 )
 
-/**
- * What each select says when it is offering nothing — four sentences per control, of which
- * only the last is the genuine "there are none".
- */
 const targetEmptyLabel = computed(() => {
   if (tablesStatus.value === 'loading') return 'Loading your tables…'
   if (tablesStatus.value === 'failed') return 'Couldn’t load your tables'
@@ -369,14 +300,10 @@ const labelEmptyLabel = computed(() => {
     @include field-label;
   }
 
-  // A select plus the line saying why it is empty, as one `stack(4)` item so the message sits
-  // against its control rather than a form gap away
   &__source {
     @include stack(4);
   }
 
-  // The validation register, unlike a checkbox hint, because a failed load *is* a fault.
-  // `inline-flex` so the Retry link shares the sentence's baseline.
   &__load-error {
     @include field-error;
 
@@ -389,20 +316,13 @@ const labelEmptyLabel = computed(() => {
     @include stack(8);
   }
 
-  // Only the rows scroll — the label, "Add choice" and the error stay put, or thirty choices
-  // bury every other control. The dialog's own scrolling does not help: this is one section
-  // dominating the form, not the form outgrowing the screen.
   &__choice-list {
     @include stack(8);
 
-    // Four rows and the top of a fifth, so the cut lands *inside* a row rather than in a gap,
-    // where it would read as the end of the list
     max-height: rem(200);
     overflow-y: auto;
-    // The focus state reaches 4px past a control's edge, and `overflow-y: auto` computes
-    // `overflow-x` to `auto` too, so without this inset the picker's and remove button's states
-    // are clipped. `overflow-clip-margin` applies to `clip`, not `auto`, so it is not the tool
-    // here; the matching negative margin keeps the rows aligned with the controls above.
+    // Room for focus states, which `overflow-y: auto` would clip (it computes `overflow-x` to
+    // `auto` too); `overflow-clip-margin` applies only to `clip`
     padding: rem(4);
     margin: rem(-4);
   }

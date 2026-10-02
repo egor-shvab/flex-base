@@ -8,12 +8,11 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 function mountPicker(props: { modelValue?: TBadgeColor; disabled?: boolean } = {}) {
   return mountTracked(BaseColorPicker, {
     props: { label: 'Colour for choice 1', modelValue: 'blue' as TBadgeColor, ...props },
-    // Attached, or nothing rendered is `isConnected` and every focus assertion is vacuous
+    // Attached, or every focus assertion is vacuous
     attachTo: document.body,
   })
 }
 
-/** Opens the panel and settles both ticks: focus lands on one, the measurement on the next. */
 async function opened(props: { modelValue?: TBadgeColor } = {}) {
   const wrapper = await mountPicker(props)
   await wrapper.get('button').trigger('click')
@@ -27,7 +26,6 @@ describe('BaseColorPicker', () => {
   afterEach(unmountAll)
 
   describe('the trigger', () => {
-    /** A swatch has no text of its own, so the colour has to be in the name. */
     it('names the colour it is for and what that colour currently is', async () => {
       const wrapper = await mountPicker({ modelValue: 'teal' })
 
@@ -62,11 +60,6 @@ describe('BaseColorPicker', () => {
       )
     })
 
-    /**
-     * The panel is placed by `useAnchoredPosition`, which writes viewport coordinates. The
-     * arithmetic and the flip are pinned in that composable's own spec; what matters here is only
-     * that the picker is wired to it.
-     */
     it('is positioned by the composable rather than by CSS', async () => {
       const panel = (await opened()).get<HTMLElement>('[role="radiogroup"]')
 
@@ -74,11 +67,6 @@ describe('BaseColorPicker', () => {
       expect(panel.element.style.left).not.toBe('')
     })
 
-    /**
-     * Stated rather than left at the composable's 280 default: this panel is a fixed grid of two
-     * `--control-height` rows, and a 280 cap would fail the "does it fit below?" test in rooms it
-     * comfortably fits, flipping it for no reason.
-     */
     it('caps itself at its own height, not at the composable’s default', async () => {
       const panel = (await opened()).get<HTMLElement>('[role="radiogroup"]')
 
@@ -104,7 +92,6 @@ describe('BaseColorPicker', () => {
       expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
     })
 
-    /** Focus goes back to the trigger, or a keyboard user is left at the top of the document. */
     it('hands focus back to the trigger', async () => {
       const wrapper = await opened()
 
@@ -115,7 +102,6 @@ describe('BaseColorPicker', () => {
   })
 
   describe('the keyboard', () => {
-    /** Opening onto the selected swatch is what gives the roving tabindex somewhere to rove from. */
     it('focuses the selected swatch on open, and only that one is tabbable', async () => {
       const wrapper = await opened({ modelValue: 'green' })
       const swatches = wrapper.findAll('[role="radio"]')
@@ -127,7 +113,6 @@ describe('BaseColorPicker', () => {
       )
     })
 
-    /** Arrow keys move the selection with focus, the way a native radio group does. */
     it.each([
       ['ArrowRight', 'indigo'],
       ['ArrowDown', 'indigo'],
@@ -162,10 +147,6 @@ describe('BaseColorPicker', () => {
       expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([expected])
     })
 
-    /**
-     * Escape is handled on the panel with `.stop` because this opens inside `BaseModal`, whose
-     * own Escape listener is on `document` — one keypress must not close both.
-     */
     it('closes on Escape without letting the key reach the document', async () => {
       const wrapper = await opened()
       let reachedDocument = false

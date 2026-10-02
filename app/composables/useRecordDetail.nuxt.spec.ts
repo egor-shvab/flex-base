@@ -12,10 +12,6 @@ import { useRelationsStore } from '~/stores/relations'
 import { record, relationField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
-/**
- * A reactive route stub, so the composable's `computed` chain re-evaluates when the query moves
- * — reactive rather than plain, because this one watches its own derived key.
- */
 const route = vi.hoisted(() => ({ current: { query: {} as TUrlQuery } }))
 mockNuxtImport('useRoute', () => () => route.current)
 
@@ -28,7 +24,6 @@ function detail(recordId: string, linked: IRecordDetail['linkedRecords'] = {}): 
   }
 }
 
-/** Which record each stubbed route answers with, and which of them are set to fail. */
 let responses: Record<string, IRecordDetail> = {}
 let failures: Record<string, number> = {}
 const requests: string[] = []
@@ -48,24 +43,13 @@ for (const [tableId, recordId] of [
   })
 }
 
-/**
- * `useAsyncData`'s watch refresh is asynchronous and not a microtask, so every case waits for
- * one — on the **outcome** rather than a clock, since a fixed sleep turns a slow machine into a
- * red build and, when long enough, passes a race that is already broken.
- */
 const awaitRequests = (expected: string[]) => vi.waitFor(() => expect(requests).toEqual(expected))
 
-/**
- * Opened inside a mounted component, the shape the composable actually has: its `useAsyncData`
- * needs a Suspense boundary to await the first fetch. The return is captured out of `setup`
- * rather than off `wrapper.vm`, which unwraps refs.
- */
 let host: { unmount: () => void } | undefined
 
 async function open(query: TUrlQuery = {}) {
-  // Keys are per record, so one case's entry is the next case's cache whenever two open the
-  // same record. Tearing the previous owner down *and* clearing the keys is what resets it —
-  // clearing alone leaves the instance resolved.
+  // Keys are per record, so tearing the owner down and clearing the keys are both needed to
+  // reset a cache another case shares
   host?.unmount()
   clearNuxtData((key) => key.startsWith('record-detail'))
 
@@ -83,8 +67,6 @@ async function open(query: TUrlQuery = {}) {
   const wrapper = await mountTracked(Host)
   host = wrapper
 
-  // A sync `setup` does not await its own async data, so Suspense resolves before the first
-  // request settles — the dialog renders `pending` and fills in afterwards, same as in the app
   await vi.waitFor(() => expect(dialog.pending.value).toBe(false))
 
   return { wrapper, dialog }
@@ -107,7 +89,6 @@ describe('useRecordDetail', () => {
       const { dialog } = await open()
 
       expect(dialog.chain.value).toEqual([])
-      // "No record open" is a state the dialog renders, not the absence of an answer
       expect(dialog.detail.value).toBeNull()
       expect(requests).toEqual([])
     })
@@ -119,7 +100,6 @@ describe('useRecordDetail', () => {
       expect(dialog.detail.value?.record.id).toBe('rec_1')
     })
 
-    /** Only the last entry is shown; the ones before it are what Back walks up. */
     it('shows the last of a chain and keeps the trail', async () => {
       const { dialog } = await open({ detail: 'tbl_deals.rec_1,tbl_people.rec_ada' })
 
@@ -136,10 +116,6 @@ describe('useRecordDetail', () => {
     })
   })
 
-  /**
-   * The same merge-only cache the list feeds, so a relation *inside* the dialog resolves to a
-   * ref and can link on again without a second round trip.
-   */
   it('caches the linked records the record came with', async () => {
     responses.rec_1 = detail('rec_1', {
       fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } },
@@ -153,16 +129,10 @@ describe('useRecordDetail', () => {
     })
   })
 
-  /**
-   * The watched source is a **string**, not the ref object: `parseDetailChain` returns fresh
-   * objects per query change, so watching the object would refetch when an unrelated param
-   * moved. Both directions are counted, the only way the difference shows.
-   */
   describe('when it refetches', () => {
     /**
-     * A negative is not something to wait for, so this drives a change that *must* refetch
-     * straight after the one that must not: a queued fetch would appear between the two, and the
-     * watcher is proved alive rather than merely slow.
+     * A negative cannot be waited for, so a change that must refetch follows straight after: a
+     * queued fetch would appear between the two.
      */
     it('does not refetch when an unrelated param moves', async () => {
       await open({ detail: 'tbl_deals.rec_1', page: '1' })
@@ -200,14 +170,12 @@ describe('useRecordDetail', () => {
   })
 
   describe('failure', () => {
-    /** The one status that names its own cause: deleted after the link was drawn. */
     it('names a 404 for what it is, and offers no retry', async () => {
       failures.rec_1 = 404
 
       const { dialog } = await open({ detail: 'tbl_deals.rec_1' })
 
       expect(dialog.errorMessage.value).toBe('This record no longer exists.')
-      // Retrying a 404 cannot help
       expect(dialog.canRetry.value).toBe(false)
     })
 
@@ -228,7 +196,6 @@ describe('useRecordDetail', () => {
     })
   })
 
-  /** Every control is a route target, which is what makes Back reverse exactly one step. */
   describe('where its controls point', () => {
     it('offers no way back from the outermost record', async () => {
       const { dialog } = await open({ detail: 'tbl_deals.rec_1' })
@@ -245,7 +212,6 @@ describe('useRecordDetail', () => {
     it('drops the param entirely on close', async () => {
       const { dialog } = await open({ detail: 'tbl_deals.rec_1' })
 
-      // An empty chain yields `undefined`, which the router drops — no empty param left behind
       expect(dialog.closeTo.value.query.detail).toBeUndefined()
     })
 
@@ -264,7 +230,6 @@ describe('useRecordDetail', () => {
   it('has settled by the time the dialog renders', async () => {
     const { dialog } = await open({ detail: 'tbl_deals.rec_1' })
 
-    // Suspense awaits the first fetch, which is what lets a shared link render server-side
     expect(dialog.pending.value).toBe(false)
     expect(dialog.detail.value?.record.id).toBe('rec_1')
   })

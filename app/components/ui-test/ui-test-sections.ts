@@ -1,14 +1,9 @@
-/** One subpage of `/ui-test`: where it lives, and which `common/` components it shows. */
 export interface IUiTestSection {
   path: string
   label: string
   components: string[]
 }
 
-/**
- * The showcase's subpages, read by both the section nav and the overview. Every component in
- * `app/components/common/` appears in exactly one entry.
- */
 export const UI_TEST_SECTIONS: IUiTestSection[] = [
   { path: '/ui-test/buttons', label: 'Buttons', components: ['BaseButton'] },
   {

@@ -25,15 +25,8 @@ import type { ITable } from '#shared/types/table'
 const recordErrors = { notFound: 'Record not found' }
 
 /**
- * The rows of one page — **one shape, searching or not**.
- *
- * No `WITH hits AS MATERIALIZED (…)`: that hint builds every matching row, full JSONB included,
- * before the `LIMIT` can discard any, so at 600k rows a common term cost **7.4 s** against
- * **2.7 ms** without it. The planner picks a bitmap scan for a selective term and the ordering
- * index for a common one, correctly, given the trigram index's estimate (`docs/decisions.md`).
- *
- * **An ordering may bring a join with it** (`IRecordOrder`), composed here because only this
- * knows what the `FROM` is.
+ * No `WITH … AS MATERIALIZED`: it builds every matching row before the `LIMIT` can discard any,
+ * which measured three orders of magnitude slower for a common term.
  */
 function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery) {
   const { page, pageSize } = query
@@ -49,10 +42,6 @@ function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery)
   `
 }
 
-/**
- * How many rows match, counted no further than the cap. `LIMIT cap + 1` is what separates
- * "exactly the cap" from "more than the cap".
- */
 function selectCount(where: Prisma.Sql) {
   // COUNT(*) is a bigint, which would arrive as a string without the cast
   return prisma.$queryRaw<{ count: number }[]>`
@@ -61,20 +50,12 @@ function selectCount(where: Prisma.Sql) {
   `
 }
 
-/**
- * Always paginated — a table's record set grows with user data and is never returned whole.
- * Raw SQL because Prisma cannot order by a JSON path; the WHERE fragment is shared with the
- * count so both legs of the transaction see the same rows.
- */
 async function listRecords(
   tableId: string,
   fields: IField[],
   query: IRecordQuery,
 ): Promise<IRecordPage> {
   const { page, pageSize, sort, filters, search } = query
-  // A relation filter arrives as the target's *address* where the column stores ids.
-  // Substituted here so both legs of the transaction build from one resolved map, and above the
-  // builder, so the SQL and its indexes never learn there were two forms.
   const where = buildRecordWhere(
     tableId,
     fields,
@@ -97,16 +78,10 @@ async function listRecords(
     totalCapped: counted > RECORD_COUNT_CAP,
     page,
     pageSize,
-    // Resolved for the ids on this page alone, in one query per target table
     linkedRecords: await RelationService.resolveLinkedRecords(fields, records),
   }
 }
 
-/**
- * One record with everything needed to render it away from its own table, since the relation
- * pointing at it knows only an id. The labels come from the same resolver the list uses, which
- * is what lets a relation inside the dialog read as a label and link on again.
- */
 async function getRecordDetail(
   table: Pick<ITable, 'id' | 'number' | 'name'>,
   fields: IField[],
@@ -117,8 +92,6 @@ async function getRecordDetail(
     select: recordSelect,
   })
 
-  // Another user's record is already unreachable (the table was scoped by owner), so this is
-  // the ordinary "deleted since the link was rendered" case
   if (!row) {
     throw createError({ statusCode: 404, statusMessage: recordErrors.notFound })
   }
@@ -133,11 +106,6 @@ async function getRecordDetail(
   }
 }
 
-/**
- * The number is allocated from its table's counter in the same transaction as the insert: the
- * atomic increment takes the row lock, so concurrent creates queue rather than race and no retry
- * loop is needed. The counter is a high-water mark, so a delete never frees a number for reuse.
- */
 async function createRecord(
   tableId: string,
   fields: IField[],
@@ -165,7 +133,6 @@ async function createRecord(
   }
 }
 
-/** The form always submits every field, so `data` is replaced wholesale rather than merged. */
 async function updateRecord(
   tableId: string,
   fields: IField[],

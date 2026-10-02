@@ -1,15 +1,6 @@
 import { rowsFrom } from '~~/prisma/seed/dataset/types'
 import type { ISeedField, ISeedTable } from '~~/prisma/seed/dataset/types'
 
-/**
- * A personal table alongside the business ones, because that is what people actually keep here —
- * and because it is the one table small enough to fit on screen whole, which makes it the place
- * to see a list view that never paginates.
- *
- * `Rating` and `Finished on` are blank on everything not yet read: two nullable columns whose
- * blanks line up with a third column's value, which is what makes a combined filter worth trying.
- */
-
 const FIELDS: ISeedField[] = [
   { name: 'Title', type: 'TEXT', required: true },
   { name: 'Author', type: 'TEXT' },

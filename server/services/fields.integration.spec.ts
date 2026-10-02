@@ -18,7 +18,6 @@ const selectInput = (multiple: boolean) =>
     multiple,
   })
 
-/** The stored value of one key, straight from the column. */
 async function storedValue(recordId: string, key: string) {
   const row = await prisma.record.findUniqueOrThrow({
     where: { id: recordId },
@@ -33,10 +32,6 @@ beforeEach(async () => {
   tableId = table.id
 })
 
-/**
- * The raw-SQL migration that runs when a field is widened. It rewrites stored rows, so what it
- * does to values the unit suite can only assert *was invoked* is the whole question here.
- */
 describe('widening a field migrates the rows it describes', () => {
   async function widen(stored: TRecordData) {
     const field = await createField(tableId, {
@@ -63,7 +58,6 @@ describe('widening a field migrates the rows it describes', () => {
     expect(await storedValue(recordId, 'stage')).toEqual(['Won', 'Lost'])
   })
 
-  /** `[null]` would be a value where the record had none. */
   it('leaves a JSON null alone rather than wrapping it', async () => {
     const { recordId } = await widen({ stage: null })
 
@@ -124,11 +118,6 @@ describe('widening a field migrates the rows it describes', () => {
     }
   })
 
-  /**
-   * The metadata and the rows it describes move together — a field left single-value over rows
-   * already rewritten as lists would read every one of them as invalid, and the reverse would
-   * drop every value but the first. Asserted as one committed state rather than as two writes.
-   */
   it('commits the metadata and the migrated rows as one state', async () => {
     const { recordId, field } = await widen({ stage: 'Won' })
 
@@ -188,7 +177,6 @@ describe('deleting a field', () => {
 
     await prisma.field.delete({ where: { id: field.id } })
 
-    // The value is orphaned rather than scrubbed — nothing reads it, and nothing rewrites rows
     expect(await storedValue(record.id, 'company')).toBe('Acme')
   })
 })

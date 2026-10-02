@@ -1,18 +1,10 @@
 <template>
   <nav class="pagination" aria-label="Pagination">
-    <!--
-      `role="status"` rather than bare `aria-live="polite"`: it implies polite-live and gives
-      the range a role a reader — and a spec — can address. The page changes without focus
-      moving, so it has to announce itself.
-    -->
-    <!-- The figures in mono, being counts the app produced; the text reads `1–50 of 60` -->
     <span class="pagination__count" role="status"
       ><span class="pagination__figure">{{ range.shown }}</span> of
       <span class="pagination__figure">{{ range.total }}</span></span
     >
 
-    <!-- Compact chrome, 30px cells — the tier below the 36px house height, shared only with a
-         filter chip, and still over SC 2.5.8's 24×24 (`CLAUDE.md` §8) -->
     <div class="pagination__pager">
       <button
         type="button"
@@ -59,22 +51,15 @@ import { buildPageWindow } from '~/utils/pagination'
 
 const props = defineProps<{
   page: number
-  /** Passed in rather than derived — the owning store already computes it. */
   pageCount: number
   pageSize: number
   total: number
-  /** Whether `total` is a floor rather than a count, which changes every label below. */
   totalCapped: boolean
-  /**
-   * Whether a next page exists. Passed in rather than read off `pageCount`, which is only a
-   * lower bound once the total is capped — see the store's `hasNextPage`.
-   */
   hasNext: boolean
 }>()
 
 const emit = defineEmits<{ 'update:page': [page: number] }>()
 
-// Derived from the page numbers alone, so the control never needs the item array
 const range = computed(() => {
   if (props.total === 0) return { shown: '0', total: '0' }
   const first = (props.page - 1) * props.pageSize + 1
@@ -85,8 +70,6 @@ const range = computed(() => {
   }
 })
 
-// A capped total cannot say how many pages there are, so the window never draws a last page
-// the server did not count — `buildPageWindow` trails a gap instead
 const cells = computed(() => buildPageWindow(props.page, props.pageCount, props.totalCapped))
 </script>
 
@@ -114,7 +97,6 @@ const cells = computed(() => buildPageWindow(props.page, props.pageCount, props.
     gap: rem(4);
   }
 
-  // Bordered, so the edge is what identifies each cell; figures in mono, being page numbers
   &__cell {
     display: inline-flex;
     align-items: center;
@@ -133,7 +115,6 @@ const cells = computed(() => buildPageWindow(props.page, props.pageCount, props.
 
     @include focus-ring;
 
-    // Not the current page, whose accent fill this would otherwise outrank
     &:hover:not(:disabled, [aria-current='page']) {
       border-color: var(--color-border-control-hover);
       background: var(--color-surface-raised);
@@ -145,7 +126,6 @@ const cells = computed(() => buildPageWindow(props.page, props.pageCount, props.
       cursor: not-allowed;
     }
 
-    // Glyph cells take an icon size, not the type scale — `<Icon>` sizes off `font-size`
     &:not(&--page) {
       font-size: rem(18);
     }

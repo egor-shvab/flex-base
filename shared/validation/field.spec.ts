@@ -18,7 +18,6 @@ const relation = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-/** The paths of every issue a failed parse reports. */
 function issuePaths(value: unknown): string[] {
   const result = fieldInputSchema.safeParse(value)
   expect(result.success).toBe(false)
@@ -35,7 +34,6 @@ describe('fieldInputSchema — defaults', () => {
       targetTableId: '',
       labelFieldKey: '',
       multiple: false,
-      // Opted out unless asked for: an index is a cost on every write of the table
       indexed: false,
     })
   })
@@ -66,7 +64,6 @@ describe('fieldInputSchema — cardinality', () => {
   })
 
   it('rejects it on a type with no list form, at its own path', () => {
-    // Judged against `MULTI_VALUE_BY_TYPE`, so a new type declares its position once
     expect(issuePaths({ name: 'Company', type: 'TEXT', multiple: true })).toEqual(['multiple'])
   })
 })
@@ -97,7 +94,6 @@ describe('fieldInputSchema — SELECT', () => {
   })
 
   it('judges uniqueness on the value alone, ignoring colour', () => {
-    // Two choices differing only by colour are still the same choice
     expect(
       issuePaths(
         select({

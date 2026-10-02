@@ -10,15 +10,6 @@ import type { IFilterValueByType, IFilterValueRules } from '#shared/types/filter
 
 export const FIELD_TYPES = ['TEXT', 'NUMBER', 'BOOLEAN', 'DATE', 'SELECT', 'RELATION'] as const
 
-/**
- * **The only file that enumerates the field types.** Each module is pinned to its own key, so
- * one annotated for the wrong type fails here rather than declaring the wrong filter shape
- * downstream.
- *
- * Every map below is an explicit total literal rather than `Object.fromEntries`, which would
- * need a cast and lose `FILTER_VALUE_BY_TYPE`'s per-key relation to `IFilterValueByType[K]`.
- * Totality is the point: adding a `TFieldType` is a compile error until every map declares it.
- */
 const MODULES: { [K in TFieldType]: IFieldTypeModule<K> } = {
   TEXT: TEXT_FIELD_TYPE,
   NUMBER: NUMBER_FIELD_TYPE,
@@ -37,10 +28,6 @@ export const FIELD_TYPE_LABELS: Record<TFieldType, string> = {
   RELATION: MODULES.RELATION.label,
 }
 
-/**
- * Which types a field may be configured to hold several values of. `isMultiValue`
- * (`#shared/field-types/cardinality`) is the only reader; nothing else consults the flag.
- */
 export const MULTI_VALUE_BY_TYPE: Record<TFieldType, boolean> = {
   TEXT: MODULES.TEXT.multiValue,
   NUMBER: MODULES.NUMBER.multiValue,
@@ -50,11 +37,6 @@ export const MULTI_VALUE_BY_TYPE: Record<TFieldType, boolean> = {
   RELATION: MODULES.RELATION.multiValue,
 }
 
-/**
- * The single per-field-type branch point for filtering. No operator anywhere: a type declares
- * the *shape* of its value, that shape names its query params, and the server derives the
- * comparison from the type and the same shape.
- */
 export const FILTER_VALUE_BY_TYPE: {
   [K in TFieldType]: IFilterValueRules<IFilterValueByType[K]>
 } = {
@@ -66,7 +48,6 @@ export const FILTER_VALUE_BY_TYPE: {
   RELATION: MODULES.RELATION.filter,
 }
 
-/** The single per-field-type branch point for record values. */
 export const VALUE_SCHEMA_BY_TYPE: Record<TFieldType, IValueSchemaRules> = {
   TEXT: MODULES.TEXT.value,
   NUMBER: MODULES.NUMBER.value,

@@ -10,7 +10,6 @@ const SCHEMA = z.object({
 
 const VALID = { email: 'ada@example.com', password: 'correct-horse' }
 
-/** One `watch` per field, so the composable needs a scope to own them. */
 function setup(
   initial: { email: string; password: string },
   onSubmit: (values: z.infer<typeof SCHEMA>) => Promise<void> | void,
@@ -58,8 +57,6 @@ describe('useForm', () => {
     form.stop()
   })
 
-  // `errors[key] ??= issue.message` — a field failing two rules shows the first, so the
-  // message does not change under the user as they fix one problem at a time
   it('keeps the first issue when a field fails more than one rule', async () => {
     const form = setup({ email: '', password: 'correct-horse' }, vi.fn())
 
@@ -86,7 +83,6 @@ describe('useForm', () => {
 
   it('surfaces a rejected submit as the form-level server error', async () => {
     const form = setup({ ...VALID }, async () => {
-      // The shape Nitro's `createError` produces, which `getApiErrorMessage` reads
       throw { data: { statusMessage: 'That email is already registered.' } }
     })
 
@@ -171,12 +167,6 @@ describe('useForm', () => {
   })
 })
 
-/**
- * A field holding a structure the user edits **in place** — `FieldFormModal`'s SELECT choices
- * are the only one today: rows are pushed, spliced and typed into, and the array itself is
- * never reassigned. Its issues land on the top-level key (`path[0]`), so the error a user sees
- * is cleared by the same watcher a scalar's is — which only holds because that watcher is deep.
- */
 const CHOICES_SCHEMA = z
   .object({
     name: z.string().min(1, 'Name is required'),
@@ -207,7 +197,6 @@ describe('useForm, with a field edited in place', () => {
 
     await form.submit()
 
-    // `path` is ['choices', 0, 'value']; the error belongs to the control the user can see
     expect(form.errors.choices).toBe('Choice cannot be empty')
 
     form.stop()

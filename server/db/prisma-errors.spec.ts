@@ -9,10 +9,6 @@ function prismaError(code: string) {
   })
 }
 
-/**
- * These only classify. What each classification answers with is `toHttpError`'s, and its cases
- * sit beside it in `utils/http-errors.spec.ts` — the split is the point of the module.
- */
 describe('the Prisma fault predicates', () => {
   it('recognises a unique-constraint violation', () => {
     expect(isUniqueViolation(prismaError('P2002'))).toBe(true)
@@ -29,10 +25,6 @@ describe('the Prisma fault predicates', () => {
     expect(isMissingRow(prismaError('P2003'))).toBe(false)
   })
 
-  /**
-   * A `catch` binding is `unknown`, so these are handed anything at all — a connection reset, a
-   * thrown string, a null. Narrowing here is what saves every caller its own instanceof check.
-   */
   it('claims nothing about anything that is not a Prisma error', () => {
     for (const value of [
       new Error('Connection reset'),

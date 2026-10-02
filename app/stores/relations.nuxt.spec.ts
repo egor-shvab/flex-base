@@ -9,7 +9,6 @@ import { relationField, textField } from '~~/test/fixtures'
 const OWNER = relationField({}, { id: 'fld_owner', key: 'owner' })
 const REVIEWER = relationField({}, { id: 'fld_reviewer', key: 'reviewer' })
 
-/** What each field's endpoint answers with, and every query it was asked. */
 const responses: Record<string, IRecordOption[]> = {}
 const requests: { fieldId: string; q: string | undefined }[] = []
 
@@ -34,7 +33,6 @@ describe('useRelationsStore', () => {
   })
 
   describe('loadOptions', () => {
-    /** A table without relations must make no request at all — not one that returns nothing. */
     it('makes no request for a table with no relation fields', async () => {
       const store = useRelationsStore()
 
@@ -56,7 +54,6 @@ describe('useRelationsStore', () => {
       expect(store.optionsFor('fld_reviewer')).toEqual(responses.fld_reviewer)
     })
 
-    /** An option already carries a ref; caching it is what lets a cell read without a fetch. */
     it('caches a linked record for every option it loaded', async () => {
       const store = useRelationsStore()
 
@@ -72,7 +69,6 @@ describe('useRelationsStore', () => {
       })
     })
 
-    /** `optionsFor` is read by pickers on every render; an unloaded field must not be a crash. */
     it('answers with an empty list for a field it has never loaded', () => {
       const store = useRelationsStore()
 
@@ -90,11 +86,6 @@ describe('useRelationsStore', () => {
   })
 
   describe('cacheLinkedRecords', () => {
-    /**
-     * Merged per field rather than replaced: linked records arrive from two places — the
-     * candidates a picker offers, and the ones a page of records came with — and neither is
-     * the whole set.
-     */
     it('merges into a field’s existing linked records instead of replacing them', () => {
       const store = useRelationsStore()
 
@@ -114,7 +105,6 @@ describe('useRelationsStore', () => {
       expect(store.linkedRecordFor('fld_owner', 'rec_ada')).toEqual({ number: 1, label: 'Ada L.' })
     })
 
-    /** Two fields may point at one table through different label fields. */
     it('keeps each field’s linked records separate', () => {
       const store = useRelationsStore()
 
@@ -127,7 +117,6 @@ describe('useRelationsStore', () => {
       expect(store.linkedRecordFor('fld_reviewer', 'rec_ada')?.label).toBe('A. Lovelace')
     })
 
-    /** A record with nothing to name it by still has a number, which is the whole reference. */
     it('keeps a null label rather than treating it as unresolved', () => {
       const store = useRelationsStore()
 
@@ -159,10 +148,6 @@ describe('useRelationsStore', () => {
       expect(results).toEqual([{ id: 'rec_ada', number: 1, label: 'Ada Lovelace' }])
     })
 
-    /**
-     * `optionsFor()` is the seed every other consumer reads. A search result is a narrower
-     * answer to a different question and would clobber it.
-     */
     it('does not overwrite the seed list', async () => {
       const store = useRelationsStore()
       await store.loadOptions('tbl_deals', [OWNER])
@@ -175,7 +160,6 @@ describe('useRelationsStore', () => {
       expect(store.optionsFor('fld_owner')).toHaveLength(2)
     })
 
-    /** So a record found only through a search still reads as itself, with no second trip. */
     it('caches the linked records it found', async () => {
       const store = useRelationsStore()
       await store.loadOptions('tbl_deals', [OWNER])
@@ -187,7 +171,6 @@ describe('useRelationsStore', () => {
         number: 9,
         label: 'Found by searching',
       })
-      // …without losing what the seed already taught it
       expect(store.linkedRecordFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
     })
   })

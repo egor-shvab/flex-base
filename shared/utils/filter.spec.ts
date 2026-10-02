@@ -33,8 +33,6 @@ import {
 
 describe('queryColumns', () => {
   it('leads with the record number and trails with the timestamps', () => {
-    // The order the table and the filter drawer both render from — a table's own data must
-    // not be pushed to the right by the record's columns
     expect(queryColumns([textField('company')]).map((field) => field.key)).toEqual([
       RECORD_NUMBER_KEY,
       'company',
@@ -62,8 +60,6 @@ describe('filterShapeFor', () => {
   })
 
   it('overrides a multi-value field to a list whatever its type declares', () => {
-    // RELATION declares `scalar`; holding several targets makes "matches this one value"
-    // a question that cannot be asked of it
     expect(FILTER_VALUE_BY_TYPE.RELATION.shape).toBe('scalar')
     expect(filterShapeFor(asMultiple(relationField()))).toBe('list')
     expect(filterShapeFor(asMultiple(selectField()))).toBe('list')
@@ -100,7 +96,6 @@ describe('rangeParamName / filterParamNames', () => {
   })
 
   it("claims the same names whatever a field's cardinality, since it is keyed by type", () => {
-    // What keeps it callable from `createField`, where only the type is known yet
     for (const type of FIELD_TYPES) {
       expect(filterParamNames('k', type).length).toBeGreaterThan(0)
     }
@@ -126,7 +121,6 @@ describe('claimFilterParams', () => {
   })
 
   it('gives a colliding key to the first field and skips the later one entirely', () => {
-    // A legacy key created before the param format landed — deterministic rather than shared
     const first = textField('company', { id: 'fld_first' })
     const second = textField('company', { id: 'fld_second' })
     const claims = claimFilterParams([first, second])
@@ -152,7 +146,6 @@ describe('isReservedParam', () => {
     }
 
     expect(isReservedParam('company')).toBe(false)
-    // A range bound of a field keyed like a reserved param is a name of its own
     expect(isReservedParam('page_from')).toBe(false)
   })
 })
@@ -164,7 +157,6 @@ describe('filterableFields', () => {
   })
 
   it('drops a field whose only param name is reserved', () => {
-    // Its control could only ever discard what was typed into it — so none is rendered
     const fields = [textField('company'), textField('search'), textField('detail')]
     expect(filterableFields(fields).map((field) => field.key)).toEqual(['company'])
   })
@@ -182,11 +174,6 @@ describe('filterableFields', () => {
 })
 
 describe('filterableColumns', () => {
-  /**
-   * What the composition adds over `filterableFields` alone: the record's own columns are in the
-   * list, and in `queryColumns` order. None of the three is a reserved param name — they claim
-   * `recordNumber` and the two `_from`/`_to` pairs — so all three always survive the filter.
-   */
   it('brackets the table’s fields with the record’s own columns', () => {
     expect(filterableColumns([textField('company')]).map((field) => field.key)).toEqual([
       RECORD_NUMBER_KEY,
@@ -210,7 +197,6 @@ describe('filterableColumns', () => {
 
 describe('filter value guards', () => {
   it('separates a list from a range — an array is a non-null object too', () => {
-    // Load-bearing, not defensive: without it a list would be read for bounds it has not got
     expect(isRangeFilterValue(['Won'])).toBe(false)
     expect(isListFilterValue(['Won'])).toBe(true)
     expect(isRangeFilterValue({ from: 1, to: 2 })).toBe(true)
@@ -266,10 +252,6 @@ describe('withFilterValue', () => {
     expect(next).toEqual({ company: 'globex', stage: ['Won'] })
   })
 
-  /**
-   * The load-bearing property: the map is rebuilt in **column order**, not patched, so the same
-   * selection always serializes to the same URL however it was clicked together.
-   */
   it('rebuilds in column order rather than in the order keys were touched', () => {
     const touchedLast = withFilterValue(columns, { stage: ['Won'] }, 'company', 'acme')
 
@@ -282,7 +264,6 @@ describe('withFilterValue', () => {
     expect(next).toEqual({ company: 'acme' })
   })
 
-  /** Blanking through `emptyFilterValueFor` is exactly what the summary's remove ✕ does. */
   it('clears a column given its type’s own empty value', () => {
     const stage = selectField(['Won', 'Lost'])
     const next = withFilterValue(columns, { stage: ['Won'] }, stage.key, emptyFilterValueFor(stage))
@@ -301,7 +282,6 @@ describe('withFilterValue', () => {
     expect(next).toEqual({ stage: ['Lost'] })
   })
 
-  /** A key the table does not own cannot be smuggled in — the walk is over the columns. */
   it('ignores a key no column claims', () => {
     expect(withFilterValue(columns, { company: 'acme' }, 'utm_source', 'x')).toEqual({
       company: 'acme',

@@ -5,16 +5,8 @@ import { usePopover } from '~/composables/usePopover'
 import { track, unmountAll } from '~~/test/mount'
 
 /**
- * A host component, because `useId()` and `onBeforeUnmount` both need an instance. Render
- * functions rather than a template string: `vue` resolves to the runtime-only build here, so
- * there is no in-browser compiler to hand a template to.
- *
- * The panel is rendered as a **sibling** of the container, not a child — that is what a
- * `<Teleport to="body">` leaves behind, and the case the composable's two-ref `contains` exists
- * for. A single trigger-subtree check would call the panel itself "outside".
- *
- * The composable's return is captured out of `setup` rather than read back off `wrapper.vm`,
- * which unwraps refs and would make `open` a boolean where the declared type says `Ref`.
+ * Render functions, since `vue` is the runtime-only build here. The panel is a sibling of the
+ * container, as a `<Teleport>` leaves it — the case the two-ref `contains` exists for.
  */
 function setup() {
   let popover!: ReturnType<typeof usePopover>
@@ -37,7 +29,6 @@ function setup() {
     },
   })
 
-  // `mount` runs setup synchronously, so `popover` is assigned by the time this returns
   const wrapper = track(mount(Host, { attachTo: document.body }))
 
   const at = (testId: string) => wrapper.get(`[data-testid="${testId}"]`).element as HTMLElement
@@ -45,7 +36,6 @@ function setup() {
   return { wrapper, popover, at }
 }
 
-/** The composable listens on `document`, so the event has to reach it by bubbling. */
 function pointerDownOn(element: HTMLElement) {
   element.dispatchEvent(new Event('pointerdown', { bubbles: true }))
 }
@@ -89,11 +79,6 @@ describe('usePopover', () => {
     expect(popover.open.value).toBe(false)
   })
 
-  /**
-   * The boundary is the trigger's whole *area*, not just its button: a control may put a clear
-   * button beside its trigger, and a pointerdown there must not close the popover and swallow
-   * the click.
-   */
   it('treats the whole container as inside, not just the trigger', async () => {
     const { popover, at } = setup()
 
@@ -126,7 +111,6 @@ describe('usePopover', () => {
     pointerDownOn(at('outside'))
 
     expect(popover.open.value).toBe(false)
-    // No focus restore here — the pointer has already chosen where focus should go
     expect(document.activeElement).toBe(at('outside'))
   })
 
@@ -149,7 +133,6 @@ describe('usePopover', () => {
     popover.show()
     await nextTick()
 
-    // A drawer closed while its panel was open — the trigger is detached but the ref survives
     const trigger = at('trigger')
     trigger.remove()
 
@@ -186,11 +169,6 @@ describe('usePopover', () => {
     expect(remove).toHaveBeenCalledWith('pointerdown', expect.any(Function))
   })
 
-  /**
-   * Load-bearing negative. `BaseModal` owns the document-level Escape listener, and two of them
-   * cannot be ordered reliably — one keypress would close both the popover and the dialog around
-   * it. Escape stays a template handler on the panel; growing one here would be a regression.
-   */
   it('registers no keyboard listener of its own', async () => {
     const add = vi.spyOn(document, 'addEventListener')
     const { popover } = setup()

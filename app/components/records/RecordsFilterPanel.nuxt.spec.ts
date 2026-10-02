@@ -39,13 +39,10 @@ function panel(
 
 type TPanel = Awaited<ReturnType<typeof panel>>
 
-/** The panel renders inside `BaseModal`'s drawer, so everything is teleported to `<body>`. */
 const drawer = () => document.querySelector<HTMLElement>('.base-modal--drawer')
-// Every child but the intro line is a field's control
 const controls = () => [
   ...document.querySelectorAll<HTMLElement>('.filter-panel > :not(.filter-panel__intro)'),
 ]
-// A segmented control captions its group with a `<span>`: it has no one element to label
 const labels = () =>
   [...document.querySelectorAll('.filter-panel label, .filter-panel .base-segmented__label')].map(
     (label) => label.textContent?.trim(),
@@ -60,21 +57,15 @@ const boundInput = (key: string, bound: 'from' | 'to') =>
   document.querySelector<HTMLInputElement>(`[id$="-${key}-${bound}"]`)!
 const textInput = (key: string) => document.querySelector<HTMLInputElement>(`[id$="-${key}"]`)!
 
-/** The last filter map the panel emitted upward. */
 const lastFilters = (wrapper: TPanel) =>
   wrapper.emitted('update:filters')?.at(-1)?.[0] as TRecordFilterValues | undefined
 
-/**
- * Types the way `BaseInput` reads — raw `el.value` plus an input event — then drives the 300ms
- * debounce every typed filter carries. Fake timers are switched on only for the wait: around a
- * `mountSuspended` they would stall the mount itself.
- */
+/** Fake timers only for the wait: around a `mountSuspended` they would stall the mount. */
 async function typeInto(element: HTMLInputElement, value: string) {
   vi.useFakeTimers()
 
   element.value = value
   element.dispatchEvent(new Event('input', { bubbles: true }))
-  // Lets the draft watcher run and schedule the write
   await nextTick()
 
   vi.advanceTimersByTime(300)
@@ -88,12 +79,10 @@ describe('RecordsFilterPanel', () => {
   afterEach(unmountAll)
 
   beforeEach(() => {
-    // `BaseModal` marks this element inert while the drawer is open
     const root = document.createElement('div')
     root.id = '__nuxt'
     document.body.appendChild(root)
 
-    // A RELATION filter renders `RelationFieldSelect`, which reads the relations store
     setActivePinia(useNuxtApp().$pinia as Pinia)
   })
 
@@ -110,7 +99,6 @@ describe('RecordsFilterPanel', () => {
       expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Filters')
     })
 
-    /** The record's own columns filter alongside the table's fields, and bracket them. */
     it('brackets the table’s fields with the record’s own columns', async () => {
       await panel()
 
@@ -130,10 +118,6 @@ describe('RecordsFilterPanel', () => {
       expect(labels()).toEqual(['Record #', 'Created at', 'Updated at'])
     })
 
-    /**
-     * A control that discards what is typed into it is a dead control: a legacy field keyed
-     * like a reserved param claims no query param, so its filter could never round-trip.
-     */
     it('offers no control for a field whose filter could not round-trip', async () => {
       await panel({
         fields: [
@@ -161,7 +145,6 @@ describe('RecordsFilterPanel', () => {
     })
   })
 
-  /** Every control is always rendered, so an unfiltered field shows its own empty value. */
   describe('showing the current filters', () => {
     it('shows an unfiltered TEXT column as an empty box', async () => {
       await panel({ fields: [textField('company')] })
@@ -208,10 +191,6 @@ describe('RecordsFilterPanel', () => {
     })
   })
 
-  /**
-   * `applyFieldValue` rebuilds the whole map in column order rather than patching one key —
-   * which is what keeps a shared URL stable no matter which control the user touched.
-   */
   describe('changing a filter', () => {
     it('emits the new value under its field key', async () => {
       const wrapper = await panel({ fields: [textField('company')] })
@@ -232,7 +211,6 @@ describe('RecordsFilterPanel', () => {
       })
     })
 
-    /** A value that means "not filtered" is dropped, so the map only ever holds active ones. */
     it('drops a filter cleared back to empty', async () => {
       const wrapper = await panel({ filters: { company: 'acme', active: true } })
 
@@ -249,7 +227,6 @@ describe('RecordsFilterPanel', () => {
       expect(lastFilters(wrapper)).toEqual({})
     })
 
-    /** Why the map is rebuilt rather than patched: the same filters must produce one link. */
     it('emits keys in column order, whichever control was touched', async () => {
       const wrapper = await panel({ filters: { active: true } })
 
@@ -275,7 +252,6 @@ describe('RecordsFilterPanel', () => {
     })
   })
 
-  /** The one control whose model is a different shape from its filter value. */
   describe('the BOOLEAN adapters', () => {
     const checked = () =>
       document.querySelector('[role="radiogroup"] [aria-checked="true"]')?.textContent?.trim()
@@ -342,14 +318,12 @@ describe('RecordsFilterPanel', () => {
       expect(count()).toBe('0 matching records')
     })
 
-    /** A stale count under a filter being applied would be a lie. */
     it('says it is filtering rather than showing a stale count', async () => {
       await panel({ total: 12, pending: true })
 
       expect(count()).toBe('Filtering…')
     })
 
-    /** Never a dead control: with nothing filtered there is nothing to clear. */
     it('offers Clear all only when something is filtered', async () => {
       const empty = await panel()
       expect(clearAll()).toBeUndefined()
@@ -368,7 +342,6 @@ describe('RecordsFilterPanel', () => {
     })
   })
 
-  /** Filters apply live, so Done only dismisses — the end-of-task way out beside the count. */
   it('closes from its Done button', async () => {
     const wrapper = await panel({ filters: { company: 'acme' } })
 
@@ -378,11 +351,9 @@ describe('RecordsFilterPanel', () => {
     done?.click()
 
     expect(wrapper.emitted('close')).toHaveLength(1)
-    // Done does not touch the filters — they were applied as they changed
     expect(wrapper.emitted('update:filters')).toBeUndefined()
   })
 
-  /** Said once up front, since no row carries an operator to say it. */
   it('opens with a line saying every filter must match', async () => {
     await panel()
 

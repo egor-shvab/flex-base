@@ -1,11 +1,5 @@
 import { expect, test } from '~~/test/e2e/setup/fixtures'
 
-/**
- * The whole-app error boundary — a page nothing else in any suite renders.
- * `app/utils/api-error.spec.ts` pins the mapping; what happens to the result is observable only
- * here. It is store-free, because data fetching is exactly what failed by the time it renders,
- * and that is the property these cases protect.
- */
 test('a table that does not exist renders the 404 boundary, not a broken page', async ({
   page,
 }) => {
@@ -13,7 +7,6 @@ test('a table that does not exist renders the 404 boundary, not a broken page', 
 
   await expect(page.getByRole('heading', { name: /we couldn’t find that/i })).toBeVisible()
   await expect(page.locator('.error-page__code')).toHaveText('404')
-  // The one status where we know what was missing, so the copy names it
   await expect(page.locator('.error-page__message')).toContainText('table')
 })
 
@@ -23,10 +16,6 @@ test('the same for a table settings page', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /we couldn’t find that/i })).toBeVisible()
 })
 
-/**
- * A malformed link is not a missing table, and saying "we couldn't find that table" about a
- * table that loaded perfectly well is the bug this branch exists for.
- */
 test('a link the server could not read says so instead of blaming the table', async ({
   page,
   seedTable,
@@ -37,7 +26,6 @@ test('a link the server could not read says so instead of blaming the table', as
 
   await expect(page.locator('.error-page__code')).toHaveText('400')
   await expect(page.locator('.error-page__message')).toContainText('could not be read')
-  // The 404's copy, which would be a lie here: the table loaded, the query did not parse
   await expect(page.locator('.error-page__message')).not.toContainText('find that table')
   await expect(page.getByRole('heading', { name: /didn’t work/i })).toBeVisible()
 })
@@ -52,10 +40,6 @@ test('the recovery action returns to the dashboard', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
 })
 
-/**
- * A cold-loaded error URL has no in-app entry behind it, so "Go back" must land somewhere real
- * rather than wherever the browser was before the app — Home is the one place that always is.
- */
 test('going back from a cold load falls back to the dashboard', async ({ page }) => {
   await page.goto('/tables/does-not-exist')
   await expect(page.locator('.error-page__code')).toHaveText('404')

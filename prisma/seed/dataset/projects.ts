@@ -1,17 +1,6 @@
 import { rowsFrom } from '~~/prisma/seed/dataset/types'
 import type { ISeedField, ISeedTable } from '~~/prisma/seed/dataset/types'
 
-/**
- * The engagements themselves — the table that carries both relation cardinalities at once: a
- * single required `Client`, and a `Team` holding up to five links.
- *
- * `Team` is labelled by People's `Email` rather than their name, which is what puts an
- * unlabelled link on screen for the few people who have no address on file.
- *
- * Due dates straddle 2026-09-01 deliberately: some are past, some ahead, several blank — so a
- * date range filter and a `NULLS LAST` sort both have something to separate.
- */
-
 const FIELDS: ISeedField[] = [
   { name: 'Title', type: 'TEXT', required: true, indexed: true },
   {

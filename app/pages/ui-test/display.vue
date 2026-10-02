@@ -154,7 +154,6 @@ useSeoMeta({ title: 'Display · Component showcase' })
   @include truncate;
 }
 
-// A dashed frame, so "renders nothing" is visibly nothing rather than a missing specimen
 .empty-frame {
   min-height: rem(44);
   border: 1px dashed var(--color-border-strong);

@@ -1,11 +1,6 @@
 import { companies, expect, expectCompanies, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
-/**
- * The list query, which lives entirely in the URL. Everything here is about what the *running*
- * app does with a link — the codec and the SQL underneath are pinned four layers down.
- */
-
 let table: ISeededTable
 
 test.beforeEach(async ({ seedTable }) => {
@@ -35,10 +30,6 @@ test.beforeEach(async ({ seedTable }) => {
   )
 })
 
-/**
- * The headline SSR contract: a shared link must arrive already filtered. Against the server's
- * own HTML, the only way to tell that from "rendered everything, then filtered in the browser".
- */
 test.describe('a link loaded cold', () => {
   test('renders filtered server-side, before any JavaScript runs', async ({ page, request }) => {
     const html = await (await request.get(`${table.url}?stage=Won`)).text()
@@ -65,8 +56,6 @@ test.describe('a link loaded cold', () => {
 
     await expect(page.locator('.filter-summary__chip')).toContainText('Stage is Won')
 
-    // The non-searchable trigger is a button labelled by its own label *and* its value, so its
-    // accessible name reads "Stage Won" — which is exactly the assertion worth making
     await page.getByRole('button', { name: 'Filters' }).click()
     await expect(
       page.locator('.filter-panel').getByRole('button', { name: /^Stage/ }),
@@ -81,13 +70,7 @@ test.describe('a link loaded cold', () => {
   })
 })
 
-/**
- * The app's only in-page recovery path. `fetchRecords` sets `failed` **and rethrows**, so the
- * banner tells the user the view on screen is stale.
- *
- * Note the sequencing: the first load is SSR, which `page.route` cannot intercept, and `failed`
- * is set by a *client-side* refetch — so the page is loaded first and the route cut afterwards.
- */
+/** The first load is SSR, which `page.route` cannot intercept, so the route is cut afterwards. */
 test.describe('when the list cannot be loaded', () => {
   test('says so rather than leaving stale rows looking current', async ({ page }) => {
     await page.goto(table.url)
@@ -118,11 +101,6 @@ test.describe('when the list cannot be loaded', () => {
   })
 })
 
-/**
- * The store drops the previous table's rows *before* requesting the next one's, while this page
- * is still on screen — so the body has nothing to draw for the length of that request, and
- * "No records yet" would be a claim about a table nothing has looked at. Held open, not raced.
- */
 test.describe('while another table loads', () => {
   test('shows the skeleton rather than claiming the table is empty', async ({
     page,
@@ -137,9 +115,7 @@ test.describe('while another table loads', () => {
     await page.goto(table.url)
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
 
-    // The first load is SSR, which `page.route` cannot intercept, so the hold goes on afterwards —
-    // the same sequencing the failure cases above need. No `?` in the glob: the default view sends
-    // no query string at all.
+    // Held after the SSR load; no `?` in the glob, since the default view sends no query string
     await page.route('**/api/tables/*/records*', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1000))
       await route.continue()
@@ -150,9 +126,7 @@ test.describe('while another table loads', () => {
       .getByRole('link', { name: 'Leads' })
       .click()
 
-    // Scoped to `main`, or Nuxt's own route announcer is a second `role="status"` and the locator
-    // is ambiguous. This assertion is what proves the request is still in flight, so the one below
-    // it is not passing on an empty page.
+    // Scoped to `main`: Nuxt's route announcer is a second `role="status"`
     await expect(page.getByRole('main').getByRole('status')).toContainText('Loading records')
     await expect(page.getByText('No records yet')).toHaveCount(0)
 
@@ -174,7 +148,6 @@ test.describe('sorting', () => {
     await expectCompanies(page, ['Acme', 'Beta', 'Gamma'])
 
     await sortBy(page, 'Company')
-    // `desc` is the default direction, so it is absent from the URL rather than spelled out
     await expect(page).toHaveURL(/sort=company(?!&dir)/)
     await expectCompanies(page, ['Gamma', 'Beta', 'Acme'])
 
@@ -234,10 +207,7 @@ test.describe('searching', () => {
     await expectCompanies(page, ['Beta'])
   })
 
-  /**
-   * Scoped to `main`, here and below: Nuxt renders its own route announcer as a
-   * `role="status"` live region outside the app shell, so an unscoped query matches two.
-   */
+  /** Scoped to `main`: Nuxt's route announcer is a second `role="status"`. */
   test('does not match a BOOLEAN column', async ({ page }) => {
     await page.goto(`${table.url}?search=true`)
 
@@ -257,8 +227,8 @@ test.describe('the filter drawer', () => {
     await page.goto(table.url)
     await page.getByRole('button', { name: 'Filters' }).click()
 
-    // One bound at a time, each awaited into the URL: both controls debounce and re-read from
-    // the URL, so filling them instantly lets the second write lose the first's bound
+    // One bound at a time: both controls debounce and re-read the URL, so the second write would
+    // lose the first
     await page.getByLabel('From').first().fill('80')
     await expect(page).toHaveURL(/contract_value_from=80/)
 
@@ -267,14 +237,12 @@ test.describe('the filter drawer', () => {
 
     await expectCompanies(page, ['Acme'])
 
-    // The drawer's own: the filter summary behind it has a "Clear all" too, and Playwright's role
-    // query does not skip the inert page
+    // The drawer's own: Playwright's role query does not skip the inert page behind it
     await page
       .getByRole('dialog')
       .getByRole('button', { name: /clear all/i })
       .click()
 
-    // The control has to follow the URL back to empty, or it shows a filter that is not applied
     await expect(page.getByLabel('From').first()).toHaveValue('')
     await expect(page.getByLabel('To').first()).toHaveValue('')
     await expect.poll(() => companies(page)).toHaveLength(3)

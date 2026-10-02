@@ -16,10 +16,8 @@
 <script setup lang="ts">
 import { useId } from 'vue'
 
-/** One component's block on a `/ui-test` page: a heading, then its specimens in a grid. */
 defineProps<{
   title: string
-  /** The component's own name, in mono — what a tester searches the codebase for. */
   component: string
 }>()
 

@@ -14,11 +14,6 @@ import {
 } from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
-/**
- * Every key this control answers, in its three positions: closed trigger, open list, combobox
- * input. Escape layering is the case that is silent when broken — `BaseModal` owns the
- * document listener, so one press must never close both.
- */
 describe('BaseSelect', () => {
   afterEach(unmountAll)
 
@@ -35,12 +30,9 @@ describe('BaseSelect', () => {
       await nextTick()
 
       expect(panel()).not.toBeNull()
-      // Also suppresses the click a `<button>` synthesises from Enter/Space, or the panel would
-      // open and toggle straight shut
       expect(event.defaultPrevented).toBe(true)
     })
 
-    /** Nothing of ours is open, so Escape belongs to whatever dialog surrounds this control. */
     it('lets Escape through untouched', async () => {
       const onDocument = vi.fn()
       document.addEventListener('keydown', onDocument)
@@ -102,7 +94,6 @@ describe('BaseSelect', () => {
       return wrapper
     }
 
-    /** The panel was opened by a click here, so the first press is the one that reveals it. */
     it('moves with the arrow keys', async () => {
       await openList()
 
@@ -134,7 +125,6 @@ describe('BaseSelect', () => {
     it('pages to the ends of a short list', async () => {
       await openList()
 
-      // Every navigation key reveals the cursor before it moves it, Page included
       keydown(listbox()!, 'PageDown')
       await nextTick()
       expect(activeLabel()).toBe('Alpha')
@@ -151,8 +141,6 @@ describe('BaseSelect', () => {
     it.each(['Enter', ' '])('chooses the active option on %s', async (key) => {
       const wrapper = await openList()
 
-      // Two presses: the first reveals the cursor, the second walks to Bravo — choosing
-      // something other than the first is what proves the key reads the cursor
       keydown(listbox()!, 'ArrowDown')
       await nextTick()
       keydown(listbox()!, 'ArrowDown')
@@ -163,7 +151,6 @@ describe('BaseSelect', () => {
       expect(lastModel(wrapper)).toBe('b')
     })
 
-    /** There is nothing to commit until a key has placed the cursor. */
     it.each(['Enter', ' '])('does nothing on %s while no option is highlighted', async (key) => {
       const wrapper = await openList()
 
@@ -217,10 +204,6 @@ describe('BaseSelect', () => {
     })
   })
 
-  /**
-   * The whole rule: a navigation key creates the cursor and nothing else. Opening, the pointer
-   * and options merely arriving would each draw a ring the user never asked for.
-   */
   describe('what creates the cursor', () => {
     it('gives the opening arrow the cursor as well, the way a native select does', async () => {
       const wrapper = await select()
@@ -250,10 +233,6 @@ describe('BaseSelect', () => {
       expect(activeLabel()).toBe('Bravo')
     })
 
-    /**
-     * Why the re-clamp is guarded rather than the open path alone: a relation picker's options land
-     * *after* it opens, and re-clamping would light a row up with no key pressed and no term typed.
-     */
     it('leaves the cursor alone when options merely arrive', async () => {
       const wrapper = await select({ options: [] })
       await open(wrapper)
@@ -266,11 +245,6 @@ describe('BaseSelect', () => {
   })
 
   describe('keyboard on the combobox', () => {
-    /**
-     * The condition a `.stop` modifier cannot express: `BaseModal` listens on `document`, and focus
-     * stays in this input while the list is shut, so an unconditional stop would mean a **closed**
-     * select ate the surrounding drawer's Escape.
-     */
     it('swallows Escape only while the panel is open', async () => {
       const onDocument = vi.fn()
       document.addEventListener('keydown', onDocument)
@@ -285,7 +259,6 @@ describe('BaseSelect', () => {
       expect(panel()).toBeNull()
       expect(onDocument).not.toHaveBeenCalled()
 
-      // …and now that it is closed, the very same key belongs to the dialog around it
       keydown(input(wrapper).element, 'Escape')
       expect(onDocument).toHaveBeenCalledTimes(1)
 
@@ -305,7 +278,6 @@ describe('BaseSelect', () => {
       expect(activeLabel()).toBe('Bravo')
     })
 
-    /** Both `FieldFormModal` and the filter drawer wrap their controls in a form. */
     it('leaves Enter to the surrounding form while closed', async () => {
       const wrapper = await select({ searchable: true })
 
@@ -343,7 +315,6 @@ describe('BaseSelect', () => {
         expect(lastModel(wrapper)).toEqual(['a'])
       })
 
-      /** Or backspacing through a search would eat the selection behind it. */
       it('leaves the selection alone while there is a term to erase', async () => {
         const wrapper = await select(props)
         await input(wrapper).setValue('br')
@@ -354,7 +325,6 @@ describe('BaseSelect', () => {
         expect(wrapper.emitted('update:modelValue')).toBeUndefined()
       })
 
-      /** Holding the key to erase a term must stop at the end of the text, not run on. */
       it('ignores an auto-repeat', async () => {
         const wrapper = await select(props)
 

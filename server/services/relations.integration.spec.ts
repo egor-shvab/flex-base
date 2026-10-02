@@ -10,7 +10,6 @@ let userId: string
 let peopleId: string
 let owner: IField
 
-/** The shape `resolveLinkedRecords` reads; only these two fields matter to it. */
 const asRecord = (data: TRecordData): IRecord => ({
   id: 'rec',
   number: 1,
@@ -44,7 +43,6 @@ describe('resolving linked records', () => {
     expect(refs[owner.id]).toEqual({ [ada.id]: { number: ada.number, label: 'Ada' } })
   })
 
-  /** The number is what still names the record; it is never folded into the label. */
   it('resolves a blank label field to a null label', async () => {
     const blank = await createRecord(peopleId, { full_name: '' })
 
@@ -56,7 +54,6 @@ describe('resolving linked records', () => {
     expect(refs[owner.id]?.[blank.id]).toEqual({ number: blank.number, label: null })
   })
 
-  /** A deleted target degrades to a placeholder in the cell rather than breaking the list. */
   it('leaves an id that no longer resolves absent', async () => {
     const refs = await RelationService.resolveLinkedRecords(
       [owner],
@@ -189,7 +186,6 @@ describe('the options a picker offers', () => {
   })
 
   it(`caps the list at ${RELATION_OPTIONS_LIMIT} matches`, async () => {
-    // One over the cap, so the boundary is exercised rather than approached
     for (let index = 0; index <= RELATION_OPTIONS_LIMIT; index += 1) {
       await createRecord(peopleId, { full_name: `Person ${String(index).padStart(4, '0')}` })
     }

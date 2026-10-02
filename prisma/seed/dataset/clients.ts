@@ -1,14 +1,6 @@
 import { rowsFrom } from '~~/prisma/seed/dataset/types'
 import type { ISeedField, ISeedTable } from '~~/prisma/seed/dataset/types'
 
-/**
- * The studio's clients — the table two others link to, so it is created first.
- *
- * Its `Company name` is required, which makes it a label field that can never be blank; the
- * unlabelled-link case is covered by People's `Email` instead (see `people.ts`).
- */
-
-/** One record near `TEXT_MAX_LENGTH`, so a cell has something real to truncate. */
 const LONG_NOTE =
   'Kestrel came to us through the Helios introduction and has been the steadiest account on ' +
   'the books since. Three separate teams buy from us: the freight desk in Rotterdam, the ' +

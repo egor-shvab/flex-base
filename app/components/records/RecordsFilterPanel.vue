@@ -1,7 +1,6 @@
 <template>
   <BaseModal title="Filters" variant="drawer" @close="emit('close')">
     <div class="filter-panel">
-      <!-- Said once, up front, because there are no operators to say it row by row -->
       <p class="filter-panel__intro">
         Each field filters on its own. A record has to match every filter to show.
       </p>
@@ -28,8 +27,6 @@
         <span class="filter-panel__count">
           {{ pending ? 'Filtering…' : formatMatchingRecords(total, totalCapped) }}
         </span>
-        <!-- Filters apply as they change, so this only dismisses — the way out a pointer user
-             reaches for at the end of the task, rather than the × in the corner -->
         <BaseButton @click="emit('close')">Done</BaseButton>
       </div>
     </template>
@@ -62,32 +59,26 @@ const panelId = useId()
 
 const activeFilterCount = computed(() => Object.keys(props.filters).length)
 
-/** A control that discards what is typed into it is a dead control (`CLAUDE.md` §7). */
 const columns = computed(() => filterableColumns(props.fields))
 
-/** A filter adapts only where it must, so the two adapters below stay optional. */
 const controls = useFieldControls(() => columns.value, filterFor)
 
 type TFilterControl = (typeof controls.value)[number]
 
-/** Every control is always rendered, so an unfiltered field shows its own empty value. */
 function valueFor(field: IField): TFilterValue {
   return props.filters[field.key] ?? emptyFilterValueFor(field)
 }
 
-/** The field's filter value as the control's own model. A filter adapts only where it must. */
 function controlValue(control: TFilterControl): TFilterValue {
   const value = valueFor(control.field)
 
   return control.toControl ? control.toControl(value) : value
 }
 
-/** The inverse: what the control just emitted, back as a filter value. */
 function filterValue(control: TFilterControl, model: TFilterValue): TFilterValue {
   return control.fromControl ? control.fromControl(model) : model
 }
 
-/** Replaces one field's value; `withFilterValue` owns the field-order rebuild and the dropping. */
 function applyFieldValue(changed: IField, value: TFilterValue) {
   emit('update:filters', withFilterValue(columns.value, props.filters, changed.key, value))
 }
@@ -103,8 +94,6 @@ function applyFieldValue(changed: IField, value: TFilterValue) {
     color: var(--color-text-secondary);
   }
 
-  // Placement only — BaseModal's drawer variant owns the footer's chrome. The count takes the
-  // slack, so Clear all stays left and Done right whether or not the first is shown
   &__footer {
     display: flex;
     flex: 1;

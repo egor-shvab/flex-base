@@ -1,10 +1,6 @@
 import { expect, test } from '~~/test/e2e/setup/fixtures'
 import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 
-/**
- * The journey every other file depends on, plus the guard that decides who sees what. Run
- * signed out — `storageState: undefined` drops the cookie the rest of the suite runs with.
- */
 test.describe('signed out', () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 

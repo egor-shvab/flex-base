@@ -14,7 +14,6 @@ import {
 import type { TWrapper } from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
-/** A searchable select whose one request has failed, so the panel holds a Retry. */
 async function failedSearch() {
   const loadOptions = vi.fn(() => Promise.reject(new Error('offline')))
   const wrapper = await select({ searchable: true, loadOptions })
@@ -29,10 +28,6 @@ async function failedSearch() {
   return { wrapper, loadOptions }
 }
 
-/**
- * Tabs from the field into the panel and hands back the button focus landed on. Throws rather
- * than returning null, so a case that depends on reaching Retry fails where it went wrong.
- */
 async function focusedRetry(wrapper: TWrapper): Promise<HTMLButtonElement> {
   keydown(input(wrapper).element, 'Tab')
   await nextTick()
@@ -43,10 +38,6 @@ async function focusedRetry(wrapper: TWrapper): Promise<HTMLButtonElement> {
   return button
 }
 
-/**
- * The searchable branch's async half: what the status row says while a load is in flight, has
- * failed, or found nothing — and what a close resets.
- */
 describe('BaseSelect', () => {
   afterEach(unmountAll)
 
@@ -63,7 +54,6 @@ describe('BaseSelect', () => {
       expect(status()?.textContent?.trim()).toBe('No choices defined')
     })
 
-    /** Distinct from the above: a search that found nothing is not a field with no choices. */
     it('states a search that found nothing, quoting the term', async () => {
       const wrapper = await select({ searchable: true })
 
@@ -109,10 +99,6 @@ describe('BaseSelect', () => {
       vi.useRealTimers()
     })
 
-    /**
-     * Inert without `searchable`, since nothing could ever call it — handing the async machine a
-     * loader nothing can reach would leave `status` pinned at `idle` and `retry` unreachable.
-     */
     it('never calls loadOptions without searchable', async () => {
       const loadOptions = vi.fn(() => Promise.resolve([]))
       const wrapper = await select({ loadOptions })
@@ -124,10 +110,6 @@ describe('BaseSelect', () => {
     })
   })
 
-  /**
-   * The panel is teleported to `<body>`, so the browser's own tab order runs past the whole app
-   * before reaching it — Tab out of the field is the only route to the one control inside.
-   */
   describe('reaching Retry from the keyboard', () => {
     it('moves focus into the panel instead of closing it', async () => {
       const { wrapper } = await failedSearch()
@@ -140,7 +122,6 @@ describe('BaseSelect', () => {
       expect(event.defaultPrevented).toBe(true)
     })
 
-    /** Backwards means leaving; a panel is not something to reverse into. */
     it('closes on Shift+Tab rather than diverting into the panel', async () => {
       const { wrapper } = await failedSearch()
 
@@ -173,11 +154,6 @@ describe('BaseSelect', () => {
       expect(panel()).not.toBeNull()
     })
 
-    /**
-     * The default is **not** cancelled: `dismiss()` returns focus to the control synchronously,
-     * so the browser continues from there and one press leaves the select. Cancel it and Tab
-     * loops back into the field the user was trying to leave.
-     */
     it('closes and lets the browser carry on past the control on Tab', async () => {
       const { wrapper } = await failedSearch()
       const button = await focusedRetry(wrapper)
@@ -190,7 +166,6 @@ describe('BaseSelect', () => {
       expect(document.activeElement).toBe(input(wrapper).element)
     })
 
-    /** One keypress must not also close the dialog this control sits in. */
     it('closes only the panel on Escape', async () => {
       const { wrapper } = await failedSearch()
       const button = await focusedRetry(wrapper)
@@ -208,11 +183,6 @@ describe('BaseSelect', () => {
       expect(document.activeElement).toBe(input(wrapper).element)
     })
 
-    /**
-     * `retry()` flips the status to `loading` synchronously, unmounting the button being pressed
-     * — without the handoff focus falls to `<body>`, dropping the keyboard user out of the
-     * dialog entirely.
-     */
     it('re-issues the request and hands focus back to the field', async () => {
       const { wrapper, loadOptions } = await failedSearch()
       const button = await focusedRetry(wrapper)
@@ -235,7 +205,6 @@ describe('BaseSelect', () => {
       expect(labels()).toEqual(['Bravo'])
     })
 
-    /** Reopening must never inherit the last search, nor an index into a refiltered list. */
     it('resets the search and the cursor', async () => {
       const wrapper = await select({ searchable: true })
 

@@ -1,11 +1,6 @@
 import { expect, openRecordForm, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
-/**
- * The searchable branch as a text field: typing, pasting, clearing, and the overlay drawing the
- * selection over the input — all of it about the input and its panel staying in step.
- */
-
 let table: ISeededTable
 
 const MANY = Array.from({ length: 20 }, (_, index) => ({
@@ -36,7 +31,6 @@ test.describe('typing', () => {
     await combo(page, 'Many').pressSequentially('Choice 1')
 
     await expect(page.getByRole('listbox')).toBeVisible()
-    // 10 and 12–19 survive "Choice 1"; 01 does not
     await expect(page.getByRole('option', { name: 'Choice 01', exact: true })).toHaveCount(0)
     await expect(page.getByRole('option', { name: 'Choice 12', exact: true })).toBeVisible()
   })
@@ -46,7 +40,7 @@ test.describe('typing', () => {
     const input = combo(page, 'Many')
     await input.focus()
 
-    // Set the value and fire the same event a paste does — Playwright cannot paste directly
+    // Playwright cannot paste directly, so fire the event a paste does
     await input.evaluate((element: HTMLInputElement) => {
       element.value = 'Choice 12'
       element.dispatchEvent(new Event('input', { bubbles: true }))
@@ -56,12 +50,10 @@ test.describe('typing', () => {
     await expect(page.getByRole('option', { name: 'Choice 12', exact: true })).toBeVisible()
   })
 
-  /** A SELECT's choices are already in hand, so filtering them must not go to the server. */
   test('filters locally, issuing no request', async ({ page }) => {
     await openRecordForm(page, table.url)
 
-    // Data endpoints only: opening the panel pulls its tick icon from `/api/_nuxt_icon/`, which
-    // is an asset rather than a lookup and would make an "any request" count meaningless
+    // Data endpoints only: the panel's icon fetch from `/api/_nuxt_icon/` would muddle the count
     const dataRequests: string[] = []
     page.on('request', (request) => {
       if (request.url().includes('/api/tables/')) dataRequests.push(request.url())
@@ -99,8 +91,6 @@ test.describe('typing', () => {
     await input.click()
     await page.getByRole('option', { name: 'Choice 03', exact: true }).click()
 
-    // The overlay draws the value, so the attribute is dropped entirely rather than blanked —
-    // a placeholder showing through a selection is the bug this guards
     await expect(input).not.toHaveAttribute('placeholder')
   })
 })
@@ -125,7 +115,6 @@ test.describe('picking several', () => {
     await page.getByRole('option', { name: 'Choice 01', exact: true }).click()
     await page.getByRole('option', { name: 'Choice 02', exact: true }).click()
     await page.getByRole('option', { name: 'Choice 03', exact: true }).click()
-    // The overlay mirrors the accessible name: the first value, then "and N more"
     const value = page.locator('.base-select__value')
     await expect(value).toContainText('and 2 more')
 
@@ -136,11 +125,6 @@ test.describe('picking several', () => {
     await expect(value).toHaveText('Choice 01')
   })
 
-  /**
-   * Approximated: a held key is not reproducible through Playwright's API, so this presses more
-   * times than there are values, proving only that the presses past the end are harmless.
-   * Asserted on the value overlay, since nothing is typed here and the input's value is `''`.
-   */
   test('stops at empty rather than running away', async ({ page }) => {
     await openRecordForm(page, table.url)
     const input = combo(page, 'Tags')
@@ -154,7 +138,6 @@ test.describe('picking several', () => {
     await input.press('Backspace')
     await expect(value).toBeHidden()
 
-    // Five more than there is anything to remove
     for (let press = 0; press < 5; press += 1) await input.press('Backspace')
 
     await expect(value).toBeHidden()
@@ -175,11 +158,6 @@ test('clearing leaves focus in the control, never on the body', async ({ page })
   await expect(page.evaluate(() => document.activeElement?.tagName ?? '')).resolves.not.toBe('BODY')
 })
 
-/**
- * A relation's candidates are records of another table, so unlike a SELECT this one genuinely
- * has to ask the server — including for a single character, since the seed list is capped and
- * anything past it is reached by naming it.
- */
 test.describe('a relation picker', () => {
   let deals: ISeededTable
 
@@ -190,7 +168,6 @@ test.describe('a relation picker', () => {
       [{ full_name: 'Ada Lovelace' }, { full_name: 'Grace Hopper' }, { full_name: '' }],
     )
 
-    // A distinct name: the outer beforeEach already seeded a table called Deals
     deals = await seedTable('Linked Deals', [
       { key: 'company', type: 'TEXT', name: 'Company' },
       {
@@ -230,10 +207,6 @@ test.describe('a relation picker', () => {
     await expect(page.getByRole('option', { name: '#3', exact: true })).toBeVisible()
   })
 
-  /**
-   * The number is what tells two same-named records apart, so the picker states it beside every
-   * candidate — in an element of its own, which is what lets it be styled apart from the label.
-   */
   test('offers each candidate as its number and label', async ({ page }) => {
     const owner = await openOwner(page)
     await owner.pressSequentially('lovelace')
@@ -258,9 +231,7 @@ test.describe('a relation picker', () => {
   })
 
   /**
-   * By role rather than by text: the message is on screen once in the panel and once more in the
-   * control's live region, so a `getByText` matches both. The dialog is a safe scope because this
-   * form holds one select, and Nuxt's route announcer lives outside the shell.
+   * By role: the message is on screen twice (panel and live region), so `getByText` matches both.
    */
   const announcement = (page: import('@playwright/test').Page) =>
     page.getByRole('dialog').getByRole('status')
@@ -272,7 +243,6 @@ test.describe('a relation picker', () => {
     await owner.pressSequentially('ada')
 
     await expect(announcement(page)).toHaveText('Could not load options.')
-    // The visible half: the panel draws the same sentence, with the button beside it
     await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
 
     await page.unroute('**/fields/**/options**')
@@ -281,18 +251,11 @@ test.describe('a relation picker', () => {
     await expect(page.getByRole('option', { name: /Ada Lovelace/ })).toBeVisible()
   })
 
-  /**
-   * The keyboard route to that button, which only a browser can answer: the panel is teleported
-   * to `<body>`, so the real tab order runs past the entire app. Where focus *lands* per press is
-   * pinned in `BaseSelect.search.nuxt.spec.ts`; what only Chromium says is what the **default**
-   * Tab does after focus moves out of the panel.
-   */
   test.describe('reaching Retry from the keyboard', () => {
     const retry = (page: import('@playwright/test').Page) =>
-      // Page-level, not scoped to the dialog: the panel teleports out of it
+      // Page-level: the panel teleports out of the dialog
       page.getByRole('button', { name: 'Retry', exact: true })
 
-    /** Fails the one request and leaves the panel showing its Retry. */
     async function failedSearch(page: import('@playwright/test').Page) {
       const owner = await openOwner(page)
 
@@ -313,23 +276,18 @@ test.describe('a relation picker', () => {
 
       await page.keyboard.press('Shift+Tab')
       await expect(owner).toBeFocused()
-      // Backwards is a return, not an exit — the panel is still there to go forward into
       await expect(retry(page)).toBeVisible()
 
       await page.unroute('**/fields/**/options**')
       await page.keyboard.press('Tab')
       await page.keyboard.press('Enter')
 
-      // The button unmounts the moment the status changes, so this is the assertion that would
-      // catch focus being dropped on `<body>`
       await expect(owner).toBeFocused()
       await expect(page.getByRole('option', { name: /Ada Lovelace/ })).toBeVisible()
     })
 
     /**
-     * The half resting on the browser: the handler closes the panel and hands focus back to the
-     * control **without** cancelling the default, so Chromium sequences from there. Sequencing
-     * from the teleported button would land focus past the whole app.
+     * The default is not cancelled, so Chromium sequences from the control rather than the panel.
      */
     test('Tab past it closes the panel and carries on to the next control', async ({ page }) => {
       await failedSearch(page)
@@ -340,7 +298,6 @@ test.describe('a relation picker', () => {
       await page.keyboard.press('Tab')
 
       await expect(page.getByRole('listbox')).toHaveCount(0)
-      // The select is the form's last field, so the next control is the footer's first action
       await expect(page.getByRole('button', { name: 'Cancel' })).toBeFocused()
     })
   })
@@ -373,13 +330,11 @@ test('a choice keeps its colour in the trigger, the options and the cell', async
 
   await page.goto(coloured.url)
 
-  // In the cell
   const cellBadge = page.locator('tbody .base-badge').first()
   await expect(cellBadge).toContainText('Won')
   const cellTint = await tint(cellBadge)
   expect(cellTint).not.toBe('')
 
-  // In every option row
   await page.getByRole('button', { name: 'Add record' }).first().click()
   const trigger = page.getByRole('dialog').getByRole('button', { name: /^Stage/ })
   await trigger.click()
@@ -390,8 +345,6 @@ test('a choice keeps its colour in the trigger, the options and the cell', async
   const lostOption = page.getByRole('option', { name: 'Lost', exact: true }).locator('.base-badge')
   expect(await tint(lostOption)).not.toBe(cellTint)
 
-  // And in the trigger — drawn by the value overlay, which is a *sibling* of the button rather
-  // than a child of it, so it is located from the control rather than from the trigger
   await page.getByRole('option', { name: 'Won', exact: true }).click()
   const triggerBadge = page.getByRole('dialog').locator('.base-select__value .base-badge')
   await expect(triggerBadge).toContainText('Won')

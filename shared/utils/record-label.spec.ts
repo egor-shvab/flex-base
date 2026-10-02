@@ -31,7 +31,6 @@ describe('buildRecordLabel', () => {
   })
 
   it('joins a multi-value label rather than rendering its JSON', () => {
-    // Reachable because a field already serving as a label can be widened afterwards
     expect(buildRecordLabel(record({ tags: ['a', 'b'] }), 'tags')).toBe('a, b')
   })
 
@@ -49,7 +48,6 @@ describe('formatLinkedRecord', () => {
     expect(formatLinkedRecord({ number: 3, label: null })).toBe('#3')
   })
 
-  /** The regression this split fixes: a blank label used to arrive already carrying `#3`. */
   it('states the number once for a record with no label field value', () => {
     const blank = record({ full_name: '' }, 3)
 

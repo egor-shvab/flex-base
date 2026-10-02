@@ -31,11 +31,6 @@
 import { definePageMeta } from '#imports'
 import { UI_TEST_SECTIONS } from '~/components/ui-test/ui-test-sections'
 
-/**
- * The visual-QA showcase of `app/components/common/`. Outside the app shell — and left open by
- * the auth middleware — because it renders local fixtures only and a tester needs no account.
- * Children inherit `layout: false` through the merged route meta.
- */
 definePageMeta({ layout: false })
 </script>
 

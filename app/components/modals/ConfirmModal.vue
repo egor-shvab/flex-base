@@ -10,15 +10,10 @@
       <p class="confirm-modal__text">
         <slot />
       </p>
-      <!--
-        The server's reason for refusing — a table still pointed at by a relation names the
-        field to remove first. Here rather than per page, since `useDeleteConfirm` holds it.
-      -->
       <BaseErrorBanner :message="error" />
     </div>
 
     <template #footer>
-      <!-- Focus starts on the way out, not on the destructive answer: a stray Enter keeps the data -->
       <BaseButton variant="secondary" :disabled="pending" autofocus @click="emit('close')">
         Cancel
       </BaseButton>
@@ -40,7 +35,6 @@ withDefaults(
     confirmLabel?: string
     danger?: boolean
     pending?: boolean
-    /** Why the last attempt was refused; the dialog stays open so it can be read. */
     error?: string | null
   }>(),
   {
@@ -63,7 +57,6 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
     font-size: var(--font-size-md);
   }
 
-  // Decoration beside the title — the title and the danger button already say it is destructive
   &__warning {
     display: flex;
     flex: none;

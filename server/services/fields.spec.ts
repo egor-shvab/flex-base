@@ -13,10 +13,6 @@ vi.mock('#server/db/prisma', async () => ({
 const TABLE_ID = 'tbl_deals'
 const FIELD_ID = 'fld_owner'
 
-/**
- * The schema's *input* type, not its output: a spec writes a choice without a colour and lets
- * the default land, which is the wire shape a client actually sends.
- */
 type TFieldDraft = z.input<typeof fieldInputSchema>
 
 function input(overrides: Partial<TFieldDraft> & Pick<TFieldDraft, 'type'>): TFieldInput {
@@ -29,7 +25,6 @@ const relation = (overrides: Partial<TFieldDraft> = {}) =>
 const select = (overrides: Partial<TFieldDraft> = {}) =>
   input({ type: 'SELECT', choices: [{ value: 'Won' }], ...overrides })
 
-/** The row `updateField` reads before it decides anything. */
 function storedField(overrides: Partial<{ key: string; type: string; options: unknown }> = {}) {
   return { key: 'owner', type: 'RELATION', options: null, ...overrides }
 }
@@ -90,7 +85,6 @@ describe('createField — order allocation', () => {
   })
 
   it('appends past the highest existing order, not past the count', async () => {
-    // A deleted field leaves a hole, so counting rows would reuse an order already taken
     prismaMock.field.findMany.mockResolvedValue([
       { key: 'a', type: 'TEXT', order: 0 },
       { key: 'b', type: 'TEXT', order: 7 },
@@ -130,10 +124,6 @@ describe('createField — order allocation', () => {
   })
 })
 
-/**
- * These three guards are the whole reason `updateField` is not a straight `update`: each one
- * protects data already stored against a change the metadata alone would happily accept.
- */
 describe('updateField — the write guards', () => {
   it('404s for a field that is not on this table', async () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
@@ -213,7 +203,6 @@ describe('updateField — widening', () => {
     await FieldService.updateField(TABLE_ID, FIELD_ID, select({ multiple: true }))
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
-    // The stub hands the callback itself as `tx`, so both halves land on the same spies
     expect(prismaMock.field.update).toHaveBeenCalled()
     expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1)
   })
@@ -289,20 +278,11 @@ describe('FieldService.deleteField', () => {
   })
 })
 
-/**
- * Index work is fired and not awaited, which is what keeps a request off a build that can run for
- * minutes. The hazard that buys is that its rejection has nobody to reject *to*: an uncaught one
- * reaches Node's `uncaughtException` and takes the process down — over an index, on a write that
- * had already succeeded.
- */
 describe('a failed index build never reaches the caller', () => {
   it('resolves the write, and does not leave the rejection unhandled', async () => {
     const unhandled = vi.fn()
     process.on('unhandledRejection', unhandled)
 
-    // The index layer reads `pg_class` through raw SQL; the stub rejects it, which is the real
-    // failure shape rather than a contrived one. The field has to be opted **in**, or the sync
-    // returns before it touches the database and the case proves nothing.
     prismaMock.field.findMany.mockResolvedValue([])
     prismaMock.$queryRaw.mockRejectedValue(new Error('no such relation'))
     prismaMock.field.create.mockResolvedValue(textField('owner', { indexed: true }))
@@ -313,11 +293,9 @@ describe('a failed index build never reaches the caller', () => {
       key: 'owner',
     })
 
-    // Let any rejection settle before judging that none escaped
     await new Promise((resolve) => setTimeout(resolve, 0))
     process.off('unhandledRejection', unhandled)
 
-    // Without this the case passes just as well when the sync never ran at all
     expect(prismaMock.$queryRaw).toHaveBeenCalled()
     expect(unhandled).not.toHaveBeenCalled()
   })

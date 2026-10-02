@@ -9,16 +9,8 @@ import { timestampsFor } from '~~/prisma/seed/timestamps'
 import type { ISeedField, ISeedTable, TSeedValue } from '~~/prisma/seed/dataset/types'
 
 /**
- * Turns the dataset into the rows the writer inserts — and nothing else.
- *
- * **Pure, and it must stay that way.** `server/db/prisma.ts` constructs a real client at module
- * load, so anything reaching it drags a database connection into `npm run test:unit` — which is
- * why `FieldService.buildOptions` is not reused despite being exported for this shape.
- * `optionsFor` owes it no branch anyway: it reads what a seed field declares.
- *
- * What it does reuse is everything that judges: `buildFieldKey` derives the keys,
- * `fieldInputSchema` validates each field as the settings form would, and `buildRecordSchema` —
- * the schema the API validates payloads with — is what every record has to pass.
+ * Turns the dataset into rows. Pure, and must stay so: `server/db/prisma.ts` constructs a real
+ * client at module load, which is why `FieldService.buildOptions` is not reused.
  */
 
 export interface ICompiledRecord {
@@ -43,12 +35,6 @@ function requirePresent<T>(value: T | undefined, message: string): T {
   return value
 }
 
-/**
- * Every table's field keys, by field name.
- *
- * Derived for **all** tables before any field is built, because a relation needs its target's
- * keys and a target may be the table currently being built — `Tasks.Blocked by` points at Tasks.
- */
 function buildKeyIndex(tables: ISeedTable[]): Map<string, Map<string, string>> {
   return new Map(
     tables.map((table) => {
@@ -68,10 +54,6 @@ function buildKeyIndex(tables: ISeedTable[]): Map<string, Map<string, string>> {
   )
 }
 
-/**
- * A field's stored configuration. Assembled from what the seed declares rather than from its
- * type, so a new field type adds nothing here.
- */
 function optionsFor(
   seed: ISeedField,
   targetTableId: string | undefined,
@@ -87,7 +69,6 @@ function optionsFor(
   return Object.keys(options).length > 0 ? options : null
 }
 
-/** A RELATION value is a local ref in the dataset and a target record's id in the database. */
 function resolveValue(
   field: IField,
   value: TSeedValue,
@@ -130,8 +111,6 @@ export function compileDataset(tables: ISeedTable[]): ICompiledTable[] {
               `${seed.name}: "${seed.labelField}" is not a field of "${target}"`,
             )
 
-      // The app's own field validation, so a definition the settings form would reject — a SELECT
-      // with no choices, a RELATION with no target — fails before anything is written
       const input = fieldInputSchema.parse({
         name: seed.name,
         type: seed.type,
@@ -181,7 +160,6 @@ export function compileDataset(tables: ISeedTable[]): ICompiledTable[] {
       return {
         ref: record.ref,
         id: requirePresent(recordIdByRef.get(record.ref), `No id for "${record.ref}"`),
-        // The number a user reads, allocated exactly as `createRecord` would: 1..n in write order
         number: recordIndex + 1,
         data: parsed.data,
         ...timestampsFor(record.ref),
@@ -190,7 +168,6 @@ export function compileDataset(tables: ISeedTable[]): ICompiledTable[] {
 
     return {
       id: requirePresent(tableIdByKey.get(table.key), `No id for "${table.key}"`),
-      // Likewise `Table.number`: 1..n per account, in the order `SEED_TABLES` lists them
       number: tableIndex + 1,
       name: table.name,
       fields,

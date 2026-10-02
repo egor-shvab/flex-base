@@ -12,27 +12,16 @@ import { useTablesStore } from '~/stores/tables'
 import { asMultiple, relationField, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
-/**
- * The field editor — the one form whose shape changes with what is being edited. Built on
- * `BaseModal`, so its body is teleported and every query goes to the document.
- *
- * The two fetches are registered rather than stubbed: the modal refreshes the table list itself
- * (for RELATION only, which is what the gating case counts) and reads the *target* table's
- * fields directly rather than through the fields store, which would be clobbered.
- */
 const TABLES = [
   { id: 'tbl_deals', name: 'Deals', _count: { fields: 2, records: 3 } },
   { id: 'tbl_people', name: 'People', _count: { fields: 1, records: 2 } },
 ]
 
-/** The target table's fields, swapped per case. */
 let targetFields: IField[] = []
 
-/** Flipped per case, so a load failure can be asserted rather than only a successful one. */
 let tablesFail = false
 let targetFieldsFail = false
 
-/** Counted, because "did not fetch" is the whole claim of the gating case below. */
 let tablesRequests = 0
 
 function refuse(): never {
@@ -60,11 +49,6 @@ const labelled = (label: string) =>
     (element) => element.textContent?.trim() === label,
   )
 
-/**
- * A control found through its own label, the way a user reaches it. Two shapes to cover:
- * `BaseInput` and `BaseSelect` point at their control with `for`, while `BaseCheckbox` wraps
- * its `<input>` inside the `<label>` and needs none.
- */
 const controlFor = (label: string) => {
   const element = labelled(label)
   const id = element?.getAttribute('for')
@@ -104,8 +88,6 @@ describe('FieldFormModal', () => {
     targetFieldsFail = false
     tablesRequests = 0
 
-    // The store is the Nuxt app's, so it outlives a case — a list left behind would make a
-    // failure case look like it had loaded (`CLAUDE.md` §10)
     const tables = useTablesStore()
     tables.tables = []
     tables.loaded = false
@@ -131,10 +113,6 @@ describe('FieldFormModal', () => {
       expect(dialog()?.querySelector('.field-form__choices')).not.toBeNull()
     })
 
-    /**
-     * Cardinality is per-field rather than a second field type, and only the two types with a
-     * list form may carry it — `MULTI_VALUE_BY_TYPE` is the guard, not a hardcoded pair here.
-     */
     it('offers “Allow multiple values” only where the type has a list form', async () => {
       const single = await mountForm({ mode: 'edit', field: textField() })
       expect(labelled('Allow multiple values')).toBeUndefined()
@@ -152,10 +130,6 @@ describe('FieldFormModal', () => {
     })
   })
 
-  /**
-   * Read off the **saved** field, not the form: ticking the box in this session must not lock
-   * it, because only an already-stored multi-value field is one the server refuses to narrow.
-   */
   describe('the multi-value lock', () => {
     it('stays open while the saved field is still single-value', async () => {
       await mountForm({ mode: 'edit', field: selectField() })
@@ -196,7 +170,6 @@ describe('FieldFormModal', () => {
       expect(inputs).toHaveLength(2)
       expect(inputs[1]?.value).toBe('')
 
-      // The colour picker names its current colour, so the default is readable off the label
       const pickers = [...(dialog()?.querySelectorAll('.base-color-picker__trigger') ?? [])]
       expect(pickers).toHaveLength(2)
       expect(pickers[1]?.getAttribute('aria-label')).toContain(
@@ -204,11 +177,6 @@ describe('FieldFormModal', () => {
       )
     })
 
-    /**
-     * Rows carry an identity of their own because a choice has none — its `value` is still
-     * being typed. Keying by index would shift every row below a removal onto the wrong state
-     * and colour, so the middle row is the one worth removing.
-     */
     it('removes the row asked for, leaving the others intact', async () => {
       await mountForm({
         mode: 'edit',
@@ -222,10 +190,6 @@ describe('FieldFormModal', () => {
       expect(choiceInputs().map((input) => input.value)).toEqual(['Won', 'Open'])
     })
 
-    /**
-     * Choices are copied one level deep, because a choice is an object: sharing the references
-     * would let an edit here mutate the store's field metadata and repaint the page behind.
-     */
     it('never writes through to the field it was opened with', async () => {
       const field = selectField([{ value: 'Won', color: 'green' }])
       await mountForm({ mode: 'edit', field })
@@ -239,11 +203,6 @@ describe('FieldFormModal', () => {
     })
   })
 
-  /**
-   * A relation's label options come from the *target* table, fetched when the target changes.
-   * A link labelled by another link would read as an id, and a multi-value field names nothing,
-   * so neither is offered.
-   */
   describe('a relation’s label field', () => {
     it('offers the target’s labellable fields once it is chosen', async () => {
       targetFields = [
@@ -260,7 +219,6 @@ describe('FieldFormModal', () => {
 
       const labelSelect = dialog()?.querySelector('.base-select__value, .base-select__input')
       expect(labelSelect).not.toBeNull()
-      // The relation and the multi-value field are not candidates; the text field is
       await expect.poll(() => text()).toContain('Full name')
     })
 
@@ -279,10 +237,6 @@ describe('FieldFormModal', () => {
     })
   })
 
-  /**
-   * Neither option list may report "there are none" while the answer is unknown or the request
-   * failed — that states something about the user's data nobody established (`CLAUDE.md` §7).
-   */
   describe('when an option list cannot be loaded', () => {
     const loadError = () => dialog()?.querySelector('.field-form__load-error')?.textContent ?? ''
 
@@ -309,8 +263,7 @@ describe('FieldFormModal', () => {
       tablesFail = false
       button('Try again')?.click()
 
-      // Waited on what the retry must *produce*: the message clears the instant the request
-      // starts, so polling it would resolve before anything had loaded (`CLAUDE.md` §10)
+      // Waited on what the retry produces: the message clears the instant the request starts
       await expect.poll(() => useTablesStore().tables).toHaveLength(TABLES.length)
       expect(loadError()).toBe('')
     })
@@ -337,10 +290,6 @@ describe('FieldFormModal', () => {
       expect(loadError()).toBe('')
     })
 
-    /**
-     * Only the type that renders a target select reads the list, so no other type pays for a
-     * table fetch with its per-table counts.
-     */
     it('does not ask for the table list for a type that cannot link', async () => {
       await mountForm({ mode: 'edit', field: textField() })
       await nextTick()

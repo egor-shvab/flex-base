@@ -1,11 +1,6 @@
 import { companies, expect, expectCompanies, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
-/**
- * A multi-value SELECT filter, which is the one filter shape that repeats its param. Its whole
- * contract lives in the URL, so every case here is really about a link being shareable.
- */
-
 let table: ISeededTable
 
 const stageFilter = (page: import('@playwright/test').Page) =>
@@ -45,15 +40,10 @@ test('two choices repeat the param, sorted, and the table shows the union', asyn
   await page.getByRole('option', { name: 'Won', exact: true }).click()
   await page.getByRole('option', { name: 'Lost', exact: true }).click()
 
-  // Sorted, so the same selection always writes the same URL however it was clicked
   await expect(page).toHaveURL(/stage=Lost&stage=Won/)
   await expectCompanies(page, ['Beta', 'Acme'])
 })
 
-/**
- * One case, not two. That the summary *reaches* the chip is a wiring question and belongs here;
- * which words it chooses is a matrix, and `app/field-types/summaries.nuxt.spec.ts` owns it.
- */
 test('the summary chip reads as an any-of', async ({ page }) => {
   await page.goto(`${table.url}?stage=Won&stage=Lost`)
 
@@ -94,7 +84,6 @@ test('that URL loaded cold renders filtered with both options ticked', async ({
 test('clearing removes the param rather than leaving it empty', async ({ page }) => {
   await page.goto(`${table.url}?stage=Won&stage=Lost`)
 
-  // The summary's own "Clear all"; the drawer, which has one too, is closed
   await page.getByRole('button', { name: 'Clear all' }).click()
 
   await expect(page).not.toHaveURL(/stage=/)
@@ -110,11 +99,6 @@ test('removing one chip leaves the rest of the query alone', async ({ page }) =>
   await expect(page).toHaveURL(/sort=company&dir=asc/)
 })
 
-/**
- * The two layers answer a crafted value differently, both deliberately: the endpoint rejects it,
- * while the page's codec *drops* what it cannot decode, so a mangled link degrades to the
- * unfiltered table rather than an error screen.
- */
 test.describe('a value the field does not offer', () => {
   test('is a 400 from the endpoint', async ({ request }) => {
     const response = await request.get(`/api/tables/${table.number}/records?stage=Nonexistent`)

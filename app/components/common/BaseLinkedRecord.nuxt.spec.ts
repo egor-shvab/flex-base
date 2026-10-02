@@ -12,12 +12,7 @@ describe('BaseLinkedRecord', () => {
     expect((await ref({ number: 3, label: 'Example' })).text()).toBe('#3 Example')
   })
 
-  /**
-   * The one failure nothing on screen would show: an accessible name is computed from text
-   * content, and two adjacent inline elements contribute no space, so a separator living in
-   * markup announces `#3Example` and breaks every `getByRole` name match. Asserted on raw
-   * `textContent`, since `text()` normalises exactly the whitespace this is about.
-   */
+  /** On raw `textContent`: `text()` normalises exactly the whitespace this is about. */
   it('separates the number from the label with one real space', async () => {
     const wrapper = await ref({ number: 3, label: 'Example' })
 
@@ -29,22 +24,15 @@ describe('BaseLinkedRecord', () => {
     expect((await ref({ number: 3 })).text()).toBe('#3')
   })
 
-  /** What lets the number be styled apart from the label — the point of the whole component. */
   it('gives the number an element of its own, and the label none', async () => {
     const wrapper = await ref({ number: 3, label: 'Example' })
 
     expect(wrapper.get('.linked-record__number').text()).toBe('#3')
-    // The label is a bare text node beside it, so the number is the root's only element
     expect(wrapper.element.children).toHaveLength(1)
     expect(wrapper.element.lastChild?.nodeType).toBe(Node.TEXT_NODE)
     expect(wrapper.element.lastChild?.textContent).toBe(' Example')
   })
 
-  /**
-   * It renders inside `MultiValueCell`, and an atomic inline box is the one thing
-   * `text-overflow: ellipsis` cannot reach into. Structure rather than computed style, since
-   * `test.css` is `false` and a spec that read a colour here would be testing nothing.
-   */
   it('wraps the pair in a plain inline span that clips nothing itself', async () => {
     const wrapper = await ref({ number: 3, label: 'Example' })
 

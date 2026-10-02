@@ -12,7 +12,6 @@ function checkbox(props: Record<string, unknown> = {}) {
 describe('BaseCheckbox', () => {
   afterEach(unmountAll)
 
-  /** The drawn box is the native input restyled, so its role and state stay native. */
   it('is a native checkbox inside its own label', async () => {
     const wrapper = await checkbox({ modelValue: true })
     const input = wrapper.get('input')
@@ -36,7 +35,6 @@ describe('BaseCheckbox', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([true])
   })
 
-  /** On the input, never the root `<div>`, where it would disable nothing. */
   it('disables the input itself', async () => {
     const wrapper = await checkbox({ disabled: true })
 
@@ -44,7 +42,6 @@ describe('BaseCheckbox', () => {
     expect(wrapper.attributes('disabled')).toBeUndefined()
   })
 
-  /** A locked value is still a value: disabling keeps the tick the box draws from `:checked`. */
   it('stays checked while disabled', async () => {
     const wrapper = await checkbox({ modelValue: true, disabled: true })
     const input = wrapper.get('input').element as HTMLInputElement
@@ -60,7 +57,6 @@ describe('BaseCheckbox', () => {
     expect(wrapper.get('#fast-hint').text()).toBe('Saving gets a little slower.')
   })
 
-  /** One line under the label, never two — the error takes the hint's place. */
   it('replaces the hint with an error', async () => {
     const wrapper = await checkbox({ id: 'fast', hint: 'A hint', error: 'A fault' })
 

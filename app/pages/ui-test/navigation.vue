@@ -81,7 +81,6 @@ interface IPagerSpecimen {
   }
 }
 
-/** Fixed states — inert, since nothing listens to `update:page`. */
 const PAGER_SPECIMENS: IPagerSpecimen[] = [
   {
     label: 'first page',

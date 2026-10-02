@@ -4,10 +4,6 @@ import { h } from 'vue'
 import BaseModal from '~/components/common/BaseModal.vue'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
-/**
- * The component teleports its whole body to `<body>`, so nothing it renders is reachable
- * through the wrapper — every query goes to the document.
- */
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
 const scrim = () => document.querySelector<HTMLElement>('.base-modal')
 const appRoot = () => document.getElementById('__nuxt')
@@ -24,7 +20,6 @@ function mountModal(
   return mountTracked(BaseModal, { props: { title: 'Edit record', ...props }, slots })
 }
 
-/** The listener lives on `document`, so the key has to be dispatched there. */
 function pressEscape() {
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
 }
@@ -33,8 +28,8 @@ describe('BaseModal', () => {
   afterEach(unmountAll)
 
   beforeEach(() => {
-    // The component marks this element `inert` through `?.`, so without one every inert
-    // assertion would pass vacuously
+    // The component reaches this element through `?.`, so without it inert assertions pass
+    // vacuously
     const root = document.createElement('div')
     root.id = '__nuxt'
     document.body.appendChild(root)
@@ -59,7 +54,6 @@ describe('BaseModal', () => {
       expect(dialog()?.getAttribute('aria-label')).toBe('Edit record')
     })
 
-    /** Focusable without joining the tab order, which is what lets focus move in on open. */
     it('makes the dialog container focusable but not tabbable', async () => {
       await mountModal()
 
@@ -94,7 +88,6 @@ describe('BaseModal', () => {
       expect(document.querySelector('.base-modal__subtitle')?.textContent).toBe('Deals · #1042')
     })
 
-    /** Context, not a second name — the accessible name is the title alone. */
     it('keeps the dialog named by its title when a subtitle is shown', async () => {
       await mountModal({ subtitle: 'Deals · #1042' })
 
@@ -116,7 +109,6 @@ describe('BaseModal', () => {
       expect(document.querySelector('.base-modal__footer')?.textContent).toContain('Save')
     })
 
-    /** Beside the title, in the header — a glyph the caller draws, never a second name. */
     it('renders a leading slot in the header, before the title', async () => {
       await mountModal({}, { leading: () => h('span', { class: 'glyph' }, '!') })
 
@@ -129,11 +121,6 @@ describe('BaseModal', () => {
   })
 
   describe('focus on open', () => {
-    /**
-     * The container rather than the first control, deliberately: that control is a destructive
-     * Delete in one dialog and a text input in another, and landing on either is a decision the
-     * dialog makes for itself through `autofocus`.
-     */
     it('lands on the dialog container by default', async () => {
       await mountModal()
 
@@ -150,11 +137,6 @@ describe('BaseModal', () => {
     })
   })
 
-  /**
-   * `aria-modal="true"` claims the rest of the page is unavailable, so the rest of the page has
-   * to actually be unavailable — otherwise the attribute is a false signal and every control
-   * behind the scrim stays focusable and in the accessibility tree.
-   */
   describe('the inert guard', () => {
     it('takes the app root out of the tab order while open', async () => {
       expect(appRoot()?.hasAttribute('inert')).toBe(false)
@@ -172,12 +154,6 @@ describe('BaseModal', () => {
   })
 
   describe('focus on close', () => {
-    /**
-     * Without it, closing a dialog opened deep in a scrolled table drops the keyboard user at the
-     * top of the document. It also pins the ordering by outcome: the trigger is read *before*
-     * `inert` is applied (an inert ancestor blurs what is inside it) and refocused *after* it is
-     * lifted (or the element is still unfocusable) — get either wrong and this fails.
-     */
     it('returns focus to whatever opened it', async () => {
       const trigger = document.createElement('button')
       appRoot()?.appendChild(trigger)
@@ -192,7 +168,6 @@ describe('BaseModal', () => {
       expect(document.activeElement).toBe(trigger)
     })
 
-    /** The trigger can have gone with the dialog — a row's Edit button on a record just deleted. */
     it('does not try to focus a trigger that has since been removed', async () => {
       const trigger = document.createElement('button')
       appRoot()?.appendChild(trigger)
@@ -239,7 +214,6 @@ describe('BaseModal', () => {
       expect(wrapper.emitted('close')).toHaveLength(1)
     })
 
-    /** `@click.self` — a click that merely bubbles up through the scrim is not a click on it. */
     it('does not emit close for a click inside the dialog', async () => {
       const wrapper = await mountModal({}, { default: () => h('p', 'Some text') })
 
@@ -251,10 +225,6 @@ describe('BaseModal', () => {
     })
   })
 
-  /**
-   * What stops a dialog that has closed from eating the next one's Escape — the same reason
-   * `usePopover` deliberately owns no keyboard listener at all.
-   */
   it('releases the document listener on unmount', async () => {
     const wrapper = await mountModal()
     wrapper.unmount()

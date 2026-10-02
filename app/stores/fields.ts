@@ -7,11 +7,8 @@ import type { TFieldInput } from '#shared/validation/field'
 
 export const useFieldsStore = defineStore('fields', () => {
   const api = useFieldsApi()
-  // A write returns the table's refreshed list row, and the dashboard draws its field count
-  // from the list this store holds
   const tables = useTablesStore()
 
-  // shallowRef: the collection is replaced wholesale, never mutated item-by-item
   const fields = shallowRef<IField[]>([])
 
   async function fetchFields(tableAddress: string) {

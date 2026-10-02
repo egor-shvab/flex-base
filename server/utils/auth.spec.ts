@@ -18,7 +18,6 @@ const SECRET = 'test-secret-not-a-real-one'
 const OTHER_SECRET = 'a-different-secret'
 const USER_ID = 'usr_abc123'
 
-/** A real `H3Event` over a real node response, so the cookie helpers are not stubbed at all. */
 function testEvent(): H3Event {
   const request = new IncomingMessage(new Socket())
   return createEvent(request, new ServerResponse(request))
@@ -67,7 +66,6 @@ describe('verifyAuthToken — rejection', () => {
   })
 
   it('rejects a token carrying no subject', () => {
-    // A valid signature is not enough — the id is the whole point of the token
     expect(verifyAuthToken(jwt.sign({}, SECRET, { algorithm: 'HS256' }), SECRET)).toBeNull()
   })
 
@@ -78,7 +76,6 @@ describe('verifyAuthToken — rejection', () => {
 
 describe('verifyAuthToken — the algorithm pin', () => {
   it('rejects a token signed with a different HMAC algorithm', () => {
-    // `algorithms: ['HS256']` is what stops a caller choosing the algorithm for us
     const forged = jwt.sign({}, SECRET, { subject: USER_ID, algorithm: 'HS512' })
 
     expect(forged.length).toBeGreaterThan(0)
@@ -98,7 +95,7 @@ describe('verifyAuthToken — expiry', () => {
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
     const token = signAuthToken(USER_ID, SECRET)
 
-    vi.setSystemTime(new Date('2026-01-06T00:00:00Z')) // +5 days, inside the 7-day TTL
+    vi.setSystemTime(new Date('2026-01-06T00:00:00Z'))
     expect(verifyAuthToken(token, SECRET)).toBe(USER_ID)
   })
 
@@ -107,16 +104,11 @@ describe('verifyAuthToken — expiry', () => {
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
     const token = signAuthToken(USER_ID, SECRET)
 
-    vi.setSystemTime(new Date('2026-01-09T00:00:00Z')) // +8 days
+    vi.setSystemTime(new Date('2026-01-09T00:00:00Z'))
     expect(verifyAuthToken(token, SECRET)).toBeNull()
   })
 })
 
-/**
- * The session cookie's attributes are the difference between a token a script cannot read and
- * one it can. `secure` is deliberately not asserted: it is derived from `import.meta.dev`, so
- * pinning it here would pin the test environment rather than the shipped posture.
- */
 describe('setAuthCookie', () => {
   it('writes the token under the auth cookie name', () => {
     const event = testEvent()

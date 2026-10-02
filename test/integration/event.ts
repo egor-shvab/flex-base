@@ -3,22 +3,14 @@ import { Socket } from 'node:net'
 import { createEvent, getResponseHeader, type H3Event } from 'h3'
 import type { IAuthUser } from '#shared/types/auth'
 
-/** A repeated param is an array, exactly as a real query string delivers it. */
 type TQueryInput = Record<string, string | string[]>
 
 interface IEventInput {
-  /** What the auth middleware would have attached; `null` is an anonymous request. */
   user?: IAuthUser | null
-  /** Route params, which is where `getRouterParam` reads from. */
   params?: Record<string, string>
   query?: TQueryInput
   body?: unknown
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
-  /**
-   * The address the request appears to come from, which `getRequestIP` reads off the socket.
-   * Only a rate-limited endpoint cares; supplying a distinct one per case is how a spec gets its
-   * own allowance instead of sharing the module-level counter with every case before it.
-   */
   ip?: string
 }
 
@@ -33,12 +25,6 @@ function toSearch(query: TQueryInput): string {
   return search === '' ? '' : `?${search}`
 }
 
-/**
- * A real `H3Event` over a real node request, so the handler under test parses its query and
- * reads its body through h3 rather than through anything this file pretends to be. Only the
- * two things Nitro would have put there — the authenticated user and the route params — are
- * supplied directly, because routing is what this layer deliberately skips.
- */
 export function testEvent({
   user = null,
   params = {},
@@ -48,7 +34,6 @@ export function testEvent({
   ip,
 }: IEventInput = {}): H3Event {
   const socket = new Socket()
-  // `remoteAddress` is a getter on a real socket, so it is defined rather than assigned
   if (ip !== undefined) Object.defineProperty(socket, 'remoteAddress', { value: ip })
 
   const request = new IncomingMessage(socket)
@@ -58,12 +43,10 @@ export function testEvent({
   if (body !== undefined) {
     const payload = JSON.stringify(body)
     request.headers['content-type'] = 'application/json'
-    // Required, not cosmetic: h3 returns an empty body without reading the stream at all
-    // unless there is a content-length or a chunked transfer-encoding to justify it
+    // Required: without a content-length h3 returns an empty body without reading the stream
     request.headers['content-length'] = String(Buffer.byteLength(payload))
     request.push(payload)
   }
-  // Ends the stream either way — a body-less request must not hang waiting for one
   request.push(null)
 
   const event = createEvent(request, new ServerResponse(request))

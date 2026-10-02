@@ -23,7 +23,6 @@
         </BaseButton>
       </div>
 
-      <!-- Both table screens open with the same name; this line is what says which one -->
       <p class="table-page__eyebrow">Table settings</p>
     </div>
 
@@ -38,8 +37,6 @@
             <dt class="detail-card__term">Name</dt>
             <dd class="detail-card__value">{{ table?.name }}</dd>
           </div>
-          <!-- Omitted rather than zeroed: the count comes from the tables store, and
-               `ensureTables` fails silently — a 0 here would be a claim, not a reading -->
           <div v-if="recordCount !== null" class="detail-card__row">
             <dt class="detail-card__term">Records</dt>
             <dd class="detail-card__value detail-card__value--mono">{{ recordCount }}</dd>
@@ -52,15 +49,12 @@
             <dt class="detail-card__term">Created</dt>
             <dd class="detail-card__value">{{ createdAt }}</dd>
           </div>
-          <!-- Where the table lives: machine-made, so mono, and quieter than what the user named -->
           <div v-if="address" class="detail-card__row">
             <dt class="detail-card__term">Address</dt>
             <dd class="detail-card__value detail-card__value--address">{{ address }}</dd>
           </div>
         </dl>
 
-        <!-- Words, not icons: a one-off action in a card footer. The repeated row actions
-             below are icons. -->
         <div class="detail-card__actions">
           <BaseButton variant="link" @click="renameOpen = true">Rename</BaseButton>
           <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableAddress">
@@ -150,27 +144,16 @@ const route = useRoute()
 const loadTable = useTableLoader()
 const fieldsStore = useFieldsStore()
 const tablesStore = useTablesStore()
-/** The address the URL carries — a number going forward, a cuid from an older link. */
 const tableAddress = route.params.tableAddress as string
 
-// Its own key, never the records page's — a layout and a page must not share one (`decisions.md`)
 const { data, error } = await useAsyncData(`table-${tableAddress}`, () => loadTable(tableAddress))
 
 if (error.value) {
   throw createError(toPageError(error.value))
 }
 
-/**
- * The list row for this table, when the layout's `ensureTables` has loaded one. It carries the
- * counts and is what a rename writes to — `renameTable` updates the store, not this page's
- * `data`, so reading the name here keeps the heading and breadcrumbs in step without a refetch.
- */
 const cachedTableRow = computed(() => tablesStore.tableRow(tableAddress))
 
-/**
- * Preferred over the fetched table, and falling back to it: `ensureTables` never throws, so
- * the store may legitimately hold nothing at all and the page must still render.
- */
 const table = computed(() => cachedTableRow.value ?? data.value)
 
 useSeoMeta({ title: () => table.value?.name ?? 'Table' })
@@ -183,29 +166,21 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 
 const createdAt = computed(() => (table.value ? formatTimestamp(table.value.createdAt) : ''))
 
-/** `null` when the store has no row for this table — see the template. */
 const recordCount = computed(() =>
   cachedTableRow.value ? formatNumber(cachedTableRow.value._count.records) : null,
 )
 
 const fieldCount = computed(() => fieldsStore.fields.length)
 
-/** The path the table is reached by — its number, whatever form the URL arrived in. */
 const address = computed(() => (table.value ? `/tables/${toTableAddress(table.value)}` : ''))
 
-/**
- * What a field's configuration line may need beyond its own metadata — only a RELATION's target
- * table name. The page owns the store, so the lookup is handed down rather than reached for
- * inside a registry entry. A plain object rather than a computed: `tableName` is *called* during
- * the list's render, so it is `tables` the render effect tracks.
- */
+/** A plain object, not a computed: `tableName` is called during render, so `tables` is tracked. */
 const summaryContext: IFieldConfigSummaryContext = {
   tableName: (id) => tablesStore.tableRow(id)?.name,
 }
 
 const renameOpen = ref(false)
 
-// Throws (409 on a duplicate name) propagate into TableFormModal's useForm, which shows the error
 async function submitRename(name: string) {
   await tablesStore.renameTable(tableAddress, { name })
 }
@@ -218,7 +193,6 @@ const {
   close: closeFieldModal,
 } = useEntityFormModal<IField>()
 
-// Throws (400/409) propagate into FieldFormModal's useForm, which shows the error
 async function submitField(input: TFieldInput) {
   if (editingField.value) {
     await fieldsStore.updateField(tableAddress, editingField.value.id, input)
@@ -227,11 +201,6 @@ async function submitField(input: TFieldInput) {
   }
 }
 
-/**
- * Deleting the table leaves nowhere to stand, so the navigation is part of the removal. A
- * refusal — another table's RELATION points here — is caught by the composable and rendered in
- * the dialog, which is why nothing is rethrown.
- */
 const {
   target: tableDeleteTarget,
   dialogProps: tableDeleteDialog,
@@ -251,14 +220,11 @@ const {
 </script>
 
 <style lang="scss" scoped>
-// The reference's reading column: label/value panels past this width only spread the pair apart
 .table-page {
   @include stack(24);
 
   max-width: rem(928);
 
-  // The records page's top rows in the same order — crumbs, title — then the line that sets
-  // this screen apart from that one
   &__top {
     @include stack(14);
   }
@@ -293,7 +259,6 @@ const {
 .section-head {
   @include cluster(12);
 
-  // Matches a control, so a section with an action and one without line up
   min-height: var(--control-height);
 
   &__title {
@@ -323,7 +288,6 @@ const {
     align-items: center;
     min-height: rem(44);
     padding: rem(8) rem(16);
-    // A rule inside a surface, so the softer token — the card's own edge is the structure
     border-bottom: 1px solid var(--color-border-subtle);
 
     @include below-shell {
@@ -345,7 +309,6 @@ const {
 
     @include truncate;
 
-    // A count is a figure, so mono like every other figure in the app
     &--mono {
       font-family: var(--font-mono);
       font-size: var(--font-size-md);

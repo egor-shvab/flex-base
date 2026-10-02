@@ -19,10 +19,6 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-/**
- * In the Nuxt project only because the registry imports `.vue` control components. Nothing here
- * mounts anything — the entries are data, and the adapters are pure functions.
- */
 describe('FIELD_INPUTS', () => {
   it.each([
     ['TEXT', BaseInput],
@@ -36,10 +32,6 @@ describe('FIELD_INPUTS', () => {
   })
 })
 
-/**
- * Cardinality is per-field, not per-type, so this resolver is the single place the form side
- * reads `options.multiple` — `RecordForm` never learns the flag exists.
- */
 describe('inputFor', () => {
   it('keeps the same control but swaps the adapter for a multi SELECT', () => {
     const single = inputFor(selectField())
@@ -57,7 +49,6 @@ describe('inputFor', () => {
     expect(inputFor(relation).props(relation).multiple).toBe(true)
   })
 
-  /** `MULTI_VALUE_BY_TYPE.TEXT` is false, so the flag alone must not reroute the lookup. */
   it('ignores multiple on a type that cannot hold several', () => {
     const field = asMultiple(textField())
 
@@ -66,9 +57,8 @@ describe('inputFor', () => {
   })
 
   /**
-   * Two total `Record`s maintained by hand in different files. Nothing but this says they have
-   * to agree — a type marked multi-value with no list input would fall back to the scalar one
-   * and silently drop every value but the first.
+   * `MULTI_INPUTS` must be non-null exactly where `MULTI_VALUE_BY_TYPE` is true, or a multi-value
+   * field falls back to the scalar input and silently drops every value but the first.
    */
   it('offers a list control for exactly the types that may hold a list', () => {
     for (const type of FIELD_TYPES) {
@@ -91,7 +81,6 @@ describe('the props each control is handed', () => {
 
   it('gives the two BaseInput variants their native types', () => {
     expect(inputFor(numberField()).props(numberField()).type).toBe('number')
-    // A date input already speaks YYYY-MM-DD, which is exactly how dates are stored
     expect(inputFor(dateField()).props(dateField()).type).toBe('date')
     expect(inputFor(textField()).props(textField()).type).toBeUndefined()
   })
@@ -112,12 +101,6 @@ describe('the props each control is handed', () => {
     ])
   })
 
-  /**
-   * The registry knows how many choices there are, so the search box is its decision — but
-   * *where* the line sits is `shouldSearch`'s, and `app/utils/select.spec.ts` pins that.
-   * Asserting agreement rather than `true`/`false` keeps the threshold in one place while
-   * still failing a registry that hardcodes the answer.
-   */
   it('decides a SELECT’s search box by consulting shouldSearch', () => {
     const few = selectField(['a', 'b', 'c'])
     expect(inputFor(few).props(few).searchable).toBe(shouldSearch(3))
@@ -133,7 +116,6 @@ describe('the props each control is handed', () => {
     expect(inputFor(field).props(field).emptyLabel).toBe('No choices defined')
   })
 
-  /** A relation's candidates are records of another table, so the control fetches by field id. */
   it('addresses a RELATION by its field id rather than its metadata', () => {
     const field = relationField()
 
@@ -148,14 +130,12 @@ describe('the props each control is handed', () => {
 })
 
 describe('the adapters', () => {
-  /** TEXT, DATE and SELECT share one: a blank means "no value", never an empty string. */
   describe('blankIsNull, shared by TEXT, DATE and SELECT', () => {
     it.each([textField(), dateField(), selectField()])('reads a stored value in', (field) => {
       const { toControl } = inputFor(field)
 
       expect(toControl('stored')).toBe('stored')
       expect(toControl(null)).toBe('')
-      // A control speaks strings; anything else is not this field's value
       expect(toControl(42)).toBe('')
       expect(toControl(['a'])).toBe('')
     })
@@ -196,11 +176,6 @@ describe('the adapters', () => {
       expect(fromControl(null)).toBeNull()
     })
 
-    /**
-     * The load-bearing one. Discarding unparseable text would blank the field under the user
-     * and leave the schema nothing to complain about — so it is kept as a string and validation
-     * answers "Enter a number".
-     */
     it('keeps unparseable input so the schema can reject it', () => {
       expect(fromControl('abc')).toBe('abc')
       expect(fromControl('12abc')).toBe('12abc')
@@ -229,11 +204,6 @@ describe('the adapters', () => {
       expect(fromControl(['a', 'b'])).toEqual(['a', 'b'])
     })
 
-    /**
-     * A record written **before** its field was widened still holds a bare string. `updateField`
-     * migrates those rows, but a form opened from a stale page must not drop the value it is
-     * about to save back — so both directions wrap rather than discard.
-     */
     it('wraps a bare string left over from before the field was widened', () => {
       expect(toControl('a')).toEqual(['a'])
       expect(fromControl('a')).toEqual(['a'])

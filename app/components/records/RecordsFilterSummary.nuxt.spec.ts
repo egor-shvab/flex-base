@@ -38,7 +38,6 @@ async function summary(
   })
 }
 
-/** The chips as rendered, `Field` label first — enough to assert order and phrasing at once. */
 function chips(wrapper: Awaited<ReturnType<typeof summary>>): string[] {
   return wrapper
     .findAll('.filter-summary__chip')
@@ -48,14 +47,8 @@ function chips(wrapper: Awaited<ReturnType<typeof summary>>): string[] {
 describe('RecordsFilterSummary', () => {
   afterEach(unmountAll)
 
-  /**
-   * A mounted component resolves `useRelationsStore()` through the pinia `@pinia/nuxt` gave the
-   * Nuxt app, not a spec's own `createPinia()` — making that one active is what lets a case
-   * seed the store the component will read.
-   */
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
-    // That store outlives the case, so its cache is cleared rather than re-created
     useRelationsStore().linkedByField = {}
   })
 
@@ -85,16 +78,13 @@ describe('RecordsFilterSummary', () => {
       ])
     })
 
-    /** The one summariser needing state beyond its own value. */
     it('resolves a RELATION filter through the relations store', async () => {
       useRelationsStore().cacheLinkedRecords({
         fld_owner: { rec_ada: { number: 7, label: 'Ada Lovelace' } },
       })
 
-      // The filter carries the target's *number*, which is what the URL shows
       const wrapper = await summary({ owner: '7' })
 
-      // Flat, unlike a cell: a chip's phrase is a string by contract
       expect(chips(wrapper)).toEqual(['Owner is #7 Ada Lovelace'])
     })
 
@@ -104,10 +94,6 @@ describe('RecordsFilterSummary', () => {
       expect(chips(wrapper)).toEqual(['Owner is Unknown record'])
     })
 
-    /**
-     * Walked in field order, not over `Object.entries(filters)`, which would surface a key with
-     * no field and order the chips by however the URL was written.
-     */
     it('renders chips in field order, not filter-map order', async () => {
       const wrapper = await summary({ stage: ['Won'], company: 'acme' })
 
@@ -126,7 +112,6 @@ describe('RecordsFilterSummary', () => {
       expect(chips(wrapper)).toEqual(['Created at from 1 Jan 2026'])
     })
 
-    /** `queryColumns` fixes where each one sits: the number leads, the timestamps trail. */
     it('places the record’s own columns around a table’s own fields', async () => {
       const wrapper = await summary({
         [RECORD_NUMBER_KEY]: '4',
@@ -143,14 +128,12 @@ describe('RecordsFilterSummary', () => {
   })
 
   describe('search', () => {
-    /** Not a filter, but it narrows the same list — the one deliberate special case. */
     it('states the search in the same place as the filters', async () => {
       const wrapper = await summary({ company: 'acme' }, { search: 'lovelace' })
 
       expect(chips(wrapper)).toEqual(['Search lovelace', 'Company contains acme'])
     })
 
-    /** The field and the phrase are styled apart — muted name, weighted value — so each has its own element. */
     it('renders the field and its phrase as separate parts of the chip', async () => {
       const wrapper = await summary({ company: 'acme' })
       const chip = wrapper.get('.filter-summary__chip')
@@ -191,7 +174,6 @@ describe('RecordsFilterSummary', () => {
       )
     })
 
-    /** A stale count under a new filter would be a lie, so pending states itself instead. */
     it('says it is filtering rather than showing a stale count', async () => {
       const wrapper = await summary({ company: 'acme' }, { total: 12, pending: true })
 
@@ -234,8 +216,6 @@ describe('RecordsFilterSummary', () => {
   it('clears filters and search together in one navigation', async () => {
     const wrapper = await summary({ company: 'acme' }, { search: 'lovelace' })
 
-    // By accessible name: every chip's remove ✕ is a `BaseButton`, so the bare class would
-    // match all of them and pick the first
     const clearAll = wrapper.findAll('button').find((button) => button.text() === 'Clear all')
 
     await clearAll!.trigger('click')

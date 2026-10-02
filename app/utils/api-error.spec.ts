@@ -20,10 +20,6 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage({ data: { message: 'Conflict' } })).toBe('Conflict')
   })
 
-  /**
-   * `??` alone skips only `null`/`undefined`, so an empty `statusMessage` would win the chain
-   * and render an empty error box. Blank counts as absent.
-   */
   it('treats a blank statusMessage as absent rather than as an answer', () => {
     expect(getApiErrorMessage({ data: { statusMessage: '', message: 'Conflict' } })).toBe(
       'Conflict',
@@ -37,7 +33,6 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage({ data: { statusMessage: '', message: '' } })).toBe(GENERIC)
   })
 
-  /** `data` is untyped at runtime, so a non-string must not escape a `string`-typed function. */
   it('ignores a non-string message', () => {
     expect(getApiErrorMessage({ data: { statusMessage: 500 } })).toBe(GENERIC)
     expect(getApiErrorMessage({ data: { statusMessage: { text: 'nope' } } })).toBe(GENERIC)
@@ -60,11 +55,6 @@ describe('toPageError', () => {
     })
   })
 
-  /**
-   * Hard-coding the not-found wording here makes a malformed `?sort=` render as a server error
-   * claiming a table that had just loaded does not exist, so a 400 forwards its code and
-   * asserts no cause.
-   */
   it('blames the address, not the table, for anything else', () => {
     expect(toPageError({ statusCode: 400 })).toEqual({
       statusCode: 400,
@@ -77,11 +67,6 @@ describe('toPageError', () => {
     expect(toPageError({ statusCode: 503 }).statusCode).toBe(503)
   })
 
-  /**
-   * A 500 must not take the 400 wording, which describes a status it is not: the records page
-   * wraps its record fetch in the same `useAsyncData`, so a failing endpoint lands here and
-   * would blame the user's link for a fault at our end.
-   */
   it('owns a server fault rather than blaming the address', () => {
     expect(toPageError({ statusCode: 500 })).toEqual({
       statusCode: 500,

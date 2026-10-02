@@ -15,7 +15,6 @@ describe('isMultiValue', () => {
   })
 
   it('ignores a crafted `multiple` on a type with no list form', () => {
-    // The guard that stops a stale or hand-written flag reaching the schema or the SQL
     expect(isMultiValue(asMultiple(textField()))).toBe(false)
   })
 

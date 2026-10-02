@@ -14,14 +14,12 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-/** Keyed by **number**, which is what a relation filter value is — see `IFilterSummaryContext`. */
 const REFS: Record<number, ILinkedRecord> = {
   7: { number: 7, label: 'Ada Lovelace' },
   9: { number: 9, label: 'Grace Hopper' },
   11: { number: 11, label: null },
 }
 
-/** A link written before filters carried numbers still names its target. */
 const BY_ID: Record<string, ILinkedRecord> = { rec_ada: REFS[7] as ILinkedRecord }
 
 const ctx: IFilterSummaryContext = {
@@ -29,7 +27,6 @@ const ctx: IFilterSummaryContext = {
   linkedRecordFor: (_fieldId, recordId) => BY_ID[recordId],
 }
 
-/** How one field's active filter actually reads — the resolver, not the raw registry entry. */
 function summarise(field: IField, value: TFilterValue): string {
   return summaryFor(field)(value, field, ctx)
 }
@@ -51,7 +48,6 @@ describe('NUMBER', () => {
     expect(summarise(field, { from: 1000, to: 5000 })).toBe('between 1,000 and 5,000')
   })
 
-  /** Bounds are inclusive in the SQL, so "or more" is true where "above" would not be. */
   it('states a lower bound inclusively', () => {
     expect(summarise(field, { from: 1000, to: null })).toBe('1,000 or more')
   })
@@ -100,10 +96,6 @@ describe('BOOLEAN', () => {
     expect(summarise(field, false)).toBe('No')
   })
 
-  /**
-   * Deliberate, not a gap: only a strict `true` is Yes. A BOOLEAN filter is tri-state, and the
-   * unset case is dropped before it reaches a summary, so there is no third phrasing to write.
-   */
   it('treats anything other than a strict true as No', () => {
     expect(summarise(field, null)).toBe('No')
     expect(summarise(field, '')).toBe('No')
@@ -117,7 +109,6 @@ describe('SELECT', () => {
     expect(summarise(field, ['Won'])).toBe('is Won')
   })
 
-  /** Several read as the OR the SQL runs, rather than a count the user has to expand. */
   it('reads several choices as an any-of', () => {
     expect(summarise(field, ['Won', 'Lost'])).toBe('is any of Won, Lost')
   })
@@ -134,7 +125,6 @@ describe('SELECT', () => {
 describe('RELATION', () => {
   const field = relationField()
 
-  /** Flat, because a chip's phrase is a string — the number is stated, not styled apart. */
   it('resolves a single id to its number and label', () => {
     expect(summarise(field, '7')).toBe('is #7 Ada Lovelace')
   })
@@ -143,16 +133,10 @@ describe('RELATION', () => {
     expect(summarise(field, '11')).toBe('is #11')
   })
 
-  /** An id outside the capped candidate list resolves to nothing, and degrades like a cell. */
   it('degrades an unresolvable id rather than showing it', () => {
     expect(summarise(field, '404')).toBe('is Unknown record')
   })
 
-  /**
-   * A filter link written before relation filters carried numbers holds a cuid. The rows still
-   * come back — the server reads either form — so the chip describing them must too, or it
-   * would say "Unknown record" about rows that are plainly there.
-   */
   it('names the target of a link that still carries a cuid', () => {
     expect(summarise(field, 'rec_ada')).toBe('is #7 Ada Lovelace')
   })
@@ -178,31 +162,20 @@ describe('RELATION', () => {
   })
 })
 
-/**
- * Cardinality is per-field, not per-type, so the resolver is where the two axes meet. Every
- * consumer calls `summaryFor` rather than indexing `FILTER_SUMMARIES`, and these are the three
- * ways that choice can go wrong.
- */
 describe('summaryFor', () => {
   it('picks the multi entry only for a type that has one', () => {
     const single = relationField()
     const multi = asMultiple(relationField())
 
-    // The same value, read by the two entries — proof they are genuinely different functions
     expect(summarise(single, '7')).toBe('is #7 Ada Lovelace')
     expect(summarise(multi, ['7'])).toBe('is #7 Ada Lovelace')
     expect(summaryFor(single)).not.toBe(summaryFor(multi))
   })
 
-  /** SELECT's flat summary is already list-shaped, so its override is `null` on purpose. */
   it('falls through to the flat entry for a multi SELECT', () => {
     expect(summaryFor(asMultiple(selectField()))).toBe(FILTER_SUMMARIES.SELECT)
   })
 
-  /**
-   * `MULTI_VALUE_BY_TYPE.TEXT` is `false`, so `options.multiple` on a TEXT field is not a thing
-   * `isMultiValue` honours — the flag alone must not reroute the summary.
-   */
   it('ignores multiple on a type that cannot hold several', () => {
     const field = asMultiple(textField())
 

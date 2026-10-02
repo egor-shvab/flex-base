@@ -31,17 +31,12 @@ describe('readCellValue', () => {
     expect(readCellValue(row, updatedAtColumn)).toBe(row.updatedAt)
   })
 
-  /**
-   * Key before type, mirroring the server's `FIELD_SQL_BY_TYPE` precedence. `createField`
-   * reserves these keys, so pinning it is what keeps that true if the lookup is reordered.
-   */
   it('prefers the record’s own column over a data key of the same name', () => {
     const row = record({ number: 42, data: { [RECORD_NUMBER_KEY]: 'from data' } })
 
     expect(readCellValue(row, recordNumberColumn)).toBe(42)
   })
 
-  /** Blank is handled once, in `RecordFieldValue` — so an absent key must be null, not undefined. */
   it('answers null for a key the record does not carry', () => {
     expect(readCellValue(record(), textField('missing'))).toBeNull()
   })
@@ -56,7 +51,6 @@ describe('readCellValue', () => {
   })
 })
 
-/** Key, then cardinality, then type — asserted as identity, so reordering the branches fails. */
 describe('cellComponent', () => {
   it('draws a record’s own column with its own cell', () => {
     expect(cellComponent(recordNumberColumn)).toBe(RECORD_COLUMNS[RECORD_NUMBER_KEY]?.cell)
@@ -68,10 +62,6 @@ describe('cellComponent', () => {
     expect(cellComponent(ALL_TYPE_FIELDS[type])).toBe(FIELD_CELLS[type])
   })
 
-  /**
-   * One shared cell that delegates each entry back to `FIELD_CELLS`, so the registry needs no
-   * list variants and a value reads the same alone or in a list.
-   */
   it('draws any multi-value field with the one shared list cell', () => {
     expect(cellComponent(asMultiple(selectField()))).toBe(MultiValueCell)
     expect(cellComponent(asMultiple(relationField()))).toBe(MultiValueCell)
@@ -82,7 +72,6 @@ describe('cellComponent', () => {
   })
 })
 
-/** How a column aligns in the table — declared per type, so the table never asks which. */
 describe('alignFor', () => {
   it('puts only NUMBER against the end', () => {
     const ends = FIELD_TYPES.filter((type) => alignFor(ALL_TYPE_FIELDS[type]) === 'end')
@@ -90,7 +79,6 @@ describe('alignFor', () => {
     expect(ends).toEqual(['NUMBER'])
   })
 
-  /** Typed TEXT and DATE by the query layer, so they fall to `start` with no override. */
   it('leaves the record’s own columns at the start', () => {
     for (const column of [recordNumberColumn, createdAtColumn, updatedAtColumn]) {
       expect(alignFor(column)).toBe('start')

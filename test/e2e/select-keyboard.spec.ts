@@ -1,18 +1,6 @@
 import { expect, openRecordForm, test } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
-/**
- * `BaseSelect` from the keyboard, in **both** its branches — which one a field gets is decided
- * by its choice count through `shouldSearch`, so the fixture below sits well either side of it
- * without naming the number, which is `app/utils/select.spec.ts`'s to pin.
- *
- * **The logic is pinned in happy-dom already**, and this file is deliberately only what a real
- * browser answers: whether the highlight is painted rather than merely class-marked, whether
- * the panel scrolls to follow it, whether a flipped panel is on screen rather than merely
- * positioned, and how Escape layers against the surface behind it. A case that would pass in
- * happy-dom belongs in `BaseSelect.nuxt.spec.ts`, where it runs in milliseconds.
- */
-
 let table: ISeededTable
 
 const FEW = ['Won', 'Lost', 'Open'].map((value) => ({ value, color: 'gray' as const }))
@@ -21,11 +9,9 @@ const MANY = Array.from({ length: 20 }, (_, index) => ({
   color: 'gray' as const,
 }))
 
-/** Below the threshold: a button trigger over a listbox. */
 const fewTrigger = (page: import('@playwright/test').Page) =>
   page.getByRole('dialog').getByRole('button', { name: /^Stage/ })
 
-/** Above it: the control *is* the search field, so the trigger is a combobox input. */
 const manyTrigger = (page: import('@playwright/test').Page) =>
   page.getByRole('dialog').getByRole('combobox', { name: 'Many' })
 
@@ -40,15 +26,6 @@ test.beforeEach(async ({ seedTable }) => {
   ])
 })
 
-/**
- * Where the cursor *lands* — on opening, on ↑/↓, on Home/End, on a printable key — is pinned
- * in `BaseSelect.nuxt.spec.ts`, assertion for assertion. Repeating it here bought a slower copy
- * of the same answer.
- *
- * What no component spec can reach is whether the highlight is **painted**: `--active` renders
- * an inset 2px accent edge, and Vitest keeps `test.css: false`, so happy-dom sees the class and nothing
- * else. A cursor the user cannot see is the failure this one case exists for.
- */
 test('the keyboard cursor is visibly edged, not just class-marked', async ({ page }) => {
   await openRecordForm(page, table.url)
   await fewTrigger(page).focus()
@@ -59,7 +36,6 @@ test('the keyboard cursor is visibly edged, not just class-marked', async ({ pag
   const active = activeOption(page)
   await expect(active).toHaveText('Lost')
 
-  // The edge is an inset `box-shadow` in `--color-accent`
   const edge = await active.evaluate((option) => getComputedStyle(option).boxShadow)
 
   expect(edge).toBe('rgb(28, 107, 74) 2px 0px 0px 0px inset')
@@ -68,8 +44,6 @@ test('the keyboard cursor is visibly edged, not just class-marked', async ({ pag
 test.describe('the searchable branch', () => {
   test('PageDown jumps further than a single step', async ({ page }) => {
     await openRecordForm(page, table.url)
-    // Opening by click highlights nothing — only a navigation key creates the cursor — so one
-    // ↓ reveals it on the first option, and PageDown then has somewhere to jump from
     await manyTrigger(page).click()
     await page.keyboard.press('ArrowDown')
     await expect(activeOption(page)).toHaveText('Choice 01')
@@ -80,7 +54,6 @@ test.describe('the searchable branch', () => {
     await expect(activeOption(page)).not.toHaveText('Choice 02')
   })
 
-  /** A highlight that has scrolled out of sight is no highlight at all. */
   test('the panel scrolls to keep the highlight in view', async ({ page }) => {
     await openRecordForm(page, table.url)
     await manyTrigger(page).click()
@@ -100,8 +73,6 @@ test.describe('the searchable branch', () => {
 })
 
 test('a panel low in the filter drawer stays on screen', async ({ page, seedTable }) => {
-  // Enough fields that the last control sits near the bottom of the drawer, where a panel
-  // opening downwards would run off the viewport
   const tall = await seedTable('Tall', [
     ...Array.from({ length: 8 }, (_, index) => ({
       key: `text_${index}`,
@@ -129,15 +100,6 @@ test('a panel low in the filter drawer stays on screen', async ({ page, seedTabl
   expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual((viewport?.height ?? 0) + 1)
 })
 
-/**
- * The other half of the same problem, and the reason `useAnchoredPosition` listens for scroll
- * in **capture** phase: the panel is teleported to `<body>`, so it is not inside the drawer
- * that scrolls under it. Nothing repositions it but that listener, and a panel left behind
- * where it was first drawn points at whatever control has since scrolled into its place.
- *
- * Asserted as a delta rather than a coordinate — the panel must move by exactly what its
- * trigger moved, which encodes no viewport arithmetic and survives a change of drawer height.
- */
 test('a panel stays pinned to its trigger while the drawer scrolls', async ({
   page,
   seedTable,
@@ -164,24 +126,17 @@ test('a panel stays pinned to its trigger while the drawer scrolls', async ({
   const triggerBefore = (await trigger.boundingBox())!.y
   const panelBefore = (await panel.boundingBox())!.y
 
-  // Back to the top of the drawer, which is as far as the trigger can travel. A programmatic
-  // scroll fires no `pointerdown`, so the panel is not dismissed on the way.
+  // A programmatic scroll fires no `pointerdown`, so the panel is not dismissed
   await page.locator('.base-modal__body').evaluate((body) => body.scrollTo(0, 0))
 
   const triggerMoved = Math.round((await trigger.boundingBox())!.y - triggerBefore)
-  // Or the case would pass against a drawer that never scrolled and a panel that never moved
   expect(triggerMoved).not.toBe(0)
 
-  // The handler coalesces into an animation frame, so the panel follows a beat behind
   await expect
     .poll(async () => Math.round((await panel.boundingBox())!.y - panelBefore))
     .toBe(triggerMoved)
 })
 
-/**
- * The case that is silent when broken: one keypress must never close both the panel and the
- * surface behind it, and a **closed** control must not swallow the key at all.
- */
 test.describe('Escape layering', () => {
   test('a closed non-searchable select lets the dialog behind it close', async ({ page }) => {
     await openRecordForm(page, table.url)
@@ -248,8 +203,6 @@ test.describe('Enter in a form', () => {
     await openRecordForm(page, table.url)
     await fewTrigger(page).focus()
     await page.keyboard.press('Enter')
-    // Enter opens with nothing highlighted — only a navigation key creates the cursor — so the
-    // first ↓ reveals it on the top choice rather than stepping past it
     await page.keyboard.press('ArrowDown')
 
     await page.keyboard.press('Enter')

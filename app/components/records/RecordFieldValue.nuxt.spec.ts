@@ -26,12 +26,10 @@ function cell(column: IField, row: IRecord = record()) {
   return mountTracked(RecordFieldValue, { props: { record: row, column } })
 }
 
-/** What a blank reads as — the dash is `aria-hidden`, so the words are the whole name. */
 function blankName(wrapper: Awaited<ReturnType<typeof cell>>) {
   return wrapper.find('.record-field-value__blank .visually-hidden').text()
 }
 
-/** A row carrying one value under the column's own key. */
 function rowWith(column: IField, value: unknown): IRecord {
   return record({ data: { [column.key]: value } as IRecord['data'] })
 }
@@ -39,14 +37,11 @@ function rowWith(column: IField, value: unknown): IRecord {
 describe('RecordFieldValue', () => {
   afterEach(unmountAll)
 
-  // A RELATION cell resolves its ref through the Nuxt app's store, which outlives the case —
-  // so its cache is cleared rather than re-created
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     useRelationsStore().linkedByField = {}
   })
 
-  /** Handled once here, which is what lets `IFieldCellProps.value` stay a value. */
   describe('blank', () => {
     it('says so for a key the record does not carry', async () => {
       const wrapper = await cell(textField('company'))
@@ -54,7 +49,6 @@ describe('RecordFieldValue', () => {
       expect(blankName(wrapper)).toBe('Not set')
     })
 
-    /** The dash is for the eye; a screen reader would otherwise announce "em dash". */
     it('draws a dash that the accessibility tree does not see', async () => {
       const wrapper = await cell(textField('company'))
       const dash = wrapper.get('.record-field-value__blank [aria-hidden="true"]')
@@ -68,7 +62,6 @@ describe('RecordFieldValue', () => {
       expect(blankName(wrapper)).toBe('Not set')
     })
 
-    /** An empty list is as blank as a null, or a cleared field renders as nothing. */
     it('says so for an empty list', async () => {
       const column = asMultiple(selectField())
       const wrapper = await cell(column, rowWith(column, []))
@@ -100,10 +93,6 @@ describe('RecordFieldValue', () => {
     })
   })
 
-  /**
-   * Two branches, because the two cell shapes take different values: a list cell takes the
-   * whole list, every other cell takes one value.
-   */
   describe('which shape it renders', () => {
     it('hands a single-value column exactly one value', async () => {
       const column = textField('company')
@@ -122,7 +111,6 @@ describe('RecordFieldValue', () => {
       expect(list.props('value')).toEqual(['Won', 'Lost'])
     })
 
-    /** `toValueList` normalises at the seam, so a pre-migration scalar still renders as a list. */
     it('normalises a bare string left over from before the field was widened', async () => {
       const column = asMultiple(selectField())
       const wrapper = await cell(column, rowWith(column, 'Won'))
@@ -161,7 +149,6 @@ describe('RecordFieldValue', () => {
       expect((await cell(column, rowWith(column, false))).text()).toBe('No')
     })
 
-    /** The same cell the detail dialog draws, so this covers both surfaces. */
     it('resolves a RELATION to its number and label through the relations store', async () => {
       const column = relationField()
       useRelationsStore().cacheLinkedRecords({
@@ -173,7 +160,6 @@ describe('RecordFieldValue', () => {
       expect(wrapper.text()).toContain('#7 Ada Lovelace')
     })
 
-    /** Nothing names it, so the number is the whole reference — stated once. */
     it('reads a RELATION whose target has no label as its number alone', async () => {
       const column = relationField()
       useRelationsStore().cacheLinkedRecords({
@@ -190,12 +176,10 @@ describe('RecordFieldValue', () => {
       const wrapper = await cell(column, rowWith(column, 'rec_deleted'))
 
       expect(wrapper.text()).toContain('Unknown record')
-      // Nothing resolved, so there is no number to state either
       expect(wrapper.text()).not.toContain('#')
     })
   })
 
-  /** A record's own columns read from the record, not from its data, and draw their own cells. */
   describe('the record’s own columns', () => {
     it('renders the record number', async () => {
       const wrapper = await cell(recordNumberColumn, record({ number: 42 }))

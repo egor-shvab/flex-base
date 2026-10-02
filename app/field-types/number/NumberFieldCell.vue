@@ -15,8 +15,6 @@ const formatted = computed(() =>
 </script>
 
 <style lang="scss" scoped>
-// Mono and a step smaller, as every figure in the reference's grid; tabular so a right-aligned
-// column lines its digits up
 .number-cell {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
