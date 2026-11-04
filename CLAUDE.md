@@ -36,9 +36,8 @@ history, workflows, automations, file uploads, import/export, third-party integr
 architecture may be shaped to accommodate them only where that also improves existing code. A design
 element whose feature is out of scope is not built.
 
-Work starts from a request, not a backlog: **no roadmap or plan file is kept** unless a request asks
-for one (§2). `docs/limitations.md` **Open** entries are in scope; **Accepted** ones are not unless
-a request says so — and an Open entry waits behind its stated trigger.
+`docs/limitations.md` **Open** entries are in scope; **Accepted** ones are not unless a request says
+so — and an Open entry waits behind its stated trigger.
 
 ---
 
@@ -62,22 +61,11 @@ In order:
    walk; target size and axe are gated by `npm run test:e2e`);
 6. verified in the running app (dev server);
 7. a knowingly left limitation is recorded in `docs/limitations.md`;
-8. docs updated **only where a rule, contract or limitation changed** (§12);
-9. a task from a plan file is marked in it before the work is reported (below).
+8. docs updated **only where a rule, contract or limitation changed** (§12).
 
 **A finished change is left uncommitted.** Never `git commit` unless the user asks for one in that
-message — not when the suite is green, not because a plan said so; approving a plan is not approval
-to commit. Say what is in the tree and suggest a Conventional Commit message.
-
-### Marking a plan task done
-
-- Mark **per task**, the moment steps 1–8 pass and before reporting it — batched marks are what an
-  interruption loses.
-- The mark is the **first line of the task's block**: `**Status:** done — YYYY-MM-DD`. No line means
-  not started.
-- Mark what happened: `done, with changes — <difference>`, `in progress — <what is left>`, or
-  dropped/superseded. A prepared but unlanded diff is not done.
-- When every task is done, say so and **offer** to delete the plan file; never delete one unasked.
+message — not even when the suite is green. Say what is in the tree and suggest a Conventional
+Commit message.
 
 ---
 
@@ -175,7 +163,8 @@ instant on a small table locks a large one for minutes.
   - `*For(field)` sync registry lookup keyed by a field (§9) — `inputFor`
   - `require*` · `assert*` throws unless a precondition holds — `requireOwnedTable`
   - `list*` · `get*` service read — a collection, or exactly one row (throws if absent)
-  - `fetch*` · `load*` · `ensure*` store read — one endpoint, several composed, only if not held
+  - `fetch*` · `load*` · `ensure*`: a store read — `fetch*` one endpoint, `load*` composes several,
+    `ensure*` only if not already held
 
   `get*` retrieves something that exists, never something computed. `buildOptions` and
   `collectRelationTargets` are the two sync service members, and their prefixes say so.
@@ -282,7 +271,8 @@ replaces the keyboard walk.
 
 - **BEM** class names; SCSS nesting with `&` — never repeat a parent selector.
 - **Sizes in rem via `rem()`**; plain `px` only for hairlines and shadow offsets/blur.
-- `functions` and `mixins` reach every SFC and entry file automatically, but **not** a transitively
+- `functions` and `mixins` reach every SFC and
+  entry file automatically (Vite `additionalData`), but **not** a transitively
   `@use`d partial — such a partial `@use`s both itself, and `main.scss` must not re-`@use` either.
 - **Reuse before you paste:** check `_mixins.scss`; a block with no per-site variation is a class in
   its own partial (`.auth-form`, `.text-link`, `.visually-hidden`). Use `.visually-hidden` to hide
