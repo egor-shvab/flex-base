@@ -81,8 +81,7 @@ pragma (the Nuxt environment is also Vite plugins, with no file-level form), and
 
 The generated `.nuxt/tsconfig.*.json` already include `app/`, `server/` and `shared/`, so a
 colocated spec is type-checked with no config; a `tests/` tree would need its own. `*.nuxt.spec.ts`
-makes the slow specs visible in a listing. The shared `IField` builder is test-only, so it lives in
-`test/fixtures.ts`.
+makes the slow specs visible in a listing.
 
 ### The SQL builder is unit-testable because it never executes
 
@@ -227,12 +226,6 @@ count too.
 cost only writes. `@@index([tableId, createdAt])` serves the `DESC` default — Postgres scans a
 B-tree backwards.
 
-### The `record_number` migration is hand-written
-
-A required column over existing rows: added nullable, backfilled with
-`ROW_NUMBER() OVER (PARTITION BY "tableId" ORDER BY "createdAt", id)`, set `NOT NULL`. `migrate dev`
-cannot generate it; use `--create-only` for any future one (`CLAUDE.md` §5).
-
 ### Server errors are recorded from Nitro's `error` hook, and only the 5xx ones
 
 A Nitro plugin, not a per-handler wrapper: h3's `onError` reaches every route, the auth middleware
@@ -307,7 +300,7 @@ Consequence: the filter summaries share a module with cells, so `summaries.nuxt.
 Inside `shared/`, a type's filter shape and value schema share one module because the per-type
 folder imports nothing from `utils/` or `validation/`; **a lint rule keeps that cycle dissolved** —
 one import back recreates it and still compiles. Co-location does not make the `MULTI_*` invariant
-specs redundant (`CLAUDE.md` §10).
+specs redundant (`testing.md` → _Spec-only invariants_).
 
 ### `cellComponent` is the one resolver that does not live in its registry file
 
@@ -743,7 +736,7 @@ Primitives are SCSS variables in `_palette.scss`; `additionalData` injects only 
   tokens; one `--color-bg` once meant four things.
 - **Row wash ≠ control wash:** `--color-surface-row-hover` (`$gray-25`) is lighter because a hovered
   row is where a badge must survive — the `-dot` step clears 3:1 on `$gray-25` but not on
-  `$gray-100`. Raising badge fills would break their 4.5:1 text.
+  `$gray-100`.
 - **Borders by job:** `-subtle` inside a surface, plain structural, `-strong` against the scrim,
   `-control` the only one with a floor (3:1 non-text). `$gray-450` exists for it, which is why
   inputs are darker-edged than the reference draws.

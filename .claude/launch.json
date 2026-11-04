@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "design",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "docs/design", "--port", "5178"],
+      "port": 5178
     }
   ]
 }

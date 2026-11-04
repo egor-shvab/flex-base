@@ -1,18 +1,23 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) when working in this repository. Read the relevant
-companion before changing the area it covers:
+Guidance for Claude Code (claude.ai/code) when working in this repository. This file is loaded
+into every session; the companions are read when their trigger applies:
 
-- **`docs/architecture.md`** — how the metadata layer works: registries, record identity and
-  columns, relations, wire formats, the SQL layer, module contracts, the e2e checklist.
-- **`docs/styling.md`** — how the SCSS layer fits together: tokens, mixin semantics, the
-  `BaseButton` variant contract, the shell.
-- **`docs/decisions.md`** — why it works that way: rejected alternatives and load-bearing
-  constraints that must not be "cleaned up".
-- **`docs/limitations.md`** — what the project knowingly does not do, each with the trigger that
-  would reopen it.
+- **`docs/architecture.md`** — before changing `server/db/`, `server/services/`, `shared/`,
+  `app/field-types/`, or how records, filters, search or relations behave. Registries, record
+  identity and columns, wire formats, the SQL layer, module contracts, the e2e checklist.
+- **`docs/styling.md`** — before changing a `.scss` file or a `<style>` block. Tokens, mixin
+  semantics, the `BaseButton` variant contract, the shell.
+- **`docs/testing.md`** — before writing an integration or e2e spec. The rigs, their databases and
+  their traps.
+- **`docs/decisions.md`** — before "simplifying" anything that looks odd, or reversing a design
+  choice. Rejected alternatives and load-bearing constraints.
+- **`docs/limitations.md`** — before starting a feature: its **Open**/**Accepted** split decides
+  whether the work is in scope (§1).
 
-How the five are maintained is §12.
+**Follow a pointer, not a file:** a `decisions.md` → _Title_ or `§N` reference is resolved by
+grepping that heading and reading that entry alone; read a companion in full only for work across
+its whole area. How the six are maintained is §12.
 
 ---
 
@@ -59,9 +64,12 @@ In order:
 4. `npm run test` passes, with tests for the changed logic (§10);
 5. interactive or visual change: the keyboard path works and the focus ring is visible (a manual
    walk; target size and axe are gated by `npm run test:e2e`);
-6. verified in the running app (dev server);
+6. verified in the running app (`preview_start` with `dev`; `npm run db:seed` gives an account to
+   sign in with — credentials in `README.md`);
 7. a knowingly left limitation is recorded in `docs/limitations.md`;
 8. docs updated **only where a rule, contract or limitation changed** (§12).
+
+A change to Markdown only needs steps 1 and 8.
 
 **A finished change is left uncommitted.** Never `git commit` unless the user asks for one in that
 message — not even when the suite is green. Say what is in the tree and suggest a Conventional
@@ -240,7 +248,9 @@ ten-hue badge palette is the user's — the two never mix.** **Archivo** for any
 a shadow only means a surface floats — always with a real border.
 
 **`docs/design/` is the visual reference** — `FlexBase Design System.dc.html` for foundations, the
-rest for pages; serve them from a local static server (they render through `support.js`). The
+rest for pages. They are templates rendered by `support.js` (`file://` shows raw `{{ }}`): open
+them with `preview_start` on `design`, at a ~1024px viewport, and read exact values from the inline
+styles. The
 reference never beats a project rule (the a11y floors, §1's scope, §6's closed vocabularies) and
 never brings a feature the app lacks; any disagreement is settled by **proposing a reference
 update**, not by changing code to match.
@@ -353,39 +363,6 @@ for: anything importing `#imports` (every store, via `useApi()`); anything touch
 only for what a stub cannot answer (the SQL runs, a constraint fires, a lock holds, rules survive to
 the endpoint), and `e2e` only for what a browser answers (§11's list).
 
-### End-to-end
-
-Chromium only, `workers: 1`, its own `flexbase_e2e` database.
-
-- **The server is the built output started by `scripts/serve-output.mjs`** — never `nuxt preview` /
-  `npm run preview`, which load the root `.env` (the development database; the suite truncates). Its
-  import **must stay dynamic** (`docs/decisions.md`).
-- **`test/disposable-database.ts` refuses any database not ending in `_test` or `_e2e`.** Never
-  weaken it.
-- **Selectors are roles and accessible names**, never `data-testid`. Two exceptions only — a
-  decorative mirror of a name (`.base-select__value`) and structural reach (a column, a scroll
-  container, geometry). When a role would help a _user_, fix the app (that is why the pager count
-  and records empty state are `role="status"` — scope that one to `main`, or Nuxt's route announcer
-  matches too). `BaseSelect`'s button is named _label + value_ ("Stage Won"), and its overlay is a
-  **sibling**.
-- **Assert the table through `expect.poll`**, never a bare read — rows refetch after the URL moves;
-  wait on something the navigation must produce, not text already on screen.
-
-### Integration
-
-- **`flexbase_test`** on the same container; `global-setup.ts` refuses a name not ending `_test`,
-  then runs `migrate deploy` (creating it). `INTEGRATION_DATABASE_URL` is the only override.
-- The npm scripts start the database and install the browser — a stopped container makes Playwright
-  report **zero tests run**.
-- **`fileParallelism: false`** — one database.
-- **Handlers are invoked directly** with a real `H3Event` (`test/integration/event.ts`, which sets
-  `content-length` — without it every `readValidatedBody` is a 400). Only Nitro's routing is
-  skipped.
-- **One shim, `test/integration/nitro-runtime.ts`**, providing `useRuntimeConfig` — never grow it
-  into a general Nitro stub.
-- Rows are seeded through Prisma (`test/integration/seed.ts`), never through the services under
-  test.
-
 ### Rules
 
 - **Specs are colocated**, which puts them in `npm run typecheck`'s globs. `globals: false` — import
@@ -403,37 +380,28 @@ Chromium only, `workers: 1`, its own `flexbase_e2e` database.
   proves the code **around** a query (which guard fires, the `where` shape, query count — assert the
   argument, not only the outcome); **never that the query runs**.
 - **Assert structure and behaviour, never computed styles** — `test.css` is `false`.
-- **A spec file that outgrows its concern is split over one shared rig**
-  (`BaseSelect/select-harness`); add a case to the file whose concern it is.
+- **Selectors are roles and accessible names**, never `data-testid`.
+- **The e2e server is the built output started by `scripts/serve-output.mjs`** — never
+  `nuxt preview` / `npm run preview`, which load the root `.env` (the development database; the
+  suite truncates). **`test/disposable-database.ts` refuses any database not ending in `_test` or
+  `_e2e`** — never weaken it.
 
-**Coverage is one report merged from two runs**; `.vitest-reports/` must contain nothing but the
-blob files, and e2e contributes none (`docs/decisions.md`). **The SQL layer is verified twice,
-deliberately**: `record-sql.spec.ts` pins `.text`/`.values`, `record-sql.integration.spec.ts` runs
-them — the same split covers `widenToList` and the record counter.
-
-**Two invariants live only in specs:** `MULTI_INPUTS` is non-null at exactly the types
-`MULTI_VALUE_BY_TYPE` marks `true` (a mismatch keeps only the first value), and `MULTI_SQL` the same
-(a widened field through the scalar projection never matches — probed via `ORDER BY`, since a
-widened filter is list-shaped anyway). Other spec-pinned contracts: `docs/architecture.md` §10 and
-`docs/decisions.md`.
+The rest — the e2e and integration rigs, coverage, the spec-only invariants — is
+`docs/testing.md`.
 
 ---
 
 ## 11. Environment & tooling
 
-`.env` at the repo root (copy `.env.example`): `DATABASE_URL` (the `docker-compose.yml` container,
-`postgresql://flexbase:flexbase@localhost:5432/flexbase`) and `JWT_SECRET`
-(`runtimeConfig.jwtSecret`).
+Setup and `.env` are in `README.md`; `JWT_SECRET` reaches the server as `runtimeConfig.jwtSecret`.
 
-- **npm**; `postinstall` runs `prisma generate && nuxt prepare`.
 - **Prisma 7:** CLI config in `prisma.config.ts` (loads `.env` via `dotenv/config`); the client
   generates into `server/generated/prisma` (never edit) and needs `@prisma/adapter-pg`.
 - **Prettier** (no semicolons, single quotes, 2 spaces, `printWidth` 100) formats code, SCSS, JSON
   and Markdown. **ESLint** is for code quality plus the `no-restricted-imports` boundaries.
 - **`nuxt build` type-checks** (`typeCheck: 'build'`); `nuxt dev` does not — use
   `npm run typecheck`. Never edit the generated `.nuxt/` configs.
-- `compatibilityDate` is pinned to `2025-07-15`. Modules: `@nuxt/eslint`, `@nuxt/icon`,
-  `@pinia/nuxt`.
+- `compatibilityDate` is pinned to `2025-07-15`.
 - Dependencies that look removable and are not — `h3`, `nitropack`, `ofetch`,
   `@iconify-json/material-symbols`, `@fontsource/*`, `@axe-core/playwright`, `tsx` (runs the seed,
   whose generated client has `.js` specifiers) — and `vue-router` / `@nuxt/fonts` deliberately
@@ -443,9 +411,10 @@ widened filter is list-shaped anyway). Other spec-pinned contracts: `docs/archit
 
 ## 12. Documentation maintenance
 
-These documents are a working reference for whoever changes the code next, loaded in full into an
-agent's context, so every unnecessary sentence costs attention. **Less documentation, better
-documentation** — this section included.
+These documents are a working reference for whoever changes the code next. This file is loaded into
+every session, so a sentence here costs most; a companion costs only when read — still, every
+unnecessary sentence costs attention. **Less documentation, better documentation** — this section
+included.
 
 **Before adding anything, check it is not already written and that a reader needs it.** Elsewhere in
 the docs → cross-reference; in the code → leave it there. One home per kind of information (the

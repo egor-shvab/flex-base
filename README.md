@@ -14,12 +14,13 @@ request.
 Further reading: [CLAUDE.md](CLAUDE.md) for the project's working rules and conventions,
 [docs/architecture.md](docs/architecture.md) for how the metadata layer works,
 [docs/styling.md](docs/styling.md) for how the SCSS layer is put together,
+[docs/testing.md](docs/testing.md) for the test rigs,
 [docs/decisions.md](docs/decisions.md) for why it works that way, and
 [docs/limitations.md](docs/limitations.md) for what it knowingly does not do.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22.19+ or 24.11+
 - Docker (for PostgreSQL)
 - npm — this project uses `package-lock.json`; other package managers are not supported
 
@@ -84,6 +85,7 @@ also available as `npx prisma db seed`.
 | `npm run test:e2e:ui`      | The same, in Playwright's UI mode                                             |
 | `npm run test:watch`       | Vitest in watch mode                                                          |
 | `npm run test:coverage`    | The merged coverage report; needs a database                                  |
+| `npm run coverage:collect` | The same, without starting PostgreSQL first — what CI runs                    |
 | `npm run lint`             | ESLint                                                                        |
 | `npm run format`           | Format everything with Prettier                                               |
 | `npm run format:check`     | Check formatting without writing                                              |

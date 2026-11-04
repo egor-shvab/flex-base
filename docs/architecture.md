@@ -9,18 +9,14 @@ How the metadata layer works — the contracts a reader cannot see from a module
 
 Manual: bcrypt + `jsonwebtoken`, no auth library. The JWT (`{ sub: userId }`, HS256, 7 days) lives
 in an httpOnly `auth_token` cookie; `verifyAuthToken` pins `algorithms: ['HS256']`.
-`server/middleware/auth.ts` resolves it to `event.context.user` on every request and **never
-rejects** — handlers call `requireUser(event)` for the 401. Client side,
-`app/middleware/auth.global.ts` redirects both ways, except `/ui-test`, which renders fixtures only
-and stays open.
+`server/middleware/auth.ts` **never rejects** — handlers call `requireUser(event)` for the 401.
+`app/middleware/auth.global.ts` leaves `/ui-test` open (fixtures only).
 
 ---
 
 ## 2. The `shared/` layers
 
-`types/` → `field-types/` → `constants/` → `utils/` → `validation/`, each importing only from layers
-before it (`CLAUDE.md` §3). `types/` may `import type` a constant to derive from it. Contracts not
-visible from a name:
+`types/` may `import type` a constant to derive from it. Contracts not visible from a name:
 
 - **`TRecordFilterValues` is the filter model of every layer** — typed values keyed by `Field.key`,
   sparse (an absent key is unfiltered). **One value is translated on the way to SQL, and only one:**
@@ -32,8 +28,6 @@ visible from a name:
   answers `0` (a value no row holds) for anything that is not a bounded positive integer, so a
   malformed address 404s rather than reaching Prisma as `NaN`; `parseTableAddress` also ignores a
   `-…` suffix. Page and server read the same function.
-- **`recordQueryKey`** serializes the query to a stable string, for watchers that must fire on a
-  changed query rather than a changed object.
 - **`claimFilterParams` resolves each param name to at most one field** — reserved names first, then
   fields in order. `filterableFields` / `filterableColumns` are the fields that claimed one; the
   drawer and the summary both render from them. Claims are keyed by type, which keeps
@@ -47,27 +41,17 @@ visible from a name:
   judges `multiple` against `MULTI_VALUE_BY_TYPE`; whether a RELATION target exists and is owned is
   the server's `requireFieldTarget`.
 - **`TBadgeColor` is its own module** so an atom can consume the palette without importing field
-  types. `BOOLEAN_LABELS` is the single source of `Yes`/`No`. Every type in `FIELD_TYPES` is
-  creatable.
+  types.
 
 ---
 
 ## 3. The field-type registries
 
-Three slices, one module per type each, and one assembler per slice that is the only file
-enumerating the types (`CLAUDE.md` §9; why: `decisions.md` → _A field type is three modules, one per
-slice, and the bundler is why_):
-
-- **`shared/field-types/`** — `<type>.ts` (`IFieldTypeModule`); `registry.ts` → `FIELD_TYPES`,
-  `FIELD_TYPE_LABELS`, `MULTI_VALUE_BY_TYPE`, `FILTER_VALUE_BY_TYPE`, `VALUE_SCHEMA_BY_TYPE`
-- **`server/db/field-types/`** — `<type>.ts` (`IFieldSqlModule`); `registry.ts` →
-  `FIELD_SQL_BY_TYPE`, `MULTI_SQL`, `sqlFor`
-- **`app/field-types/`** — `<type>/index.ts` (`IAppFieldType`); `registry.ts` → `FIELD_INPUTS`,
-  `FIELD_FILTERS`, `FIELD_CELLS`, `FILTER_SUMMARIES`, `FIELD_TYPE_ICONS`, `FIELD_CONFIG_SUMMARIES`,
-  the private `MULTI_*` tables, `inputFor` / `filterFor` / `summaryFor` / `alignFor`
-
-`app/field-types/` sits outside `~/components`, so nothing in it is globally registered — import it
-explicitly.
+Three slices — `shared/field-types/` (`IFieldTypeModule`), `server/db/field-types/`
+(`IFieldSqlModule`), `app/field-types/` (`IAppFieldType`) — each with one module per type and a
+`registry.ts` that is the only file enumerating the types (`CLAUDE.md` §9; why: `decisions.md` → _A
+field type is three modules, one per slice, and the bundler is why_). `app/field-types/` sits
+outside `~/components`, so nothing in it is globally registered — import it explicitly.
 
 **Indexability** — `filterIndex` / `sortIndex` (`'btree' | 'trigram' | 'gin' | null`) sit on the SQL
 _rules_, not the module, so `sqlFor` resolves cardinality for free (a widened SELECT filters through
@@ -167,23 +151,22 @@ excluded as label candidates — a link labelled by a link reads as an id), and 
 `records.ts` generic:
 
 - **`resolveLinkedRecords`** — after the list, returns `IRecordPage.linkedRecords` keyed by **field
-  id** then target id; one `findMany` per distinct target table. `collectRelationTargets` normalises
-  a stored value with `Array.isArray(v) ? v : [v]`.
+  id** then target id; one `findMany` per distinct target table.
 - **`assertRelationTargets`** — gates every write: a value that is not a live record of its target
   table is a 400.
 - **`resolveFilterTargets`** — swaps filter addresses for ids before the WHERE is built;
   **unresolved values pass through unchanged** (`decisions.md` → _A relation filter is resolved from
   numbers to ids before the SQL sees it_).
-- **`listRelationOptions(field, search)`** — `GET …/fields/[fieldId]/options[?q=]`, scoped by the
-  **source field**, capped at `RELATION_OPTIONS_LIMIT`, label-ascending (so numbers are not
-  ascending, blank labels last). `?q=` matches the label or `#number` and leaves the ordering alone.
+- **`listRelationOptions(field, search)`** — scoped by the **source field**, capped at
+  `RELATION_OPTIONS_LIMIT`, label-ascending (so numbers are not ascending, blank labels last). `?q=`
+  matches the label or `#number` and leaves the ordering alone.
 
-Client side, `app/stores/relations.ts` holds `optionsByField`, `linkedByField` (id →
-`ILinkedRecord`) and `linkedByFieldNumber` (keyed the way a filter addresses). `RelationFieldCell`
-takes the target table's **number** from the tables store (a relation stores a cuid, a link needs an
-address); an unresolvable one degrades to text. A resolved reference is a `<NuxtLink>` appending to
-the `detail` chain (§7) — the same cell in table and dialog, so nested relations drill without
-knowing where they render. A deleted target is a dashed `<span>` with no `#`.
+Client side, `app/stores/relations.ts` keeps `linkedByFieldNumber` beside `linkedByField`, keyed the
+way a filter addresses. `RelationFieldCell` takes the target table's **number** from the tables
+store (a relation stores a cuid, a link needs an address); an unresolvable one degrades to text. A
+resolved reference is a `<NuxtLink>` appending to the `detail` chain (§7) — the same cell in table
+and dialog, so nested relations drill without knowing where they render. A deleted target is a
+dashed `<span>` with no `#`.
 
 ---
 
@@ -317,71 +300,55 @@ Only what the name and the code do not say.
 - **`utils/ownership.ts`** — `requireRecordFields` adds a 400 for a field-less table on **writes
   only** (a field-less table must still list an empty page); `requireOwnedTableWithFields` exists
   for the record-detail read, which names a table other than the page's.
-- **`utils/error-log.ts`** — pure: an entry is `source` · timestamp · statusCode · name · message ·
-  stack · method · path · query **names** · userId and **nothing else**; a client entry nulls
-  status, method and query names. `utils/error-log-file.ts` owns `recordErrorEntry`: appends to
-  `logs/server-errors.log`, rotates at 5 MB × 5, never throws, disables itself after a failure.
-  Rationale: `decisions.md` → _Server errors are recorded from Nitro's `error` hook, and only the
-  5xx ones_.
-- **`utils/rate-limit.ts`** — fixed window, `now` injected, a bounded key map so the guard cannot
-  become the leak.
+- **`utils/error-log.ts`** — an entry is `source` · timestamp · statusCode · name · message · stack ·
+  method · path · query **names** · userId and **nothing else**; a client entry nulls status,
+  method and query names. `recordErrorEntry` (`error-log-file.ts`) never throws and disables itself
+  after a failure. Rationale: `decisions.md` → _Server errors are recorded from Nitro's `error`
+  hook, and only the 5xx ones_.
+- **`utils/rate-limit.ts`** — a bounded key map, so the guard cannot become the leak.
 - **`utils/field-key.ts`** — `buildFieldKey` frees a key for **every query param it would claim**:
   "Page" → `page_2`, "Budget from" → `budget_from_2` beside a NUMBER `budget`. Server-only.
 - **`services/fields.ts`** — rejects type changes, retargeting and narrowing (400); widening runs
   `widenToList` in the metadata change's transaction.
-- **`services/records.ts`** — `data` is replaced wholesale on update; every write passes
-  `assertRelationTargets` first.
+- **`services/records.ts`** — `data` is replaced wholesale on update.
 - **`api/tables/[tableAddress]/records/index.get.ts`** — validates with
   `buildRecordQuerySchema(fields)`, then decodes with `parseRecordQueryState`.
 
 ### `app/`
 
-- **`api/`** — one `use*Api()` factory per resource (factories because `useApi()` wraps
-  `useRequestFetch()` and must run during setup). No state and no reactivity, which keeps them
-  transport.
+- **`api/`** — factories because `useApi()` wraps `useRequestFetch()` and must run during setup. No
+  state and no reactivity, which keeps them transport.
 - **`composables/useTableLoader.ts`** — fetches table + fields for both table pages but owns
   **neither the `useAsyncData` key nor the 404**; each page keeps both (`table-…`,
   `table-records-…`).
 - **`composables/useRecordListQuery.ts`** — **a sort or a page step pushes history; a filter edit,
-  search or clear replaces.** A term below `SEARCH_MIN_LENGTH` is dropped; an unchanged term does
-  not navigate.
+  search or clear replaces.** An unchanged term does not navigate.
 - **`composables/useRecordDetail.ts`** / **`useDetailLink.ts`** — the dialog's only owner: reads
   `detail`, fetches its last entry keyed on a **string** (the query ref is a fresh object on every
   change), and exposes navigations, not state.
-- **`composables/useEntityFormModal.ts`** — two refs rather than a `{ mode } | null` union, so each
-  page names its own `editingRecord` / `editingField` / `editingTable`. `openCreate` clears the last
-  edited row.
 - **`composables/useDeleteConfirm.ts`** — clears the target **only on success**; a refusal renders
   in the dialog.
-- **`composables/useDebouncedModel.ts`** — `delay: 0` writes through synchronously, so `BaseInput`
-  has one code path.
 - **`composables/usePopover.ts`** — `containerRef` (outside-click boundary) and `triggerRef`
-  (focus-restore target) are separate; **no Escape listener**. **`useAnchoredPosition.ts`** —
-  `position: fixed` in viewport coordinates, flips above by anchoring `bottom`, reflows on `resize`
-  and on `scroll` **captured at `window`**.
+  (focus-restore target) are separate. **`useAnchoredPosition.ts`** — flips
+  above by anchoring `bottom`, reflows on `scroll` **captured at `window`**.
 - **`components/common/BaseSelect/useListboxNavigation.ts`** — the cursor never wraps and is keyed
   on option **values**, so a rebuilt options array does not move it. **`useSelectOptions.ts`** —
   abort + a monotonic request id drop out-of-order responses.
-- **`utils/format.ts`** — every `Intl` formatter; the prose date and the column date are two named
-  constants.
 - **`utils/api-error.ts`** — `toPageError` asserts a cause only for a 404.
   **`utils/safe-redirect.ts`** — `?redirect` is internal paths only.
 - **`stores/records.ts`** — **every action takes the query params from the caller**; the store never
   mirrors them (they would have to survive hydration). `createRecord` refetches only when the new
-  record lands on the current page; an edit refetches; state clears when called for another table;
-  `fetchRecords` sets `failed` **and rethrows**.
+  record lands on the current page; state clears when called for another table; `fetchRecords` sets
+  `failed` **and rethrows**.
 - **`stores/tables.ts`** — `ensureTables()` **never throws** (a failed sidebar must not replace a
   working page); it sets `failed` and the sidebar offers Retry. `applyTableRow(row)` is the one way
-  a cached row moves without a refetch; records and fields are its only callers.
-- **`stores/relations.ts`** — `loadOptions` fetches every relation field in parallel and nothing for
-  a table without relations.
+  a cached row moves without a refetch.
+- **`stores/relations.ts`** — `loadOptions` fetches nothing for a table without relations.
 
 ### Renderers — `app/components/records/`
 
 - **`RecordForm`** — values down as props, changes up as `update: [key, value]`; **the parent's
   `useForm` object is never mutated**.
-- **`RecordsTable`** — one `queryColumns` list drives header and body; no branch on a key or type.
-  Its View action is a `<NuxtLink>` via `useDetailLink`, hence the `tableId` prop.
 - **`RecordFieldValue`** — the seam that renders a value identically in table and dialog. **An empty
   array is blank** alongside `null`.
 - **`RecordDetail`** — wraps values by **not** declaring the table's `white-space: nowrap`.
@@ -391,8 +358,6 @@ Only what the name and the code do not say.
   chips follow the drawer's order and an unowned key never shows.
 - **`RecordsTableSkeleton`** — row and bar counts are **fixed constants**, never derived from
   `fields` (mid-navigation those belong to the table being left).
-- **`fields/TableFieldList`** — takes the config-summary context as a prop, so a RELATION's target
-  name comes from the page and the component stays props-and-emits.
 
 **On the records page the URL is the single source of truth.** `queryState` is
 `parseRecordQueryState(fields, route.query)`; one watcher refetches, keyed on

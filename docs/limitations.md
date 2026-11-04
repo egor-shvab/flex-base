@@ -40,7 +40,8 @@ too. _Reopen if a table or record is ever shared._
 
 A hydration warning (production silences it; the specs assert the SSR HTML and a clean console
 instead), a clipped focus ring (asserted structurally), held Backspace (pressed repeatedly instead),
-a multi-value cell's ellipsis (paint only).
+a multi-value cell's ellipsis (paint only). _Revisit if one of the four regresses unnoticed, or a
+tool can assert it directly._
 
 ### Nitro's own routing is exercised by no test
 
@@ -71,21 +72,18 @@ the soft keyboard, bounded by `shouldSearch()`. _Revisit if touch becomes primar
 ### In `multiple`, the closed control names only the first value
 
 `Enterprise +2`. Filters restate the rest in `RecordsFilterSummary`; the **record form** does not. A
-chip row below the control is the cheap fix. _The form case is the one worth revisiting._
+chip row below the control is the cheap fix. _Reopen if record forms with multi-value fields draw a
+report._
 
 ### A multi-value filter can only mean _any of_, never _all of_
 
 There are no operators. _Revisit only alongside operators as a whole._
 
-### A multi-value cell shows one line in the table
-
-Rows have a fixed height; values past the cap give way to an ellipsis, as long TEXT does.
-
 ### A legacy field keyed like a reserved param cannot be filtered
 
 Only `page`, `pageSize`, `sort`, `dir`, `search`, `detail`, and only fields created before
 `createField` refused them. It still renders and sorts. A migration would rewrite every record and
-shared link.
+shared link. _Revisit only if a user reports one._
 
 ### Deleting a target record leaves a dangling id
 
@@ -95,7 +93,8 @@ target **table** is a 409. _Revisit only with a real referential design._
 ### Renaming a SELECT choice orphans the records holding the old text
 
 They keep their text and render as a neutral badge (`decisions.md` → _A choice's identity is its own
-text_).
+text_). _Reopen if renaming a choice is asked for as a feature — the fix is a rename that rewrites
+stored values, not an option id._
 
 ### A field nobody opts in is unindexed, and some relation work never is
 
@@ -130,11 +129,12 @@ an exact total is asked for — as a second, opt-in count, never a higher cap._
 ### A disabled `BaseButton` with `to` renders `<button disabled>`
 
 It announces as a dimmed button rather than a dimmed link (`decisions.md` → _`BaseButton` renders
-the element its role implies_).
+the element its role implies_). _Revisit if a disabled link must announce as a link._
 
 ### A truncated table cell offers no way to read the full value
 
-Except a relation, via its dialog. The rendered text comes from the cell component, so a tooltip
+Except a relation, via its dialog. Rows have a fixed height, so a multi-value cell shows one line
+too: values past the cap give way to an ellipsis, as long TEXT does. The rendered text comes from the cell component, so a tooltip
 needs either a fifth registry or a `scrollWidth` + `ResizeObserver` pass per fetch; View is one
 click away. _Revisit if something else earns the table a measurement pass._
 
@@ -146,7 +146,7 @@ the state. _Raise it only on a real report._
 
 ### A badge's fill is ~1.05:1 against a hovered row
 
-The dot (≥3.1:1) and the word survive; raising fills would break their 4.5:1 text pairings.
+The dot (≥3.1:1) and the word survive; raising fills would break their 4.5:1 text pairings. _Revisit only if the badge palette is retuned._
 
 ### The error log is a local file, and the rate limit in front of it is per process
 
