@@ -30,7 +30,7 @@ function choiceEnum(field: IField): z.ZodType<string> {
 
 export const SELECT_FIELD_TYPE: IFieldTypeModule<'SELECT'> = {
   label: 'Select',
-  multiValue: true,
+  canBeMultiValue: true,
   filter: { shape: 'list', empty: [] },
   value: {
     base: choiceEnum,

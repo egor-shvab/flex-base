@@ -16,7 +16,7 @@
         <BaseButton
           class="dashboard__create"
           prepend-icon="material-symbols:add-rounded"
-          @click="createOpen = true"
+          @click="isCreateOpen = true"
         >
           Add table
         </BaseButton>
@@ -30,7 +30,7 @@
     >
       A table is a list of things you want to keep track of — customers, deals, invoices.
       <template #action>
-        <BaseButton @click="createOpen = true">Add table</BaseButton>
+        <BaseButton @click="isCreateOpen = true">Add table</BaseButton>
       </template>
     </BaseEmptyState>
 
@@ -71,11 +71,11 @@
     </section>
 
     <LazyTableFormModal
-      v-if="createOpen"
+      v-if="isCreateOpen"
       mode="create"
       :submit-handler="submitTable"
-      @saved="createOpen = false"
-      @close="createOpen = false"
+      @saved="isCreateOpen = false"
+      @close="isCreateOpen = false"
     />
   </section>
 </template>
@@ -100,7 +100,7 @@ const totalRecords = computed(() =>
   tablesStore.tables.reduce((sum, table) => sum + table._count.records, 0),
 )
 
-const createOpen = ref(false)
+const isCreateOpen = ref(false)
 
 async function submitTable(name: string) {
   await tablesStore.createTable({ name })

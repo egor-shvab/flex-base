@@ -11,7 +11,7 @@ text and `body` is running text. There is no pressed (`-active`) step. `--color-
 one colour exempt from the 3:1 non-text floor, because it is never the sole cue. `_mixins.scss`
 `@use`s `functions` itself and does not re-export it.
 
-**Badge hues** are selected at runtime: `badgeTint()` (`app/utils/badge-tint.ts`) composes token
+**Badge hues** are selected at runtime: `buildBadgeTint()` (`app/utils/badge-tint.ts`) composes token
 **names** into inline `--badge-bg` / `-dot` / `-fg`. Each `-fg` clears 4.5:1 on its `-bg`; each
 `-dot` clears 3:1 on `--color-surface` and `--color-surface-row-hover`. On `--color-surface-hover` a
 dot falls to ~2.87:1, **so nothing drawing one may sit on that wash.**

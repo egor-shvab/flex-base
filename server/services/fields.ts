@@ -109,8 +109,8 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     throw createError({ statusCode: 400, statusMessage: 'Relation target cannot be changed' })
   }
 
-  const wasMultiple = currentOptions?.multiple === true
-  if (wasMultiple && !input.multiple) {
+  const isStoredMultiple = currentOptions?.multiple === true
+  if (isStoredMultiple && !input.multiple) {
     throw createError({
       statusCode: 400,
       statusMessage: 'A multi-value field cannot be changed back to a single value',
@@ -130,7 +130,7 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
         select: fieldSelect,
       })
 
-      if (!wasMultiple && input.multiple) {
+      if (!isStoredMultiple && input.multiple) {
         await widenToList(tx, tableId, field.key)
       }
 

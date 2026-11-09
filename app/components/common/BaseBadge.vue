@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { badgeTint } from '~/utils/badge-tint'
+import { buildBadgeTint } from '~/utils/badge-tint'
 import type { TBadgeColor } from '#shared/types/color'
 
 const props = withDefaults(
@@ -21,7 +21,7 @@ const props = withDefaults(
   { variant: 'chip', color: undefined },
 )
 
-const tint = computed(() => (props.color === undefined ? undefined : badgeTint(props.color)))
+const tint = computed(() => (props.color === undefined ? undefined : buildBadgeTint(props.color)))
 
 const hasDot = computed(() => props.variant === 'chip' && props.color !== undefined)
 </script>

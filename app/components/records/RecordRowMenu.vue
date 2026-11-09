@@ -6,9 +6,9 @@
       prepend-icon="material-symbols:more-horiz-rounded"
       label="More actions"
       aria-haspopup="menu"
-      :aria-expanded="open"
-      :aria-controls="open ? panelId : undefined"
-      @click="onToggle"
+      :aria-expanded="isOpen"
+      :aria-controls="isOpen ? panelId : undefined"
+      @click="toggleMenu"
     />
 
     <!--
@@ -17,7 +17,7 @@
     -->
     <Teleport to="body">
       <div
-        v-if="open"
+        v-if="isOpen"
         :id="panelId"
         ref="panelRef"
         class="record-row-menu__panel"
@@ -58,9 +58,9 @@ import { usePopover } from '~/composables/usePopover'
 
 const emit = defineEmits<{ delete: [] }>()
 
-const { open, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } = usePopover()
+const { isOpen, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } = usePopover()
 
-const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { maxHeight: 64 })
+const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, { maxHeight: 64 })
 
 function menuItems(): HTMLElement[] {
   return [...(panelRef.value?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
@@ -80,9 +80,9 @@ function step(delta: number) {
   focusItem(menuItems().indexOf(document.activeElement as HTMLElement) + delta)
 }
 
-function onToggle() {
+function toggleMenu() {
   toggle()
-  if (open.value) void nextTick(() => focusItem(0))
+  if (isOpen.value) void nextTick(() => focusItem(0))
 }
 
 function choose(action: 'delete') {

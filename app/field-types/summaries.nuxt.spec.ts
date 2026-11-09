@@ -23,8 +23,8 @@ const REFS: Record<number, ILinkedRecord> = {
 const BY_ID: Record<string, ILinkedRecord> = { rec_ada: REFS[7] as ILinkedRecord }
 
 const ctx: IFilterSummaryContext = {
-  linkedRecordByNumber: (_fieldId, number) => REFS[number],
-  linkedRecordFor: (_fieldId, recordId) => BY_ID[recordId],
+  findLinkedRecordByNumber: (_fieldId, number) => REFS[number],
+  findLinkedRecord: (_fieldId, recordId) => BY_ID[recordId],
 }
 
 function summarise(field: IField, value: TFilterValue): string {

@@ -24,7 +24,7 @@ export const useRelationsStore = defineStore('relations', () => {
     }
   }
 
-  function linkedRecordsFromOptions(options: IRecordOption[]): Record<string, ILinkedRecord> {
+  function toLinkedRecords(options: IRecordOption[]): Record<string, ILinkedRecord> {
     return Object.fromEntries(
       options.map((option) => [option.id, { number: option.number, label: option.label }]),
     )
@@ -39,7 +39,7 @@ export const useRelationsStore = defineStore('relations', () => {
         const response = await api.options(tableAddress, field.id)
         tableAddressByField.value[field.id] = tableAddress
         optionsByField.value[field.id] = response.options
-        cacheLinkedRecords({ [field.id]: linkedRecordsFromOptions(response.options) })
+        cacheLinkedRecords({ [field.id]: toLinkedRecords(response.options) })
       }),
     )
   }
@@ -48,11 +48,11 @@ export const useRelationsStore = defineStore('relations', () => {
     return optionsByField.value[fieldId] ?? []
   }
 
-  function linkedRecordFor(fieldId: string, recordId: string): ILinkedRecord | undefined {
+  function findLinkedRecord(fieldId: string, recordId: string): ILinkedRecord | undefined {
     return linkedByField.value[fieldId]?.[recordId]
   }
 
-  function linkedRecordByNumber(fieldId: string, number: number): ILinkedRecord | undefined {
+  function findLinkedRecordByNumber(fieldId: string, number: number): ILinkedRecord | undefined {
     return linkedByFieldNumber.value[fieldId]?.[number]
   }
 
@@ -66,7 +66,7 @@ export const useRelationsStore = defineStore('relations', () => {
 
     const response = await api.search(tableAddress, fieldId, term, signal)
 
-    cacheLinkedRecords({ [fieldId]: linkedRecordsFromOptions(response.options) })
+    cacheLinkedRecords({ [fieldId]: toLinkedRecords(response.options) })
 
     return response.options
   }
@@ -80,7 +80,7 @@ export const useRelationsStore = defineStore('relations', () => {
     loadOptions,
     searchOptions,
     optionsFor,
-    linkedRecordFor,
-    linkedRecordByNumber,
+    findLinkedRecord,
+    findLinkedRecordByNumber,
   }
 })

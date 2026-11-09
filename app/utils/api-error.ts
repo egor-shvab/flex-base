@@ -1,7 +1,7 @@
 import type { FetchError } from 'ofetch'
 
 /** Blank counts as absent, or a `statusMessage: ''` would win over a good `message`. */
-function nonBlank(value: unknown): string | undefined {
+function toNonBlank(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value : undefined
 }
 
@@ -9,13 +9,13 @@ export function getApiErrorMessage(error: unknown): string {
   const data = (error as FetchError)?.data
 
   return (
-    nonBlank(data?.statusMessage) ??
-    nonBlank(data?.message) ??
+    toNonBlank(data?.statusMessage) ??
+    toNonBlank(data?.message) ??
     'Something went wrong. Please try again.'
   )
 }
 
-function pageErrorMessage(statusCode: number): string {
+function formatPageErrorMessage(statusCode: number): string {
   if (statusCode === 404) return 'We couldn’t find that table.'
   if (statusCode >= 500) return 'Something went wrong at our end.'
 
@@ -28,5 +28,5 @@ export function toPageError(error: { statusCode?: number }): {
 } {
   const statusCode = error.statusCode ?? 404
 
-  return { statusCode, statusMessage: pageErrorMessage(statusCode) }
+  return { statusCode, statusMessage: formatPageErrorMessage(statusCode) }
 }

@@ -69,8 +69,8 @@ const entries = computed(() =>
     if (value === undefined) return []
 
     const phrase = summaryFor(field)(value, field, {
-      linkedRecordByNumber: relations.linkedRecordByNumber,
-      linkedRecordFor: relations.linkedRecordFor,
+      findLinkedRecordByNumber: relations.findLinkedRecordByNumber,
+      findLinkedRecord: relations.findLinkedRecord,
     })
     return [{ field, phrase }]
   }),

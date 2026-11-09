@@ -12,40 +12,40 @@ export function usePopover() {
   const triggerRef = ref<HTMLElement>()
   const panelRef = ref<HTMLElement>()
 
-  const open = ref(false)
+  const isOpen = ref(false)
 
-  function contains(target: Node): boolean {
+  function isInside(target: Node): boolean {
     return Boolean(containerRef.value?.contains(target) || panelRef.value?.contains(target))
   }
 
   function onPointerDown(event: PointerEvent) {
     // Both refs are tested because a teleported panel is outside the trigger's subtree
-    if (!contains(event.target as Node)) open.value = false
+    if (!isInside(event.target as Node)) isOpen.value = false
   }
 
   function show() {
-    open.value = true
+    isOpen.value = true
   }
 
   function toggle() {
-    open.value = !open.value
+    isOpen.value = !isOpen.value
   }
 
   function dismiss() {
-    open.value = false
+    isOpen.value = false
 
     if (triggerRef.value?.isConnected) triggerRef.value.focus()
   }
 
-  watch(open, (isOpen) => {
-    if (isOpen) document.addEventListener('pointerdown', onPointerDown)
+  watch(isOpen, () => {
+    if (isOpen.value) document.addEventListener('pointerdown', onPointerDown)
     else document.removeEventListener('pointerdown', onPointerDown)
   })
 
   onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown))
 
   return {
-    open: readonly(open) as Readonly<Ref<boolean>>,
+    isOpen: readonly(isOpen) as Readonly<Ref<boolean>>,
     containerRef,
     triggerRef,
     panelRef,

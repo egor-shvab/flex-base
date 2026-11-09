@@ -11,7 +11,7 @@ import { shouldSearch } from '~/utils/select'
 function selectProps(
   field: IField,
   placeholder: string,
-  multiple = false,
+  isMultiple = false,
 ): Record<string, unknown> {
   const options = choiceOptions(field)
 
@@ -22,7 +22,7 @@ function selectProps(
     placeholder,
     clearable: true,
     emptyLabel: 'No choices defined',
-    ...(multiple ? { multiple: true } : {}),
+    ...(isMultiple ? { multiple: true } : {}),
   }
 }
 

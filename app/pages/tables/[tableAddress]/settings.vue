@@ -56,7 +56,7 @@
         </dl>
 
         <div class="detail-card__actions">
-          <BaseButton variant="link" @click="renameOpen = true">Rename</BaseButton>
+          <BaseButton variant="link" @click="isRenameOpen = true">Rename</BaseButton>
           <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableAddress">
             Delete table
           </BaseButton>
@@ -80,16 +80,16 @@
     </section>
 
     <LazyTableFormModal
-      v-if="renameOpen"
+      v-if="isRenameOpen"
       mode="rename"
       :initial-name="table?.name ?? ''"
       :submit-handler="submitRename"
-      @saved="renameOpen = false"
-      @close="renameOpen = false"
+      @saved="isRenameOpen = false"
+      @close="isRenameOpen = false"
     />
 
     <LazyFieldFormModal
-      v-if="fieldModalOpen"
+      v-if="isFieldModalOpen"
       :mode="editingField ? 'edit' : 'create'"
       :field="editingField"
       :submit-handler="submitField"
@@ -152,7 +152,7 @@ if (error.value) {
   throw createError(toPageError(error.value))
 }
 
-const cachedTableRow = computed(() => tablesStore.tableRow(tableAddress))
+const cachedTableRow = computed(() => tablesStore.findTable(tableAddress))
 
 const table = computed(() => cachedTableRow.value ?? data.value)
 
@@ -176,17 +176,17 @@ const address = computed(() => (table.value ? `/tables/${toTableAddress(table.va
 
 /** A plain object, not a computed: `tableName` is called during render, so `tables` is tracked. */
 const summaryContext: IFieldConfigSummaryContext = {
-  tableName: (id) => tablesStore.tableRow(id)?.name,
+  tableName: (id) => tablesStore.findTable(id)?.name,
 }
 
-const renameOpen = ref(false)
+const isRenameOpen = ref(false)
 
 async function submitRename(name: string) {
   await tablesStore.renameTable(tableAddress, { name })
 }
 
 const {
-  open: fieldModalOpen,
+  isOpen: isFieldModalOpen,
   editing: editingField,
   openCreate: openCreateField,
   openEdit: openEditField,

@@ -56,12 +56,12 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
       : 'material-symbols:filter-list-rounded'
   })
 
-  function applyQuery(params: IRecordQueryState, replace = false) {
-    return navigateTo({ query: toRecordQueryParams(params) }, { replace })
+  function applyQuery(params: IRecordQueryState, shouldReplace = false) {
+    return navigateTo({ query: toRecordQueryParams(params) }, { replace: shouldReplace })
   }
 
-  function goToPage(nextPage: number, replace = false) {
-    return applyQuery({ ...queryState.value, page: nextPage }, replace)
+  function goToPage(nextPage: number, shouldReplace = false) {
+    return applyQuery({ ...queryState.value, page: nextPage }, shouldReplace)
   }
 
   function applySort(key: string) {

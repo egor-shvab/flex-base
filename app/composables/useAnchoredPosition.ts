@@ -4,17 +4,17 @@ import type { Ref } from 'vue'
 interface IAnchoredPositionOptions {
   gap?: number
   margin?: number
-  matchWidth?: boolean
+  shouldMatchWidth?: boolean
   maxHeight?: number
 }
 
 export function useAnchoredPosition(
   anchor: Ref<HTMLElement | undefined>,
   panel: Ref<HTMLElement | undefined>,
-  open: Readonly<Ref<boolean>>,
+  isOpen: Readonly<Ref<boolean>>,
   options: IAnchoredPositionOptions = {},
 ) {
-  const { gap = 4, margin = 8, matchWidth = false, maxHeight = 280 } = options
+  const { gap = 4, margin = 8, shouldMatchWidth = false, maxHeight = 280 } = options
 
   const style = ref<Record<string, string>>({})
 
@@ -27,18 +27,18 @@ export function useAnchoredPosition(
     const spaceBelow = window.innerHeight - rect.bottom - gap - margin
     const spaceAbove = rect.top - gap - margin
 
-    const below = spaceBelow >= maxHeight || spaceBelow >= spaceAbove
+    const isPlacedBelow = spaceBelow >= maxHeight || spaceBelow >= spaceAbove
 
-    const width = matchWidth ? rect.width : (panel.value?.offsetWidth ?? rect.width)
+    const width = shouldMatchWidth ? rect.width : (panel.value?.offsetWidth ?? rect.width)
     const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))
 
     style.value = {
-      ...(below
+      ...(isPlacedBelow
         ? { top: `${rect.bottom + gap}px` }
         : { bottom: `${window.innerHeight - rect.top + gap}px` }),
       left: `${left}px`,
-      maxHeight: `${Math.max(0, Math.min(maxHeight, below ? spaceBelow : spaceAbove))}px`,
-      ...(matchWidth ? { width: `${rect.width}px` } : {}),
+      maxHeight: `${Math.max(0, Math.min(maxHeight, isPlacedBelow ? spaceBelow : spaceAbove))}px`,
+      ...(shouldMatchWidth ? { width: `${rect.width}px` } : {}),
     }
   }
 
@@ -50,15 +50,15 @@ export function useAnchoredPosition(
     })
   }
 
-  function toggleReflowListeners(active: boolean) {
-    const method = active ? 'addEventListener' : 'removeEventListener'
+  function toggleReflowListeners(isActive: boolean) {
+    const method = isActive ? 'addEventListener' : 'removeEventListener'
     window[method]('resize', scheduleMeasure)
     // Capture: scroll does not bubble, and a scroll in any descendant must re-measure
     window[method]('scroll', scheduleMeasure, true)
   }
 
-  watch(open, (isOpen) => {
-    if (!isOpen) {
+  watch(isOpen, () => {
+    if (!isOpen.value) {
       toggleReflowListeners(false)
       return
     }

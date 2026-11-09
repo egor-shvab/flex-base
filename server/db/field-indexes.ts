@@ -20,7 +20,7 @@ interface IFieldIndex {
   name: string
   kind: TFieldIndexKind
   expression: string
-  descending: boolean
+  isDescending: boolean
 }
 
 export interface IReconcileReport {
@@ -76,7 +76,7 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
       name: indexName(field.id, 'filter'),
       kind: rules.filterIndex,
       expression: indexExpression(field, 'filter'),
-      descending: false,
+      isDescending: false,
     })
   }
 
@@ -84,15 +84,15 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
     const expression = indexExpression(field, 'sortAsc')
     const filter = wanted[0]
 
-    const filterCovers =
+    const isSortCoveredByFilter =
       filter && filter.kind === rules.sortIndex && filter.expression === expression
 
-    if (!filterCovers) {
+    if (!isSortCoveredByFilter) {
       wanted.push({
         name: indexName(field.id, 'sortAsc'),
         kind: rules.sortIndex,
         expression,
-        descending: false,
+        isDescending: false,
       })
     }
 
@@ -100,7 +100,7 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
       name: indexName(field.id, 'sortDesc'),
       kind: rules.sortIndex,
       expression,
-      descending: true,
+      isDescending: true,
     })
   }
 
@@ -112,7 +112,7 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
  * every ordering carries; a GIN cannot compose, and is bitmap-ANDed with the `tableId` index.
  */
 function createStatement(index: IFieldIndex): string {
-  const direction = index.descending ? ' DESC NULLS LAST' : ' ASC NULLS LAST'
+  const direction = index.isDescending ? ' DESC NULLS LAST' : ' ASC NULLS LAST'
 
   const target =
     index.kind === 'btree'
@@ -128,9 +128,9 @@ function dropStatement(name: string): string {
   return `DROP INDEX CONCURRENTLY IF EXISTS "${name}"`
 }
 
-async function ownedIndexes(): Promise<{ name: string; valid: boolean }[]> {
-  const rows = await prisma.$queryRaw<{ name: string; valid: boolean }[]>`
-    SELECT c.relname AS name, i.indisvalid AS valid
+async function ownedIndexes(): Promise<{ name: string; isValid: boolean }[]> {
+  const rows = await prisma.$queryRaw<{ name: string; isValid: boolean }[]>`
+    SELECT c.relname AS name, i.indisvalid AS "isValid"
     FROM pg_class c
     JOIN pg_index i ON i.indexrelid = c.oid
     WHERE c.relname LIKE ${`${INDEX_PREFIX}%`}
@@ -147,16 +147,16 @@ export async function syncFieldIndexes(field: IField): Promise<void> {
   const wantedByName = new Map(wanted.map((index) => [index.name, index]))
   const owned = await ownedIndexes()
 
-  for (const { name, valid } of owned) {
+  for (const { name, isValid } of owned) {
     const isThisField = name.startsWith(`${INDEX_PREFIX}${field.id}_`)
     if (!isThisField) continue
 
-    if (!wantedByName.has(name) || !valid) {
+    if (!wantedByName.has(name) || !isValid) {
       await prisma.$executeRawUnsafe(dropStatement(name))
     }
   }
 
-  const present = new Set(owned.filter((index) => index.valid).map((index) => index.name))
+  const present = new Set(owned.filter((index) => index.isValid).map((index) => index.name))
 
   for (const index of wanted) {
     if (!present.has(index.name)) await prisma.$executeRawUnsafe(createStatement(index))
@@ -184,11 +184,11 @@ export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
   const dropped: string[] = []
   const reaped: string[] = []
 
-  for (const { name, valid } of await ownedIndexes()) {
-    if (wanted.has(name) && valid) continue
+  for (const { name, isValid } of await ownedIndexes()) {
+    if (wanted.has(name) && isValid) continue
 
     await prisma.$executeRawUnsafe(dropStatement(name))
-    ;(valid ? dropped : reaped).push(name)
+    ;(isValid ? dropped : reaped).push(name)
   }
 
   const present = new Set((await ownedIndexes()).map((index) => index.name))
@@ -207,17 +207,17 @@ export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
 export interface IFieldIndexStat {
   name: string
   fieldId: string
-  valid: boolean
+  isValid: boolean
   scans: number
   bytes: number
 }
 
 export async function fieldIndexStats(): Promise<IFieldIndexStat[]> {
   const rows = await prisma.$queryRaw<
-    { name: string; valid: boolean; scans: bigint | number; bytes: bigint | number }[]
+    { name: string; isValid: boolean; scans: bigint | number; bytes: bigint | number }[]
   >`
     SELECT c.relname AS name,
-           i.indisvalid AS valid,
+           i.indisvalid AS "isValid",
            COALESCE(s.idx_scan, 0) AS scans,
            pg_relation_size(c.oid) AS bytes
     FROM pg_class c
@@ -230,7 +230,7 @@ export async function fieldIndexStats(): Promise<IFieldIndexStat[]> {
   return rows.map((row) => ({
     name: row.name,
     fieldId: row.name.slice(INDEX_PREFIX.length, row.name.lastIndexOf('_')),
-    valid: row.valid,
+    isValid: row.isValid,
     scans: Number(row.scans),
     bytes: Number(row.bytes),
   }))

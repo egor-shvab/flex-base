@@ -12,12 +12,12 @@ const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com' }
 const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)
 
-let signedIn = false
+let isSignedIn = false
 
 registerEndpoint('/api/auth/me', {
   method: 'GET',
   handler: () => {
-    if (!signedIn) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    if (!isSignedIn) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
     return { user: ADA }
   },
 })
@@ -34,12 +34,12 @@ const guard = async (to: string) => authGlobal(route(to), route('/'))
 beforeEach(() => {
   setActivePinia(createPinia())
   navigateTo.mockReset()
-  signedIn = false
+  isSignedIn = false
 })
 
 describe('restoring the session', () => {
   it('asks the server who this is on the first navigation', async () => {
-    signedIn = true
+    isSignedIn = true
     await guard('/')
 
     expect(useAuthStore().user).toEqual(ADA)
@@ -48,7 +48,7 @@ describe('restoring the session', () => {
   it('does not ask again once initialized, so every route change is not a round trip', async () => {
     const auth = useAuthStore()
     const fetchUser = vi.spyOn(auth, 'fetchUser')
-    auth.initialized = true
+    auth.isInitialized = true
     auth.user = ADA
 
     await guard('/tables/tbl_1')
@@ -61,7 +61,7 @@ describe('restoring the session', () => {
 
     const auth = useAuthStore()
     expect(auth.user).toBeNull()
-    expect(auth.initialized).toBe(true)
+    expect(auth.isInitialized).toBe(true)
   })
 })
 
@@ -110,7 +110,7 @@ describe('an anonymous visitor', () => {
 
 describe('a signed-in visitor', () => {
   beforeEach(() => {
-    signedIn = true
+    isSignedIn = true
   })
 
   it('is left alone on an app route', async () => {

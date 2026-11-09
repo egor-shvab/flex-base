@@ -4,8 +4,8 @@
       <AppMark />
     </div>
 
-    <div class="app-sidebar__scroll">
-      <NuxtLink to="/" class="app-sidebar__item" :class="{ 'app-sidebar__item--on': isHome }">
+    <div class="app-sidebar__body">
+      <NuxtLink to="/" class="app-sidebar__item" :class="{ 'app-sidebar__item--active': isHome }">
         <Icon
           name="material-symbols:home-outline-rounded"
           class="app-sidebar__icon"
@@ -14,21 +14,26 @@
         <span class="app-sidebar__name">Home</span>
       </NuxtLink>
 
-      <p class="app-sidebar__group">Tables</p>
+      <p class="app-sidebar__heading">Tables</p>
 
-      <p v-if="tablesStore.failed" class="app-sidebar__failed">
+      <p v-if="tablesStore.status === 'failed'" class="app-sidebar__error">
         Couldn't load your tables.
-        <BaseButton variant="link" @click="retry">Try again</BaseButton>
+        <BaseButton variant="link" @click="tablesStore.ensureTables()">Try again</BaseButton>
       </p>
 
-      <p v-else-if="tablesStore.tables.length === 0" class="app-sidebar__empty">No tables yet.</p>
+      <p
+        v-else-if="tablesStore.status === 'ready' && tablesStore.tables.length === 0"
+        class="app-sidebar__empty"
+      >
+        No tables yet.
+      </p>
 
       <NuxtLink
         v-for="table in tablesStore.tables"
         :key="table.id"
         :to="`/tables/${toTableAddress(table)}`"
         class="app-sidebar__item"
-        :class="{ 'app-sidebar__item--on': table.number === activeTableNumber }"
+        :class="{ 'app-sidebar__item--active': table.number === activeTableNumber }"
       >
         <Icon
           name="material-symbols:table-outline-rounded"
@@ -39,7 +44,7 @@
         <span class="app-sidebar__count">{{ table._count.records }}</span>
       </NuxtLink>
 
-      <button type="button" class="app-sidebar__add" @click="start">
+      <button type="button" class="app-sidebar__add" @click="isCreateOpen = true">
         <Icon name="material-symbols:add-rounded" class="app-sidebar__icon" aria-hidden="true" />
         Add a table
       </button>
@@ -57,11 +62,11 @@
     </div>
 
     <LazyTableFormModal
-      v-if="open"
+      v-if="isCreateOpen"
       mode="create"
-      :submit-handler="submitHandler"
-      @saved="close"
-      @close="close"
+      :submit-handler="submitTable"
+      @saved="isCreateOpen = false"
+      @close="isCreateOpen = false"
     />
   </nav>
 </template>
@@ -78,31 +83,19 @@ const route = useRoute()
 const tablesStore = useTablesStore()
 const auth = useAuthStore()
 
-const open = ref(false)
+const isCreateOpen = ref(false)
 
-function start() {
-  open.value = true
-}
-
-function close() {
-  open.value = false
-}
-
-async function submitHandler(name: string) {
+async function submitTable(name: string) {
   const table = await tablesStore.createTable({ name })
   await navigateTo(`/tables/${toTableAddress(table)}`)
 }
 
 const activeTableNumber = computed(() => {
   const address = String(route.params.tableAddress ?? '')
-  return parseTableAddress(address) || tablesStore.tableRow(address)?.number
+  return parseTableAddress(address) || tablesStore.findTable(address)?.number
 })
 
 const isHome = computed(() => route.path === '/')
-
-function retry() {
-  return tablesStore.fetchTables()
-}
 </script>
 
 <style lang="scss" scoped>
@@ -133,7 +126,7 @@ function retry() {
     padding: 0 rem(10);
   }
 
-  &__scroll {
+  &__body {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -144,7 +137,7 @@ function retry() {
     padding: rem(4);
   }
 
-  &__group {
+  &__heading {
     @include eyebrow;
 
     margin: rem(16) 0 rem(4);
@@ -161,7 +154,7 @@ function retry() {
       background: var(--color-surface-hover);
     }
 
-    &--on {
+    &--active {
       background: var(--color-accent-tint);
       color: var(--color-accent);
       font-weight: 600;
@@ -174,7 +167,7 @@ function retry() {
     color: var(--color-text-secondary);
   }
 
-  &__item--on &__icon,
+  &__item--active &__icon,
   &__add &__icon {
     color: inherit;
   }
@@ -192,7 +185,7 @@ function retry() {
     color: var(--color-text-secondary);
   }
 
-  &__item--on &__count {
+  &__item--active &__count {
     font-weight: 600;
     color: var(--color-accent);
   }
@@ -214,7 +207,7 @@ function retry() {
   }
 
   &__empty,
-  &__failed {
+  &__error {
     margin: 0;
     padding: rem(4) rem(10);
     font-size: var(--font-size-sm);

@@ -25,7 +25,7 @@ let listShouldFail = false
 const requests: { tableId: string; page: string | undefined }[] = []
 const writes: string[] = []
 
-function tableRow(counts: { fields: number; records: number }) {
+function buildTableRow(counts: { fields: number; records: number }) {
   return {
     id: 'tbl_1',
     name: 'Deals',
@@ -53,7 +53,7 @@ for (const tableId of ['tbl_1', 'tbl_2']) {
       writes.push(`POST ${tableId}`)
       return {
         record: record({ id: 'rec_new', number: 3 }),
-        table: tableRow({ fields: 2, records: 8 }),
+        table: buildTableRow({ fields: 2, records: 8 }),
       }
     },
   })
@@ -79,13 +79,13 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   method: 'DELETE',
   handler: () => {
     writes.push('DELETE rec_1')
-    return { ok: true, table: tableRow({ fields: 2, records: 6 }) }
+    return { ok: true, table: buildTableRow({ fields: 2, records: 6 }) }
   },
 })
 
 registerEndpoint('/api/tables', {
   method: 'GET',
-  handler: () => ({ tables: [tableRow({ fields: 2, records: 7 })] }),
+  handler: () => ({ tables: [buildTableRow({ fields: 2, records: 7 })] }),
 })
 
 async function loadedTables() {
@@ -125,8 +125,7 @@ describe('useRecordsStore', () => {
     expect(store.total).toBe(0)
     expect(store.page).toBe(1)
     expect(store.pageSize).toBe(RECORD_PAGE_SIZE)
-    expect(store.pending).toBe(false)
-    expect(store.failed).toBe(false)
+    expect(store.status).toBe('idle')
   })
 
   describe('fetchRecords', () => {
@@ -150,20 +149,20 @@ describe('useRecordsStore', () => {
 
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
 
-      expect(useRelationsStore().linkedRecordFor('fld_owner', 'rec_ada')).toEqual({
+      expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toEqual({
         number: 1,
         label: 'Ada Lovelace',
       })
     })
 
-    it('is pending only for the duration of the request', async () => {
+    it('is loading only for the duration of the request', async () => {
       const store = useRecordsStore()
 
       const settled = store.fetchRecords('tbl_1', DEFAULT_QUERY)
-      expect(store.pending).toBe(true)
+      expect(store.status).toBe('loading')
 
       await settled
-      expect(store.pending).toBe(false)
+      expect(store.status).toBe('ready')
     })
 
     it('records the failure and still rejects', async () => {
@@ -172,8 +171,7 @@ describe('useRecordsStore', () => {
 
       await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
 
-      expect(store.failed).toBe(true)
-      expect(store.pending).toBe(false)
+      expect(store.status).toBe('failed')
     })
 
     it('clears the failure on the next good fetch', async () => {
@@ -184,7 +182,7 @@ describe('useRecordsStore', () => {
       listShouldFail = false
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
 
-      expect(store.failed).toBe(false)
+      expect(store.status).toBe('ready')
     })
   })
 

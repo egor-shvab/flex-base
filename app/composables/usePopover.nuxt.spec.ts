@@ -51,7 +51,7 @@ describe('usePopover', () => {
   it('starts closed and hands out a stable panel id', () => {
     const { popover } = setup()
 
-    expect(popover.open.value).toBe(false)
+    expect(popover.isOpen.value).toBe(false)
     expect(popover.panelId).toBeTruthy()
   })
 
@@ -59,13 +59,13 @@ describe('usePopover', () => {
     const { popover } = setup()
 
     popover.show()
-    expect(popover.open.value).toBe(true)
+    expect(popover.isOpen.value).toBe(true)
 
     popover.toggle()
-    expect(popover.open.value).toBe(false)
+    expect(popover.isOpen.value).toBe(false)
 
     popover.toggle()
-    expect(popover.open.value).toBe(true)
+    expect(popover.isOpen.value).toBe(true)
   })
 
   it('closes on a pointerdown outside', async () => {
@@ -76,7 +76,7 @@ describe('usePopover', () => {
 
     pointerDownOn(at('outside'))
 
-    expect(popover.open.value).toBe(false)
+    expect(popover.isOpen.value).toBe(false)
   })
 
   it('treats the whole container as inside, not just the trigger', async () => {
@@ -87,7 +87,7 @@ describe('usePopover', () => {
 
     pointerDownOn(at('clear'))
 
-    expect(popover.open.value).toBe(true)
+    expect(popover.isOpen.value).toBe(true)
   })
 
   it('treats a teleported panel as inside even though it is outside the trigger subtree', async () => {
@@ -98,7 +98,7 @@ describe('usePopover', () => {
 
     pointerDownOn(at('option'))
 
-    expect(popover.open.value).toBe(true)
+    expect(popover.isOpen.value).toBe(true)
   })
 
   it('leaves focus where the pointer put it when closing on an outside click', async () => {
@@ -110,7 +110,7 @@ describe('usePopover', () => {
     at('outside').focus()
     pointerDownOn(at('outside'))
 
-    expect(popover.open.value).toBe(false)
+    expect(popover.isOpen.value).toBe(false)
     expect(document.activeElement).toBe(at('outside'))
   })
 
@@ -123,7 +123,7 @@ describe('usePopover', () => {
 
     popover.dismiss()
 
-    expect(popover.open.value).toBe(false)
+    expect(popover.isOpen.value).toBe(false)
     expect(document.activeElement).toBe(at('trigger'))
   })
 
@@ -137,7 +137,7 @@ describe('usePopover', () => {
     trigger.remove()
 
     expect(() => popover.dismiss()).not.toThrow()
-    expect(popover.open.value).toBe(false)
+    expect(popover.isOpen.value).toBe(false)
     expect(document.activeElement).not.toBe(trigger)
   })
 

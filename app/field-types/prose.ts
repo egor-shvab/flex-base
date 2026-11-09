@@ -35,7 +35,8 @@ export function summariseLinkedRecord(
   address: string,
 ): string {
   const ref =
-    ctx.linkedRecordByNumber(field.id, Number(address)) ?? ctx.linkedRecordFor(field.id, address)
+    ctx.findLinkedRecordByNumber(field.id, Number(address)) ??
+    ctx.findLinkedRecord(field.id, address)
 
   return ref === undefined ? UNKNOWN_RECORD_LABEL : formatLinkedRecord(ref)
 }

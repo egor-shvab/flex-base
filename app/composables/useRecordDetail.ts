@@ -41,27 +41,27 @@ export function useRecordDetail() {
     { default: () => null },
   )
 
-  const notFound = computed(() => error.value?.statusCode === 404)
+  const isNotFound = computed(() => error.value?.statusCode === 404)
 
   const errorMessage = computed(() => {
     if (!error.value) return null
-    return notFound.value ? 'This record no longer exists.' : getApiErrorMessage(error.value)
+    return isNotFound.value ? 'This record no longer exists.' : getApiErrorMessage(error.value)
   })
 
-  function queryWith(next: IOpenRecord[]): { query: TUrlQuery } {
+  function buildDetailQuery(next: IOpenRecord[]): { query: TUrlQuery } {
     return { query: withDetailChain(route.query, next) }
   }
 
   return {
     chain,
     detail: data,
-    pending: computed(() => status.value === 'pending'),
+    isLoading: computed(() => status.value === 'pending'),
     errorMessage,
-    canRetry: computed(() => Boolean(error.value) && !notFound.value),
+    canRetry: computed(() => Boolean(error.value) && !isNotFound.value),
     refresh,
     backTo: computed(() =>
-      chain.value.length > 1 ? queryWith(popDetail(chain.value)) : undefined,
+      chain.value.length > 1 ? buildDetailQuery(popDetail(chain.value)) : undefined,
     ),
-    closeTo: computed(() => queryWith([])),
+    closeTo: computed(() => buildDetailQuery([])),
   }
 }

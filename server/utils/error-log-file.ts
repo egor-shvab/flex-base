@@ -38,7 +38,7 @@ export function planErrorLogRotation(basePath: string, generations: number): IEr
 
 let handle: number | null = null
 let writtenBytes = 0
-let disabled = false
+let isDisabled = false
 
 function closeLog(): void {
   if (handle === null) return
@@ -74,7 +74,7 @@ function rotateLog(): void {
  * purpose: a buffered stream loses its tail — the entry before a crash — when the process dies.
  */
 export function appendErrorLogLine(line: string): void {
-  if (disabled) return
+  if (isDisabled) return
 
   try {
     const bytes = Buffer.byteLength(line)
@@ -89,7 +89,7 @@ export function appendErrorLogLine(line: string): void {
     writeSync(handle, line)
     writtenBytes += bytes
   } catch {
-    disabled = true
+    isDisabled = true
     closeLog()
   }
 }

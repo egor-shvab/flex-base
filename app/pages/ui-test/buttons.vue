@@ -154,13 +154,13 @@
         <div class="button-row">
           <BaseButton
             prepend-icon="material-symbols:save-outline-rounded"
-            :loading="saving"
+            :loading="isSaving"
             @click="simulateSave"
           >
             Save
           </BaseButton>
         </div>
-        <template #readout>{{ saving ? 'saving…' : 'idle — click to run for 2s' }}</template>
+        <template #readout>{{ isSaving ? 'saving…' : 'idle — click to run for 2s' }}</template>
       </UiTestSpecimen>
     </UiTestSection>
   </UiTestPage>
@@ -179,12 +179,12 @@ const LOADING_VARIANTS: TLabelledVariant[] = ['primary', 'secondary', 'danger']
 
 const submitCount = ref(0)
 
-const saving = ref(false)
+const isSaving = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 
 function simulateSave() {
-  saving.value = true
-  saveTimer = setTimeout(() => (saving.value = false), 2000)
+  isSaving.value = true
+  saveTimer = setTimeout(() => (isSaving.value = false), 2000)
 }
 
 onBeforeUnmount(() => clearTimeout(saveTimer))

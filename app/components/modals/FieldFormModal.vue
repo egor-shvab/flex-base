@@ -34,11 +34,11 @@
         v-model="form.multiple"
         label="Allow multiple values"
         :hint="
-          lockedMultiple
+          isMultipleLocked
             ? 'A multi-value field cannot be changed back to a single value.'
             : undefined
         "
-        :disabled="lockedMultiple"
+        :disabled="isMultipleLocked"
       />
 
       <BaseField
@@ -123,8 +123,10 @@
     </form>
 
     <template #footer>
-      <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">Cancel</BaseButton>
-      <BaseButton type="submit" :form="formId" :loading="pending">
+      <BaseButton variant="secondary" :disabled="isSubmitting" @click="emit('close')"
+        >Cancel</BaseButton
+      >
+      <BaseButton type="submit" :form="formId" :loading="isSubmitting">
         {{ mode === 'create' ? 'Create field' : 'Save' }}
       </BaseButton>
     </template>
@@ -136,6 +138,7 @@ import { computed, ref, shallowRef, useId, watch } from 'vue'
 import { useFieldsApi } from '~/api/fields'
 import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
+import type { TLoadStatus } from '~/types/load-status'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import { FIELD_TYPES, FIELD_TYPE_LABELS, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
@@ -168,7 +171,7 @@ const typeOptions: { value: TFieldType; label: string }[] = FIELD_TYPES.map((typ
 // Copied deep: shared references would let an edit mutate the store's metadata behind the modal
 const initialChoices = (props.field?.options?.choices ?? []).map((choice) => ({ ...choice }))
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: fieldInputSchema,
   initial: {
     name: props.field?.name ?? '',
@@ -186,7 +189,7 @@ const { form, errors, serverError, pending, submit } = useForm({
   },
 })
 
-const lockedMultiple = computed(() => props.field?.options?.multiple === true)
+const isMultipleLocked = computed(() => props.field?.options?.multiple === true)
 
 let nextRowId = 0
 const rowIds = ref(initialChoices.map(() => nextRowId++))
@@ -204,9 +207,7 @@ function removeChoice(index: number) {
 const fieldsApi = useFieldsApi()
 const tablesStore = useTablesStore()
 
-type TOptionsStatus = 'idle' | 'loading' | 'ready' | 'failed'
-
-const tablesStatus = ref<TOptionsStatus>('idle')
+const tablesStatus = ref<TLoadStatus>('idle')
 
 async function loadTables() {
   tablesStatus.value = 'loading'
@@ -244,7 +245,7 @@ const labelOptions = computed(() =>
   labelCandidates.value.map((field) => ({ value: field.key, label: field.name })),
 )
 
-const targetFieldsStatus = ref<TOptionsStatus>('idle')
+const targetFieldsStatus = ref<TLoadStatus>('idle')
 
 /** Monotonic, so a slow answer for a target already left cannot overwrite the current one. */
 let targetFieldsRequestId = 0

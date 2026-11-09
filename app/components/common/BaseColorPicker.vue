@@ -6,12 +6,12 @@
       class="base-color-picker__trigger"
       :aria-label="`${label}: ${BADGE_COLOR_LABELS[model]}`"
       :title="`${label}: ${BADGE_COLOR_LABELS[model]}`"
-      :aria-expanded="open"
+      :aria-expanded="isOpen"
       :aria-controls="panelId"
       :disabled="disabled"
-      @click="onToggle"
+      @click="togglePalette"
     >
-      <span class="base-color-picker__preview" :style="badgeTint(model)" />
+      <span class="base-color-picker__preview" :style="buildBadgeTint(model)" />
     </button>
 
     <!--
@@ -19,7 +19,7 @@
       `transform` at rest, so `position: fixed` still resolves against the viewport.
     -->
     <div
-      v-if="open"
+      v-if="isOpen"
       :id="panelId"
       ref="panelRef"
       class="base-color-picker__panel"
@@ -41,7 +41,7 @@
         type="button"
         role="radio"
         class="base-color-picker__option"
-        :style="badgeTint(color)"
+        :style="buildBadgeTint(color)"
         :aria-checked="color === model"
         :aria-label="BADGE_COLOR_LABELS[color]"
         :title="BADGE_COLOR_LABELS[color]"
@@ -61,7 +61,7 @@ import { nextTick, ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
 import { usePopover } from '~/composables/usePopover'
-import { badgeTint } from '~/utils/badge-tint'
+import { buildBadgeTint } from '~/utils/badge-tint'
 import { BADGE_COLORS, BADGE_COLOR_LABELS } from '#shared/constants/color'
 import type { TBadgeColor } from '#shared/types/color'
 
@@ -75,9 +75,9 @@ withDefaults(
 
 const model = defineModel<TBadgeColor>({ required: true })
 
-const { open, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } = usePopover()
+const { isOpen, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } = usePopover()
 
-const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { maxHeight: 120 })
+const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, { maxHeight: 120 })
 
 const options = ref<HTMLButtonElement[]>([])
 
@@ -89,9 +89,9 @@ function focusSelected() {
   options.value[BADGE_COLORS.indexOf(model.value)]?.focus()
 }
 
-function onToggle() {
+function togglePalette() {
   toggle()
-  if (open.value) void nextTick(focusSelected)
+  if (isOpen.value) void nextTick(focusSelected)
 }
 
 function choose(color: TBadgeColor) {

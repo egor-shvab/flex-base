@@ -55,8 +55,8 @@ export function formatTimestamp(value: string): string {
   return Number.isNaN(date.getTime()) ? value : TIMESTAMP_FORMAT.format(date)
 }
 
-export function formatMatchingRecords(total: number, capped = false): string {
-  if (capped) return `${total}+ matching records`
+export function formatMatchingRecords(total: number, isCapped = false): string {
+  if (isCapped) return `${total}+ matching records`
 
   return `${total} matching ${total === 1 ? 'record' : 'records'}`
 }

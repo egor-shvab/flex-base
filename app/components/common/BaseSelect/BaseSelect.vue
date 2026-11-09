@@ -3,7 +3,7 @@
     :id="id"
     v-slot="{ labelId, describedBy }"
     class="base-select"
-    :class="{ 'base-select--open': open, 'base-select--disabled': disabled }"
+    :class="{ 'base-select--open': isOpen, 'base-select--disabled': disabled }"
     :label="label"
     :label-for="id"
     :error="error"
@@ -21,16 +21,16 @@
         class="base-select__input"
         :class="{
           'base-select__input--invalid': error,
-          'base-select__input--clearable': showClear,
+          'base-select__input--clearable': shouldShowClear,
         }"
         type="text"
         role="combobox"
         aria-autocomplete="list"
         autocomplete="off"
         spellcheck="false"
-        :aria-expanded="open"
-        :aria-controls="open ? listboxId : undefined"
-        :aria-activedescendant="open ? activeId : undefined"
+        :aria-expanded="isOpen"
+        :aria-controls="isOpen ? listboxId : undefined"
+        :aria-activedescendant="isOpen ? activeId : undefined"
         :aria-label="label ? undefined : ariaLabel"
         :aria-invalid="error ? true : undefined"
         :aria-describedby="buildComboboxDescribedBy(describedBy)"
@@ -47,11 +47,11 @@
         class="base-select__trigger"
         :class="{
           'base-select__trigger--invalid': error,
-          'base-select__trigger--clearable': showClear,
+          'base-select__trigger--clearable': shouldShowClear,
         }"
         aria-haspopup="listbox"
-        :aria-expanded="open"
-        :aria-controls="open ? listboxId : undefined"
+        :aria-expanded="isOpen"
+        :aria-controls="isOpen ? listboxId : undefined"
         :aria-labelledby="labelId ? `${labelId} ${id}-value` : undefined"
         :aria-label="labelId ? undefined : ariaLabel"
         :aria-invalid="error ? true : undefined"
@@ -61,10 +61,10 @@
       />
 
       <span
-        v-if="showValue"
+        v-if="shouldShowValue"
         :id="`${id}-value`"
         class="base-select__value"
-        :class="{ 'base-select__value--clearable': showClear }"
+        :class="{ 'base-select__value--clearable': shouldShowClear }"
       >
         <BaseBadge
           v-if="firstSelected?.color"
@@ -83,7 +83,7 @@
       <span
         v-else-if="!searchable"
         class="base-select__placeholder"
-        :class="{ 'base-select__placeholder--clearable': showClear }"
+        :class="{ 'base-select__placeholder--clearable': shouldShowClear }"
         :inert="disabled || undefined"
       >
         {{ placeholder }}
@@ -106,7 +106,7 @@
         fall to `<body>`.
       -->
       <BaseButton
-        v-if="showClear"
+        v-if="shouldShowClear"
         variant="icon"
         size="sm"
         prepend-icon="material-symbols:close-rounded"
@@ -121,13 +121,13 @@
       Mirrors the status row, which lives in a `<Teleport v-if>`: a live region inserted with its
       content is not reliably read, so this one is mounted for the component's life.
     -->
-    <span class="visually-hidden" role="status">{{ open ? statusText : '' }}</span>
+    <span class="visually-hidden" role="status">{{ isOpen ? statusText : '' }}</span>
 
     <!--
       Teleported because `BaseModal` marks `#__nuxt` `inert`; in place the panel would be
       unfocusable inside the drawer it belongs to.
     -->
-    <Teleport v-if="open" to="body">
+    <Teleport v-if="isOpen" to="body">
       <div
         ref="panelRef"
         class="base-select__panel"
@@ -139,7 +139,7 @@
           <BaseButton
             v-if="status === 'failed'"
             variant="secondary"
-            @click="onRetry"
+            @click="retryOptions"
             @keydown="onRetryKeydown"
           >
             Retry
@@ -160,7 +160,7 @@
         >
           <li
             v-for="(option, index) in visibleOptions"
-            :id="optionId(index)"
+            :id="buildOptionId(index)"
             :key="option.value"
             class="base-select__option"
             :class="{
@@ -249,9 +249,9 @@ defineSlots<{
  */
 const isMultiple = computed(() => props.multiple !== undefined && props.multiple)
 
-const { open, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
+const { isOpen, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
 
-const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { matchWidth: true })
+const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, { shouldMatchWidth: true })
 
 const listboxId = panelId
 
@@ -264,7 +264,7 @@ function openPanel() {
     if (props.searchable) triggerRef.value?.focus()
     else listRef.value?.focus()
 
-    const index = selectedIndex()
+    const index = findSelectedIndex()
     if (index >= 0) scrollIntoView(index)
   })
 }
@@ -272,7 +272,7 @@ function openPanel() {
 function togglePanel() {
   if (props.disabled) return
 
-  if (open.value) dismiss()
+  if (isOpen.value) dismiss()
   else openPanel()
 }
 
@@ -280,7 +280,7 @@ function onControlClick() {
   if (props.disabled) return
 
   if (props.searchable) {
-    if (!open.value) openPanel()
+    if (!isOpen.value) openPanel()
     triggerRef.value?.focus()
     return
   }
@@ -295,7 +295,7 @@ const { searchDraft, visibleOptions, status, retry, reset } = useSelectOptions({
 
 const statusRef = ref<HTMLParagraphElement>()
 
-function retryButton(): HTMLButtonElement | null {
+function findRetryButton(): HTMLButtonElement | null {
   return statusRef.value?.querySelector('button') ?? null
 }
 
@@ -309,7 +309,7 @@ const statusText = computed(() => {
   return typed === '' ? props.emptyLabel : `No option matches “${typed}”`
 })
 
-function onRetry() {
+function retryOptions() {
   retry()
   triggerRef.value?.focus()
 }
@@ -336,9 +336,11 @@ function commit(values: string[]) {
   model.value = (isMultiple.value ? values : (values[0] ?? '')) as TModel
 }
 
-const showClear = computed(() => props.clearable && !props.disabled && selected.value.length > 0)
+const shouldShowClear = computed(
+  () => props.clearable && !props.disabled && selected.value.length > 0,
+)
 
-function selectedIndex(): number {
+function findSelectedIndex(): number {
   return visibleOptions.value.findIndex((option) => selected.value.includes(option.value))
 }
 
@@ -389,7 +391,7 @@ const selectedOptions = computed<ISelectOption[]>(() =>
   selected.value.map((value) => seen.value.get(value) ?? { value, label: value }),
 )
 
-const showValue = computed(
+const shouldShowValue = computed(
   () => selectedOptions.value.length > 0 && (!props.searchable || searchDraft.value === ''),
 )
 
@@ -397,7 +399,7 @@ const firstSelected = computed<ISelectOption | undefined>(() => selectedOptions.
 const moreCount = computed(() => Math.max(selectedOptions.value.length - 1, 0))
 
 function buildComboboxDescribedBy(fieldDescribedBy: string | undefined): string | undefined {
-  const ids = [fieldDescribedBy, showValue.value ? `${props.id}-value` : undefined].filter(
+  const ids = [fieldDescribedBy, shouldShowValue.value ? `${props.id}-value` : undefined].filter(
     (value): value is string => value !== undefined,
   )
 
@@ -419,19 +421,21 @@ const {
 } = useListboxNavigation({
   options: () => visibleOptions.value,
   listRef,
-  isOpen: open,
+  isOpen,
   shouldSeedCursor: () => props.searchable && searchDraft.value !== '',
 })
 
-function optionId(index: number): string {
+function buildOptionId(index: number): string {
   return `${panelId}-option-${index}`
 }
 
-const activeId = computed(() => (activeIndex.value >= 0 ? optionId(activeIndex.value) : undefined))
+const activeId = computed(() =>
+  activeIndex.value >= 0 ? buildOptionId(activeIndex.value) : undefined,
+)
 
 function moveCursor(delta: number) {
   if (activeIndex.value < 0) {
-    const index = selectedIndex()
+    const index = findSelectedIndex()
 
     if (index >= 0) {
       setActive(index)
@@ -453,43 +457,43 @@ function onComboboxKeydown(event: KeyboardEvent) {
     case 'Escape':
       // Only ours while open: focus stays here while the list is shut, so an unconditional `.stop`
       // would eat the drawer's Escape
-      if (!open.value) return
+      if (!isOpen.value) return
       event.stopPropagation()
       dismiss()
       return
     case 'ArrowDown':
       event.preventDefault()
-      if (!open.value) openPanel()
+      if (!isOpen.value) openPanel()
       moveCursor(1)
       return
     case 'ArrowUp':
       event.preventDefault()
-      if (open.value && event.altKey) {
+      if (isOpen.value && event.altKey) {
         dismiss()
         return
       }
-      if (!open.value) openPanel()
+      if (!isOpen.value) openPanel()
       moveCursor(-1)
       return
     case 'PageDown':
     case 'PageUp':
-      if (!open.value) return
+      if (!isOpen.value) return
       event.preventDefault()
       moveCursor(event.key === 'PageDown' ? PAGE_STEP : -PAGE_STEP)
       return
     case 'Enter':
-      if (!open.value) return
+      if (!isOpen.value) return
       event.preventDefault()
       chooseActive()
       return
     case 'Tab':
       // The teleported panel is outside the browser's own tab order, so move into Retry explicitly
-      if (open.value && !event.shiftKey && retryButton()) {
+      if (isOpen.value && !event.shiftKey && findRetryButton()) {
         event.preventDefault()
-        retryButton()?.focus()
+        findRetryButton()?.focus()
         return
       }
-      if (open.value) dismiss()
+      if (isOpen.value) dismiss()
       return
     case 'Backspace':
       // Only once the term is gone, or backspacing through a search eats the selection; `repeat`
@@ -572,11 +576,11 @@ function onListKeydown(event: KeyboardEvent) {
  * Off the model rather than `keydown`, which misses paste and IME composition.
  */
 watch(searchDraft, (value) => {
-  if (props.searchable && !props.disabled && value !== '' && !open.value) openPanel()
+  if (props.searchable && !props.disabled && value !== '' && !isOpen.value) openPanel()
 })
 
-watch(open, (isOpen) => {
-  if (isOpen) return
+watch(isOpen, () => {
+  if (isOpen.value) return
 
   reset()
   resetCursor()

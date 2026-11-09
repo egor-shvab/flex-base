@@ -19,8 +19,8 @@ const TABLES = [
 
 let targetFields: IField[] = []
 
-let tablesFail = false
-let targetFieldsFail = false
+let shouldTablesFail = false
+let shouldTargetFieldsFail = false
 
 let tablesRequests = 0
 
@@ -30,12 +30,12 @@ function refuse(): never {
 
 registerEndpoint('/api/tables', () => {
   tablesRequests += 1
-  if (tablesFail) refuse()
+  if (shouldTablesFail) refuse()
 
   return { tables: TABLES }
 })
 registerEndpoint('/api/tables/tbl_people/fields', () => {
-  if (targetFieldsFail) refuse()
+  if (shouldTargetFieldsFail) refuse()
 
   return { fields: targetFields }
 })
@@ -84,14 +84,13 @@ describe('FieldFormModal', () => {
   beforeEach(() => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     targetFields = []
-    tablesFail = false
-    targetFieldsFail = false
+    shouldTablesFail = false
+    shouldTargetFieldsFail = false
     tablesRequests = 0
 
     const tables = useTablesStore()
     tables.tables = []
-    tables.loaded = false
-    tables.failed = false
+    tables.status = 'idle'
 
     const root = document.createElement('div')
     root.id = '__nuxt'
@@ -266,7 +265,7 @@ describe('FieldFormModal', () => {
       })
 
     it('says the table list failed rather than that there are no tables', async () => {
-      tablesFail = true
+      shouldTablesFail = true
 
       await relation()
 
@@ -275,11 +274,11 @@ describe('FieldFormModal', () => {
     })
 
     it('reloads the table list from its own Try again', async () => {
-      tablesFail = true
+      shouldTablesFail = true
       await relation()
       await expect.poll(loadError).toContain('Couldn’t load your tables')
 
-      tablesFail = false
+      shouldTablesFail = false
       button('Try again')?.click()
 
       // Waited on what the retry produces: the message clears the instant the request starts
@@ -288,7 +287,7 @@ describe('FieldFormModal', () => {
     })
 
     it('says the field list failed rather than that the table has no fields', async () => {
-      targetFieldsFail = true
+      shouldTargetFieldsFail = true
 
       await relation()
 
@@ -297,11 +296,11 @@ describe('FieldFormModal', () => {
     })
 
     it('reloads the field list from its own Try again', async () => {
-      targetFieldsFail = true
+      shouldTargetFieldsFail = true
       await relation()
       await expect.poll(loadError).toContain('Couldn’t load that table’s fields')
 
-      targetFieldsFail = false
+      shouldTargetFieldsFail = false
       targetFields = [textField('full_name', { name: 'Full name' })]
       button('Try again')?.click()
 

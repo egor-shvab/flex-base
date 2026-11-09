@@ -54,11 +54,11 @@ function buildValueSchema(field: IField): z.ZodType<TRecordValue> {
 
   const nullable = rules.base(field).nullable()
 
-  const enforceRequired = field.required && rules.blank === null
+  const shouldEnforceRequired = field.required && rules.blank === null
 
   return z.preprocess(
     (value) => (value === '' || value === undefined ? rules.blank : value),
-    enforceRequired
+    shouldEnforceRequired
       ? nullable.refine((value) => value !== null, { error: `${field.name} is required` })
       : nullable,
   )

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
+import type { TLoadStatus } from '~/types/load-status'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
@@ -26,8 +27,7 @@ export const useRecordsStore = defineStore('records', () => {
   const totalCapped = ref(false)
   const page = ref(1)
   const pageSize = ref(RECORD_PAGE_SIZE)
-  const pending = ref(false)
-  const failed = ref(false)
+  const status = ref<TLoadStatus>('idle')
   const loadedTableAddress = ref('')
 
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -36,8 +36,7 @@ export const useRecordsStore = defineStore('records', () => {
 
   async function fetchRecords(tableAddress: string, query: IRecordQueryState) {
     if (tableAddress !== loadedTableAddress.value) clearState()
-    pending.value = true
-    failed.value = false
+    status.value = 'loading'
 
     try {
       const response = await api.list(tableAddress, query)
@@ -48,13 +47,12 @@ export const useRecordsStore = defineStore('records', () => {
       pageSize.value = response.pageSize
       loadedTableAddress.value = tableAddress
       relations.cacheLinkedRecords(response.linkedRecords)
+      status.value = 'ready'
     } catch (error) {
       // A refetch runs from a watcher, where a rejection would be unhandled; the initial load still
       // throws, so `useAsyncData` can produce the 404
-      failed.value = true
+      status.value = 'failed'
       throw error
-    } finally {
-      pending.value = false
     }
   }
 
@@ -119,8 +117,7 @@ export const useRecordsStore = defineStore('records', () => {
     pageSize,
     pageCount,
     hasNextPage,
-    pending,
-    failed,
+    status,
     fetchRecords,
     createRecord,
     updateRecord,

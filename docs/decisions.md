@@ -485,12 +485,12 @@ leave the sidebar listing one table.
 
 ### A failed refetch is visible, not silent
 
-`fetchRecords` sets `failed` and **rethrows**; the page's `watch` swallows it and shows a banner,
-and the initial load needs the rejection for `useAsyncData`'s 404. The empty state is suppressed
-while `failed`, and while a fetch is in flight **with no rows to show** (switching tables clears
-rows before the outgoing page unmounts) — that state is `RecordsTableSkeleton`. Conditioned on the
-row count, not on `pending`: an in-place refetch keeps its rows and says "Filtering…". Opposite call
-from `useDeleteConfirm`: the rule is whether anyone is listening.
+`fetchRecords` sets `status: 'failed'` and **rethrows**; the page's `watch` swallows it and shows a
+banner, and the initial load needs the rejection for `useAsyncData`'s 404. The empty state is
+suppressed while `'failed'`, and while a fetch is in flight **with no rows to show** (switching
+tables clears rows before the outgoing page unmounts) — that state is `RecordsTableSkeleton`.
+Conditioned on the row count, not on `'loading'`: an in-place refetch keeps its rows and says
+"Filtering…". Opposite call from `useDeleteConfirm`: the rule is whether anyone is listening.
 
 ### The records page is not split further, and its length is not the reason to
 
@@ -541,7 +541,7 @@ keeps its rows under the banner. If revisited, key on `tableId` and pass the que
 
 ### In `getApiErrorMessage`, blank counts as absent
 
-`??` lets `statusMessage: ''` win and render an empty error box. Candidates go through a `nonBlank`
+`??` lets `statusMessage: ''` win and render an empty error box. Candidates go through a `toNonBlank`
 `typeof` guard — not `||`, which would let a non-string through.
 
 ### Locales and time zones are hard-coded
@@ -668,7 +668,7 @@ first press. **`usePopover` registers no Escape listener and must never grow one
   `RecordRowMenu`, the non-searchable select) — the panel exists only while open. Two document
   listeners could not be ordered instead;
 - where the control keeps focus outside its panel (the combobox), `.stop` is wrong — the drawer
-  could never close by keyboard while it has focus — so JS stops propagation only when `open`.
+  could never close by keyboard while it has focus — so JS stops propagation only when `isOpen`.
 
 `.stop` survives the teleport: the panel is a DOM child of `<body>`, so its keydown still bubbles to
 `document`.
@@ -717,7 +717,7 @@ icon and reach the tree). **Do not simplify `variant === 'chip' && color !== und
 
 ### The badge palette is selected in JavaScript, by token name
 
-`badgeTint()` composes `var(--color-badge-<name>-bg)` and returns inline custom properties. A Sass
+`buildBadgeTint()` composes `var(--color-badge-<name>-bg)` and returns inline custom properties. A Sass
 `@each` would need the palette in both SCSS and TS, and a colour added to only one renders unstyled
 with no error.
 

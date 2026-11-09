@@ -1,23 +1,23 @@
 import { ref, shallowRef } from 'vue'
 
 export function useEntityFormModal<TEntity>() {
-  const open = ref(false)
+  const isOpen = ref(false)
   const editing = shallowRef<TEntity | undefined>(undefined)
 
   function openCreate() {
     editing.value = undefined
-    open.value = true
+    isOpen.value = true
   }
 
   function openEdit(entity: TEntity) {
     editing.value = entity
-    open.value = true
+    isOpen.value = true
   }
 
   function close() {
-    open.value = false
+    isOpen.value = false
     editing.value = undefined
   }
 
-  return { open, editing, openCreate, openEdit, close }
+  return { isOpen, editing, openCreate, openEdit, close }
 }

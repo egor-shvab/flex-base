@@ -41,7 +41,7 @@ describe('useAuthStore', () => {
 
     expect(store.user).toBeNull()
     expect(store.isAuthenticated).toBe(false)
-    expect(store.initialized).toBe(false)
+    expect(store.isInitialized).toBe(false)
   })
 
   describe('fetchUser', () => {
@@ -67,13 +67,13 @@ describe('useAuthStore', () => {
     it('marks itself initialized either way', async () => {
       const signedIn = useAuthStore()
       await signedIn.fetchUser()
-      expect(signedIn.initialized).toBe(true)
+      expect(signedIn.isInitialized).toBe(true)
 
       setActivePinia(createPinia())
       failing.add('/api/auth/me')
       const signedOut = useAuthStore()
       await signedOut.fetchUser()
-      expect(signedOut.initialized).toBe(true)
+      expect(signedOut.isInitialized).toBe(true)
     })
   })
 

@@ -44,7 +44,7 @@
       type="submit"
       class="auth-form__submit"
       append-icon="material-symbols:arrow-forward-rounded"
-      :loading="pending"
+      :loading="isSubmitting"
     >
       Register
     </BaseButton>
@@ -69,7 +69,7 @@ useSeoMeta({ title: 'Register', description: 'Create your FlexBase account.' })
 const auth = useAuthStore()
 const route = useRoute()
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: registerSchema,
   initial: { email: '', password: '', passwordConfirm: '' },
   onSubmit: async (values) => {

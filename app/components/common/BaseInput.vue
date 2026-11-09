@@ -26,7 +26,7 @@
         :aria-invalid="error || invalid ? true : undefined"
         :aria-describedby="describedBy"
         @input="onInput"
-        @compositionstart="composing = true"
+        @compositionstart="isComposing = true"
         @compositionend="onCompositionEnd"
       />
     </div>
@@ -78,15 +78,15 @@ const draft = useDebouncedModel(model, {
 
 // Not `v-model`, which would rewrite `1.50` as `1.5` mid-typing; its composition guard is kept
 // by hand below
-const composing = ref(false)
+const isComposing = ref(false)
 
 function onInput(event: Event) {
-  if (composing.value) return
+  if (isComposing.value) return
   draft.value = (event.target as HTMLInputElement).value
 }
 
 function onCompositionEnd(event: CompositionEvent) {
-  composing.value = false
+  isComposing.value = false
   onInput(event)
 }
 </script>

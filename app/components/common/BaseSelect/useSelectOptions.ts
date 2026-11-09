@@ -1,9 +1,8 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { QUERY_DEBOUNCE_MS, useDebouncedModel } from '~/composables/useDebouncedModel'
+import type { TLoadStatus } from '~/types/load-status'
 import type { ISelectOption, TLoadSelectOptions } from '~/types/select'
-
-export type TSelectStatus = 'idle' | 'loading' | 'ready' | 'failed'
 
 interface IUseSelectOptionsInput<TValue extends string> {
   options: () => ISelectOption<TValue>[]
@@ -19,7 +18,7 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
   })
 
   const remote = shallowRef<ISelectOption<TValue>[]>([])
-  const status = ref<TSelectStatus>('idle')
+  const status = ref<TLoadStatus>('idle')
 
   /**
    * An out-of-order response is dropped entirely, so a fast typist never sees an error from a
@@ -98,7 +97,7 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
     searchDraft: searchDraft as Ref<string>,
     committedTerm: committedTerm as Readonly<Ref<string>>,
     visibleOptions,
-    status: status as Readonly<Ref<TSelectStatus>>,
+    status: status as Readonly<Ref<TLoadStatus>>,
     retry,
     reset,
   }

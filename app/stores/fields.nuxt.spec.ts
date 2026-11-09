@@ -16,7 +16,7 @@ let created: IField = COMPANY
 let updated: IField = COMPANY
 let shouldFail = false
 
-function tableRow(counts: { fields: number; records: number }) {
+function buildTableRow(counts: { fields: number; records: number }) {
   return {
     id: 'tbl_1',
     name: 'Deals',
@@ -36,7 +36,7 @@ registerEndpoint('/api/tables/tbl_1/fields', {
 
 registerEndpoint('/api/tables/tbl_1/fields', {
   method: 'POST',
-  handler: () => ({ field: created, table: tableRow({ fields: 3, records: 7 }) }),
+  handler: () => ({ field: created, table: buildTableRow({ fields: 3, records: 7 }) }),
 })
 
 registerEndpoint('/api/tables/tbl_1/fields/fld_company', {
@@ -46,12 +46,12 @@ registerEndpoint('/api/tables/tbl_1/fields/fld_company', {
 
 registerEndpoint('/api/tables/tbl_1/fields/fld_company', {
   method: 'DELETE',
-  handler: () => ({ ok: true, table: tableRow({ fields: 1, records: 7 }) }),
+  handler: () => ({ ok: true, table: buildTableRow({ fields: 1, records: 7 }) }),
 })
 
 registerEndpoint('/api/tables', {
   method: 'GET',
-  handler: () => ({ tables: [tableRow({ fields: 2, records: 7 })] }),
+  handler: () => ({ tables: [buildTableRow({ fields: 2, records: 7 })] }),
 })
 
 async function loadedTables() {

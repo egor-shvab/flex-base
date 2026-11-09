@@ -69,8 +69,8 @@ function restoreFocus() {
   if (previouslyFocused?.isConnected) previouslyFocused.focus()
 }
 
-function setBackgroundInert(inert: boolean) {
-  document.getElementById('__nuxt')?.toggleAttribute('inert', inert)
+function setBackgroundInert(isInert: boolean) {
+  document.getElementById('__nuxt')?.toggleAttribute('inert', isInert)
 }
 
 onMounted(() => {

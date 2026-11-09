@@ -170,8 +170,8 @@ describe('BaseSelect', () => {
       const { wrapper } = await failedSearch()
       const button = await focusedRetry(wrapper)
 
-      let reachedDocument = false
-      const listener = () => (reachedDocument = true)
+      let hasReachedDocument = false
+      const listener = () => (hasReachedDocument = true)
       document.addEventListener('keydown', listener)
 
       keydown(button, 'Escape')
@@ -179,7 +179,7 @@ describe('BaseSelect', () => {
       await nextTick()
 
       expect(panel()).toBeNull()
-      expect(reachedDocument).toBe(false)
+      expect(hasReachedDocument).toBe(false)
       expect(document.activeElement).toBe(input(wrapper).element)
     })
 

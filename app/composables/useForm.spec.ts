@@ -27,7 +27,7 @@ describe('useForm', () => {
     expect(form.form).toEqual({ email: '', password: '' })
     expect(form.errors).toEqual({})
     expect(form.serverError.value).toBe('')
-    expect(form.pending.value).toBe(false)
+    expect(form.isSubmitting.value).toBe(false)
 
     form.stop()
   })
@@ -89,7 +89,7 @@ describe('useForm', () => {
     await form.submit()
 
     expect(form.serverError.value).toBe('That email is already registered.')
-    expect(form.pending.value).toBe(false)
+    expect(form.isSubmitting.value).toBe(false)
 
     form.stop()
   })
@@ -122,28 +122,28 @@ describe('useForm', () => {
     form.stop()
   })
 
-  it('is pending only while onSubmit is in flight', async () => {
+  it('is submitting only while onSubmit is in flight', async () => {
     let release: () => void = () => {}
     const form = setup({ ...VALID }, () => new Promise<void>((resolve) => (release = resolve)))
 
     const settled = form.submit()
     await nextTick()
-    expect(form.pending.value).toBe(true)
+    expect(form.isSubmitting.value).toBe(true)
 
     release()
     await settled
 
-    expect(form.pending.value).toBe(false)
+    expect(form.isSubmitting.value).toBe(false)
 
     form.stop()
   })
 
-  it('never goes pending when validation fails', async () => {
+  it('never starts submitting when validation fails', async () => {
     const form = setup({ email: '', password: '' }, vi.fn())
 
     await form.submit()
 
-    expect(form.pending.value).toBe(false)
+    expect(form.isSubmitting.value).toBe(false)
 
     form.stop()
   })

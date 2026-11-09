@@ -7,11 +7,11 @@ import { getApiErrorMessage } from '~/utils/api-error'
  */
 export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<void>) {
   const target = shallowRef<TTarget | null>(null)
-  const pending = ref(false)
+  const isDeleting = ref(false)
   const error = ref<string | null>(null)
 
   const dialogProps = computed(() => ({
-    pending: pending.value,
+    pending: isDeleting.value,
     error: error.value,
     confirmLabel: 'Delete',
   }))
@@ -23,7 +23,7 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
   async function confirm() {
     if (target.value === null) return
 
-    pending.value = true
+    isDeleting.value = true
     error.value = null
 
     try {
@@ -32,7 +32,7 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
     } catch (cause) {
       error.value = getApiErrorMessage(cause)
     } finally {
-      pending.value = false
+      isDeleting.value = false
     }
   }
 

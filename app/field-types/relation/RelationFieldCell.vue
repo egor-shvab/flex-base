@@ -37,12 +37,13 @@ const recordId = computed(() => (typeof props.value === 'string' ? props.value :
 const linkedRecord = computed(() =>
   recordId.value === undefined
     ? undefined
-    : relations.linkedRecordFor(props.field.id, recordId.value),
+    : relations.findLinkedRecord(props.field.id, recordId.value),
 )
 
 const detailTo = computed(() => {
   const targetTableId = props.field.options?.targetTableId
-  const targetNumber = targetTableId === undefined ? undefined : tables.tableNumber(targetTableId)
+  const targetNumber =
+    targetTableId === undefined ? undefined : tables.findTableNumber(targetTableId)
 
   if (
     linkedRecord.value === undefined ||

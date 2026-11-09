@@ -62,8 +62,8 @@ function valueOf(candidate: IRecordOption): string {
 
 function linkedRecordOf(value: string): ILinkedRecord | undefined {
   return props.valueBy === 'number'
-    ? relations.linkedRecordByNumber(props.fieldId, Number(value))
-    : relations.linkedRecordFor(props.fieldId, value)
+    ? relations.findLinkedRecordByNumber(props.fieldId, Number(value))
+    : relations.findLinkedRecord(props.fieldId, value)
 }
 
 const selectProps = computed(() => ({

@@ -41,7 +41,7 @@
           variant="ghost"
           prepend-icon="material-symbols:filter-list-rounded"
           :selected="activeFilterCount > 0"
-          @click="filterPanelOpen = true"
+          @click="isFilterPanelOpen = true"
         >
           Filters
           <span v-if="activeFilterCount > 0" class="records-page__filter-count">{{
@@ -58,13 +58,13 @@
       :search="queryState.search"
       :total="recordsStore.total"
       :total-capped="recordsStore.totalCapped"
-      :pending="recordsStore.pending"
+      :pending="recordsStore.status === 'loading'"
       @update:filters="applyFilters"
       @update:search="applySearch"
       @clear="clearNarrowing"
     />
 
-    <BaseErrorBanner v-if="recordsStore.failed" class="records-page__failed">
+    <BaseErrorBanner v-if="recordsStore.status === 'failed'" class="records-page__failed">
       That view couldn’t be loaded. Check the web address, or
       <NuxtLink :to="`/tables/${tableAddress}`" class="text-link"
         >start again with all records</NuxtLink
@@ -72,7 +72,7 @@
     </BaseErrorBanner>
 
     <div class="records-page__body">
-      <RecordsTableSkeleton v-if="rowsLoading" class="records-page__skeleton" />
+      <RecordsTableSkeleton v-if="isRowsLoading" class="records-page__skeleton" />
 
       <BaseEmptyState
         v-else-if="!hasFields"
@@ -88,7 +88,7 @@
 
       <template v-else>
         <BaseEmptyState
-          v-if="recordsStore.records.length === 0 && !recordsStore.failed"
+          v-if="recordsStore.records.length === 0 && recordsStore.status !== 'failed'"
           class="records-page__empty"
           role="status"
           :title="emptyTitle"
@@ -128,18 +128,18 @@
     </div>
 
     <LazyRecordsFilterPanel
-      v-if="filterPanelOpen"
+      v-if="isFilterPanelOpen"
       :fields="fieldsStore.fields"
       :filters="filters"
       :total="recordsStore.total"
       :total-capped="recordsStore.totalCapped"
-      :pending="recordsStore.pending"
+      :pending="recordsStore.status === 'loading'"
       @update:filters="applyFilters"
-      @close="filterPanelOpen = false"
+      @close="isFilterPanelOpen = false"
     />
 
     <LazyRecordFormModal
-      v-if="recordModalOpen"
+      v-if="isRecordModalOpen"
       :mode="editingRecord ? 'edit' : 'create'"
       :fields="fieldsStore.fields"
       :record="editingRecord"
@@ -151,7 +151,7 @@
     <LazyRecordDetailModal
       v-if="detailChain.length > 0"
       :detail="detail"
-      :pending="detailPending"
+      :pending="isDetailLoading"
       :error-message="detailError"
       :can-retry="detailCanRetry"
       :current-table-number="tableNumber"
@@ -222,13 +222,13 @@ const { data, error } = await useAsyncData(`table-records-${tableAddress}`, asyn
   return table
 })
 
-// Swallowed deliberately: the store sets `failed`, which the template shows; out of a watcher a
+// Swallowed deliberately: the store sets `status`, which the template shows; out of a watcher a
 // rejection would be unhandled
 watch(queryKey, async () => {
   try {
     await recordsStore.fetchRecords(tableAddress, queryState.value)
   } catch {
-    // surfaced through `recordsStore.failed`
+    // surfaced through `recordsStore.status === 'failed'`
   }
 })
 
@@ -248,12 +248,14 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 
 const hasFields = computed(() => fieldsStore.fields.length > 0)
 
-const rowsLoading = computed(() => recordsStore.pending && recordsStore.records.length === 0)
+const isRowsLoading = computed(
+  () => recordsStore.status === 'loading' && recordsStore.records.length === 0,
+)
 
-const filterPanelOpen = ref(false)
+const isFilterPanelOpen = ref(false)
 
 const {
-  open: recordModalOpen,
+  isOpen: isRecordModalOpen,
   editing: editingRecord,
   openCreate: openCreateRecord,
   openEdit: openEditRecord,
@@ -275,7 +277,7 @@ async function submitRecord(data: TRecordData) {
 const {
   chain: detailChain,
   detail,
-  pending: detailPending,
+  isLoading: isDetailLoading,
   errorMessage: detailError,
   canRetry: detailCanRetry,
   backTo: detailBackTo,

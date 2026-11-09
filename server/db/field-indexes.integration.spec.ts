@@ -254,7 +254,7 @@ describe('the index lifecycle', () => {
       `rec_idx_${company?.id}_sd`,
     ])
     expect(new Set(stats.map((stat) => stat.fieldId))).toEqual(new Set([company?.id]))
-    expect(stats.every((stat) => stat.valid)).toBe(true)
+    expect(stats.every((stat) => stat.isValid)).toBe(true)
     expect(stats.every((stat) => stat.scans === 0)).toBe(true)
     expect(stats.every((stat) => stat.bytes > 0)).toBe(true)
   }, 60_000)
@@ -291,7 +291,7 @@ describe('the index lifecycle', () => {
 
     const stats = await fieldIndexStats()
 
-    expect(stats.filter((stat) => !stat.valid).map((stat) => stat.name)).toEqual([
+    expect(stats.filter((stat) => !stat.isValid).map((stat) => stat.name)).toEqual([
       `rec_idx_${company?.id}_f`,
     ])
   }, 60_000)

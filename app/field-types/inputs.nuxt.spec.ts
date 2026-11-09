@@ -63,9 +63,9 @@ describe('inputFor', () => {
   it('offers a list control for exactly the types that may hold a list', () => {
     for (const type of FIELD_TYPES) {
       const field = asMultiple(ALL_TYPE_FIELDS[type])
-      const differs = inputFor(field) !== FIELD_INPUTS[type]
+      const isDifferent = inputFor(field) !== FIELD_INPUTS[type]
 
-      expect(differs).toBe(MULTI_VALUE_BY_TYPE[type])
+      expect(isDifferent).toBe(MULTI_VALUE_BY_TYPE[type])
     }
   })
 })

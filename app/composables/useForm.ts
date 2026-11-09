@@ -15,7 +15,7 @@ export function useForm<TValues extends Record<string, unknown>, TOutput>(
   const form = reactive({ ...options.initial }) as unknown as TValues
   const errors = reactive({}) as Partial<Record<keyof TValues, string>>
   const serverError = ref('')
-  const pending = ref(false)
+  const isSubmitting = ref(false)
 
   const fieldKeys = Object.keys(options.initial) as (keyof TValues)[]
 
@@ -54,15 +54,15 @@ export function useForm<TValues extends Record<string, unknown>, TOutput>(
       return
     }
 
-    pending.value = true
+    isSubmitting.value = true
     try {
       await options.onSubmit(result.data)
     } catch (error) {
       serverError.value = getApiErrorMessage(error)
     } finally {
-      pending.value = false
+      isSubmitting.value = false
     }
   }
 
-  return { form, errors, serverError, pending, submit }
+  return { form, errors, serverError, isSubmitting, submit }
 }

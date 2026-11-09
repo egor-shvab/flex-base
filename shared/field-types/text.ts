@@ -5,7 +5,7 @@ export const TEXT_MAX_LENGTH = 1000
 
 export const TEXT_FIELD_TYPE: IFieldTypeModule<'TEXT'> = {
   label: 'Text',
-  multiValue: false,
+  canBeMultiValue: false,
   filter: { shape: 'scalar', empty: '' },
   value: {
     base: () =>

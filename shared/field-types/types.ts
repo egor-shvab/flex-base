@@ -12,7 +12,7 @@ export interface IValueSchemaRules {
 
 export interface IFieldTypeModule<K extends TFieldType> {
   label: string
-  multiValue: boolean
+  canBeMultiValue: boolean
   filter: IFilterValueRules<IFilterValueByType[K]>
   value: IValueSchemaRules
 }

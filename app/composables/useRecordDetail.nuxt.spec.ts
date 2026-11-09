@@ -67,7 +67,7 @@ async function open(query: TUrlQuery = {}) {
   const wrapper = await mountTracked(Host)
   host = wrapper
 
-  await vi.waitFor(() => expect(dialog.pending.value).toBe(false))
+  await vi.waitFor(() => expect(dialog.isLoading.value).toBe(false))
 
   return { wrapper, dialog }
 }
@@ -123,7 +123,7 @@ describe('useRecordDetail', () => {
 
     await open({ detail: 'tbl_deals.rec_1' })
 
-    expect(useRelationsStore().linkedRecordFor('fld_owner', 'rec_ada')).toEqual({
+    expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toEqual({
       number: 1,
       label: 'Ada Lovelace',
     })
@@ -230,7 +230,7 @@ describe('useRecordDetail', () => {
   it('has settled by the time the dialog renders', async () => {
     const { dialog } = await open({ detail: 'tbl_deals.rec_1' })
 
-    expect(dialog.pending.value).toBe(false)
+    expect(dialog.isLoading.value).toBe(false)
     expect(dialog.detail.value?.record.id).toBe('rec_1')
   })
 })

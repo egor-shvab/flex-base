@@ -14,7 +14,7 @@
         aria-label="From"
         placeholder="From"
         :debounce="debounce"
-        @update:model-value="onBoundInput('from', $event)"
+        @update:model-value="applyBound('from', $event)"
       />
       <span class="base-range__dash" aria-hidden="true">–</span>
       <BaseInput
@@ -24,7 +24,7 @@
         aria-label="To"
         placeholder="To"
         :debounce="debounce"
-        @update:model-value="onBoundInput('to', $event)"
+        @update:model-value="applyBound('to', $event)"
       />
     </div>
   </BaseField>
@@ -75,7 +75,7 @@ watch(
   { immediate: true },
 )
 
-function onBoundInput(bound: 'from' | 'to', raw: string) {
+function applyBound(bound: 'from' | 'to', raw: string) {
   if (bound === 'from') fromText.value = raw
   else toText.value = raw
 

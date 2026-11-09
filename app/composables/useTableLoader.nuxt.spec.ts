@@ -20,11 +20,11 @@ const TABLE: ITable = {
 }
 
 const requests: string[] = []
-let tableFails = false
+let shouldTableFail = false
 
 registerEndpoint('/api/tables/tbl_deals', () => {
   requests.push('table')
-  if (tableFails) throw createError({ statusCode: 404, statusMessage: 'Table not found' })
+  if (shouldTableFail) throw createError({ statusCode: 404, statusMessage: 'Table not found' })
   return { table: TABLE }
 })
 
@@ -55,7 +55,7 @@ describe('useTableLoader', () => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
     useFieldsStore().fields = []
     requests.length = 0
-    tableFails = false
+    shouldTableFail = false
   })
 
   it('answers with the table itself, not the response envelope', async () => {
@@ -77,7 +77,7 @@ describe('useTableLoader', () => {
   })
 
   it('rejects rather than swallowing a failed table fetch', async () => {
-    tableFails = true
+    shouldTableFail = true
 
     await expect(load()).rejects.toThrow()
   })

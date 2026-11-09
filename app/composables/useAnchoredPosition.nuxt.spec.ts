@@ -55,11 +55,11 @@ async function positionOf(
   const panel = ref<HTMLElement | undefined>(
     elementAt({ top: 0, bottom: 0, left: 0, width: panelWidth ?? anchorRect.width }),
   )
-  const open = ref(false)
+  const isOpen = ref(false)
 
-  const { value: style } = host(() => useAnchoredPosition(anchor, panel, open, options))
+  const { value: style } = host(() => useAnchoredPosition(anchor, panel, isOpen, options))
 
-  open.value = true
+  isOpen.value = true
   await nextTick()
   await nextTick()
 
@@ -139,11 +139,11 @@ describe('useAnchoredPosition', () => {
     expect(style.width).toBeUndefined()
   })
 
-  it('gives the panel the anchor width when matchWidth is set', async () => {
+  it('gives the panel the anchor width when shouldMatchWidth is set', async () => {
     const style = await positionOf(
       { top: 100, bottom: 140, left: 200, width: 300 },
       {
-        matchWidth: true,
+        shouldMatchWidth: true,
       },
     )
 
@@ -175,11 +175,11 @@ describe('useAnchoredPosition', () => {
   it('writes no style at all when there is no anchor', async () => {
     const anchor = ref<HTMLElement | undefined>(undefined)
     const panel = ref<HTMLElement | undefined>(undefined)
-    const open = ref(false)
+    const isOpen = ref(false)
 
-    const { value: style } = host(() => useAnchoredPosition(anchor, panel, open))
+    const { value: style } = host(() => useAnchoredPosition(anchor, panel, isOpen))
 
-    open.value = true
+    isOpen.value = true
     await nextTick()
     await nextTick()
 
@@ -194,17 +194,17 @@ describe('useAnchoredPosition', () => {
       elementAt({ top: 100, bottom: 140, left: 200, width: 300 }),
     )
     const panel = ref<HTMLElement | undefined>(undefined)
-    const open = ref(false)
+    const isOpen = ref(false)
 
-    host(() => useAnchoredPosition(anchor, panel, open))
+    host(() => useAnchoredPosition(anchor, panel, isOpen))
 
-    open.value = true
+    isOpen.value = true
     await nextTick()
 
     expect(add).toHaveBeenCalledWith('resize', expect.any(Function))
     expect(add).toHaveBeenCalledWith('scroll', expect.any(Function), true)
 
-    open.value = false
+    isOpen.value = false
     await nextTick()
 
     expect(remove).toHaveBeenCalledWith('resize', expect.any(Function))
@@ -228,16 +228,16 @@ describe('useAnchoredPosition', () => {
       const { element, measured } = countingAnchor(rect)
       const anchor = ref<HTMLElement | undefined>(element)
       // Born closed: the watch has no `immediate`, so a ref born `true` would attach nothing
-      const open = ref(false)
+      const isOpen = ref(false)
 
       const { value: style, wrapper } = host(() =>
-        useAnchoredPosition(anchor, ref(undefined), open),
+        useAnchoredPosition(anchor, ref(undefined), isOpen),
       )
-      open.value = true
+      isOpen.value = true
       await nextTick()
       await nextTick()
 
-      return { style, anchor, measured, wrapper, close: () => (open.value = false) }
+      return { style, anchor, measured, wrapper, close: () => (isOpen.value = false) }
     }
 
     it('follows the anchor when the page scrolls under it', async () => {

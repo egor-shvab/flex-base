@@ -5,7 +5,7 @@ import { resolveSafeRedirect } from '~/utils/safe-redirect'
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
 
-  if (!auth.initialized) {
+  if (!auth.isInitialized) {
     await auth.fetchUser()
   }
 

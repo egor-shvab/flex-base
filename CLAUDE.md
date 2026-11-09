@@ -169,8 +169,13 @@ instant on a small table locks a large one for minutes.
   - `to*` pure conversion, no I/O — `toSharedRecord`
   - `build*` assembles a composite value — `buildRecordWhere`
   - `parse*` decodes an untrusted string — `parseRecordQueryState`
-  - `is*` · `matches*` · `should*` predicate — `isMultiValue`
+  - `is*` · `has*` · `can*` · `should*` · `matches*` predicate — `isMultiValue` (prefixes below)
   - `format*` · `summarise*` value → display string — `formatDate`
+  - `find*` a lookup that may miss — `undefined` when absent, where `get*` throws — `findTable`
+  - `set*` assigns as given · `apply*` merges an incoming value into held state · `clear*` empties
+    · `toggle*` inverts — `applyTableRow`
+  - `on<Event>` a listener for a raw DOM event, named by element and event — `onListKeydown`; a
+    handler for a user action is named for the action (`retryOptions`), never `handle*`
   - `*For(field)` sync registry lookup keyed by a field (§9) — `inputFor`
   - `require*` · `assert*` throws unless a precondition holds — `requireOwnedTable`
   - `list*` · `get*` service read — a collection, or exactly one row (throws if absent)
@@ -179,6 +184,18 @@ instant on a small table locks a large one for minutes.
 
   `get*` retrieves something that exists, never something computed. `buildOptions` and
   `collectRelationTargets` are the two sync service members, and their prefixes say so.
+
+- **A boolean value opens with its question** — `is*` a state or property (`isCreateOpen`), `has*`
+  presence or something that already happened (`hasNextPage`), `can*` an action is available or
+  allowed (`canRetry`), `should*` a decision (`shouldReplace`). It holds for refs, computeds, store
+  state, composable returns, internal interface fields and parameters. **Exempt:** component props,
+  which read as attributes (`<BaseButton disabled loading>`), and the closed vocabularies below
+  (`required`, `multiple`, `totalCapped`).
+- **Two or more flags describing one load are one `status: TLoadStatus`** (`~/types/load-status`,
+  `'idle' | 'loading' | 'ready' | 'failed'`) — two flags admit "loaded and failed". Where
+  `useAsyncData` owns the lifecycle its own status is read, not remapped.
+- **Suffixes:** `*Count` a number of things (never `numberOf*`), `*Id`, `*Address`, `*Ref` a
+  template ref.
 
 - **One meaning per word.** Taken: `ref` (Vue), `slot` (template), `spec` (test file), `summary` (a
   filter chip or a field's config line), `detail` (the record dialog). Qualify a second use
@@ -214,7 +231,7 @@ instant on a small table locks a large one for minutes.
   ancestor).
 - **A popover swallows Escape only while it has something open.** `BaseModal` and the shell's
   sidebar hold the only two `document` Escape listeners; a popover adds none — `@keydown.esc.stop`
-  on its panel where focus is inside it, a JS check on `open` where focus stays outside (a
+  on its panel where focus is inside it, a JS check on `isOpen` where focus stays outside (a
   combobox). Details: `docs/decisions.md` → _Escape is swallowed only while something of ours is
   open_.
 - **Every async surface states its condition:** loading, empty and error are distinct — never infer
@@ -309,7 +326,7 @@ replaces the keyboard walk.
 **Three modules — one per slice — and one line in each of three registries**, nothing else:
 
 - **`prisma/schema.prisma`** — the `FieldType` member (+ migration)
-- **`shared/field-types/<type>.ts`** — `IFieldTypeModule`: `label`, `multiValue`, `filter` (shape +
+- **`shared/field-types/<type>.ts`** — `IFieldTypeModule`: `label`, `canBeMultiValue`, `filter` (shape +
   empty), `value` (`base`, `listBase`, `blank`, `fromQuery`)
 - **`server/db/field-types/<type>.ts`** — `IFieldSqlModule`: `sql` (`expr` · `filter` ·
   `searchPredicate` or `null` · `sortExpr` only if it orders differently · `sortJoin` only for a

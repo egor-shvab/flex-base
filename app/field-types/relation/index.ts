@@ -9,7 +9,7 @@ import type { IAppFieldType } from '~/field-types/types'
 function relationProps(
   field: IField,
   placeholder: string,
-  multiple = false,
+  isMultiple = false,
   valueBy: 'id' | 'number' = 'id',
 ): Record<string, unknown> {
   return {
@@ -18,7 +18,7 @@ function relationProps(
     placeholder,
     clearable: true,
     valueBy,
-    ...(multiple ? { multiple: true } : {}),
+    ...(isMultiple ? { multiple: true } : {}),
   }
 }
 

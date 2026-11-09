@@ -16,5 +16,5 @@ const props = defineProps<{ fieldId: string; option: ISelectOption }>()
 
 const relations = useRelationsStore()
 
-const linked = computed(() => relations.linkedRecordFor(props.fieldId, props.option.value))
+const linked = computed(() => relations.findLinkedRecord(props.fieldId, props.option.value))
 </script>

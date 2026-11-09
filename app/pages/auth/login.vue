@@ -34,7 +34,7 @@
       type="submit"
       class="auth-form__submit"
       append-icon="material-symbols:arrow-forward-rounded"
-      :loading="pending"
+      :loading="isSubmitting"
     >
       Log in
     </BaseButton>
@@ -59,7 +59,7 @@ useSeoMeta({ title: 'Log in', description: 'Log in to your FlexBase account.' })
 const auth = useAuthStore()
 const route = useRoute()
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: credentialsInputSchema,
   initial: { email: '', password: '' },
   onSubmit: async (values) => {

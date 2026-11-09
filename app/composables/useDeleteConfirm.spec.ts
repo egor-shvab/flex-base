@@ -85,10 +85,10 @@ describe('useDeleteConfirm', () => {
   })
 
   it('clears the message when the same target is retried', async () => {
-    let fail = true
+    let shouldFail = true
     const confirmer = setup(
       vi.fn(async () => {
-        if (fail) throw new Error('nope')
+        if (shouldFail) throw new Error('nope')
       }),
     )
 
@@ -96,7 +96,7 @@ describe('useDeleteConfirm', () => {
     await confirmer.confirm()
     expect(confirmer.dialogProps.value.error).not.toBeNull()
 
-    fail = false
+    shouldFail = false
     await confirmer.confirm()
 
     expect(confirmer.dialogProps.value.error).toBeNull()

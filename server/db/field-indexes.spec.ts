@@ -24,7 +24,7 @@ describe('fieldIndexes — what a field asks for', () => {
     expect(filter?.kind).toBe('trigram')
     expect(filter?.expression).toBe("data ->> 'company'::text")
     expect(sortAsc?.kind).toBe('btree')
-    expect(sortDesc?.descending).toBe(true)
+    expect(sortDesc?.isDescending).toBe(true)
   })
 
   it('reuses a range type’s filter B-tree for the ascending sort, and adds only the descending one', () => {
@@ -32,9 +32,9 @@ describe('fieldIndexes — what a field asks for', () => {
 
     expect(indexes.map((index) => index.name.slice(-2))).toEqual(['_f', 'sd'])
     expect(indexes[0]?.expression).toBe("(data ->> 'contract_value'::text)::numeric")
-    expect(indexes[0]?.descending).toBe(false)
+    expect(indexes[0]?.isDescending).toBe(false)
     expect(indexes[1]?.expression).toBe(indexes[0]?.expression)
-    expect(indexes[1]?.descending).toBe(true)
+    expect(indexes[1]?.isDescending).toBe(true)
   })
 
   it('carries the cast into the expression, so the index matches the comparison', () => {

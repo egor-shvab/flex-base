@@ -59,11 +59,11 @@ describe('useRelationsStore', () => {
 
       await store.loadOptions('tbl_deals', [OWNER])
 
-      expect(store.linkedRecordFor('fld_owner', 'rec_ada')).toEqual({
+      expect(store.findLinkedRecord('fld_owner', 'rec_ada')).toEqual({
         number: 1,
         label: 'Ada Lovelace',
       })
-      expect(store.linkedRecordFor('fld_owner', 'rec_grace')).toEqual({
+      expect(store.findLinkedRecord('fld_owner', 'rec_grace')).toEqual({
         number: 2,
         label: 'Grace Hopper',
       })
@@ -73,7 +73,7 @@ describe('useRelationsStore', () => {
       const store = useRelationsStore()
 
       expect(store.optionsFor('fld_unknown')).toEqual([])
-      expect(store.linkedRecordFor('fld_unknown', 'rec_1')).toBeUndefined()
+      expect(store.findLinkedRecord('fld_unknown', 'rec_1')).toBeUndefined()
     })
 
     it('remembers which table answers for each field', async () => {
@@ -92,8 +92,8 @@ describe('useRelationsStore', () => {
       store.cacheLinkedRecords({ fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } })
       store.cacheLinkedRecords({ fld_owner: { rec_grace: { number: 2, label: 'Grace Hopper' } } })
 
-      expect(store.linkedRecordFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
-      expect(store.linkedRecordFor('fld_owner', 'rec_grace')?.label).toBe('Grace Hopper')
+      expect(store.findLinkedRecord('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
+      expect(store.findLinkedRecord('fld_owner', 'rec_grace')?.label).toBe('Grace Hopper')
     })
 
     it('overwrites the linked record for the same id', () => {
@@ -102,7 +102,7 @@ describe('useRelationsStore', () => {
       store.cacheLinkedRecords({ fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } })
       store.cacheLinkedRecords({ fld_owner: { rec_ada: { number: 1, label: 'Ada L.' } } })
 
-      expect(store.linkedRecordFor('fld_owner', 'rec_ada')).toEqual({ number: 1, label: 'Ada L.' })
+      expect(store.findLinkedRecord('fld_owner', 'rec_ada')).toEqual({ number: 1, label: 'Ada L.' })
     })
 
     it('keeps each field’s linked records separate', () => {
@@ -113,8 +113,8 @@ describe('useRelationsStore', () => {
         fld_reviewer: { rec_ada: { number: 1, label: 'A. Lovelace' } },
       })
 
-      expect(store.linkedRecordFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
-      expect(store.linkedRecordFor('fld_reviewer', 'rec_ada')?.label).toBe('A. Lovelace')
+      expect(store.findLinkedRecord('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
+      expect(store.findLinkedRecord('fld_reviewer', 'rec_ada')?.label).toBe('A. Lovelace')
     })
 
     it('keeps a null label rather than treating it as unresolved', () => {
@@ -122,7 +122,7 @@ describe('useRelationsStore', () => {
 
       store.cacheLinkedRecords({ fld_owner: { rec_blank: { number: 8, label: null } } })
 
-      expect(store.linkedRecordFor('fld_owner', 'rec_blank')).toEqual({ number: 8, label: null })
+      expect(store.findLinkedRecord('fld_owner', 'rec_blank')).toEqual({ number: 8, label: null })
     })
   })
 
@@ -167,11 +167,11 @@ describe('useRelationsStore', () => {
       responses.fld_owner = [{ id: 'rec_late', number: 9, label: 'Found by searching' }]
       await store.searchOptions('fld_owner', 'found', new AbortController().signal)
 
-      expect(store.linkedRecordFor('fld_owner', 'rec_late')).toEqual({
+      expect(store.findLinkedRecord('fld_owner', 'rec_late')).toEqual({
         number: 9,
         label: 'Found by searching',
       })
-      expect(store.linkedRecordFor('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
+      expect(store.findLinkedRecord('fld_owner', 'rec_ada')?.label).toBe('Ada Lovelace')
     })
   })
 })

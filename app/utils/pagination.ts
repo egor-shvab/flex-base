@@ -1,9 +1,9 @@
 export type TPageCell = number | 'gap'
 
-export function buildPageWindow(page: number, pageCount: number, capped: boolean): TPageCell[] {
-  const last = capped ? Math.max(page, Math.min(page + 1, pageCount)) : Math.max(pageCount, 1)
+export function buildPageWindow(page: number, pageCount: number, isCapped: boolean): TPageCell[] {
+  const last = isCapped ? Math.max(page, Math.min(page + 1, pageCount)) : Math.max(pageCount, 1)
   const wanted = new Set([1, page - 1, page, page + 1])
-  if (!capped) wanted.add(last)
+  if (!isCapped) wanted.add(last)
 
   const pages = [...wanted].filter((n) => n >= 1 && n <= last).sort((a, b) => a - b)
 
@@ -15,6 +15,6 @@ export function buildPageWindow(page: number, pageCount: number, capped: boolean
     cells.push(n)
   }
 
-  if (capped) cells.push('gap')
+  if (isCapped) cells.push('gap')
   return cells
 }

@@ -7,7 +7,7 @@ function relationReference(): z.ZodType<string> {
 
 export const RELATION_FIELD_TYPE: IFieldTypeModule<'RELATION'> = {
   label: 'Link to table',
-  multiValue: true,
+  canBeMultiValue: true,
   filter: { shape: 'scalar', empty: '' },
   value: {
     base: relationReference,

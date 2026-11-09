@@ -27,8 +27,8 @@ export interface IMultiValueCellProps {
 }
 
 export interface IFilterSummaryContext {
-  linkedRecordByNumber: (fieldId: string, number: number) => ILinkedRecord | undefined
-  linkedRecordFor: (fieldId: string, recordId: string) => ILinkedRecord | undefined
+  findLinkedRecordByNumber: (fieldId: string, number: number) => ILinkedRecord | undefined
+  findLinkedRecord: (fieldId: string, recordId: string) => ILinkedRecord | undefined
 }
 
 /**

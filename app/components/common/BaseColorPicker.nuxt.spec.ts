@@ -149,15 +149,15 @@ describe('BaseColorPicker', () => {
 
     it('closes on Escape without letting the key reach the document', async () => {
       const wrapper = await opened()
-      let reachedDocument = false
-      const listener = () => (reachedDocument = true)
+      let hasReachedDocument = false
+      const listener = () => (hasReachedDocument = true)
       document.addEventListener('keydown', listener)
 
       await wrapper.get('[role="radiogroup"]').trigger('keydown', { key: 'Escape' })
       document.removeEventListener('keydown', listener)
 
       expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
-      expect(reachedDocument).toBe(false)
+      expect(hasReachedDocument).toBe(false)
       expect(document.activeElement).toBe(wrapper.get('button').element)
     })
   })

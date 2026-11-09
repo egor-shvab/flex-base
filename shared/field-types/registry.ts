@@ -29,12 +29,12 @@ export const FIELD_TYPE_LABELS: Record<TFieldType, string> = {
 }
 
 export const MULTI_VALUE_BY_TYPE: Record<TFieldType, boolean> = {
-  TEXT: MODULES.TEXT.multiValue,
-  NUMBER: MODULES.NUMBER.multiValue,
-  BOOLEAN: MODULES.BOOLEAN.multiValue,
-  DATE: MODULES.DATE.multiValue,
-  SELECT: MODULES.SELECT.multiValue,
-  RELATION: MODULES.RELATION.multiValue,
+  TEXT: MODULES.TEXT.canBeMultiValue,
+  NUMBER: MODULES.NUMBER.canBeMultiValue,
+  BOOLEAN: MODULES.BOOLEAN.canBeMultiValue,
+  DATE: MODULES.DATE.canBeMultiValue,
+  SELECT: MODULES.SELECT.canBeMultiValue,
+  RELATION: MODULES.RELATION.canBeMultiValue,
 }
 
 export const FILTER_VALUE_BY_TYPE: {

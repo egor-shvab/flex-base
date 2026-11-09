@@ -12,7 +12,7 @@ describe('useEntityFormModal', () => {
   it('starts closed, with nothing being edited', () => {
     const modal = useEntityFormModal<ITestRow>()
 
-    expect(modal.open.value).toBe(false)
+    expect(modal.isOpen.value).toBe(false)
     expect(modal.editing.value).toBeUndefined()
   })
 
@@ -21,7 +21,7 @@ describe('useEntityFormModal', () => {
 
     modal.openCreate()
 
-    expect(modal.open.value).toBe(true)
+    expect(modal.isOpen.value).toBe(true)
     expect(modal.editing.value).toBeUndefined()
   })
 
@@ -30,7 +30,7 @@ describe('useEntityFormModal', () => {
 
     modal.openEdit(ROW)
 
-    expect(modal.open.value).toBe(true)
+    expect(modal.isOpen.value).toBe(true)
     expect(modal.editing.value).toBe(ROW)
   })
 
@@ -40,7 +40,7 @@ describe('useEntityFormModal', () => {
     modal.openEdit(ROW)
     modal.openCreate()
 
-    expect(modal.open.value).toBe(true)
+    expect(modal.isOpen.value).toBe(true)
     expect(modal.editing.value).toBeUndefined()
   })
 
@@ -50,7 +50,7 @@ describe('useEntityFormModal', () => {
     modal.openEdit(ROW)
     modal.close()
 
-    expect(modal.open.value).toBe(false)
+    expect(modal.isOpen.value).toBe(false)
     expect(modal.editing.value).toBeUndefined()
   })
 })

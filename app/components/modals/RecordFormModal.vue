@@ -11,8 +11,10 @@
     </form>
 
     <template #footer>
-      <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">Cancel</BaseButton>
-      <BaseButton type="submit" :form="formId" :loading="pending">
+      <BaseButton variant="secondary" :disabled="isSubmitting" @click="emit('close')"
+        >Cancel</BaseButton
+      >
+      <BaseButton type="submit" :form="formId" :loading="isSubmitting">
         {{ mode === 'create' ? 'Create record' : 'Save' }}
       </BaseButton>
     </template>
@@ -44,7 +46,7 @@ const initial: TRecordData = Object.fromEntries(
   props.fields.map((field) => [field.key, props.record?.data[field.key] ?? blankValueFor(field)]),
 )
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: buildRecordSchema(props.fields),
   initial,
   onSubmit: async (values) => {

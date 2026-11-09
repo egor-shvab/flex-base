@@ -1,13 +1,13 @@
 <template>
-  <div ref="shell" class="app-layout" :class="{ 'app-layout--nav-open': navOpen }">
+  <div ref="shell" class="app-layout" :class="{ 'app-layout--nav-open': isNavOpen }">
     <header class="app-layout__header">
       <button
         type="button"
         class="app-layout__toggle"
-        :aria-expanded="navOpen"
+        :aria-expanded="isNavOpen"
         aria-controls="app-sidebar"
         aria-label="Show tables"
-        @click="navOpen = !navOpen"
+        @click="isNavOpen = !isNavOpen"
       >
         <Icon name="material-symbols:menu-rounded" aria-hidden="true" />
       </button>
@@ -15,7 +15,7 @@
       <AppMark />
     </header>
 
-    <div class="app-layout__scrim" role="presentation" @click="navOpen = false"></div>
+    <div class="app-layout__scrim" role="presentation" @click="isNavOpen = false"></div>
 
     <AppSidebar id="app-sidebar" class="app-layout__sidebar" />
 
@@ -40,11 +40,11 @@ await useAsyncData('app-tables', async () => {
   return true
 })
 
-const navOpen = ref(false)
+const isNavOpen = ref(false)
 
 watch(
   () => route.fullPath,
-  () => (navOpen.value = false),
+  () => (isNavOpen.value = false),
 )
 
 const shell = useTemplateRef<HTMLElement>('shell')
@@ -57,7 +57,7 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
   if (shell.value?.closest('[inert]')) return
 
-  navOpen.value = false
+  isNavOpen.value = false
 }
 
 onMounted(() => document.addEventListener('keydown', onKeydown))

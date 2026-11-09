@@ -59,7 +59,7 @@ a GIN where the single one uses a B-tree). The kind follows how the type **compa
 is `null` for RELATION, which orders by a value in another row.
 
 **Cardinality** — each control registry has a total `MULTI_*` override (`X | null`) and one resolver
-every consumer calls instead of indexing. `null` means "no list form", which `multiValue` already
+every consumer calls instead of indexing. `null` means "no list form", which `canBeMultiValue` already
 refuses to configure. `MULTI_FILTERS` and `MULTI_SUMMARIES` leave SELECT `null` because a SELECT
 filter is list-shaped already. `FIELD_CONFIG_SUMMARIES` has no override and its `null` means
 "described by its own word" (TEXT); callers index it directly.
@@ -339,10 +339,11 @@ Only what the name and the code do not say.
 - **`stores/records.ts`** — **every action takes the query params from the caller**; the store never
   mirrors them (they would have to survive hydration). `createRecord` refetches only when the new
   record lands on the current page; state clears when called for another table; `fetchRecords` sets
-  `failed` **and rethrows**.
+  `status` to `'failed'` **and rethrows**.
 - **`stores/tables.ts`** — `ensureTables()` **never throws** (a failed sidebar must not replace a
-  working page); it sets `failed` and the sidebar offers Retry. `applyTableRow(row)` is the one way
-  a cached row moves without a refetch.
+  working page); `fetchTables` sets `status` and rethrows, `ensureTables` swallows it, and the
+  sidebar's Retry calls `ensureTables` again. `applyTableRow(row)` is the one way a cached row
+  moves without a refetch.
 - **`stores/relations.ts`** — `loadOptions` fetches nothing for a table without relations.
 
 ### Renderers — `app/components/records/`

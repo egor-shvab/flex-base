@@ -14,8 +14,10 @@
     </form>
 
     <template #footer>
-      <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">Cancel</BaseButton>
-      <BaseButton type="submit" :form="formId" :loading="pending">
+      <BaseButton variant="secondary" :disabled="isSubmitting" @click="emit('close')"
+        >Cancel</BaseButton
+      >
+      <BaseButton type="submit" :form="formId" :loading="isSubmitting">
         {{ mode === 'create' ? 'Create table' : 'Save' }}
       </BaseButton>
     </template>
@@ -41,7 +43,7 @@ const emit = defineEmits<{ saved: []; close: [] }>()
 const inputId = useId()
 const formId = useId()
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: tableInputSchema,
   initial: { name: props.initialName },
   onSubmit: async ({ name }) => {

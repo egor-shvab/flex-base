@@ -18,7 +18,7 @@
       <RecordDetail v-else-if="detail" :fields="detail.fields" :record="detail.record" />
     </div>
 
-    <template v-if="detail && crossesTables && !pending && !errorMessage" #footer>
+    <template v-if="detail && isOtherTable && !pending && !errorMessage" #footer>
       <BaseButton variant="link" :to="openInTableTo">Open in {{ detail.table.name }}</BaseButton>
     </template>
   </BaseModal>
@@ -50,7 +50,7 @@ const subtitle = computed(() =>
   props.detail ? `${props.detail.table.name} · #${props.detail.record.number}` : undefined,
 )
 
-const crossesTables = computed(() => props.detail?.table.number !== props.currentTableNumber)
+const isOtherTable = computed(() => props.detail?.table.number !== props.currentTableNumber)
 
 const openInTableTo = computed(() => {
   if (props.detail === null) return ''
