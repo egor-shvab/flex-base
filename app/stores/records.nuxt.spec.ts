@@ -184,6 +184,27 @@ describe('useRecordsStore', () => {
 
       expect(store.status).toBe('ready')
     })
+
+    it('keeps rows hydrated from the server when the first client refetch fails', async () => {
+      const pinia = createPinia()
+      pinia.state.value.records = {
+        records: [ACME, GLOBEX],
+        total: 2,
+        totalCapped: false,
+        page: 1,
+        pageSize: RECORD_PAGE_SIZE,
+        status: 'ready',
+        loadedTableAddress: 'tbl_1',
+      }
+      setActivePinia(pinia)
+      listShouldFail = true
+      const store = useRecordsStore()
+
+      await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
+
+      expect(store.records).toEqual([ACME, GLOBEX])
+      expect(store.total).toBe(2)
+    })
   })
 
   describe('table scoping', () => {

@@ -28,6 +28,8 @@ export const useRecordsStore = defineStore('records', () => {
   const page = ref(1)
   const pageSize = ref(RECORD_PAGE_SIZE)
   const status = ref<TLoadStatus>('idle')
+  // Returned although nothing outside reads it: only returned state is hydrated, and a client copy
+  // left at '' makes the first refetch after SSR clear the rows
   const loadedTableAddress = ref('')
 
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -118,6 +120,7 @@ export const useRecordsStore = defineStore('records', () => {
     pageCount,
     hasNextPage,
     status,
+    loadedTableAddress,
     fetchRecords,
     createRecord,
     updateRecord,
