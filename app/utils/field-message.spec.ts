@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { toDescribedBy } from '~/utils/field-message'
+import { toMessageId } from '~/utils/field-message'
 
-describe('toDescribedBy', () => {
-  it('points at the error while there is one', () => {
-    expect(toDescribedBy('email', { error: 'Required', hint: 'Work address' })).toBe('email-error')
+describe('toMessageId', () => {
+  it('names the error line while there is one', () => {
+    expect(toMessageId('email', { error: 'Required', hint: 'Work address' })).toBe('email-error')
   })
 
-  it('points at the hint when there is no error', () => {
-    expect(toDescribedBy('email', { hint: 'Work address' })).toBe('email-hint')
+  it('names the hint line when there is no error', () => {
+    expect(toMessageId('email', { hint: 'Work address' })).toBe('email-hint')
   })
 
-  it('describes nothing when neither line is shown', () => {
-    expect(toDescribedBy('email', {})).toBeUndefined()
-    expect(toDescribedBy('email', { error: '', hint: '' })).toBeUndefined()
+  it('names nothing when neither line is shown', () => {
+    expect(toMessageId('email', {})).toBeUndefined()
+    expect(toMessageId('email', { error: '', hint: '' })).toBeUndefined()
   })
 })

@@ -20,14 +20,13 @@
       </span>
       <span class="base-checkbox__text">{{ label }}</span>
     </label>
-    <span v-if="error" :id="`${inputId}-error`" class="base-checkbox__error">{{ error }}</span>
-    <span v-else-if="hint" :id="`${inputId}-hint`" class="base-checkbox__hint">{{ hint }}</span>
+    <BaseFieldMessage :id="inputId" class="base-checkbox__message" :error="error" :hint="hint" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, useId } from 'vue'
-import { toDescribedBy } from '~/utils/field-message'
+import { toMessageId } from '~/utils/field-message'
 
 const props = withDefaults(
   defineProps<{
@@ -51,7 +50,7 @@ const model = defineModel<boolean>({ required: true })
 const fallbackId = useId()
 const inputId = computed(() => props.id ?? fallbackId)
 
-const describedBy = computed(() => toDescribedBy(inputId.value, props))
+const describedBy = computed(() => toMessageId(inputId.value, props))
 </script>
 
 <style lang="scss" scoped>
@@ -143,17 +142,8 @@ const describedBy = computed(() => toDescribedBy(inputId.value, props))
     visibility: visible;
   }
 
-  &__error,
-  &__hint {
+  &__message {
     padding-left: rem(27);
-  }
-
-  &__error {
-    @include field-error;
-  }
-
-  &__hint {
-    @include field-hint;
   }
 }
 </style>

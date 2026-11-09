@@ -29,8 +29,9 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
 - **`popover-panel`** is the one floating surface (select list, colour grid, row menu).
 - **`form-control`** is the whole text-field chrome, with its focus half in **`control-focus`** for
   a bordered non-text control (`BaseCheckbox`). Its `:focus` recolours the border (programmatic
-  focus included), while the halo is `:focus-visible` only. `field-hint` and `field-error` share
-  **one** line: the error replaces the hint.
+  focus included), while the halo is `:focus-visible` only.
+- **`field-error`** is the danger line's type, shared by `BaseFieldMessage` and a failed-load
+  alert; a field's hint and error share **one** line there, the error replacing the hint.
 - **A link that fills a card:** the **card** wears the ring via `:has(:focus-visible)`, and the link
   suppresses both halves of its own.
 - **`centred-viewport` / `centred-column` / `centred-card`** build the two surfaces outside the

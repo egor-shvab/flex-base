@@ -71,6 +71,9 @@ In order:
 
 A change to Markdown only needs steps 1 and 8.
 
+**Change nothing unless the user explicitly asks for that change.** A question, a "should we…?" or
+a request for options gets an answer and a proposal, never an edit.
+
 **A finished change is left uncommitted.** Never `git commit` unless the user asks for one in that
 message — not even when the suite is green. Say what is in the tree and suggest a Conventional
 Commit message.
@@ -206,8 +209,9 @@ instant on a small table locks a large one for minutes.
 - **A URL and a response type live only in `app/api/`** — paths from `apiPath`, responses declared
   in `shared/types/api.ts` and annotated on every handler. A store or component writing `/api/…` or
   an `api<{…}>` generic is reaching past that layer.
-- Forms use `useForm`; list-page deletes use `useDeleteConfirm`; a popover uses `usePopover` (+
-  `useAnchoredPosition` to escape a clipping ancestor).
+- Forms use `useForm`, a field's label and message `BaseField`; list-page deletes use
+  `useDeleteConfirm`; a popover uses `usePopover` (+ `useAnchoredPosition` to escape a clipping
+  ancestor).
 - **A popover swallows Escape only while it has something open.** `BaseModal` and the shell's
   sidebar hold the only two `document` Escape listeners; a popover adds none — `@keydown.esc.stop`
   on its panel where focus is inside it, a JS check on `open` where focus stays outside (a
@@ -422,7 +426,8 @@ routing at the top), never two.
 
 **Never write:** running inventories (files, modules, specs, endpoints); changelogs or shipped
 history; numbers that drift (test totals, coverage, counts); narrative (how a decision was reached);
-the same rule twice.
+the same rule twice; what reading the code answers (props, slots, how ids are built) — a pointer to
+an existing helper names it and the job it does, never its usage.
 
 **Prefer the short form:** a rule is a sentence; a decision is its rule, the failure if violated,
 and the rejected alternative. Explain a _why_ only where the code cannot and an obvious cleanup

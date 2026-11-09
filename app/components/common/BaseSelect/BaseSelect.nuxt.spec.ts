@@ -160,13 +160,19 @@ describe('BaseSelect', () => {
 
       expect(trigger(wrapper).attributes('aria-invalid')).toBe('true')
       expect(trigger(wrapper).attributes('aria-describedby')).toBe('stage-error')
-      expect(wrapper.get('.base-select__error').text()).toBe('Choose a stage')
+      expect(wrapper.get('#stage-error').text()).toBe('Choose a stage')
     })
 
     it('describes the searchable branch by the value overlay', async () => {
       const wrapper = await select({ searchable: true, modelValue: 'a' })
 
       expect(input(wrapper).attributes('aria-describedby')).toBe('stage-value')
+    })
+
+    it('describes the searchable branch by its error before the value', async () => {
+      const wrapper = await select({ searchable: true, modelValue: 'a', error: 'Choose a stage' })
+
+      expect(input(wrapper).attributes('aria-describedby')).toBe('stage-error stage-value')
     })
   })
 

@@ -1,10 +1,13 @@
 <template>
-  <div
+  <BaseField
+    :id="id"
+    v-slot="{ labelId, describedBy }"
     class="base-select"
     :class="{ 'base-select--open': open, 'base-select--disabled': disabled }"
+    :label="label"
+    :label-for="id"
+    :error="error"
   >
-    <label v-if="label" :id="`${id}-label`" class="base-select__label" :for="id">{{ label }}</label>
-
     <div ref="containerRef" class="base-select__control" @click="onControlClick">
       <!--
         Not the self-referencing `aria-labelledby` used below: on an `<input>` it reads the value,
@@ -30,7 +33,7 @@
         :aria-activedescendant="open ? activeId : undefined"
         :aria-label="label ? undefined : ariaLabel"
         :aria-invalid="error ? true : undefined"
-        :aria-describedby="describedBy"
+        :aria-describedby="buildComboboxDescribedBy(describedBy)"
         :placeholder="selectedOptions.length === 0 ? placeholder : undefined"
         :disabled="disabled"
         @keydown="onComboboxKeydown"
@@ -49,10 +52,10 @@
         aria-haspopup="listbox"
         :aria-expanded="open"
         :aria-controls="open ? listboxId : undefined"
-        :aria-labelledby="label ? `${id}-label ${id}-value` : undefined"
-        :aria-label="label ? undefined : ariaLabel"
+        :aria-labelledby="labelId ? `${labelId} ${id}-value` : undefined"
+        :aria-label="labelId ? undefined : ariaLabel"
         :aria-invalid="error ? true : undefined"
-        :aria-describedby="error ? `${id}-error` : undefined"
+        :aria-describedby="describedBy"
         :disabled="disabled"
         @keydown="onTriggerKeydown"
       />
@@ -114,8 +117,6 @@
       />
     </div>
 
-    <span v-if="error" :id="`${id}-error`" class="base-select__error">{{ error }}</span>
-
     <!--
       Mirrors the status row, which lives in a `<Teleport v-if>`: a live region inserted with its
       content is not reliably read, so this one is mounted for the component's life.
@@ -151,8 +152,8 @@
           class="base-select__list"
           role="listbox"
           :aria-multiselectable="isMultiple ? true : undefined"
-          :aria-labelledby="label ? `${id}-label` : undefined"
-          :aria-label="label ? undefined : ariaLabel"
+          :aria-labelledby="labelId"
+          :aria-label="labelId ? undefined : ariaLabel"
           :tabindex="searchable ? undefined : -1"
           :aria-activedescendant="searchable ? undefined : activeId"
           @keydown="onListKeydown"
@@ -193,7 +194,7 @@
         </ul>
       </div>
     </Teleport>
-  </div>
+  </BaseField>
 </template>
 
 <script setup lang="ts" generic="TModel extends string | string[]">
@@ -246,7 +247,7 @@ defineSlots<{
  * Never read `props.multiple` directly: being conditional on `TModel`, a bare `multiple`
  * attribute arrives as `''` rather than `true` — falsy, silently single mode.
  */
-const isMultiple = computed(() => props.multiple !== undefined && props.multiple !== false)
+const isMultiple = computed(() => props.multiple !== undefined && props.multiple)
 
 const { open, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
 
@@ -395,14 +396,13 @@ const showValue = computed(
 const firstSelected = computed<ISelectOption | undefined>(() => selectedOptions.value[0])
 const moreCount = computed(() => Math.max(selectedOptions.value.length - 1, 0))
 
-const describedBy = computed(() => {
-  const ids = [
-    props.error ? `${props.id}-error` : undefined,
-    props.searchable && showValue.value ? `${props.id}-value` : undefined,
-  ].filter((value): value is string => value !== undefined)
+function buildComboboxDescribedBy(fieldDescribedBy: string | undefined): string | undefined {
+  const ids = [fieldDescribedBy, showValue.value ? `${props.id}-value` : undefined].filter(
+    (value): value is string => value !== undefined,
+  )
 
   return ids.length > 0 ? ids.join(' ') : undefined
-})
+}
 
 const listRef = ref<HTMLUListElement>()
 
@@ -588,12 +588,6 @@ $caret-gutter: rem(36);
 $clearable-gutter: rem(64);
 
 .base-select {
-  @include stack(4);
-
-  &__label {
-    @include field-label;
-  }
-
   &__control {
     position: relative;
   }
@@ -721,10 +715,6 @@ $clearable-gutter: rem(64);
 
     --focus-ring-offset: #{rem(-1)};
     --focus-ring-halo: none;
-  }
-
-  &__error {
-    @include field-error;
   }
 
   &__panel {

@@ -1,13 +1,12 @@
 <template>
-  <div class="base-range">
-    <label v-if="label" :id="`${id}-label`" class="base-range__label" :for="`${id}-from`">
-      {{ label }}
-    </label>
-    <div
-      class="base-range__bounds"
-      role="group"
-      :aria-labelledby="label ? `${id}-label` : undefined"
-    >
+  <BaseField
+    :id="id"
+    v-slot="{ labelId }"
+    class="base-range"
+    :label="label"
+    :label-for="`${id}-from`"
+  >
+    <div class="base-range__bounds" role="group" :aria-labelledby="labelId">
       <BaseInput
         :id="`${id}-from`"
         :model-value="fromText"
@@ -28,7 +27,7 @@
         @update:model-value="onBoundInput('to', $event)"
       />
     </div>
-  </div>
+  </BaseField>
 </template>
 
 <script setup lang="ts">
@@ -87,12 +86,6 @@ function onBoundInput(bound: 'from' | 'to', raw: string) {
 
 <style lang="scss" scoped>
 .base-range {
-  @include stack(4);
-
-  &__label {
-    @include field-label;
-  }
-
   &__bounds {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

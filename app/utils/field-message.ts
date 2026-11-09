@@ -1,4 +1,4 @@
-export function toDescribedBy(
+export function toMessageId(
   id: string,
   message: { error?: string; hint?: string },
 ): string | undefined {

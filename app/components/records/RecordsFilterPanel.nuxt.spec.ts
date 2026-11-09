@@ -44,7 +44,7 @@ const controls = () => [
   ...document.querySelectorAll<HTMLElement>('.filter-panel > :not(.filter-panel__intro)'),
 ]
 const labels = () =>
-  [...document.querySelectorAll('.filter-panel label, .filter-panel .base-segmented__label')].map(
+  [...document.querySelectorAll('.filter-panel label, .filter-panel .base-field__label')].map(
     (label) => label.textContent?.trim(),
   )
 const count = () => document.querySelector('.filter-panel__count')?.textContent?.trim()

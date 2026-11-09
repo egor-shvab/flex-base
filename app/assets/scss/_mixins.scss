@@ -75,18 +75,6 @@ $breakpoint-compact: 40em;
   background: var(--color-surface);
 }
 
-@mixin field-label {
-  align-self: flex-start;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text);
-}
-
-@mixin field-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
 @mixin field-error {
   font-size: var(--font-size-xs);
   color: var(--color-danger);

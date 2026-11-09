@@ -1,6 +1,13 @@
 <template>
-  <div class="base-input">
-    <label v-if="label" class="base-input__label" :for="id">{{ label }}</label>
+  <BaseField
+    :id="id"
+    v-slot="{ describedBy }"
+    class="base-input"
+    :label="label"
+    :label-for="id"
+    :error="error"
+    :hint="hint"
+  >
     <div class="base-input__control">
       <Icon v-if="icon" :name="icon" class="base-input__icon" aria-hidden="true" />
       <input
@@ -23,15 +30,12 @@
         @compositionend="onCompositionEnd"
       />
     </div>
-    <span v-if="error" :id="`${id}-error`" class="base-input__error">{{ error }}</span>
-    <span v-else-if="hint" :id="`${id}-hint`" class="base-input__hint">{{ hint }}</span>
-  </div>
+  </BaseField>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useDebouncedModel } from '~/composables/useDebouncedModel'
-import { toDescribedBy } from '~/utils/field-message'
 
 const props = withDefaults(
   defineProps<{
@@ -67,8 +71,6 @@ const props = withDefaults(
 
 const [model, modifiers] = defineModel<string>({ default: '' })
 
-const describedBy = computed(() => toDescribedBy(props.id, props))
-
 const draft = useDebouncedModel(model, {
   delay: props.debounce,
   normalize: (value) => (props.trim || modifiers.trim ? value.trim() : value),
@@ -91,12 +93,6 @@ function onCompositionEnd(event: CompositionEvent) {
 
 <style lang="scss" scoped>
 .base-input {
-  @include stack(4);
-
-  &__label {
-    @include field-label;
-  }
-
   &__control {
     position: relative;
   }
@@ -119,14 +115,6 @@ function onCompositionEnd(event: CompositionEvent) {
     &--with-icon {
       padding-left: rem(38);
     }
-  }
-
-  &__hint {
-    @include field-hint;
-  }
-
-  &__error {
-    @include field-error;
   }
 }
 </style>

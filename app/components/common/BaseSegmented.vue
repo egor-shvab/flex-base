@@ -1,13 +1,11 @@
 <template>
-  <div class="base-segmented">
-    <span v-if="label" :id="`${id}-label`" class="base-segmented__label">{{ label }}</span>
-
+  <BaseField :id="id" v-slot="{ labelId }" class="base-segmented" :label="label">
     <div
       :id="id"
       class="base-segmented__track"
       role="radiogroup"
-      :aria-labelledby="label ? `${id}-label` : undefined"
-      :aria-label="label ? undefined : ariaLabel"
+      :aria-labelledby="labelId"
+      :aria-label="labelId ? undefined : ariaLabel"
       @keydown="onKeydown"
     >
       <button
@@ -24,7 +22,7 @@
         {{ option.label }}
       </button>
     </div>
-  </div>
+  </BaseField>
 </template>
 
 <script setup lang="ts">
@@ -89,12 +87,6 @@ function onKeydown(event: KeyboardEvent) {
 
 <style lang="scss" scoped>
 .base-segmented {
-  @include stack(4);
-
-  &__label {
-    @include field-label;
-  }
-
   &__track {
     @include segmented-track;
   }

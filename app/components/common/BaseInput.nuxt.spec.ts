@@ -71,7 +71,7 @@ describe('BaseInput', () => {
     it('shows an error and points the input at it', async () => {
       const wrapper = await input({ error: 'Company is required' })
 
-      expect(wrapper.get('.base-input__error').text()).toBe('Company is required')
+      expect(wrapper.get('#company-error').text()).toBe('Company is required')
       expect(field(wrapper).attributes('aria-invalid')).toBe('true')
       expect(field(wrapper).attributes('aria-describedby')).toBe('company-error')
     })
@@ -82,7 +82,7 @@ describe('BaseInput', () => {
       expect(field(wrapper).attributes('aria-invalid')).toBe('true')
       expect(field(wrapper).classes()).toContain('base-input__input--invalid')
       expect(field(wrapper).attributes('aria-describedby')).toBeUndefined()
-      expect(wrapper.find('.base-input__error').exists()).toBe(false)
+      expect(wrapper.find('#company-error').exists()).toBe(false)
     })
 
     it('claims nothing when it is valid', async () => {
@@ -97,15 +97,15 @@ describe('BaseInput', () => {
     it('shows a hint and describes the input by it', async () => {
       const wrapper = await input({ hint: 'Net of VAT' })
 
-      expect(wrapper.get('.base-input__hint').text()).toBe('Net of VAT')
+      expect(wrapper.get('#company-hint').text()).toBe('Net of VAT')
       expect(field(wrapper).attributes('aria-describedby')).toBe('company-hint')
     })
 
     it('gives the line to an error, and describes the input by that instead', async () => {
       const wrapper = await input({ hint: 'Net of VAT', error: 'Enter a number' })
 
-      expect(wrapper.find('.base-input__hint').exists()).toBe(false)
-      expect(wrapper.get('.base-input__error').text()).toBe('Enter a number')
+      expect(wrapper.find('#company-hint').exists()).toBe(false)
+      expect(wrapper.get('#company-error').text()).toBe('Enter a number')
       expect(field(wrapper).attributes('aria-describedby')).toBe('company-error')
     })
   })

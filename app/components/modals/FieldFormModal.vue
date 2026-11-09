@@ -41,35 +41,46 @@
         :disabled="lockedMultiple"
       />
 
-      <div v-if="form.type === 'SELECT'" class="field-form__choices">
-        <span class="field-form__label">Choices</span>
-        <div v-if="form.choices.length > 0" class="field-form__choice-list">
-          <div
-            v-for="(choice, index) in form.choices"
-            :key="rowIds[index]"
-            class="field-form__choice"
-          >
-            <BaseColorPicker v-model="choice.color" :label="`Colour for choice ${index + 1}`" />
-            <BaseInput :id="`${choicesId}-${index}`" v-model.trim="choice.value" />
-            <BaseButton
-              variant="icon"
-              prepend-icon="material-symbols:delete-outline-rounded"
-              label="Remove choice"
-              tone="danger"
-              @click="removeChoice(index)"
-            />
-          </div>
-        </div>
-        <BaseButton
-          variant="ghost"
-          prepend-icon="material-symbols:add-rounded"
-          class="field-form__add-choice"
-          @click="addChoice"
+      <BaseField
+        v-if="form.type === 'SELECT'"
+        :id="choicesId"
+        v-slot="{ labelId: choicesLabelId, describedBy }"
+        label="Choices"
+        :error="errors.choices"
+      >
+        <div
+          class="field-form__choices"
+          role="group"
+          :aria-labelledby="choicesLabelId"
+          :aria-describedby="describedBy"
         >
-          Add choice
-        </BaseButton>
-        <span v-if="errors.choices" class="field-form__error">{{ errors.choices }}</span>
-      </div>
+          <div v-if="form.choices.length > 0" class="field-form__choice-list">
+            <div
+              v-for="(choice, index) in form.choices"
+              :key="rowIds[index]"
+              class="field-form__choice"
+            >
+              <BaseColorPicker v-model="choice.color" :label="`Colour for choice ${index + 1}`" />
+              <BaseInput :id="`${choicesId}-${index}`" v-model.trim="choice.value" />
+              <BaseButton
+                variant="icon"
+                prepend-icon="material-symbols:delete-outline-rounded"
+                label="Remove choice"
+                tone="danger"
+                @click="removeChoice(index)"
+              />
+            </div>
+          </div>
+          <BaseButton
+            variant="ghost"
+            prepend-icon="material-symbols:add-rounded"
+            class="field-form__add-choice"
+            @click="addChoice"
+          >
+            Add choice
+          </BaseButton>
+        </div>
+      </BaseField>
 
       <template v-if="form.type === 'RELATION'">
         <div class="field-form__source">
@@ -296,10 +307,6 @@ const labelEmptyLabel = computed(() => {
 .field-form {
   @include stack;
 
-  &__label {
-    @include field-label;
-  }
-
   &__source {
     @include stack(4);
   }
@@ -339,10 +346,6 @@ const labelEmptyLabel = computed(() => {
 
   &__add-choice {
     align-self: flex-start;
-  }
-
-  &__error {
-    @include field-error;
   }
 }
 </style>

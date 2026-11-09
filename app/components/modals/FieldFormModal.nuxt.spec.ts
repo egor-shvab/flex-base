@@ -190,6 +190,25 @@ describe('FieldFormModal', () => {
       expect(choiceInputs().map((input) => input.value)).toEqual(['Won', 'Open'])
     })
 
+    it('is a group named by its label and described by its error', async () => {
+      await mountForm({ mode: 'edit', field: selectField(['Won', 'Won']) })
+
+      const group = dialog()?.querySelector('.field-form__choices')
+      expect(group?.getAttribute('role')).toBe('group')
+      const labelId = group?.getAttribute('aria-labelledby')
+      expect(document.getElementById(labelId ?? '')?.textContent?.trim()).toBe('Choices')
+
+      dialog()
+        ?.querySelector('form')
+        ?.dispatchEvent(new Event('submit', { bubbles: true }))
+
+      await expect
+        .poll(
+          () => document.getElementById(group?.getAttribute('aria-describedby') ?? '')?.textContent,
+        )
+        .toContain('Choices must be unique')
+    })
+
     it('never writes through to the field it was opened with', async () => {
       const field = selectField([{ value: 'Won', color: 'green' }])
       await mountForm({ mode: 'edit', field })

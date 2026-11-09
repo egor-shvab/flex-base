@@ -150,7 +150,7 @@ test.describe('a required field', () => {
     await page.getByRole('button', { name: 'Create record' }).click()
 
     await expect(page.getByRole('dialog')).toBeHidden()
-    await expect(page.getByRole('cell', { name: 'No' })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'No', exact: true })).toBeVisible()
   })
 })
 
