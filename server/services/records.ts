@@ -5,7 +5,7 @@ import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { toHttpError } from '#server/utils/http-errors'
 import {
   recordSelect,
-  recordWhere,
+  buildRecordAddressWhere,
   toJsonData,
   toSharedRecord,
   type TRecordRow,
@@ -28,7 +28,7 @@ const recordErrors = { notFound: 'Record not found' }
  * No `WITH … AS MATERIALIZED`: it builds every matching row before the `LIMIT` can discard any,
  * which measured three orders of magnitude slower for a common term.
  */
-function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery) {
+function listPageRows(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery) {
   const { page, pageSize } = query
   const offset = (page - 1) * pageSize
   const columns = Prisma.sql`id, "number", data, "createdAt", "updatedAt"`
@@ -42,7 +42,7 @@ function selectPage(where: Prisma.Sql, order: IRecordOrder, query: IRecordQuery)
   `
 }
 
-function selectCount(where: Prisma.Sql) {
+function countMatchingRecords(where: Prisma.Sql) {
   // COUNT(*) is a bigint, which would arrive as a string without the cast
   return prisma.$queryRaw<{ count: number }[]>`
     SELECT COUNT(*)::int AS count
@@ -65,8 +65,8 @@ async function listRecords(
   const order = buildRecordOrderBy(fields, sort)
 
   const [rows, counts] = await prisma.$transaction([
-    selectPage(where, order, query),
-    selectCount(where),
+    listPageRows(where, order, query),
+    countMatchingRecords(where),
   ])
 
   const records = rows.map(toSharedRecord)
@@ -88,7 +88,7 @@ async function getRecordDetail(
   address: string,
 ): Promise<IRecordDetail> {
   const row = await prisma.record.findUnique({
-    where: recordWhere(table.id, address),
+    where: buildRecordAddressWhere(table.id, address),
     select: recordSelect,
   })
 
@@ -143,7 +143,7 @@ async function updateRecord(
 
   try {
     const record = await prisma.record.update({
-      where: recordWhere(tableId, address),
+      where: buildRecordAddressWhere(tableId, address),
       data: { data: toJsonData(data) },
       select: recordSelect,
     })
@@ -155,7 +155,7 @@ async function updateRecord(
 
 async function deleteRecord(tableId: string, address: string) {
   try {
-    await prisma.record.delete({ where: recordWhere(tableId, address) })
+    await prisma.record.delete({ where: buildRecordAddressWhere(tableId, address) })
   } catch (error) {
     throw toHttpError(error, recordErrors)
   }

@@ -1,7 +1,7 @@
 import { DETAIL_PARAM } from '#shared/constants/filter'
 import type { TUrlQuery } from '#shared/types/query'
 import type { IOpenRecord } from '#shared/types/record'
-import { singleParam } from '#shared/utils/query-param'
+import { parseSingleParam } from '#shared/utils/query-param'
 
 const CHAIN_SEPARATOR = ','
 const RECORD_SEPARATOR = '.'
@@ -15,7 +15,7 @@ function parseOpenRecord(raw: string): IOpenRecord | null {
 }
 
 export function parseDetailChain(query: TUrlQuery): IOpenRecord[] {
-  const raw = singleParam(query[DETAIL_PARAM])
+  const raw = parseSingleParam(query[DETAIL_PARAM])
   if (raw === undefined) return []
 
   const chain: IOpenRecord[] = []
@@ -37,14 +37,14 @@ export function toDetailParam(chain: IOpenRecord[]): string | undefined {
     .join(CHAIN_SEPARATOR)
 }
 
-export function pushDetail(chain: IOpenRecord[], target: IOpenRecord): IOpenRecord[] {
+export function buildChildDetailChain(chain: IOpenRecord[], target: IOpenRecord): IOpenRecord[] {
   return [...chain, target]
 }
 
-export function popDetail(chain: IOpenRecord[]): IOpenRecord[] {
+export function toParentDetailChain(chain: IOpenRecord[]): IOpenRecord[] {
   return chain.slice(0, -1)
 }
 
-export function withDetailChain(query: TUrlQuery, chain: IOpenRecord[]): TUrlQuery {
+export function buildQueryWithDetailChain(query: TUrlQuery, chain: IOpenRecord[]): TUrlQuery {
   return { ...query, [DETAIL_PARAM]: toDetailParam(chain) }
 }

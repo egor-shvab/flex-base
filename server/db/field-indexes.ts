@@ -33,7 +33,7 @@ export interface IReconcileReport {
  * Named from `Field.id`, never its key: PostgreSQL silently truncates identifiers past 63 bytes,
  * so two long keys could collide into one index.
  */
-function indexName(fieldId: string, purpose: TIndexPurpose): string {
+function toIndexName(fieldId: string, purpose: TIndexPurpose): string {
   return `rec_idx_${fieldId}_${PURPOSE_SUFFIX[purpose]}`
 }
 
@@ -51,7 +51,7 @@ function assertSafeKey(key: string): void {
  * unnamed prepared statement is planned at Bind. If the two drift the index is silently unused —
  * the per-kind plan assertions catch that.
  */
-function indexExpression(field: IField, purpose: TIndexPurpose): string {
+function toIndexExpression(field: IField, purpose: TIndexPurpose): string {
   assertSafeKey(field.key)
 
   const rules = sqlFor(field)
@@ -65,7 +65,7 @@ function indexExpression(field: IField, purpose: TIndexPurpose): string {
   return projected.replace(/\$\d+::text/g, `${literalKey}::text`)
 }
 
-export function fieldIndexes(field: IField): IFieldIndex[] {
+export function buildFieldIndexes(field: IField): IFieldIndex[] {
   if (!field.indexed) return []
 
   const rules = sqlFor(field)
@@ -73,15 +73,15 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
 
   if (rules.filterIndex) {
     wanted.push({
-      name: indexName(field.id, 'filter'),
+      name: toIndexName(field.id, 'filter'),
       kind: rules.filterIndex,
-      expression: indexExpression(field, 'filter'),
+      expression: toIndexExpression(field, 'filter'),
       isDescending: false,
     })
   }
 
   if (rules.sortIndex) {
-    const expression = indexExpression(field, 'sortAsc')
+    const expression = toIndexExpression(field, 'sortAsc')
     const filter = wanted[0]
 
     const isSortCoveredByFilter =
@@ -89,7 +89,7 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
 
     if (!isSortCoveredByFilter) {
       wanted.push({
-        name: indexName(field.id, 'sortAsc'),
+        name: toIndexName(field.id, 'sortAsc'),
         kind: rules.sortIndex,
         expression,
         isDescending: false,
@@ -97,7 +97,7 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
     }
 
     wanted.push({
-      name: indexName(field.id, 'sortDesc'),
+      name: toIndexName(field.id, 'sortDesc'),
       kind: rules.sortIndex,
       expression,
       isDescending: true,
@@ -111,7 +111,7 @@ export function fieldIndexes(field: IField): IFieldIndex[] {
  * `CONCURRENTLY`, so never inside a transaction. A B-tree trails with `"createdAt"`, the tie-break
  * every ordering carries; a GIN cannot compose, and is bitmap-ANDed with the `tableId` index.
  */
-function createStatement(index: IFieldIndex): string {
+function buildCreateIndexStatement(index: IFieldIndex): string {
   const direction = index.isDescending ? ' DESC NULLS LAST' : ' ASC NULLS LAST'
 
   const target =
@@ -124,11 +124,11 @@ function createStatement(index: IFieldIndex): string {
   return `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${index.name}" ON "Record" ${target}`
 }
 
-function dropStatement(name: string): string {
+function buildDropIndexStatement(name: string): string {
   return `DROP INDEX CONCURRENTLY IF EXISTS "${name}"`
 }
 
-async function ownedIndexes(): Promise<{ name: string; isValid: boolean }[]> {
+async function listOwnedIndexes(): Promise<{ name: string; isValid: boolean }[]> {
   const rows = await prisma.$queryRaw<{ name: string; isValid: boolean }[]>`
     SELECT c.relname AS name, i.indisvalid AS "isValid"
     FROM pg_class c
@@ -143,30 +143,30 @@ async function ownedIndexes(): Promise<{ name: string; isValid: boolean }[]> {
  * and never rebuild it.
  */
 export async function syncFieldIndexes(field: IField): Promise<void> {
-  const wanted = fieldIndexes(field)
+  const wanted = buildFieldIndexes(field)
   const wantedByName = new Map(wanted.map((index) => [index.name, index]))
-  const owned = await ownedIndexes()
+  const owned = await listOwnedIndexes()
 
   for (const { name, isValid } of owned) {
     const isThisField = name.startsWith(`${INDEX_PREFIX}${field.id}_`)
     if (!isThisField) continue
 
     if (!wantedByName.has(name) || !isValid) {
-      await prisma.$executeRawUnsafe(dropStatement(name))
+      await prisma.$executeRawUnsafe(buildDropIndexStatement(name))
     }
   }
 
   const present = new Set(owned.filter((index) => index.isValid).map((index) => index.name))
 
   for (const index of wanted) {
-    if (!present.has(index.name)) await prisma.$executeRawUnsafe(createStatement(index))
+    if (!present.has(index.name)) await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
   }
 }
 
 export async function dropFieldIndexes(fieldId: string): Promise<void> {
-  for (const { name } of await ownedIndexes()) {
+  for (const { name } of await listOwnedIndexes()) {
     if (name.startsWith(`${INDEX_PREFIX}${fieldId}_`)) {
-      await prisma.$executeRawUnsafe(dropStatement(name))
+      await prisma.$executeRawUnsafe(buildDropIndexStatement(name))
     }
   }
 }
@@ -177,27 +177,27 @@ export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
     rows
       .map(toSharedField)
       .flatMap((field) =>
-        fieldIndexes(field).map((index): [string, IFieldIndex] => [index.name, index]),
+        buildFieldIndexes(field).map((index): [string, IFieldIndex] => [index.name, index]),
       ),
   )
 
   const dropped: string[] = []
   const reaped: string[] = []
 
-  for (const { name, isValid } of await ownedIndexes()) {
+  for (const { name, isValid } of await listOwnedIndexes()) {
     if (wanted.has(name) && isValid) continue
 
-    await prisma.$executeRawUnsafe(dropStatement(name))
+    await prisma.$executeRawUnsafe(buildDropIndexStatement(name))
     ;(isValid ? dropped : reaped).push(name)
   }
 
-  const present = new Set((await ownedIndexes()).map((index) => index.name))
+  const present = new Set((await listOwnedIndexes()).map((index) => index.name))
   const created: string[] = []
 
   for (const index of wanted.values()) {
     if (present.has(index.name)) continue
 
-    await prisma.$executeRawUnsafe(createStatement(index))
+    await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
     created.push(index.name)
   }
 
@@ -212,7 +212,7 @@ export interface IFieldIndexStat {
   bytes: number
 }
 
-export async function fieldIndexStats(): Promise<IFieldIndexStat[]> {
+export async function listFieldIndexStats(): Promise<IFieldIndexStat[]> {
   const rows = await prisma.$queryRaw<
     { name: string; isValid: boolean; scans: bigint | number; bytes: bigint | number }[]
   >`

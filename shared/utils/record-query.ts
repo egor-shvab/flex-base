@@ -9,24 +9,24 @@ import type { TQueryParams } from '#shared/types/query'
 import type { IDateRange, INumberRange } from '#shared/types/range'
 import type { IRecordQueryState, TRecordSingleValue } from '#shared/types/record'
 import {
-  claimFilterParams,
+  buildFilterParamClaims,
   filterShapeFor,
   isFilterValueEmpty,
   isListFilterValue,
   isRangeFilterValue,
   isReservedParam,
-  queryColumns,
-  rangeParamName,
+  buildQueryColumns,
+  toRangeParamName,
 } from '#shared/utils/filter'
-import { singleParam } from '#shared/utils/query-param'
+import { parseSingleParam } from '#shared/utils/query-param'
 import { buildFilterValueSchema } from '#shared/validation/record'
 
-function filterParamValue(query: Record<string, unknown>, name: string): string | null {
+function parseParamString(query: Record<string, unknown>, name: string): string | null {
   const raw = query[name]
   return typeof raw === 'string' && raw !== '' ? raw : null
 }
 
-function filterParamValues(query: Record<string, unknown>, name: string): string[] {
+function parseParamStrings(query: Record<string, unknown>, name: string): string[] {
   const raw = query[name]
   const list = Array.isArray(raw) ? raw : [raw]
 
@@ -45,7 +45,7 @@ function toList(field: IField, query: Record<string, unknown>, name: string): st
   const schema = buildFilterValueSchema(field)
   const decoded = new Set<string>()
 
-  for (const raw of filterParamValues(query, name)) {
+  for (const raw of parseParamStrings(query, name)) {
     const parsed = schema.safeParse(raw)
     if (parsed.success && typeof parsed.data === 'string') decoded.add(parsed.data)
   }
@@ -56,15 +56,15 @@ function toList(field: IField, query: Record<string, unknown>, name: string): st
 function parseFilterValues(fields: IField[], query: Record<string, unknown>): TRecordFilterValues {
   const partsByKey = new Map<string, Partial<Record<TFilterParamPart, TRecordSingleValue>>>()
   const listsByKey = new Map<string, string[]>()
-  const columns = queryColumns(fields)
+  const columns = buildQueryColumns(fields)
 
-  for (const { field, part, name } of claimFilterParams(columns)) {
+  for (const { field, part, name } of buildFilterParamClaims(columns)) {
     if (filterShapeFor(field) === 'list') {
       listsByKey.set(field.key, toList(field, query, name))
       continue
     }
 
-    const raw = filterParamValue(query, name)
+    const raw = parseParamString(query, name)
     if (raw === null) continue
 
     const parsed = buildFilterValueSchema(field).safeParse(raw)
@@ -102,17 +102,17 @@ export function parseRecordQueryState(
   fields: IField[],
   query: Record<string, unknown>,
 ): IRecordQueryState {
-  const page = Number(singleParam(query.page) ?? 1)
-  const direction = singleParam(query.dir)
+  const page = Number(parseSingleParam(query.page) ?? 1)
+  const direction = parseSingleParam(query.dir)
 
   return {
     page: Number.isInteger(page) && page > 0 ? page : 1,
     sort: {
-      key: singleParam(query.sort) ?? DEFAULT_SORT_KEY,
+      key: parseSingleParam(query.sort) ?? DEFAULT_SORT_KEY,
       direction: direction === 'asc' || direction === 'desc' ? direction : DEFAULT_SORT_DIRECTION,
     },
     filters: parseFilterValues(fields, query),
-    search: (singleParam(query.search) ?? '').trim(),
+    search: (parseSingleParam(query.search) ?? '').trim(),
   }
 }
 
@@ -128,8 +128,8 @@ function toFilterParams(values: TRecordFilterValues): TQueryParams {
     }
 
     if (isRangeFilterValue(value)) {
-      if (value.from !== null) params[rangeParamName(key, 'from')] = String(value.from)
-      if (value.to !== null) params[rangeParamName(key, 'to')] = String(value.to)
+      if (value.from !== null) params[toRangeParamName(key, 'from')] = String(value.from)
+      if (value.to !== null) params[toRangeParamName(key, 'to')] = String(value.to)
       continue
     }
 
@@ -156,7 +156,7 @@ export function toRecordQueryParams(state: IRecordQueryState): TQueryParams {
   return params
 }
 
-export function recordQueryKey(state: IRecordQueryState): string {
+export function toRecordQueryKey(state: IRecordQueryState): string {
   const params = toRecordQueryParams(state)
 
   return Object.keys(params)

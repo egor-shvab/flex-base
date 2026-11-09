@@ -29,9 +29,9 @@ function targetRow(id: string, number: number, fullName?: string) {
 
 beforeEach(resetPrismaMock)
 
-describe('RelationService.collectRelationTargets', () => {
+describe('RelationService.buildRelationTargets', () => {
   it('collects the ids a single-value relation stores', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [owner],
       [{ owner: 'rec_1' }, { owner: 'rec_2' }],
     )
@@ -42,7 +42,7 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('reads a list from a widened field', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [asMultiple(owner)],
       [{ owner: ['rec_1', 'rec_2'] }],
     )
@@ -51,16 +51,13 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('reads a bare string left over from before the field was widened', () => {
-    const targets = RelationService.collectRelationTargets(
-      [asMultiple(owner)],
-      [{ owner: 'rec_1' }],
-    )
+    const targets = RelationService.buildRelationTargets([asMultiple(owner)], [{ owner: 'rec_1' }])
 
     expect([...(targets[0]?.ids ?? [])]).toEqual(['rec_1'])
   })
 
   it('deduplicates an id shared by several rows', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [owner],
       [{ owner: 'rec_1' }, { owner: 'rec_1' }, { owner: 'rec_2' }],
     )
@@ -69,7 +66,7 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('drops blanks, nulls and anything that is not a string', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [asMultiple(owner)],
       [{ owner: ['rec_1', '', null, 42, undefined] as never }],
     )
@@ -78,20 +75,20 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('skips a relation field that no row actually links through', () => {
-    expect(RelationService.collectRelationTargets([owner], [{ owner: '' }, {}])).toEqual([])
+    expect(RelationService.buildRelationTargets([owner], [{ owner: '' }, {}])).toEqual([])
   })
 
   it('ignores a field that is not a relation, and one with no target', () => {
     const untargeted = relationField({ targetTableId: undefined })
 
     expect(
-      RelationService.collectRelationTargets([textField('company')], [{ company: 'acme' }]),
+      RelationService.buildRelationTargets([textField('company')], [{ company: 'acme' }]),
     ).toEqual([])
-    expect(RelationService.collectRelationTargets([untargeted], [{ owner: 'rec_1' }])).toEqual([])
+    expect(RelationService.buildRelationTargets([untargeted], [{ owner: 'rec_1' }])).toEqual([])
   })
 
   it('keeps two relation fields apart even when they point at one table', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [owner, reviewer],
       [{ owner: 'rec_1', reviewer: 'rec_2' }],
     )

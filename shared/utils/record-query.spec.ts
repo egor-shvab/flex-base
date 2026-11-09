@@ -11,7 +11,7 @@ import {
 import type { IRecordQueryState } from '#shared/types/record'
 import {
   parseRecordQueryState,
-  recordQueryKey,
+  toRecordQueryKey,
   toRecordQueryParams,
 } from '#shared/utils/record-query'
 import {
@@ -356,38 +356,38 @@ describe('round-trip', () => {
   })
 })
 
-describe('recordQueryKey', () => {
+describe('toRecordQueryKey', () => {
   it('is empty for the default view', () => {
-    expect(recordQueryKey(state())).toBe('')
+    expect(toRecordQueryKey(state())).toBe('')
   })
 
   it('keys two orderings of one selection identically', () => {
-    expect(recordQueryKey(parse({ stage: ['Won', 'Lost'] }))).toBe(
-      recordQueryKey(parse({ stage: ['Lost', 'Won'] })),
+    expect(toRecordQueryKey(parse({ stage: ['Won', 'Lost'] }))).toBe(
+      toRecordQueryKey(parse({ stage: ['Lost', 'Won'] })),
     )
   })
 
   it('is unmoved by param order', () => {
-    expect(recordQueryKey(parse({ company: 'acme', page: '2' }))).toBe(
-      recordQueryKey(parse({ page: '2', company: 'acme' })),
+    expect(toRecordQueryKey(parse({ company: 'acme', page: '2' }))).toBe(
+      toRecordQueryKey(parse({ page: '2', company: 'acme' })),
     )
   })
 
   it('changes when the query really changes', () => {
-    const base = recordQueryKey(parse({ company: 'acme' }))
-    expect(recordQueryKey(parse({ company: 'other' }))).not.toBe(base)
-    expect(recordQueryKey(parse({ company: 'acme', page: '2' }))).not.toBe(base)
-    expect(recordQueryKey(parse({ company: 'acme', stage: 'Won' }))).not.toBe(base)
+    const base = toRecordQueryKey(parse({ company: 'acme' }))
+    expect(toRecordQueryKey(parse({ company: 'other' }))).not.toBe(base)
+    expect(toRecordQueryKey(parse({ company: 'acme', page: '2' }))).not.toBe(base)
+    expect(toRecordQueryKey(parse({ company: 'acme', stage: 'Won' }))).not.toBe(base)
   })
 
   it('ignores a param the list does not own, such as the open detail dialog', () => {
-    expect(recordQueryKey(parse({ company: 'acme', detail: 'tbl1.rec1' }))).toBe(
-      recordQueryKey(parse({ company: 'acme' })),
+    expect(toRecordQueryKey(parse({ company: 'acme', detail: 'tbl1.rec1' }))).toBe(
+      toRecordQueryKey(parse({ company: 'acme' })),
     )
   })
 
   it('joins a list with commas and sorts its keys', () => {
-    expect(recordQueryKey(parse({ stage: ['Won', 'Lost'], company: 'acme' }))).toBe(
+    expect(toRecordQueryKey(parse({ stage: ['Won', 'Lost'], company: 'acme' }))).toBe(
       'company=acme&stage=Lost,Won',
     )
   })

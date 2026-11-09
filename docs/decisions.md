@@ -196,9 +196,9 @@ errors with a boundary mapper (`createError` with extra steps, one transport).
 rejected: it numbers across tenants and leaks platform volume.
 
 **An address is a number _or_ an id, permanently — a rule, not a migration aid.** It costs two
-functions (`tableWhere`, `recordWhere`); a cuid is never all digits, so the forms cannot collide.
-**Do not "clean it up":** ids are in API responses regardless, so dropping the id form hides nothing
-and breaks every copied link.
+functions (`buildTableAddressWhere`, `buildRecordAddressWhere`); a cuid is never all digits, so the
+forms cannot collide. **Do not "clean it up":** ids are in API responses regardless, so dropping the
+id form hides nothing and breaks every copied link.
 
 **The enumeration risk is accepted on one condition:** with numbers, a `where` that loses its
 `userId` becomes a `1..n` sweep of every tenant. What makes that acceptable is that ownership cannot
@@ -361,7 +361,7 @@ field renders as nothing instead of "Not set".
 Widening runs `widenToList` — one scoped, idempotent `UPDATE` that skips arrays and JSON `null` —
 **inside `updateField`'s transaction**, so metadata and rows cannot disagree. Narrowing is a 400:
 lossy, with no non-arbitrary survivor. A row written before the flip can still be a scalar, so
-`toValueList` (client) and `collectRelationTargets` (server, which also rejects non-string elements)
+`toValueList` (client) and `buildRelationTargets` (server, which also rejects non-string elements)
 tolerate one. Sorting by the first value is the one visible in the cell; rejected: making the column
 unsortable (threads `sortable` through table, schema and SQL) and ordering by length.
 
@@ -402,9 +402,9 @@ of `toRecordQueryParams`, shared by page and endpoint — builds the domain mode
   from `utm_source`. A malformed **known** param is a 400.
 - **A reserved param is refused symmetrically.** The encoder **drops** reserved names rather than
   writing them last (the reserved writes are conditional, so a legacy field keyed `search` would
-  otherwise become a site-wide search); `claimFilterParams` seeds its set with them. The drop is per
-  param name, so a NUMBER keyed `page` keeps `page_from`/`page_to`. Such a field claims nothing, so
-  `filterableFields` removes its control (no dead control) but it still renders and sorts.
+  otherwise become a site-wide search); `buildFilterParamClaims` seeds its set with them. The drop is
+  per param name, so a NUMBER keyed `page` keeps `page_from`/`page_to`. Such a field claims nothing,
+  so `toFilterableFields` removes its control (no dead control) but it still renders and sorts.
 - **A blank `?search=` is absent**, in the schema as in the codec (a preprocess maps
   blank-after-trim to `undefined` before the length floor). `?search=a` is still a 400.
 
@@ -703,8 +703,8 @@ they depend on.
 
 ### `RelationFieldSelect` gets its `tableId` from the store, not from `IField`
 
-`IField` has no `tableId`, and adding one would force `recordColumn()`'s synthetic fields to invent
-one. `loadOptions(tableId, fields)` records it per field. `searchOptions` never writes
+`IField` has no `tableId`, and adding one would force `buildRecordColumn()`'s synthetic fields to
+invent one. `loadOptions(tableId, fields)` records it per field. `searchOptions` never writes
 `optionsByField` (the seed others read) but does `cacheLabels`.
 
 ### A coloured badge carries a dot, not a border
@@ -875,9 +875,9 @@ Revisit only with a reason that has changed.
   "ownership lives in the `where` clause" behind method signatures. The wanted half — one home for
   selects, mappers and SQL — is `server/db/`.
 - **Splitting `shared/` by domain.** Record, field and filter reference each other by design
-  (`queryColumns`, `filterShapeFor`, the record schema), so domain folders would import each other
-  on day one; the layer split is mechanically checkable. `field-types/` earned its folder by being
-  acyclic.
+  (`buildQueryColumns`, `filterShapeFor`, the record schema), so domain folders would import each
+  other on day one; the layer split is mechanically checkable. `field-types/` earned its folder by
+  being acyclic.
 - **Hexagonal / DDD on the server.** One transport, one database, no second consumer; every seam is
   available later at the same cost.
 - **Feature folders for the frontend.** It fights Nuxt's conventions, and there are three features,

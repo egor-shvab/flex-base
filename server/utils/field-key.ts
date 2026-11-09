@@ -1,6 +1,6 @@
 import { RESERVED_FIELD_KEYS, RESERVED_QUERY_PARAMS } from '#shared/constants/filter'
 import type { IField, TFieldType } from '#shared/types/field'
-import { filterParamNames } from '#shared/utils/filter'
+import { toFilterParamNames } from '#shared/utils/filter'
 
 /**
  * Emitting only `^[a-z0-9_]+$` is load-bearing: a key is a JSONB path in raw SQL and a query param
@@ -17,7 +17,7 @@ export function slugify(name: string): string {
 
 function uniqueKey(base: string, type: TFieldType, taken: Set<string>): string {
   const isFree = (key: string) =>
-    !taken.has(key) && filterParamNames(key, type).every((name) => !taken.has(name))
+    !taken.has(key) && toFilterParamNames(key, type).every((name) => !taken.has(name))
 
   if (isFree(base)) return base
   let suffix = 2
@@ -33,7 +33,7 @@ export function buildFieldKey(
   const taken = new Set<string>([
     ...RESERVED_QUERY_PARAMS,
     ...RESERVED_FIELD_KEYS,
-    ...existing.flatMap((field) => [field.key, ...filterParamNames(field.key, field.type)]),
+    ...existing.flatMap((field) => [field.key, ...toFilterParamNames(field.key, field.type)]),
   ])
 
   return uniqueKey(slugify(name), type, taken)

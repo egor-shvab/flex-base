@@ -28,10 +28,10 @@ in an httpOnly `auth_token` cookie; `verifyAuthToken` pins `algorithms: ['HS256'
   answers `0` (a value no row holds) for anything that is not a bounded positive integer, so a
   malformed address 404s rather than reaching Prisma as `NaN`; `parseTableAddress` also ignores a
   `-…` suffix. Page and server read the same function.
-- **`claimFilterParams` resolves each param name to at most one field** — reserved names first, then
-  fields in order. `filterableFields` / `filterableColumns` are the fields that claimed one; the
-  drawer and the summary both render from them. Claims are keyed by type, which keeps
-  `filterParamNames` callable from `createField`.
+- **`buildFilterParamClaims` resolves each param name to at most one field** — reserved names
+  first, then fields in order. `toFilterableFields` / `toFilterableColumns` are the fields that
+  claimed one; the drawer and the summary both render from them. Claims are keyed by type, which
+  keeps `toFilterParamNames` callable from `createField`.
 - **A multi-value field's schema is its type's `base` lifted into `z.array`** — `blank` → `[]`,
   required → at least one, capped at `MULTI_VALUE_MAX_ITEMS`.
 - **`buildRecordSchema` strips unknown keys and enforces required only where `blank` is `null`**, so
@@ -101,11 +101,11 @@ Prisma's atomic `increment` takes the row lock, so concurrent creates queue. The
 **high-water mark**: a deleted row's number is never reused. (Why: `decisions.md` → _Public numbers
 address, cuids reference_.)
 
-**A route names a row by either form**, through `tableWhere` (`server/db/tables.ts`) and
-`recordWhere` (`server/db/records.ts`): an address that parses resolves on the compound unique,
-anything else parses to `0` and resolves on `{ id }`. `tableWhere` scopes the owner; `recordWhere`
-scopes the table, because a handler factory has already proved the table is the caller's. **Only a
-route carries an address:** `requireFieldTarget` refuses a body `targetTableId` that parses as an
+**A route names a row by either form**, through `buildTableAddressWhere` (`server/db/tables.ts`)
+and `buildRecordAddressWhere` (`server/db/records.ts`): an address that parses resolves on the
+compound unique, anything else parses to `0` and resolves on `{ id }`. `buildTableAddressWhere`
+scopes the owner; `buildRecordAddressWhere` scopes the table, because a handler factory has already
+proved the table is the caller's. **Only a route carries an address:** `requireFieldTarget` refuses a body `targetTableId` that parses as an
 address, or `4` would be stored as a target nothing matches and `assertNotRelationTarget` would stop
 guarding it.
 
@@ -121,11 +121,11 @@ Invisible until they break:
 ## 5. Record columns
 
 `Record #`, `Created at`, `Updated at` appear on every table and behave like fields in a query.
-`recordColumn()` builds each as an `IField` under a reserved **camelCase** key, a shape `slugify`
-cannot emit (`RESERVED_FIELD_KEYS` states it). `queryColumns(fields)` wraps the table's fields in
-them **only where a query is built** (codec, query schema, SQL builders, `RecordsTable`, filter
-panel and summary) — **never** where record data is read or written (`buildRecordSchema`,
-`RecordForm`, the field manager). Special-casing them per layer instead would be five branches to
+`buildRecordColumn()` builds each as an `IField` under a reserved **camelCase** key, a shape
+`slugify` cannot emit (`RESERVED_FIELD_KEYS` states it). `buildQueryColumns(fields)` wraps the
+table's fields in them **only where a query is built** (codec, query schema, SQL builders,
+`RecordsTable`, filter panel and summary) — **never** where record data is read or written
+(`buildRecordSchema`, `RecordForm`, the field manager). Special-casing them per layer instead would be five branches to
 forget one.
 
 Only two registries know better:
@@ -278,7 +278,7 @@ from the code:
 - **DDL runs `CONCURRENTLY`, fired and not awaited**; a failure reaches the error log, never the
   caller (`limitations.md`).
 
-`fieldIndexStats()` and `reconcileFieldIndexes()` are exported and tested with **no caller** —
+`listFieldIndexStats()` and `reconcileFieldIndexes()` are exported and tested with **no caller** —
 wiring them waits on a deployment story. Reconcile reports a **reaped** index (failed build, still
 wanted) apart from a **dropped** one.
 
@@ -355,15 +355,15 @@ Only what the name and the code do not say.
 - **`RecordDetail`** — wraps values by **not** declaring the table's `white-space: nowrap`.
 - **`RecordsFilterPanel`** — rebuilds the filter map **in field order** on every change, dropping
   empties, so a URL is stable whichever control moved.
-- **`RecordsFilterSummary`** — iterates `filterableColumns`, **never `Object.entries(filters)`**, so
-  chips follow the drawer's order and an unowned key never shows.
+- **`RecordsFilterSummary`** — iterates `toFilterableColumns`, **never
+  `Object.entries(filters)`**, so chips follow the drawer's order and an unowned key never shows.
 - **`RecordsTableSkeleton`** — row and bar counts are **fixed constants**, never derived from
   `fields` (mid-navigation those belong to the table being left).
 
 **On the records page the URL is the single source of truth.** `queryState` is
 `parseRecordQueryState(fields, route.query)`; one watcher refetches, keyed on
-`recordQueryKey(queryState)` so opening a dialog does not refetch. Records and relation options load
-**after** the table loader, because filters decode against field metadata.
+`toRecordQueryKey(queryState)` so opening a dialog does not refetch. Records and relation options
+load **after** the table loader, because filters decode against field metadata.
 
 ---
 

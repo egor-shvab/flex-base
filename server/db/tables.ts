@@ -2,7 +2,10 @@ import type { Prisma } from '#server/generated/prisma/client'
 import type { ITable, ITableListItem } from '#shared/types/table'
 import { parseTableAddress } from '#shared/utils/address'
 
-export function tableWhere(userId: string, address: string): Prisma.TableWhereUniqueInput {
+export function buildTableAddressWhere(
+  userId: string,
+  address: string,
+): Prisma.TableWhereUniqueInput {
   const number = parseTableAddress(address)
 
   return number === 0 ? { id: address, userId } : { userId_number: { userId, number } }

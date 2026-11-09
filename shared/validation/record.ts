@@ -20,7 +20,7 @@ import type {
   TRecordSingleValue,
   TRecordValue,
 } from '#shared/types/record'
-import { claimFilterParams, filterShapeFor, queryColumns } from '#shared/utils/filter'
+import { buildFilterParamClaims, filterShapeFor, buildQueryColumns } from '#shared/utils/filter'
 
 export function blankValueFor(field: IField): TRecordValue {
   return isMultiValue(field) ? [] : VALUE_SCHEMA_BY_TYPE[field.type].blank
@@ -91,9 +91,9 @@ const baseQueryParamsSchema = z.object({
 })
 
 export function buildRecordQuerySchema(fields: IField[]): z.ZodType<IRecordQueryParams> {
-  const columns = queryColumns(fields)
+  const columns = buildQueryColumns(fields)
   const fieldByKey = new Map(columns.map((field) => [field.key, field]))
-  const claims = claimFilterParams(columns)
+  const claims = buildFilterParamClaims(columns)
 
   return baseQueryParamsSchema.loose().superRefine((params, ctx) => {
     if (params.sort !== undefined && params.sort !== DEFAULT_SORT_KEY) {

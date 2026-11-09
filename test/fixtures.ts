@@ -1,7 +1,7 @@
 import type { TBadgeColor } from '#shared/types/color'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
-import { queryColumns } from '#shared/utils/filter'
+import { buildQueryColumns } from '#shared/utils/filter'
 
 export function field(overrides: Partial<IField> & Pick<IField, 'key' | 'type'>): IField {
   return {
@@ -68,7 +68,7 @@ export function asMultiple(source: IField): IField {
  * Derived, never hand-written: built by hand, the timestamps silently get `type: 'TEXT'` where the
  * app builds them `'DATE'`.
  */
-export const [recordNumberColumn, createdAtColumn, updatedAtColumn] = queryColumns([]) as [
+export const [recordNumberColumn, createdAtColumn, updatedAtColumn] = buildQueryColumns([]) as [
   IField,
   IField,
   IField,

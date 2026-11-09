@@ -2,7 +2,10 @@ import type { Prisma } from '#server/generated/prisma/client'
 import type { IRecord, TRecordData } from '#shared/types/record'
 import { parseAddressNumber } from '#shared/utils/address'
 
-export function recordWhere(tableId: string, address: string): Prisma.RecordWhereUniqueInput {
+export function buildRecordAddressWhere(
+  tableId: string,
+  address: string,
+): Prisma.RecordWhereUniqueInput {
   const number = parseAddressNumber(address)
 
   return number === 0 ? { id: address, tableId } : { tableId_number: { tableId, number } }

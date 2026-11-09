@@ -14,7 +14,7 @@ import { computed } from 'vue'
 import { RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecord } from '#shared/types/record'
-import { queryColumns } from '#shared/utils/filter'
+import { buildQueryColumns } from '#shared/utils/filter'
 
 const props = defineProps<{
   fields: IField[]
@@ -22,7 +22,7 @@ const props = defineProps<{
 }>()
 
 const columns = computed(() =>
-  queryColumns(props.fields).filter((column) => column.key !== RECORD_NUMBER_KEY),
+  buildQueryColumns(props.fields).filter((column) => column.key !== RECORD_NUMBER_KEY),
 )
 </script>
 

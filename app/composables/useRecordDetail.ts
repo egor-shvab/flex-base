@@ -2,7 +2,11 @@ import { computed } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
 import type { TUrlQuery } from '#shared/types/query'
 import type { IOpenRecord, IRecordDetail } from '#shared/types/record'
-import { parseDetailChain, popDetail, withDetailChain } from '#shared/utils/record-detail'
+import {
+  parseDetailChain,
+  toParentDetailChain,
+  buildQueryWithDetailChain,
+} from '#shared/utils/record-detail'
 import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { getApiErrorMessage } from '~/utils/api-error'
@@ -49,7 +53,7 @@ export function useRecordDetail() {
   })
 
   function buildDetailQuery(next: IOpenRecord[]): { query: TUrlQuery } {
-    return { query: withDetailChain(route.query, next) }
+    return { query: buildQueryWithDetailChain(route.query, next) }
   }
 
   return {
@@ -60,7 +64,7 @@ export function useRecordDetail() {
     canRetry: computed(() => Boolean(error.value) && !isNotFound.value),
     refresh,
     backTo: computed(() =>
-      chain.value.length > 1 ? buildDetailQuery(popDetail(chain.value)) : undefined,
+      chain.value.length > 1 ? buildDetailQuery(toParentDetailChain(chain.value)) : undefined,
     ),
     closeTo: computed(() => buildDetailQuery([])),
   }

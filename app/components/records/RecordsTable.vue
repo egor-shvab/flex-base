@@ -89,7 +89,7 @@ import { RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { IRecordSort } from '#shared/types/filter'
 import type { IRecord } from '#shared/types/record'
-import { queryColumns } from '#shared/utils/filter'
+import { buildQueryColumns } from '#shared/utils/filter'
 import { useDetailLink } from '~/composables/useDetailLink'
 import { FIELD_TYPE_ICONS, alignFor } from '~/field-types/registry'
 
@@ -102,7 +102,7 @@ const props = defineProps<{
 
 const detailLinkTo = useDetailLink()
 
-const columns = computed(() => queryColumns(props.fields))
+const columns = computed(() => buildQueryColumns(props.fields))
 
 const emit = defineEmits<{
   edit: [record: IRecord]

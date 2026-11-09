@@ -7,20 +7,20 @@ import {
   UPDATED_AT_KEY,
 } from '#shared/constants/filter'
 import {
-  claimFilterParams,
+  buildFilterParamClaims,
   emptyFilterValueFor,
-  filterableColumns,
-  filterableFields,
-  filterParamNames,
+  toFilterableColumns,
+  toFilterableFields,
+  toFilterParamNames,
   filterShapeFor,
   isFilterValueEmpty,
   isListFilterValue,
   isRangeFilterValue,
   isReservedParam,
   isScalarFilterValue,
-  queryColumns,
-  rangeParamName,
-  withFilterValue,
+  buildQueryColumns,
+  toRangeParamName,
+  buildFiltersWithValue,
 } from '#shared/utils/filter'
 import {
   ALL_TYPE_FIELDS,
@@ -31,9 +31,9 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-describe('queryColumns', () => {
+describe('buildQueryColumns', () => {
   it('leads with the record number and trails with the timestamps', () => {
-    expect(queryColumns([textField('company')]).map((field) => field.key)).toEqual([
+    expect(buildQueryColumns([textField('company')]).map((field) => field.key)).toEqual([
       RECORD_NUMBER_KEY,
       'company',
       CREATED_AT_KEY,
@@ -42,12 +42,12 @@ describe('queryColumns', () => {
   })
 
   it('yields the three record columns for a table with no fields', () => {
-    expect(queryColumns([])).toHaveLength(3)
+    expect(buildQueryColumns([])).toHaveLength(3)
   })
 
   it('does not mutate the fields it was given', () => {
     const fields = [textField('company')]
-    queryColumns(fields)
+    buildQueryColumns(fields)
     expect(fields).toHaveLength(1)
   })
 })
@@ -78,34 +78,34 @@ describe('emptyFilterValueFor', () => {
   })
 })
 
-describe('rangeParamName / filterParamNames', () => {
+describe('toRangeParamName / toFilterParamNames', () => {
   it('spreads a range to two bounds', () => {
-    expect(rangeParamName('contract_value', 'from')).toBe('contract_value_from')
-    expect(rangeParamName('contract_value', 'to')).toBe('contract_value_to')
-    expect(filterParamNames('contract_value', 'NUMBER')).toEqual([
+    expect(toRangeParamName('contract_value', 'from')).toBe('contract_value_from')
+    expect(toRangeParamName('contract_value', 'to')).toBe('contract_value_to')
+    expect(toFilterParamNames('contract_value', 'NUMBER')).toEqual([
       'contract_value_from',
       'contract_value_to',
     ])
-    expect(filterParamNames('signed_on', 'DATE')).toEqual(['signed_on_from', 'signed_on_to'])
+    expect(toFilterParamNames('signed_on', 'DATE')).toEqual(['signed_on_from', 'signed_on_to'])
   })
 
   it('gives a scalar and a list the same single name — a list is that name repeated', () => {
-    expect(filterParamNames('company', 'TEXT')).toEqual(['company'])
-    expect(filterParamNames('stage', 'SELECT')).toEqual(['stage'])
-    expect(filterParamNames('owner', 'RELATION')).toEqual(['owner'])
+    expect(toFilterParamNames('company', 'TEXT')).toEqual(['company'])
+    expect(toFilterParamNames('stage', 'SELECT')).toEqual(['stage'])
+    expect(toFilterParamNames('owner', 'RELATION')).toEqual(['owner'])
   })
 
   it("claims the same names whatever a field's cardinality, since it is keyed by type", () => {
     for (const type of FIELD_TYPES) {
-      expect(filterParamNames('k', type).length).toBeGreaterThan(0)
+      expect(toFilterParamNames('k', type).length).toBeGreaterThan(0)
     }
   })
 })
 
-describe('claimFilterParams', () => {
+describe('buildFilterParamClaims', () => {
   it('tags each claimed param with the part of the value it carries', () => {
     expect(
-      claimFilterParams([textField('company'), numberField('contract_value')]).map(
+      buildFilterParamClaims([textField('company'), numberField('contract_value')]).map(
         ({ part, name }) => ({ part, name }),
       ),
     ).toEqual([
@@ -116,26 +116,26 @@ describe('claimFilterParams', () => {
   })
 
   it('refuses every reserved param', () => {
-    const claims = claimFilterParams(RESERVED_QUERY_PARAMS.map((key) => textField(key)))
+    const claims = buildFilterParamClaims(RESERVED_QUERY_PARAMS.map((key) => textField(key)))
     expect(claims).toEqual([])
   })
 
   it('gives a colliding key to the first field and skips the later one entirely', () => {
     const first = textField('company', { id: 'fld_first' })
     const second = textField('company', { id: 'fld_second' })
-    const claims = claimFilterParams([first, second])
+    const claims = buildFilterParamClaims([first, second])
 
     expect(claims).toHaveLength(1)
     expect(claims[0]?.field.id).toBe('fld_first')
   })
 
   it('lets a range field keep the bound that did not collide', () => {
-    const claims = claimFilterParams([textField('value_from'), numberField('value')])
+    const claims = buildFilterParamClaims([textField('value_from'), numberField('value')])
     expect(claims.map(({ name }) => name)).toEqual(['value_from', 'value_to'])
   })
 
   it('claims nothing for a field whose only name is reserved', () => {
-    expect(claimFilterParams([textField('search'), textField('page')])).toEqual([])
+    expect(buildFilterParamClaims([textField('search'), textField('page')])).toEqual([])
   })
 })
 
@@ -150,32 +150,32 @@ describe('isReservedParam', () => {
   })
 })
 
-describe('filterableFields', () => {
+describe('toFilterableFields', () => {
   it('keeps every field that claims a param, in order', () => {
     const fields = [textField('company'), numberField('contract_value'), selectField()]
-    expect(filterableFields(fields)).toEqual(fields)
+    expect(toFilterableFields(fields)).toEqual(fields)
   })
 
   it('drops a field whose only param name is reserved', () => {
     const fields = [textField('company'), textField('search'), textField('detail')]
-    expect(filterableFields(fields).map((field) => field.key)).toEqual(['company'])
+    expect(toFilterableFields(fields).map((field) => field.key)).toEqual(['company'])
   })
 
   it('keeps a range field keyed like a reserved param — its bounds are not reserved', () => {
-    expect(filterableFields([numberField('page')]).map((field) => field.key)).toEqual(['page'])
+    expect(toFilterableFields([numberField('page')]).map((field) => field.key)).toEqual(['page'])
   })
 
   it('drops the field that lost a key collision, keeping the one that won it', () => {
     const first = textField('company', { id: 'fld_first' })
     const second = textField('company', { id: 'fld_second' })
 
-    expect(filterableFields([first, second])).toEqual([first])
+    expect(toFilterableFields([first, second])).toEqual([first])
   })
 })
 
-describe('filterableColumns', () => {
+describe('toFilterableColumns', () => {
   it('brackets the table’s fields with the record’s own columns', () => {
-    expect(filterableColumns([textField('company')]).map((field) => field.key)).toEqual([
+    expect(toFilterableColumns([textField('company')]).map((field) => field.key)).toEqual([
       RECORD_NUMBER_KEY,
       'company',
       CREATED_AT_KEY,
@@ -184,7 +184,7 @@ describe('filterableColumns', () => {
   })
 
   it('still drops a field keyed like a reserved param from between them', () => {
-    const columns = filterableColumns([textField('company'), textField('search')])
+    const columns = toFilterableColumns([textField('company'), textField('search')])
 
     expect(columns.map((field) => field.key)).toEqual([
       RECORD_NUMBER_KEY,
@@ -243,36 +243,46 @@ describe('isFilterValueEmpty', () => {
   })
 })
 
-describe('withFilterValue', () => {
+describe('buildFiltersWithValue', () => {
   const columns = [textField('company'), selectField(['Won', 'Lost']), numberField('budget')]
 
   it('replaces the named column’s value and keeps the rest', () => {
-    const next = withFilterValue(columns, { company: 'acme', stage: ['Won'] }, 'company', 'globex')
+    const next = buildFiltersWithValue(
+      columns,
+      { company: 'acme', stage: ['Won'] },
+      'company',
+      'globex',
+    )
 
     expect(next).toEqual({ company: 'globex', stage: ['Won'] })
   })
 
   it('rebuilds in column order rather than in the order keys were touched', () => {
-    const touchedLast = withFilterValue(columns, { stage: ['Won'] }, 'company', 'acme')
+    const touchedLast = buildFiltersWithValue(columns, { stage: ['Won'] }, 'company', 'acme')
 
     expect(Object.keys(touchedLast)).toEqual(['company', 'stage'])
   })
 
   it('drops the value when it is empty, which is how a filter is cleared', () => {
-    const next = withFilterValue(columns, { company: 'acme', stage: ['Won'] }, 'stage', [])
+    const next = buildFiltersWithValue(columns, { company: 'acme', stage: ['Won'] }, 'stage', [])
 
     expect(next).toEqual({ company: 'acme' })
   })
 
   it('clears a column given its type’s own empty value', () => {
     const stage = selectField(['Won', 'Lost'])
-    const next = withFilterValue(columns, { stage: ['Won'] }, stage.key, emptyFilterValueFor(stage))
+    const next = buildFiltersWithValue(
+      columns,
+      { stage: ['Won'] },
+      stage.key,
+      emptyFilterValueFor(stage),
+    )
 
     expect(next).toEqual({})
   })
 
   it('drops every other empty value too, not only the one being changed', () => {
-    const next = withFilterValue(
+    const next = buildFiltersWithValue(
       columns,
       { company: '   ', budget: { from: null, to: null } },
       'stage',
@@ -283,7 +293,7 @@ describe('withFilterValue', () => {
   })
 
   it('ignores a key no column claims', () => {
-    expect(withFilterValue(columns, { company: 'acme' }, 'utm_source', 'x')).toEqual({
+    expect(buildFiltersWithValue(columns, { company: 'acme' }, 'utm_source', 'x')).toEqual({
       company: 'acme',
     })
   })

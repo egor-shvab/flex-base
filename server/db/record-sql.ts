@@ -9,7 +9,7 @@ import {
   UPDATED_AT_KEY,
 } from '#shared/constants/filter'
 import type { IRecordSort, TRecordFilterValues } from '#shared/types/filter'
-import { queryColumns } from '#shared/utils/filter'
+import { buildQueryColumns } from '#shared/utils/filter'
 
 const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql }> = {
   [RECORD_NUMBER_KEY]: { expr: Prisma.sql`"number"::text`, sortExpr: Prisma.sql`"number"` },
@@ -17,11 +17,11 @@ const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql
   [UPDATED_AT_KEY]: { expr: Prisma.sql`"updatedAt"::date`, sortExpr: Prisma.sql`"updatedAt"` },
 }
 
-function valueExpr(field: IField): Prisma.Sql {
+function toValueExpr(field: IField): Prisma.Sql {
   return RECORD_COLUMN_SQL[field.key]?.expr ?? sqlFor(field).expr(field.key)
 }
 
-function sortExpr(field: IField): Prisma.Sql {
+function toSortExpr(field: IField): Prisma.Sql {
   const column = RECORD_COLUMN_SQL[field.key]
   if (column) return column.sortExpr
 
@@ -30,7 +30,7 @@ function sortExpr(field: IField): Prisma.Sql {
   return rules.sortExpr ? rules.sortExpr(field) : rules.expr(field.key)
 }
 
-function searchPredicate(field: IField, pattern: string): Prisma.Sql | null {
+function toSearchPredicate(field: IField, pattern: string): Prisma.Sql | null {
   const column = RECORD_COLUMN_SQL[field.key]
 
   if (column) {
@@ -58,8 +58,8 @@ function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null 
   const pattern = toContainsPattern(search)
   const arms: Prisma.Sql[] = []
 
-  for (const field of queryColumns(fields)) {
-    const predicate = searchPredicate(field, pattern)
+  for (const field of buildQueryColumns(fields)) {
+    const predicate = toSearchPredicate(field, pattern)
     if (predicate) arms.push(predicate)
   }
 
@@ -76,11 +76,11 @@ export function buildRecordWhere(
 ): Prisma.Sql {
   const conditions = [Prisma.sql`"tableId" = ${tableId}`]
 
-  for (const field of queryColumns(fields)) {
+  for (const field of buildQueryColumns(fields)) {
     const value = filters[field.key]
     if (value === undefined) continue
 
-    const condition = sqlFor(field).filter(valueExpr(field), value)
+    const condition = sqlFor(field).filter(toValueExpr(field), value)
     if (condition) conditions.push(condition)
   }
 
@@ -100,7 +100,9 @@ const SORT_JOIN_ALIAS = 'sort_target'
 export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecordOrder {
   const direction = sort.direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
   const field =
-    sort.key === DEFAULT_SORT_KEY ? undefined : queryColumns(fields).find((f) => f.key === sort.key)
+    sort.key === DEFAULT_SORT_KEY
+      ? undefined
+      : buildQueryColumns(fields).find((f) => f.key === sort.key)
 
   if (!field) {
     return { orderBy: Prisma.sql`"createdAt" ${direction}`, join: Prisma.empty }
@@ -111,7 +113,7 @@ export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecord
     : (sqlFor(field).sortJoin?.(field, SORT_JOIN_ALIAS) ?? null)
 
   return {
-    orderBy: Prisma.sql`${joined?.expr ?? sortExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`,
+    orderBy: Prisma.sql`${joined?.expr ?? toSortExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`,
     join: joined?.join ?? Prisma.empty,
   }
 }

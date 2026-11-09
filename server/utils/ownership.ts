@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { fieldSelect, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
-import { tableSelect, tableWhere, toSharedTable } from '#server/db/tables'
+import { tableSelect, buildTableAddressWhere, toSharedTable } from '#server/db/tables'
 import type { IField } from '#shared/types/field'
 import type { ITable } from '#shared/types/table'
 import { parseTableAddress } from '#shared/utils/address'
@@ -13,7 +13,7 @@ function tableNotFound() {
 
 export async function requireOwnedTable(userId: string, address: string): Promise<ITable> {
   const table = await prisma.table.findUnique({
-    where: tableWhere(userId, address),
+    where: buildTableAddressWhere(userId, address),
     select: tableSelect,
   })
 
@@ -34,7 +34,7 @@ export async function requireOwnedTableFields(
   address: string,
 ): Promise<IOwnedTableFields> {
   const table = await prisma.table.findUnique({
-    where: tableWhere(userId, address),
+    where: buildTableAddressWhere(userId, address),
     select: { id: true, fields: { orderBy: { order: 'asc' }, select: fieldSelect } },
   })
 
@@ -47,7 +47,7 @@ export async function requireOwnedTableFields(
 
 export async function requireOwnedTableWithFields(userId: string, address: string) {
   const table = await prisma.table.findUnique({
-    where: tableWhere(userId, address),
+    where: buildTableAddressWhere(userId, address),
     select: { ...tableSelect, fields: { orderBy: { order: 'asc' }, select: fieldSelect } },
   })
 

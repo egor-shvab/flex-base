@@ -39,7 +39,11 @@
 import { computed } from 'vue'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
-import { emptyFilterValueFor, filterableColumns, withFilterValue } from '#shared/utils/filter'
+import {
+  emptyFilterValueFor,
+  toFilterableColumns,
+  buildFiltersWithValue,
+} from '#shared/utils/filter'
 import { summaryFor } from '~/field-types/registry'
 import { useRelationsStore } from '~/stores/relations'
 import { formatMatchingRecords } from '~/utils/format'
@@ -61,7 +65,7 @@ const emit = defineEmits<{
 
 const relations = useRelationsStore()
 
-const columns = computed(() => filterableColumns(props.fields))
+const columns = computed(() => toFilterableColumns(props.fields))
 
 const entries = computed(() =>
   columns.value.flatMap((field) => {
@@ -81,7 +85,7 @@ const countLabel = computed(() => formatMatchingRecords(props.total, props.total
 function remove(field: IField) {
   emit(
     'update:filters',
-    withFilterValue(columns.value, props.filters, field.key, emptyFilterValueFor(field)),
+    buildFiltersWithValue(columns.value, props.filters, field.key, emptyFilterValueFor(field)),
   )
 }
 </script>

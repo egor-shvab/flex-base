@@ -39,7 +39,7 @@ export default defineEventHandler(async (event): Promise<IOkResponse> => {
    * Keyed on the socket address, not `x-forwarded-for`, which an attacker controls. Behind a proxy
    * this degrades to one shared allowance — too strict rather than bypassable.
    */
-  if (!limiter.check(getRequestIP(event) ?? 'unknown', Date.now())) {
+  if (!limiter.shouldAllow(getRequestIP(event) ?? 'unknown', Date.now())) {
     throw createError({ statusCode: 429, statusMessage: 'Too many reports' })
   }
 

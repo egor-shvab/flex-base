@@ -10,7 +10,7 @@ interface IRateLimitWindow {
 }
 
 export interface IRateLimiter {
-  check(key: string, now: number): boolean
+  shouldAllow(key: string, now: number): boolean
 }
 
 export function createRateLimiter({ limit, windowMs, maxKeys }: IRateLimitOptions): IRateLimiter {
@@ -25,7 +25,7 @@ export function createRateLimiter({ limit, windowMs, maxKeys }: IRateLimitOption
   }
 
   return {
-    check(key, now) {
+    shouldAllow(key, now) {
       const window = windows.get(key)
 
       if (window === undefined || now - window.startedAt >= windowMs) {

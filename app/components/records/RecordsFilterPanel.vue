@@ -35,7 +35,11 @@
 
 <script setup lang="ts">
 import { computed, useId } from 'vue'
-import { emptyFilterValueFor, filterableColumns, withFilterValue } from '#shared/utils/filter'
+import {
+  emptyFilterValueFor,
+  toFilterableColumns,
+  buildFiltersWithValue,
+} from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
 import { useFieldControls } from '~/composables/useFieldControls'
@@ -59,7 +63,7 @@ const panelId = useId()
 
 const activeFilterCount = computed(() => Object.keys(props.filters).length)
 
-const columns = computed(() => filterableColumns(props.fields))
+const columns = computed(() => toFilterableColumns(props.fields))
 
 const controls = useFieldControls(() => columns.value, filterFor)
 
@@ -80,7 +84,7 @@ function filterValue(control: TFilterControl, model: TFilterValue): TFilterValue
 }
 
 function applyFieldValue(changed: IField, value: TFilterValue) {
-  emit('update:filters', withFilterValue(columns.value, props.filters, changed.key, value))
+  emit('update:filters', buildFiltersWithValue(columns.value, props.filters, changed.key, value))
 }
 </script>
 

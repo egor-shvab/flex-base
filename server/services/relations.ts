@@ -33,7 +33,7 @@ function toLinkedRecord(
   return { number: source.number, label: buildRecordLabel(source, labelFieldKey) }
 }
 
-function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
+function buildRelationTargets(fields: IField[], rows: TRecordData[]): IRelationTarget[] {
   const targets: IRelationTarget[] = []
 
   for (const field of fields) {
@@ -54,7 +54,7 @@ function collectRelationTargets(fields: IField[], rows: TRecordData[]): IRelatio
   return targets
 }
 
-async function fetchTargetRecords(
+async function listTargetRecords(
   targets: IRelationTarget[],
 ): Promise<Map<string, Map<string, Pick<IRecord, 'number' | 'data'>>>> {
   const idsByTable = new Map<string, Set<string>>()
@@ -87,13 +87,13 @@ async function resolveLinkedRecords(
   fields: IField[],
   records: IRecord[],
 ): Promise<Record<string, Record<string, ILinkedRecord>>> {
-  const targets = collectRelationTargets(
+  const targets = buildRelationTargets(
     fields,
     records.map((record) => record.data),
   )
   if (targets.length === 0) return {}
 
-  const recordsByTable = await fetchTargetRecords(targets)
+  const recordsByTable = await listTargetRecords(targets)
   const byField: Record<string, Record<string, ILinkedRecord>> = {}
 
   for (const { field, targetTableId, ids } of targets) {
@@ -174,10 +174,10 @@ async function resolveFilterTargets(
 }
 
 async function assertRelationTargets(fields: IField[], data: TRecordData): Promise<void> {
-  const targets = collectRelationTargets(fields, [data])
+  const targets = buildRelationTargets(fields, [data])
   if (targets.length === 0) return
 
-  const recordsByTable = await fetchTargetRecords(targets)
+  const recordsByTable = await listTargetRecords(targets)
 
   for (const { field, targetTableId, ids } of targets) {
     const found = recordsByTable.get(targetTableId)
@@ -212,7 +212,7 @@ async function listRelationOptions(field: IField, search = ''): Promise<IRecordO
 }
 
 export const RelationService = {
-  collectRelationTargets,
+  buildRelationTargets,
   resolveLinkedRecords,
   assertRelationTargets,
   resolveFilterTargets,

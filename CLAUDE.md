@@ -178,12 +178,20 @@ instant on a small table locks a large one for minutes.
     handler for a user action is named for the action (`retryOptions`), never `handle*`
   - `*For(field)` sync registry lookup keyed by a field (§9) — `inputFor`
   - `require*` · `assert*` throws unless a precondition holds — `requireOwnedTable`
-  - `list*` · `get*` service read — a collection, or exactly one row (throws if absent)
+  - `list*` · `get*` · `count*` server read — a collection, exactly one row (throws if absent), or a
+    number of matching rows — `listPageRows`
+  - `resolve*` replaces references with what they point at, and may query — `resolveLinkedRecords`
   - `fetch*` · `load*` · `ensure*`: a store read — `fetch*` one endpoint, `load*` composes several,
     `ensure*` only if not already held
 
   `get*` retrieves something that exists, never something computed. `buildOptions` and
-  `collectRelationTargets` are the two sync service members, and their prefixes say so.
+  `buildRelationTargets` are the two sync service members, and `build*` says so.
+
+  **Two exceptions.** A function called for its side effect — a write, DDL, a log line — opens with
+  the domain verb it performs (`createField`, `syncFieldIndexes`, `widenToList`); the families
+  cover reads and values. The SQL combinators in `server/db/field-types/fragments.ts` and the
+  `IFieldSqlModule` slots are named for the SQL they stand for (`jsonText`, `withinRange`, `expr`),
+  because a type module reads as a declaration.
 
 - **A boolean value opens with its question** — `is*` a state or property (`isCreateOpen`), `has*`
   presence or something that already happened (`hasNextPage`), `can*` an action is available or

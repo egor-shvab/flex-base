@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { toHttpError } from '#server/utils/http-errors'
-import { tableListSelect, tableWhere, toSharedTableListItem } from '#server/db/tables'
+import { tableListSelect, buildTableAddressWhere, toSharedTableListItem } from '#server/db/tables'
 import type { ITableListItem } from '#shared/types/table'
 
 const tableErrors = {
@@ -57,7 +57,7 @@ async function renameTable(userId: string, address: string, name: string): Promi
   try {
     return toSharedTableListItem(
       await prisma.table.update({
-        where: tableWhere(userId, address),
+        where: buildTableAddressWhere(userId, address),
         data: { name },
         select: tableListSelect,
       }),
@@ -91,7 +91,7 @@ async function assertNotRelationTarget(userId: string, tableId: string) {
  */
 async function deleteTable(userId: string, address: string) {
   const table = await prisma.table.findUnique({
-    where: tableWhere(userId, address),
+    where: buildTableAddressWhere(userId, address),
     select: { id: true },
   })
 

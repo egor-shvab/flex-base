@@ -6,7 +6,7 @@ import type { TRecordFilterValues } from '#shared/types/filter'
 import type { IRecordQueryState } from '#shared/types/record'
 import {
   parseRecordQueryState,
-  recordQueryKey,
+  toRecordQueryKey,
   toRecordQueryParams,
 } from '#shared/utils/record-query'
 
@@ -93,7 +93,7 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
     emptyTitle,
     emptyMessage,
     emptyIcon,
-    queryKey: computed(() => recordQueryKey(queryState.value)),
+    queryKey: computed(() => toRecordQueryKey(queryState.value)),
     goToPage,
     applySort,
     applyFilters,

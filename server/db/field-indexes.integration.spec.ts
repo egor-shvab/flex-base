@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   dropFieldIndexes,
-  fieldIndexStats,
+  listFieldIndexStats,
   reconcileFieldIndexes,
   syncFieldIndexes,
 } from '#server/db/field-indexes'
@@ -75,7 +75,7 @@ async function planForSort(
 async function waitForScan(attempts = 40): Promise<boolean> {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     await prisma.$executeRaw`SELECT pg_stat_clear_snapshot()`
-    if ((await fieldIndexStats()).some((stat) => stat.scans > 0)) return true
+    if ((await listFieldIndexStats()).some((stat) => stat.scans > 0)) return true
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
 
@@ -246,7 +246,7 @@ describe('the index lifecycle', () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
     await syncFieldIndexes(company as IField)
 
-    const stats = await fieldIndexStats()
+    const stats = await listFieldIndexStats()
 
     expect(stats.map((stat) => stat.name)).toEqual([
       `rec_idx_${company?.id}_f`,
@@ -289,7 +289,7 @@ describe('the index lifecycle', () => {
       WHERE indexrelid = ${`rec_idx_${company?.id}_f`}::regclass
     `
 
-    const stats = await fieldIndexStats()
+    const stats = await listFieldIndexStats()
 
     expect(stats.filter((stat) => !stat.isValid).map((stat) => stat.name)).toEqual([
       `rec_idx_${company?.id}_f`,

@@ -9,7 +9,7 @@ import type { TCredentialsInput } from '#shared/validation/auth'
 const authErrors = { conflict: 'Email is already registered' }
 
 /** Same generic error for unknown email and wrong password — no user enumeration. */
-const invalidCredentials = () =>
+const buildInvalidCredentialsError = () =>
   createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
 
 /**
@@ -30,9 +30,9 @@ async function registerUser({ email, password }: TCredentialsInput): Promise<IAu
 
 async function authenticateUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
   const user = await prisma.user.findUnique({ where: { email }, select: authUserWithHashSelect })
-  if (!user) throw invalidCredentials()
+  if (!user) throw buildInvalidCredentialsError()
 
-  if (!(await verifyPassword(password, user.passwordHash))) throw invalidCredentials()
+  if (!(await verifyPassword(password, user.passwordHash))) throw buildInvalidCredentialsError()
 
   return toAuthUser(user)
 }
