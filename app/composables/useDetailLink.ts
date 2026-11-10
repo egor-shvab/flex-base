@@ -5,7 +5,7 @@ import {
   parseDetailChain,
   buildChildDetailChain,
   buildQueryWithDetailChain,
-} from '#shared/utils/record-detail'
+} from '~/utils/record-detail'
 
 export function useDetailLink() {
   const route = useRoute()

@@ -6,7 +6,7 @@ import {
   buildChildDetailChain,
   toDetailParam,
   buildQueryWithDetailChain,
-} from '#shared/utils/record-detail'
+} from '~/utils/record-detail'
 
 const ref = (tableAddress: string, recordAddress: string) => ({ tableAddress, recordAddress })
 

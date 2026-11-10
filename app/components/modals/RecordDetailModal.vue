@@ -29,7 +29,7 @@ import { computed } from 'vue'
 import type { TUrlQuery } from '#shared/types/query'
 import type { IRecordDetail } from '#shared/types/record'
 import { toTableAddress } from '#shared/utils/address'
-import { toDetailParam } from '#shared/utils/record-detail'
+import { toDetailParam } from '~/utils/record-detail'
 import { DETAIL_PARAM } from '#shared/constants/filter'
 
 const props = withDefaults(

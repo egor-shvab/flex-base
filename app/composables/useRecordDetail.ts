@@ -6,7 +6,7 @@ import {
   parseDetailChain,
   toParentDetailChain,
   buildQueryWithDetailChain,
-} from '#shared/utils/record-detail'
+} from '~/utils/record-detail'
 import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { getApiErrorMessage } from '~/utils/api-error'
