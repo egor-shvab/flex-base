@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&amp;display=swap" rel="stylesheet">
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: #f6f6f7; color: #18181b; font-family: Archivo, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+  * { box-sizing: border-box; }
+  h1, h2, h3, h4, p, ul, ol, dl, dd { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  a { color: #1c6b4a; text-decoration: none; }
+  a:hover { color: #165c3f; }
+  ::selection { background: #d9ecdf; }
+  input, select { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="position:fixed;right:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e4e4e7;border-radius:9px;background:#fff;box-shadow:0 6px 18px rgba(24,24,27,.12)">
+  <button onClick="{{ onDesktop }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ deskTabBg }};color:{{ deskTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">desktop_windows</span>Desktop</button>
+  <button onClick="{{ onMobile }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ mobTabBg }};color:{{ mobTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">smartphone</span>Mobile</button>
+</div>
+
+<sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:stretch;min-height:100vh;background:#f6f6f7">
+
+  <aside style="width:248px;min-width:248px;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh">
+    <button style="display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+      <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+      <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">unfold_more</span>
+    </button>
+
+    <a href="./Home.dc.html" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="color:#5c5c66;width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">home</span>Home</a>
+    <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+    <a href="./Clients Table.dc.html" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">248</span></a>
+    <sc-for list="{{ navTables }}" as="t" hint-placeholder-count="5">
+      <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ t.count }}</span></a>
+    </sc-for>
+    <button style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-top:4px"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">add</span>New table</button>
+
+    <span style="flex:1"></span>
+    <button onClick="{{ onGoMembers }}" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#18181b;font-family:inherit;font-size:14px;cursor:pointer;text-align:left" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">group</span><span style="flex:1">Members</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ memberCount }}</span></button>
+    <span style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;background:#e6f2eb;color:#1c6b4a;font-size:14px;font-weight:600"><span style="width:16px;text-align:center;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span><span style="flex:1">Workspace settings</span></span>
+    <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;margin-top:8px;border-top:1px solid #ededef">
+      <span style="width:26px;height:26px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ирина Петрова</span><span style="font-size:11px;color:#5c5c66">Owner</span></span>
+      <span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">more_horiz</span>
+    </div>
+  </aside>
+
+  <main data-screen-label="Workspace settings" style="flex:1;min-width:0;display:flex;flex-direction:column;background:#f6f6f7">
+
+    <div style="flex:none;padding:18px 24px 0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:4px;min-height:36px;font-size:13px;overflow:hidden">
+        <a href="./Home.dc.html" style="color:#5c5c66;flex:none">Acme</a>
+        <span style="color:#c4c4cc;font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;flex:none">chevron_right</span>
+        <span style="font-weight:600;color:#18181b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Workspace settings</span>
+      </div>
+      <h1 style="font-size:32px;font-weight:600;letter-spacing:-.025em">Workspace settings</h1>
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;min-height:36px;display:flex;align-items:center">{{ sectionLabel }}</p>
+    </div>
+
+    <div style="padding:20px 24px 64px;display:flex;align-items:flex-start;gap:28px">
+
+      <nav style="width:216px;flex:none;display:flex;flex-direction:column;gap:2px;position:sticky;top:20px">
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="5">
+          <button onClick="{{ s.onClick }}" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:8px;background:{{ s.bg }};color:{{ s.fg }};font-family:inherit;font-size:14px;font-weight:{{ s.weight }};cursor:pointer;text-align:left;margin-top:{{ s.gapTop }}" style-hover="background:#f0f0f2">
+            <span style="width:16px;text-align:center;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.label }}</span>
+          </button>
+        </sc-for>
+      </nav>
+
+      <div style="flex:1;min-width:0;max-width:760px;display:flex;flex-direction:column;gap:24px">
+
+        <sc-if value="{{ isGeneral }}" hint-placeholder-val="{{ true }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px"><h2 style="font-size:18px;font-weight:600">General</h2></div>
+            <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px">
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Logo</span>
+                <span style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:44px;height:44px;border-radius:10px;background:#3b3f9c;color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+                  <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa">Upload</button>
+                  <button style="height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#5c5c66;font-family:inherit;font-size:14px;cursor:pointer" style-hover="background:#f0f0f2;color:#18181b">Remove</button>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">PNG or SVG · 256×256</span>
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Workspace name</span>
+                <input value="{{ wsName }}" onChange="{{ onName }}" style="width:100%;max-width:340px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">URL slug</span>
+                <span style="display:flex;align-items:center;gap:0;min-width:0">
+                  <span style="height:36px;display:flex;align-items:center;padding:0 10px;border:1px solid #d1d1d6;border-right:none;border-radius:8px 0 0 8px;background:#f6f6f7;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#6d6d77;flex:none">flexbase.app/</span>
+                  <input value="{{ wsSlug }}" onChange="{{ onSlug }}" style="width:200px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:0 8px 8px 0;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#18181b">
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Time zone</span>
+                <select style="width:100%;max-width:340px;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+                  <option>Europe/Berlin · UTC+02:00</option>
+                  <option>Europe/Moscow · UTC+03:00</option>
+                  <option>UTC</option>
+                </select>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Workspace ID</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5c5c66">ws_7f31c9a2</span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px">
+                <span style="font-size:14px;color:#5c5c66">Created</span>
+                <span style="font-size:15px">14 March 2026 by Ирина Петрова</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:2px">
+              <button style="height:36px;padding:0 14px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#165c3f;border-color:#165c3f">Save changes</button>
+              <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa">Discard</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isMembers }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px">
+              <h2 style="font-size:18px;font-weight:600">Members</h2>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:#6d6d77">{{ memberCount }}</span>
+              <span style="flex:1"></span>
+              <button onClick="{{ onOpenInvite }}" style="height:36px;padding:0 14px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px" style-hover="background:#165c3f;border-color:#165c3f"><span style="font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">person_add</span>Invite member</button>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border:1px solid #e4e4e7;border-radius:10px">
+              <span style="font-size:19px;color:#5c5c66;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;flex:none">link</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column">
+                <span style="font-size:14px;font-weight:500">Invite link</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6d6d77;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">flexbase.app/join/acme-sales/8fd21c · joins as Editor · expires in 7 days</span>
+              </span>
+              <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;flex:none" style-hover="background:#fafafa">Copy link</button>
+              <button style="height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#5c5c66;font-family:inherit;font-size:14px;cursor:pointer;flex:none" style-hover="background:#f0f0f2;color:#18181b">Reset</button>
+            </div>
+
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ members }}" as="m" hint-placeholder-count="7">
+                <li style="display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid #ededef" style-hover="background:#fafafa">
+                  <span style="width:34px;height:34px;border-radius:50%;background:{{ m.avBg }};color:{{ m.avFg }};font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ m.initials }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                    <span style="display:flex;align-items:center;gap:8px;min-width:0">
+                      <span style="font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span>
+                      <sc-if value="{{ m.invited }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:5px;background:#fdf3e2;color:#8a5a12;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:none">invited</span>
+                      </sc-if>
+                      <sc-if value="{{ m.isYou }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:5px;background:#f0f0f2;color:#5c5c66;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:none">you</span>
+                      </sc-if>
+                    </span>
+                    <span style="font-size:13px;color:#5c5c66;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.email }} · {{ m.meta }}</span>
+                  </span>
+                  <sc-if value="{{ m.locked }}" hint-placeholder-val="{{ false }}">
+                    <span style="width:168px;flex:none;height:36px;display:flex;align-items:center;padding:0 10px;font-size:14px;color:#5c5c66">Owner</span>
+                  </sc-if>
+                  <sc-if value="{{ m.editable }}" hint-placeholder-val="{{ true }}">
+                    <select value="{{ m.role }}" onChange="{{ m.onRole }}" style="width:168px;flex:none;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b;cursor:pointer">
+                      <sc-for list="{{ roleOptions }}" as="r" hint-placeholder-count="4">
+                        <option value="{{ r.id }}">{{ r.name }}</option>
+                      </sc-for>
+                    </select>
+                  </sc-if>
+                  <button onClick="{{ m.onRemove }}" disabled="{{ m.locked }}" style="width:36px;height:36px;flex:none;border:1px solid transparent;border-radius:8px;background:transparent;color:{{ m.removeFg }};font-size:18px;cursor:{{ m.removeCursor }};font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#fdecec;color:#b4232a">{{ m.removeGlyph }}</button>
+                </li>
+              </sc-for>
+            </ul>
+            <p style="font-size:13px;color:#6d6d77">Removing a member revokes access immediately. Records they created stay in the workspace.</p>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isPermissions }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px">
+              <h2 style="font-size:18px;font-weight:600">Permissions</h2>
+              <span style="flex:1"></span>
+              <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px" style-hover="background:#fafafa"><span style="font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:18px">add</span>New role</button>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ roles }}" as="r" hint-placeholder-count="5">
+                <button onClick="{{ r.onClick }}" style="display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid {{ r.border }};border-radius:8px;background:{{ r.bg }};color:{{ r.fg }};font-family:inherit;font-size:14px;font-weight:{{ r.weight }};cursor:pointer">{{ r.name }}<span style="font-family:'IBM Plex Mono',monospace;font-size:12px;opacity:.7">{{ r.count }}</span></button>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:{{ roleNoteBg }};border:1px solid {{ roleNoteBorder }};border-radius:10px">
+              <span style="font-size:19px;color:{{ roleNoteFg }};flex:none;font-family:'Material Symbols Rounded';line-height:1.1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ roleNoteGlyph }}</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:14px;font-weight:600">{{ roleName }}</span>
+                <span style="font-size:13px;color:#3f3f46">{{ roleDesc }}</span>
+              </span>
+              <button style="height:32px;padding:0 10px;border:none;border-radius:8px;background:none;color:#5c5c66;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;flex:none" style-hover="background:#f0f0f2;color:#18181b">Rename</button>
+            </div>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:6px">Tables</p>
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ permTables }}" as="t" hint-placeholder-count="6">
+                <li style="display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid #ededef">
+                  <span style="width:32px;height:32px;border-radius:8px;background:#f0f0f2;color:#5c5c66;display:flex;align-items:center;justify-content:center;flex:none;font-size:19px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+                  <span style="width:150px;flex:none;min-width:0;display:flex;flex-direction:column;gap:1px">
+                    <span style="font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.name }}</span>
+                    <button onClick="{{ t.onFields }}" style="padding:0;border:none;background:none;color:{{ t.fieldsFg }};font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;text-align:left">{{ t.fieldsLabel }}</button>
+                  </span>
+                  <select value="{{ t.access }}" onChange="{{ t.onAccess }}" disabled="{{ t.locked }}" style="width:150px;flex:none;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:{{ t.selectBg }};font-size:14px;color:#18181b;cursor:{{ t.cursor }}">
+                    <option value="none">No access</option>
+                    <option value="read">Read</option>
+                    <option value="write">Read &amp; write</option>
+                  </select>
+                  <span style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end">
+                    <sc-for list="{{ t.actions }}" as="a" hint-placeholder-count="4">
+                      <button onClick="{{ a.onToggle }}" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border:1px solid {{ a.border }};border-radius:6px;background:{{ a.bg }};color:{{ a.fg }};font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:{{ a.cursor }};opacity:{{ a.opacity }}">{{ a.label }}</button>
+                    </sc-for>
+                  </span>
+                </li>
+              </sc-for>
+            </ul>
+            <p style="font-size:13px;color:#6d6d77">Field-level access is set per table — open a table to hide individual fields from this role.</p>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:14px">Workspace settings access</p>
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ permSettings }}" as="p" hint-placeholder-count="5">
+                <li style="display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid #ededef;min-height:48px">
+                  <button onClick="{{ p.onToggle }}" style="display:flex;align-items:center;gap:11px;flex:1;min-width:0;height:48px;padding:0;border:none;background:none;font-family:inherit;cursor:{{ p.cursor }};text-align:left">
+                    <span style="width:18px;height:18px;border-radius:6px;border:1px solid {{ p.boxBorder }};background:{{ p.boxBg }};color:#fff;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 20">{{ p.mark }}</span>
+                    <span style="flex:1;min-width:0;font-size:14px;color:#18181b">{{ p.label }}</span>
+                  </button>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77;flex:none">{{ p.hint }}</span>
+                </li>
+              </sc-for>
+            </ul>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:14px">Other access</p>
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ permOther }}" as="p" hint-placeholder-count="5">
+                <li style="display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid #ededef;min-height:56px">
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                    <span style="font-size:14px;font-weight:500">{{ p.label }}</span>
+                    <span style="font-size:13px;color:#5c5c66">{{ p.desc }}</span>
+                  </span>
+                  <button onClick="{{ p.onToggle }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ p.trackBorder }};border-radius:999px;background:{{ p.trackBg }};cursor:{{ p.cursor }};display:flex;justify-content:{{ p.knobPos }};align-items:center">
+                    <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+                  </button>
+                </li>
+              </sc-for>
+            </ul>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isBilling }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px"><h2 style="font-size:18px;font-weight:600">Billing</h2></div>
+
+            <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:16px;padding:16px;border-bottom:1px solid #ededef;flex-wrap:wrap">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                  <span style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:20px;font-weight:600">Team</span>
+                    <span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:#e6f2eb;color:#1c6b4a;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase">current plan</span>
+                  </span>
+                  <span style="font-size:14px;color:#5c5c66">€4.00 per billed seat / month · billed monthly · renews 1 October 2026</span>
+                </span>
+                <span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:500">€40.00</span>
+                  <span style="font-size:13px;color:#5c5c66">10 billed seats / month</span>
+                </span>
+                <button style="height:36px;padding:0 14px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;flex:none" style-hover="background:#165c3f;border-color:#165c3f">Change plan</button>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                <span style="font-size:14px;color:#5c5c66">Payment method</span>
+                <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:14px">Visa •••• 4242</span>
+                  <span style="font-size:13px;color:#6d6d77">expires 04 / 29</span>
+                  <button style="height:32px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#f0f7f3">Update</button>
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:184px minmax(0,1fr);gap:16px;align-items:center;min-height:56px;padding:10px 16px">
+                <span style="font-size:14px;color:#5c5c66">Invoices</span>
+                <span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                  <span style="font-size:15px">Last invoice 1 September 2026 · €40.00 · paid</span>
+                  <a href="#" style="font-size:14px;font-weight:600">All invoices</a>
+                </span>
+              </div>
+            </div>
+
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:14px">Usage · September 2026</p>
+            <ul style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ usage }}" as="u" hint-placeholder-count="5">
+                <li style="display:grid;grid-template-columns:184px minmax(0,1fr) 132px;gap:16px;align-items:center;min-height:56px;padding:10px 16px;border-bottom:1px solid #ededef">
+                  <span style="font-size:14px;color:#5c5c66">{{ u.label }}</span>
+                  <span style="height:8px;border-radius:999px;background:#f0f0f2;display:block;overflow:hidden">
+                    <span style="display:block;height:8px;border-radius:999px;background:{{ u.barFg }};width:{{ u.pct }}"></span>
+                  </span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{ u.valueFg }};text-align:right">{{ u.value }}</span>
+                </li>
+              </sc-for>
+            </ul>
+            <p style="font-size:13px;color:#6d6d77">Pending invitations are not billed until they are accepted. Records and API calls reset on the first day of the billing period.</p>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isDanger }}" hint-placeholder-val="{{ false }}">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:36px"><h2 style="font-size:18px;font-weight:600">Danger zone</h2></div>
+
+            <div style="background:#fff;border:1px solid #f0c9cb;border-radius:10px;overflow:hidden">
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-bottom:1px solid #f6dcde;flex-wrap:wrap">
+                <span style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:15px;font-weight:600">Transfer ownership</span>
+                  <span style="font-size:13px;color:#3f3f46">The new owner gets full access to every table, the billing account and this settings page. You stay in the workspace as an Admin.</span>
+                </span>
+                <span style="display:flex;align-items:center;gap:8px;flex:none">
+                  <select value="{{ transferTo }}" onChange="{{ onTransferTo }}" style="width:220px;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b;cursor:pointer">
+                    <sc-for list="{{ transferCandidates }}" as="c" hint-placeholder-count="4">
+                      <option value="{{ c.id }}">{{ c.label }}</option>
+                    </sc-for>
+                  </select>
+                  <button onClick="{{ onTransfer }}" style="height:36px;padding:0 14px;border:1px solid #b4232a;border-radius:8px;background:#fff;color:#b4232a;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fdecec">Transfer</button>
+                </span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:16px;flex-wrap:wrap">
+                <span style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:15px;font-weight:600">Delete workspace</span>
+                  <span style="font-size:13px;color:#3f3f46">6 tables, 2 009 records and all shared views are removed. Members lose access immediately. This cannot be undone.</span>
+                </span>
+                <button onClick="{{ onDeleteWs }}" style="height:36px;padding:0 14px;border:1px solid #b4232a;border-radius:8px;background:#b4232a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;flex:none" style-hover="background:#96181f;border-color:#96181f">Delete workspace</button>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+      </div>
+    </div>
+  </main>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 64px;background:#f0f0f2">
+  <div data-screen-label="Workspace settings · mobile" style="position:relative;width:390px;max-width:100%;height:844px;overflow:hidden;border:1px solid #d1d1d6;border-radius:26px;background:#f6f6f7;box-shadow:0 18px 44px rgba(24,24,27,.16);display:flex;flex-direction:column">
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">
+      <span>9:41</span>
+      <span style="display:flex;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">battery_full</span></span>
+    </div>
+
+    <div style="flex:none;padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onClick="{{ onToggleNav }}" style="width:36px;height:36px;flex:none;border:1px solid #e4e4e7;border-radius:8px;background:#fff;color:#18181b;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">menu</button>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:3px;font-size:12px;overflow:hidden">
+          <a href="./Home.dc.html" style="color:#5c5c66;flex:none">Acme</a>
+          <span style="color:#c4c4cc;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;flex:none">chevron_right</span>
+          <span style="font-weight:600;color:#18181b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Settings</span>
+        </div>
+      </div>
+      <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em">Workspace settings</h1>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="5">
+          <button onClick="{{ s.onClick }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;flex:none;border:1px solid {{ s.chipBorder }};border-radius:8px;background:{{ s.chipBg }};color:{{ s.fg }};font-family:inherit;font-size:13px;font-weight:{{ s.weight }};cursor:pointer;white-space:nowrap"><span style="font-size:17px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ s.glyph }}</span>{{ s.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:0 12px 24px;display:flex;flex-direction:column;align-items:stretch;gap:16px">
+
+      <sc-if value="{{ isGeneral }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="width:44px;height:44px;border-radius:10px;background:#3b3f9c;color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">Logo</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">PNG or SVG · 256×256</span></span>
+            <button style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;flex:none">Upload</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Workspace name</span>
+            <input value="{{ wsName }}" onChange="{{ onName }}" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">URL slug</span>
+            <span style="display:flex;align-items:center">
+              <span style="height:36px;display:flex;align-items:center;padding:0 10px;border:1px solid #d1d1d6;border-right:none;border-radius:8px 0 0 8px;background:#f6f6f7;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#6d6d77;flex:none">flexbase.app/</span>
+              <input value="{{ wsSlug }}" onChange="{{ onSlug }}" style="flex:1;min-width:0;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:0 8px 8px 0;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#18181b">
+            </span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Time zone</span>
+            <select style="width:100%;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b">
+              <option>Europe/Berlin · UTC+02:00</option>
+              <option>Europe/Moscow · UTC+03:00</option>
+              <option>UTC</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px">
+            <span style="font-size:13px;color:#5c5c66">Workspace ID</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5c5c66">ws_7f31c9a2</span>
+          </div>
+        </div>
+        <button style="flex:none;height:36px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Save changes</button>
+      </sc-if>
+
+      <sc-if value="{{ isMembers }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onOpenInvite }}" style="flex:none;height:36px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">person_add</span>Invite member</button>
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ members }}" as="m" hint-placeholder-count="7">
+            <li style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #ededef">
+              <span style="width:34px;height:34px;border-radius:50%;background:{{ m.avBg }};color:{{ m.avFg }};font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ m.initials }}</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                  <span style="font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span>
+                  <sc-if value="{{ m.invited }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;background:#fdf3e2;color:#8a5a12;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;flex:none">inv</span>
+                  </sc-if>
+                </span>
+                <span style="font-size:12px;color:#5c5c66;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.email }}</span>
+                <sc-if value="{{ m.editable }}" hint-placeholder-val="{{ true }}">
+                  <select value="{{ m.role }}" onChange="{{ m.onRole }}" style="width:100%;height:36px;margin-top:2px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b;cursor:pointer">
+                    <sc-for list="{{ roleOptions }}" as="r" hint-placeholder-count="4">
+                      <option value="{{ r.id }}">{{ r.name }}</option>
+                    </sc-for>
+                  </select>
+                </sc-if>
+                <sc-if value="{{ m.locked }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:13px;color:#5c5c66">Owner · role cannot be changed</span>
+                </sc-if>
+              </span>
+              <button onClick="{{ m.onRemove }}" disabled="{{ m.locked }}" style="width:36px;height:36px;flex:none;border:none;border-radius:8px;background:transparent;color:{{ m.removeFg }};font-size:19px;cursor:{{ m.removeCursor }};font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ m.removeGlyph }}</button>
+            </li>
+          </sc-for>
+        </ul>
+      </sc-if>
+
+      <sc-if value="{{ isPermissions }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
+          <sc-for list="{{ roles }}" as="r" hint-placeholder-count="5">
+            <button onClick="{{ r.onClick }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;flex:none;border:1px solid {{ r.border }};border-radius:8px;background:{{ r.bg }};color:{{ r.fg }};font-family:inherit;font-size:13px;font-weight:{{ r.weight }};cursor:pointer;white-space:nowrap">{{ r.name }}<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:.7">{{ r.count }}</span></button>
+          </sc-for>
+        </div>
+        <p style="flex:none;font-size:13px;color:#3f3f46">{{ roleDesc }}</p>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ permTables }}" as="t" hint-placeholder-count="6">
+            <li style="display:flex;flex-direction:column;gap:8px;padding:12px;border-bottom:1px solid #ededef">
+              <span style="display:flex;align-items:center;gap:10px">
+                <span style="width:30px;height:30px;border-radius:8px;background:#f0f0f2;color:#5c5c66;display:flex;align-items:center;justify-content:center;flex:none;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:15px;font-weight:500">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ t.fieldsFg }}">{{ t.fieldsLabel }}</span></span>
+                <select value="{{ t.access }}" onChange="{{ t.onAccess }}" disabled="{{ t.locked }}" style="width:140px;flex:none;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:{{ t.selectBg }};font-size:13px;color:#18181b;cursor:{{ t.cursor }}">
+                  <option value="none">No access</option>
+                  <option value="read">Read</option>
+                  <option value="write">Read &amp; write</option>
+                </select>
+              </span>
+              <span style="display:flex;flex-wrap:wrap;gap:5px">
+                <sc-for list="{{ t.actions }}" as="a" hint-placeholder-count="4">
+                  <button onClick="{{ a.onToggle }}" style="display:inline-flex;align-items:center;height:30px;padding:0 10px;border:1px solid {{ a.border }};border-radius:6px;background:{{ a.bg }};color:{{ a.fg }};font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:{{ a.cursor }};opacity:{{ a.opacity }}">{{ a.label }}</button>
+                </sc-for>
+              </span>
+            </li>
+          </sc-for>
+        </ul>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:6px">Workspace settings access</p>
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ permSettings }}" as="p" hint-placeholder-count="5">
+            <li style="display:flex;align-items:center;border-bottom:1px solid #ededef">
+              <button onClick="{{ p.onToggle }}" style="display:flex;align-items:center;gap:11px;flex:1;min-width:0;min-height:48px;padding:0 14px;border:none;background:none;font-family:inherit;cursor:{{ p.cursor }};text-align:left">
+                <span style="width:18px;height:18px;border-radius:6px;border:1px solid {{ p.boxBorder }};background:{{ p.boxBg }};color:#fff;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 20">{{ p.mark }}</span>
+                <span style="flex:1;min-width:0;font-size:14px;color:#18181b">{{ p.label }}</span>
+              </button>
+            </li>
+          </sc-for>
+        </ul>
+
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;margin-top:6px">Other access</p>
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ permOther }}" as="p" hint-placeholder-count="5">
+            <li style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #ededef;min-height:56px">
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">{{ p.label }}</span><span style="font-size:12px;color:#5c5c66">{{ p.desc }}</span></span>
+              <button onClick="{{ p.onToggle }}" style="width:36px;height:20px;flex:none;padding:2px;border:1px solid {{ p.trackBorder }};border-radius:999px;background:{{ p.trackBg }};cursor:{{ p.cursor }};display:flex;justify-content:{{ p.knobPos }};align-items:center">
+                <span style="width:14px;height:14px;border-radius:50%;background:#fff;display:block;box-shadow:0 1px 2px rgba(24,24,27,.2)"></span>
+              </button>
+            </li>
+          </sc-for>
+        </ul>
+      </sc-if>
+
+      <sc-if value="{{ isBilling }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-bottom:1px solid #ededef">
+            <span style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:20px;font-weight:600">Team</span>
+              <span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:#e6f2eb;color:#1c6b4a;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase">current plan</span>
+            </span>
+            <span style="font-size:13px;color:#5c5c66">€4.00 per billed seat / month · renews 1 October 2026</span>
+            <span style="display:flex;align-items:baseline;gap:8px"><span style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:500">€40.00</span><span style="font-size:13px;color:#5c5c66">10 billed seats / month</span></span>
+            <button style="height:36px;margin-top:4px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Change plan</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid #ededef">
+            <span style="font-size:13px;color:#5c5c66">Payment method</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">Visa •••• 4242</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px">
+            <span style="font-size:13px;color:#5c5c66">Last invoice</span>
+            <a href="#" style="font-size:14px;font-weight:600">€40.00 · paid</a>
+          </div>
+        </div>
+        <p style="flex:none;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Usage · September 2026</p>
+        <ul style="flex:none;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden">
+          <sc-for list="{{ usage }}" as="u" hint-placeholder-count="5">
+            <li style="display:flex;flex-direction:column;gap:7px;padding:12px 14px;border-bottom:1px solid #ededef">
+              <span style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:14px">{{ u.label }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{ u.valueFg }}">{{ u.value }}</span></span>
+              <span style="height:8px;border-radius:999px;background:#f0f0f2;display:block;overflow:hidden"><span style="display:block;height:8px;border-radius:999px;background:{{ u.barFg }};width:{{ u.pct }}"></span></span>
+            </li>
+          </sc-for>
+        </ul>
+      </sc-if>
+
+      <sc-if value="{{ isDanger }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;background:#fff;border:1px solid #f0c9cb;border-radius:10px;overflow:hidden">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-bottom:1px solid #f6dcde">
+            <span style="font-size:15px;font-weight:600">Transfer ownership</span>
+            <span style="font-size:13px;color:#3f3f46">The new owner gets full access to every table, billing and this settings page. You stay as an Admin.</span>
+            <select value="{{ transferTo }}" onChange="{{ onTransferTo }}" style="width:100%;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;color:#18181b;cursor:pointer">
+              <sc-for list="{{ transferCandidates }}" as="c" hint-placeholder-count="4">
+                <option value="{{ c.id }}">{{ c.label }}</option>
+              </sc-for>
+            </select>
+            <button onClick="{{ onTransfer }}" style="height:36px;border:1px solid #b4232a;border-radius:8px;background:#fff;color:#b4232a;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Transfer ownership</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:14px">
+            <span style="font-size:15px;font-weight:600">Delete workspace</span>
+            <span style="font-size:13px;color:#3f3f46">6 tables, 2 009 records and all shared views are removed. This cannot be undone.</span>
+            <button onClick="{{ onDeleteWs }}" style="height:36px;border:1px solid #b4232a;border-radius:8px;background:#b4232a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Delete workspace</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:30;display:flex">
+        <div style="width:288px;max-width:84%;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+          <button onClick="{{ onToggleNav }}" style="display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+            <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+            <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">unfold_more</span>
+          </button>
+          <a href="./Home.dc.html" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="color:#5c5c66;width:16px;text-align:center;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">home</span>Home</a>
+          <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+          <a href="./Clients Table.dc.html" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">248</span></a>
+          <sc-for list="{{ navTables }}" as="t" hint-placeholder-count="5">
+            <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ t.count }}</span></a>
+          </sc-for>
+          <span style="flex:1;min-height:16px"></span>
+          <button onClick="{{ onGoMembers }}" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border:none;border-radius:8px;background:none;color:#18181b;font-family:inherit;font-size:14px;cursor:pointer;text-align:left"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">group</span><span style="flex:1">Members</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ memberCount }}</span></button>
+          <span style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;background:#e6f2eb;color:#1c6b4a;font-size:14px;font-weight:600"><span style="width:16px;text-align:center;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span><span style="flex:1">Workspace settings</span></span>
+          <div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 10px;margin-top:8px;border-top:1px solid #ededef">
+            <span style="width:28px;height:28px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ирина Петрова</span><span style="font-size:11px;color:#5c5c66">Owner</span></span>
+            <span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">more_horiz</span>
+          </div>
+        </div>
+        <div onClick="{{ onToggleNav }}" style="flex:1;background:rgba(24,24,27,.34)"></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ mobileSheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:50;background:rgba(24,24,27,.42);display:flex;align-items:flex-end;padding:12px">
+        <div style="width:100%;background:#fff;border:1px solid #e4e4e7;border-radius:14px;box-shadow:0 -8px 32px rgba(24,24,27,.2);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #ededef">
+            <span style="width:30px;height:30px;border-radius:8px;background:{{ sheetIconBg }};color:{{ sheetIconFg }};display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ sheetGlyph }}</span>
+            <span style="font-size:16px;font-weight:600">{{ sheetTitle }}</span>
+          </div>
+          <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px;padding:16px">
+              <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#5c5c66">Email addresses</span><input placeholder="name@company.com, second@company.com" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px"></span>
+              <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#5c5c66">Role</span>
+                <select style="width:100%;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px">
+                  <sc-for list="{{ roleOptions }}" as="r" hint-placeholder-count="4">
+                    <option value="{{ r.id }}">{{ r.name }}</option>
+                  </sc-for>
+                </select>
+              </span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+            <p style="padding:16px;font-size:14px;color:#3f3f46">{{ confirmBody }}</p>
+          </sc-if>
+          <div style="display:flex;gap:8px;padding:12px 16px;background:#fafafa;border-top:1px solid #ededef">
+            <button onClick="{{ onCloseSheet }}" style="flex:1;height:36px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Cancel</button>
+            <button onClick="{{ onConfirm }}" style="flex:1;height:36px;border:1px solid {{ sheetActionBorder }};border-radius:8px;background:{{ sheetActionBg }};color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">{{ sheetAction }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ desktopSheetOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:80;background:rgba(24,24,27,.42);display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%;max-width:460px;background:#fff;border:1px solid #e4e4e7;border-radius:12px;box-shadow:0 20px 48px rgba(24,24,27,.24);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #ededef">
+        <span style="width:30px;height:30px;border-radius:8px;background:{{ sheetIconBg }};color:{{ sheetIconFg }};display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ sheetGlyph }}</span>
+        <span style="font-size:16px;font-weight:600">{{ sheetTitle }}</span>
+      </div>
+      <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px;padding:16px">
+          <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#5c5c66">Email addresses</span><input placeholder="name@company.com, second@company.com" style="width:100%;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px"></span>
+          <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#5c5c66">Role</span>
+            <select style="width:100%;height:36px;padding:0 8px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px">
+              <sc-for list="{{ roleOptions }}" as="r" hint-placeholder-count="4">
+                <option value="{{ r.id }}">{{ r.name }}</option>
+              </sc-for>
+            </select>
+          </span>
+          <span style="font-size:13px;color:#6d6d77">Invitations expire after 7 days. Each accepted invitation adds one billed seat, €4.00 per month.</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+        <p style="padding:16px;font-size:14px;color:#3f3f46">{{ confirmBody }}</p>
+      </sc-if>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:#fafafa;border-top:1px solid #ededef">
+        <button onClick="{{ onCloseSheet }}" style="height:36px;padding:0 14px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Cancel</button>
+        <button onClick="{{ onConfirm }}" style="height:36px;padding:0 14px;border:1px solid {{ sheetActionBorder }};border-radius:8px;background:{{ sheetActionBg }};color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">{{ sheetAction }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop' | 'mobile'&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;general&quot;,&quot;members&quot;,&quot;permissions&quot;,&quot;billing&quot;,&quot;danger&quot;],&quot;default&quot;:&quot;general&quot;,&quot;tsType&quot;:&quot;'general' | 'members' | 'permissions' | 'billing' | 'danger'&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const SECTIONS = [
+  { id: 'general', label: 'General', glyph: 'tune' },
+  { id: 'members', label: 'Members', glyph: 'group' },
+  { id: 'permissions', label: 'Permissions', glyph: 'shield_person' },
+  { id: 'billing', label: 'Billing', glyph: 'credit_card' },
+  { id: 'danger', label: 'Danger zone', glyph: 'warning' },
+];
+
+const TABLES = [
+  { id: 'clients', name: 'Clients', fields: 12 },
+  { id: 'people', name: 'People', fields: 9 },
+  { id: 'projects', name: 'Projects', fields: 14 },
+  { id: 'tasks', name: 'Tasks', fields: 8 },
+  { id: 'invoices', name: 'Invoices', fields: 11 },
+  { id: 'suppliers', name: 'Suppliers', fields: 7 },
+];
+
+const ACTIONS = [
+  { id: 'create', label: 'create' },
+  { id: 'edit', label: 'edit' },
+  { id: 'delete', label: 'delete' },
+  { id: 'export', label: 'export' },
+];
+
+const ROLES = [
+  { id: 'owner', name: 'Owner', count: 1, locked: true, desc: 'One person per workspace. Full access to every table, billing and this settings page. Cannot be edited — transfer ownership instead.' },
+  { id: 'admin', name: 'Admin', count: 1, desc: 'Runs the workspace day to day: all tables, members and billing. Cannot delete the workspace or transfer ownership.' },
+  { id: 'editor', name: 'Editor', count: 3, desc: 'Works with records. Sees the tables you allow below and cannot open workspace settings.' },
+  { id: 'commenter', name: 'Commenter', count: 1, desc: 'Reads records and leaves comments. No edits, no exports.' },
+  { id: 'viewer', name: 'Viewer', count: 1, desc: 'Read-only access to the tables you allow below.' },
+];
+
+const OTHER = [
+  { id: 'invite', label: 'Invite members', desc: 'Send invitations and revoke them' },
+  { id: 'tables', label: 'Create and delete tables', desc: 'Add new tables and change their fields' },
+  { id: 'views', label: 'Create shared views', desc: 'Save filters and sorts for the whole workspace' },
+  { id: 'api', label: 'Use the API and webhooks', desc: 'Issue tokens and read data programmatically' },
+  { id: 'export', label: 'Export workspace data', desc: 'Download all tables as CSV or JSON' },
+];
+
+const SETTINGS_HINTS = { general: 'name, logo, URL', members: 'invite and remove', permissions: 'roles and access', billing: 'plan and invoices', danger: 'transfer and delete' };
+
+function seed(roleId) {
+  const t = {}, s = {}, o = {};
+  TABLES.forEach(tb => {
+    let access = 'write', acts = { create: true, edit: true, delete: true, export: true };
+    if (roleId === 'editor') {
+      access = tb.id === 'invoices' ? 'read' : 'write';
+      acts = { create: true, edit: true, delete: false, export: true };
+    } else if (roleId === 'commenter') {
+      access = 'read';
+      acts = { create: false, edit: false, delete: false, export: false };
+    } else if (roleId === 'viewer') {
+      access = (tb.id === 'clients' || tb.id === 'projects') ? 'read' : 'none';
+      acts = { create: false, edit: false, delete: false, export: false };
+    }
+    t[tb.id] = { access, acts };
+  });
+  SECTIONS.forEach(sec => {
+    s[sec.id] = roleId === 'owner' || (roleId === 'admin' && sec.id !== 'danger');
+  });
+  OTHER.forEach(item => {
+    o[item.id] = roleId === 'owner' || roleId === 'admin' || (roleId === 'editor' && item.id === 'views');
+  });
+  return { tables: t, settings: s, other: o };
+}
+
+const PERM = {};
+ROLES.forEach(r => { PERM[r.id] = seed(r.id); });
+
+const MEMBERS = [
+  { id: 'm1', name: 'Ирина Петрова', email: 'irina@acme.co', initials: 'ИП', role: 'owner', meta: 'active 2 minutes ago', you: true },
+  { id: 'm2', name: 'Данил Ковалёв', email: 'danil@acme.co', initials: 'ДК', role: 'admin', meta: 'active 1 hour ago' },
+  { id: 'm3', name: 'Marta Nowak', email: 'marta@acme.co', initials: 'MN', role: 'editor', meta: 'active yesterday' },
+  { id: 'm4', name: 'Сергей Ким', email: 'sergey@acme.co', initials: 'СК', role: 'editor', meta: 'active 3 days ago' },
+  { id: 'm5', name: 'Tom Beltz', email: 'tom@partner.io', initials: 'TB', role: 'commenter', meta: 'active 2 weeks ago' },
+  { id: 'm8', name: 'Анна Соколова', email: 'anna@acme.co', initials: 'АС', role: 'editor', meta: 'active 4 hours ago' },
+  { id: 'm9', name: 'Piotr Zieliński', email: 'piotr@acme.co', initials: 'PZ', role: 'editor', meta: 'active yesterday' },
+  { id: 'm10', name: 'Максим Гросс', email: 'maxim@acme.co', initials: 'МГ', role: 'editor', meta: 'active 2 days ago' },
+  { id: 'm11', name: 'Julia Reiss', email: 'julia@acme.co', initials: 'JR', role: 'commenter', meta: 'active 5 days ago' },
+  { id: 'm12', name: 'Олег Дан', email: 'oleg@acme.co', initials: 'ОД', role: 'viewer', meta: 'active 3 weeks ago' },
+  { id: 'm6', name: 'lena@acme.co', email: 'invited by Ирина', initials: 'L', role: 'editor', meta: 'invited 2 days ago', invited: true },
+  { id: 'm7', name: 'finance@acme.co', email: 'invited by Данил', initials: 'F', role: 'viewer', meta: 'invited yesterday', invited: true },
+];
+
+const USAGE = [
+  { label: 'Tables', used: 6, limit: 25, value: '6 / 25' },
+  { label: 'Records', used: 2009, limit: 50000, value: '2 009 / 50 000' },
+  { label: 'Billed seats', used: 10, limit: 15, value: '10 / 15' },
+  { label: 'File storage', used: 3.2, limit: 20, value: '3.2 / 20 GB' },
+  { label: 'API calls', used: 88400, limit: 100000, value: '88 400 / 100 000' },
+];
+
+const AVATARS = [['#e9e9fa', '#3b3f9c'], ['#e6f2eb', '#1c6b4a'], ['#f0f0f2', '#5c5c66'], ['#fdf3e2', '#8a5a12']];
+
+class Component extends DCLogic {
+  state = {
+    section: null, layout: null, navOpen: false, roleId: 'editor',
+    members: MEMBERS, perm: PERM, modal: null,
+    wsName: 'Acme Sales', wsSlug: 'acme-sales', transferTo: 'm2',
+  };
+
+  setPerm(roleId, fn) {
+    this.setState(s => {
+      const perm = { ...s.perm };
+      const r = JSON.parse(JSON.stringify(perm[roleId]));
+      fn(r);
+      perm[roleId] = r;
+      return { perm };
+    });
+  }
+
+  renderVals() {
+    const section = this.state.section ?? (this.props.section ?? 'general');
+    const layout = this.state.layout ?? (this.props.layout ?? 'desktop');
+    const isMobile = layout === 'mobile';
+    const roleId = this.state.roleId;
+    const role = ROLES.find(r => r.id === roleId);
+    const locked = !!role.locked;
+    const perm = this.state.perm[roleId];
+    const modal = this.state.modal;
+    const roleName = id => (ROLES.find(r => r.id === id) || {}).name || id;
+
+    const members = this.state.members.map((m, i) => {
+      const isOwner = m.role === 'owner';
+      const av = AVATARS[i % AVATARS.length];
+      return {
+        ...m,
+        avBg: m.invited ? '#f6f6f7' : av[0],
+        avFg: m.invited ? '#6d6d77' : av[1],
+        isYou: !!m.you,
+        locked: isOwner,
+        editable: !isOwner,
+        removeGlyph: m.invited ? 'close' : 'person_remove',
+        removeFg: isOwner ? '#d1d1d6' : '#5c5c66',
+        removeCursor: isOwner ? 'default' : 'pointer',
+        onRole: e => {
+          const value = e.target.value;
+          this.setState(s => ({ members: s.members.map(x => x.id === m.id ? { ...x, role: value } : x) }));
+        },
+        onRemove: () => { if (!isOwner) this.setState({ modal: { kind: m.invited ? 'revoke' : 'remove', id: m.id, name: m.name } }); },
+      };
+    });
+
+    const permTables = TABLES.map(tb => {
+      const cur = perm.tables[tb.id];
+      const off = cur.access === 'none';
+      return {
+        name: tb.name,
+        access: cur.access,
+        locked,
+        cursor: locked ? 'default' : 'pointer',
+        selectBg: locked ? '#f6f6f7' : '#fff',
+        fieldsLabel: off ? 'no fields' : (cur.access === 'read' ? 'all ' + tb.fields + ' fields · read' : 'all ' + tb.fields + ' fields'),
+        fieldsFg: off ? '#a1a1aa' : '#1c6b4a',
+        onFields: () => {},
+        onAccess: e => {
+          const value = e.target.value;
+          this.setPerm(roleId, r => { r.tables[tb.id].access = value; });
+        },
+        actions: ACTIONS.map(a => {
+          const on = cur.acts[a.id] && !off;
+          const disabled = locked || off;
+          return {
+            label: a.label,
+            bg: on ? '#e6f2eb' : '#fff',
+            fg: on ? '#1c6b4a' : '#6d6d77',
+            border: on ? '#b9dbc8' : '#e4e4e7',
+            opacity: disabled ? 0.5 : 1,
+            cursor: disabled ? 'default' : 'pointer',
+            onToggle: () => { if (!disabled) this.setPerm(roleId, r => { r.tables[tb.id].acts[a.id] = !r.tables[tb.id].acts[a.id]; }); },
+          };
+        }),
+      };
+    });
+
+    const permSettings = SECTIONS.map(sec => {
+      const on = perm.settings[sec.id];
+      return {
+        label: sec.label,
+        hint: SETTINGS_HINTS[sec.id],
+        mark: on ? 'check' : '',
+        boxBg: on ? '#1c6b4a' : '#fff',
+        boxBorder: on ? '#1c6b4a' : '#d1d1d6',
+        cursor: locked ? 'default' : 'pointer',
+        onToggle: () => { if (!locked) this.setPerm(roleId, r => { r.settings[sec.id] = !r.settings[sec.id]; }); },
+      };
+    });
+
+    const permOther = OTHER.map(item => {
+      const on = perm.other[item.id];
+      return {
+        label: item.label,
+        desc: item.desc,
+        trackBg: on ? '#1c6b4a' : '#e4e4e7',
+        trackBorder: on ? '#1c6b4a' : '#d1d1d6',
+        knobPos: on ? 'flex-end' : 'flex-start',
+        cursor: locked ? 'default' : 'pointer',
+        onToggle: () => { if (!locked) this.setPerm(roleId, r => { r.other[item.id] = !r.other[item.id]; }); },
+      };
+    });
+
+    const invite = modal && modal.kind === 'invite';
+    const confirmBody = !modal ? '' :
+      modal.kind === 'remove' ? 'Remove ' + modal.name + ' from Acme Sales? Access is revoked immediately. Records they created stay in the workspace.' :
+      modal.kind === 'revoke' ? 'Revoke the invitation sent to ' + modal.name + '? The link in their email stops working.' :
+      modal.kind === 'transfer' ? 'Make ' + modal.name + ' the owner of Acme Sales? They get billing and full settings access, and you become an Admin.' :
+      'Delete Acme Sales? 6 tables, 2 009 records and all shared views are permanently removed and 12 members lose access. This cannot be undone.';
+
+    return {
+      sections: SECTIONS.map(sec => ({
+        label: sec.label,
+        glyph: sec.glyph,
+        bg: section === sec.id ? '#e6f2eb' : 'transparent',
+        chipBg: section === sec.id ? '#e6f2eb' : '#fff',
+        chipBorder: section === sec.id ? '#b9dbc8' : '#e4e4e7',
+        fg: section === sec.id ? '#1c6b4a' : (sec.id === 'danger' ? '#b4232a' : '#18181b'),
+        weight: section === sec.id ? 600 : 400,
+        gapTop: sec.id === 'danger' ? '12px' : '0px',
+        onClick: () => this.setState({ section: sec.id }),
+      })),
+      sectionLabel: (SECTIONS.find(s => s.id === section) || SECTIONS[0]).label,
+      isGeneral: section === 'general',
+      isMembers: section === 'members',
+      isPermissions: section === 'permissions',
+      isBilling: section === 'billing',
+      isDanger: section === 'danger',
+
+      wsName: this.state.wsName,
+      wsSlug: this.state.wsSlug,
+      onName: e => this.setState({ wsName: e.target.value }),
+      onSlug: e => this.setState({ wsSlug: e.target.value }),
+
+      members,
+      memberCount: this.state.members.length,
+      roleOptions: ROLES.filter(r => r.id !== 'owner').map(r => ({ id: r.id, name: r.name })),
+      onOpenInvite: () => this.setState({ modal: { kind: 'invite' } }),
+      onGoMembers: () => this.setState({ section: 'members', navOpen: false }),
+
+      roles: ROLES.map(r => ({
+        name: r.name,
+        count: this.state.members.filter(m => m.role === r.id).length,
+        bg: r.id === roleId ? '#e6f2eb' : '#fff',
+        fg: r.id === roleId ? '#1c6b4a' : '#18181b',
+        border: r.id === roleId ? '#b9dbc8' : '#e4e4e7',
+        weight: r.id === roleId ? 600 : 400,
+        onClick: () => this.setState({ roleId: r.id }),
+      })),
+      roleName: role.name,
+      roleDesc: role.desc,
+      roleNoteBg: locked ? '#f6f6f7' : '#fff',
+      roleNoteBorder: locked ? '#e4e4e7' : '#e4e4e7',
+      roleNoteFg: locked ? '#6d6d77' : '#1c6b4a',
+      roleNoteGlyph: locked ? 'lock' : 'shield_person',
+      permTables,
+      permSettings,
+      permOther,
+
+      usage: USAGE.map(u => {
+        const pct = Math.min(100, Math.round((u.used / u.limit) * 100));
+        const high = pct >= 85;
+        return { label: u.label, value: u.value, pct: pct + '%', barFg: high ? '#b4232a' : '#2f9e6b', valueFg: high ? '#b4232a' : '#5c5c66' };
+      }),
+
+      transferTo: this.state.transferTo,
+      transferCandidates: this.state.members.filter(m => m.role !== 'owner' && !m.invited).map(m => ({ id: m.id, label: m.name + ' · ' + roleName(m.role) })),
+      onTransferTo: e => this.setState({ transferTo: e.target.value }),
+      onTransfer: () => {
+        const m = this.state.members.find(x => x.id === this.state.transferTo);
+        this.setState({ modal: { kind: 'transfer', id: this.state.transferTo, name: m ? m.name : '' } });
+      },
+      onDeleteWs: () => this.setState({ modal: { kind: 'delete' } }),
+
+      inviteOpen: !!invite,
+      confirmOpen: !!modal && !invite,
+      confirmBody,
+      sheetTitle: !modal ? '' : invite ? 'Invite members' :
+        modal.kind === 'remove' ? 'Remove member' : modal.kind === 'revoke' ? 'Revoke invitation' :
+        modal.kind === 'transfer' ? 'Transfer ownership' : 'Delete workspace',
+      sheetAction: !modal ? '' : invite ? 'Send invitations' :
+        modal.kind === 'remove' ? 'Remove' : modal.kind === 'revoke' ? 'Revoke' :
+        modal.kind === 'transfer' ? 'Transfer' : 'Delete workspace',
+      sheetGlyph: invite ? 'person_add' : 'warning',
+      sheetIconBg: invite ? '#e6f2eb' : '#fdecec',
+      sheetIconFg: invite ? '#1c6b4a' : '#b4232a',
+      sheetActionBg: invite ? '#1c6b4a' : '#b4232a',
+      sheetActionBorder: invite ? '#1c6b4a' : '#b4232a',
+      desktopSheetOpen: !!modal && !isMobile,
+      mobileSheetOpen: !!modal && isMobile,
+      onCloseSheet: () => this.setState({ modal: null }),
+      onConfirm: () => this.setState(s => {
+        const m = s.modal;
+        if (m && (m.kind === 'remove' || m.kind === 'revoke')) return { modal: null, members: s.members.filter(x => x.id !== m.id) };
+        if (m && m.kind === 'transfer') return {
+          modal: null,
+          members: s.members.map(x => x.id === m.id ? { ...x, role: 'owner', you: false } : (x.role === 'owner' ? { ...x, role: 'admin' } : x)),
+        };
+        return { modal: null };
+      }),
+
+      isDesktop: !isMobile,
+      isMobile,
+      deskTabBg: isMobile ? 'transparent' : '#e6f2eb',
+      deskTabFg: isMobile ? '#5c5c66' : '#1c6b4a',
+      mobTabBg: isMobile ? '#e6f2eb' : 'transparent',
+      mobTabFg: isMobile ? '#1c6b4a' : '#5c5c66',
+      onDesktop: () => this.setState({ layout: 'desktop', navOpen: false }),
+      onMobile: () => this.setState({ layout: 'mobile' }),
+      navOpen: this.state.navOpen,
+      onToggleNav: () => this.setState(s => ({ navOpen: !s.navOpen })),
+      navTables: [
+        { name: 'People', count: '96' },
+        { name: 'Projects', count: '31' },
+        { name: 'Tasks', count: '412' },
+        { name: 'Invoices', count: '1 204' },
+        { name: 'Suppliers', count: '18' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

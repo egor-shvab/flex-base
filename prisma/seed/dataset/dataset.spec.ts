@@ -10,27 +10,12 @@ import { compileDataset } from '~~/prisma/seed/compile'
 import { SEED_TABLES } from '~~/prisma/seed/dataset'
 import { idFor } from '~~/prisma/seed/ids'
 
-/**
- * The demo dataset, checked without a database.
- *
- * `compileDataset` already refuses a dataset the app would reject — it runs `fieldInputSchema`
- * over every field and `buildRecordSchema` over every record — so calling it here is most of the
- * suite. What the cases below add is everything that spans two tables, which no schema can see: a
- * relation ref pointing at the wrong table, a label field that does not exist on the target, an
- * id collision between two records.
- *
- * The last block is different in kind. It asserts that the demo still *demonstrates* what it was
- * built to: every field type, both cardinalities, the whole badge palette, and the empty,
- * single-row and multi-page list states. Those are the properties an edit quietly removes.
- */
-
 const tables = compileDataset(SEED_TABLES)
 
 const tableById = new Map(tables.map((table) => [table.id, table]))
 const allFields = tables.flatMap((table) => table.fields)
 const allRecords = tables.flatMap((table) => table.records)
 
-/** Which table a record id belongs to — what a relation value has to agree with. */
 const tableIdByRecordId = new Map(
   tables.flatMap((table) => table.records.map((record) => [record.id, table.id])),
 )
@@ -60,7 +45,6 @@ describe('the seed dataset', () => {
   })
 
   it('derives keys that are safe to inline into DDL and claim no reserved name', () => {
-    // The guarantee `field-indexes.ts:assertSafeKey` rests on, asserted where the keys come from
     for (const field of allFields) {
       expect(field.key, `${field.name} derived an unsafe key`).toMatch(/^[a-z0-9_]+$/)
     }
@@ -93,7 +77,6 @@ describe('the seed dataset', () => {
     ]
 
     expect(new Set(ids).size).toBe(ids.length)
-    // The derivation itself, rather than only its outcome on today's refs
     expect(idFor('clients:northwind')).not.toBe(idFor('clients:helios'))
   })
 

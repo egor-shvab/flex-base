@@ -9,12 +9,6 @@ import RecordDetailModal from '~/components/modals/RecordDetailModal.vue'
 import { record, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
-/**
- * The dialog around `RecordDetail`. Everything it decides is a function of its props, and
- * `useRecordDetail.nuxt.spec.ts` owns where the links *point* — so what is pinned here is which
- * of the four states it renders and the one link that leaves the page. Built on `BaseModal`,
- * so the body is teleported and every query goes to the document.
- */
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
 const link = (name: string | RegExp) =>
   [...(dialog()?.querySelectorAll('a') ?? [])].find((anchor) =>
@@ -60,14 +54,26 @@ describe('RecordDetailModal', () => {
   })
 
   describe('which state it shows', () => {
-    it('names the record’s table and number above the values', async () => {
+    it('names the record’s table and number under the title', async () => {
       await mountModal()
 
-      expect(dialog()?.textContent).toContain('Deals · #7')
+      expect(document.querySelector('.base-modal__subtitle')?.textContent).toBe('Deals · #7')
+      expect(dialog()?.getAttribute('aria-label')).toBe('Record details')
       expect(dialog()?.textContent).toContain('Acme')
     })
 
-    /** Loading, error and loaded are distinct states with distinct copy — never inferred. */
+    it('names nothing under the title until the record has arrived', async () => {
+      await mountModal({ detail: null, pending: true })
+
+      expect(document.querySelector('.base-modal__subtitle')).toBeNull()
+    })
+
+    it('opens as the side sheet', async () => {
+      await mountModal()
+
+      expect(document.querySelector('.base-modal--drawer')).not.toBeNull()
+    })
+
     it('states that it is loading, and shows no values yet', async () => {
       await mountModal({ detail: null, pending: true })
 
@@ -87,7 +93,6 @@ describe('RecordDetailModal', () => {
       expect(dialog()?.textContent).not.toContain('Acme')
     })
 
-    /** Retrying a 404 cannot help, so the button is offered only where it could. */
     it('offers Try again only when retrying could help', async () => {
       const hopeless = await mountModal({ detail: null, errorMessage: 'Gone', canRetry: false })
       expect(dialog()?.textContent).not.toContain('Try again')
@@ -113,10 +118,6 @@ describe('RecordDetailModal', () => {
     })
   })
 
-  /**
-   * The one link that leaves the page, so a path rather than a query patch. Withheld when it
-   * would point at the page already on screen, whose sort, filters and position it would drop.
-   */
   describe('Open in …', () => {
     it('is absent when the record belongs to the table behind the dialog', async () => {
       await mountModal({ currentTableNumber: 1 })
@@ -142,7 +143,6 @@ describe('RecordDetailModal', () => {
       expect(link(/Open in/)?.getAttribute('href')).toBe(`/tables/2?${DETAIL_PARAM}=2.7`)
     })
 
-    /** Nothing to open while the record is still arriving, or once it failed to. */
     it('is withheld while loading and while erroring', async () => {
       const loading = await mountModal({ pending: true, currentTableNumber: 9 })
       expect(link(/Open in/)).toBeUndefined()

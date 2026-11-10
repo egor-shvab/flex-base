@@ -5,11 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { ITableListItem } from '#shared/types/table'
 import { useTablesStore } from '~/stores/tables'
 
-/**
- * Derived from the id so two rows in one listing never claim the same number. No case exercises
- * it — the store keys on `id` throughout — so the particular value carries nothing.
- */
-function table(
+function buildTable(
   id: string,
   name: string,
   counts: ITableListItem['_count'] = { fields: 0, records: 0 },
@@ -24,10 +20,6 @@ function table(
   }
 }
 
-/**
- * What the stubbed API is currently prepared to answer with. Reassigned per case rather than
- * re-registering the endpoint, which `registerEndpoint` only does once per URL.
- */
 let listing: ITableListItem[] = []
 let listShouldFail = false
 const calls: string[] = []
@@ -36,8 +28,7 @@ registerEndpoint('/api/tables', {
   method: 'GET',
   handler: () => {
     calls.push('GET /api/tables')
-    // A 4xx rather than a 500 so the request count stays readable: `ofetch` retries a GET once
-    // on 5xx, and the store only ever sees the rejection the retries end in
+    // A 4xx: `ofetch` retries a GET once on 5xx, which would muddle the request count
     if (listShouldFail) throw createError({ statusCode: 404, statusMessage: 'No tables' })
     return { tables: listing }
   },
@@ -45,12 +36,12 @@ registerEndpoint('/api/tables', {
 
 registerEndpoint('/api/tables', {
   method: 'POST',
-  handler: () => ({ table: table('tbl_new', 'Invoices') }),
+  handler: () => ({ table: buildTable('tbl_new', 'Invoices') }),
 })
 
 registerEndpoint('/api/tables/tbl_1', {
   method: 'PATCH',
-  handler: () => ({ table: table('tbl_1', 'Renamed') }),
+  handler: () => ({ table: buildTable('tbl_1', 'Renamed') }),
 })
 
 registerEndpoint('/api/tables/tbl_1', {
@@ -61,27 +52,25 @@ registerEndpoint('/api/tables/tbl_1', {
 describe('useTablesStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    listing = [table('tbl_1', 'Deals'), table('tbl_2', 'People')]
+    listing = [buildTable('tbl_1', 'Deals'), buildTable('tbl_2', 'People')]
     listShouldFail = false
     calls.length = 0
   })
 
-  it('starts empty and unloaded', () => {
+  it('starts empty and idle', () => {
     const store = useTablesStore()
 
     expect(store.tables).toEqual([])
-    expect(store.loaded).toBe(false)
-    expect(store.failed).toBe(false)
+    expect(store.status).toBe('idle')
   })
 
-  it('fetches the list and marks itself loaded', async () => {
+  it('fetches the list and marks itself ready', async () => {
     const store = useTablesStore()
 
     await store.fetchTables()
 
     expect(store.tables).toEqual(listing)
-    expect(store.loaded).toBe(true)
-    expect(store.failed).toBe(false)
+    expect(store.status).toBe('ready')
   })
 
   it('loads once per session and is a no-op afterwards', async () => {
@@ -94,22 +83,17 @@ describe('useTablesStore', () => {
     expect(calls).toHaveLength(1)
   })
 
-  /**
-   * The root layout has no error boundary above it, so a rejection here would replace every
-   * authenticated page with Nuxt's full-page error instead of an inline sidebar message.
-   */
   it('never throws from ensureTables, reporting failure on the store instead', async () => {
     listShouldFail = true
     const store = useTablesStore()
 
     await expect(store.ensureTables()).resolves.toBeUndefined()
 
-    expect(store.failed).toBe(true)
-    expect(store.loaded).toBe(false)
+    expect(store.status).toBe('failed')
     expect(store.tables).toEqual([])
   })
 
-  it('retries after a failure, since a failed attempt never set loaded', async () => {
+  it('retries after a failure, since a failed attempt never reached ready', async () => {
     listShouldFail = true
     const store = useTablesStore()
     await store.ensureTables()
@@ -118,7 +102,7 @@ describe('useTablesStore', () => {
     await store.ensureTables()
 
     expect(calls).toHaveLength(2)
-    expect(store.failed).toBe(false)
+    expect(store.status).toBe('ready')
     expect(store.tables).toEqual(listing)
   })
 
@@ -127,6 +111,7 @@ describe('useTablesStore', () => {
     const store = useTablesStore()
 
     await expect(store.fetchTables()).rejects.toThrow()
+    expect(store.status).toBe('failed')
   })
 
   it('appends a created table by replacing the array, not mutating it', async () => {
@@ -136,10 +121,9 @@ describe('useTablesStore', () => {
 
     const created = await store.createTable({ name: 'Invoices' })
 
-    expect(created).toEqual(table('tbl_new', 'Invoices'))
+    expect(created).toEqual(buildTable('tbl_new', 'Invoices'))
     expect(store.tables).toHaveLength(3)
     expect(store.tables.at(-1)).toEqual(created)
-    // shallowRef: a mutation in place would not re-render the sidebar
     expect(store.tables).not.toBe(before)
   })
 
@@ -149,7 +133,7 @@ describe('useTablesStore', () => {
 
     await store.renameTable('tbl_1', { name: 'Renamed' })
 
-    expect(store.tables).toEqual([table('tbl_1', 'Renamed'), table('tbl_2', 'People')])
+    expect(store.tables).toEqual([buildTable('tbl_1', 'Renamed'), buildTable('tbl_2', 'People')])
   })
 
   it('drops the deleted table from the list', async () => {
@@ -158,20 +142,14 @@ describe('useTablesStore', () => {
 
     await store.deleteTable('tbl_1')
 
-    expect(store.tables).toEqual([table('tbl_2', 'People')])
+    expect(store.tables).toEqual([buildTable('tbl_2', 'People')])
   })
 
-  /**
-   * The cached `_count` is read on two always-visible surfaces, and the writes that move it
-   * belong to the records and fields stores. Those endpoints answer with the refreshed row, so
-   * this stores what it was told rather than doing arithmetic over a number only the database
-   * knows.
-   */
   describe('applyTableRow', () => {
     beforeEach(() => {
       listing = [
-        table('tbl_1', 'Deals', { fields: 3, records: 7 }),
-        table('tbl_2', 'People', { fields: 2, records: 4 }),
+        buildTable('tbl_1', 'Deals', { fields: 3, records: 7 }),
+        buildTable('tbl_2', 'People', { fields: 2, records: 4 }),
       ]
     })
 
@@ -179,11 +157,11 @@ describe('useTablesStore', () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      store.applyTableRow(table('tbl_1', 'Deals', { fields: 3, records: 8 }))
+      store.applyTableRow(buildTable('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
       expect(store.tables).toEqual([
-        table('tbl_1', 'Deals', { fields: 3, records: 8 }),
-        table('tbl_2', 'People', { fields: 2, records: 4 }),
+        buildTable('tbl_1', 'Deals', { fields: 3, records: 8 }),
+        buildTable('tbl_2', 'People', { fields: 2, records: 4 }),
       ])
     })
 
@@ -191,11 +169,9 @@ describe('useTablesStore', () => {
       const store = useTablesStore()
       await store.fetchTables()
 
-      // A row the client could not have arrived at by a delta — both counts moved, and the
-      // name changed with them. Whatever the server says is what the sidebar draws.
-      store.applyTableRow(table('tbl_2', 'Renamed', { fields: 9, records: 0 }))
+      store.applyTableRow(buildTable('tbl_2', 'Renamed', { fields: 9, records: 0 }))
 
-      expect(store.tables[1]).toEqual(table('tbl_2', 'Renamed', { fields: 9, records: 0 }))
+      expect(store.tables[1]).toEqual(buildTable('tbl_2', 'Renamed', { fields: 9, records: 0 }))
     })
 
     it('replaces the array rather than mutating the cached item', async () => {
@@ -203,9 +179,8 @@ describe('useTablesStore', () => {
       await store.fetchTables()
       const before = store.tables
 
-      store.applyTableRow(table('tbl_1', 'Deals', { fields: 3, records: 8 }))
+      store.applyTableRow(buildTable('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
-      // shallowRef: an in-place edit would leave the sidebar drawing the old number
       expect(store.tables).not.toBe(before)
       expect(store.tables[0]).not.toBe(before[0])
     })
@@ -215,52 +190,44 @@ describe('useTablesStore', () => {
       await store.fetchTables()
       calls.length = 0
 
-      store.applyTableRow(table('tbl_missing', 'Ghost', { fields: 1, records: 1 }))
+      store.applyTableRow(buildTable('tbl_missing', 'Ghost', { fields: 1, records: 1 }))
 
       expect(store.tables).toEqual(listing)
       expect(calls).toHaveLength(0)
     })
 
-    /**
-     * An unloaded list is the ordinary case on a record page reached by URL, and `ensureTables`
-     * may also have failed silently. Inserting the row would leave the sidebar listing only the
-     * table just written to.
-     */
     it('is a no-op before the list has loaded', () => {
       const store = useTablesStore()
 
-      store.applyTableRow(table('tbl_1', 'Deals', { fields: 3, records: 8 }))
+      store.applyTableRow(buildTable('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
       expect(store.tables).toEqual([])
     })
   })
 
-  /**
-   * The single place `tables` is read by identity — the settings page's cached row and the field
-   * list's relation target both go through it. Reads only what is cached: `ensureTables` may
-   * legitimately have loaded nothing, and a miss must never become a request.
-   */
-  describe('tableRow', () => {
+  describe('findTable', () => {
     it('answers with the cached row for a known id', async () => {
-      listing = [table('tbl_1', 'Deals', { fields: 3, records: 7 })]
+      listing = [buildTable('tbl_1', 'Deals', { fields: 3, records: 7 })]
       const store = useTablesStore()
       await store.fetchTables()
 
-      expect(store.tableRow('tbl_1')).toEqual(table('tbl_1', 'Deals', { fields: 3, records: 7 }))
+      expect(store.findTable('tbl_1')).toEqual(
+        buildTable('tbl_1', 'Deals', { fields: 3, records: 7 }),
+      )
     })
 
     it('answers undefined for an unknown id, and never fetches', async () => {
-      listing = [table('tbl_1', 'Deals')]
+      listing = [buildTable('tbl_1', 'Deals')]
       const store = useTablesStore()
       await store.fetchTables()
       calls.length = 0
 
-      expect(store.tableRow('tbl_missing')).toBeUndefined()
+      expect(store.findTable('tbl_missing')).toBeUndefined()
       expect(calls).toHaveLength(0)
     })
 
     it('answers undefined before the list has loaded', () => {
-      expect(useTablesStore().tableRow('tbl_1')).toBeUndefined()
+      expect(useTablesStore().findTable('tbl_1')).toBeUndefined()
     })
   })
 })

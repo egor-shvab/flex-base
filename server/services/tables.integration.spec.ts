@@ -51,14 +51,6 @@ describe('table names are unique per user, in the database', () => {
   })
 })
 
-/**
- * The counter is a high-water mark on the user row, incremented inside the same transaction as
- * the insert. The claim being tested is that the row lock makes concurrent creates queue rather
- * than race — which no stub can demonstrate, because a stub has no lock.
- *
- * Read back from the database rather than off the service's answer: `number` is not on the wire
- * yet, and the database is what this project is here to ask anyway.
- */
 describe('table numbers', () => {
   const numberOf = async (tableId: string) =>
     (await prisma.table.findUniqueOrThrow({ where: { id: tableId }, select: { number: true } }))
@@ -90,7 +82,6 @@ describe('table numbers', () => {
     expect(numbers).toEqual(Array.from({ length: 20 }, (_, index) => index + 1))
   })
 
-  /** A high-water mark, not a count — reusing a number would repoint every bookmark to it. */
   it('never reuses the number of a deleted table', async () => {
     const first = await TableService.createTable(userId, 'Deals')
     await TableService.createTable(userId, 'People')
@@ -118,7 +109,6 @@ describe('table numbers', () => {
     ).rejects.toMatchObject({ code: 'P2002' })
   })
 
-  /** The increment rolls back with the insert it shares a transaction with. */
   it('burns no number when the create is refused', async () => {
     await TableService.createTable(userId, 'Deals')
     await expect(TableService.createTable(userId, 'Deals')).rejects.toMatchObject({
@@ -131,11 +121,6 @@ describe('table numbers', () => {
   })
 })
 
-/**
- * A relation's target is an id inside opaque JSON, so no foreign key protects it — deleting a
- * referenced table would cascade its records away and leave every link dangling with nothing
- * to say so. The refusal is the only guard, and it has to hold against the real cascade.
- */
 describe('deleting a table', () => {
   it('takes its fields and records with it', async () => {
     const table = await createTable(userId)
@@ -166,12 +151,6 @@ describe('deleting a table', () => {
     await expect(prisma.table.findUnique({ where: { id: target.id } })).resolves.not.toBeNull()
   })
 
-  /**
-   * The same refusal when the table is named by its **number**, which is the case the guard can
-   * silently stop covering: `assertNotRelationTarget` compares `options.targetTableId`, a cuid, so
-   * an unresolved address matches no reference, passes the guard, and cascades the table away with
-   * every link to it. The failure is a 200 and a table that is gone — never an error.
-   */
   it('refuses by number too, rather than deleting past a guard that matched nothing', async () => {
     const target = await createTable(userId, 'People')
     const source = await createTable(userId, 'Deals')
@@ -218,7 +197,6 @@ describe('deleting a table', () => {
     await expect(TableService.deleteTable(userId, target.id)).resolves.toBeUndefined()
   })
 
-  /** The check is scoped by owner, so another account's relation is not this user's problem. */
   it('ignores a relation belonging to someone else', async () => {
     const target = await createTable(userId, 'People')
     const other = await createUser()

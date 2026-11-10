@@ -1,12 +1,6 @@
 /**
- * The one rule standing between a misconfigured connection string and real work.
- *
- * Both suites wipe every table between cases, against the same container the development
- * database lives on. A database is disposable only if its name says so — `flexbase_test`,
- * `flexbase_e2e` — and anything else is refused before a statement runs.
- *
- * Never widen this to "the URL differs from `DATABASE_URL`": the development URL is exactly what
- * a forgotten override leaves behind.
+ * Both suites wipe every table between cases, so a database is disposable only if its name says
+ * so. Never widen this to "differs from `DATABASE_URL`": that is what a forgotten override leaves.
  */
 const DISPOSABLE_SUFFIX = /_(test|e2e)$/
 

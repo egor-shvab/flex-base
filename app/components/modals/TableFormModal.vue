@@ -1,8 +1,6 @@
 <template>
   <BaseModal :title="mode === 'create' ? 'New table' : 'Rename table'" @close="emit('close')">
-    <form class="table-form" novalidate @submit.prevent="submit">
-      <!-- A form-level error is a banner, as in every other form: the field's inline message
-           would attribute a duplicate-name 409 to the input and skip `role="alert"` -->
+    <form :id="formId" class="table-form" novalidate @submit.prevent="submit">
       <BaseErrorBanner :message="serverError" />
 
       <BaseInput
@@ -13,10 +11,16 @@
         autofocus
         :error="errors.name"
       />
-      <BaseButton type="submit" :disabled="pending">
+    </form>
+
+    <template #footer>
+      <BaseButton variant="secondary" :disabled="isSubmitting" @click="emit('close')"
+        >Cancel</BaseButton
+      >
+      <BaseButton type="submit" :form="formId" :loading="isSubmitting">
         {{ mode === 'create' ? 'Create table' : 'Save' }}
       </BaseButton>
-    </form>
+    </template>
   </BaseModal>
 </template>
 
@@ -37,8 +41,9 @@ const props = withDefaults(
 const emit = defineEmits<{ saved: []; close: [] }>()
 
 const inputId = useId()
+const formId = useId()
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: tableInputSchema,
   initial: { name: props.initialName },
   onSubmit: async ({ name }) => {

@@ -1,8 +1,8 @@
 <template>
-  <BaseModal title="Record details" @close="emit('close')">
+  <BaseModal title="Record details" variant="drawer" :subtitle="subtitle" @close="emit('close')">
     <div class="record-detail-modal">
       <NuxtLink v-if="backTo" class="record-detail-modal__back" :to="backTo">
-        <Icon name="mdi:arrow-left" aria-hidden="true" />
+        <Icon name="material-symbols:arrow-back-rounded" aria-hidden="true" />
         Back
       </NuxtLink>
 
@@ -15,15 +15,10 @@
         >
       </div>
 
-      <template v-else-if="detail">
-        <p class="record-detail-modal__table">
-          {{ detail.table.name }} · #{{ detail.record.number }}
-        </p>
-        <RecordDetail :fields="detail.fields" :record="detail.record" />
-      </template>
+      <RecordDetail v-else-if="detail" :fields="detail.fields" :record="detail.record" />
     </div>
 
-    <template v-if="detail && crossesTables && !pending && !errorMessage" #footer>
+    <template v-if="detail && isOtherTable && !pending && !errorMessage" #footer>
       <BaseButton variant="link" :to="openInTableTo">Open in {{ detail.table.name }}</BaseButton>
     </template>
   </BaseModal>
@@ -34,7 +29,7 @@ import { computed } from 'vue'
 import type { TUrlQuery } from '#shared/types/query'
 import type { IRecordDetail } from '#shared/types/record'
 import { toTableAddress } from '#shared/utils/address'
-import { toDetailParam } from '#shared/utils/record-detail'
+import { toDetailParam } from '~/utils/record-detail'
 import { DETAIL_PARAM } from '#shared/constants/filter'
 
 const props = withDefaults(
@@ -43,9 +38,7 @@ const props = withDefaults(
     pending: boolean
     errorMessage: string | null
     canRetry: boolean
-    /** The table the page behind the dialog is showing, when it is showing one. */
     currentTableNumber?: number
-    /** Where one level up is, when the dialog was reached through another record. */
     backTo?: { query: TUrlQuery }
   }>(),
   { currentTableNumber: undefined, backTo: undefined },
@@ -53,17 +46,12 @@ const props = withDefaults(
 
 const emit = defineEmits<{ retry: []; close: [] }>()
 
-/**
- * Whether the record on show belongs to a different table from the one behind the dialog —
- * only then is "Open in …" somewhere to go. From a row's own View action it would point at the
- * page you are on, and being a bare path it would drop that page's sort, filters and position.
- */
-const crossesTables = computed(() => props.detail?.table.number !== props.currentTableNumber)
+const subtitle = computed(() =>
+  props.detail ? `${props.detail.table.name} · #${props.detail.record.number}` : undefined,
+)
 
-/**
- * The target's table with this record still open — the one link here that leaves the page, so
- * a path string rather than a query patch on the current route.
- */
+const isOtherTable = computed(() => props.detail?.table.number !== props.currentTableNumber)
+
 const openInTableTo = computed(() => {
   if (props.detail === null) return ''
 
@@ -80,8 +68,6 @@ const openInTableTo = computed(() => {
 .record-detail-modal {
   @include stack(12);
 
-  // Navigation, so a link — Back is a place. The inline-text register like `.text-link`, with
-  // enough padding to clear the 24×24 target floor.
   &__back {
     display: inline-flex;
     gap: rem(4);
@@ -111,18 +97,8 @@ const openInTableTo = computed(() => {
     align-items: flex-start;
   }
 
-  // Placement only. The parent is a `stack` with `align-items: flex-start`, so the banner has
-  // to opt back into the full width.
   &__error-text {
     align-self: stretch;
-  }
-
-  // The record's table above its values: the dialog can be opened from a different table, so
-  // it has to say where the record came from
-  &__table {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 }
 </style>

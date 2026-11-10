@@ -2,6 +2,9 @@
   "name": "flex-base",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": "^22.19.0 || ^24.11.0 || >=26.0.0"
+  },
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
@@ -28,6 +31,9 @@
     "test:e2e:ui": "npm run db:up && playwright install chromium && playwright test --ui"
   },
   "dependencies": {
+    "@fontsource/archivo": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@iconify-json/material-symbols": "^1.2.93",
     "@nuxt/icon": "^2.3.1",
     "@pinia/nuxt": "^1.0.1",
     "@prisma/adapter-pg": "^7.9.0",
@@ -44,7 +50,6 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
-    "@iconify-json/mdi": "^1.2.3",
     "@nuxt/eslint": "^1.16.0",
     "@nuxt/test-utils": "^4.1.0",
     "@playwright/test": "^1.62.1",
@@ -63,5 +68,15 @@
     "typescript": "^6.0.3",
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.8"
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.6.0": true,
+    "@prisma/engines@7.9.1": true,
+    "bcrypt@6.0.0": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true,
+    "fsevents@2.3.2": true,
+    "prisma@7.9.1": true,
+    "unrs-resolver@1.12.2": true
   }
 }

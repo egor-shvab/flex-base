@@ -1,13 +1,12 @@
 <template>
-  <div class="base-range">
-    <label v-if="label" :id="`${id}-label`" class="base-range__label" :for="`${id}-from`">
-      {{ label }}
-    </label>
-    <div
-      class="base-range__bounds"
-      role="group"
-      :aria-labelledby="label ? `${id}-label` : undefined"
-    >
+  <BaseField
+    :id="id"
+    v-slot="{ labelId }"
+    class="base-range"
+    :label="label"
+    :label-for="`${id}-from`"
+  >
+    <div class="base-range__bounds" role="group" :aria-labelledby="labelId">
       <BaseInput
         :id="`${id}-from`"
         :model-value="fromText"
@@ -15,8 +14,9 @@
         aria-label="From"
         placeholder="From"
         :debounce="debounce"
-        @update:model-value="onBoundInput('from', $event)"
+        @update:model-value="applyBound('from', $event)"
       />
+      <span class="base-range__dash" aria-hidden="true">–</span>
       <BaseInput
         :id="`${id}-to`"
         :model-value="toText"
@@ -24,10 +24,10 @@
         aria-label="To"
         placeholder="To"
         :debounce="debounce"
-        @update:model-value="onBoundInput('to', $event)"
+        @update:model-value="applyBound('to', $event)"
       />
     </div>
-  </div>
+  </BaseField>
 </template>
 
 <script setup lang="ts">
@@ -37,10 +37,8 @@ import type { IDateRange, INumberRange } from '#shared/types/range'
 const props = withDefaults(
   defineProps<{
     id: string
-    /** Which bound the range speaks — a finite number, or an ISO `YYYY-MM-DD` string. */
     type: 'number' | 'date'
     label?: string
-    /** Forwarded to both bounds — a range filter costs a request per edit. */
     debounce?: number
   }>(),
   {
@@ -51,13 +49,10 @@ const props = withDefaults(
 
 const model = defineModel<INumberRange | IDateRange>({ required: true })
 
-// The displayed text is kept, not derived from the bound: re-deriving would rewrite the field
-// mid-typing and collapse `1.50` to `1.5`. A date round-trips losslessly but runs through the
-// same drafts, which is what lets one component serve both.
+// Kept rather than derived from the bound, which would collapse `1.50` to `1.5` mid-typing
 const fromText = ref('')
 const toText = ref('')
 
-/** A blank or unparseable bound is no bound at all — never zero, never an empty string. */
 function toBound(raw: string): number | string | null {
   if (raw.trim() === '') return null
   if (props.type === 'date') return raw
@@ -69,8 +64,7 @@ function toBound(raw: string): number | string | null {
 watch(
   model,
   (range) => {
-    // Only a bound disagreeing with the screen came from outside (clear all, a shared URL,
-    // the back button); resyncing the rest would undo the text being typed
+    // Only a bound disagreeing with the screen came from outside; resyncing the rest undoes typing
     if (range.from !== toBound(fromText.value)) {
       fromText.value = range.from === null ? '' : String(range.from)
     }
@@ -81,13 +75,10 @@ watch(
   { immediate: true },
 )
 
-function onBoundInput(bound: 'from' | 'to', raw: string) {
+function applyBound(bound: 'from' | 'to', raw: string) {
   if (bound === 'from') fromText.value = raw
   else toText.value = raw
 
-  // Both bounds re-read from the drafts, the source of truth for what is on screen. `type`
-  // decides which arm of the union `toBound` produces, so the cast states what the prop
-  // already guarantees.
   model.value = { from: toBound(fromText.value), to: toBound(toText.value) } as
     INumberRange | IDateRange
 }
@@ -95,16 +86,16 @@ function onBoundInput(bound: 'from' | 'to', raw: string) {
 
 <style lang="scss" scoped>
 .base-range {
-  @include stack(4);
-
-  &__label {
-    @include field-label;
-  }
-
   &__bounds {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
     gap: rem(8);
+  }
+
+  &__dash {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-subtle);
   }
 }
 </style>

@@ -14,15 +14,10 @@ export const fieldSelect = {
 
 export type TFieldRow = Prisma.FieldGetPayload<{ select: typeof fieldSelect }>
 
-/**
- * Narrows Prisma's untyped `options` JSON — the single place that cast is allowed, so no
- * call site has to trust the raw column.
- */
 export function toFieldOptions(options: TFieldRow['options']): IFieldOptions | null {
   return (options as IFieldOptions | null) ?? null
 }
 
-/** The same, for a whole row: the shape every layer above the database speaks. */
 export function toSharedField(field: TFieldRow): IField {
   return { ...field, options: toFieldOptions(field.options) }
 }

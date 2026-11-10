@@ -9,13 +9,6 @@ import { useTablesStore } from '~/stores/tables'
 import { relationField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
-/**
- * A relation stores its target's **id**, but a link has to carry an address — so the cell reads
- * the target table's number out of the tables store. What is pinned here is the seam between the
- * two, and above all that a number the store cannot supply degrades to text rather than to a
- * link pointing nowhere.
- */
-/** The fixture already targets `tbl_people`; naming it here is what the store is keyed on. */
 const TARGET_TABLE_ID = 'tbl_people'
 const field = relationField({ targetTableId: TARGET_TABLE_ID, labelFieldKey: 'full_name' })
 
@@ -56,11 +49,6 @@ describe('RelationFieldCell', () => {
     expect(link.attributes('href')).not.toContain(TARGET_TABLE_ID)
   })
 
-  /**
-   * `ensureTables` never throws, so the list may legitimately be empty — and then the target's
-   * number is unknowable. Falling back to text is the same degradation a deleted target already
-   * gets; rendering a link built from a missing number would point at nothing.
-   */
   it('falls back to plain text when the target table’s number is unknown', async () => {
     const wrapper = await mountCell()
 

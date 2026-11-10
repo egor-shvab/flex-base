@@ -26,10 +26,19 @@ function mount(props: Partial<IPageProps> = {}) {
   })
 }
 
+type TPager = Awaited<ReturnType<typeof mount>>
+
+const previousOf = (wrapper: TPager) => wrapper.get('button[aria-label="Previous"]')
+const nextOf = (wrapper: TPager) => wrapper.get('button[aria-label="Next"]')
+const pagesOf = (wrapper: TPager) =>
+  wrapper
+    .findAll('.pagination__pager > *')
+    .slice(1, -1)
+    .map((cell) => cell.text())
+
 const rangeOf = async (props: Partial<IPageProps>) =>
   (await mount(props)).find('.pagination__count').text()
 
-/** Derived from the page numbers alone, so every boundary is arithmetic nothing else catches. */
 describe('the range label', () => {
   afterEach(unmountAll)
 
@@ -61,16 +70,36 @@ describe('the range label', () => {
 })
 
 describe('the pager', () => {
-  it('names the page and the total count of pages', async () => {
-    const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
+  it('draws the window of pages between the two arrows', async () => {
+    const wrapper = await mount({ page: 5, pageCount: 10, total: 500, hasNext: true })
 
-    expect(wrapper.find('.pagination__page').text()).toBe('Page 2 of 3')
+    expect(pagesOf(wrapper)).toEqual(['1', '…', '4', '5', '6', '…', '10'])
   })
 
-  /**
-   * `role="status"` rather than a bare `aria-live="polite"`: the role implies polite-live, so
-   * assistive tech hears the same thing, and the range gains a role a reader can address.
-   */
+  it('marks the current page, and names every page for assistive tech', async () => {
+    const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
+    const current = wrapper.get('[aria-current="page"]')
+
+    expect(current.text()).toBe('2')
+    expect(current.attributes('aria-label')).toBe('Page 2')
+    expect(wrapper.find('.pagination__gap').exists()).toBe(false)
+  })
+
+  it('jumps to a page it is given, and ignores the current one', async () => {
+    const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
+
+    await wrapper.get('button[aria-label="Page 3"]').trigger('click')
+    await wrapper.get('button[aria-label="Page 2"]').trigger('click')
+
+    expect(wrapper.emitted('update:page')).toEqual([[3]])
+  })
+
+  it('hides the gap from assistive tech', async () => {
+    const wrapper = await mount({ page: 5, pageCount: 10, total: 500, hasNext: true })
+
+    expect(wrapper.get('.pagination__gap').attributes('aria-hidden')).toBe('true')
+  })
+
   it('announces the range politely, since it changes without focus moving', async () => {
     const wrapper = await mount({ total: 120, pageCount: 3 })
 
@@ -79,43 +108,35 @@ describe('the pager', () => {
 
   it('offers no way back from the first page', async () => {
     const wrapper = await mount({ page: 1, pageCount: 3, total: 120, hasNext: true })
-    const [previous, next] = wrapper.findAll('button')
 
-    expect(previous?.attributes('disabled')).toBeDefined()
-    expect(next?.attributes('disabled')).toBeUndefined()
+    expect(previousOf(wrapper).attributes('disabled')).toBeDefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeUndefined()
   })
 
   it('offers no way on from the last page', async () => {
     const wrapper = await mount({ page: 3, pageCount: 3, total: 120 })
-    const [previous, next] = wrapper.findAll('button')
 
-    expect(previous?.attributes('disabled')).toBeUndefined()
-    expect(next?.attributes('disabled')).toBeDefined()
+    expect(previousOf(wrapper).attributes('disabled')).toBeUndefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeDefined()
   })
 
   it('disables both ends when there is only one page', async () => {
     const wrapper = await mount({ page: 1, pageCount: 1, total: 3 })
 
-    for (const button of wrapper.findAll('button')) {
-      expect(button.attributes('disabled')).toBeDefined()
-    }
+    expect(previousOf(wrapper).attributes('disabled')).toBeDefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeDefined()
   })
 
   it('steps one page at a time in each direction', async () => {
     const wrapper = await mount({ page: 2, pageCount: 3, total: 120, hasNext: true })
-    const [previous, next] = wrapper.findAll('button')
 
-    await previous?.trigger('click')
-    await next?.trigger('click')
+    await previousOf(wrapper).trigger('click')
+    await nextOf(wrapper).trigger('click')
 
     expect(wrapper.emitted('update:page')).toEqual([[1], [3]])
   })
 })
 
-/**
- * Past `RECORD_COUNT_CAP` the server stops counting, so `total` becomes a floor. Every label
- * that would otherwise read as an exact figure has to say so.
- */
 describe('a capped total', () => {
   it('marks the range as a floor rather than a count', async () => {
     expect(await rangeOf({ page: 1, pageSize: 50, total: 1000, totalCapped: true })).toBe(
@@ -123,16 +144,12 @@ describe('a capped total', () => {
     )
   })
 
-  it('drops the page count, which a capped total cannot establish', async () => {
+  it('draws no last page, which a capped total cannot establish', async () => {
     const wrapper = await mount({ page: 3, pageCount: 20, total: 1000, totalCapped: true })
 
-    expect(wrapper.find('.pagination__page').text()).toBe('Page 3')
+    expect(pagesOf(wrapper)).toEqual(['1', '2', '3', '4', '…'])
   })
 
-  /**
-   * On the cap's own last page `pageCount` says there is nothing further while rows it never
-   * reached sit behind it. Next follows the page that came back, so it holds at any table size.
-   */
   it('still offers Next on the last page the cap can describe', async () => {
     const wrapper = await mount({
       page: 20,
@@ -141,15 +158,11 @@ describe('a capped total', () => {
       totalCapped: true,
       hasNext: true,
     })
-    const next = wrapper.findAll('button')[1]
-
-    expect(next?.attributes('disabled')).toBeUndefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeUndefined()
   })
 
   it('stops offering Next once a page comes back short', async () => {
     const wrapper = await mount({ page: 21, pageCount: 20, total: 1000, totalCapped: true })
-    const next = wrapper.findAll('button')[1]
-
-    expect(next?.attributes('disabled')).toBeDefined()
+    expect(nextOf(wrapper).attributes('disabled')).toBeDefined()
   })
 })

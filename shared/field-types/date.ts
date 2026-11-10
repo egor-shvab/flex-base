@@ -5,7 +5,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 export const DATE_FIELD_TYPE: IFieldTypeModule<'DATE'> = {
   label: 'Date',
-  multiValue: false,
+  canBeMultiValue: false,
   filter: { shape: 'range', empty: { from: null, to: null } },
   value: {
     base: () => z.string().regex(ISO_DATE, 'Enter a valid date'),

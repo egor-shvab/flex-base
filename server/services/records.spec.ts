@@ -16,7 +16,6 @@ const RECORD_ID = 'rec_1'
 const table = { id: TABLE_ID, number: 1, name: 'Deals' }
 const fields = [textField('company')]
 
-/** A row as Prisma returns it — `data` as opaque JSON, timestamps as `Date`. */
 function row(overrides: Partial<{ id: string; number: number; data: Prisma.JsonValue }> = {}) {
   return {
     id: RECORD_ID,
@@ -39,7 +38,6 @@ function query(overrides: Partial<IRecordQuery> = {}): IRecordQuery {
   }
 }
 
-/** `listRecords` runs its rows and its count as one transaction, in that order. */
 function stubPage(rows: unknown[], total: number) {
   prismaMock.$queryRaw.mockResolvedValueOnce(rows).mockResolvedValueOnce([{ count: total }])
 }
@@ -74,11 +72,6 @@ describe('RecordService.listRecords', () => {
     expect(page.records).toHaveLength(1)
   })
 
-  /**
-   * The count stops at `RECORD_COUNT_CAP`, so past it `total` is a floor rather than a figure.
-   * The query counts to `cap + 1` precisely so these two cases can be told apart — one extra
-   * row is the whole difference between "exactly the cap" and "more than we counted".
-   */
   it('reports a count at the cap as exact', async () => {
     stubPage([row()], RECORD_COUNT_CAP)
 
@@ -100,14 +93,10 @@ describe('RecordService.listRecords', () => {
 
     await RecordService.listRecords(TABLE_ID, fields, query())
 
-    // The second call is the count leg; the cap must reach the SQL, or the query still walks
-    // every row and only the label pretends otherwise
     expect(prismaMock.$queryRaw.mock.calls[1]).toContain(RECORD_COUNT_CAP + 1)
   })
 
   it('counts zero when the count query comes back empty', async () => {
-    // Belt and braces around a `COUNT(*)` that cannot really return no row — but the fallback
-    // is what keeps `total` a number rather than `undefined` reaching the client
     prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([])
 
     await expect(RecordService.listRecords(TABLE_ID, fields, query())).resolves.toMatchObject({
@@ -145,10 +134,6 @@ describe('RecordService.getRecordDetail', () => {
     )
   })
 
-  /**
-   * The record half of the same rule `tableWhere` states one level up — scoped by its table
-   * rather than by its owner, because the table was proven owned before any of this ran.
-   */
   it('resolves a numeric address through the table’s compound unique', async () => {
     prismaMock.record.findUnique.mockResolvedValue(row())
 

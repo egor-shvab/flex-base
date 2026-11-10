@@ -11,7 +11,7 @@ declare module 'h3' {
 }
 
 export const AUTH_COOKIE = 'auth_token'
-const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7 // 7 days
+const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 const BCRYPT_COST = 10
 
 export function hashPassword(password: string): Promise<string> {
@@ -30,7 +30,6 @@ export function signAuthToken(userId: string, secret: string): string {
   })
 }
 
-/** Returns the user id from a valid token, or null for any invalid/expired token. */
 export function verifyAuthToken(token: string, secret: string): string | null {
   try {
     const payload = jwt.verify(token, secret, { algorithms: ['HS256'] })

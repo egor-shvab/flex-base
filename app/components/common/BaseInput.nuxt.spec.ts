@@ -13,7 +13,6 @@ type TInput = Awaited<ReturnType<typeof input>>
 const field = (wrapper: TInput) => wrapper.get('input')
 const lastModel = (wrapper: TInput) => wrapper.emitted('update:modelValue')?.at(-1)?.[0]
 
-/** Types without going through `setValue`, so a composition can be staged around it. */
 async function type(wrapper: TInput, value: string) {
   const element = field(wrapper).element
   element.value = value
@@ -40,7 +39,6 @@ describe('BaseInput', () => {
       expect(wrapper.find('label').exists()).toBe(false)
     })
 
-    /** For an input whose visible label lives on a wrapping group — see `BaseRange`. */
     it('takes an aria-label instead', async () => {
       const wrapper = await input({ ariaLabel: 'From' })
 
@@ -60,9 +58,8 @@ describe('BaseInput', () => {
       expect(field(wrapper).attributes('autocomplete')).toBe('email')
     })
 
-    /** Same shape as `BaseButton`'s `prependIcon`, and a prop because the registries bind objects. */
     it('renders a decorative leading icon', async () => {
-      const wrapper = await input({ icon: 'mdi:magnify' })
+      const wrapper = await input({ icon: 'material-symbols:search-rounded' })
 
       const icon = wrapper.get('.base-input__icon')
       expect(icon.attributes('aria-hidden')).toBe('true')
@@ -74,20 +71,18 @@ describe('BaseInput', () => {
     it('shows an error and points the input at it', async () => {
       const wrapper = await input({ error: 'Company is required' })
 
-      expect(wrapper.get('.base-input__error').text()).toBe('Company is required')
+      expect(wrapper.get('#company-error').text()).toBe('Company is required')
       expect(field(wrapper).attributes('aria-invalid')).toBe('true')
       expect(field(wrapper).attributes('aria-describedby')).toBe('company-error')
     })
 
-    /** Invalid styling without an inline message, for when a group owns the error line. */
     it('marks itself invalid without a message when the group owns one', async () => {
       const wrapper = await input({ invalid: true })
 
       expect(field(wrapper).attributes('aria-invalid')).toBe('true')
       expect(field(wrapper).classes()).toContain('base-input__input--invalid')
-      // No message of its own, so nothing to describe it by
       expect(field(wrapper).attributes('aria-describedby')).toBeUndefined()
-      expect(wrapper.find('.base-input__error').exists()).toBe(false)
+      expect(wrapper.find('#company-error').exists()).toBe(false)
     })
 
     it('claims nothing when it is valid', async () => {
@@ -95,6 +90,23 @@ describe('BaseInput', () => {
 
       expect(field(wrapper).attributes('aria-invalid')).toBeUndefined()
       expect(field(wrapper).classes()).not.toContain('base-input__input--invalid')
+    })
+  })
+
+  describe('the hint line', () => {
+    it('shows a hint and describes the input by it', async () => {
+      const wrapper = await input({ hint: 'Net of VAT' })
+
+      expect(wrapper.get('#company-hint').text()).toBe('Net of VAT')
+      expect(field(wrapper).attributes('aria-describedby')).toBe('company-hint')
+    })
+
+    it('gives the line to an error, and describes the input by that instead', async () => {
+      const wrapper = await input({ hint: 'Net of VAT', error: 'Enter a number' })
+
+      expect(wrapper.find('#company-hint').exists()).toBe(false)
+      expect(wrapper.get('#company-error').text()).toBe('Enter a number')
+      expect(field(wrapper).attributes('aria-describedby')).toBe('company-error')
     })
   })
 
@@ -121,11 +133,6 @@ describe('BaseInput', () => {
       expect(field(wrapper).element.value).toBe('Globex')
     })
 
-    /**
-     * `trim` is the `.trim` modifier as a prop, for callers that bind props rather than `v-model`
-     * — the field-type registries all do. Like the native modifier, the trimmed value echoes back
-     * into the field, so the text settles trimmed rather than staying as typed.
-     */
     it('trims on the way to the model', async () => {
       const wrapper = await input({ trim: true })
 
@@ -135,7 +142,6 @@ describe('BaseInput', () => {
       expect(field(wrapper).element.value).toBe('Acme')
     })
 
-    /** Nothing is emitted when trimming leaves the value the model already holds. */
     it('writes nothing for whitespace either side of the current value', async () => {
       const wrapper = await input({ trim: true, modelValue: 'Acme' })
 
@@ -152,7 +158,6 @@ describe('BaseInput', () => {
       expect(lastModel(wrapper)).toBe('  Acme  ')
     })
 
-    /** For inputs that cost a request — the filter drawer's TEXT and range controls. */
     it('holds a keystroke for its debounce', async () => {
       const wrapper = await input({ debounce: 300 })
       vi.useFakeTimers()
@@ -175,12 +180,6 @@ describe('BaseInput', () => {
     })
   })
 
-  /**
-   * The component binds `:value` + `@input` rather than `v-model`, because `v-model` would cast
-   * a `type="number"` input's value and write `1.5` back while the user is still typing `1.50`.
-   * That costs `v-model`'s composition guard, which is kept by hand — an IME's intermediate
-   * text is not input until the composition is committed.
-   */
   describe('the hand-rolled composition guard', () => {
     it('writes nothing while a composition is in flight', async () => {
       const wrapper = await input()

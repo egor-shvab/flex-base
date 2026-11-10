@@ -40,7 +40,6 @@ describe('slugify', () => {
   })
 
   it('reduces a name with no ASCII alphanumerics to that same fallback', () => {
-    // Deliberate — see `docs/limitations.md`
     expect(slugify('Компания')).toBe('field')
     expect(slugify('会社')).toBe('field')
     expect(slugify('🎯')).toBe('field')
@@ -68,7 +67,6 @@ describe('slugify', () => {
   })
 
   it('can never emit a camelCase record column', () => {
-    // Why `RESERVED_FIELD_KEYS` states the reservation rather than trusting this
     expect(slugify('Created At')).toBe('created_at')
     expect(slugify('Record Number')).toBe('record_number')
 
@@ -90,7 +88,6 @@ describe('buildFieldKey — a free name', () => {
 
 describe('buildFieldKey — reserved names', () => {
   it('refuses a name that would shadow a records URL param', () => {
-    // Documented in `docs/architecture.md`: a field called "Page" becomes `page_2`
     expect(buildFieldKey('Page', 'TEXT', [])).toBe('page_2')
     expect(buildFieldKey('Search', 'TEXT', [])).toBe('search_2')
     expect(buildFieldKey('Sort', 'TEXT', [])).toBe('sort_2')
@@ -125,8 +122,6 @@ describe('buildFieldKey — collisions with an existing key', () => {
 
 describe('buildFieldKey — collisions with a claimed range bound', () => {
   it("refuses a name taken by a NUMBER field's bound", () => {
-    // Documented in `docs/architecture.md`: "Budget from" becomes `budget_from_2`
-    // next to a NUMBER `budget`, because that field already claims `budget_from`
     expect(buildFieldKey('Budget from', 'TEXT', [number('budget')])).toBe('budget_from_2')
     expect(buildFieldKey('Budget to', 'TEXT', [number('budget')])).toBe('budget_to_2')
   })
@@ -138,12 +133,10 @@ describe('buildFieldKey — collisions with a claimed range bound', () => {
   })
 
   it('leaves the name alone when the neighbour is not range-shaped', () => {
-    // A TEXT `budget` claims only `budget`, so `budget_from` is free
     expect(buildFieldKey('Budget from', 'TEXT', [text('budget')])).toBe('budget_from')
   })
 
   it('refuses a new range field whose own bounds are taken', () => {
-    // The new field claims `x_from` and `x_to`; an existing `x_from` blocks the whole key
     expect(buildFieldKey('X', 'NUMBER', [text('x_from')])).toBe('x_2')
     expect(buildFieldKey('X', 'NUMBER', [text('x_to')])).toBe('x_2')
   })

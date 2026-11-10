@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&amp;display=swap" rel="stylesheet">
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: #f6f6f7; color: #18181b; font-family: Archivo, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+  * { box-sizing: border-box; }
+  h1, h2, h3, h4, p, ul, ol { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  a { color: #1c6b4a; text-decoration: none; }
+  a:hover { color: #165c3f; }
+  ::selection { background: #d9ecdf; }
+</style>
+</helmet>
+
+<div style="position:fixed;right:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e4e4e7;border-radius:9px;background:#fff;box-shadow:0 6px 18px rgba(24,24,27,.12)">
+  <button onClick="{{ onDesktop }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ deskTabBg }};color:{{ deskTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">desktop_windows</span>Desktop</button>
+  <button onClick="{{ onMobile }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ mobTabBg }};color:{{ mobTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">smartphone</span>Mobile</button>
+</div>
+
+<div style="position:fixed;left:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e4e4e7;border-radius:9px;background:#fff;box-shadow:0 6px 18px rgba(24,24,27,.12)">
+  <sc-for list="{{ codeTabs }}" as="c" hint-placeholder-count="4">
+    <button onClick="{{ c.onClick }}" style="height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ c.bg }};color:{{ c.fg }};font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;cursor:pointer">{{ c.label }}</button>
+  </sc-for>
+</div>
+
+<sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Error · full page" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:#f6f6f7">
+
+  <div style="width:100%;max-width:512px;display:flex;flex-direction:column;gap:20px">
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+      <span style="width:30px;height:30px;border-radius:9px;background:#1c6b4a;color:#fff;display:flex;align-items:center;justify-content:center;flex:none;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+      <span style="font-size:16px;font-weight:600;letter-spacing:-.01em">FlexBase</span>
+    </div>
+
+    <section style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:32px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center">
+
+      <span style="width:56px;height:56px;border-radius:16px;background:{{ iconBg }};color:{{ iconFg }};display:flex;align-items:center;justify-content:center;flex:none;font-size:30px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 40">{{ glyph }}</span>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#6d6d77">Error {{ code }}</span>
+        <h1 style="font-size:28px;font-weight:600;letter-spacing:-.025em">{{ title }}</h1>
+        <p style="max-width:380px;font-size:15px;color:#5c5c66">{{ description }}</p>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px">
+        <button onClick="{{ onBack }}" style="height:38px;padding:0 16px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px" style-hover="background:#fafafa;border-color:#a1a1aa"><span style="font-size:18px;color:#5c5c66;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">arrow_back</span>Go back</button>
+        <a href="./Home.dc.html" style="height:38px;padding:0 16px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px" style-hover="background:#165c3f;border-color:#165c3f;color:#fff"><span style="font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">home</span>Back to home</a>
+      </div>
+
+      <sc-if value="{{ showSecondary }}" hint-placeholder-val="{{ true }}">
+      <p style="font-size:13px;color:#5c5c66">{{ secondaryText }} <a href="#" style="font-weight:600">{{ secondaryLink }}</a></p>
+      </sc-if>
+    </section>
+
+    <sc-if value="{{ showDetails }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">
+      <span>request {{ requestId }}</span>
+      <span style="width:3px;height:3px;border-radius:50%;background:#c4c4cc"></span>
+      <span>{{ timestamp }}</span>
+      <button onClick="{{ onCopy }}" style="height:24px;padding:0 8px;border:1px solid #e4e4e7;border-radius:6px;background:#fff;color:#5c5c66;font-family:inherit;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px" style-hover="background:#fafafa;color:#18181b"><span style="font-size:13px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20">{{ copyGlyph }}</span>{{ copyLabel }}</button>
+    </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 64px;background:#f0f0f2">
+  <div data-screen-label="Error · mobile" style="position:relative;width:390px;max-width:100%;height:844px;overflow:hidden;border:1px solid #d1d1d6;border-radius:26px;background:#fff;box-shadow:0 18px 44px rgba(24,24,27,.16);display:flex;flex-direction:column">
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">
+      <span>9:41</span>
+      <span style="display:flex;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">battery_full</span></span>
+    </div>
+
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 20px 0">
+      <span style="width:30px;height:30px;border-radius:9px;background:#1c6b4a;color:#fff;display:flex;align-items:center;justify-content:center;flex:none;font-size:18px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">table</span>
+      <span style="font-size:16px;font-weight:600;letter-spacing:-.01em">FlexBase</span>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px 20px 32px;text-align:center">
+
+      <span style="width:64px;height:64px;border-radius:18px;background:{{ iconBg }};color:{{ iconFg }};display:flex;align-items:center;justify-content:center;flex:none;font-size:34px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 40">{{ glyph }}</span>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#6d6d77">Error {{ code }}</span>
+        <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em">{{ title }}</h1>
+        <p style="font-size:15px;color:#5c5c66">{{ description }}</p>
+      </div>
+
+      <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+        <a href="./Home.dc.html" style="height:46px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#165c3f;border-color:#165c3f;color:#fff"><span style="font-size:19px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">home</span>Back to home</a>
+        <button onClick="{{ onBack }}" style="height:46px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:#fafafa;border-color:#a1a1aa"><span style="font-size:19px;color:#5c5c66;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">arrow_back</span>Go back</button>
+      </div>
+
+      <sc-if value="{{ showSecondary }}" hint-placeholder-val="{{ true }}">
+      <p style="font-size:14px;color:#5c5c66">{{ secondaryText }} <a href="#" style="font-weight:600">{{ secondaryLink }}</a></p>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ showDetails }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:none;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 20px;border-top:1px solid #ededef;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">
+      <span>request {{ requestId }}</span>
+      <button onClick="{{ onCopy }}" style="height:26px;padding:0 8px;border:1px solid #e4e4e7;border-radius:6px;background:#fff;color:#5c5c66;font-family:inherit;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px" style-hover="background:#fafafa;color:#18181b"><span style="font-size:13px;font-family:'Material Symbols Rounded';line-height:1;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20">{{ copyGlyph }}</span>{{ copyLabel }}</button>
+    </div>
+    </sc-if>
+
+    <div style="flex:none;display:flex;justify-content:center;padding:8px 0 10px"><span style="width:132px;height:5px;border-radius:3px;background:#18181b;opacity:.24"></span></div>
+  </div>
+</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;code&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;403&quot;,&quot;404&quot;,&quot;500&quot;,&quot;503&quot;],&quot;default&quot;:&quot;404&quot;,&quot;tsType&quot;:&quot;'403' | '404' | '500' | '503'&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showDetails&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;showSecondary&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop' | 'mobile'&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const ERRORS = {
+  '403': {
+    glyph: 'lock',
+    kind: 'amber',
+    title: 'You do not have access',
+    description: 'This table belongs to a workspace you are not a member of. Ask an admin to invite you, or switch to another account.',
+    secondaryText: 'Wrong account?',
+    secondaryLink: 'Sign in as someone else',
+  },
+  '404': {
+    glyph: 'search_off',
+    kind: 'grey',
+    title: 'This page does not exist',
+    description: 'The table or record you followed may have been renamed, moved, or deleted.',
+    secondaryText: 'Think it should be here?',
+    secondaryLink: 'Check the trash',
+  },
+  '500': {
+    glyph: 'error',
+    kind: 'red',
+    title: 'Something went wrong on our side',
+    description: 'The request failed before we could load your data. Nothing was changed. Try again in a moment.',
+    secondaryText: 'Still broken?',
+    secondaryLink: 'Contact support',
+  },
+  '503': {
+    glyph: 'cloud_off',
+    kind: 'amber',
+    title: 'FlexBase is temporarily unavailable',
+    description: 'We are running scheduled maintenance. Your data is safe and the workspace will be back shortly.',
+    secondaryText: 'Following along?',
+    secondaryLink: 'Status page',
+  },
+};
+
+const KIND = {
+  grey: { bg: '#f0f0f2', fg: '#5c5c66' },
+  amber: { bg: '#fdf3e3', fg: '#8a5a0b' },
+  red: { bg: '#fdecec', fg: '#b4232a' },
+};
+
+class Component extends DCLogic {
+  state = { code: null, layout: null, copied: false };
+
+  renderVals() {
+    const code = this.state.code ?? (this.props.code ?? '404');
+    const e = ERRORS[code] || ERRORS['404'];
+    const kind = KIND[e.kind];
+    const isMobile = (this.state.layout ?? (this.props.layout ?? 'desktop')) === 'mobile';
+    const copied = this.state.copied;
+
+    return {
+      isDesktop: !isMobile,
+      isMobile,
+      deskTabBg: isMobile ? 'transparent' : '#e6f2eb',
+      deskTabFg: isMobile ? '#5c5c66' : '#1c6b4a',
+      mobTabBg: isMobile ? '#e6f2eb' : 'transparent',
+      mobTabFg: isMobile ? '#1c6b4a' : '#5c5c66',
+      onDesktop: () => this.setState({ layout: 'desktop' }),
+      onMobile: () => this.setState({ layout: 'mobile' }),
+
+      codeTabs: Object.keys(ERRORS).map(c => ({
+        label: c,
+        bg: c === code ? '#e6f2eb' : 'transparent',
+        fg: c === code ? '#1c6b4a' : '#5c5c66',
+        onClick: () => this.setState({ code: c, copied: false }),
+      })),
+
+      code,
+      glyph: e.glyph,
+      title: e.title,
+      description: e.description,
+      iconBg: kind.bg,
+      iconFg: kind.fg,
+
+      showSecondary: this.props.showSecondary ?? true,
+      secondaryText: e.secondaryText,
+      secondaryLink: e.secondaryLink,
+
+      showDetails: this.props.showDetails ?? true,
+      requestId: 'a7f3-91c0-4e2b',
+      timestamp: '7 Sep 2026, 14:12 UTC',
+      copyGlyph: copied ? 'check' : 'content_copy',
+      copyLabel: copied ? 'Copied' : 'Copy',
+      onCopy: () => { this.setState({ copied: true }); setTimeout(() => this.setState({ copied: false }), 1600); },
+
+      onBack: () => { if (window.history.length > 1) window.history.back(); },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

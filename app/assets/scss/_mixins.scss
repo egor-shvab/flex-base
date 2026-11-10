@@ -1,30 +1,21 @@
 @use 'functions' as *;
 
-// Shared style fragments, injected into every SFC `<style>` block alongside `rem()` (see
-// `additionalData` in nuxt.config.ts). A standalone partial must `@use 'mixins' as *` itself,
-// since additionalData does not reach one.
-//
-// What each mixin is for is `docs/styling.md`; when to reach for one is `CLAUDE.md` §8.
+$breakpoint-shell: 56.25em;
 
-/// The one breakpoint: below it the sidebar stops being persistent. Here rather than in
-/// `_variables.scss` because a media query cannot read a custom property, and in `em` so it
-/// honours the browser's font-size setting.
-$breakpoint-shell: 56.25em; // 900px at the 16px default
-
-/// Applies its content only below the shell breakpoint.
 @mixin below-shell {
   @media (max-width: $breakpoint-shell) {
     @content;
   }
 }
 
-/// The keyboard focus state for a control **with no border of its own** — a button, link,
-/// row or option. A field takes `form-control` instead, and the two are mutually exclusive
-/// (`CLAUDE.md` §8). Why the outline is the indicator and the halo carries nothing:
-/// `docs/decisions.md`.
-///
-/// Pass a negative `$offset` for a ring that must sit inside its own box; such a control also
-/// sets `--focus-ring-halo: none`, since a glow there washes outward over what encloses it.
+$breakpoint-compact: 40em;
+
+@mixin below-compact {
+  @media (max-width: $breakpoint-compact) {
+    @content;
+  }
+}
+
 @mixin focus-ring($offset: var(--focus-ring-offset)) {
   &:focus {
     outline: none;
@@ -37,142 +28,195 @@ $breakpoint-shell: 56.25em; // 900px at the 16px default
   }
 }
 
-/// A vertical stack — the layout every form and labelled control uses.
 @mixin stack($gap: 16) {
   display: flex;
   flex-direction: column;
   gap: rem($gap);
 }
 
-/// A horizontal cluster — the row counterpart to `stack`, for controls sharing a centre
-/// line. No `flex-wrap`: every cluster in the app keeps its controls on one line, and the
-/// row that must wrap is `page-header`, which bakes it in. Add it after the include if a
-/// caller ever needs it.
 @mixin cluster($gap: 16) {
   display: flex;
   align-items: center;
   gap: rem($gap);
 }
 
-/// Keeps text on one line and ends it with an ellipsis instead of overflowing.
-/// The box must be bounded for this to engage: give it a `max-width`, or `min-width: 0`
-/// when it is a flex item that would otherwise refuse to shrink below its content.
 @mixin truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/// A bordered surface on the canvas. The edge is the structure, hence `--color-border`
-/// rather than `-subtle`, which is for a rule drawn *inside* one of these. Geometry and colour
-/// only — collapsing a hover or a ring in would put them on surfaces that are not interactive.
 @mixin surface-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
-/// A page that is nothing but one centred card — the auth screens and the error boundary,
-/// which render outside the shell and so own the viewport themselves. `dvh`, not `vh`: on
-/// mobile a collapsing URL bar leaves a `100vh` box overhanging the visible area.
 @mixin centred-viewport {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
-  padding: rem(16);
+  padding: rem(32) rem(16);
   background: var(--color-canvas);
 }
 
-/// The card such a page centres — the whole content, so it carries its own padding and lift
-/// rather than only an edge. The measure is a parameter; it is all the two callers disagree on.
-@mixin centred-card($max-width) {
+@mixin centred-column($max-width) {
+  @include stack(20);
+
   width: 100%;
   max-width: $max-width;
-  padding: rem(32);
-  border-radius: var(--radius-lg);
+}
+
+@mixin centred-card($padding: 24) {
+  padding: rem($padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
 }
 
-/// The caption above a form control.
-///
-/// `align-self` is load-bearing: as the first item of a `stack` the caption would otherwise
-/// `stretch` across the whole field, and a `<label for>` turns that empty space into a click
-/// target for a control nothing is drawn under. `BaseCheckbox` opts out by hand for the same
-/// reason.
-@mixin field-label {
-  align-self: flex-start;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-/// The validation message below a form control.
 @mixin field-error {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-danger);
 }
 
-/// The chrome shared by every text-like control (`<input>`, `<select>`).
-/// Callers add their own background, placeholder and disabled rules.
 @mixin form-control {
   min-height: var(--control-height);
-  // The block padding is what `--control-height` is spent on: 6 + 20 (16px text at
-  // `tight`) + 6 + 2 border = 34, so the height binds with 2px to spare. It moves with
-  // the token — trimming the height without trimming this clips the text instead.
   padding: rem(6) rem(12);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-control);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
   font-size: var(--font-size-md);
-  // Explicit, because `<select>` and `<input>` resolve `normal` differently — without
-  // it a select sits 1px taller than the input beside it
   line-height: var(--line-height-tight);
+  color: var(--color-text);
 
-  // Two signals, neither an outline: the border says "active" on any focus, autofocus
-  // included; the halo says "you are on the keyboard". A field already draws an edge, so it
-  // recolours that rather than gaining a second one a hairline outside it.
+  &::placeholder {
+    color: var(--color-text-subtle);
+  }
+
+  @include control-focus;
+
+  &:hover:where(:not(:disabled, :focus)) {
+    border-color: var(--color-border-control-hover);
+    background: var(--color-surface-raised);
+  }
+
+  &:disabled {
+    border-color: var(--color-border);
+    background: var(--color-surface-disabled);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+
+  &--invalid,
+  &--invalid:hover {
+    border-color: var(--color-danger);
+  }
+}
+
+@mixin control-focus {
   &:focus {
     border-color: var(--color-focus);
   }
 
   &:focus-visible {
-    // `_reset.scss`'s zero-specificity baseline would otherwise still draw the ring
     outline: none;
     box-shadow: var(--focus-ring-halo);
   }
 
-  // Not dead code: forced-colors resolves every border to one system colour and paints no
-  // `box-shadow`, so both signals above vanish together. An outline is the only indicator
-  // that survives, and these are the users least able to spare one.
+  // Not dead code: forced-colors paints no `box-shadow` and one border colour, so an outline is
+  // the only indicator that survives
   @media (forced-colors: active) {
     &:focus-visible {
       outline: rem(2) solid;
       outline-offset: rem(1);
     }
   }
+}
 
-  &--invalid {
-    border-color: var(--color-danger);
+@mixin segmented-track {
+  display: flex;
+  gap: rem(2);
+  min-height: var(--control-height);
+  padding: rem(3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+@mixin segmented-segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: rem(6);
+  min-height: rem(28);
+  padding: 0 rem(12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  @include focus-ring;
+
+  &:hover {
+    color: var(--color-text);
+  }
+
+  &[aria-checked='true'],
+  &[aria-current='page'] {
+    border-color: var(--color-border-control-hover);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    font-weight: 600;
+    color: var(--color-accent);
   }
 }
 
-/// A page's title row: heading left, actions right. Either side may be one control or a
-/// `cluster`; a group on the left must carry `min-width: 0` itself, or `page-title`'s ellipsis
-/// cannot engage. Wraps rather than collides — the title is a user-supplied table name.
-@mixin page-header {
+@mixin page-crumbs {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: rem(12) rem(16);
-  margin-bottom: rem(20);
+  gap: rem(12);
+  min-height: var(--control-height);
 }
 
-/// A page's `<h1>`. Truncates instead of pushing the actions off the row.
+@mixin page-title-row {
+  @include cluster(14);
+
+  min-width: 0;
+}
+
 @mixin page-title {
   min-width: 0;
   margin: 0;
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  letter-spacing: var(--letter-spacing-display);
 
   @include truncate;
+  @include below-compact {
+    font-size: var(--font-size-xl);
+  }
+}
+
+@mixin popover-panel {
+  position: fixed;
+  z-index: var(--z-popover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+@mixin eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
 }

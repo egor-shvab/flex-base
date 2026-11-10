@@ -3,9 +3,6 @@ import { planErrorLogRotation } from '#server/utils/error-log-file'
 
 const FD = 7
 
-// The sink's only contact with the outside world. Driven through a hoisted state object
-// rather than `mockImplementation`, so the spec never has to satisfy the overload
-// signatures `node:fs` declares.
 const fsState = vi.hoisted(() => ({ fileSize: 0, filesExist: true, failOnWrite: false }))
 
 vi.mock('node:fs', () => ({
@@ -14,7 +11,6 @@ vi.mock('node:fs', () => ({
   fstatSync: vi.fn(() => ({ size: fsState.fileSize })),
   mkdirSync: vi.fn(),
   openSync: vi.fn(() => FD),
-  // The last rename moves the live file aside, so what reopens behind it is empty
   renameSync: vi.fn(() => {
     fsState.fileSize = 0
   }),
@@ -25,10 +21,6 @@ vi.mock('node:fs', () => ({
   }),
 }))
 
-/**
- * The sink keeps a descriptor and a byte count for the lifetime of the module, so each case
- * gets its own copy of the module rather than inheriting the previous case's open file.
- */
 async function loadSink() {
   vi.resetModules()
   const fs = vi.mocked(await import('node:fs'))
@@ -37,8 +29,7 @@ async function loadSink() {
 }
 
 beforeEach(() => {
-  // `resetModules` gives the sink fresh state but leaves the mock registry alone, so the
-  // `vi.fn()`s above are the same instances every case and would otherwise accumulate calls
+  // `resetModules` leaves the mock registry alone, so the `vi.fn()`s would accumulate calls
   vi.clearAllMocks()
   fsState.fileSize = 0
   fsState.filesExist = true
@@ -57,8 +48,6 @@ describe('planErrorLogRotation', () => {
     ])
   })
 
-  // Walking the other way would rename .1 onto .2, then that same file onto .3, and finish
-  // with five copies of the newest generation
   it('walks the generations highest first, and moves the live file last', () => {
     const plan = planErrorLogRotation('/srv/logs/server-errors.log', 4)
 
@@ -129,8 +118,6 @@ describe('appendErrorLogLine — rotation', () => {
 
     sink.appendErrorLogLine('{"a":1}\n')
 
-    // Load-bearing, not tidiness: Windows refuses to rename a file that is still open, so a
-    // rotation that closed afterwards would fail on every developer machine here
     const closed = fs.closeSync.mock.invocationCallOrder[0] ?? Infinity
     const renamed = fs.renameSync.mock.invocationCallOrder[0] ?? 0
     expect(closed).toBeLessThan(renamed)

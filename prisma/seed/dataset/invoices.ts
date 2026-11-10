@@ -4,17 +4,6 @@ import { PROJECTS } from '~~/prisma/seed/dataset/projects'
 import { rowsFrom } from '~~/prisma/seed/dataset/types'
 import type { ISeedField, ISeedTable, TSeedRow } from '~~/prisma/seed/dataset/types'
 
-/**
- * The billing ledger. Two things here are not decoration:
- *
- * `Paid on` is blank on every unpaid invoice — roughly two in five — which is the dataset's main
- * source of NULLs in a sortable column, and therefore the only place `NULLS LAST` is visible in
- * both directions.
- *
- * `Amount` carries the numeric edges a NUMBER field allows and a currency column usually hides: a
- * credit note is negative, one line is exactly zero, and every other value has real cents.
- */
-
 const INVOICE_COUNT = 96
 
 const FIELDS: ISeedField[] = [
@@ -58,7 +47,6 @@ const COUNTRY_BY_CLIENT = new Map(
   CLIENTS.records.map((record) => [record.ref, String(record.values.Country ?? '')]),
 )
 
-/** Only a project that was actually worked on gets billed, so the cancelled ones are left out. */
 const BILLABLE_PROJECTS = PROJECTS.records.filter(
   (record) => record.values.Status !== 'Cancelled' && record.values.Billable === true,
 )
@@ -85,8 +73,6 @@ function buildRows(): TSeedRow[] {
     const clientRef = String(project.values.Client)
     const issuedOn = ISSUE_WINDOW_START + pickInt(random, 0, ISSUE_WINDOW_DAYS) * DAY_MS
 
-    // Two in five are still outstanding, and an unpaid invoice has no payment date — which is
-    // what puts a real spread of NULLs into a sortable, filterable column
     const paid = random() < 0.6
     const paidOn = paid ? issuedOn + pickInt(random, 8, 75) * DAY_MS : null
 
@@ -96,9 +82,7 @@ function buildRows(): TSeedRow[] {
       `invoices:${index + 1}`,
       `INV-${new Date(issuedOn).getUTCFullYear()}-${String(index + 1).padStart(4, '0')}`,
       clientRef,
-      // A handful are general retainer lines with no project behind them
       random() < 0.12 ? null : project.ref,
-      // One credit note and one nil-value line, so the column is not uniformly positive
       index === 17 ? -1840.5 : index === 61 ? 0 : amount,
       COUNTRY_CURRENCY[COUNTRY_BY_CLIENT.get(clientRef) ?? ''] ?? 'EUR',
       isoDay(issuedOn),

@@ -5,10 +5,12 @@ import { resolveSafeRedirect } from '~/utils/safe-redirect'
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
 
-  // First navigation (SSR included): restore the session from the auth cookie
-  if (!auth.initialized) {
+  if (!auth.isInitialized) {
     await auth.fetchUser()
   }
+
+  // Fixtures only, so public. Exact-or-slash, so `/ui-testing` stays guarded
+  if (to.path === '/ui-test' || to.path.startsWith('/ui-test/')) return
 
   const isAuthRoute = to.path.startsWith('/auth')
 

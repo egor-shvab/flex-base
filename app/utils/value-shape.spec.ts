@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toCellSingleValue, toValueList } from '~/utils/value-shape'
 
-/**
- * The one place a stored value that is not yet an array is accounted for — which is what lets
- * `IMultiValueCellProps.value` be a plain `string[]`, and what stops a form dropping a value it
- * is about to save back.
- *
- * A plain `*.spec.ts` rather than `*.nuxt.spec.ts`: the module imports no `.vue` file and needs
- * no Nuxt runtime, so it belongs in the fast project (`CLAUDE.md` §10).
- */
 describe('toValueList', () => {
   it('passes a list through', () => {
     expect(toValueList(['a', 'b'])).toEqual(['a', 'b'])
@@ -26,17 +18,11 @@ describe('toValueList', () => {
     expect(toValueList(true)).toEqual([])
   })
 
-  /** A range is neither a value nor a list of them, and must not decode as one. */
   it('reads a range as an empty list', () => {
     expect(toValueList({ from: 1, to: 2 })).toEqual([])
   })
 })
 
-/**
- * The single-value counterpart. Pure like `toValueList`, and here rather than beside
- * `cellComponent` for the same reason: resolving *which* cell draws a column reads the registries
- * and needs the Nuxt project; deciding what one value looks like does not.
- */
 describe('toCellSingleValue', () => {
   it('passes a scalar through', () => {
     expect(toCellSingleValue('Acme')).toBe('Acme')
@@ -44,7 +30,6 @@ describe('toCellSingleValue', () => {
     expect(toCellSingleValue(null)).toBeNull()
   })
 
-  /** Neither is blank, and treating them as such is the obvious way to get a cell wrong. */
   it('keeps a false and a zero', () => {
     expect(toCellSingleValue(false)).toBe(false)
     expect(toCellSingleValue(0)).toBe(0)

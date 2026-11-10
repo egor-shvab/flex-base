@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&amp;display=swap" rel="stylesheet">
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: #f6f6f7; color: #18181b; font-family: Archivo, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+  * { box-sizing: border-box; }
+  h1, h2, h3, h4, p, ul, ol { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  table { border-collapse: collapse; }
+  a { color: #1c6b4a; text-decoration: none; }
+  a:hover { color: #165c3f; }
+  ::selection { background: #d9ecdf; }
+  input { font-family: inherit; }
+</style>
+</helmet>
+
+<div style="position:fixed;right:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e4e4e7;border-radius:9px;background:#fff;box-shadow:0 6px 18px rgba(24,24,27,.12)">
+  <button onClick="{{ onDesktop }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ deskTabBg }};color:{{ deskTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">desktop_windows</span>Desktop</button>
+  <button onClick="{{ onMobile }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:none;border-radius:6px;background:{{ mobTabBg }};color:{{ mobTabFg }};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer"><span style="font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">smartphone</span>Mobile</button>
+</div>
+
+<sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:stretch;min-height:100vh;background:#f6f6f7">
+
+  <aside style="width:248px;min-width:248px;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh">
+    <button style="display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+      <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+      <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">unfold_more</span>
+    </button>
+
+    <a href="./Home.dc.html" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="color:#5c5c66;width:16px;text-align:center;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">home</span>Home</a>
+    <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;background:#e6f2eb;color:#1c6b4a;font-size:14px;font-weight:600"><span style="width:16px;text-align:center;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">248</span></a>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">People</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">96</span></a>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Projects</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">31</span></a>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Tasks</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">412</span></a>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Invoices</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">1 204</span></a>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Suppliers</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">18</span></a>
+    <button style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-top:4px"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">add</span>New table</button>
+
+    <span style="flex:1"></span>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">group</span><span style="flex:1">Members</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">12</span></a>
+    <a href="#" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span><span style="flex:1">Workspace settings</span></a>
+    <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;margin-top:8px;border-top:1px solid #ededef">
+      <span style="width:26px;height:26px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ирина Петрова</span><span style="font-size:11px;color:#5c5c66">Admin</span></span>
+      <span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">more_horiz</span>
+    </div>
+  </aside>
+
+  <main data-screen-label="Clients · records" style="flex:1;min-width:0;height:100vh;overflow:hidden;display:flex;flex-direction:column;background:#f6f6f7">
+
+    <div style="flex:none;background:#f6f6f7;padding:18px 24px 0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:4px;min-height:36px;font-size:13px;overflow:hidden">
+        <a href="#" style="color:#5c5c66;flex:none">Acme</a>
+        <span style="color:#c4c4cc;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;flex:none">chevron_right</span>
+        <a href="#" style="color:#5c5c66;flex:none">Sales 2026</a>
+        <span style="color:#c4c4cc;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;flex:none">chevron_right</span>
+        <span style="font-weight:600;color:#18181b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Clients</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex:none">
+          <a href="./Table Settings.dc.html" style="height:36px;padding:0 12px;border:1px solid transparent;border-radius:8px;background:transparent;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px" style-hover="background:#f0f0f2;color:#18181b"><span style="font-size:17px;color:#5c5c66;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">settings</span>Settings</a>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:14px;min-width:0">
+          <h1 style="font-size:32px;font-weight:600;letter-spacing:-.025em">Clients</h1>
+          <button style="height:36px;padding:0 14px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;flex:none" style-hover="background:#165c3f;border-color:#165c3f"><span style="font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px;flex:none">add</span>Add record</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="display:inline-flex;align-items:center;gap:2px;height:36px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:8px;width:max-content;flex:none">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="3">
+            <button onClick="{{ v.onClick }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:none;border-radius:6px;background:{{ v.bg }};color:{{ v.fg }};box-shadow:{{ v.shadow }};font-family:inherit;font-size:13px;font-weight:{{ v.weight }};cursor:pointer">
+              <span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ v.glyph }}</span>{{ v.label }}
+            </button>
+          </sc-for>
+        </span>
+        <div style="position:relative;width:300px;max-width:100%">
+          <span style="position:absolute;left:10px;top:9px;color:#6d6d77;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;pointer-events:none">search</span>
+          <input type="text" placeholder="Search records" value="{{ query }}" onChange="{{ onQuery }}" style="width:100%;height:36px;padding:0 12px 0 36px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb">
+        </div>
+        <button onClick="{{ onToggleFilters }}" style="height:36px;padding:0 12px;border:1px solid {{ filterBtnBorder }};border-radius:8px;background:{{ filterBtnBg }};color:{{ filterBtnFg }};font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px;flex:none"><span style="font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px;flex:none">filter_list</span>Filter<span style="width:17px;height:17px;border-radius:50%;background:{{ filterBadgeBg }};color:#fff;font-family:'IBM Plex Mono',monospace;font-size:10px;display:flex;align-items:center;justify-content:center">{{ filterCount }}</span></button>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:stretch;gap:0;flex:1;min-width:0;min-height:0">
+      <div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:20px 24px 0;position:relative">
+
+        <div style="flex:none;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px">
+          <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="2">
+            <span style="display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 4px 0 10px;border:1px solid {{ chip.border }};border-radius:999px;background:{{ chip.bg }};font-size:13px">
+              <span style="color:{{ chip.labelFg }}">{{ chip.field }}</span>
+              <span style="color:{{ chip.labelFg }}">{{ chip.op }}</span>
+              <span style="font-weight:500;color:{{ chip.valueFg }};font-family:{{ chip.valueFont }};font-size:{{ chip.valueSize }}">{{ chip.value }}</span>
+              <button onClick="{{ chip.onRemove }}" style="width:20px;height:20px;border:none;border-radius:50%;background:{{ chip.closeBg }};color:{{ chip.closeFg }};font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">close</button>
+            </span>
+          </sc-for>
+          <button onClick="{{ onClearAll }}" style="height:28px;padding:0 6px;border:none;background:none;color:#1c6b4a;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">{{ clearAllLabel }}</button>
+        </div>
+
+        <sc-if value="{{ isTableView }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-height:0;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:auto">
+          <table style="width:100%;font-size:14px">
+            <thead>
+              <tr style="background:#fafafa">
+                <th style="vertical-align:middle;width:1px;padding:0 8px 0 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa"><button onClick="{{ onToggleAll }}" style="width:16px;height:16px;padding:0;border:1px solid {{ allCheckBorder }};border-radius:4px;background:{{ allCheckBg }};color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ allCheckGlyph }}</button></th>
+                <th style="vertical-align:middle;width:1px;padding:10px 16px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:#6d6d77;white-space:nowrap"><span onClick="{{ onSortNo }}" style="display:flex;align-items:center;gap:5px;cursor:pointer">#<span style="color:{{ noSortColor }};font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ noSortGlyph }}</span></span></th>
+                <th style="vertical-align:middle;padding:10px 16px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortCompany }}" style="display:flex;align-items:center;gap:7px;line-height:1.2;cursor:pointer"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">text_fields</span>Company<span style="color:{{ companySortColor }};font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ companySortGlyph }}</span></span></th>
+                <th style="vertical-align:middle;padding:10px 16px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span style="display:flex;align-items:center;gap:7px;line-height:1.2;cursor:pointer" onClick="{{ onSortStage }}"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">radio_button_checked</span>Stage<span style="color:{{ stageSortColor }};font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ stageSortGlyph }}</span></span></th>
+                <th style="vertical-align:middle;padding:10px 16px;text-align:right;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortValue }}" style="display:flex;align-items:center;gap:7px;line-height:1.2;justify-content:flex-end;cursor:pointer"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">euro</span>Contract value<span style="color:{{ valueSortColor }};font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ valueSortGlyph }}</span></span></th>
+                <th style="vertical-align:middle;padding:10px 16px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span style="display:flex;align-items:center;gap:7px;line-height:1.2;cursor:pointer" onClick="{{ onSortOwner }}"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">person</span>Owner<span style="color:{{ ownerSortColor }};font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ ownerSortGlyph }}</span></span></th>
+                <th style="vertical-align:middle;padding:10px 16px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span style="display:flex;align-items:center;gap:7px;line-height:1.2;cursor:pointer" onClick="{{ onSortRenewal }}"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">event</span>Renewal<span style="color:{{ renewalSortColor }};font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ renewalSortGlyph }}</span></span></th>
+                <th style="vertical-align:middle;padding:10px 16px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span style="display:flex;align-items:center;gap:7px;line-height:1.2;cursor:pointer" onClick="{{ onSortProjects }}"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">arrow_outward</span>Projects<span style="color:{{ projectsSortColor }};font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ projectsSortGlyph }}</span></span></th>
+                <th style="vertical-align:middle;width:1px;padding:10px 16px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;right:0;z-index:2;background:#fafafa;border-left:1px solid #ededef;box-shadow:-8px 0 8px -8px rgba(24,24,27,.10);font-size:13px;font-weight:600;color:#5c5c66">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ rows }}" as="row" hint-placeholder-count="12">
+                <tr style="background:{{ row.rowBg }}" style-hover="background:#fafafa">
+                  <td style="padding:0 8px 0 10px;border-bottom:1px solid #ededef;border-left:2px solid {{ row.edge }};height:{{ rowHeight }}"><button onClick="{{ row.onToggle }}" style="width:16px;height:16px;padding:0;border:1px solid {{ row.checkBorder }};border-radius:4px;background:{{ row.checkBg }};color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ row.checkGlyph }}</button></td>
+                  <td style="padding:4px 16px;border-bottom:1px solid #ededef;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5c5c66">{{ row.no }}</td>
+                  <td style="padding:4px 16px;border-bottom:1px solid #ededef;font-weight:400"><span style="display:block;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:{{ row.companyFg }}">{{ row.company }}</span></td>
+                  <td style="padding:4px 16px;border-bottom:1px solid #ededef"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;background:{{ row.stageBg }};color:{{ row.stageFg }};font-size:12px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:2px;background:{{ row.stageDot }}"></span>{{ row.stage }}</span></td>
+                  <td style="padding:4px 16px;border-bottom:1px solid #ededef;font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;white-space:nowrap">{{ row.money }}</td>
+                  <td style="padding:4px 16px;border-bottom:1px solid #ededef"><span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;white-space:nowrap"><span style="width:22px;height:22px;border-radius:50%;background:{{ row.ownerBg }};color:{{ row.ownerFg }};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ row.ownerInitials }}</span>{{ row.owner }}</span></td>
+                  <td style="padding:4px 16px;border-bottom:1px solid #ededef;font-size:13px;color:#5c5c66;white-space:nowrap">{{ row.renewal }}</td>
+                  <td style="padding:4px 16px;border-bottom:1px solid #ededef"><span style="display:inline-flex;gap:5px;align-items:center"><span style="color:#a1a1aa;font-size:13px">{{ row.projDash }}</span><sc-for list="{{ row.projShown }}" as="chip" hint-placeholder-count="0"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;color:#6d6d77">{{ chip.no }}</span>{{ chip.name }}</span></sc-for><sc-for list="{{ row.projRest }}" as="more" hint-placeholder-count="0"><span style="display:inline-flex;align-items:center;height:22px;padding:0 7px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;color:#5c5c66;white-space:nowrap">{{ more.label }}</span></sc-for></span></td>
+                  <td style="padding:4px 8px;border-bottom:1px solid #ededef;border-left:1px solid #ededef;box-shadow:-8px 0 8px -8px rgba(24,24,27,.10);position:sticky;right:0;background:{{ row.actionsBg }}"><span style="display:flex;gap:2px"><button style="width:36px;height:36px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:18px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">open_in_full</button><button style="width:36px;height:36px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:18px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">edit</button><button style="width:36px;height:36px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:18px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">more_horiz</button></span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td style="height:34px;padding:0 8px 0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77;white-space:nowrap">{{ footScope }}</td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1;text-align:right;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77;margin-right:7px">Sum</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;color:#1c1c1f">{{ footSum }}</span></td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77;margin-right:7px">Filled</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;color:#1c1c1f">{{ footFilled }}</span></td>
+                <td style="height:34px;padding:0 16px;border-top:1px solid #ededef;background:#f6f6f7;border-left:1px solid #ededef;box-shadow:-8px 0 8px -8px rgba(24,24,27,.10);position:sticky;right:0;bottom:0;z-index:2"></td>
+              </tr>
+            </tfoot>
+          </table>
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:44px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;background:#fafafa;border-top:1px solid #ededef">
+              <span style="width:40px;height:40px;border-radius:10px;background:#e6f2eb;color:#1c6b4a;display:flex;align-items:center;justify-content:center;font-size:22px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">filter_alt_off</span>
+              <span style="font-size:14px;font-weight:600">No records match</span>
+              <span style="font-size:12px;color:#5c5c66">A search and {{ filterCount }} filters are narrowing this table.</span>
+              <button onClick="{{ onClearAll }}" style="height:36px;padding:0 14px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Show all records</button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px 18px">
+          <span style="font-size:13px;color:#5c5c66">Showing <span style="font-family:'IBM Plex Mono',monospace">{{ rangeLabel }}</span> of <span style="font-family:'IBM Plex Mono',monospace">{{ totalLabel }}</span></span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <button onClick="{{ onPrev }}" style="width:30px;height:30px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;color:{{ prevColor }};font-size:16px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">chevron_left</button>
+            <sc-for list="{{ pages }}" as="p" hint-placeholder-count="5">
+              <button onClick="{{ p.onClick }}" style="width:{{ p.w }};height:30px;border:1px solid {{ p.border }};background:{{ p.bg }};color:{{ p.fg }};border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:{{ p.cursor }}">{{ p.label }}</button>
+            </sc-for>
+            <button onClick="{{ onNext }}" style="width:30px;height:30px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;color:{{ nextColor }};font-size:16px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">chevron_right</button>
+          </span>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isCalView }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden;margin-bottom:18px">
+            <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px;background:#fafafa;border-bottom:1px solid #e4e4e7;flex-wrap:wrap">
+              <div style="display:flex;align-items:center">
+                <button onClick="{{ onCalPrev }}" style="width:36px;height:36px;border:1px solid #d1d1d6;border-radius:8px 0 0 8px;background:#fff;display:flex;align-items:center;justify-content:center;color:#5c5c66;cursor:pointer;font-size:20px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;margin-right:-1px">chevron_left</button>
+                <button onClick="{{ onCalNext }}" style="width:36px;height:36px;border:1px solid #d1d1d6;border-radius:0 8px 8px 0;background:#fff;display:flex;align-items:center;justify-content:center;color:#5c5c66;cursor:pointer;font-size:20px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">chevron_right</button>
+              </div>
+              <button onClick="{{ onCalToday }}" style="height:36px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Today</button>
+              <span style="font-size:17px;font-weight:600;letter-spacing:-.01em;margin-left:6px">{{ calTitle }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ calDatedLabel }}</span>
+              <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+                <span style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 11px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;cursor:pointer"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">event</span><span style="color:#6d6d77;font-size:13px">By</span>{{ calFieldLabel }}<span style="color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">expand_more</span></span>
+                <span style="display:inline-flex;align-items:center;gap:2px;height:36px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:8px">
+                  <span style="display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:6px;background:#fff;color:#1c6b4a;font-size:13px;font-weight:600;box-shadow:0 1px 2px rgba(24,24,27,.08)">Month</span>
+                  <span style="display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:6px;color:#5c5c66;font-size:13px;font-weight:500;cursor:pointer">Week</span>
+                  <span style="display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:6px;color:#5c5c66;font-size:13px;font-weight:500;cursor:pointer">Day</span>
+                </span>
+              </div>
+            </div>
+
+            <div style="flex:none;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#fafafa;border-bottom:1px solid #e4e4e7">
+              <sc-for list="{{ weekdays }}" as="d" hint-placeholder-count="7">
+                <span style="padding:7px 9px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:{{ d.fg }}">{{ d.label }}</span>
+              </sc-for>
+            </div>
+
+            <div style="flex:1;min-height:0;overflow:auto">
+              <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:#ededef">
+                <sc-for list="{{ calCells }}" as="c" hint-placeholder-count="35">
+                  <div style="min-height:104px;background:{{ c.bg }};padding:7px 8px;display:flex;flex-direction:column;gap:4px">
+                    <span style="align-self:flex-start;display:inline-flex;align-items:center;justify-content:center;width:{{ c.numW }};height:22px;border-radius:{{ c.numRadius }};background:{{ c.numBg }};color:{{ c.numFg }};margin:{{ c.numMargin }};font-family:'IBM Plex Mono',monospace;font-size:12px">{{ c.day }}</span>
+                    <sc-for list="{{ c.chips }}" as="chip" hint-placeholder-count="0">
+                      <span style="display:flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;background:{{ chip.bg }};color:{{ chip.fg }};font-size:12px;font-weight:500;cursor:pointer"><span style="width:6px;height:6px;border-radius:2px;background:{{ chip.dot }};flex:none"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ chip.name }}</span></span>
+                    </sc-for>
+                    <sc-for list="{{ c.more }}" as="m" hint-placeholder-count="0">
+                      <span style="font-size:12px;font-weight:500;color:#1c6b4a;padding:0 8px;cursor:pointer">{{ m.label }}</span>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="flex:none;display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid #e4e4e7;background:#f6f6f7;flex-wrap:wrap">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77">Outside this month</span>
+              <span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border:1px dashed #d1d1d6;border-radius:6px;font-size:12px;color:#5c5c66;background:#fff">{{ calOutsideLabel }}</span>
+              <span style="font-size:12px;color:#5c5c66">The same filters apply — only the month on screen changes.</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isBoardView }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:hidden;margin-bottom:18px">
+            <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px;background:#fafafa;border-bottom:1px solid #e4e4e7;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 11px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;cursor:pointer"><span style="color:#a1a1aa;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">radio_button_checked</span><span style="color:#6d6d77;font-size:13px">Group by</span>{{ boardGroupLabel }}<span style="color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">expand_more</span></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ boardCountLabel }}</span>
+            </div>
+            <div style="flex:1;min-height:0;display:flex;gap:12px;padding:14px;overflow:auto;background:#f6f6f7;align-items:flex-start">
+              <sc-for list="{{ boardColumns }}" as="col" hint-placeholder-count="6">
+                <div style="flex:0 0 272px;display:flex;flex-direction:column;gap:8px;background:#fafafa;border:1px solid #ededef;border-radius:10px;padding:10px">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span style="width:6px;height:6px;border-radius:2px;background:{{ col.dot }};flex:none"></span>
+                    <span style="font-size:13px;font-weight:600">{{ col.name }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6d6d77">{{ col.count }}</span>
+                    <span style="margin-left:auto;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#5c5c66;cursor:pointer;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">add</span>
+                    <span style="width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#5c5c66;cursor:pointer;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">more_horiz</span>
+                  </div>
+                  <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="3">
+                    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:10px 11px;display:flex;flex-direction:column;gap:8px;cursor:grab">
+                      <span style="font-size:14px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:{{ c.companyFg }}">{{ c.company }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums">{{ c.money }}</span>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <span style="width:22px;height:22px;border-radius:50%;background:{{ c.ownerBg }};color:{{ c.ownerFg }};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ c.ownerInitials }}</span>
+                        <sc-for list="{{ c.projShown }}" as="p" hint-placeholder-count="0">
+                          <span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;max-width:110px"><span style="font-family:'IBM Plex Mono',monospace;color:#6d6d77">{{ p.no }}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.name }}</span></span>
+                        </sc-for>
+                        <sc-for list="{{ c.projRest }}" as="m" hint-placeholder-count="0">
+                          <span style="display:inline-flex;align-items:center;height:22px;padding:0 7px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;color:#5c5c66">{{ m.label }}</span>
+                        </sc-for>
+                        <sc-for list="{{ c.projNone }}" as="n" hint-placeholder-count="0">
+                          <span style="font-size:12px;color:#a1a1aa">{{ n.label }}</span>
+                        </sc-for>
+                        <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ c.no }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <sc-for list="{{ col.more }}" as="m" hint-placeholder-count="0">
+                    <span onClick="{{ m.onClick }}" style="font-size:13px;font-weight:500;color:#1c6b4a;padding:6px 2px;cursor:pointer">{{ m.label }}</span>
+                  </sc-for>
+                  <sc-for list="{{ col.empty }}" as="e" hint-placeholder-count="0">
+                    <div style="height:74px;border:1px dashed #d1d1d6;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77">{{ e.label }}</div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:none;display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid #e4e4e7;background:#f6f6f7;flex-wrap:wrap">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77">Grouped by Stage</span>
+              <span style="font-size:12px;color:#5c5c66">Moving a card between columns writes that stage back to the record; the same filters and search apply.</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:50%;bottom:74px;transform:translateX(-50%);z-index:15;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:#18181b;box-shadow:0 10px 28px rgba(24,24,27,.22),0 2px 6px rgba(24,24,27,.14)">
+            <span style="display:flex;align-items:center;gap:8px;padding:0 4px;color:#fff;font-size:13px;font-weight:500;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:3px 7px;border-radius:6px;background:rgba(255,255,255,.14)">{{ selCountLabel }}</span>selected</span>
+            <span style="width:1px;height:22px;background:rgba(255,255,255,.16)"></span>
+            <button onClick="{{ onBulkNoop }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border:none;border-radius:7px;background:transparent;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(255,255,255,.12)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">radio_button_checked</span>Set stage</button>
+            <button onClick="{{ onBulkNoop }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border:none;border-radius:7px;background:transparent;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(255,255,255,.12)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">person</span>Assign owner</button>
+            <button onClick="{{ onBulkNoop }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border:none;border-radius:7px;background:transparent;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(255,255,255,.12)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">file_download</span>Export</button>
+            <span style="width:1px;height:22px;background:rgba(255,255,255,.16)"></span>
+            <button onClick="{{ onBulkDelete }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border:none;border-radius:7px;background:transparent;color:#f6a8a0;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(246,168,160,.16)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">delete</span>Delete</button>
+            <span style="width:1px;height:22px;background:rgba(255,255,255,.16)"></span>
+            <button onClick="{{ onClearSelection }}" style="width:30px;height:30px;border:none;border-radius:7px;background:transparent;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:rgba(255,255,255,.12)">close</button>
+          </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ filterOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:fixed;top:0;right:0;bottom:0;width:380px;max-width:100vw;z-index:20;background:#fff;border-left:1px solid #d1d1d6;box-shadow:0 20px 48px rgba(24,24,27,.18);display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid #ededef">
+            <span style="font-size:18px;font-weight:600;flex:1">Filters</span>
+            <button onClick="{{ onToggleFilters }}" style="width:36px;height:36px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:20px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">close</button>
+          </div>
+          <div style="padding:18px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow-y:auto">
+            <p style="font-size:13px;color:#5c5c66">Every filter is a field, an operator and a value. Rows are joined with AND.</p>
+            <sc-for list="{{ filterRows }}" as="f" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid #e4e4e7;border-radius:10px;background:#fafafa">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;flex:1">{{ f.conj }}</span>
+                  <button onClick="{{ f.onRemove }}" style="width:28px;height:28px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:18px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#b42318">delete</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <span style="display:flex;align-items:center;gap:7px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ f.glyph }}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.field }}</span><span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">expand_more</span></span>
+                  <span style="display:flex;align-items:center;gap:7px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.op }}</span><span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">expand_more</span></span>
+                </div>
+                <span style="display:flex;align-items:center;gap:7px;min-height:36px;padding:6px 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;flex-wrap:wrap"><span style="flex:1;min-width:0;font-family:{{ f.valueFont }};font-size:{{ f.valueSize }}">{{ f.value }}</span><span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">expand_more</span></span>
+              </div>
+            </sc-for>
+            <button onClick="{{ onAddFilter }}" style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px dashed #d1d1d6;border-radius:8px;background:#fff;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa"><span style="font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px">add</span>Add filter</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-top:1px solid #ededef">
+            <button onClick="{{ onClearAll }}" style="height:36px;padding:0 16px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa;border-color:#a1a1aa">Reset</button>
+            <span style="flex:1;font-size:13px;color:#5c5c66">{{ totalLabel }} matching</span>
+            <button onClick="{{ onToggleFilters }}" style="height:36px;padding:0 16px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#165c3f;border-color:#165c3f">Done</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 64px;background:#f0f0f2">
+  <div data-screen-label="Clients · mobile" style="position:relative;width:390px;max-width:100%;height:844px;overflow:hidden;border:1px solid #d1d1d6;border-radius:26px;background:#f6f6f7;box-shadow:0 18px 44px rgba(24,24,27,.16);display:flex;flex-direction:column">
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5c5c66">
+      <span>9:41</span>
+      <span style="display:flex;gap:6px"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">battery_full</span></span>
+    </div>
+
+    <div style="flex:none;background:transparent;padding:8px 12px 0;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onClick="{{ onToggleNav }}" style="width:36px;height:36px;flex:none;border:1px solid #e4e4e7;border-radius:8px;background:#fff;color:#18181b;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">menu</button>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:3px;font-size:12px;overflow:hidden">
+          <a href="#" style="color:#5c5c66;flex:none">Acme</a>
+          <span style="color:#c4c4cc;font-size:14px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;flex:none">chevron_right</span>
+          <a href="#" style="color:#5c5c66;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Sales 2026</a>
+        </div>
+        <button onClick="{{ onOpenSettings }}" style="width:36px;height:36px;flex:none;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">settings</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <h1 style="flex:1;min-width:0;font-size:24px;font-weight:600;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Clients</h1>
+        <button style="height:40px;padding:0 14px;flex:none;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px" style-hover="background:#165c3f;border-color:#165c3f"><span style="font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px;flex:none">add</span>Add record</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="display:flex;align-items:center;gap:2px;height:40px;padding:3px;background:#f0f0f2;border:1px solid #e4e4e7;border-radius:8px;width:100%;flex:1 1 auto">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="3">
+            <button onClick="{{ v.onClick }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;flex:1 1 0;min-width:0;border:none;border-radius:6px;background:{{ v.bg }};color:{{ v.fg }};box-shadow:{{ v.shadow }};font-family:inherit;font-size:13px;font-weight:{{ v.weight }};cursor:pointer;white-space:nowrap">
+              <span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ v.glyph }}</span>{{ v.label }}
+            </button>
+          </sc-for>
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="position:relative;flex:1;min-width:0">
+          <span style="position:absolute;left:10px;top:11px;color:#6d6d77;font-size:18px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;pointer-events:none">search</span>
+          <input type="text" placeholder="Search records" value="{{ query }}" onChange="{{ onQuery }}" style="width:100%;height:40px;padding:0 12px 0 36px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-size:14px;outline:none" style-focus="border-color:#2f9e6b;box-shadow:0 0 0 4px #e6f2eb">
+        </div>
+        <button onClick="{{ onToggleFilters }}" style="height:40px;padding:0 12px;flex:none;border:1px solid {{ filterBtnBorder }};border-radius:8px;background:{{ filterBtnBg }};color:{{ filterBtnFg }};font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:19px;flex:none">filter_list</span><span style="width:17px;height:17px;border-radius:50%;background:{{ filterBadgeBg }};color:#fff;font-family:'IBM Plex Mono',monospace;font-size:10px;display:flex;align-items:center;justify-content:center">{{ filterCount }}</span></button>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow:hidden;padding:12px 12px 4px;display:flex;flex-direction:column;gap:12px">
+
+
+
+      <sc-if value="{{ isCalView }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#fff">
+          <div style="flex:none;display:flex;align-items:center;gap:8px;padding:8px;background:#fafafa;border-bottom:1px solid #e4e4e7">
+            <button onClick="{{ onCalPrev }}" style="width:36px;height:36px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;color:#5c5c66;cursor:pointer;font-size:20px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">chevron_left</button>
+            <span style="font-size:15px;font-weight:600">{{ calTitle }}</span>
+            <button onClick="{{ onCalNext }}" style="width:36px;height:36px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;color:#5c5c66;cursor:pointer;font-size:20px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">chevron_right</button>
+            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:13px"><span style="color:#a1a1aa;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">event</span>{{ calFieldLabel }}</span>
+          </div>
+          <div style="flex:none;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:8px 8px 0">
+            <sc-for list="{{ calMobWeekdays }}" as="d" hint-placeholder-count="7">
+              <span style="height:20px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;color:{{ d.fg }}">{{ d.label }}</span>
+            </sc-for>
+          </div>
+          <div style="flex:none;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:2px 8px 8px">
+            <sc-for list="{{ calMobDays }}" as="d" hint-placeholder-count="35">
+              <button onClick="{{ d.onClick }}" style="height:44px;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:0">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:{{ d.w }};height:{{ d.w }};min-height:18px;border-radius:{{ d.radius }};background:{{ d.bg }};color:{{ d.fg }};font-family:'IBM Plex Mono',monospace;font-size:13px">{{ d.day }}</span>
+                <span style="display:flex;gap:2px;height:4px">
+                  <sc-for list="{{ d.dots }}" as="dot" hint-placeholder-count="0">
+                    <span style="width:4px;height:4px;border-radius:2px;background:{{ dot.color }}"></span>
+                  </sc-for>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fafafa;border-top:1px solid #e4e4e7">
+            <span style="font-size:14px;font-weight:600">{{ calSelTitle }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ calSelCount }}</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column">
+            <sc-for list="{{ calSelRows }}" as="r" hint-placeholder-count="3">
+              <span style="min-height:44px;display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid #ededef"><span style="width:6px;height:6px;border-radius:2px;background:{{ r.dot }};flex:none"></span><span style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span><span style="margin-left:auto;flex:none;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:{{ r.bg }};color:{{ r.fg }};font-size:12px;font-weight:500">{{ r.stage }}</span></span>
+            </sc-for>
+            <sc-if value="{{ calSelEmpty }}" hint-placeholder-val="{{ false }}">
+              <span style="padding:28px 16px;text-align:center;font-size:13px;color:#5c5c66">No records on this day.</span>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isBoardView }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#fff">
+          <div style="flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fafafa;border-bottom:1px solid #e4e4e7">
+            <span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:13px"><span style="color:#a1a1aa;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">radio_button_checked</span>{{ boardGroupLabel }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ boardCountLabel }}</span>
+          </div>
+          <div style="flex:none;display:flex;align-items:center;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid #e4e4e7;background:#fafafa">
+            <sc-for list="{{ boardTabs }}" as="t" hint-placeholder-count="6">
+              <button onClick="{{ t.onClick }}" style="flex:none;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid {{ t.border }};border-radius:8px;background:{{ t.bg }};font-family:inherit;font-size:13px;font-weight:{{ t.weight }};color:{{ t.fg }};cursor:pointer;white-space:nowrap"><span style="width:6px;height:6px;border-radius:2px;background:{{ t.dot }}"></span>{{ t.name }}<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:400">{{ t.count }}</span></button>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:12px;background:#f6f6f7">
+            <div style="display:flex;align-items:center;gap:7px">
+              <span style="width:6px;height:6px;border-radius:2px;background:{{ boardMobDot }};flex:none"></span>
+              <span style="font-size:14px;font-weight:600">{{ boardMobName }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6d6d77">{{ boardMobCount }}</span>
+              <span style="margin-left:auto;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#5c5c66;font-size:20px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">add</span>
+              <span style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#5c5c66;font-size:20px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">more_horiz</span>
+            </div>
+            <sc-for list="{{ boardMobCards }}" as="c" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:11px 12px;display:flex;flex-direction:column;gap:8px">
+                <span style="font-size:14px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:{{ c.companyFg }}">{{ c.company }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums">{{ c.money }}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="width:22px;height:22px;border-radius:50%;background:{{ c.ownerBg }};color:{{ c.ownerFg }};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ c.ownerInitials }}</span>
+                  <sc-for list="{{ c.projShown }}" as="p" hint-placeholder-count="0">
+                    <span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;max-width:130px"><span style="font-family:'IBM Plex Mono',monospace;color:#6d6d77">{{ p.no }}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.name }}</span></span>
+                  </sc-for>
+                  <sc-for list="{{ c.projRest }}" as="m" hint-placeholder-count="0">
+                    <span style="display:inline-flex;align-items:center;height:22px;padding:0 7px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;color:#5c5c66">{{ m.label }}</span>
+                  </sc-for>
+                  <sc-for list="{{ c.projNone }}" as="n" hint-placeholder-count="0">
+                    <span style="font-size:12px;color:#a1a1aa">{{ n.label }}</span>
+                  </sc-for>
+                  <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d6d77">{{ c.no }}</span>
+                </div>
+              </div>
+            </sc-for>
+            <sc-for list="{{ boardMobMore }}" as="m" hint-placeholder-count="0">
+              <button onClick="{{ m.onClick }}" style="min-height:44px;border:none;background:none;color:#1c6b4a;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;padding:6px 2px">{{ m.label }}</button>
+            </sc-for>
+            <sc-for list="{{ boardMobEmpty }}" as="e" hint-placeholder-count="0">
+              <div style="min-height:74px;border:1px dashed #d1d1d6;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77">{{ e.label }}</div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isTableView }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-height:0;background:#fff;border:1px solid #e4e4e7;border-radius:10px;overflow:auto;-webkit-overflow-scrolling:touch">
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr style="background:#fafafa">
+              <th style="vertical-align:middle;width:1px;padding:0 8px 0 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa"><button onClick="{{ onToggleAll }}" style="width:18px;height:18px;padding:0;border:1px solid {{ allCheckBorder }};border-radius:4px;background:{{ allCheckBg }};color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ allCheckGlyph }}</button></th>
+              <th style="vertical-align:middle;width:1px;padding:10px 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:#6d6d77;white-space:nowrap"><span onClick="{{ onSortNo }}" style="display:flex;align-items:center;gap:5px;cursor:pointer">#<span style="color:{{ noSortColor }};font-size:16px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ noSortGlyph }}</span></span></th>
+              <th style="vertical-align:middle;padding:10px 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortCompany }}" style="display:flex;align-items:center;gap:6px;line-height:1.2;cursor:pointer"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">text_fields</span>Company<span style="color:{{ companySortColor }};font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ companySortGlyph }}</span></span></th>
+              <th style="vertical-align:middle;padding:10px 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortStage }}" style="display:flex;align-items:center;gap:6px;line-height:1.2;cursor:pointer"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">radio_button_checked</span>Stage<span style="color:{{ stageSortColor }};font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ stageSortGlyph }}</span></span></th>
+              <th style="vertical-align:middle;padding:10px 12px;text-align:right;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortValue }}" style="display:flex;align-items:center;gap:6px;line-height:1.2;justify-content:flex-end;cursor:pointer"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">euro</span>Contract value<span style="color:{{ valueSortColor }};font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ valueSortGlyph }}</span></span></th>
+              <th style="vertical-align:middle;padding:10px 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortOwner }}" style="display:flex;align-items:center;gap:6px;line-height:1.2;cursor:pointer"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">person</span>Owner<span style="color:{{ ownerSortColor }};font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ ownerSortGlyph }}</span></span></th>
+              <th style="vertical-align:middle;padding:10px 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortRenewal }}" style="display:flex;align-items:center;gap:6px;line-height:1.2;cursor:pointer"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">event</span>Renewal<span style="color:{{ renewalSortColor }};font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ renewalSortGlyph }}</span></span></th>
+              <th style="vertical-align:middle;padding:10px 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;font-size:13px;font-weight:600;color:#5c5c66;white-space:nowrap"><span onClick="{{ onSortProjects }}" style="display:flex;align-items:center;gap:6px;line-height:1.2;cursor:pointer"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">arrow_outward</span>Projects<span style="color:{{ projectsSortColor }};font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ projectsSortGlyph }}</span></span></th>
+              <th style="vertical-align:middle;width:1px;padding:10px 12px;text-align:left;border-bottom:1px solid #e4e4e7;position:sticky;top:0;z-index:1;background:#fafafa;border-left:1px solid #ededef;font-size:13px;font-weight:600;color:#5c5c66">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ rows }}" as="row" hint-placeholder-count="8">
+              <tr style="background:{{ row.rowBg }}" style-hover="background:#fafafa">
+                <td style="padding:0 8px 0 10px;border-bottom:1px solid #ededef;border-left:2px solid {{ row.edge }};height:48px"><button onClick="{{ row.onToggle }}" style="width:18px;height:18px;padding:0;border:1px solid {{ row.checkBorder }};border-radius:4px;background:{{ row.checkBg }};color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">{{ row.checkGlyph }}</button></td>
+                <td style="padding:4px 12px;border-bottom:1px solid #ededef;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5c5c66">{{ row.no }}</td>
+                <td style="padding:4px 12px;border-bottom:1px solid #ededef;font-weight:400"><span style="display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:{{ row.companyFg }}">{{ row.company }}</span></td>
+                <td style="padding:4px 12px;border-bottom:1px solid #ededef"><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:6px;background:{{ row.stageBg }};color:{{ row.stageFg }};font-size:12px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:2px;background:{{ row.stageDot }}"></span>{{ row.stage }}</span></td>
+                <td style="padding:4px 12px;border-bottom:1px solid #ededef;font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;white-space:nowrap">{{ row.money }}</td>
+                <td style="padding:4px 12px;border-bottom:1px solid #ededef"><span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;white-space:nowrap"><span style="width:24px;height:24px;border-radius:50%;background:{{ row.ownerBg }};color:{{ row.ownerFg }};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">{{ row.ownerInitials }}</span>{{ row.owner }}</span></td>
+                <td style="padding:4px 12px;border-bottom:1px solid #ededef;font-size:13px;color:#5c5c66;white-space:nowrap">{{ row.renewal }}</td>
+                <td style="padding:4px 12px;border-bottom:1px solid #ededef"><span style="display:inline-flex;gap:5px;align-items:center"><span style="color:#a1a1aa;font-size:13px">{{ row.projDash }}</span><sc-for list="{{ row.projShown }}" as="chip" hint-placeholder-count="0"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;color:#6d6d77">{{ chip.no }}</span>{{ chip.name }}</span></sc-for><sc-for list="{{ row.projRest }}" as="more" hint-placeholder-count="0"><span style="display:inline-flex;align-items:center;height:24px;padding:0 7px;border:1px solid #e4e4e7;border-radius:6px;font-size:12px;background:#fff;color:#5c5c66;white-space:nowrap">{{ more.label }}</span></sc-for></span></td>
+                <td style="padding:4px 6px;border-bottom:1px solid #ededef;border-left:1px solid #ededef;background:{{ row.actionsBg }}"><span style="display:flex;gap:2px"><button style="width:40px;height:40px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:19px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">open_in_full</button><button style="width:40px;height:40px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:19px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">edit</button><button style="width:40px;height:40px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:19px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">more_horiz</button></span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td style="height:38px;padding:0 8px 0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77;white-space:nowrap">{{ footScope }}</td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1;text-align:right;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77;margin-right:7px">Sum</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;color:#1c1c1f">{{ footSum }}</span></td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1"></td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d6d77;margin-right:7px">Filled</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;color:#1c1c1f">{{ footFilled }}</span></td>
+              <td style="height:38px;padding:0 12px;border-top:1px solid #ededef;background:#f6f6f7;position:sticky;bottom:0;z-index:1;border-left:1px solid #ededef"></td>
+            </tr>
+          </tfoot>
+        </table>
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:36px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;background:#fafafa;border-top:1px solid #ededef">
+            <span style="width:40px;height:40px;border-radius:10px;background:#e6f2eb;color:#1c6b4a;display:flex;align-items:center;justify-content:center;font-size:22px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">filter_alt_off</span>
+            <span style="font-size:14px;font-weight:600">No records match</span>
+            <span style="font-size:12px;color:#5c5c66">A search and {{ filterCount }} filters are narrowing this table.</span>
+            <button onClick="{{ onClearAll }}" style="height:40px;padding:0 14px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Show all records</button>
+          </div>
+        </sc-if>
+      </div>
+
+
+      <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:nowrap;padding:0 2px 8px">
+        <span style="font-size:12px;color:#5c5c66;white-space:nowrap">Showing <span style="font-family:'IBM Plex Mono',monospace">{{ rangeLabel }}</span> of <span style="font-family:'IBM Plex Mono',monospace">{{ totalLabel }}</span></span>
+        <span style="display:flex;align-items:center;gap:4px">
+          <button onClick="{{ onPrev }}" style="width:36px;height:36px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;color:{{ prevColor }};font-size:18px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">chevron_left</button>
+          <sc-for list="{{ pagesMobile }}" as="p" hint-placeholder-count="3">
+            <button onClick="{{ p.onClick }}" style="min-width:{{ p.w }};height:36px;padding:0 4px;border:1px solid {{ p.border }};background:{{ p.bg }};color:{{ p.fg }};border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:{{ p.cursor }}">{{ p.label }}</button>
+          </sc-for>
+          <button onClick="{{ onNext }}" style="width:36px;height:36px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;color:{{ nextColor }};font-size:18px;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">chevron_right</button>
+        </span>
+      </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:12px;right:12px;bottom:64px;z-index:15;padding:8px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:#18181b;box-shadow:0 10px 28px rgba(24,24,27,.28);display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px;padding:0 2px">
+          <span style="display:flex;align-items:center;gap:8px;flex:1;color:#fff;font-size:13px;font-weight:500;white-space:nowrap"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:3px 7px;border-radius:6px;background:rgba(255,255,255,.14)">{{ selCountLabel }}</span>selected</span>
+          <button onClick="{{ onClearSelection }}" style="width:32px;height:32px;border:none;border-radius:7px;background:transparent;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:rgba(255,255,255,.12)">close</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;overflow-x:auto">
+          <button onClick="{{ onBulkNoop }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 10px;flex:none;border:none;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(255,255,255,.16)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">radio_button_checked</span>Set stage</button>
+          <button onClick="{{ onBulkNoop }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 10px;flex:none;border:none;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(255,255,255,.16)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">person</span>Assign owner</button>
+          <button onClick="{{ onBulkNoop }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 10px;flex:none;border:none;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(255,255,255,.16)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">file_download</span>Export</button>
+          <button onClick="{{ onBulkDelete }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 10px;flex:none;border:none;border-radius:8px;background:rgba(246,168,160,.14);color:#f6a8a0;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:rgba(246,168,160,.24)"><span style="font-size:17px;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24">delete</span>Delete</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:30;display:flex">
+        <div style="width:288px;max-width:84%;background:#fafafa;border-right:1px solid #e4e4e7;padding:12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+          <button onClick="{{ onToggleNav }}" style="display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 10px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;font-family:inherit;cursor:pointer;text-align:left;margin-bottom:10px">
+            <span style="width:28px;height:28px;border-radius:8px;background:#3b3f9c;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">AS</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Acme Sales</span><span style="font-size:11px;color:#5c5c66">Workspace · 6 tables</span></span>
+            <span style="color:#6d6d77;font-size:14px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">unfold_more</span>
+          </button>
+          <a href="./Home.dc.html" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="color:#5c5c66;width:16px;text-align:center;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;font-size:19px">home</span>Home</a>
+          <p style="margin:16px 0 4px;padding:0 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77">Tables</p>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;background:#e6f2eb;color:#1c6b4a;font-size:14px;font-weight:600"><span style="width:16px;text-align:center;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Clients</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">248</span></a>
+          <sc-for list="{{ navTables }}" as="t" hint-placeholder-count="5">
+            <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">table</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">{{ t.count }}</span></a>
+          </sc-for>
+          <button style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border:none;border-radius:8px;background:none;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-top:4px"><span style="width:16px;text-align:center;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;font-size:19px">add</span>New table</button>
+          <span style="flex:1;min-height:16px"></span>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">group</span><span style="flex:1">Members</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c5c66">12</span></a>
+          <a href="#" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 10px;border-radius:8px;color:#18181b;font-size:14px" style-hover="background:#f0f0f2"><span style="width:16px;text-align:center;color:#5c5c66;font-size:18px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">settings</span><span style="flex:1">Workspace settings</span></a>
+          <div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 10px;margin-top:8px;border-top:1px solid #ededef">
+            <span style="width:28px;height:28px;border-radius:50%;background:#e9e9fa;color:#3b3f9c;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none">ИП</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ирина Петрова</span><span style="font-size:11px;color:#5c5c66">Admin</span></span>
+            <span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">more_horiz</span>
+          </div>
+        </div>
+        <div onClick="{{ onToggleNav }}" style="flex:1;background:rgba(24,24,27,.34)"></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ mobileFilterOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:40;background:#fff;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #ededef">
+          <span style="font-size:18px;font-weight:600;flex:1">Filters</span>
+          <button onClick="{{ onToggleFilters }}" style="width:40px;height:40px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#18181b">close</button>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0;overflow-y:auto">
+          <p style="font-size:13px;color:#5c5c66">Every filter is a field, an operator and a value. Rows are joined with AND.</p>
+          <sc-for list="{{ filterRows }}" as="f" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid #e4e4e7;border-radius:10px;background:#fafafa">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6d6d77;flex:1">{{ f.conj }}</span>
+                <button onClick="{{ f.onRemove }}" style="width:32px;height:32px;border:1px solid transparent;border-radius:8px;background:transparent;color:#5c5c66;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24" style-hover="background:#f0f0f2;color:#b42318">delete</button>
+              </div>
+              <span style="display:flex;align-items:center;gap:7px;height:40px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px"><span style="color:#a1a1aa;font-size:17px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">{{ f.glyph }}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.field }}</span><span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">expand_more</span></span>
+              <span style="display:flex;align-items:center;gap:7px;height:40px;padding:0 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.op }}</span><span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">expand_more</span></span>
+              <span style="display:flex;align-items:center;gap:7px;min-height:40px;padding:6px 10px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;font-size:14px;flex-wrap:wrap"><span style="flex:1;min-width:0;font-family:{{ f.valueFont }};font-size:{{ f.valueSize }}">{{ f.value }}</span><span style="color:#6d6d77;font-size:16px;font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1">expand_more</span></span>
+            </div>
+          </sc-for>
+          <button onClick="{{ onAddFilter }}" style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 10px;border:1px dashed #d1d1d6;border-radius:8px;background:#fff;color:#1c6b4a;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa"><span style="font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;font-size:19px">add</span>Add filter</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-top:1px solid #ededef">
+          <span style="font-size:13px;color:#5c5c66;text-align:center">{{ totalLabel }} matching</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onClick="{{ onClearAll }}" style="flex:1;height:44px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#18181b;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#fafafa;border-color:#a1a1aa">Reset</button>
+            <button onClick="{{ onToggleFilters }}" style="flex:1;height:44px;border:1px solid #1c6b4a;border-radius:8px;background:#1c6b4a;color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#165c3f;border-color:#165c3f">Done</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;layout&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;desktop&quot;, &quot;mobile&quot;], &quot;default&quot;: &quot;desktop&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Layout&quot; },
+  &quot;density&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;comfortable&quot;, &quot;compact&quot;], &quot;default&quot;: &quot;comfortable&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Table&quot; },
+  &quot;rowsPerPage&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;25&quot;, &quot;50&quot;, &quot;100&quot;], &quot;default&quot;: &quot;25&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Table&quot; }
+}">
+const CATS = {
+  gray:   { bg: '#f0f0f2', fg: '#46464f', dot: '#8d8d96' },
+  red:    { bg: '#fdeaea', fg: '#a02020', dot: '#ca7878' },
+  orange: { bg: '#fbeddf', fg: '#8a4a11', dot: '#b78451' },
+  amber:  { bg: '#fbf3d8', fg: '#6f5502', dot: '#a68c28' },
+  green:  { bg: '#e4f2e8', fg: '#1e6b39', dot: '#629b74' },
+  teal:   { bg: '#ddf0ee', fg: '#0f645c', dot: '#569a93' },
+  blue:   { bg: '#e5eefb', fg: '#18509e', dot: '#6a90c6' },
+  indigo: { bg: '#e9e9fa', fg: '#3b3f9c', dot: '#8789c9' },
+  purple: { bg: '#f1e9fa', fg: '#68339a', dot: '#a280c5' },
+  pink:   { bg: '#fce8f0', fg: '#9a2b5e', dot: '#c47799' }
+};
+const STEMS = ['Acme Industrial', 'Northwind Trading', 'Bergen Logistikk', 'Vector Systems', 'Kasten & Roth', 'Aurora Klinik', 'Meridian Foods', 'Talcott Energy', 'Fenwick Media', 'Sable & Sons', 'Ostmark Verlag', 'Quartier Bau', 'Helios Pharma', 'Rivermont Group', 'Nordbau'];
+const SUFFIXES = ['GmbH', 'AG', 'Ltd', 'Group', 'Nordic', 'Holding', 'SA', '& Co'];
+const STAGES = [
+  { name: 'Lead', cat: 'gray' },
+  { name: 'Qualified', cat: 'indigo' },
+  { name: 'Negotiation', cat: 'blue' },
+  { name: 'Won', cat: 'green' },
+  { name: 'On hold', cat: 'amber' },
+  { name: 'Lost', cat: 'red' }
+];
+const OWNERS = [
+  { name: 'Ирина П.', initials: 'ИП', cat: 'indigo' },
+  { name: 'Дмитрий С.', initials: 'ДС', cat: 'green' },
+  { name: 'Марина К.', initials: 'МК', cat: 'purple' },
+  { name: 'Олег В.', initials: 'ОВ', cat: 'teal' },
+  { name: 'Anna L.', initials: 'AL', cat: 'pink' }
+];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const TODAY = { y: 2026, m: 8, d: 6 };
+const dayKey = (y, m, d) => y + '-' + m + '-' + d;
+const PROJECT_NAMES = ['Rollout', 'Migration', 'Audit', 'Retainer', 'Pilot', 'Support'];
+
+function money(n) {
+  return '€ ' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+const CMP = {
+  no: (a, b) => parseInt(a.no.slice(1), 10) - parseInt(b.no.slice(1), 10),
+  company: (a, b) => a.company.localeCompare(b.company),
+  stage: (a, b) => a.stageIdx - b.stageIdx,
+  value: (a, b) => a.value - b.value,
+  owner: (a, b) => a.owner.name.localeCompare(b.owner.name),
+  renewal: (a, b) => a.renewalTs - b.renewalTs,
+  projects: (a, b) => a.projChips.length - b.projChips.length
+};
+
+function buildAll() {
+  const out = [];
+  for (let i = 0; i < 248; i++) {
+    const stem = STEMS[i % 15];
+    const suffix = SUFFIXES[Math.floor(i / 15) % 8];
+    const stage = STAGES[(i * 3 + (i % 5)) % 6];
+    const owner = OWNERS[(i % 5 + Math.floor(i / 7)) % 5];
+    const value = (((i * 7919) % 420) + 8) * 250;
+    const named = i % 37 !== 5;
+    const projCount = i % 3 === 0 ? 0 : (i % 3);
+    const projChips = [];
+    for (let p = 0; p < projCount; p++) {
+      projChips.push({ no: '#' + (12 + ((i + p * 7) % 80)), name: PROJECT_NAMES[(i + p) % 6] });
+    }
+    out.push({
+      no: '#' + (248 - i),
+      company: named ? stem + ' ' + suffix : 'Unnamed',
+      named: named,
+      stage: stage.name,
+      stageCat: stage.cat,
+      stageIdx: STAGES.indexOf(stage),
+      renewalTs: Date.UTC(2026, i % 12, 1 + (i % 28)),
+      value: value,
+      owner: owner,
+      renewal: (1 + (i % 28)) + ' ' + MONTHS[i % 12] + ' 2026',
+      projChips: projChips
+    });
+  }
+  return out;
+}
+const ALL = buildAll();
+
+const DEFAULT_FILTERS = [
+  { id: 'f1', field: 'Stage', glyph: 'radio_button_checked', op: 'is none of', value: 'Lost', mono: false, kind: 'stageNot', arg: ['Lost'] },
+  { id: 'f2', field: 'Contract value', glyph: 'attach_money', op: 'is at least', value: '10 000', mono: true, kind: 'valueMin', arg: 10000 }
+];
+
+class Component extends DCLogic {
+  state = {
+    view: 'Table',
+    query: '',
+    page: 1,
+    filters: DEFAULT_FILTERS,
+    filterOpen: false,
+    layout: null,
+    navOpen: false,
+    selected: {},
+    removed: {},
+    sortKey: 'no',
+    sortDir: 'desc',
+    calY: TODAY.y,
+    calM: TODAY.m,
+    calSel: dayKey(TODAY.y, TODAY.m, TODAY.d),
+    boardShown: {},
+    boardTab: STAGES[0].name
+  };
+
+  calStep(delta) {
+    this.setState((s) => {
+      const t = s.calM + delta;
+      return { calY: s.calY + Math.floor(t / 12), calM: ((t % 12) + 12) % 12 };
+    });
+  }
+
+  perPage() {
+    const n = parseInt(this.props.rowsPerPage ?? '25', 10);
+    return isNaN(n) ? 25 : n;
+  }
+
+  matched() {
+    const q = this.state.query.trim().toLowerCase();
+    let rows = ALL.filter((r) => {
+      if (this.state.removed[r.no]) return false;
+      if (q && r.company.toLowerCase().indexOf(q) === -1) return false;
+      for (const f of this.state.filters) {
+        if (f.kind === 'stageNot' && f.arg.indexOf(r.stage) !== -1) return false;
+        if (f.kind === 'valueMin' && r.value < f.arg) return false;
+        if (f.kind === 'ownerIs' && r.owner.name !== f.arg) return false;
+      }
+      return true;
+    });
+    const dir = this.state.sortDir === 'asc' ? 1 : -1;
+    const cmp = CMP[this.state.sortKey] || CMP.no;
+    rows = rows.slice().sort((a, b) => cmp(a, b) * dir || CMP.no(a, b) * -1);
+    return rows;
+  }
+
+  toggleSort(key) {
+    this.setState((s) => ({
+      sortKey: key,
+      sortDir: s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc',
+      page: 1
+    }));
+  }
+
+  renderVals() {
+    const sortGlyph = (k) => this.state.sortKey === k ? (this.state.sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'swap_vert';
+    const sortColor = (k) => this.state.sortKey === k ? '#1c6b4a' : '#c4c4cc';
+    const sortClick = (k) => () => this.toggleSort(k);
+    const per = this.perPage();
+    const compact = (this.props.density ?? 'comfortable') === 'compact';
+    const matched = this.matched();
+    const total = matched.length;
+    const pageCount = Math.max(1, Math.ceil(total / per));
+    const page = Math.min(this.state.page, pageCount);
+    const start = (page - 1) * per;
+    const slice = matched.slice(start, start + per);
+    const sel = this.state.selected;
+
+    const rows = slice.map((r) => {
+      const cat = CATS[r.stageCat];
+      const oc = CATS[r.owner.cat];
+      const isSel = !!sel[r.no];
+      return {
+        no: r.no,
+        company: r.company,
+        stage: r.stage,
+        stageBg: cat.bg,
+        stageFg: cat.fg,
+        stageDot: cat.dot,
+        money: money(r.value),
+        owner: r.owner.name,
+        ownerInitials: r.owner.initials,
+        ownerBg: oc.bg,
+        ownerFg: oc.fg,
+        renewal: r.renewal,
+        projChips: r.projChips,
+        projShown: r.projChips.slice(0, 1),
+        projRest: r.projChips.length > 1 ? [{ label: '+' + (r.projChips.length - 1) }] : [],
+        projDash: r.projChips.length ? '' : '—',
+        companyFg: r.named ? '#18181b' : '#6d6d77',
+        rowBg: '#ffffff',
+        actionsBg: '#ffffff',
+        edge: isSel ? '#1c6b4a' : 'transparent',
+        checkBg: isSel ? '#1c6b4a' : '#ffffff',
+        checkBorder: isSel ? '#1c6b4a' : '#d1d1d6',
+        checkGlyph: isSel ? 'check' : '',
+        onToggle: () => this.setState((s) => {
+          const next = Object.assign({}, s.selected);
+          if (next[r.no]) delete next[r.no]; else next[r.no] = true;
+          return { selected: next };
+        })
+      };
+    });
+
+    const selCount = Object.keys(sel).length;
+    const allOnPage = slice.length > 0 && slice.every((r) => sel[r.no]);
+    const footSet = selCount ? matched.filter((r) => sel[r.no]) : matched;
+    const footSum = footSet.reduce((a, r) => a + r.value, 0);
+    const footFilled = footSet.filter((r) => r.projChips.length).length;
+
+    const nums = [];
+    const push = (n) => nums.push(n);
+    if (pageCount <= 7) {
+      for (let i = 1; i <= pageCount; i++) push(i);
+    } else {
+      push(1);
+      if (page > 3) push('…');
+      for (let i = Math.max(2, page - 1); i <= Math.min(pageCount - 1, page + 1); i++) push(i);
+      if (page < pageCount - 2) push('…');
+      push(pageCount);
+    }
+    const pages = nums.map((n, i) => {
+      const isEllipsis = n === '…';
+      const current = n === page;
+      return {
+        label: String(n),
+        w: isEllipsis ? '22px' : '30px',
+        border: isEllipsis ? 'transparent' : (current ? '#1c6b4a' : '#e4e4e7'),
+        bg: isEllipsis ? 'transparent' : (current ? '#1c6b4a' : '#ffffff'),
+        fg: isEllipsis ? '#6d6d77' : (current ? '#ffffff' : '#18181b'),
+        cursor: isEllipsis ? 'default' : 'pointer',
+        onClick: isEllipsis ? null : () => this.setState({ page: n })
+      };
+    });
+
+    const chips = this.state.filters.map((f) => ({
+      field: f.field,
+      op: f.op,
+      value: f.value,
+      border: '#e4e4e7',
+      bg: '#ffffff',
+      labelFg: '#5c5c66',
+      valueFg: '#18181b',
+      valueFont: f.mono ? "'IBM Plex Mono',monospace" : 'inherit',
+      valueSize: f.mono ? '12px' : '13px',
+      closeBg: '#f0f0f2',
+      closeFg: '#5c5c66',
+      onRemove: () => this.setState((s) => ({ filters: s.filters.filter((x) => x.id !== f.id), page: 1 }))
+    }));
+    if (this.state.query.trim()) {
+      chips.push({
+        field: 'Search',
+        op: 'is',
+        value: this.state.query.trim(),
+        border: '#b9dbc8',
+        bg: '#e6f2eb',
+        labelFg: '#1c6b4a',
+        valueFg: '#1c6b4a',
+        valueFont: 'inherit',
+        valueSize: '13px',
+        closeBg: '#d9ecdf',
+        closeFg: '#1c6b4a',
+        onRemove: () => this.setState({ query: '', page: 1 })
+      });
+    }
+
+    const filterRows = this.state.filters.map((f, i) => ({
+      conj: i === 0 ? 'Where' : 'And',
+      field: f.field,
+      glyph: f.glyph,
+      op: f.op,
+      value: f.value,
+      valueFont: f.mono ? "'IBM Plex Mono',monospace" : 'inherit',
+      valueSize: f.mono ? '13px' : '14px',
+      onRemove: () => this.setState((s) => ({ filters: s.filters.filter((x) => x.id !== f.id), page: 1 }))
+    }));
+
+    const fcount = this.state.filters.length;
+    const open = this.state.filterOpen;
+    const active = fcount > 0;
+
+    const views = [
+      { label: 'Table', glyph: 'table' },
+      { label: 'Calendar', glyph: 'calendar_month' },
+      { label: 'Kanban', glyph: 'view_kanban' }
+    ].map((v) => {
+      const on = this.state.view === v.label;
+      return {
+        label: v.label,
+        glyph: v.glyph,
+        bg: on ? '#ffffff' : 'transparent',
+        fg: on ? '#1c6b4a' : '#5c5c66',
+        weight: on ? '600' : '500',
+        shadow: on ? '0 1px 2px rgba(24,24,27,.08)' : 'none',
+        onClick: () => this.setState({ view: v.label })
+      };
+    });
+
+    const layout = this.state.layout ?? (this.props.layout ?? 'desktop');
+    const isMobile = layout === 'mobile';
+    const pagesMobile = [{
+      label: page + ' / ' + pageCount,
+      w: '64px',
+      border: '#e4e4e7',
+      bg: '#ffffff',
+      fg: '#18181b',
+      cursor: 'default',
+      onClick: null
+    }];
+    const navTables = [
+      { name: 'People', count: '96' },
+      { name: 'Projects', count: '31' },
+      { name: 'Tasks', count: '412' },
+      { name: 'Invoices', count: '1 204' },
+      { name: 'Suppliers', count: '18' }
+    ];
+
+    const calY = this.state.calY;
+    const calM = this.state.calM;
+    const offset = (new Date(Date.UTC(calY, calM, 1)).getUTCDay() + 6) % 7;
+    const dim = new Date(Date.UTC(calY, calM + 1, 0)).getUTCDate();
+    const cellCount = Math.ceil((offset + dim) / 7) * 7;
+    const byDay = {};
+    matched.forEach((r) => {
+      const d = new Date(r.renewalTs);
+      const k = dayKey(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+      (byDay[k] = byDay[k] || []).push(r);
+    });
+    const recChip = (r) => {
+      const c = CATS[r.stageCat];
+      return { name: r.company, bg: c.bg, fg: c.fg, dot: c.dot, stage: r.stage };
+    };
+    const calCells = [];
+    for (let i = 0; i < cellCount; i++) {
+      const dt = new Date(Date.UTC(calY, calM, 1 - offset + i));
+      const y = dt.getUTCFullYear(), m = dt.getUTCMonth(), d = dt.getUTCDate();
+      const inMonth = m === calM && y === calY;
+      const weekend = i % 7 >= 5;
+      const isToday = y === TODAY.y && m === TODAY.m && d === TODAY.d;
+      const recs = byDay[dayKey(y, m, d)] || [];
+      calCells.push({
+        day: String(d),
+        bg: weekend ? '#f6f6f7' : (inMonth ? '#ffffff' : '#fafafa'),
+        numW: isToday ? '22px' : 'auto',
+        numRadius: isToday ? '50%' : '0',
+        numBg: isToday ? '#1c6b4a' : 'transparent',
+        numFg: isToday ? '#ffffff' : (inMonth ? '#5c5c66' : '#a1a1aa'),
+        numMargin: isToday ? '-2px 0 0 -3px' : '0',
+        chips: recs.slice(0, 3).map(recChip),
+        more: recs.length > 3 ? [{ label: '+' + (recs.length - 3) + ' more' }] : []
+      });
+    }
+    const inMonthCount = matched.filter((r) => {
+      const d = new Date(r.renewalTs);
+      return d.getUTCMonth() === calM && d.getUTCFullYear() === calY;
+    }).length;
+    const calMobDays = [];
+    for (let i = 0; i < cellCount; i++) {
+      const dt = new Date(Date.UTC(calY, calM, 1 - offset + i));
+      const y = dt.getUTCFullYear(), m = dt.getUTCMonth(), d = dt.getUTCDate();
+      const inMonth = m === calM && y === calY;
+      const key = dayKey(y, m, d);
+      const recs = byDay[key] || [];
+      const selected = this.state.calSel === key;
+      calMobDays.push({
+        day: String(d),
+        w: selected ? '30px' : 'auto',
+        radius: selected ? '50%' : '0',
+        bg: selected ? '#1c6b4a' : 'transparent',
+        fg: selected ? '#ffffff' : (inMonth ? (i % 7 >= 5 ? '#6d6d77' : '#18181b') : '#c4c4cc'),
+        dots: recs.slice(0, 3).map((r) => ({ color: inMonth ? CATS[r.stageCat].dot : '#d1d1d6' })),
+        onClick: () => this.setState({ calSel: key })
+      });
+    }
+    const selParts = this.state.calSel.split('-').map(Number);
+    const selDate = new Date(Date.UTC(selParts[0], selParts[1], selParts[2]));
+    const selRecs = byDay[this.state.calSel] || [];
+
+    const boardShown = this.state.boardShown || {};
+    const boardCard = (r) => {
+      const oc = CATS[r.owner.cat];
+      return {
+        company: r.company,
+        companyFg: r.named ? '#18181b' : '#6d6d77',
+        money: money(r.value),
+        no: r.no,
+        ownerInitials: r.owner.initials,
+        ownerBg: oc.bg,
+        ownerFg: oc.fg,
+        projShown: r.projChips.slice(0, 1),
+        projRest: r.projChips.length > 1 ? [{ label: '+' + (r.projChips.length - 1) }] : [],
+        projNone: r.projChips.length ? [] : [{ label: 'No projects' }]
+      };
+    };
+    const boardColumns = STAGES.map((st) => {
+      const c = CATS[st.cat];
+      const recs = matched.filter((r) => r.stage === st.name);
+      const show = boardShown[st.name] || 5;
+      return {
+        name: st.name,
+        dot: c.dot,
+        count: String(recs.length),
+        cards: recs.slice(0, show).map(boardCard),
+        more: recs.length > show
+          ? [{
+              label: 'Load ' + (recs.length - show) + ' more',
+              onClick: () => this.setState((s) => {
+                const next = Object.assign({}, s.boardShown);
+                next[st.name] = show + 10;
+                return { boardShown: next };
+              })
+            }]
+          : [],
+        empty: recs.length === 0 ? [{ label: 'No records in this column' }] : []
+      };
+    });
+    const boardTabs = boardColumns.map((col) => {
+      const on = this.state.boardTab === col.name;
+      return {
+        name: col.name,
+        dot: col.dot,
+        count: col.count,
+        bg: on ? '#f2f6f4' : '#ffffff',
+        border: on ? '#1c6b4a' : '#e4e4e7',
+        fg: on ? '#1c6b4a' : '#5c5c66',
+        weight: on ? '600' : '400',
+        onClick: () => this.setState({ boardTab: col.name })
+      };
+    });
+    const boardMob = boardColumns.filter((c) => c.name === this.state.boardTab)[0] || boardColumns[0];
+
+    return {
+      views,
+      rows,
+      isTableView: this.state.view === 'Table',
+      isCalView: this.state.view === 'Calendar',
+      isBoardView: this.state.view === 'Kanban',
+      boardColumns,
+      boardTabs,
+      boardMobDot: boardMob.dot,
+      boardMobName: boardMob.name,
+      boardMobCount: boardMob.count,
+      boardMobCards: boardMob.cards,
+      boardMobMore: boardMob.more,
+      boardMobEmpty: boardMob.empty,
+      boardGroupLabel: 'Stage',
+      boardCountLabel: total + ' records · ' + boardColumns.length + ' columns',
+      weekdays: WEEKDAYS.map((w, i) => ({ label: w, fg: i >= 5 ? '#a1a1aa' : '#6d6d77' })),
+      calMobWeekdays: WEEKDAYS.map((w, i) => ({ label: w.slice(0, 1), fg: i >= 5 ? '#a1a1aa' : '#6d6d77' })),
+      calCells,
+      calMobDays,
+      calTitle: MONTHS_FULL[calM] + ' ' + calY,
+      calFieldLabel: 'Renewal',
+      calDatedLabel: inMonthCount + ' of ' + total + ' records dated here',
+      calOutsideLabel: (total - inMonthCount) + ' records',
+      calSelTitle: WEEKDAYS_FULL[(selDate.getUTCDay() + 6) % 7] + ', ' + selDate.getUTCDate() + ' ' + MONTHS_FULL[selDate.getUTCMonth()],
+      calSelCount: selRecs.length + (selRecs.length === 1 ? ' record' : ' records'),
+      calSelRows: selRecs.map(recChip),
+      calSelEmpty: selRecs.length === 0,
+      onCalPrev: () => this.calStep(-1),
+      onCalNext: () => this.calStep(1),
+      onCalToday: () => this.setState({ calY: TODAY.y, calM: TODAY.m, calSel: dayKey(TODAY.y, TODAY.m, TODAY.d) }),
+      pages,
+      pagesMobile,
+      navTables,
+      isDesktop: !isMobile,
+      isMobile: isMobile,
+      deskTabBg: isMobile ? 'transparent' : '#e6f2eb',
+      deskTabFg: isMobile ? '#5c5c66' : '#1c6b4a',
+      mobTabBg: isMobile ? '#e6f2eb' : 'transparent',
+      mobTabFg: isMobile ? '#1c6b4a' : '#5c5c66',
+      onDesktop: () => this.setState({ layout: 'desktop', navOpen: false }),
+      onMobile: () => this.setState({ layout: 'mobile' }),
+      navOpen: this.state.navOpen,
+      onToggleNav: () => this.setState((s) => ({ navOpen: !s.navOpen })),
+      mobileFilterOpen: isMobile && open,
+      chips,
+      filterRows,
+      rowHeight: compact ? '36px' : '44px',
+      query: this.state.query,
+      onQuery: (e) => this.setState({ query: e.target.value, page: 1 }),
+      isEmpty: rows.length === 0,
+      footScope: selCount ? selCount + ' selected' : total + ' records',
+      footSum: money(footSum),
+      footFilled: String(footFilled),
+      rangeLabel: total === 0 ? '0' : (start + 1) + '–' + Math.min(start + per, total),
+      totalLabel: String(total),
+      hasSelection: selCount > 0,
+      selCountLabel: String(selCount),
+      onClearSelection: () => this.setState({ selected: {} }),
+      onBulkNoop: () => {},
+      onBulkDelete: () => this.setState((s) => {
+        const gone = Object.assign({}, s.removed);
+        Object.keys(s.selected).forEach((k) => { gone[k] = true; });
+        return { removed: gone, selected: {}, page: 1 };
+      }),
+      noSortGlyph: sortGlyph('no'), noSortColor: sortColor('no'), onSortNo: sortClick('no'),
+      companySortGlyph: sortGlyph('company'), companySortColor: sortColor('company'), onSortCompany: sortClick('company'),
+      stageSortGlyph: sortGlyph('stage'), stageSortColor: sortColor('stage'), onSortStage: sortClick('stage'),
+      valueSortGlyph: sortGlyph('value'), valueSortColor: sortColor('value'), onSortValue: sortClick('value'),
+      ownerSortGlyph: sortGlyph('owner'), ownerSortColor: sortColor('owner'), onSortOwner: sortClick('owner'),
+      renewalSortGlyph: sortGlyph('renewal'), renewalSortColor: sortColor('renewal'), onSortRenewal: sortClick('renewal'),
+      projectsSortGlyph: sortGlyph('projects'), projectsSortColor: sortColor('projects'), onSortProjects: sortClick('projects'),
+      allCheckBg: allOnPage ? '#1c6b4a' : '#ffffff',
+      allCheckBorder: allOnPage ? '#1c6b4a' : '#d1d1d6',
+      allCheckGlyph: allOnPage ? 'check' : (selCount ? 'remove' : ''),
+      onToggleAll: () => this.setState((s) => {
+        const next = Object.assign({}, s.selected);
+        if (allOnPage) slice.forEach((r) => { delete next[r.no]; });
+        else slice.forEach((r) => { next[r.no] = true; });
+        return { selected: next };
+      }),
+      filterCount: String(fcount),
+      filterOpen: !isMobile && open,
+      filterBtnBg: active || open ? '#e6f2eb' : 'transparent',
+      filterBtnFg: active || open ? '#1c6b4a' : '#18181b',
+      filterBtnBorder: active || open ? '#b9dbc8' : 'transparent',
+      filterBadgeBg: active || open ? '#1c6b4a' : '#a1a1aa',
+      onToggleFilters: () => this.setState((s) => ({ filterOpen: !s.filterOpen })),
+      onAddFilter: () => this.setState((s) => ({
+        filters: s.filters.concat([{ id: 'f' + Date.now(), field: 'Owner', glyph: 'person', op: 'is', value: 'Ирина П.', mono: false, kind: 'ownerIs', arg: 'Ирина П.' }]),
+        page: 1
+      })),
+      onClearAll: () => this.setState({ filters: [], query: '', page: 1 }),
+      clearAllLabel: chips.length ? 'Clear all' : '',
+      onOpenSettings: () => {},
+      prevColor: page > 1 ? '#18181b' : '#c4c4cc',
+      nextColor: page < pageCount ? '#18181b' : '#c4c4cc',
+      onPrev: () => this.setState({ page: Math.max(1, page - 1) }),
+      onNext: () => this.setState({ page: Math.min(pageCount, page + 1) })
+    };
+  }
+}
+</script>
+</body>
+</html>

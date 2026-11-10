@@ -16,6 +16,8 @@ const formatted = computed(() =>
 
 <style lang="scss" scoped>
 .number-cell {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
 }
 </style>

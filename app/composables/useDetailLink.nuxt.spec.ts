@@ -7,7 +7,6 @@ const routeQuery = vi.hoisted(() => ({ value: {} as TUrlQuery }))
 
 mockNuxtImport('useRoute', () => () => ({ query: routeQuery.value }))
 
-/** Sets the query the composable will read as "where the user currently is". */
 function at(query: TUrlQuery) {
   routeQuery.value = query
 }
@@ -21,10 +20,6 @@ describe('useDetailLink', () => {
     expect(link.query.detail).toBe('tbl_deals.rec_1')
   })
 
-  /**
-   * The whole reason this is a query layered onto the current route rather than a path: the
-   * list the dialog opens over must survive being navigated.
-   */
   it('keeps the surrounding list query intact', () => {
     at({ page: '3', sort: 'name:asc', 'f.stage': 'Won' })
 
@@ -38,7 +33,6 @@ describe('useDetailLink', () => {
 
     const link = useDetailLink()({ tableAddress: 'tbl_people', recordAddress: 'rec_9' })
 
-    // The trail behind it is what Back walks up
     expect(link.query.detail).toBe('tbl_deals.rec_1,tbl_people.rec_9')
   })
 
@@ -50,7 +44,6 @@ describe('useDetailLink', () => {
     expect(link.query.detail).toBe('tbl_a.rec_1,tbl_b.rec_2,tbl_c.rec_3')
   })
 
-  /** A malformed link degrades to a shorter trail rather than throwing — see `parseDetailChain`. */
   it('drops a malformed existing chain instead of failing', () => {
     at({ detail: 'not-a-ref' })
 

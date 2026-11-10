@@ -1,16 +1,6 @@
 import { rowsFrom } from '~~/prisma/seed/dataset/types'
 import type { ISeedField, ISeedTable } from '~~/prisma/seed/dataset/types'
 
-/**
- * The studio's own team and every client-side contact, in one table — which is how a small
- * agency actually keeps them, and what gives `Client` a relation that is legitimately blank for
- * a third of the rows.
- *
- * `Email` is optional and blank for five people **on purpose**: `Projects.Team` labels its links
- * by this field, so those links render with no label at all. That is a real state
- * (`buildRecordLabel` returns `null`) which nothing else in the dataset would reach.
- */
-
 const FIELDS: ISeedField[] = [
   { name: 'Full name', type: 'TEXT', required: true, indexed: true },
   { name: 'Email', type: 'TEXT' },
@@ -57,7 +47,6 @@ export const PEOPLE: ISeedTable = {
   records: rowsFrom(FIELDS, [
     // ref, full name, email, phone, client, role, skills, internal, joined
 
-    // The studio
     ['people:ana', 'Ana Ferreira', 'ana@brightfold.studio', '+351 912 004 118', null, 'Owner', ['Figma', 'Copywriting'], true, '2018-02-01'],
     ['people:tom', 'Tom Whitlock', 'tom@brightfold.studio', '+44 7700 900412', null, 'CTO', ['Vue', 'Node', 'DevOps'], true, '2018-02-01'],
     ['people:mira', 'Mira Oyelaran', 'mira@brightfold.studio', null, null, 'Designer', ['Figma', 'Accessibility'], true, '2019-06-17'],
@@ -71,7 +60,6 @@ export const PEOPLE: ISeedTable = {
     ['people:nadia', 'Nadia Belkacem', null, null, null, 'Finance', [], true, '2024-04-15'],
     ['people:pieter', 'Pieter Vos', 'pieter@brightfold.studio', '+31 6 1122 8890', null, 'Developer', ['Vue', 'Node'], true, '2025-01-20'],
 
-    // Client-side contacts
     ['people:marieke', 'Marieke de Vries', 'marieke.devries@kestrel-logistics.nl', '+31 6 4455 1200', 'clients:kestrel', 'Operations', [], false, '2020-03-16'],
     ['people:joost', 'Joost Bakker', 'joost.bakker@kestrel-logistics.nl', null, 'clients:kestrel', 'Finance', [], false, '2021-01-11'],
     ['people:katrin', 'Katrin Vogel', 'k.vogel@helios-energy.de', '+49 151 2233 4455', 'clients:helios', 'CTO', [], false, '2021-09-02'],

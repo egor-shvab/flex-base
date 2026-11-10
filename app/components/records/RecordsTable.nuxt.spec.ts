@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
@@ -34,16 +35,18 @@ function table(props: { fields?: IField[]; records?: IRecord[]; sort?: IRecordSo
 type TTable = Awaited<ReturnType<typeof table>>
 
 const headers = (wrapper: TTable) => wrapper.findAll('thead th')
-const headerNames = (wrapper: TTable) => headers(wrapper).map((th) => th.text().trim())
+const headerNames = (wrapper: TTable) =>
+  headers(wrapper).map((th) => {
+    const button = th.find('button')
+    return (button.exists() && button.attributes('aria-label')) || th.text().trim()
+  })
 const rows = (wrapper: TTable) => wrapper.findAll('tbody tr')
 
 describe('RecordsTable', () => {
   afterEach(unmountAll)
 
-  // A row's View action goes through `useDetailLink`; a RELATION cell reads the relations store
   beforeEach(() => setActivePinia(useNuxtApp().$pinia as Pinia))
 
-  /** One list drives header and body, so the two cannot drift. */
   describe('columns', () => {
     it('brackets the table’s fields with the record’s own columns', async () => {
       const wrapper = await table()
@@ -61,7 +64,6 @@ describe('RecordsTable', () => {
     it('gives every row a cell per column', async () => {
       const wrapper = await table()
 
-      // Five columns plus the actions cell
       expect(rows(wrapper)[0]!.findAll('td')).toHaveLength(headers(wrapper).length)
     })
 
@@ -89,7 +91,6 @@ describe('RecordsTable', () => {
       const wrapper = await table({ records: [] })
 
       expect(rows(wrapper)).toHaveLength(0)
-      // The table never invents an empty state of its own — that belongs to the page
       expect(headers(wrapper).length).toBeGreaterThan(0)
     })
 
@@ -113,8 +114,43 @@ describe('RecordsTable', () => {
       const cells = rows(wrapper)[0]!
         .findAll('td')
         .map((td) => td.text().trim())
-      expect(cells[2]).toBe('Not set')
-      expect(cells[3]).toBe('Not set')
+      expect(cells[2]).toContain('Not set')
+      expect(cells[3]).toContain('Not set')
+    })
+  })
+
+  describe('header', () => {
+    it('draws the record number as `#`, keeping its name', async () => {
+      const wrapper = await table()
+      const button = headers(wrapper)[0]!.get('button')
+
+      expect(button.text()).toBe('#')
+      expect(button.attributes('aria-label')).toBe('Record #')
+    })
+
+    it('puts a type glyph before every field name but the record number', async () => {
+      const wrapper = await table()
+      const glyphs = headers(wrapper).map((th) => th.find('.records-table__type-icon').exists())
+
+      expect(glyphs).toEqual([false, true, true, true, true, false])
+    })
+  })
+
+  describe('alignment', () => {
+    const END = 'records-table__cell-end'
+
+    it('right-aligns a NUMBER column, header included', async () => {
+      const wrapper = await table()
+
+      expect(headers(wrapper)[2]!.classes()).toContain(END)
+      expect(rows(wrapper)[0]!.findAll('td')[2]!.classes()).toContain(END)
+    })
+
+    it('leaves every other column at the start', async () => {
+      const wrapper = await table()
+
+      expect(headers(wrapper)[1]!.classes()).not.toContain(END)
+      expect(rows(wrapper)[0]!.findAll('td')[1]!.classes()).not.toContain(END)
     })
   })
 
@@ -151,7 +187,6 @@ describe('RecordsTable', () => {
       expect(headers(wrapper)[1]!.attributes('aria-sort')).toBe('descending')
     })
 
-    /** The affordance is always visible — a hover-revealed one does not exist on touch. */
     it('marks only the sorted column’s icon active', async () => {
       const wrapper = await table({ sort: { key: 'company', direction: 'asc' } })
 
@@ -163,7 +198,6 @@ describe('RecordsTable', () => {
     it('makes every column header a sort button, the record’s own included', async () => {
       const wrapper = await table()
 
-      // Every header but Actions carries one
       expect(wrapper.findAll('.records-table__sort')).toHaveLength(headers(wrapper).length - 1)
     })
 
@@ -182,7 +216,6 @@ describe('RecordsTable', () => {
   })
 
   describe('row actions', () => {
-    /** Reading a record is a place, so View is a real link. */
     it('renders View as a link addressing the record', async () => {
       const wrapper = await table()
 
@@ -198,7 +231,6 @@ describe('RecordsTable', () => {
         .findAll('[aria-label="View record"]')
         .map((link) => link.attributes('href'))
 
-      // Its own *number*, not its id — a row addresses its record the way a URL names one
       expect(hrefs[0]).toContain(`${TABLE_NUMBER}.1`)
       expect(hrefs[1]).toContain(`${TABLE_NUMBER}.2`)
     })
@@ -211,10 +243,12 @@ describe('RecordsTable', () => {
       expect(wrapper.emitted('edit')).toEqual([[RECORDS[1]]])
     })
 
-    it('emits delete with the row’s record', async () => {
+    it('emits delete with the row’s record, from its menu', async () => {
       const wrapper = await table()
 
-      await rows(wrapper)[0]!.get('[aria-label="Delete record"]').trigger('click')
+      await rows(wrapper)[0]!.get('[aria-label="More actions"]').trigger('click')
+      await nextTick()
+      document.querySelector<HTMLElement>('[role="menuitem"]')!.click()
 
       expect(wrapper.emitted('delete')).toEqual([[RECORDS[0]]])
     })

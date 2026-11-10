@@ -10,7 +10,6 @@ import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
 import { record } from '~~/test/fixtures'
 
-/** The unfiltered, unsearched, newest-first view — the only one with a place for a new record. */
 const DEFAULT_QUERY: IRecordQueryState = {
   page: 1,
   sort: { key: DEFAULT_SORT_KEY, direction: DEFAULT_SORT_DIRECTION },
@@ -21,14 +20,12 @@ const DEFAULT_QUERY: IRecordQueryState = {
 const ACME = record({ id: 'rec_1', number: 1, data: { company: 'Acme' } })
 const GLOBEX = record({ id: 'rec_2', number: 2, data: { company: 'Globex' } })
 
-/** What the list endpoint answers with, and every request it saw. */
 let response: IRecordPage
 let listShouldFail = false
 const requests: { tableId: string; page: string | undefined }[] = []
 const writes: string[] = []
 
-/** The list row the count-moving endpoints answer with — what the store applies verbatim. */
-function tableRow(counts: { fields: number; records: number }) {
+function buildTableRow(counts: { fields: number; records: number }) {
   return {
     id: 'tbl_1',
     name: 'Deals',
@@ -56,7 +53,7 @@ for (const tableId of ['tbl_1', 'tbl_2']) {
       writes.push(`POST ${tableId}`)
       return {
         record: record({ id: 'rec_new', number: 3 }),
-        table: tableRow({ fields: 2, records: 8 }),
+        table: buildTableRow({ fields: 2, records: 8 }),
       }
     },
   })
@@ -70,7 +67,6 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   },
 })
 
-/** The same row, addressed the way a URL addresses it — by its number rather than its cuid. */
 registerEndpoint('/api/tables/tbl_1/records/1', {
   method: 'PATCH',
   handler: () => {
@@ -83,20 +79,15 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   method: 'DELETE',
   handler: () => {
     writes.push('DELETE rec_1')
-    return { ok: true, table: tableRow({ fields: 2, records: 6 }) }
+    return { ok: true, table: buildTableRow({ fields: 2, records: 6 }) }
   },
 })
 
-/**
- * The tables store's list, so a write can be seen replacing the cached row the sidebar and
- * dashboard draw `_count` from. Registered here because `registerEndpoint` is per file.
- */
 registerEndpoint('/api/tables', {
   method: 'GET',
-  handler: () => ({ tables: [tableRow({ fields: 2, records: 7 })] }),
+  handler: () => ({ tables: [buildTableRow({ fields: 2, records: 7 })] }),
 })
 
-/** The tables store loaded, so an applied row has something to land on. */
 async function loadedTables() {
   const tables = useTablesStore()
   await tables.fetchTables()
@@ -134,8 +125,7 @@ describe('useRecordsStore', () => {
     expect(store.total).toBe(0)
     expect(store.page).toBe(1)
     expect(store.pageSize).toBe(RECORD_PAGE_SIZE)
-    expect(store.pending).toBe(false)
-    expect(store.failed).toBe(false)
+    expect(store.status).toBe('idle')
   })
 
   describe('fetchRecords', () => {
@@ -147,12 +137,10 @@ describe('useRecordsStore', () => {
 
       expect(store.records).toEqual([ACME])
       expect(store.total).toBe(51)
-      // The server resolves the page and size it enforced, so the store takes them back
       expect(store.page).toBe(2)
       expect(store.pageSize).toBe(25)
     })
 
-    /** Relation cells read how a link reads from the store, not from the record's own data. */
     it('caches the linked records the page came with', async () => {
       response = page({
         linkedRecords: { fld_owner: { rec_ada: { number: 1, label: 'Ada Lovelace' } } },
@@ -161,35 +149,29 @@ describe('useRecordsStore', () => {
 
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
 
-      expect(useRelationsStore().linkedRecordFor('fld_owner', 'rec_ada')).toEqual({
+      expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toEqual({
         number: 1,
         label: 'Ada Lovelace',
       })
     })
 
-    it('is pending only for the duration of the request', async () => {
+    it('is loading only for the duration of the request', async () => {
       const store = useRecordsStore()
 
       const settled = store.fetchRecords('tbl_1', DEFAULT_QUERY)
-      expect(store.pending).toBe(true)
+      expect(store.status).toBe('loading')
 
       await settled
-      expect(store.pending).toBe(false)
+      expect(store.status).toBe('ready')
     })
 
-    /**
-     * A refetch runs from a watcher, where swallowing would leave the table showing stale rows —
-     * so `failed` is set *and* the rejection propagates, which lets the initial load still
-     * produce a 404 through `useAsyncData`. The opposite of `ensureTables`, deliberately.
-     */
     it('records the failure and still rejects', async () => {
       listShouldFail = true
       const store = useRecordsStore()
 
       await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
 
-      expect(store.failed).toBe(true)
-      expect(store.pending).toBe(false)
+      expect(store.status).toBe('failed')
     })
 
     it('clears the failure on the next good fetch', async () => {
@@ -200,11 +182,31 @@ describe('useRecordsStore', () => {
       listShouldFail = false
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
 
-      expect(store.failed).toBe(false)
+      expect(store.status).toBe('ready')
+    })
+
+    it('keeps rows hydrated from the server when the first client refetch fails', async () => {
+      const pinia = createPinia()
+      pinia.state.value.records = {
+        records: [ACME, GLOBEX],
+        total: 2,
+        totalCapped: false,
+        page: 1,
+        pageSize: RECORD_PAGE_SIZE,
+        status: 'ready',
+        loadedTableAddress: 'tbl_1',
+      }
+      setActivePinia(pinia)
+      listShouldFail = true
+      const store = useRecordsStore()
+
+      await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
+
+      expect(store.records).toEqual([ACME, GLOBEX])
+      expect(store.total).toBe(2)
     })
   })
 
-  /** The store is a singleton reused across tables — state must not leak between them. */
   describe('table scoping', () => {
     it('drops the previous table’s rows before loading another', async () => {
       const store = useRecordsStore()
@@ -214,7 +216,6 @@ describe('useRecordsStore', () => {
       listShouldFail = true
       await expect(store.fetchRecords('tbl_2', DEFAULT_QUERY)).rejects.toThrow()
 
-      // The failed load left nothing, and the previous table's rows did not survive it
       expect(store.records).toEqual([])
       expect(store.total).toBe(0)
       expect(store.page).toBe(1)
@@ -255,11 +256,6 @@ describe('useRecordsStore', () => {
     })
   })
 
-  /**
-   * Records are newest first, so a new one sits at the top of page 1 — unless a filter or sort
-   * is active, where it may not belong to the view at all. The URL is the source of truth, so a
-   * differing page is returned for the caller to navigate to rather than fetched here.
-   */
   describe('createRecord', () => {
     it('puts a new record on page 1 of the default view', async () => {
       const store = useRecordsStore()
@@ -269,7 +265,6 @@ describe('useRecordsStore', () => {
       const nextPage = await store.createRecord('tbl_1', { company: 'New' }, DEFAULT_QUERY)
 
       expect(nextPage).toBe(1)
-      // Already on page 1, so the store refetches rather than making the caller navigate
       expect(listCalls()).toBe(1)
     })
 
@@ -282,14 +277,9 @@ describe('useRecordsStore', () => {
       const nextPage = await store.createRecord('tbl_1', { company: 'New' }, onPage3)
 
       expect(nextPage).toBe(1)
-      // The caller navigates and its watcher does the refetch — doing it here would double it
       expect(listCalls()).toBe(0)
     })
 
-    /**
-     * Each clause of the private `isDefaultView` predicate, separately: a half-tested `&&`
-     * chain would let a new record be assumed onto page 1 of a view it does not belong to.
-     */
     it.each([
       ['a filter', { filters: { company: 'acme' } }],
       ['a search', { search: 'acme' }],
@@ -304,7 +294,6 @@ describe('useRecordsStore', () => {
       const nextPage = await store.createRecord('tbl_1', { company: 'New' }, query)
 
       expect(nextPage).toBe(2)
-      // Same page, so it is refetched here
       expect(listCalls()).toBe(1)
     })
 
@@ -316,10 +305,6 @@ describe('useRecordsStore', () => {
       expect(writes).toContain('POST tbl_1')
     })
 
-    /**
-     * The cached count is read by the sidebar and the dashboard, and this store is the only
-     * thing that knows it moved — nothing refetches the list to find out.
-     */
     it('tells the tables store the record count went up', async () => {
       const tables = await loadedTables()
       const store = useRecordsStore()
@@ -340,14 +325,9 @@ describe('useRecordsStore', () => {
 
       expect(store.records[0]?.data.company).toBe('Renamed')
       expect(store.records[1]).toEqual(GLOBEX)
-      // Nothing about the view changed, so there is nothing to refetch
       expect(listCalls()).toBe(0)
     })
 
-    /**
-     * The row is found by the id the server answered with, not the address asked for — a
-     * record is addressable by its number, which matches no `record.id` at all.
-     */
     it('swaps the row when the record was addressed by its number', async () => {
       const store = useRecordsStore()
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
@@ -367,7 +347,6 @@ describe('useRecordsStore', () => {
       expect(store.records).not.toBe(before)
     })
 
-    /** An edit can move a record out of a filtered or sorted view, so that view is refetched. */
     it('refetches instead when the view is narrowed', async () => {
       const store = useRecordsStore()
       const query = { ...DEFAULT_QUERY, filters: { company: 'acme' } }
@@ -402,7 +381,6 @@ describe('useRecordsStore', () => {
     })
   })
 
-  /** Refetches rather than splicing — under server-side pagination the page shifts. */
   describe('deleteRecord', () => {
     it('always refetches', async () => {
       const store = useRecordsStore()
@@ -426,11 +404,6 @@ describe('useRecordsStore', () => {
       expect(requests[0]?.page).toBe('2')
     })
 
-    /**
-     * Deleting the last record on the last page must not land on an empty one. Page 1 is the
-     * default and `toRecordQueryParams` omits defaults, so stepping back shows up as the param
-     * disappearing.
-     */
     it('steps back a page when the last record on it goes', async () => {
       response = page({ total: 26, pageSize: 25, page: 2 })
       const store = useRecordsStore()
@@ -439,7 +412,6 @@ describe('useRecordsStore', () => {
 
       await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
 
-      // 25 records left over a page size of 25 is one page, so it asks for the first
       expect(requests[0]?.page).toBeUndefined()
     })
 
@@ -449,7 +421,6 @@ describe('useRecordsStore', () => {
       await store.fetchRecords('tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      // `Math.max(1, …)` over a now-empty table, rather than page 0
       await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
 
       expect(requests[0]?.page).toBeUndefined()

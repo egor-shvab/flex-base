@@ -1,13 +1,5 @@
 import type { ISeedField, ISeedTable } from '~~/prisma/seed/dataset/types'
 
-/**
- * Fields but no records, on purpose.
- *
- * A table someone has configured and not yet filled is the first thing every new table is, and
- * its empty state is a distinct surface — `role="status"` copy rather than an empty grid, and a
- * settings page that is fully usable with nothing behind it. No other table here can show it.
- */
-
 const FIELDS: ISeedField[] = [
   { name: 'Title', type: 'TEXT', required: true },
   {

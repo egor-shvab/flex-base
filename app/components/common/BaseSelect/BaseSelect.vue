@@ -1,12 +1,17 @@
 <template>
-  <div class="base-select" :class="{ 'base-select--open': open }">
-    <label v-if="label" :id="`${id}-label`" class="base-select__label" :for="id">{{ label }}</label>
-
+  <BaseField
+    :id="id"
+    v-slot="{ labelId, describedBy }"
+    class="base-select"
+    :class="{ 'base-select--open': isOpen, 'base-select--disabled': disabled }"
+    :label="label"
+    :label-for="id"
+    :error="error"
+  >
     <div ref="containerRef" class="base-select__control" @click="onControlClick">
       <!--
-        Searchable: the control *is* the search field. Not the self-referencing
-        `aria-labelledby` used below — on an `<input>` that reads the element's **value**, so
-        the accessible name would change with every keystroke.
+        Not the self-referencing `aria-labelledby` used below: on an `<input>` it reads the value,
+        so the name would change with every keystroke.
       -->
       <input
         v-if="searchable"
@@ -16,29 +21,24 @@
         class="base-select__input"
         :class="{
           'base-select__input--invalid': error,
-          'base-select__input--clearable': showClear,
+          'base-select__input--clearable': shouldShowClear,
         }"
         type="text"
         role="combobox"
         aria-autocomplete="list"
         autocomplete="off"
         spellcheck="false"
-        :aria-expanded="open"
-        :aria-controls="open ? listboxId : undefined"
-        :aria-activedescendant="open ? activeId : undefined"
+        :aria-expanded="isOpen"
+        :aria-controls="isOpen ? listboxId : undefined"
+        :aria-activedescendant="isOpen ? activeId : undefined"
         :aria-label="label ? undefined : ariaLabel"
         :aria-invalid="error ? true : undefined"
-        :aria-describedby="describedBy"
+        :aria-describedby="buildComboboxDescribedBy(describedBy)"
         :placeholder="selectedOptions.length === 0 ? placeholder : undefined"
         :disabled="disabled"
         @keydown="onComboboxKeydown"
       />
 
-      <!--
-        Not searchable: a real `<button>`, for native semantics and focus. Its name is label +
-        current value, the way a `<select>` announces — by IDREF to the overlay below rather
-        than as button text, so both branches render the selection exactly once.
-      -->
       <button
         v-else
         :id="id"
@@ -47,55 +47,48 @@
         class="base-select__trigger"
         :class="{
           'base-select__trigger--invalid': error,
-          'base-select__trigger--clearable': showClear,
+          'base-select__trigger--clearable': shouldShowClear,
         }"
         aria-haspopup="listbox"
-        :aria-expanded="open"
-        :aria-controls="open ? listboxId : undefined"
-        :aria-labelledby="label ? `${id}-label ${id}-value` : undefined"
-        :aria-label="label ? undefined : ariaLabel"
+        :aria-expanded="isOpen"
+        :aria-controls="isOpen ? listboxId : undefined"
+        :aria-labelledby="labelId ? `${labelId} ${id}-value` : undefined"
+        :aria-label="labelId ? undefined : ariaLabel"
         :aria-invalid="error ? true : undefined"
-        :aria-describedby="error ? `${id}-error` : undefined"
+        :aria-describedby="describedBy"
         :disabled="disabled"
         @keydown="onTriggerKeydown"
       />
 
-      <!--
-        The selection, drawn *over* the control rather than as the input's own value, so
-        searching never means clearing what is chosen and one markup serves both branches.
-      -->
       <span
-        v-if="showValue"
+        v-if="shouldShowValue"
         :id="`${id}-value`"
         class="base-select__value"
-        :class="{ 'base-select__value--clearable': showClear }"
+        :class="{ 'base-select__value--clearable': shouldShowClear }"
       >
-        <BaseBadge v-if="valueBadge" :color="valueBadge.color" class="base-select__badge">
-          {{ valueBadge.label }}
+        <BaseBadge
+          v-if="firstSelected?.color"
+          :color="firstSelected.color"
+          class="base-select__badge"
+        >
+          {{ firstSelected.label }}
         </BaseBadge>
-        <template v-else>{{ valueText }}</template>
+        <span v-else class="base-select__value-text">{{ firstSelected?.label }}</span>
+        <template v-if="moreCount > 0">
+          <span class="base-select__more" aria-hidden="true">+{{ moreCount }}</span>
+          <span class="visually-hidden"> and {{ moreCount }} more</span>
+        </template>
       </span>
 
-      <!-- A button has no `placeholder` attribute; the input above uses the native one -->
       <span
         v-else-if="!searchable"
         class="base-select__placeholder"
-        :class="{ 'base-select__placeholder--clearable': showClear }"
+        :class="{ 'base-select__placeholder--clearable': shouldShowClear }"
+        :inert="disabled || undefined"
       >
         {{ placeholder }}
       </span>
 
-      <!--
-        The arrow toggles the panel, so it is a real `<button>`. Its own handler, because
-        `onControlClick` deliberately never closes the searchable branch; `.stop` keeps that
-        handler from re-opening what this closed, `@mousedown.prevent` keeps focus put.
-
-        `tabindex="-1"` + `aria-hidden` together: the toggle only duplicates keys the control
-        already has (↓/Enter/Space open, Escape and Alt+↑ close), so a tab stop before every
-        select's options and a second announcement would be cost with no function. That
-        `aria-hidden` is why this stays hand-rolled where the clear button is a `BaseButton` —
-        that component's `label` *names* the control.
-      -->
       <button
         type="button"
         class="base-select__chevron"
@@ -105,19 +98,18 @@
         @click.stop="togglePanel"
         @mousedown.prevent
       >
-        <Icon name="mdi:chevron-down" />
+        <Icon name="material-symbols:expand-more-rounded" />
       </button>
 
       <!--
-        `.stop`, because the control around it owns a click handler; `@mousedown.prevent`
-        because `showClear` follows the selection, so this button unmounts mid-click and
-        focus would fall to `<body>`.
+        `@mousedown.prevent`: this button unmounts mid-click as the selection clears, so focus would
+        fall to `<body>`.
       -->
       <BaseButton
-        v-if="showClear"
+        v-if="shouldShowClear"
         variant="icon"
         size="sm"
-        prepend-icon="mdi:close"
+        prepend-icon="material-symbols:close-rounded"
         class="base-select__clear"
         :label="`Clear ${label ?? ariaLabel ?? 'selection'}`"
         @click.stop="clear"
@@ -125,35 +117,29 @@
       />
     </div>
 
-    <span v-if="error" :id="`${id}-error`" class="base-select__error">{{ error }}</span>
+    <!--
+      Mirrors the status row, which lives in a `<Teleport v-if>`: a live region inserted with its
+      content is not reliably read, so this one is mounted for the component's life.
+    -->
+    <span class="visually-hidden" role="status">{{ isOpen ? statusText : '' }}</span>
 
     <!--
-      The status row's announcement, mirrored here because the row lives in
-      `<Teleport v-if="open">` and a live region inserted in the same frame as its content is
-      not reliably read — the first message of every open would be silent. This one is mounted
-      for the component's life and empty while closed, so opening is always a change.
+      Teleported because `BaseModal` marks `#__nuxt` `inert`; in place the panel would be
+      unfocusable inside the drawer it belongs to.
     -->
-    <span class="visually-hidden" role="status">{{ open ? statusText : '' }}</span>
-
-    <!--
-      Teleported because `BaseModal` marks `#__nuxt` `inert`, which the whole subtree inherits —
-      a panel rendered in place would be unfocusable inside the drawer it belongs to. Escaping
-      that drawer's `overflow-y: auto` is a second benefit, not the reason.
-    -->
-    <Teleport v-if="open" to="body">
+    <Teleport v-if="isOpen" to="body">
       <div
         ref="panelRef"
         class="base-select__panel"
         :style="panelStyle"
         @keydown.esc.stop="dismiss"
       >
-        <!-- The visible copy only; the region above announces, or it would be read twice. -->
         <p v-if="statusText" ref="statusRef" class="base-select__status">
           {{ statusText }}
           <BaseButton
             v-if="status === 'failed'"
-            variant="link"
-            @click="onRetry"
+            variant="secondary"
+            @click="retryOptions"
             @keydown="onRetryKeydown"
           >
             Retry
@@ -166,15 +152,15 @@
           class="base-select__list"
           role="listbox"
           :aria-multiselectable="isMultiple ? true : undefined"
-          :aria-labelledby="label ? `${id}-label` : undefined"
-          :aria-label="label ? undefined : ariaLabel"
+          :aria-labelledby="labelId"
+          :aria-label="labelId ? undefined : ariaLabel"
           :tabindex="searchable ? undefined : -1"
           :aria-activedescendant="searchable ? undefined : activeId"
           @keydown="onListKeydown"
         >
           <li
             v-for="(option, index) in visibleOptions"
-            :id="optionId(index)"
+            :id="buildOptionId(index)"
             :key="option.value"
             class="base-select__option"
             :class="{
@@ -188,9 +174,8 @@
             @mousedown.prevent
           >
             <!--
-              The slot sits *inside* the label span, not around the row: slot content compiles
-              in the caller's scope, so a row-level slot would silently lose this component's
-              `min-width: 0` and the truncation with it.
+              Inside the label span: slot content compiles in the caller's scope, so a row-level
+              slot would lose `min-width: 0` and the truncation with it.
             -->
             <BaseBadge v-if="option.color" :color="option.color" class="base-select__badge">
               {{ option.label }}
@@ -199,10 +184,9 @@
               <slot name="option-label" :option="option">{{ option.label }}</slot>
             </span>
 
-            <!-- Colour alone cannot carry the selected state (WCAG 1.4.1) -->
             <Icon
               v-if="selected.includes(option.value)"
-              name="mdi:check"
+              name="material-symbols:check-rounded"
               class="base-select__check"
               aria-hidden="true"
             />
@@ -210,7 +194,7 @@
         </ul>
       </div>
     </Teleport>
-  </div>
+  </BaseField>
 </template>
 
 <script setup lang="ts" generic="TModel extends string | string[]">
@@ -227,34 +211,13 @@ const props = withDefaults(
   defineProps<{
     id: string
     label?: string
-    /** Names the control when its visible label lives elsewhere, or there is none. */
     ariaLabel?: string
-    /** The whole universe in local mode; the seed shown before a search in async mode. */
     options?: ISelectOption[]
-    /**
-     * Turns the control into a combobox. **Independent of where the options come from** —
-     * locally it filters `options`, with `loadOptions` it asks the server.
-     *
-     * Never derived from the option count: a caller owns the array and can count it
-     * (`~/utils/select` has the house threshold), and a list arriving after mount must not
-     * flip the branch under a focused user.
-     */
     searchable?: boolean
-    /**
-     * Answers a typed term from the server instead of filtering `options`. Inert without
-     * `searchable`. `options` still shows whenever the box is empty, so clearing a search —
-     * or a failed one — always lands on a usable list.
-     */
     loadOptions?: TLoadSelectOptions
-    /**
-     * Several values at once. Tied to the model's type, so binding a plain string ref and
-     * passing this is a compile error rather than a runtime surprise.
-     */
     multiple?: TModel extends string[] ? true : false
-    /** Offers an explicit ✕. Off by default — a model that cannot hold "" must not gain one. */
     clearable?: boolean
     placeholder?: string
-    /** When the field offers nothing at all — distinct from a search that found nothing. */
     emptyLabel?: string
     error?: string
     disabled?: boolean
@@ -277,63 +240,39 @@ const props = withDefaults(
 const model = defineModel<TModel>({ required: true })
 
 defineSlots<{
-  /**
-   * Replaces the **text** of an option that carries no colour — a coloured choice is a badge,
-   * already the whole of its row. The option is the whole scope: selected and active are said
-   * by the row's own classes and check icon, which the slot cannot reach.
-   */
   'option-label'?: (props: { option: ISelectOption }) => unknown
 }>()
 
 /**
- * **Never read `props.multiple` directly.** Vue casts a bare `multiple` attribute to `true`
- * only for a prop it knows is `Boolean`; this one is conditional on `TModel`, so the compiler
- * emits no constructor and `<BaseSelect multiple />` arrives as `''` — falsy, silently single
- * mode. `vue-tsc` misses it, reading a bare attribute as `true`. Widening the prop to plain
- * `boolean` would fix the cast and give back the mismatch the conditional type prevents
- * (`docs/decisions.md`), so the type stays and the read moves here.
+ * Never read `props.multiple` directly: being conditional on `TModel`, a bare `multiple`
+ * attribute arrives as `''` rather than `true` — falsy, silently single mode.
  */
-const isMultiple = computed(() => props.multiple !== undefined && props.multiple !== false)
+const isMultiple = computed(() => props.multiple !== undefined && props.multiple)
 
-/*
- * The section markers below are a one-file exception, for a setup block several times the size
- * of any other. A second component wanting them is one to decompose instead.
- */
+const { isOpen, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
 
-/* Options panel */
-
-const { open, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
-
-const panelStyle = useAnchoredPosition(containerRef, panelRef, open, { matchWidth: true })
+const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, { shouldMatchWidth: true })
 
 const listboxId = panelId
 
-/**
- * The cursor is a position the **keyboard** asked for, so opening does not create one: a ring
- * drawn before the user has navigated reads as a choice already made. What opening keeps is the
- * useful half — a long list arrives scrolled to the current value, without highlighting it.
- */
 function openPanel() {
   if (props.disabled) return
 
   show()
 
   void nextTick(() => {
-    // Searchable keeps focus in the field it is already in; otherwise it moves into the list,
-    // which is what `aria-activedescendant` on the `<ul>` then describes
     if (props.searchable) triggerRef.value?.focus()
     else listRef.value?.focus()
 
-    const index = selectedIndex()
+    const index = findSelectedIndex()
     if (index >= 0) scrollIntoView(index)
   })
 }
 
-/** The button branch's control and the chevron on either branch both route through this. */
 function togglePanel() {
   if (props.disabled) return
 
-  if (open.value) dismiss()
+  if (isOpen.value) dismiss()
   else openPanel()
 }
 
@@ -341,9 +280,7 @@ function onControlClick() {
   if (props.disabled) return
 
   if (props.searchable) {
-    // Never a toggle: a click in a text field places the caret, so closing on it would make
-    // it impossible to click into a term being edited. The chevron is what closes.
-    if (!open.value) openPanel()
+    if (!isOpen.value) openPanel()
     triggerRef.value?.focus()
     return
   }
@@ -351,24 +288,14 @@ function onControlClick() {
   togglePanel()
 }
 
-/* end Options panel */
-
-/* Options and load status */
-
 const { searchDraft, visibleOptions, status, retry, reset } = useSelectOptions({
   options: () => props.options,
-  // Inert unless the user can type: a loader nothing can call leaves `status` pinned at
-  // `idle` and `retry` unreachable.
   loadOptions: () => (props.searchable ? props.loadOptions : undefined),
 })
 
 const statusRef = ref<HTMLParagraphElement>()
 
-/**
- * The panel's one focusable, read off the status row rather than held as a ref: the control is
- * a `BaseButton`, so a component ref hands back an instance whose `$el` is `any`.
- */
-function retryButton(): HTMLButtonElement | null {
+function findRetryButton(): HTMLButtonElement | null {
   return statusRef.value?.querySelector('button') ?? null
 }
 
@@ -379,23 +306,17 @@ const statusText = computed(() => {
 
   const typed = searchDraft.value.trim()
 
-  return typed === '' ? props.emptyLabel : `No results for “${typed}”`
+  return typed === '' ? props.emptyLabel : `No option matches “${typed}”`
 })
 
-/**
- * `retry()` flips `status` to `loading` synchronously, unmounting the button just pressed —
- * without the handoff focus falls to `<body>`.
- */
-function onRetry() {
+function retryOptions() {
   retry()
   triggerRef.value?.focus()
 }
 
 /**
- * Leaving the panel. Forward, the default is **not** cancelled: `dismiss()` returns focus to
- * the control synchronously, so the browser continues from there and one press leaves the
- * select. Backwards returns to the field with the panel open, heading back to the term.
- * Escape bubbles to the panel's own `@keydown.esc.stop`.
+ * Forward is not cancelled: `dismiss()` returns focus to the control synchronously, so the
+ * browser continues from there and one press leaves the select.
  */
 function onRetryKeydown(event: KeyboardEvent) {
   if (event.key !== 'Tab') return
@@ -409,26 +330,17 @@ function onRetryKeydown(event: KeyboardEvent) {
   dismiss()
 }
 
-/* end Options and load status */
-
-/* Selection */
-
-/**
- * Selection is always a list internally, whatever the model's shape — one normalisation in,
- * one in `commit` out, and keyboard, rendering and ARIA written once. The inward half is the
- * shared `toValueList` (`docs/decisions.md`); `commit` is this control's own.
- */
 const selected = computed<string[]>(() => toValueList(model.value))
 
-/** The cast is the seam between a generic model and a component that speaks lists. */
 function commit(values: string[]) {
   model.value = (isMultiple.value ? values : (values[0] ?? '')) as TModel
 }
 
-const showClear = computed(() => props.clearable && !props.disabled && selected.value.length > 0)
+const shouldShowClear = computed(
+  () => props.clearable && !props.disabled && selected.value.length > 0,
+)
 
-/** -1 when nothing is chosen — "no selection" and "the top option" are not the same answer. */
-function selectedIndex(): number {
+function findSelectedIndex(): number {
   return visibleOptions.value.findIndex((option) => selected.value.includes(option.value))
 }
 
@@ -440,7 +352,6 @@ function choose(option: ISelectOption) {
       ? selected.value.filter((value) => value !== option.value)
       : [...selected.value, option.value]
 
-    // The panel stays open: picking several values one at a time is the whole point
     commit(next)
     return
   }
@@ -456,19 +367,13 @@ function chooseActive() {
 
 function clear() {
   commit([])
-  // `showClear` follows the selection, so the button that was just clicked unmounts with it —
-  // without this, focus falls to `<body>`
+  // The clear button just clicked unmounts with the selection, or focus would fall to `<body>`
   triggerRef.value?.focus()
 }
 
-/* end Selection */
-
-/* Rendered selection */
-
 /**
- * Every option ever rendered, so a value keeps its label when an async search replaces the
- * visible list with rows that exclude it. Keyed on the option *values*, not array identity:
- * a `props(field)` factory returns a fresh array on every parent render.
+ * Every option ever rendered, so a value keeps its label when a search replaces the list. Keyed on
+ * the values, not array identity: a `props(field)` factory returns a fresh array every render.
  */
 const seen = ref(new Map<string, ISelectOption>())
 
@@ -486,42 +391,20 @@ const selectedOptions = computed<ISelectOption[]>(() =>
   selected.value.map((value) => seen.value.get(value) ?? { value, label: value }),
 )
 
-/** The overlay yields to the term the moment the user types; there is nothing to hide behind. */
-const showValue = computed(
+const shouldShowValue = computed(
   () => selectedOptions.value.length > 0 && (!props.searchable || searchDraft.value === ''),
 )
 
-/** One selection reads as itself; several read as a count — a 36px control cannot list them. */
-const valueBadge = computed(() =>
-  selectedOptions.value.length === 1 && selectedOptions.value[0]?.color
-    ? selectedOptions.value[0]
-    : undefined,
-)
+const firstSelected = computed<ISelectOption | undefined>(() => selectedOptions.value[0])
+const moreCount = computed(() => Math.max(selectedOptions.value.length - 1, 0))
 
-const valueText = computed(() => {
-  const count = selectedOptions.value.length
-  if (count === 1) return selectedOptions.value[0]?.label ?? ''
-
-  return `${count} selected`
-})
-
-/**
- * A `<button>` carries its selection in its accessible *name*; an `<input>`'s value is the
- * search term, so on that branch the selection would reach assistive tech nowhere outside the
- * option rows. Describing it by the visible overlay says it once, with nothing to invent.
- */
-const describedBy = computed(() => {
-  const ids = [
-    props.error ? `${props.id}-error` : undefined,
-    props.searchable && showValue.value ? `${props.id}-value` : undefined,
-  ].filter((value): value is string => value !== undefined)
+function buildComboboxDescribedBy(fieldDescribedBy: string | undefined): string | undefined {
+  const ids = [fieldDescribedBy, shouldShowValue.value ? `${props.id}-value` : undefined].filter(
+    (value): value is string => value !== undefined,
+  )
 
   return ids.length > 0 ? ids.join(' ') : undefined
-})
-
-/* end Rendered selection */
-
-/* Cursor and keyboard */
+}
 
 const listRef = ref<HTMLUListElement>()
 
@@ -538,25 +421,21 @@ const {
 } = useListboxNavigation({
   options: () => visibleOptions.value,
   listRef,
-  isOpen: open,
-  // Typing is the user placing the cursor; options merely arriving is not
+  isOpen,
   shouldSeedCursor: () => props.searchable && searchDraft.value !== '',
 })
 
-function optionId(index: number): string {
+function buildOptionId(index: number): string {
   return `${panelId}-option-${index}`
 }
 
-const activeId = computed(() => (activeIndex.value >= 0 ? optionId(activeIndex.value) : undefined))
+const activeId = computed(() =>
+  activeIndex.value >= 0 ? buildOptionId(activeIndex.value) : undefined,
+)
 
-/**
- * With no cursor yet, the first press *reveals* one on the current value and only then walks
- * — what makes the keys feel native. With nothing selected there is nothing to reveal, so
- * `move` starts from the end the direction implies: ↓ on the first option, ↑ on the last.
- */
 function moveCursor(delta: number) {
   if (activeIndex.value < 0) {
-    const index = selectedIndex()
+    const index = findSelectedIndex()
 
     if (index >= 0) {
       setActive(index)
@@ -571,86 +450,69 @@ function isPrintable(event: KeyboardEvent): boolean {
   return event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 }
 
-/** Branch B: focus never leaves the input, so one dispatcher covers both open and closed. */
 function onComboboxKeydown(event: KeyboardEvent) {
   if (props.disabled) return
 
   switch (event.key) {
     case 'Escape':
-      // Only ours to swallow while a panel is open. `BaseModal` listens on `document`, and
-      // focus stays in this input while the list is shut, so an unconditional `.stop` would
-      // mean a closed select ate the drawer's Escape. The modifier cannot express that.
-      if (!open.value) return
+      // Only ours while open: focus stays here while the list is shut, so an unconditional `.stop`
+      // would eat the drawer's Escape
+      if (!isOpen.value) return
       event.stopPropagation()
       dismiss()
       return
     case 'ArrowDown':
       event.preventDefault()
-      // The press that opens is itself a navigation key, so it places the cursor too
-      if (!open.value) openPanel()
+      if (!isOpen.value) openPanel()
       moveCursor(1)
       return
     case 'ArrowUp':
       event.preventDefault()
-      if (open.value && event.altKey) {
+      if (isOpen.value && event.altKey) {
         dismiss()
         return
       }
-      if (!open.value) openPanel()
+      if (!isOpen.value) openPanel()
       moveCursor(-1)
       return
     case 'PageDown':
     case 'PageUp':
-      if (!open.value) return
+      if (!isOpen.value) return
       event.preventDefault()
       moveCursor(event.key === 'PageDown' ? PAGE_STEP : -PAGE_STEP)
       return
     case 'Enter':
-      // Closed, Enter belongs to the form around this control — swallowing it would make the
-      // key do nothing at all
-      if (!open.value) return
+      if (!isOpen.value) return
       event.preventDefault()
       chooseActive()
       return
     case 'Tab':
-      // Forward, with a Retry in the panel: move *into* it. The panel is teleported to
-      // `<body>`, so the browser's own order never reaches the button. Shift+Tab is not
-      // diverted — backwards means leaving.
-      if (open.value && !event.shiftKey && retryButton()) {
+      // The teleported panel is outside the browser's own tab order, so move into Retry explicitly
+      if (isOpen.value && !event.shiftKey && findRetryButton()) {
         event.preventDefault()
-        retryButton()?.focus()
+        findRetryButton()?.focus()
         return
       }
-      // No `preventDefault` — closing and letting focus move on is the expected exit
-      if (open.value) dismiss()
+      if (isOpen.value) dismiss()
       return
     case 'Backspace':
-      // Only once the term is gone, or backspacing through a search eats the selection
-      // behind it. `repeat` is guarded so holding the key stops at the end of the text.
+      // Only once the term is gone, or backspacing through a search eats the selection; `repeat`
+      // stops a held key at the end of the text
       if (searchDraft.value !== '' || !props.clearable || event.repeat) return
       if (selected.value.length === 0) return
       event.preventDefault()
       commit(selected.value.slice(0, -1))
       return
   }
-
-  // Home, End, Space and Delete belong to the caret in a text field; PageUp/PageDown already
-  // reach the list.
 }
 
-/** Branch A, while closed — focus moves into the list on open, so this stops firing there. */
 function onTriggerKeydown(event: KeyboardEvent) {
   if (props.disabled) return
 
-  // Escape is not handled: nothing of ours is open, so it belongs to the surrounding dialog.
-  // Nor do arrow keys change the value while closed — the ARIA pattern opens the list, and a
-  // filter changed under an unseen arrow key would fire a request per press.
   if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
-    // Also suppresses the `click` a `<button>` synthesises from Enter/Space, or the panel
-    // opens and toggles straight shut
+    // Also suppresses the `click` a `<button>` synthesises, or the panel opens and toggles shut
     event.preventDefault()
     openPanel()
-    // An arrow opening the list places the cursor; Enter and Space only open, as a click does
     if (event.key === 'ArrowDown') moveCursor(1)
     if (event.key === 'ArrowUp') moveCursor(-1)
     return
@@ -669,11 +531,7 @@ function onTriggerKeydown(event: KeyboardEvent) {
   }
 }
 
-/**
- * Branch A, while open. Bound to the `<ul>` rather than to the panel so it cannot steal keys
- * from the status row's Retry button; Escape stays on the panel, which the event still
- * reaches by bubbling.
- */
+/** On the `<ul>`, not the panel, so it cannot steal keys from the Retry button. */
 function onListKeydown(event: KeyboardEvent) {
   switch (event.key) {
     case 'ArrowDown':
@@ -714,125 +572,112 @@ function onListKeydown(event: KeyboardEvent) {
   }
 }
 
-/* end Cursor and keyboard */
-
-/* Panel ↔ search */
-
 /**
- * Any way text arrives opens the list — keystroke, paste, IME commit, drop. Driven off the
- * model rather than `keydown` because a printable-key test misses paste (no keydown of its
- * own) and IME composition (whose keydown is `Process`). `v-model` withholds the write until
- * a composition commits, so this input needs no counterpart to `BaseInput`'s guard.
+ * Off the model rather than `keydown`, which misses paste and IME composition.
  */
 watch(searchDraft, (value) => {
-  if (props.searchable && !props.disabled && value !== '' && !open.value) openPanel()
+  if (props.searchable && !props.disabled && value !== '' && !isOpen.value) openPanel()
 })
 
-// Reopening must not inherit the last search, and an index into a refiltered list means
-// nothing
-watch(open, (isOpen) => {
-  if (isOpen) return
+watch(isOpen, () => {
+  if (isOpen.value) return
 
   reset()
   resetCursor()
 })
-
-/* end Panel ↔ search */
 </script>
 
 <style lang="scss" scoped>
+$caret-gutter: rem(36);
+$clearable-gutter: rem(64);
+
 .base-select {
-  @include stack(4);
-
-  &__label {
-    @include field-label;
-  }
-
-  // The positioning context every decoration shares, and `usePopover`'s outside-click
-  // boundary.
   &__control {
     position: relative;
   }
 
-  // The chrome goes on whichever element the branch renders, as `BaseInput` keeps it on the
-  // `<input>` (`docs/styling.md`), so both branches match every other control.
   &__trigger,
   &__input {
     @include form-control;
 
     display: block;
     width: 100%;
-    // Room for the chevron
-    padding-right: rem(36);
-    background: var(--color-surface);
+    padding-right: $caret-gutter;
     text-align: left;
 
     &--clearable {
-      padding-right: rem(64);
-    }
-
-    &:disabled {
-      background: var(--color-surface-disabled);
-      color: var(--color-text-secondary);
-      cursor: not-allowed;
+      padding-right: $clearable-gutter;
     }
   }
 
-  // The button carries no text — the overlay draws the value — so it needs an explicit
-  // height rather than one inherited from content
   &__trigger {
     height: var(--control-height);
     cursor: pointer;
   }
 
-  &__input {
-    // Only shown while nothing is selected; the overlay covers the field otherwise
-    &::placeholder {
-      // The token, not `opacity` — muted text at 0.6 is ~2.4:1, the subtle token 4.58:1
-      color: var(--color-text-subtle);
-    }
-  }
-
-  // On branch A focus lives inside the panel while open, so the trigger's own `:focus` never
-  // matches and the control would read as inactive
   &--open &__trigger {
-    border-color: var(--color-accent);
+    border-color: var(--color-focus);
   }
 
   &--open &__chevron {
-    // The base rule centres with `translateY(-50%)`; a bare `rotate()` here would drop it
     transform: translateY(-50%) rotate(180deg);
   }
 
-  // Drawn over the control so one markup serves both branches. `pointer-events: none` keeps
-  // the control beneath clickable, and the caret reachable through it.
   &__value,
   &__placeholder {
     position: absolute;
     top: 50%;
-    // `form-control`'s own inline padding, so the overlay sits exactly where text would
     left: rem(12);
-    right: rem(36);
+    right: $caret-gutter;
     transform: translateY(-50%);
     font-size: var(--font-size-md);
     line-height: var(--line-height-tight);
     pointer-events: none;
 
-    @include truncate;
-
     &--clearable {
-      right: rem(64);
+      right: $clearable-gutter;
     }
+  }
+
+  &__value {
+    display: flex;
+    align-items: center;
+    gap: rem(6);
   }
 
   &__placeholder {
     color: var(--color-text-subtle);
+
+    @include truncate;
+  }
+
+  &--disabled &__placeholder,
+  &--disabled &__value-text {
+    color: var(--color-text-disabled);
+  }
+
+  &__value-text {
+    min-width: 0;
+
+    @include truncate;
+  }
+
+  &__more {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: rem(22);
+    padding: 0 rem(7);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-muted);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-2xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
   }
 
   &__badge {
-    // A flex item will not shrink below its content without this, so the ellipsis never engages
     min-width: 0;
-    vertical-align: middle;
   }
 
   &__chevron,
@@ -840,12 +685,9 @@ watch(open, (isOpen) => {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--color-text-secondary);
   }
 
   &__chevron {
-    // `rem(10)` with a 24px box, not `rem(12)` with a bare glyph: the arrow is drawn in the same
-    // place either way, and the target now clears SC 2.5.8's 24×24 floor
     right: rem(10);
     display: flex;
     align-items: center;
@@ -855,65 +697,59 @@ watch(open, (isOpen) => {
     padding: 0;
     border: none;
     background: none;
-    // An icon glyph size, not a type-scale step — `<Icon>` sizes off `font-size`
     font-size: rem(20);
+    color: var(--color-text-subtle);
     cursor: pointer;
     transition: transform 0.15s ease;
 
-    // Inert with the control, so the `not-allowed` cursor beneath shows through
     &:disabled {
+      color: var(--color-glyph-faint);
       pointer-events: none;
     }
   }
 
-  // A `BaseButton` with `variant="icon" size="sm"` — the 24×24 step, SC 2.5.8's floor and
-  // what fits beside the chevron in a 36px control. Only the two call-site facts stay here.
-  &__clear {
-    right: rem(36);
+  &__trigger:focus ~ &__chevron,
+  &__input:focus ~ &__chevron,
+  &--open &__chevron {
+    color: var(--color-accent);
+  }
 
-    // Inset, or the control's own rounded corner clips the ring; and inset, the halo would
-    // glow outward over that border and the chevron. Both are custom properties, so
-    // `BaseButton`'s `focus-ring` resolves them here with no change to the mixin.
+  &__clear {
+    right: $caret-gutter;
+
     --focus-ring-offset: #{rem(-1)};
     --focus-ring-halo: none;
   }
 
-  &__error {
-    @include field-error;
-  }
-
-  // Positioned entirely by `useAnchoredPosition`, in viewport coordinates — `position: fixed`
-  // is what lets it escape the filter drawer's scroll container
   &__panel {
-    position: fixed;
-    z-index: var(--z-popover);
+    @include popover-panel;
+
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-md);
     overflow: hidden;
   }
 
   &__status {
     flex: none;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: rem(8);
+    gap: rem(4);
     margin: 0;
-    padding: rem(10) rem(12);
+    padding: rem(14) rem(16);
     font-size: var(--font-size-sm);
+    text-align: center;
     color: var(--color-text-secondary);
   }
 
-  // `min-height: 0`, or the flex item's automatic minimum size keeps the list from scrolling
   &__list {
     flex: 1;
     min-height: 0;
     margin: 0;
-    padding: rem(4);
+    display: flex;
+    flex-direction: column;
+    gap: rem(2);
+    padding: rem(6);
     list-style: none;
     overflow-y: auto;
   }
@@ -921,10 +757,9 @@ watch(open, (isOpen) => {
   &__option {
     display: flex;
     align-items: center;
-    gap: rem(8);
-    // SC 2.5.8 with the house floor to spare, and the same rhythm as every other control
+    gap: rem(9);
     min-height: var(--control-height);
-    padding: rem(6) rem(10);
+    padding: rem(6) rem(8);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-md);
     cursor: pointer;
@@ -935,14 +770,27 @@ watch(open, (isOpen) => {
 
     &--selected {
       background: var(--color-accent-tint);
+
+      &:hover {
+        background: var(--color-accent-tint-strong);
+      }
     }
 
-    // Written out rather than `@include`d, and an outline rather than a wash:
-    // `docs/decisions.md`. One class, because only the keyboard places the cursor — neither
-    // opening nor the pointer sets it.
     &--active {
-      outline: var(--focus-ring-width) solid var(--color-focus);
-      outline-offset: calc(-1 * var(--focus-ring-width));
+      background: var(--color-surface-hover);
+      box-shadow: inset rem(2) 0 0 var(--color-accent);
+    }
+
+    &--active.base-select__option--selected {
+      background: var(--color-accent-tint-strong);
+    }
+
+    // `forced-colors` does not paint the `box-shadow` edge
+    @media (forced-colors: active) {
+      &--active {
+        outline: rem(2) solid;
+        outline-offset: rem(-2);
+      }
     }
 
     &[aria-disabled='true'] {
@@ -966,7 +814,6 @@ watch(open, (isOpen) => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  // The arrow still turns to show the state, without the sweep
   .base-select__chevron {
     transition: none;
   }

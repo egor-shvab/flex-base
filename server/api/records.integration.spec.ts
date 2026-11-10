@@ -13,7 +13,6 @@ let ada: IAuthUser
 let tableId: string
 let peopleId: string
 
-/** The endpoint's answer for a query string, as a browser would send it. */
 function list(query: Record<string, string | string[]>) {
   return recordsGet(testEvent({ user: ada, params: { tableAddress: tableId }, query }))
 }
@@ -55,11 +54,6 @@ beforeEach(async () => {
   await createRecord(tableId, { company: 'Beta', contract_value: 900, stage: 'Lost' })
 })
 
-/**
- * The endpoint decodes a link with the same codec the records page uses, over params its schema
- * validated first. Both halves are covered in isolation; only here is it true that the endpoint
- * composes them the way the page does, so a shared URL cannot mean two things.
- */
 describe('reading a list query off the URL', () => {
   it('returns the whole table with no params', async () => {
     expect(await companies({})).toEqual(['Beta', 'Acme'])
@@ -146,7 +140,6 @@ describe('what the endpoint refuses', () => {
     await rejects({ page: '0' })
   })
 
-  /** No request may ask for a whole table, however large. */
   it(`caps pageSize at ${RECORD_PAGE_SIZE_MAX}`, async () => {
     await rejects({ pageSize: String(RECORD_PAGE_SIZE_MAX + 1) })
   })
@@ -190,10 +183,6 @@ describe('writing through the endpoint', () => {
     await expect(write({ owner: stranger.id })).rejects.toMatchObject({ statusCode: 400 })
   })
 
-  /**
-   * The update path through the handler rather than the service. Only this layer shows that the
-   * **route params reach the right row** — everything below takes a `recordId` as an argument.
-   */
   describe('updating one', () => {
     const patch = (recordAddress: string, body: unknown) =>
       recordPatch(
@@ -205,11 +194,6 @@ describe('writing through the endpoint', () => {
         }),
       )
 
-    /**
-     * The sibling assertion is the point. "Acme became Renamed" also passes when the handler
-     * reaches for the first record of the table regardless of the id it was given; "and Beta did
-     * not" is what fails on a mis-wired param.
-     */
     it('updates the record the route names, and leaves its siblings alone', async () => {
       const { records } = await list({})
       const acme = records.find((row) => row.data.company === 'Acme')
@@ -223,7 +207,6 @@ describe('writing through the endpoint', () => {
       expect(await companies({})).toEqual(['Beta', 'Renamed'])
     })
 
-    /** `data` is replaced wholesale, so a key the payload omits is cleared rather than kept. */
     it('replaces the record’s data rather than merging into it', async () => {
       const { records } = await list({})
       const acme = records.find((row) => row.data.company === 'Acme')
@@ -233,10 +216,6 @@ describe('writing through the endpoint', () => {
       expect(record.data).toMatchObject({ company: 'Acme', contract_value: null })
     })
 
-    /**
-     * The create path proves the schema is built from the table's fields; this proves the update
-     * path validates against the same one rather than trusting a body that already exists.
-     */
     it('400s on a value of the wrong type, storing nothing', async () => {
       const { records } = await list({})
       const acme = records.find((row) => row.data.company === 'Acme')
@@ -249,17 +228,7 @@ describe('writing through the endpoint', () => {
     })
   })
 
-  /**
-   * The two caps a multi-value field carries, at the layer returning the status code.
-   * `shared/validation/record.spec.ts` proves zod rejects both; only here is it shown that the
-   * rejection reaches the caller as a 400 rather than being swallowed or stored.
-   *
-   * Duplicates are **rejected rather than deduplicated**: a control cannot produce one, so a
-   * repeat is a crafted payload, and dropping it quietly would put a `.transform()` in a layer
-   * whose whole job is to judge.
-   */
   describe('a multi-value field’s caps', () => {
-    /** Widened on the table the fixture already built, so the rest of its shape is unchanged. */
     async function withTags() {
       await createField(tableId, {
         key: 'tags',
@@ -304,7 +273,6 @@ describe('writing through the endpoint', () => {
         statusCode: 400,
       })
 
-      // The cap itself is allowed, or the test would pass against an off-by-one floor
       const { record } = await write({
         company: 'AtTheCap',
         many: values.slice(0, MULTI_VALUE_MAX_ITEMS),
@@ -371,11 +339,6 @@ describe('the detail endpoint', () => {
   })
 })
 
-/**
- * A record address is the number a URL carries or the cuid a relation stores. The number is
- * unique **within its table**, so the risk covered here is an address reaching across tables,
- * which the `tableId`-scoped compound unique prevents.
- */
 describe('a record is addressable by its number as well as its cuid', () => {
   const detail = (recordAddress: string) =>
     recordGet(
@@ -410,7 +373,6 @@ describe('a record is addressable by its number as well as its cuid', () => {
     expect(record.data.company).toBe('Renamed')
   })
 
-  /** Numbers restart per table, so the same address is a different record in each. */
   it('does not reach across tables — record 1 of one is not record 1 of another', async () => {
     await createRecord(peopleId, { full_name: 'Ada' })
 

@@ -12,8 +12,6 @@ describe('relationOptionsQuerySchema', () => {
   })
 
   it('deliberately applies no minimum length', () => {
-    // One expression over one table, a hard LIMIT and no count — a one-character term costs
-    // exactly what the zero-character term this endpoint already serves costs
     expect(SEARCH_MIN_LENGTH).toBeGreaterThan(1)
     expect(relationOptionsQuerySchema.safeParse({ q: 'a' }).success).toBe(true)
     expect(relationOptionsQuerySchema.safeParse({ q: '' }).success).toBe(true)

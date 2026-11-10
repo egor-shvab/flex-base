@@ -19,28 +19,19 @@ function isSqlFragment(value: unknown): value is { values: unknown[] } {
   )
 }
 
-/**
- * Every value a tagged-template call binds, one level into any nested `Prisma.Sql`: a composed
- * fragment carries its own parameters rather than flattening into the outer call's.
- */
 function boundValues(args: unknown[]): unknown[] {
   return args.slice(1).flatMap((arg) => (isSqlFragment(arg) ? arg.values : [arg]))
 }
 
-/** A row as the target lookup returns it — enough to label the record it stands for. */
 function targetRow(id: string, number: number, fullName?: string) {
   return { id, number, data: fullName === undefined ? {} : { full_name: fullName } }
 }
 
 beforeEach(resetPrismaMock)
 
-/**
- * The normalisation seam: everything downstream works in sets and batches, so this is the one
- * place coping with what a JSONB column can hold, pre-widening values included.
- */
-describe('RelationService.collectRelationTargets', () => {
+describe('RelationService.buildRelationTargets', () => {
   it('collects the ids a single-value relation stores', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [owner],
       [{ owner: 'rec_1' }, { owner: 'rec_2' }],
     )
@@ -51,7 +42,7 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('reads a list from a widened field', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [asMultiple(owner)],
       [{ owner: ['rec_1', 'rec_2'] }],
     )
@@ -60,18 +51,13 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('reads a bare string left over from before the field was widened', () => {
-    // The widening migration is not a precondition for reading — a row it has not reached yet
-    // still holds a scalar, and that link must keep resolving
-    const targets = RelationService.collectRelationTargets(
-      [asMultiple(owner)],
-      [{ owner: 'rec_1' }],
-    )
+    const targets = RelationService.buildRelationTargets([asMultiple(owner)], [{ owner: 'rec_1' }])
 
     expect([...(targets[0]?.ids ?? [])]).toEqual(['rec_1'])
   })
 
   it('deduplicates an id shared by several rows', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [owner],
       [{ owner: 'rec_1' }, { owner: 'rec_1' }, { owner: 'rec_2' }],
     )
@@ -80,7 +66,7 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('drops blanks, nulls and anything that is not a string', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [asMultiple(owner)],
       [{ owner: ['rec_1', '', null, 42, undefined] as never }],
     )
@@ -89,20 +75,20 @@ describe('RelationService.collectRelationTargets', () => {
   })
 
   it('skips a relation field that no row actually links through', () => {
-    expect(RelationService.collectRelationTargets([owner], [{ owner: '' }, {}])).toEqual([])
+    expect(RelationService.buildRelationTargets([owner], [{ owner: '' }, {}])).toEqual([])
   })
 
   it('ignores a field that is not a relation, and one with no target', () => {
     const untargeted = relationField({ targetTableId: undefined })
 
     expect(
-      RelationService.collectRelationTargets([textField('company')], [{ company: 'acme' }]),
+      RelationService.buildRelationTargets([textField('company')], [{ company: 'acme' }]),
     ).toEqual([])
-    expect(RelationService.collectRelationTargets([untargeted], [{ owner: 'rec_1' }])).toEqual([])
+    expect(RelationService.buildRelationTargets([untargeted], [{ owner: 'rec_1' }])).toEqual([])
   })
 
   it('keeps two relation fields apart even when they point at one table', () => {
-    const targets = RelationService.collectRelationTargets(
+    const targets = RelationService.buildRelationTargets(
       [owner, reviewer],
       [{ owner: 'rec_1', reviewer: 'rec_2' }],
     )
@@ -130,7 +116,6 @@ describe('RelationService.resolveLinkedRecords', () => {
     expect(refs).toEqual({ fld_owner: { rec_1: { number: 1, label: 'Ada' } } })
   })
 
-  /** The number carries the whole reference when the label field says nothing. */
   it('resolves a blank label field to a null label, never to the number', async () => {
     prismaMock.record.findMany.mockResolvedValue([targetRow('rec_1', 7)])
 
@@ -154,7 +139,6 @@ describe('RelationService.resolveLinkedRecords', () => {
   })
 
   it('leaves an unresolvable id absent rather than inventing a placeholder', async () => {
-    // A deleted target degrades in the cell, which is where the copy for it lives
     prismaMock.record.findMany.mockResolvedValue([])
 
     const refs = await RelationService.resolveLinkedRecords(
@@ -220,12 +204,6 @@ describe('RelationService.resolveLinkedRecords', () => {
   })
 })
 
-/**
- * A relation filter carries the target's **address** where the column stores ids. What is pinned
- * is the substitution, and above all that **nothing is ever dropped**: a vanished value would
- * empty a list filter, make `containsAny` answer `null`, and let `buildRecordWhere` skip the
- * condition — widening the list to the whole table with no error to show for it.
- */
 describe('RelationService.resolveFilterTargets', () => {
   const found = (rows: { id: string; number: number }[]) =>
     prismaMock.record.findMany.mockResolvedValue(rows)
@@ -249,7 +227,6 @@ describe('RelationService.resolveFilterTargets', () => {
     ).resolves.toEqual({ owner: ['rec_ada', 'rec_grace'] })
   })
 
-  /** An older link carries a cuid, which is already what the column stores. */
   it('leaves a value that is not a number exactly as it arrived', async () => {
     await RelationService.resolveFilterTargets([owner], { owner: 'rec_ada' })
 
@@ -259,10 +236,6 @@ describe('RelationService.resolveFilterTargets', () => {
     ).resolves.toEqual({ owner: 'rec_ada' })
   })
 
-  /**
-   * The anti-widening property: a number nothing answers to stays in the filter and matches no
-   * row, since `assertRelationTargets` guarantees every stored value is a live record's cuid.
-   */
   it('keeps an unresolvable number rather than dropping it', async () => {
     found([])
 
@@ -287,7 +260,6 @@ describe('RelationService.resolveFilterTargets', () => {
       reviewer: '4',
     })
 
-    // Both fields target `tbl_people`, so three values across two fields are still one query
     expect(prismaMock.record.findMany).toHaveBeenCalledTimes(1)
     expect(prismaMock.record.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -359,7 +331,6 @@ describe('RelationService.listRelationOptions', () => {
     expect(prismaMock.$queryRaw).not.toHaveBeenCalled()
   })
 
-  /** The picker states a number beside every candidate, so it travels with each of them. */
   it('offers each candidate as its id, its number and its label', async () => {
     prismaMock.$queryRaw.mockResolvedValue([targetRow('rec_1', 1, 'Ada'), targetRow('rec_2', 2)])
 
@@ -384,8 +355,6 @@ describe('RelationService.listRelationOptions', () => {
 
     await RelationService.listRelationOptions(owner, 'ada')
 
-    // The term arrives nested in the search fragment, not as a top-level template value —
-    // what the fragment itself matches on is pinned in `record-query.spec.ts`
     expect(boundValues(prismaMock.$queryRaw.mock.calls[0] ?? [])).toContain('%ada%')
   })
 

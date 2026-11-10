@@ -1,18 +1,28 @@
 <template>
-  <BaseModal :title="mode === 'create' ? 'New record' : 'Edit record'" @close="emit('close')">
-    <form class="record-form" novalidate @submit.prevent="submit">
-      <RecordForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
-
+  <BaseModal
+    :title="mode === 'create' ? 'New record' : 'Edit record'"
+    size="lg"
+    @close="emit('close')"
+  >
+    <form :id="formId" class="record-form" novalidate @submit.prevent="submit">
       <BaseErrorBanner :message="serverError" />
 
-      <BaseButton type="submit" :disabled="pending">
+      <RecordForm :fields="fields" :values="form" :errors="errors" @update="setValue" />
+    </form>
+
+    <template #footer>
+      <BaseButton variant="secondary" :disabled="isSubmitting" @click="emit('close')"
+        >Cancel</BaseButton
+      >
+      <BaseButton type="submit" :form="formId" :loading="isSubmitting">
         {{ mode === 'create' ? 'Create record' : 'Save' }}
       </BaseButton>
-    </form>
+    </template>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
+import { useId } from 'vue'
 import { useForm } from '~/composables/useForm'
 import type { IField } from '#shared/types/field'
 import type { IRecord, TRecordData, TRecordValue } from '#shared/types/record'
@@ -30,12 +40,13 @@ const props = withDefaults(
 
 const emit = defineEmits<{ saved: []; close: [] }>()
 
-// Both the initial values and the validation schema come straight from field metadata
+const formId = useId()
+
 const initial: TRecordData = Object.fromEntries(
   props.fields.map((field) => [field.key, props.record?.data[field.key] ?? blankValueFor(field)]),
 )
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: buildRecordSchema(props.fields),
   initial,
   onSubmit: async (values) => {

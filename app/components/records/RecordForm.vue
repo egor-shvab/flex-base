@@ -27,23 +27,18 @@ const props = defineProps<{
   errors: Partial<Record<string, string>>
 }>()
 
-// Values down as props, changes up as events — the form object belongs to the parent's
-// `useForm`, so this component never mutates it
 const emit = defineEmits<{ update: [key: string, value: TRecordValue] }>()
 
 const formId = useId()
 
-/** A record input always adapts, so both adapters are required here and nothing branches. */
 const controls = useFieldControls(() => props.fields, inputFor)
 
 type TRecordControl = (typeof controls.value)[number]
 
-/** The record's value as the control's own model. */
 function controlValue(control: TRecordControl): TFilterValue {
   return control.toControl(props.values[control.field.key] ?? null)
 }
 
-/** The inverse: what the control just emitted, back as a record value. */
 function applyValue(control: TRecordControl, model: TFilterValue) {
   emit('update', control.field.key, control.fromControl(model))
 }

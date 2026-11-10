@@ -19,10 +19,6 @@ import {
   textField,
 } from '~~/test/fixtures'
 
-/**
- * The parameterised SQL a fragment carries, on one line. `.text` numbers its placeholders
- * `$1…$n`, so asserting on it pins the shape and the order values bind in, without a connection.
- */
 function sqlText(fragment: Prisma.Sql): string {
   return fragment.text.replace(/\s+/g, ' ').trim()
 }
@@ -45,7 +41,6 @@ describe('buildRecordWhere — scoping', () => {
   })
 
   it('ignores a filter key the table does not own', () => {
-    // The builder walks the fields, not the filter map, so a stray key has nothing to compare
     const where = buildRecordWhere(TABLE_ID, [textField('company')], { ghost: 'x' })
     expect(sqlText(where)).toBe('WHERE "tableId" = $1')
   })
@@ -122,9 +117,6 @@ describe('buildRecordWhere — per type', () => {
 
 describe('buildRecordWhere — multi-value', () => {
   it('asks whether the stored list overlaps the filtered one', () => {
-    // The `?|` operator, never the `jsonb_exists_any` function that means the same thing: only
-    // an operator can be matched to a GIN operator class, and only an operator carries
-    // selectivity statistics (`decisions.md`)
     const where = buildRecordWhere(TABLE_ID, [asMultiple(selectField())], {
       stage: ['Won', 'Lost'],
     })
@@ -197,23 +189,15 @@ describe('buildRecordWhere — free-text search', () => {
     expect(sqlText(where)).toMatch(/AND \(.+ OR .+\)$/)
   })
 
-  /**
-   * The indexed pre-filter, pinned as an exact string: `Record_search_trgm_idx` is an
-   * **expression** index and PostgreSQL matches those structurally, so a stray cast or a renamed
-   * column silently costs the index. This string and the migration's are one contract.
-   */
   it('leads with the expression the search index is built on, byte for byte', () => {
     const where = buildRecordWhere(TABLE_ID, table, {}, 'acme')
 
     expect(sqlText(where)).toContain('record_search_text(data, "number") ILIKE $2')
-    // The pre-filter narrows first and the exact group decides, so it is ANDed *before* it
     expect(sqlText(where)).toMatch(/record_search_text\(data, "number"\) ILIKE \$2 AND \(/)
     expect(where.values[1]).toBe('%acme%')
   })
 
   it('keeps that group parenthesised beside a bare two-bound range', () => {
-    // The load-bearing case: `withinRange` emits `a >= x AND a <= y` with no parentheses of
-    // its own, so an unwrapped OR here would bind to its last bound and silently widen it
     const where = buildRecordWhere(TABLE_ID, table, { contract_value: { from: 1, to: 2 } }, 'acme')
     const text = sqlText(where)
 
@@ -228,13 +212,10 @@ describe('buildRecordWhere — free-text search', () => {
     )
 
     expect(text).toContain('"number"::text ILIKE')
-    // One arm per searchable column: the number, the text field and the date field
     expect(text.match(/ OR /g)).toHaveLength(2)
   })
 
   it('leaves BOOLEAN, RELATION and the timestamps out of the search', () => {
-    // A BOOLEAN stores `true`/`false`, so searching `e` would match every unchecked record;
-    // a RELATION stores a cuid; and `date ILIKE text` has no operator
     const text = sqlText(buildRecordWhere(TABLE_ID, [booleanField(), relationField()], {}, 'acme'))
 
     expect(text).toBe(
@@ -243,8 +224,6 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   it('leaves a multi-value RELATION out too, which widening only strengthens', () => {
-    // Matching labels would mean the correlated subquery once per link per row, against
-    // every row — the count query has no LIMIT
     const text = sqlText(buildRecordWhere(TABLE_ID, [asMultiple(relationField())], {}, 'acme'))
 
     expect(text).toBe(
@@ -253,8 +232,6 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   it('searches a multi-value SELECT element-wise, guarded against a scalar row', () => {
-    // `jsonb_array_elements_text` raises on a scalar, and that error takes down the whole
-    // list query — a row written before the field was widened must degrade, not 500
     const text = sqlText(buildRecordWhere(TABLE_ID, [asMultiple(selectField())], {}, 'acme'))
 
     expect(text).toContain("CASE WHEN jsonb_typeof(data -> $4::text) = 'array'")
@@ -310,11 +287,6 @@ describe('buildRecordOrderBy', () => {
     ).toBe('"updatedAt" DESC NULLS LAST, "createdAt" DESC')
   })
 
-  /**
-   * A RELATION orders by the target's label, and that value is in another row — so unlike every
-   * other type its ordering arrives as a join plus a reference to it, rather than an expression
-   * over the row being sorted.
-   */
   it('orders a RELATION by the label the user reads, not by the id it stores', () => {
     const order = buildRecordOrderBy(table, { key: 'owner', direction: 'asc' })
 
@@ -327,11 +299,6 @@ describe('buildRecordOrderBy', () => {
     expect(order.join.values).toEqual(['full_name', 'tbl_people', 'owner'])
   })
 
-  /**
-   * The derived table exposes two **renamed** columns and nothing else. That is not tidiness: the
-   * surrounding query references `id`, `data` and `"tableId"` unqualified, so a plain self-join
-   * would make every one of them ambiguous and the statement would not compile.
-   */
   it('exposes only renamed columns, so nothing around it becomes ambiguous', () => {
     const { join } = buildRecordOrderBy(table, { key: 'owner', direction: 'asc' })
     const exposed = sqlText(join).match(/AS (target_\w+)/g)
@@ -364,7 +331,6 @@ describe('buildRecordOrderBy', () => {
     const order = buildRecordOrderBy([orphan], { key: 'owner', direction: 'asc' })
 
     expect(sqlText(order.orderBy)).toBe('data ->> $1::text ASC NULLS LAST, "createdAt" DESC')
-    // Nothing to join to, so nothing is joined — a join with no label to read would be pure cost
     expect(order.join.text).toBe('')
   })
 })
@@ -407,22 +373,6 @@ describe('buildRecordLabelSearch', () => {
   })
 })
 
-/**
- * The counterpart of the `MULTI_INPUTS` invariant in `inputs.nuxt.spec.ts`: `MULTI_SQL` and
- * `MULTI_VALUE_BY_TYPE` are two hand-maintained total `Record`s in different files, and a
- * mismatch is silent in both directions — a multi-value field routed through the scalar
- * projection compares a JSON array against a scalar and simply never matches.
- *
- * Probed through ORDER BY rather than WHERE: a widened field's filter is list-shaped whatever
- * its type declares, so a WHERE would differ from the value's shape rather than from the
- * routing this is about.
- *
- * **Both halves of the ordering are compared, and that is not belt-and-braces.** A RELATION now
- * orders through a join, so its `orderBy` is the same `"sort_target".target_label` widened or
- * not — the difference between the two moved into the join's `ON`. Comparing `orderBy` alone
- * would report RELATION as *not* differing and quietly invert the invariant for the one type
- * whose routing is hardest to see.
- */
 describe('MULTI_SQL — the cross-registry invariant', () => {
   it('projects a widened field differently at exactly the types that may hold a list', () => {
     const whole = (order: ReturnType<typeof buildRecordOrderBy>) =>

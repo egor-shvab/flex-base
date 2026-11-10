@@ -4,11 +4,6 @@ import { prisma } from '#server/db/prisma'
 
 const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
 
-/**
- * The handler spec already covers a *sequential* duplicate. What only a real index can answer is
- * what happens when two registrations for one email overlap — the case a `findUnique` pre-check
- * loses, by letting both requests past the check and both into the insert.
- */
 describe('registration is arbitrated by the unique index, not by a pre-check', () => {
   it('lets exactly one of two concurrent registrations win', async () => {
     const results = await Promise.allSettled([
@@ -21,7 +16,6 @@ describe('registration is arbitrated by the unique index, not by a pre-check', (
 
     expect(fulfilled).toHaveLength(1)
     expect(rejected).toHaveLength(1)
-    // The loser is a 409, not the unmapped 500 the pre-check produced
     expect(rejected[0]?.reason).toMatchObject({
       statusCode: 409,
       statusMessage: 'Email is already registered',
@@ -30,11 +24,6 @@ describe('registration is arbitrated by the unique index, not by a pre-check', (
   })
 })
 
-/**
- * `test/integration/seed.ts` writes `passwordHash: 'not-a-real-hash'`, so a sign-in case has to
- * register through the service — which is the point here: the hash bcrypt actually wrote has to
- * verify against the password that produced it, through a real row.
- */
 describe('a password hashed at registration verifies at sign-in', () => {
   it('accepts the password it was registered with', async () => {
     const registered = await AuthService.registerUser(CREDENTIALS)

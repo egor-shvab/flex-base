@@ -17,7 +17,6 @@ vi.mock('#server/db/prisma', async () => ({
 const USER_ID = 'usr_1'
 const TABLE_ID = 'tbl_deals'
 
-/** A row as Prisma returns it — timestamps are `Date`s until a mapper turns them into the wire's. */
 const table = {
   id: TABLE_ID,
   number: 4,
@@ -38,11 +37,6 @@ function relationInput(overrides: Partial<TFieldInput> = {}): TFieldInput {
 
 beforeEach(resetPrismaMock)
 
-/**
- * The rule these serve is `CLAUDE.md` §5: ownership is scoped *inside* the query, never checked
- * after the fact. Asserting on the argument rather than only the outcome is what makes that
- * testable — a fetch-then-compare rewrite would still return the right value.
- */
 describe('ownership is scoped in the query', () => {
   it('asks for the table by id and owner together', async () => {
     prismaMock.table.findUnique.mockResolvedValue(table)
@@ -89,10 +83,6 @@ describe('ownership is scoped in the query', () => {
   })
 })
 
-/**
- * A route may name its table by the public number or by the cuid older links use. Which column
- * identifies the row is all that differs — **the owner is inside the `where` either way**.
- */
 describe('a table is addressable by number as well as by cuid', () => {
   const whereOf = () => prismaMock.table.findUnique.mock.calls[0]?.[0]?.where
 
@@ -104,10 +94,6 @@ describe('a table is addressable by number as well as by cuid', () => {
     expect(whereOf()).toEqual({ userId_number: { userId: USER_ID, number: 4 } })
   })
 
-  /**
-   * The same reader the page uses, so a slugged link resolves to one row on both sides of the
-   * wire rather than rendering on the page and 404ing at the API.
-   */
   it('resolves a slugged address by its leading number', async () => {
     prismaMock.table.findUnique.mockResolvedValue(table)
 
@@ -135,11 +121,6 @@ describe('a table is addressable by number as well as by cuid', () => {
     }
   })
 
-  /**
-   * A malformed address takes the id branch, where it matches nothing — the reason
-   * `parseAddressNumber` answers `0` rather than `NaN`, which would make Prisma throw and turn
-   * a mistyped link into a 500 where it owes a 404.
-   */
   it.each([
     ['digits with a suffix', '12abc'],
     ['zero, which no row holds', '0'],
@@ -153,11 +134,6 @@ describe('a table is addressable by number as well as by cuid', () => {
   })
 })
 
-/**
- * Another user's row and a missing row are the same answer: the scoped query cannot tell them
- * apart, and a 403 would confirm the resource exists. There is no separate "not yours" case
- * because the code has none.
- */
 describe('another user’s row is indistinguishable from a missing one', () => {
   it('is a 404 from requireOwnedTable, never a 403', async () => {
     prismaMock.table.findUnique.mockResolvedValue(null)
@@ -186,11 +162,6 @@ describe('another user’s row is indistinguishable from a missing one', () => {
 })
 
 describe('what the helpers return', () => {
-  /**
-   * It answers in the shape every layer above the database speaks: ISO strings here, `Date`s in
-   * the stub above. Handing the row back type-checks only because `JSON.stringify` produces the
-   * same text, and asserting the strings is what stops that being a coincidence.
-   */
   it('hands the table back in the shape the wire carries, timestamps included', async () => {
     prismaMock.table.findUnique.mockResolvedValue(table)
 
@@ -215,10 +186,6 @@ describe('what the helpers return', () => {
     expect(fields[0]).toMatchObject({ key: 'company', type: 'TEXT', options: null })
   })
 
-  /**
-   * The id is resolved rather than echoed: the address may have been a number, and every route
-   * below builds its own `where` from what this returns.
-   */
   it('answers with the table’s id, not with the address it was asked for', async () => {
     prismaMock.table.findUnique.mockResolvedValue({ id: TABLE_ID, fields: [] })
 
@@ -253,12 +220,6 @@ describe('requireFieldTarget', () => {
     await expect(requireFieldTarget(USER_ID, relationInput())).resolves.toBeUndefined()
   })
 
-  /**
-   * A `targetTableId` arrives in a request body, where the resolver reads a number as an
-   * *address*. Left to resolve, `'4'` would validate against table #4 and then be stored as
-   * written — a target no reader could ever match, and one `assertNotRelationTarget` would
-   * stop recognising, so deleting that table would blank every link pointing at it.
-   */
   it.each([
     ['a bare number', '4'],
     ['a slugged address', '4-people'],

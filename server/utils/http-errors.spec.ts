@@ -11,7 +11,6 @@ function prismaError(code: string) {
   })
 }
 
-/** The shape `createError` produces, as a caller reads it off the thrown value. */
 function httpError(error: Error) {
   return error as Error & { statusCode?: number; statusMessage?: string }
 }
@@ -39,16 +38,12 @@ describe('toHttpError — mapped constraint errors', () => {
 
 describe('toHttpError — what it deliberately does not disguise', () => {
   it('passes a unique violation through untouched when the model declares no conflict message', () => {
-    // `conflict` is optional, so a model with no unique constraint to speak of leaves P2002
-    // unmapped — it surfaces as a 500 rather than as a 409 with nothing to say
     const original = prismaError('P2002')
 
     expect(toHttpError(original, { notFound: 'Record not found' })).toBe(original)
   })
 
   it('passes a missing row through untouched when the service declares no notFound message', () => {
-    // The mirror of the case above: a service whose writes cannot raise P2025 carries no 404
-    // message, and an unexpected one surfaces as a 500 rather than as a 404 nobody can explain
     const original = prismaError('P2025')
 
     expect(toHttpError(original, { conflict: 'Email is already registered' })).toBe(original)

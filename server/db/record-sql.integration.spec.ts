@@ -21,12 +21,6 @@ import {
   createUser,
 } from '~~/test/integration/seed'
 
-/**
- * The half `record-sql.spec.ts` cannot reach. That spec asserts on `.text` and `.values` and
- * never executes, so a fragment PostgreSQL rejects passes the whole unit suite. Everything here
- * runs the SQL for real and looks at which rows come back.
- */
-
 let tableId: string
 let fields: IField[]
 
@@ -39,7 +33,6 @@ const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
   ...overrides,
 })
 
-/** The company names matching a filter, which is what makes a failure readable. */
 async function matching(filters: TRecordFilterValues, overrides: Partial<IRecordQuery> = {}) {
   const page = await RecordService.listRecords(tableId, fields, query({ filters, ...overrides }))
   return page.records.map((record) => record.data.company)
@@ -115,7 +108,6 @@ describe('the WHERE clause selects the rows it claims to', () => {
     expect(await matching({ company: 'nobody' })).toEqual([])
   })
 
-  /** The cast is the point: as text, '9' sorts and compares above '1000'. */
   it('compares NUMBER numerically, not as text', async () => {
     expect(await matching({ contract_value: { from: 10, to: null } })).toEqual(['Gamma', 'Acme'])
   })
@@ -141,7 +133,6 @@ describe('the WHERE clause selects the rows it claims to', () => {
     expect(await matching({ stage: ['Won', 'Lost'] })).toEqual(['Gamma', 'Beta', 'Acme'])
   })
 
-  /** `?|` over the stored array — the one comparison here a GIN index can serve. */
   it('matches a multi-value SELECT where the lists overlap', async () => {
     expect(await matching({ tags: ['urgent'] })).toEqual(['Beta', 'Acme'])
     expect(await matching({ tags: ['renewal'] })).toEqual(['Beta'])
@@ -151,14 +142,6 @@ describe('the WHERE clause selects the rows it claims to', () => {
     expect(await matching({ tags: ['urgent', 'renewal'] })).not.toContain('Gamma')
   })
 
-  /**
-   * A multi-value filter beside a **range**, the one neighbour contributing a bare two-term
-   * `a >= x AND a <= y`. Beta carries `urgent` but falls outside the range, so it is the row
-   * that appears if the conjunction has come apart.
-   *
-   * What this does *not* prove: `?|` binds tighter than `AND`, so precedence alone would keep it
-   * correct unparenthesised. The parentheses keep the invariant visible, which no test can see.
-   */
   it('composes with a bare range bound rather than widening it', async () => {
     expect(await matching({ tags: ['urgent'], contract_value: { from: 50, to: 200 } })).toEqual([
       'Acme',
@@ -184,12 +167,8 @@ describe('the WHERE clause selects the rows it claims to', () => {
   })
 
   /**
-   * The `::date` cast on the timestamp columns. A range's bounds are dates, so an uncast
-   * `createdAt <= '2026-01-05'` means *midnight* and every record made that day drops out of
-   * its own filter. Only the database can answer this.
-   *
-   * Its own table, because the shared fixture's rows are all "now", and timestamps at **midday**
-   * so `::date` reads as the same calendar day whatever offset the driver applies.
+   * Timestamps at midday, so `::date` reads as the same calendar day whatever offset the driver
+   * applies.
    */
   it('matches a same-day Created at range, including records made later that day', async () => {
     const table = await createTable((await createUser()).id)
@@ -236,11 +215,6 @@ describe('free-text search', () => {
     expect(await searching('renew')).toEqual(['Beta'])
   })
 
-  /**
-   * The bare number, not the `#` form: the projection is `"number"::text`, so `4` finds `#4`,
-   * `#14` and `#42` alike. Its own table, because every date in the shared fixture contains a
-   * digit and DATE is searched too.
-   */
   it('matches the record number, which nothing else here carries', async () => {
     const table = await createTable((await createUser()).id)
     const textOnly = await createFields(table.id, [{ key: 'company', type: 'TEXT' }])
@@ -252,14 +226,8 @@ describe('free-text search', () => {
   })
 
   /**
-   * The storage format must not leak into results: `matchesAnyElement` unnests through
-   * `jsonb_array_elements_text` precisely so the brackets, quotes and commas are not searchable
-   * text. Projecting with `->>` would still "work", with every term below matching rows.
-   *
-   * The separator is `", "`, not `","`: **jsonb normalises its text output**, so Beta's tags
-   * render as `["renewal", "urgent"]`. A `","` probe passes even against the broken projection.
-   *
-   * Two characters and up, so each is a term the app could really submit.
+   * The separator is `", "`, not `","`: jsonb normalises its text output, so a `","` probe would
+   * pass even against a broken `->>` projection.
    */
   it.each(['["', '", "', '"]'])(
     'does not match a multi SELECT on its JSON punctuation: %s',
@@ -268,11 +236,6 @@ describe('free-text search', () => {
     },
   )
 
-  /**
-   * RELATION opts out of search entirely — the stored value is a cuid, and matching the label
-   * would pull the target table into the count query, which has no `LIMIT`. The positive half
-   * keeps it honest: without it the case would pass against a table nothing could find.
-   */
   it('does not search a RELATION column, by its label or by its stored id', async () => {
     const user = await createUser()
     const people = await createTable(user.id, 'People')
@@ -296,15 +259,12 @@ describe('free-text search', () => {
     }
 
     expect(nameField).toHaveLength(1)
-    // The label is on the linked record, and this table's search never reaches it
     expect(await found('lovelace')).toEqual([])
     expect(await found(ada?.id.slice(0, 8) ?? '')).toEqual([])
-    // …while the row is perfectly findable by its own text
     expect(await found('acme')).toEqual(['Acme'])
   })
 
   it('treats a wildcard the user typed as a literal', async () => {
-    // `%` unescaped would match every row rather than none
     expect(await searching('%')).toEqual([])
   })
 
@@ -316,25 +276,11 @@ describe('free-text search', () => {
     expect(await matching({ stage: ['Won'] }, { search: 'gam' })).toEqual(['Gamma'])
   })
 
-  /**
-   * A NUMBER is stored as a JSON **number** and searched through its un-cast text, so `100`
-   * finds `1000`. Its own case because it is the one type whose searchability depends on how the
-   * value is stored — a pre-filter flattening only strings would drop it silently.
-   */
   it('matches a NUMBER through its text, so 100 also finds 1000', async () => {
     expect(await searching('100')).toEqual(['Gamma', 'Acme'])
   })
 })
 
-/**
- * `record_search_text` is the indexed **pre-filter**, and the per-type predicates decide after
- * it — which works only while it is a strict **superset** of what they can match. An
- * over-inclusive blob costs a row the OR group rejects; a value it *omits* is a row search can
- * never return, and nothing would report it.
- *
- * Asserted on the function's own output, so a gap is attributed to the flatten rather than to
- * whichever predicate happened to be exercised.
- */
 describe('the search pre-filter flattens every stored value', () => {
   it('carries every scalar, every list element and the record number', async () => {
     const stored = {
@@ -352,20 +298,15 @@ describe('the search pre-filter flattens every stored value', () => {
     `
     const flattened = rows[0]?.flattened ?? ''
 
-    // The record number, in the bare form its own predicate matches
     expect(flattened).toContain('42')
-    // Every scalar, whatever its JSON type — numbers and booleans included, since the flatten
-    // may over-reach but may never fall short
     expect(flattened).toContain('Acme')
     expect(flattened).toContain('1250.5')
     expect(flattened).toContain('true')
     expect(flattened).toContain('2026-01-15')
     expect(flattened).toContain('Won')
     expect(flattened).toContain('cmsxxxxxxxxxxxxxxxxxxxxxx')
-    // A list contributes its elements…
     expect(flattened).toContain('urgent')
     expect(flattened).toContain('renewal')
-    // …and never the punctuation holding them together, which would make `["` a search term
     expect(flattened).not.toContain('["')
     expect(flattened).not.toContain('", "')
   })
@@ -381,10 +322,6 @@ describe('the search pre-filter flattens every stored value', () => {
   })
 })
 
-/**
- * The count stops at `RECORD_COUNT_CAP`. The unit spec pins the arithmetic against a stub; this
- * pins that the `LIMIT` really stops PostgreSQL, and that a table on the cap reports exactly.
- */
 describe('the record count is bounded', () => {
   const fill = (count: number) => prisma.$executeRaw`
     INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
@@ -395,7 +332,6 @@ describe('the record count is bounded', () => {
   it('reports a table under the cap exactly', async () => {
     const page = await RecordService.listRecords(tableId, fields, query())
 
-    // The three rows the shared fixture seeds
     expect(page).toMatchObject({ total: 3, totalCapped: false })
   })
 
@@ -413,20 +349,12 @@ describe('the record count is bounded', () => {
     const page = await RecordService.listRecords(tableId, fields, query())
 
     expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: true })
-    // The page itself is unaffected — the cap bounds the count, never the rows
     expect(page.records).toHaveLength(page.pageSize)
   })
 })
 
-/**
- * The plan assertion for search, for the reason the multi-value one above gives: an unused index
- * returns entirely correct rows, so every other test here passes while search scans the table.
- * The pre-filter expression and `Record_search_trgm_idx` are one contract.
- */
 describe('free-text search is served by the trigram index', () => {
   it('uses the index and does not scan', async () => {
-    // Seeded inside the case: `setup.ts` truncates in `beforeEach`, and an EXPLAIN over three
-    // rows would prefer a scan and prove nothing
     await prisma.$executeRaw`
       INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
       SELECT 'seek'||g, ${tableId}, 1000+g,
@@ -480,7 +408,6 @@ describe('ORDER BY', () => {
   })
 
   it('sorts a multi-value SELECT by its first value', async () => {
-    // Gamma's list is empty, so it sorts last whichever direction the others take
     expect((await ordered('tags', 'asc')).at(-1)).toBe('Gamma')
   })
 
@@ -489,11 +416,6 @@ describe('ORDER BY', () => {
     expect(await ordered('ghost', 'desc')).toEqual(['Gamma', 'Beta', 'Acme'])
   })
 
-  /**
-   * A RELATION sorts by the target's **label**, through a join reading the outer row as
-   * `"Record"`. Asserted **with and without** a search: the two build different `WHERE`s over
-   * one join, so the same order either way proves the join composes with both.
-   */
   it('sorts by a relation label whether or not a search is narrowing it', async () => {
     const user = await createUser()
     const people = await createTable(user.id, 'People')
@@ -526,15 +448,10 @@ describe('ORDER BY', () => {
       return page.records.map((record) => record.data.company)
     }
 
-    // Ada before Grace — the label's order, not the company's and not creation order
     expect(await byOwner('')).toEqual(['Alpha Holdings', 'Zeta Holdings'])
     expect(await byOwner('Holdings')).toEqual(['Alpha Holdings', 'Zeta Holdings'])
   })
 
-  /**
-   * The ordering reaches the target through a `LEFT JOIN`, and the three ways that goes wrong are
-   * invisible in the SQL: a row vanishes, a row appears twice, or it falls back to a subquery.
-   */
   describe('the join the relation ordering brings with it', () => {
     async function dealsLinkedTo(links: (string | undefined)[]) {
       const user = await createUser()
@@ -570,7 +487,6 @@ describe('ORDER BY', () => {
       )
 
     it('keeps a row whose link resolves to nothing, and sorts it last', async () => {
-      // An inner join would drop these two entirely — the row would disappear from its own table
       const { deals, dealFields } = await dealsLinkedTo(['rec_deleted', undefined, 'ada'])
 
       const page = await sorted(deals, dealFields)
@@ -584,18 +500,11 @@ describe('ORDER BY', () => {
 
       const page = await sorted(deals, dealFields)
 
-      // The join is on the target's primary key, so at most one row can match — but a join that
-      // matched twice would silently duplicate rows rather than error
       expect(page.records).toHaveLength(3)
       expect(new Set(page.records.map((record) => record.id)).size).toBe(3)
       expect(page.total).toBe(3)
     })
 
-    /**
-     * The plan assertion: a correlated subquery, which PostgreSQL reports as a `SubPlan` and
-     * runs once per row, returns identical rows to the join — so nothing else here would notice
-     * a silent revert.
-     */
     it('resolves the label by joining, not by a subquery per row', async () => {
       const { deals, dealFields } = await dealsLinkedTo(['ada'])
       const order = buildRecordOrderBy(dealFields, { key: 'owner', direction: 'asc' })
@@ -645,21 +554,10 @@ describe('paging and counting', () => {
   })
 })
 
-/**
- * The one case here that asserts on a **query plan** rather than on rows.
- *
- * An index that is present but unused returns entirely correct results, so it passes every suite
- * in the project and shows up only as latency under data volume none of them has — which is how
- * `jsonb_exists_any` was documented as GIN-indexable while never being so.
- *
- * Structural assertions only, never timings: `CLAUDE.md` §10 requires determinism.
- */
 describe('the multi-value filter is GIN-indexable', () => {
   const INDEX = 'record_tags_gin_probe'
 
   it('is served by a GIN index on the same expression, and does not scan', async () => {
-    // Seeded *inside* the case: `setup.ts` truncates in `beforeEach`, and an EXPLAIN against an
-    // empty table passes while proving nothing
     await prisma.$executeRaw`
       INSERT INTO "Record" ("id","tableId","number","data","createdAt","updatedAt")
       SELECT 'probe'||g, ${tableId}, 1000+g, '{"tags":["urgent"]}'::jsonb, now(), now()
@@ -670,8 +568,6 @@ describe('the multi-value filter is GIN-indexable', () => {
     await prisma.$executeRaw`ANALYZE "Record"`
 
     try {
-      // The production fragment, not a hand-written one — the point is that what the builder
-      // emits is indexable, so a rewrite that loses the property fails here
       const where = buildRecordWhere(tableId, fields, { tags: ['renewal'] })
       const rows = await prisma.$queryRaw<Record<string, string>[]>`
         EXPLAIN SELECT id FROM "Record" ${where}

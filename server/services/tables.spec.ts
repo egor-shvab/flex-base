@@ -10,11 +10,6 @@ vi.mock('#server/db/prisma', async () => ({
 const USER_ID = 'usr_1'
 const TABLE_ID = 'tbl_deals'
 
-/**
- * A row as `tableListSelect` returns one. Complete rather than `{ id }`: the service maps its
- * result onto `ITableListItem` now, so a stub standing in for that select has to carry what the
- * select actually asks for.
- */
 const tableRow = {
   id: TABLE_ID,
   number: 1,
@@ -77,7 +72,6 @@ describe('TableService.getTableListRow', () => {
     })
   })
 
-  /** A table that is missing and one that is another user’s are the same answer — never 403. */
   it('answers 404 when the row does not match the owner', async () => {
     prismaMock.table.findUniqueOrThrow.mockRejectedValue(missing())
 
@@ -89,7 +83,6 @@ describe('TableService.getTableListRow', () => {
 })
 
 describe('TableService.createTable', () => {
-  /** The counter the transaction reads before it inserts. */
   const allocates = (next: number) =>
     prismaMock.user.update.mockResolvedValue({ tableCounter: next })
 
@@ -104,10 +97,6 @@ describe('TableService.createTable', () => {
     )
   })
 
-  /**
-   * Asserted on the *argument*, not on the number that comes back: a read-then-write rewrite
-   * would return the same number while taking no row lock, which is the whole property here.
-   */
   it('allocates by incrementing the owner’s counter, inside the insert’s own transaction', async () => {
     allocates(1)
     prismaMock.table.create.mockResolvedValue(tableRow)
@@ -175,13 +164,7 @@ describe('TableService.renameTable', () => {
   })
 })
 
-/**
- * A relation's target lives in opaque JSON, so no foreign key protects it and the cascade
- * would take the referenced rows with it silently. The refusal is the only thing standing
- * between a delete and every link into that table breaking.
- */
 describe('TableService.deleteTable', () => {
-  /** The address is resolved first, so every case here needs the table to be found. */
   const resolves = () => prismaMock.table.findUnique.mockResolvedValue({ id: TABLE_ID })
 
   it('looks for a relation pointing here before deleting anything', async () => {
@@ -202,12 +185,6 @@ describe('TableService.deleteTable', () => {
     )
   })
 
-  /**
-   * **The guard is handed the resolved id, never the address.** It compares
-   * `options.targetTableId`, which stores a cuid, so a number would match no reference at all —
-   * the guard would pass and the delete would cascade a table every link still points at. This
-   * asserts the argument because the outcome alone cannot tell the two apart.
-   */
   it('resolves a numeric address before the guard sees it', async () => {
     resolves()
     prismaMock.field.findFirst.mockResolvedValue(null)
@@ -239,7 +216,6 @@ describe('TableService.deleteTable', () => {
     expect(prismaMock.table.delete).not.toHaveBeenCalled()
   })
 
-  /** Ownership was settled by the resolve, so the delete targets the id it produced. */
   it('deletes the row the address resolved to', async () => {
     resolves()
     prismaMock.field.findFirst.mockResolvedValue(null)

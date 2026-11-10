@@ -1,10 +1,7 @@
 <template>
-  <!-- Blank is handled here, once, so no cell component has to deal with null -->
-  <span v-if="isBlank" class="record-field-value__blank">Not set</span>
-  <!--
-    Two branches because the two cell shapes take different values — a list, or one value. The
-    split is what lets each component declare what it renders rather than the union of both.
-  -->
+  <span v-if="isBlank" class="record-field-value__blank"
+    ><span aria-hidden="true">—</span><span class="visually-hidden">Not set</span></span
+  >
   <component
     :is="cellComponent(column)"
     v-else-if="isList"
@@ -24,25 +21,23 @@ import { toCellSingleValue, toValueList } from '~/utils/value-shape'
 
 const props = defineProps<{
   record: IRecord
-  /** A column of `queryColumns` — the table's own fields, or one of the record's. */
   column: IField
 }>()
 
 const value = computed(() => readCellValue(props.record, props.column))
 
-/** Which of the two cell shapes this column renders — the same question `cellComponent` asks. */
 const isList = computed(() => isMultiValue(props.column))
 
-// An empty list is as blank as a null, or a cleared multi-value field renders as nothing
 const isBlank = computed(() =>
   isList.value ? toValueList(value.value).length === 0 : toCellSingleValue(value.value) === null,
 )
 </script>
 
 <style lang="scss" scoped>
-// A text role, not a border one. `-secondary` rather than `-subtle`: this is real content,
-// and `-subtle` is 3.9:1 on a hovered table row, under the 4.5:1 body-text floor.
+// `-subtle` clears 4.5:1 only on white and a hovered row. `relative`, or the absolutely
+// positioned `.visually-hidden` escapes the table's scroller and scrolls the document sideways
 .record-field-value__blank {
-  color: var(--color-text-secondary);
+  position: relative;
+  color: var(--color-text-subtle);
 }
 </style>

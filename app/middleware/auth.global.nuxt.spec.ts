@@ -12,21 +12,16 @@ const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com' }
 const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)
 
-/** Whether `/api/auth/me` currently reports a session, reassigned per case. */
-let signedIn = false
+let isSignedIn = false
 
 registerEndpoint('/api/auth/me', {
   method: 'GET',
   handler: () => {
-    if (!signedIn) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    if (!isSignedIn) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
     return { user: ADA }
   },
 })
 
-/**
- * Only the two fields the guard reads — a real `RouteLocationNormalized` carries far more, and
- * building one would describe vue-router rather than this middleware.
- */
 function route(fullPath: string): RouteLocationNormalized {
   const [path = '/', search] = fullPath.split('?')
   const query = Object.fromEntries(new URLSearchParams(search))
@@ -34,18 +29,17 @@ function route(fullPath: string): RouteLocationNormalized {
   return { path, fullPath, query } as unknown as RouteLocationNormalized
 }
 
-/** The guard takes `(to, from)`; `from` is never read, so it is the same stub. */
 const guard = async (to: string) => authGlobal(route(to), route('/'))
 
 beforeEach(() => {
   setActivePinia(createPinia())
   navigateTo.mockReset()
-  signedIn = false
+  isSignedIn = false
 })
 
 describe('restoring the session', () => {
   it('asks the server who this is on the first navigation', async () => {
-    signedIn = true
+    isSignedIn = true
     await guard('/')
 
     expect(useAuthStore().user).toEqual(ADA)
@@ -54,7 +48,7 @@ describe('restoring the session', () => {
   it('does not ask again once initialized, so every route change is not a round trip', async () => {
     const auth = useAuthStore()
     const fetchUser = vi.spyOn(auth, 'fetchUser')
-    auth.initialized = true
+    auth.isInitialized = true
     auth.user = ADA
 
     await guard('/tables/tbl_1')
@@ -63,12 +57,11 @@ describe('restoring the session', () => {
   })
 
   it('treats a rejected session as signed out rather than failing the navigation', async () => {
-    // The store swallows the 401 — the guard's job is to redirect, not to surface an error
     await expect(guard('/')).resolves.not.toThrow()
 
     const auth = useAuthStore()
     expect(auth.user).toBeNull()
-    expect(auth.initialized).toBe(true)
+    expect(auth.isInitialized).toBe(true)
   })
 })
 
@@ -79,7 +72,6 @@ describe('an anonymous visitor', () => {
     expect(navigateTo).toHaveBeenCalledWith(expect.objectContaining({ path: '/auth/login' }))
   })
 
-  /** So signing in lands back on the filtered view the link pointed at, not on the dashboard. */
   it('carries where it was going, query and all', async () => {
     await guard('/tables/tbl_1?stage=Won&page=2')
 
@@ -101,15 +93,34 @@ describe('an anonymous visitor', () => {
 
     expect(navigateTo).not.toHaveBeenCalled()
   })
+
+  it('is left alone on the component showcase and its subpages', async () => {
+    await guard('/ui-test')
+    await guard('/ui-test/select')
+
+    expect(navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('is still sent to login from a path that only starts like the showcase', async () => {
+    await guard('/ui-testing')
+
+    expect(navigateTo).toHaveBeenCalledWith(expect.objectContaining({ path: '/auth/login' }))
+  })
 })
 
 describe('a signed-in visitor', () => {
   beforeEach(() => {
-    signedIn = true
+    isSignedIn = true
   })
 
   it('is left alone on an app route', async () => {
     await guard('/tables/tbl_1')
+
+    expect(navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('is left alone on the component showcase', async () => {
+    await guard('/ui-test')
 
     expect(navigateTo).not.toHaveBeenCalled()
   })
@@ -126,10 +137,6 @@ describe('a signed-in visitor', () => {
     expect(navigateTo).toHaveBeenCalledWith('/tables/tbl_1')
   })
 
-  /**
-   * The redirect is attacker-controlled, so it goes through `resolveSafeRedirect` — an
-   * off-site target is not somewhere this app sends anyone.
-   */
   it('refuses to be bounced off-site', async () => {
     await guard('/auth/login?redirect=https://evil.example.com')
 

@@ -1,27 +1,30 @@
 <template>
-  <BaseModal :title="title" @close="emit('close')">
+  <BaseModal :title="title" size="sm" @close="emit('close')">
+    <template v-if="danger" #leading>
+      <span class="confirm-modal__warning">
+        <Icon name="material-symbols:warning-outline-rounded" aria-hidden="true" />
+      </span>
+    </template>
+
     <div class="confirm-modal">
       <p class="confirm-modal__text">
         <slot />
       </p>
-      <!--
-        The server's reason for refusing — a table still pointed at by a relation names the
-        field to remove first. Here rather than per page, since `useDeleteConfirm` holds it.
-      -->
-      <BaseErrorBanner class="confirm-modal__error" :message="error" />
-      <div class="confirm-modal__actions">
-        <BaseButton variant="secondary" :disabled="pending" @click="emit('close')">
-          Cancel
-        </BaseButton>
-        <BaseButton
-          :variant="danger ? 'danger' : 'primary'"
-          :disabled="pending"
-          @click="emit('confirm')"
-        >
-          {{ confirmLabel }}
-        </BaseButton>
-      </div>
+      <BaseErrorBanner :message="error" />
     </div>
+
+    <template #footer>
+      <BaseButton variant="secondary" :disabled="pending" autofocus @click="emit('close')">
+        Cancel
+      </BaseButton>
+      <BaseButton
+        :variant="danger ? 'danger' : 'primary'"
+        :loading="pending"
+        @click="emit('confirm')"
+      >
+        {{ confirmLabel }}
+      </BaseButton>
+    </template>
   </BaseModal>
 </template>
 
@@ -32,7 +35,6 @@ withDefaults(
     confirmLabel?: string
     danger?: boolean
     pending?: boolean
-    /** Why the last attempt was refused; the dialog stays open so it can be read. */
     error?: string | null
   }>(),
   {
@@ -48,20 +50,24 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
 
 <style lang="scss" scoped>
 .confirm-modal {
+  @include stack(16);
+
   &__text {
-    margin: 0 0 rem(16);
+    margin: 0;
+    font-size: var(--font-size-md);
   }
 
-  // Placement only — `BaseErrorBanner` owns the look; a child's root carries the parent's
-  // scope id, so the rule still reaches it
-  &__error {
-    margin: 0 0 rem(16);
-  }
-
-  &__actions {
+  &__warning {
     display: flex;
-    justify-content: flex-end;
-    gap: rem(8);
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: rem(30);
+    height: rem(30);
+    border-radius: var(--radius-md);
+    font-size: rem(18);
+    color: var(--color-danger);
+    background: var(--color-danger-tint);
   }
 }
 </style>

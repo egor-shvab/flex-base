@@ -1,14 +1,6 @@
 import { rowsFrom } from '~~/prisma/seed/dataset/types'
 import type { ISeedField, ISeedTable } from '~~/prisma/seed/dataset/types'
 
-/**
- * One record, on purpose.
- *
- * A list holding a single row is its own UI state — no pagination, one row against the header,
- * and a relation picker whose candidate list is longer than the table it sits in. Nothing else in
- * the dataset reaches it, and it is the state a real account spends its first week in.
- */
-
 const FIELDS: ISeedField[] = [
   { name: 'Item', type: 'TEXT', required: true },
   {

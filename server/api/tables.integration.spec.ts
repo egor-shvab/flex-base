@@ -9,12 +9,6 @@ import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createTable, createUser } from '~~/test/integration/seed'
 
-/**
- * The one endpoint the merged coverage report caught at 0% — creating a table, which every
- * other spec reaches through the seed helpers instead. `tables.integration.spec.ts` in
- * `services/` proves the same constraints one layer down; what is only true here is that they
- * arrive as HTTP statuses, and that the row lands under the caller rather than anyone else.
- */
 let ada: IAuthUser
 let mallory: IAuthUser
 
@@ -34,7 +28,6 @@ describe('creating a table', () => {
     expect(table.id).toBeTruthy()
   })
 
-  /** The ownership rule, at the one endpoint that decides an owner rather than checking one. */
   it('files it under the caller, where only they can see it', async () => {
     await create(ada, { name: 'Deals' })
 
@@ -52,11 +45,6 @@ describe('creating a table', () => {
     expect(tables[0]?._count).toMatchObject({ fields: 0, records: 0 })
   })
 
-  /**
-   * The number reaches the wire, and it runs per caller — the endpoint-level counterpart to the
-   * `table numbers` block in `services/tables.integration.spec.ts`, which proves the allocation
-   * itself. Mallory's first table is hers, not the fourth of the platform.
-   */
   it('numbers the caller’s tables from one, in the order they were made', async () => {
     for (const name of ['Deals', 'People', 'Companies']) await create(ada, { name })
     await create(mallory, { name: 'Theirs' })
@@ -87,7 +75,6 @@ describe('creating a table', () => {
       await expect(create(ada, {})).rejects.toMatchObject({ statusCode: 400 })
     })
 
-    /** A uniqueness conflict is a 409, not the 500 an unmapped Prisma error would give. */
     it('409s on a name this user already has, creating nothing', async () => {
       await createTable(ada.id, 'Deals')
 
@@ -97,7 +84,6 @@ describe('creating a table', () => {
       expect(tables).toHaveLength(1)
     })
 
-    /** Names are unique per user, so someone else holding it is no obstacle. */
     it('allows a name another user has taken', async () => {
       await createTable(mallory.id, 'Deals')
 
@@ -108,16 +94,6 @@ describe('creating a table', () => {
   })
 })
 
-/**
- * The counts the sidebar and the dashboard draw are **received, not computed**: each write that
- * moves one answers with the table's refreshed list row, and the client stores what it was told.
- * That only holds if the number is read after the write lands, which is a database question —
- * a stub would happily return whatever it was handed.
- *
- * These also drive the four write handlers on their **happy** path. `ownership.integration.spec.ts`
- * runs every endpoint as a stranger and anonymously, but its owner pass is read-only, so until
- * now nothing exercised what these four actually return.
- */
 describe('a write answers with the counts it caused', () => {
   let tableId: string
 
@@ -165,7 +141,6 @@ describe('a write answers with the counts it caused', () => {
       testEvent({ user: ada, params: params(), method: 'POST', body: { company: 'Acme' } }),
     )
 
-    // The count is read after the insert's own transaction, so it includes the row just written
     expect(created.table._count).toMatchObject({ fields: 1, records: 1 })
 
     const removed = await recordDelete(
@@ -179,7 +154,6 @@ describe('a write answers with the counts it caused', () => {
     expect(removed.table._count).toMatchObject({ fields: 1, records: 0 })
   })
 
-  /** The row is the whole list row, so the surfaces reading it need nothing else. */
   it('answers with the table itself, not only its counts', async () => {
     const created = await fieldsPost(
       testEvent({

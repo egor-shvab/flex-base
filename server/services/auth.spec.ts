@@ -8,12 +8,6 @@ vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 
-/**
- * Only the two symbols the service imports, rather than `importOriginal`: bcrypt's own
- * behaviour is `server/utils/auth.spec.ts`'s, and that the column really holds a bcrypt hash is
- * `server/api/auth.integration.spec.ts`'s. What is left here is which function is called with
- * what — and a spy says that far more directly than a real hash at cost 10.
- */
 vi.mock('#server/utils/auth', () => ({
   hashPassword: vi.fn(),
   verifyPassword: vi.fn(),
@@ -57,10 +51,6 @@ describe('AuthService.registerUser', () => {
     )
   })
 
-  /**
-   * The race fix, and the only place it can be asserted: a database proves the constraint
-   * fires, but only the argument proves nothing looked first.
-   */
   it('runs no uniqueness pre-check — the insert is the check', async () => {
     prismaMock.user.create.mockResolvedValue(authUser)
 
@@ -123,7 +113,6 @@ describe('AuthService.authenticateUser', () => {
     expect(verifyPassword).not.toHaveBeenCalled()
   })
 
-  /** A different status or message here would make the login form an account-existence oracle. */
   it('answers a wrong password identically to an unknown email', async () => {
     prismaMock.user.findUnique.mockResolvedValue(rowWithHash)
     vi.mocked(verifyPassword).mockResolvedValue(false)
@@ -147,7 +136,6 @@ describe('AuthService.findAuthUser', () => {
     })
   })
 
-  /** The deleted-account path: a validly signed token must not authenticate a missing row. */
   it('returns null when the row is gone', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null)
 

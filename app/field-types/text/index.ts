@@ -12,7 +12,6 @@ export const TEXT_APP_FIELD_TYPE: IAppFieldType<'TEXT'> = {
     ...blankIsNull,
   },
   multiInput: null,
-  // Matching is always case-insensitive and partial, so the control needs no operator
   filter: {
     component: markRaw(BaseInput),
     props: (field) => ({
@@ -26,7 +25,7 @@ export const TEXT_APP_FIELD_TYPE: IAppFieldType<'TEXT'> = {
   cell: markRaw(TextFieldCell),
   summary: (value) => `contains ${String(value)}`,
   multiSummary: null,
-  icon: 'mdi:format-text',
-  // A TEXT field is entirely described by the word "Text"
+  icon: 'material-symbols:text-fields-rounded',
+  align: 'start',
   configSummary: null,
 }

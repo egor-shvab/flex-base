@@ -19,13 +19,6 @@ import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
-/**
- * The rule from `CLAUDE.md` §5, proved at the layer that enforces it. Another user's resource
- * must be **indistinguishable** from a missing one: 404, never 403, or the status confirms the
- * resource is there. Every endpoint is driven twice, by the owner and by a stranger, against the
- * same real rows.
- */
-
 type THandler = (event: H3Event) => unknown
 
 interface IWorld {
@@ -68,7 +61,6 @@ beforeEach(async () => {
   }
 })
 
-/** Every endpoint that takes a table id, with a body good enough to reach the ownership check. */
 function scopedEndpoints() {
   const { tableId, fieldId, relationFieldId, recordId } = world
   const tableParams = { tableAddress: tableId }
@@ -159,8 +151,6 @@ describe('a stranger gets 404, never 403', () => {
   })
 
   it('leaves the owner able to reach the same endpoints', async () => {
-    // Read-only ones only — the writes are covered individually, and deleting here would
-    // pull the rows out from under the rest of the loop
     for (const endpoint of scopedEndpoints().filter((entry) => entry.method === undefined)) {
       const event = testEvent({ user: world.ada, params: endpoint.params })
 
@@ -235,11 +225,6 @@ describe('an anonymous request is 401 before anything else', () => {
   })
 })
 
-/**
- * A relation may only point at a table the same user owns. The schema cannot check it — it has
- * no database — so the endpoint layers `requireFieldTarget` on top, and that check is scoped
- * by owner exactly as everything else is.
- */
 describe('a relation cannot be pointed across accounts', () => {
   it('404s when the target table belongs to someone else', async () => {
     const theirs = await createTable(world.mallory.id, 'Theirs')
@@ -283,11 +268,6 @@ describe('a relation cannot be pointed across accounts', () => {
   })
 })
 
-/**
- * A table-scoped route names its table by the public number or by the cuid older links use, both
- * resolving through one owner-scoped query — which is what a stub cannot show: that the compound
- * unique exists, is scoped per user, and lands both forms on the same row.
- */
 describe('a table is addressable by its number as well as by its cuid', () => {
   it('answers identically either way', async () => {
     const table = await createTable(world.ada.id, 'Addressed')
@@ -303,10 +283,6 @@ describe('a table is addressable by its number as well as by its cuid', () => {
     expect(byNumber.table.id).toBe(table.id)
   })
 
-  /**
-   * Numbers are guessable where a cuid is not, so this matters most: Ada owns `1` and `2`, and
-   * Mallory's third is a number Ada has no row for.
-   */
   it('404s on a number only another account has', async () => {
     await createTable(world.mallory.id, 'One')
     await createTable(world.mallory.id, 'Two')
@@ -317,7 +293,6 @@ describe('a table is addressable by its number as well as by its cuid', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Table not found' })
   })
 
-  /** The number runs per user, so the same address is two different tables. */
   it('gives each account its own table 1', async () => {
     const hers = await createTable(world.mallory.id, 'Hers')
 
@@ -330,7 +305,6 @@ describe('a table is addressable by its number as well as by its cuid', () => {
     expect(mallory.table.id).toBe(hers.id)
   })
 
-  /** Fields and records ride the same resolver, so one case each is enough to prove the seam. */
   it('reaches a table’s fields and records by number too', async () => {
     const number = String((await createTable(world.ada.id, 'Numbered')).number)
 

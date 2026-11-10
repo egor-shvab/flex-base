@@ -3,11 +3,11 @@ import { defineStore } from 'pinia'
 import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
+import type { TLoadStatus } from '~/types/load-status'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
 
-/** Only the unfiltered, unsearched, newest-first view has a predictable place for a new record. */
 function isDefaultView(query: IRecordQueryState): boolean {
   return (
     Object.keys(query.filters).length === 0 &&
@@ -20,40 +20,25 @@ function isDefaultView(query: IRecordQueryState): boolean {
 export const useRecordsStore = defineStore('records', () => {
   const api = useRecordsApi()
   const relations = useRelationsStore()
-  // A write returns the table's refreshed list row, and the sidebar and the dashboard both draw
-  // its record count from the list this store holds
   const tables = useTablesStore()
 
-  // shallowRef: the collection is replaced wholesale, never mutated item-by-item
   const records = shallowRef<IRecord[]>([])
   const total = ref(0)
-  /** Whether `total` is the cap rather than the count — see `IRecordPage.totalCapped`. */
   const totalCapped = ref(false)
   const page = ref(1)
   const pageSize = ref(RECORD_PAGE_SIZE)
-  const pending = ref(false)
-  /** Set when the last fetch rejected, so a failed refetch is visible rather than silent. */
-  const failed = ref(false)
-  // The store is a singleton reused across tables — state must not leak between them
+  const status = ref<TLoadStatus>('idle')
+  // Returned although nothing outside reads it: only returned state is hydrated, and a client copy
+  // left at '' makes the first refetch after SSR clear the rows
   const loadedTableAddress = ref('')
 
-  /** A lower bound once `totalCapped` is set, which is why nothing gates *paging* on it. */
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-  /**
-   * Read off the page that came back, not `pageCount`: a capped total makes that a floor, so
-   * gating Next on it strands a user at the cap with rows still behind it.
-   */
   const hasNextPage = computed(() => records.value.length === pageSize.value)
 
-  /**
-   * The caller owns the query — it lives in the page URL, so the store never mirrors it.
-   * A mirrored copy would have to survive SSR hydration to stay correct.
-   */
   async function fetchRecords(tableAddress: string, query: IRecordQueryState) {
     if (tableAddress !== loadedTableAddress.value) clearState()
-    pending.value = true
-    failed.value = false
+    status.value = 'loading'
 
     try {
       const response = await api.list(tableAddress, query)
@@ -63,24 +48,16 @@ export const useRecordsStore = defineStore('records', () => {
       page.value = response.page
       pageSize.value = response.pageSize
       loadedTableAddress.value = tableAddress
-      // Relation cells read how a link reads from there, not from the record's own data
       relations.cacheLinkedRecords(response.linkedRecords)
+      status.value = 'ready'
     } catch (error) {
-      // A refetch runs from a watcher, where a rejection would be unhandled and the table
-      // would keep showing rows that no longer match the URL. Surfacing it is the page's job;
-      // the initial load still throws, so `useAsyncData` can produce the 404.
-      failed.value = true
+      // A refetch runs from a watcher, where a rejection would be unhandled; the initial load still
+      // throws, so `useAsyncData` can produce the 404
+      status.value = 'failed'
       throw error
-    } finally {
-      pending.value = false
     }
   }
 
-  /**
-   * Records are newest first, so a new one sits at the top of page 1 — unless a filter or sort
-   * is active, where it may not belong to the current view. Returns the page it is on: the URL
-   * is the source of truth, so the caller navigates and its watcher does the refetch.
-   */
   async function createRecord(
     tableAddress: string,
     data: TRecordData,
@@ -103,20 +80,17 @@ export const useRecordsStore = defineStore('records', () => {
   ) {
     const response = await api.update(tableAddress, recordAddress, data)
 
-    // An edit can move a record out of a filtered or sorted view, so that view is refetched
     if (!isDefaultView(query)) {
       await fetchRecords(tableAddress, { ...query, page: page.value })
       return
     }
 
-    // Matched on the id the server answered with, never the address asked for — a number
-    // addresses the same row and would match none of them
+    // On the id the server answered with: a numeric address would match no row
     records.value = records.value.map((record) =>
       record.id === response.record.id ? response.record : record,
     )
   }
 
-  /** Refetches rather than splicing — under server-side pagination the page shifts. */
   async function deleteRecord(
     tableAddress: string,
     recordAddress: string,
@@ -124,8 +98,6 @@ export const useRecordsStore = defineStore('records', () => {
   ) {
     const removed = await api.remove(tableAddress, recordAddress)
     tables.applyTableRow(removed.table)
-    // A capped total is a lower bound, so clamping on it would drag a user back to the cap's
-    // page while rows still sit behind it
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
     const next = totalCapped.value ? page.value : Math.min(page.value, lastPage)
     await fetchRecords(tableAddress, { ...query, page: next })
@@ -147,8 +119,8 @@ export const useRecordsStore = defineStore('records', () => {
     pageSize,
     pageCount,
     hasNextPage,
-    pending,
-    failed,
+    status,
+    loadedTableAddress,
     fetchRecords,
     createRecord,
     updateRecord,

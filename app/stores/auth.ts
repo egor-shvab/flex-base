@@ -9,7 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const api = useAuthApi()
 
   const user = ref<IAuthUser | null>(null)
-  const initialized = ref(false)
+  const isInitialized = ref(false)
 
   const isAuthenticated = computed(() => user.value !== null)
 
@@ -20,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       user.value = null
     } finally {
-      initialized.value = true
+      isInitialized.value = true
     }
   }
 
@@ -40,5 +40,5 @@ export const useAuthStore = defineStore('auth', () => {
     await navigateTo('/auth/login')
   }
 
-  return { user, initialized, isAuthenticated, fetchUser, register, login, logout }
+  return { user, isInitialized, isAuthenticated, fetchUser, register, login, logout }
 })

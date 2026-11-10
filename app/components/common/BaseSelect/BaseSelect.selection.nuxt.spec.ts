@@ -16,10 +16,6 @@ import {
 } from '~/components/common/BaseSelect/select-harness'
 import { unmountAll } from '~~/test/mount'
 
-/**
- * Choosing a value and showing it back: what a click commits, where the cursor lands on
- * opening, what the control displays for none, one and several, and the clear button.
- */
 describe('BaseSelect', () => {
   afterEach(unmountAll)
 
@@ -40,7 +36,6 @@ describe('BaseSelect', () => {
       expect(panel()).toBeNull()
     })
 
-    /** Picking several values one at a time is the whole point, so the panel stays open. */
     it('toggles and stays open in multi mode', async () => {
       const wrapper = await select({ modelValue: ['a'], multiple: true })
       await open(wrapper)
@@ -69,7 +64,6 @@ describe('BaseSelect', () => {
       expect(panel()).not.toBeNull()
     })
 
-    /** The cast is the seam between a generic model and a component that speaks lists. */
     it('empties a single model to a blank string, not an array', async () => {
       const wrapper = await select({ modelValue: 'b', clearable: true })
 
@@ -80,11 +74,6 @@ describe('BaseSelect', () => {
   })
 
   describe('opening', () => {
-    /**
-     * The cursor is a position the keyboard asked for, and opening is not a navigation — a ring
-     * drawn before the user has moved reads as a choice already made. The same applies under the
-     * mouse, which is why hovering is asserted rather than assumed.
-     */
     it('highlights nothing, however the panel was opened', async () => {
       const wrapper = await select({ modelValue: 'c' })
       await open(wrapper)
@@ -102,7 +91,6 @@ describe('BaseSelect', () => {
       expect(activeLabel()).toBeUndefined()
     })
 
-    /** Opening on the current value is what makes ↑/↓ feel like a native select's. */
     it('reveals the cursor on the selected option at the first arrow', async () => {
       const wrapper = await select({ modelValue: 'c' })
       await open(wrapper)
@@ -123,7 +111,6 @@ describe('BaseSelect', () => {
       expect(activeLabel()).toBe('Alpha')
     })
 
-    /** Nothing selected and ↑ first: `move` starts from the end the direction implies. */
     it('reveals it on the last option when the first arrow is ↑', async () => {
       const wrapper = await select()
       await open(wrapper)
@@ -159,10 +146,6 @@ describe('BaseSelect', () => {
       expect(panel()).toBeNull()
     })
 
-    /**
-     * Never a toggle on the searchable branch: a click inside a text field places the caret, and
-     * closing on it would make it impossible to click into the middle of a term being edited.
-     */
     it('never toggles shut on the searchable branch', async () => {
       const wrapper = await select({ searchable: true })
 
@@ -173,10 +156,6 @@ describe('BaseSelect', () => {
       expect(panel()).not.toBeNull()
     })
 
-    /**
-     * The arrow is the pointer route the searchable branch would otherwise lack: the field never
-     * closes itself, so the only way out would be a click elsewhere.
-     */
     it('toggles shut on the chevron of the searchable branch', async () => {
       const wrapper = await select({ searchable: true })
 
@@ -199,10 +178,6 @@ describe('BaseSelect', () => {
       expect(panel()).not.toBeNull()
     })
 
-    /**
-     * `.stop` on the chevron: the click bubbles to the control, whose button branch toggles too,
-     * so without it the panel closes and immediately re-opens.
-     */
     it('toggles shut on the chevron of the button branch', async () => {
       const wrapper = await select()
 
@@ -222,10 +197,6 @@ describe('BaseSelect', () => {
       expect(panel()).toBeNull()
     })
 
-    /**
-     * The open-state class the chevron's rotation hangs off, asserted structurally because
-     * `test.css` is false and the transform is visible only in a browser.
-     */
     it('marks the root open while the panel is', async () => {
       const wrapper = await select()
 
@@ -240,7 +211,6 @@ describe('BaseSelect', () => {
       expect(wrapper.classes()).not.toContain('base-select--open')
     })
 
-    /** Any way text arrives opens the list — keystroke, paste, IME commit, drop. */
     it('opens when a term arrives in the field', async () => {
       const wrapper = await select({ searchable: true })
 
@@ -259,17 +229,41 @@ describe('BaseSelect', () => {
       expect(wrapper.find('.base-select__value').exists()).toBe(false)
     })
 
+    it('marks the placeholder inert only while the control is disabled', async () => {
+      const enabled = await select({})
+      expect(enabled.get('.base-select__placeholder').attributes('inert')).toBeUndefined()
+
+      const disabled = await select({ disabled: true })
+      expect(disabled.get('.base-select__placeholder').attributes('inert')).toBeDefined()
+      expect(disabled.classes()).toContain('base-select--disabled')
+    })
+
     it('shows a single selection as its label', async () => {
       const wrapper = await select({ modelValue: 'b' })
 
       expect(wrapper.get('.base-select__value').text()).toBe('Bravo')
     })
 
-    /** A 36px control cannot list them, so several read as a count. */
-    it('shows several selections as a count', async () => {
+    it('shows the first of several selections, then a count of the rest', async () => {
       const wrapper = await select({ modelValue: ['a', 'c'], multiple: true })
+      const value = wrapper.get('.base-select__value')
 
-      expect(wrapper.get('.base-select__value').text()).toBe('2 selected')
+      expect(value.get('.base-select__value-text').text()).toBe('Alpha')
+      expect(value.get('.base-select__more').text()).toBe('+1')
+    })
+
+    it('reads the count as words and hides the "+N" from assistive tech', async () => {
+      const wrapper = await select({ modelValue: ['a', 'b', 'c'], multiple: true })
+      const value = wrapper.get('.base-select__value')
+
+      expect(value.get('.base-select__more').attributes('aria-hidden')).toBe('true')
+      expect(value.get('.visually-hidden').text()).toBe('and 2 more')
+    })
+
+    it('shows no count for a single selection', async () => {
+      const wrapper = await select({ modelValue: ['b'], multiple: true })
+
+      expect(wrapper.find('.base-select__more').exists()).toBe(false)
     })
 
     it('shows a coloured choice as a badge', async () => {
@@ -290,10 +284,6 @@ describe('BaseSelect', () => {
       expect(wrapper.find('.base-select__value').exists()).toBe(false)
     })
 
-    /**
-     * A value keeps its label when an async search replaces the visible list with rows that
-     * exclude it — the reason `seen` accumulates rather than tracking `options`.
-     */
     it('remembers a label the option list no longer carries', async () => {
       const wrapper = await select({ modelValue: 'b' })
       expect(wrapper.get('.base-select__value').text()).toBe('Bravo')
@@ -328,7 +318,6 @@ describe('BaseSelect', () => {
       expect(clearable.find('.base-select__clear').exists()).toBe(true)
     })
 
-    /** The button unmounts with the selection, so focus would otherwise fall to `<body>`. */
     it('returns focus to the trigger it just removed itself from beside', async () => {
       const wrapper = await select({ modelValue: 'b', clearable: true })
 

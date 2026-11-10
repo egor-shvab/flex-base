@@ -52,7 +52,6 @@ describe('BaseRange', () => {
       expect(wrapper.find('label').exists()).toBe(false)
     })
 
-    /** Each bound names itself, since the visible label belongs to the group around them. */
     it('names each bound for assistive tech', async () => {
       const wrapper = await range({ label: 'Salary' })
 
@@ -76,10 +75,6 @@ describe('BaseRange', () => {
   })
 
   describe('reading a bound', () => {
-    /**
-     * The rule the whole filter rests on: an empty box is **no bound**, never `0`. A zero would
-     * turn a blank field into `>= 0` and silently narrow the table.
-     */
     it('reads a blank box as no bound rather than zero', async () => {
       const wrapper = await range({ modelValue: { from: 10, to: 20 } })
 
@@ -89,10 +84,6 @@ describe('BaseRange', () => {
       expect(lastModel(wrapper)?.from).not.toBe(0)
     })
 
-    /**
-     * A `type="number"` input yields `''` for anything it cannot represent, so the text never
-     * reaches the draft; `toBound`'s `trim` and `Number.isFinite` are the belt to that brace.
-     */
     it('ends up with no bound for text a number box cannot hold', async () => {
       const wrapper = await range()
 
@@ -120,7 +111,6 @@ describe('BaseRange', () => {
       expect(lastModel(wrapper)).toEqual({ from: -4.5, to: null })
     })
 
-    /** A date input already speaks `YYYY-MM-DD`, so its round trip is lossless. */
     it('passes a date through as its own string', async () => {
       const wrapper = await range({ type: 'date' })
 
@@ -131,7 +121,6 @@ describe('BaseRange', () => {
   })
 
   describe('the two bounds together', () => {
-    /** Both are re-read from the drafts on every edit, so one never discards the other. */
     it('keeps the other bound when one is edited', async () => {
       const wrapper = await range()
 
@@ -159,10 +148,6 @@ describe('BaseRange', () => {
     })
   })
 
-  /**
-   * The displayed text is kept rather than derived from the bound: re-deriving it would rewrite
-   * the field mid-typing. This is what the two drafts exist for.
-   */
   describe('the displayed text', () => {
     it('shows a bound the model arrived with', async () => {
       const wrapper = await range({ modelValue: { from: 1500, to: null } })
@@ -176,7 +161,6 @@ describe('BaseRange', () => {
 
       await from(wrapper).setValue('1.50')
 
-      // The model rounds the value; the field must not
       expect(lastModel(wrapper)?.from).toBe(1.5)
       expect(from(wrapper).element.value).toBe('1.50')
     })
@@ -185,13 +169,11 @@ describe('BaseRange', () => {
       const wrapper = await range()
       await from(wrapper).setValue('1.50')
 
-      // The same number, written differently — resyncing here would undo the edit in progress
       await wrapper.setProps({ modelValue: { from: 1.5, to: null } })
 
       expect(from(wrapper).element.value).toBe('1.50')
     })
 
-    /** Clear all, a shared URL, the back button — the model has other authors. */
     it('takes an outside change that disagrees with it', async () => {
       const wrapper = await range()
       await from(wrapper).setValue('10')
@@ -212,7 +194,6 @@ describe('BaseRange', () => {
     })
   })
 
-  /** A range filter costs a request per edit, so the delay is forwarded to both bounds. */
   it('forwards its debounce to both bounds', async () => {
     const wrapper = await range({ debounce: 300 })
 

@@ -24,11 +24,6 @@ beforeEach(async () => {
   fields = await createFields(tableId, [{ key: 'company', type: 'TEXT' }])
 })
 
-/**
- * The counter is a high-water mark on the table row, incremented inside the same transaction
- * as the insert. The claim being tested is that the row lock makes concurrent creates queue
- * rather than race — which no stub can demonstrate, because a stub has no lock.
- */
 describe('record numbers', () => {
   it('starts at one', async () => {
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
@@ -57,7 +52,6 @@ describe('record numbers', () => {
     expect(numbers).toEqual(Array.from({ length: 20 }, (_, index) => index + 1))
   })
 
-  /** A high-water mark, not a count — reusing a number would repoint every link to it. */
   it('never reuses the number of a deleted record', async () => {
     const first = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
     await RecordService.createRecord(tableId, fields, { company: 'Beta' })
@@ -142,11 +136,6 @@ describe('writing a record', () => {
   })
 })
 
-/**
- * A relation filter carries the target's address — the number a URL shows — and the column it
- * compares against stores ids. `resolveFilterTargets` bridges the two above `buildRecordWhere`,
- * which a stub cannot demonstrate: what matters is which rows actually come back.
- */
 describe('filtering a relation by the number its URL carries', () => {
   let owner: IField
   let ada: { id: string; number: number }
@@ -191,13 +180,6 @@ describe('filtering a relation by the number its URL carries', () => {
     expect(page.records.map((r) => r.data.company)).toEqual(['Beta'])
   })
 
-  /**
-   * **The widening check.** An address nothing answers to must return nothing — not the whole
-   * table. If the resolver dropped the value instead of passing it through, the filter would
-   * vanish, `buildRecordWhere` would skip the condition, and every row would come back with no
-   * error to show for it. The **count** matters as much as the rows: that is where a widened
-   * query is visible even when a page limit hides it.
-   */
   it('returns nothing for a number no record answers to, rather than everything', async () => {
     const page = await listBy('9999')
 

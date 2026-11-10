@@ -8,11 +8,6 @@ interface IOptions {
   normalize?: (value: string) => string
 }
 
-/**
- * Every case runs inside an `effectScope` so the two `watch`es have an owner and are torn down
- * afterwards — without one they outlive the case and a later assertion sees an earlier test's
- * writes. `watch` is async by default, so acting and asserting are always a `nextTick` apart.
- */
 async function withModel(
   initial: string,
   options: IOptions,
@@ -48,7 +43,6 @@ describe('useDebouncedModel', () => {
         vi.advanceTimersByTime(100)
       }
 
-      // Three keystrokes' worth of typing, but every one of them restarted the timer
       expect(model.value).toBe('')
 
       vi.advanceTimersByTime(QUERY_DEBOUNCE_MS)
@@ -56,10 +50,6 @@ describe('useDebouncedModel', () => {
     })
   })
 
-  /**
-   * Expressed in terms of the constant rather than `300`, so moving the house figure moves the
-   * boundary with it instead of turning a design decision into a broken build.
-   */
   it('defaults to the house query delay', async () => {
     await withModel('', {}, async (model, draft) => {
       draft.value = 'typed'
@@ -83,8 +73,6 @@ describe('useDebouncedModel', () => {
     })
   })
 
-  // A zero delay deferred by a tick would make every undebounced consumer's model lag its
-  // input by a frame, so it writes inline rather than through a 0ms timer
   it('writes through without a timer when the delay is 0', async () => {
     await withModel('', { delay: 0 }, async (model, draft) => {
       draft.value = 'typed'
@@ -101,14 +89,12 @@ describe('useDebouncedModel', () => {
       vi.advanceTimersByTime(300)
 
       expect(model.value).toBe('spaced')
-      // The user may still be mid-word — trimming what they see would move their cursor
       expect(draft.value).toBe('  spaced  ')
     })
   })
 
   it('pushes an outside model change into the draft', async () => {
     await withModel('initial', {}, async (model, draft) => {
-      // Clear all, a shared URL, the back button — the model has other authors
       model.value = 'from elsewhere'
       await nextTick()
 
@@ -122,7 +108,6 @@ describe('useDebouncedModel', () => {
       await nextTick()
       expect(draft.value).toBe('from elsewhere')
 
-      // Nothing was queued by the echo, so a later outside write survives the debounce window
       model.value = 'newer still'
       await nextTick()
       vi.advanceTimersByTime(300)
@@ -133,7 +118,6 @@ describe('useDebouncedModel', () => {
 
   it('writes nothing when the draft normalizes back to the model value', async () => {
     await withModel('word', { normalize: (value) => value.trim() }, async (model, draft) => {
-      // Typing a trailing space normalizes to exactly what the model already holds
       draft.value = 'word '
       await nextTick()
       vi.advanceTimersByTime(300)

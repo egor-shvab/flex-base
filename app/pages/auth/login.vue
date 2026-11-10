@@ -1,6 +1,11 @@
 <template>
   <form class="auth-form" novalidate @submit.prevent="submit">
-    <h1 class="auth-form__title">Log in</h1>
+    <div class="auth-form__heading">
+      <h1 class="auth-form__title">Log in to FlexBase</h1>
+      <p class="auth-form__subtitle">Use the email and password you registered with.</p>
+    </div>
+
+    <AuthModeSwitch />
 
     <BaseErrorBanner :message="serverError" />
 
@@ -25,8 +30,13 @@
       :error="errors.password"
     />
 
-    <BaseButton type="submit" :disabled="pending">
-      {{ pending ? 'Logging in…' : 'Log in' }}
+    <BaseButton
+      type="submit"
+      class="auth-form__submit"
+      append-icon="material-symbols:arrow-forward-rounded"
+      :loading="isSubmitting"
+    >
+      Log in
     </BaseButton>
 
     <p class="auth-form__footer">
@@ -49,7 +59,7 @@ useSeoMeta({ title: 'Log in', description: 'Log in to your FlexBase account.' })
 const auth = useAuthStore()
 const route = useRoute()
 
-const { form, errors, serverError, pending, submit } = useForm({
+const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: credentialsInputSchema,
   initial: { email: '', password: '' },
   onSubmit: async (values) => {

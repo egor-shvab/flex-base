@@ -39,11 +39,14 @@ function panel(
 
 type TPanel = Awaited<ReturnType<typeof panel>>
 
-/** The panel renders inside `BaseModal`'s drawer, so everything is teleported to `<body>`. */
 const drawer = () => document.querySelector<HTMLElement>('.base-modal--drawer')
-const controls = () => [...document.querySelectorAll<HTMLElement>('.filter-panel > *')]
+const controls = () => [
+  ...document.querySelectorAll<HTMLElement>('.filter-panel > :not(.filter-panel__intro)'),
+]
 const labels = () =>
-  [...document.querySelectorAll('.filter-panel label')].map((label) => label.textContent?.trim())
+  [...document.querySelectorAll('.filter-panel label, .filter-panel .base-field__label')].map(
+    (label) => label.textContent?.trim(),
+  )
 const count = () => document.querySelector('.filter-panel__count')?.textContent?.trim()
 const clearAll = () =>
   [...document.querySelectorAll<HTMLElement>('.filter-panel__footer .base-button')].find((button) =>
@@ -54,21 +57,15 @@ const boundInput = (key: string, bound: 'from' | 'to') =>
   document.querySelector<HTMLInputElement>(`[id$="-${key}-${bound}"]`)!
 const textInput = (key: string) => document.querySelector<HTMLInputElement>(`[id$="-${key}"]`)!
 
-/** The last filter map the panel emitted upward. */
 const lastFilters = (wrapper: TPanel) =>
   wrapper.emitted('update:filters')?.at(-1)?.[0] as TRecordFilterValues | undefined
 
-/**
- * Types the way `BaseInput` reads — raw `el.value` plus an input event — then drives the 300ms
- * debounce every typed filter carries. Fake timers are switched on only for the wait: around a
- * `mountSuspended` they would stall the mount itself.
- */
+/** Fake timers only for the wait: around a `mountSuspended` they would stall the mount. */
 async function typeInto(element: HTMLInputElement, value: string) {
   vi.useFakeTimers()
 
   element.value = value
   element.dispatchEvent(new Event('input', { bubbles: true }))
-  // Lets the draft watcher run and schedule the write
   await nextTick()
 
   vi.advanceTimersByTime(300)
@@ -82,12 +79,10 @@ describe('RecordsFilterPanel', () => {
   afterEach(unmountAll)
 
   beforeEach(() => {
-    // `BaseModal` marks this element inert while the drawer is open
     const root = document.createElement('div')
     root.id = '__nuxt'
     document.body.appendChild(root)
 
-    // A RELATION filter renders `RelationFieldSelect`, which reads the relations store
     setActivePinia(useNuxtApp().$pinia as Pinia)
   })
 
@@ -104,7 +99,6 @@ describe('RecordsFilterPanel', () => {
       expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Filters')
     })
 
-    /** The record's own columns filter alongside the table's fields, and bracket them. */
     it('brackets the table’s fields with the record’s own columns', async () => {
       await panel()
 
@@ -124,10 +118,6 @@ describe('RecordsFilterPanel', () => {
       expect(labels()).toEqual(['Record #', 'Created at', 'Updated at'])
     })
 
-    /**
-     * A control that discards what is typed into it is a dead control: a legacy field keyed
-     * like a reserved param claims no query param, so its filter could never round-trip.
-     */
     it('offers no control for a field whose filter could not round-trip', async () => {
       await panel({
         fields: [
@@ -155,7 +145,6 @@ describe('RecordsFilterPanel', () => {
     })
   })
 
-  /** Every control is always rendered, so an unfiltered field shows its own empty value. */
   describe('showing the current filters', () => {
     it('shows an unfiltered TEXT column as an empty box', async () => {
       await panel({ fields: [textField('company')] })
@@ -189,20 +178,19 @@ describe('RecordsFilterPanel', () => {
       expect(boundInput('salary', 'to').value).toBe('')
     })
 
-    it('shows a multi SELECT’s selection as a count', async () => {
+    it('shows a multi SELECT’s selection as its first value and a count', async () => {
       await panel({
         fields: [asMultiple(selectField(['Won', 'Lost']))],
         filters: { stage: ['Won', 'Lost'] },
       })
 
-      expect(document.querySelector('.base-select__value')?.textContent?.trim()).toBe('2 selected')
+      expect(document.querySelector('.base-select__value .base-badge')?.textContent?.trim()).toBe(
+        'Won',
+      )
+      expect(document.querySelector('.base-select__more')?.textContent?.trim()).toBe('+1')
     })
   })
 
-  /**
-   * `applyFieldValue` rebuilds the whole map in column order rather than patching one key —
-   * which is what keeps a shared URL stable no matter which control the user touched.
-   */
   describe('changing a filter', () => {
     it('emits the new value under its field key', async () => {
       const wrapper = await panel({ fields: [textField('company')] })
@@ -223,7 +211,6 @@ describe('RecordsFilterPanel', () => {
       })
     })
 
-    /** A value that means "not filtered" is dropped, so the map only ever holds active ones. */
     it('drops a filter cleared back to empty', async () => {
       const wrapper = await panel({ filters: { company: 'acme', active: true } })
 
@@ -240,7 +227,6 @@ describe('RecordsFilterPanel', () => {
       expect(lastFilters(wrapper)).toEqual({})
     })
 
-    /** Why the map is rebuilt rather than patched: the same filters must produce one link. */
     it('emits keys in column order, whichever control was touched', async () => {
       const wrapper = await panel({ filters: { active: true } })
 
@@ -266,13 +252,14 @@ describe('RecordsFilterPanel', () => {
     })
   })
 
-  /** The one control whose model is a different shape from its filter value. */
   describe('the BOOLEAN adapters', () => {
-    it('shows an unfiltered boolean as no choice at all', async () => {
+    const checked = () =>
+      document.querySelector('[role="radiogroup"] [aria-checked="true"]')?.textContent?.trim()
+
+    it('shows an unfiltered boolean as All', async () => {
       await panel({ fields: [booleanField('active', { name: 'Active' })] })
 
-      expect(document.querySelector('.base-select__value')).toBeNull()
-      expect(document.querySelector('.base-select__placeholder')?.textContent?.trim()).toBe('All')
+      expect(checked()).toBe('All')
     })
 
     it.each([
@@ -284,21 +271,34 @@ describe('RecordsFilterPanel', () => {
         filters: { active: value },
       })
 
-      expect(document.querySelector('.base-select__value')?.textContent?.trim()).toBe(label)
+      expect(checked()).toBe(label)
     })
 
     it('emits a real boolean when a choice is picked', async () => {
       const wrapper = await panel({ fields: [booleanField('active', { name: 'Active' })] })
 
-      document.querySelector<HTMLElement>('.base-select__control')?.click()
-      await wrapper.vm.$nextTick()
-      const yes = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find((option) =>
-        option.textContent?.includes('Yes'),
+      const yes = [...document.querySelectorAll<HTMLElement>('[role="radio"]')].find(
+        (segment) => segment.textContent?.trim() === 'Yes',
       )
       yes?.click()
       await wrapper.vm.$nextTick()
 
       expect(lastFilters(wrapper)).toEqual({ active: true })
+    })
+
+    it('drops the filter when All is picked again', async () => {
+      const wrapper = await panel({
+        fields: [booleanField('active', { name: 'Active' })],
+        filters: { active: true },
+      })
+
+      const all = [...document.querySelectorAll<HTMLElement>('[role="radio"]')].find(
+        (segment) => segment.textContent?.trim() === 'All',
+      )
+      all?.click()
+      await wrapper.vm.$nextTick()
+
+      expect(lastFilters(wrapper)).toEqual({})
     })
   })
 
@@ -318,14 +318,12 @@ describe('RecordsFilterPanel', () => {
       expect(count()).toBe('0 matching records')
     })
 
-    /** A stale count under a filter being applied would be a lie. */
     it('says it is filtering rather than showing a stale count', async () => {
       await panel({ total: 12, pending: true })
 
       expect(count()).toBe('Filtering…')
     })
 
-    /** Never a dead control: with nothing filtered there is nothing to clear. */
     it('offers Clear all only when something is filtered', async () => {
       const empty = await panel()
       expect(clearAll()).toBeUndefined()
@@ -342,6 +340,26 @@ describe('RecordsFilterPanel', () => {
 
       expect(lastFilters(wrapper)).toEqual({})
     })
+  })
+
+  it('closes from its Done button', async () => {
+    const wrapper = await panel({ filters: { company: 'acme' } })
+
+    const done = [...document.querySelectorAll<HTMLElement>('.filter-panel__footer button')].find(
+      (button) => button.textContent?.trim() === 'Done',
+    )
+    done?.click()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(wrapper.emitted('update:filters')).toBeUndefined()
+  })
+
+  it('opens with a line saying every filter must match', async () => {
+    await panel()
+
+    expect(document.querySelector('.filter-panel__intro')?.textContent).toContain(
+      'match every filter',
+    )
   })
 
   it('closes from the drawer', async () => {

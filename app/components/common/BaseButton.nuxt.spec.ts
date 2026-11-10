@@ -21,10 +21,6 @@ describe('BaseButton', () => {
       expect(wrapper.attributes('type')).toBe('submit')
     })
 
-    /**
-     * A real `<a href>`, not a button with a click handler — so middle-click, "copy link
-     * address" and the SSR'd markup all work.
-     */
     it('is an anchor with an href when given a target', async () => {
       const wrapper = await mountTracked(BaseButton, { props: { to: '/tables/tbl_1' } })
 
@@ -41,10 +37,6 @@ describe('BaseButton', () => {
       expect(wrapper.attributes('href')).toContain('detail=tbl_1.rec_1')
     })
 
-    /**
-     * `disabled` wins over `to`, because a disabled link is not a link: an anchor has no
-     * `disabled`, and faking it rebuilds by hand what the native attribute already does.
-     */
     it('falls back to a disabled button when a link is disabled', async () => {
       const wrapper = await mountTracked(BaseButton, {
         props: { to: '/tables/tbl_1', disabled: true },
@@ -58,7 +50,6 @@ describe('BaseButton', () => {
     it('does not put a type attribute on an anchor', async () => {
       const wrapper = await mountTracked(BaseButton, { props: { to: '/somewhere' } })
 
-      // `type` on an anchor is a MIME hint, not a button role — the two modes bind disjoint sets
       expect(wrapper.attributes('type')).toBeUndefined()
     })
   })
@@ -95,11 +86,6 @@ describe('BaseButton', () => {
       expect(wrapper.classes()).not.toContain('base-button--danger-tone')
     })
 
-    /**
-     * `sm` resteps the icon variant's two custom properties, so it is applied *alongside* the
-     * variant. The 24×24 geometry it produces is invisible here (`test.css` is `false`) — the e2e
-     * target-size gate proves the box.
-     */
     it('adds the small size alongside the variant rather than replacing it', async () => {
       const wrapper = await mountTracked(BaseButton, {
         props: { variant: 'icon', size: 'sm' },
@@ -117,12 +103,11 @@ describe('BaseButton', () => {
   })
 
   describe('accessible naming', () => {
-    /** Required for icon-only buttons, which have no text for a screen reader to read. */
     it('sets both aria-label and title from label', async () => {
       const wrapper = await mountTracked(BaseButton, {
         props: {
           variant: 'icon',
-          prependIcon: 'mdi:trash-can-outline',
+          prependIcon: 'material-symbols:delete-outline-rounded',
           label: 'Delete this table',
         },
       })
@@ -135,7 +120,7 @@ describe('BaseButton', () => {
       'renders the %s and hides it from assistive tech',
       async (side) => {
         const wrapper = await mountTracked(BaseButton, {
-          props: { [side]: 'mdi:plus', label: 'Add' },
+          props: { [side]: 'material-symbols:add-rounded', label: 'Add' },
         })
 
         const icon = wrapper.find('.base-button__icon')
@@ -150,13 +135,12 @@ describe('BaseButton', () => {
       expect(wrapper.find('.base-button__icon').exists()).toBe(false)
     })
 
-    /**
-     * The two icons share one element class, so DOM order alone carries which side each lands on —
-     * swapping the template lines would be invisible to every other assertion here.
-     */
     it('puts the prepended icon before the label and the appended one after', async () => {
       const wrapper = await mountTracked(BaseButton, {
-        props: { prependIcon: 'mdi:chevron-left', appendIcon: 'mdi:chevron-right' },
+        props: {
+          prependIcon: 'material-symbols:chevron-left-rounded',
+          appendIcon: 'material-symbols:chevron-right-rounded',
+        },
         slots: { default: () => 'Next' },
       })
 
@@ -164,14 +148,63 @@ describe('BaseButton', () => {
       expect(icons).toHaveLength(2)
       expect(icons[0]?.element).toBe(wrapper.element.firstElementChild)
       expect(icons[1]?.element).toBe(wrapper.element.lastElementChild)
-      // The label sits between them, so the accessible name is unchanged by either icon
       expect(wrapper.text()).toBe('Next')
     })
   })
 
+  describe('selected and loading', () => {
+    it('adds the selected state alongside the variant', async () => {
+      const wrapper = await mountTracked(BaseButton, {
+        props: { variant: 'ghost', selected: true },
+      })
+
+      expect(wrapper.classes()).toEqual(
+        expect.arrayContaining(['base-button--ghost', 'base-button--selected']),
+      )
+      expect(wrapper.attributes('aria-pressed')).toBeUndefined()
+    })
+
+    it('is busy and inert while loading, and keeps its label', async () => {
+      const onClick = vi.fn()
+      const wrapper = await mountTracked(BaseButton, {
+        props: { loading: true },
+        attrs: { onClick },
+        slots: { default: () => 'Saving…' },
+      })
+
+      expect(wrapper.attributes('aria-busy')).toBe('true')
+      expect(wrapper.attributes('disabled')).toBeDefined()
+      expect(wrapper.text()).toBe('Saving…')
+
+      await wrapper.trigger('click')
+      expect(onClick).not.toHaveBeenCalled()
+    })
+
+    it('draws the spinner in place of the leading icon', async () => {
+      const wrapper = await mountTracked(BaseButton, {
+        props: { loading: true, prependIcon: 'material-symbols:add-rounded' },
+      })
+
+      expect(wrapper.find('.base-button__spinner').attributes('aria-hidden')).toBe('true')
+      expect(wrapper.find('.base-button__icon').exists()).toBe(false)
+    })
+
+    it('sets no busy state when idle', async () => {
+      const wrapper = await mountTracked(BaseButton)
+
+      expect(wrapper.attributes('aria-busy')).toBeUndefined()
+      expect(wrapper.find('.base-button__spinner').exists()).toBe(false)
+    })
+
+    it('falls back to a button while a link is loading', async () => {
+      const wrapper = await mountTracked(BaseButton, { props: { to: '/tables/1', loading: true } })
+
+      expect(wrapper.element.tagName).toBe('BUTTON')
+      expect(wrapper.attributes('href')).toBeUndefined()
+    })
+  })
+
   describe('interaction', () => {
-    // Nothing is forwarded by hand: attribute fallthrough carries the listener, which is
-    // also what makes `NuxtLink`'s own props work in link mode
     it('forwards clicks by attribute fallthrough', async () => {
       const onClick = vi.fn()
       const wrapper = await mountTracked(BaseButton, { attrs: { onClick } })

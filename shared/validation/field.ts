@@ -3,15 +3,6 @@ import { BADGE_COLORS, DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { nameSchema } from '#shared/validation/name'
 
-/**
- * Flat wire format for creating/updating a field. The server derives the DB `options` JSON from
- * `type` plus these per-type keys, so one schema validates both sides; per-type rules live in
- * the `superRefine` branch.
- *
- * Flat at the top level only: a SELECT choice carries its own colour, so `choices` is a list of
- * objects, and uniqueness is judged on `value` alone. A RELATION's target can only be checked
- * against the database, so the server layers `requireFieldTarget` on top.
- */
 export const fieldInputSchema = z
   .object({
     name: nameSchema,
@@ -27,17 +18,10 @@ export const fieldInputSchema = z
       .default([]),
     targetTableId: z.string().trim().default(''),
     labelFieldKey: z.string().trim().default(''),
-    /** Whether the field holds several values. Only the types below may set it. */
     multiple: z.boolean().default(false),
-    /**
-     * Whether the field carries indexes for sorting and filtering. Unconstrained by type —
-     * which indexes it means is decided in SQL, not here (a RELATION gets no sort index).
-     */
     indexed: z.boolean().default(false),
   })
   .superRefine((value, ctx) => {
-    // Judged against the registry rather than a hardcoded pair, so a new field type declares
-    // its own position once and this rule follows it
     if (value.multiple && !MULTI_VALUE_BY_TYPE[value.type]) {
       ctx.addIssue({
         code: 'custom',
