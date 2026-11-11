@@ -1,6 +1,6 @@
 import type { TBadgeColor } from '#shared/types/color'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
-import type { IRecord } from '#shared/types/record'
+import type { IRecord, IRecordWithAuthors } from '#shared/types/record'
 import { buildQueryColumns } from '#shared/utils/filter'
 
 export function field(overrides: Partial<IField> & Pick<IField, 'key' | 'type'>): IField {
@@ -92,4 +92,8 @@ export function record(overrides: Partial<IRecord> = {}): IRecord {
     updatedAt: '2026-02-11T16:30:00.000Z',
     ...overrides,
   }
+}
+
+export function recordWithAuthors(overrides: Partial<IRecordWithAuthors> = {}): IRecordWithAuthors {
+  return { ...record(), createdBy: null, updatedBy: null, ...overrides }
 }

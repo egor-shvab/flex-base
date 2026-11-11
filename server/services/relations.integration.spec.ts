@@ -118,7 +118,7 @@ describe('checking a write’s targets', () => {
     const dealsFields = [owner]
 
     await expect(
-      RecordService.createRecord(owner.id, dealsFields, { owner: `${ada.id}x` }),
+      RecordService.createRecord(owner.id, dealsFields, { owner: `${ada.id}x` }, userId),
     ).rejects.toMatchObject({ statusCode: 400 })
   })
 })

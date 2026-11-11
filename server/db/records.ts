@@ -1,6 +1,7 @@
 import type { Prisma } from '#server/generated/prisma/client'
-import type { IRecord, TRecordData } from '#shared/types/record'
+import type { IRecord, IRecordWithAuthors, TRecordData } from '#shared/types/record'
 import { parseAddressNumber } from '#shared/utils/address'
+import { toUserRef, userRefSelect } from '#server/db/users'
 
 export function buildRecordAddressWhere(
   tableId: string,
@@ -19,7 +20,16 @@ export const recordSelect = {
   updatedAt: true,
 } satisfies Prisma.RecordSelect
 
+export const recordWithAuthorsSelect = {
+  ...recordSelect,
+  createdBy: { select: userRefSelect },
+  updatedBy: { select: userRefSelect },
+} satisfies Prisma.RecordSelect
+
 export type TRecordRow = Prisma.RecordGetPayload<{ select: typeof recordSelect }>
+export type TRecordWithAuthorsRow = Prisma.RecordGetPayload<{
+  select: typeof recordWithAuthorsSelect
+}>
 
 export function toSharedRecord(record: TRecordRow): IRecord {
   return {
@@ -28,6 +38,14 @@ export function toSharedRecord(record: TRecordRow): IRecord {
     data: (record.data as TRecordData | null) ?? {},
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
+  }
+}
+
+export function toRecordWithAuthors(record: TRecordWithAuthorsRow): IRecordWithAuthors {
+  return {
+    ...toSharedRecord(record),
+    createdBy: toUserRef(record.createdBy),
+    updatedBy: toUserRef(record.updatedBy),
   }
 }
 

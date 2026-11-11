@@ -6,10 +6,10 @@ import { buildRecordSchema } from '#shared/validation/record'
 import type { IRecordResponse } from '#shared/types/api'
 
 export default defineRecordWriteHandler(
-  async ({ event, tableId, fields }): Promise<IRecordResponse> => {
+  async ({ event, user, tableId, fields }): Promise<IRecordResponse> => {
     const recordAddress = routeParam(event, 'recordAddress')
     const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
-    const record = await RecordService.updateRecord(tableId, fields, recordAddress, data)
+    const record = await RecordService.updateRecord(tableId, fields, recordAddress, data, user.id)
     return { record }
   },
 )

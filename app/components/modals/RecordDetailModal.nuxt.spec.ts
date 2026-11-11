@@ -6,7 +6,7 @@ import type { Pinia } from 'pinia'
 import { DETAIL_PARAM } from '#shared/constants/filter'
 import type { IRecordDetail } from '#shared/types/record'
 import RecordDetailModal from '~/components/modals/RecordDetailModal.vue'
-import { record, textField } from '~~/test/fixtures'
+import { recordWithAuthors, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
@@ -21,7 +21,13 @@ function detailOf(tableId = 'tbl_deals', tableName = 'Deals', tableNumber = 1): 
   return {
     table: { id: tableId, number: tableNumber, name: tableName },
     fields: [textField('company', { name: 'Company' })],
-    record: record({ id: 'rec_1', number: 7, data: { company: 'Acme' } }),
+    record: recordWithAuthors({
+      id: 'rec_1',
+      number: 7,
+      data: { company: 'Acme' },
+      createdBy: { id: 'usr_ada', name: 'Ada Lovelace' },
+      updatedBy: { id: 'usr_grace', name: 'Grace Hopper' },
+    }),
     linkedRecords: {},
   }
 }
@@ -101,6 +107,28 @@ describe('RecordDetailModal', () => {
 
       await mountModal({ detail: null, errorMessage: 'Offline', canRetry: true })
       expect(dialog()?.textContent).toContain('Try again')
+    })
+  })
+
+  describe('who wrote the record', () => {
+    const valueOf = (term: string) =>
+      [...document.querySelectorAll('.record-detail__row')]
+        .find((row) => row.querySelector('dt')?.textContent === term)
+        ?.querySelector('dd')
+        ?.textContent?.trim()
+
+    it('names the author and the last editor beside the field values', async () => {
+      await mountModal()
+
+      expect(valueOf('Created by')).toBe('Ada Lovelace')
+      expect(valueOf('Updated by')).toBe('Grace Hopper')
+    })
+
+    it('says an author is unknown rather than leaving the row blank', async () => {
+      const detail = detailOf()
+      await mountModal({ detail: { ...detail, record: { ...detail.record, createdBy: null } } })
+
+      expect(valueOf('Created by')).toBe('—Unknown')
     })
   })
 

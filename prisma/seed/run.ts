@@ -62,6 +62,8 @@ async function writeTable(userId: string, table: ICompiledTable): Promise<void> 
       data: record.data as Prisma.InputJsonObject,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      createdById: userId,
+      updatedById: userId,
     })),
   })
 }

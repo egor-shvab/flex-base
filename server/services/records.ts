@@ -5,8 +5,10 @@ import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { toHttpError } from '#server/utils/http-errors'
 import {
   recordSelect,
+  recordWithAuthorsSelect,
   buildRecordAddressWhere,
   toJsonData,
+  toRecordWithAuthors,
   toSharedRecord,
   type TRecordRow,
 } from '#server/db/records'
@@ -89,14 +91,14 @@ async function getRecordDetail(
 ): Promise<IRecordDetail> {
   const row = await prisma.record.findUnique({
     where: buildRecordAddressWhere(table.id, address),
-    select: recordSelect,
+    select: recordWithAuthorsSelect,
   })
 
   if (!row) {
     throw createError({ statusCode: 404, statusMessage: recordErrors.notFound })
   }
 
-  const record = toSharedRecord(row)
+  const record = toRecordWithAuthors(row)
 
   return {
     table,
@@ -110,6 +112,7 @@ async function createRecord(
   tableId: string,
   fields: IField[],
   data: TRecordData,
+  actorId: string,
 ): Promise<IRecord> {
   await RelationService.assertRelationTargets(fields, data)
 
@@ -122,7 +125,13 @@ async function createRecord(
       })
 
       return tx.record.create({
-        data: { tableId, number: recordCounter, data: toJsonData(data) },
+        data: {
+          tableId,
+          number: recordCounter,
+          data: toJsonData(data),
+          createdById: actorId,
+          updatedById: actorId,
+        },
         select: recordSelect,
       })
     })
@@ -138,13 +147,14 @@ async function updateRecord(
   fields: IField[],
   address: string,
   data: TRecordData,
+  actorId: string,
 ): Promise<IRecord> {
   await RelationService.assertRelationTargets(fields, data)
 
   try {
     const record = await prisma.record.update({
       where: buildRecordAddressWhere(tableId, address),
-      data: { data: toJsonData(data) },
+      data: { data: toJsonData(data), updatedById: actorId },
       select: recordSelect,
     })
     return toSharedRecord(record)

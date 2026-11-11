@@ -310,6 +310,43 @@ describe('the detail endpoint', () => {
     expect(detail.record.id).toBe(record.id)
   })
 
+  it('names the caller as author and editor of a record they create, by id and name only', async () => {
+    const { record } = await recordsPost(
+      testEvent({
+        user: ada,
+        params: { tableAddress: tableId },
+        method: 'POST',
+        body: { company: 'Gamma' },
+      }),
+    )
+
+    const detail = await recordGet(
+      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
+    )
+
+    expect(detail.record.createdBy).toEqual({ id: ada.id, name: ada.name })
+    expect(detail.record.updatedBy).toEqual({ id: ada.id, name: ada.name })
+  })
+
+  it('moves only the editor on an update, keeping the author', async () => {
+    const record = await createRecord(tableId, { company: 'Gamma' })
+
+    await recordPatch(
+      testEvent({
+        user: ada,
+        params: { tableAddress: tableId, recordAddress: record.id },
+        method: 'PATCH',
+        body: { company: 'Delta' },
+      }),
+    )
+    const detail = await recordGet(
+      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
+    )
+
+    expect(detail.record.createdBy).toBeNull()
+    expect(detail.record.updatedBy).toEqual({ id: ada.id, name: ada.name })
+  })
+
   it('404s for a record of another table', async () => {
     const other = await createTable(ada.id, 'Other')
     const record = await createRecord(other.id, {})

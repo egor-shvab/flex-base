@@ -6,6 +6,7 @@ import type { IField } from '#shared/types/field'
 import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
+let userId: string
 let tableId: string
 let fields: IField[]
 
@@ -19,22 +20,23 @@ const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
 })
 
 beforeEach(async () => {
-  const table = await createTable((await createUser()).id)
+  userId = (await createUser()).id
+  const table = await createTable(userId)
   tableId = table.id
   fields = await createFields(tableId, [{ key: 'company', type: 'TEXT' }])
 })
 
 describe('record numbers', () => {
   it('starts at one', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
+    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     expect(record.number).toBe(1)
   })
 
   it('increments per record', async () => {
-    await RecordService.createRecord(tableId, fields, { company: 'Acme' })
-    await RecordService.createRecord(tableId, fields, { company: 'Beta' })
-    const third = await RecordService.createRecord(tableId, fields, { company: 'Gamma' })
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    await RecordService.createRecord(tableId, fields, { company: 'Beta' }, userId)
+    const third = await RecordService.createRecord(tableId, fields, { company: 'Gamma' }, userId)
 
     expect(third.number).toBe(3)
   })
@@ -42,7 +44,7 @@ describe('record numbers', () => {
   it('gives every concurrent create a distinct number', async () => {
     const created = await Promise.all(
       Array.from({ length: 20 }, (_, index) =>
-        RecordService.createRecord(tableId, fields, { company: `Co ${index}` }),
+        RecordService.createRecord(tableId, fields, { company: `Co ${index}` }, userId),
       ),
     )
 
@@ -53,11 +55,11 @@ describe('record numbers', () => {
   })
 
   it('never reuses the number of a deleted record', async () => {
-    const first = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
-    await RecordService.createRecord(tableId, fields, { company: 'Beta' })
+    const first = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    await RecordService.createRecord(tableId, fields, { company: 'Beta' }, userId)
 
     await RecordService.deleteRecord(tableId, first.id)
-    const next = await RecordService.createRecord(tableId, fields, { company: 'Gamma' })
+    const next = await RecordService.createRecord(tableId, fields, { company: 'Gamma' }, userId)
 
     expect(next.number).toBe(3)
   })
@@ -66,14 +68,19 @@ describe('record numbers', () => {
     const other = await createTable((await createUser()).id)
     const otherFields = await createFields(other.id, [{ key: 'company', type: 'TEXT' }])
 
-    await RecordService.createRecord(tableId, fields, { company: 'Acme' })
-    const elsewhere = await RecordService.createRecord(other.id, otherFields, { company: 'Beta' })
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const elsewhere = await RecordService.createRecord(
+      other.id,
+      otherFields,
+      { company: 'Beta' },
+      userId,
+    )
 
     expect(elsewhere.number).toBe(1)
   })
 
   it('is unique per table in the database, not only by convention', async () => {
-    await RecordService.createRecord(tableId, fields, { company: 'Acme' })
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     await expect(
       prisma.record.create({ data: { tableId, number: 1, data: {} } }),
@@ -83,26 +90,32 @@ describe('record numbers', () => {
 
 describe('writing a record', () => {
   it('round-trips the data through JSONB', async () => {
-    const stored = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
+    const stored = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
     const page = await RecordService.listRecords(tableId, fields, query())
 
     expect(page.records[0]).toMatchObject({ id: stored.id, data: { company: 'Acme' } })
   })
 
   it('replaces the data wholesale rather than merging', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
+    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
-    await RecordService.updateRecord(tableId, fields, record.id, { company: 'Beta' })
+    await RecordService.updateRecord(tableId, fields, record.id, { company: 'Beta' }, userId)
     const page = await RecordService.listRecords(tableId, fields, query())
 
     expect(page.records[0]?.data).toEqual({ company: 'Beta' })
   })
 
   it('moves updatedAt but not createdAt', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
-    const updated = await RecordService.updateRecord(tableId, fields, record.id, {
-      company: 'Beta',
-    })
+    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const updated = await RecordService.updateRecord(
+      tableId,
+      fields,
+      record.id,
+      {
+        company: 'Beta',
+      },
+      userId,
+    )
 
     expect(updated.createdAt).toBe(record.createdAt)
     expect(Date.parse(updated.updatedAt)).toBeGreaterThanOrEqual(Date.parse(record.updatedAt))
@@ -110,16 +123,16 @@ describe('writing a record', () => {
 
   it('404s when updating a record of another table', async () => {
     const other = await createTable((await createUser()).id)
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
+    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     await expect(
-      RecordService.updateRecord(other.id, fields, record.id, { company: 'Beta' }),
+      RecordService.updateRecord(other.id, fields, record.id, { company: 'Beta' }, userId),
     ).rejects.toMatchObject({ statusCode: 404 })
   })
 
   it('404s when deleting a record of another table, leaving it in place', async () => {
     const other = await createTable((await createUser()).id)
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
+    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     await expect(RecordService.deleteRecord(other.id, record.id)).rejects.toMatchObject({
       statusCode: 404,
@@ -128,7 +141,7 @@ describe('writing a record', () => {
   })
 
   it('really removes the row on delete', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' })
+    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     await RecordService.deleteRecord(tableId, record.id)
 

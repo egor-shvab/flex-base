@@ -9,7 +9,7 @@ import type { TUrlQuery } from '#shared/types/query'
 import type { IRecordDetail } from '#shared/types/record'
 import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useRelationsStore } from '~/stores/relations'
-import { record, relationField, textField } from '~~/test/fixtures'
+import { recordWithAuthors, relationField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 const route = vi.hoisted(() => ({ current: { query: {} as TUrlQuery } }))
@@ -19,7 +19,7 @@ function detail(recordId: string, linked: IRecordDetail['linkedRecords'] = {}): 
   return {
     table: { id: 'tbl_deals', number: 1, name: 'Deals' },
     fields: [textField('company'), relationField()],
-    record: record({ id: recordId, number: 1, data: { company: 'Acme' } }),
+    record: recordWithAuthors({ id: recordId, number: 1, data: { company: 'Acme' } }),
     linkedRecords: linked,
   }
 }

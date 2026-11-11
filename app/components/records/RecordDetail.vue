@@ -6,6 +6,15 @@
         <RecordFieldValue :record="record" :column="column" />
       </dd>
     </div>
+    <div v-for="author in authors" :key="author.term" class="record-detail__row">
+      <dt class="record-detail__term">{{ author.term }}</dt>
+      <dd class="record-detail__value">
+        <template v-if="author.user">{{ author.user.name }}</template>
+        <span v-else class="record-detail__unknown"
+          ><span aria-hidden="true">—</span><span class="visually-hidden">Unknown</span></span
+        >
+      </dd>
+    </div>
   </dl>
 </template>
 
@@ -13,17 +22,22 @@
 import { computed } from 'vue'
 import { RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
-import type { IRecord } from '#shared/types/record'
+import type { IRecordWithAuthors } from '#shared/types/record'
 import { buildQueryColumns } from '#shared/utils/filter'
 
 const props = defineProps<{
   fields: IField[]
-  record: IRecord
+  record: IRecordWithAuthors
 }>()
 
 const columns = computed(() =>
   buildQueryColumns(props.fields).filter((column) => column.key !== RECORD_NUMBER_KEY),
 )
+
+const authors = computed(() => [
+  { term: 'Created by', user: props.record.createdBy },
+  { term: 'Updated by', user: props.record.updatedBy },
+])
 </script>
 
 <style lang="scss" scoped>
@@ -58,6 +72,12 @@ const columns = computed(() =>
     :deep(.multi-value-cell) {
       line-height: 2;
     }
+  }
+
+  // `relative` keeps the absolutely positioned `.visually-hidden` inside the drawer's scroller
+  &__unknown {
+    position: relative;
+    color: var(--color-text-subtle);
   }
 }
 </style>

@@ -13,6 +13,7 @@ vi.mock('#server/db/prisma', async () => ({
 
 const TABLE_ID = 'tbl_deals'
 const RECORD_ID = 'rec_1'
+const ACTOR_ID = 'usr_actor'
 const table = { id: TABLE_ID, number: 1, name: 'Deals' }
 const fields = [textField('company')]
 
@@ -154,6 +155,28 @@ describe('RecordService.getRecordDetail', () => {
     expect(detail.record.id).toBe(RECORD_ID)
   })
 
+  it('reads both authors as id and name only, in the same query', async () => {
+    prismaMock.record.findUnique.mockResolvedValue({
+      ...row(),
+      createdBy: { id: 'usr_ada', name: 'Ada' },
+      updatedBy: null,
+    })
+
+    const detail = await RecordService.getRecordDetail(table, fields, RECORD_ID)
+
+    expect(detail.record.createdBy).toEqual({ id: 'usr_ada', name: 'Ada' })
+    expect(detail.record.updatedBy).toBeNull()
+    expect(prismaMock.record.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          createdBy: { select: { id: true, name: true } },
+          updatedBy: { select: { id: true, name: true } },
+        }),
+      }),
+    )
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled()
+  })
+
   it('404s for a record deleted since the link was rendered', async () => {
     prismaMock.record.findUnique.mockResolvedValue(null)
 
@@ -169,7 +192,7 @@ describe('RecordService.createRecord', () => {
     prismaMock.table.update.mockResolvedValue({ recordCounter: 12 })
     prismaMock.record.create.mockResolvedValue(row({ number: 12 }))
 
-    await RecordService.createRecord(TABLE_ID, fields, { company: 'Acme' })
+    await RecordService.createRecord(TABLE_ID, fields, { company: 'Acme' }, ACTOR_ID)
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
     expect(prismaMock.table.update).toHaveBeenCalledWith(
@@ -180,12 +203,25 @@ describe('RecordService.createRecord', () => {
     )
   })
 
+  it('records the caller as both author and last editor', async () => {
+    prismaMock.table.update.mockResolvedValue({ recordCounter: 1 })
+    prismaMock.record.create.mockResolvedValue(row())
+
+    await RecordService.createRecord(TABLE_ID, fields, { company: 'Acme' }, ACTOR_ID)
+
+    expect(prismaMock.record.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ createdById: ACTOR_ID, updatedById: ACTOR_ID }),
+      }),
+    )
+  })
+
   it('maps a failed insert onto an HTTP error rather than leaking the Prisma one', async () => {
     prismaMock.table.update.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),
     )
 
-    await expect(RecordService.createRecord(TABLE_ID, fields, {})).rejects.toMatchObject({
+    await expect(RecordService.createRecord(TABLE_ID, fields, {}, ACTOR_ID)).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Record not found',
     })
@@ -195,7 +231,7 @@ describe('RecordService.createRecord', () => {
     prismaMock.record.findMany.mockResolvedValue([])
 
     await expect(
-      RecordService.createRecord(TABLE_ID, [relationField()], { owner: 'rec_forged' }),
+      RecordService.createRecord(TABLE_ID, [relationField()], { owner: 'rec_forged' }, ACTOR_ID),
     ).rejects.toMatchObject({ statusCode: 400 })
 
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
@@ -207,12 +243,12 @@ describe('RecordService.updateRecord', () => {
   it('replaces the data wholesale, scoped to the table', async () => {
     prismaMock.record.update.mockResolvedValue(row())
 
-    await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, { company: 'Beta' })
+    await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, { company: 'Beta' }, ACTOR_ID)
 
     expect(prismaMock.record.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: RECORD_ID, tableId: TABLE_ID },
-        data: { data: { company: 'Beta' } },
+        data: { data: { company: 'Beta' }, updatedById: ACTOR_ID },
       }),
     )
   })
@@ -221,7 +257,13 @@ describe('RecordService.updateRecord', () => {
     prismaMock.record.findMany.mockResolvedValue([])
 
     await expect(
-      RecordService.updateRecord(TABLE_ID, [relationField()], RECORD_ID, { owner: 'rec_forged' }),
+      RecordService.updateRecord(
+        TABLE_ID,
+        [relationField()],
+        RECORD_ID,
+        { owner: 'rec_forged' },
+        ACTOR_ID,
+      ),
     ).rejects.toMatchObject({ statusCode: 400 })
 
     expect(prismaMock.record.update).not.toHaveBeenCalled()
@@ -232,12 +274,12 @@ describe('RecordService.updateRecord', () => {
       new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),
     )
 
-    await expect(RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {})).rejects.toMatchObject(
-      {
-        statusCode: 404,
-        statusMessage: 'Record not found',
-      },
-    )
+    await expect(
+      RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Record not found',
+    })
   })
 })
 
@@ -245,7 +287,7 @@ describe('a record address is a number or a cuid, on every write', () => {
   it('updates through the compound unique when given a number', async () => {
     prismaMock.record.update.mockResolvedValue(row())
 
-    await RecordService.updateRecord(TABLE_ID, fields, '7', { company: 'Beta' })
+    await RecordService.updateRecord(TABLE_ID, fields, '7', { company: 'Beta' }, ACTOR_ID)
 
     expect(prismaMock.record.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { tableId_number: { tableId: TABLE_ID, number: 7 } } }),
