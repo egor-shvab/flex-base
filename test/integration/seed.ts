@@ -9,8 +9,8 @@ const unique = (prefix: string) => `${prefix}_${(sequence += 1)}`
 
 export function createUser(email = `${unique('user')}@example.com`) {
   return prisma.user.create({
-    data: { email, passwordHash: 'not-a-real-hash' },
-    select: { id: true, email: true },
+    data: { email, name: email.split('@')[0] ?? email, passwordHash: 'not-a-real-hash' },
+    select: { id: true, email: true, name: true },
   })
 }
 

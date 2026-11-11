@@ -5,14 +5,14 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { IAuthUser } from '#shared/types/auth'
 import { useAuthStore } from '~/stores/auth'
 
-const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com' }
+const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com', name: 'Ada' }
 
 const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)
 
 const failing = new Set<string>()
 
-function endpoint(path: string, method: 'GET' | 'POST', user: IAuthUser | null = ADA) {
+function endpoint(path: string, method: 'GET' | 'POST' | 'PATCH', user: IAuthUser | null = ADA) {
   registerEndpoint(path, {
     method,
     handler: () => {
@@ -26,8 +26,9 @@ endpoint('/api/auth/me', 'GET')
 endpoint('/api/auth/register', 'POST')
 endpoint('/api/auth/login', 'POST')
 endpoint('/api/auth/logout', 'POST', null)
+endpoint('/api/auth/me', 'PATCH', { ...ADA, name: 'Ada Lovelace' })
 
-const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
+const CREDENTIALS = { name: 'Ada', email: 'ada@example.com', password: 'correct-horse' }
 
 describe('useAuthStore', () => {
   beforeEach(() => {
@@ -96,6 +97,17 @@ describe('useAuthStore', () => {
 
       await expect(store[action](CREDENTIALS)).rejects.toThrow()
       expect(store.user).toBeNull()
+    })
+  })
+
+  describe('updateProfile', () => {
+    it('adopts the user the server returns', async () => {
+      const store = useAuthStore()
+      await store.login(CREDENTIALS)
+
+      await store.updateProfile({ name: 'Ada Lovelace' })
+
+      expect(store.user).toEqual({ ...ADA, name: 'Ada Lovelace' })
     })
   })
 

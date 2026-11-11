@@ -10,13 +10,22 @@
     <BaseErrorBanner :message="serverError" />
 
     <BaseInput
+      id="name"
+      v-model="form.name"
+      label="Name"
+      autocomplete="name"
+      placeholder="Ada Lovelace"
+      autofocus
+      :error="errors.name"
+    />
+
+    <BaseInput
       id="email"
       v-model.trim="form.email"
       label="Email"
       type="email"
       autocomplete="email"
       placeholder="you@example.com"
-      autofocus
       :error="errors.email"
     />
 
@@ -71,9 +80,9 @@ const route = useRoute()
 
 const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: registerSchema,
-  initial: { email: '', password: '', passwordConfirm: '' },
+  initial: { name: '', email: '', password: '', passwordConfirm: '' },
   onSubmit: async (values) => {
-    await auth.register({ email: values.email, password: values.password })
+    await auth.register({ name: values.name, email: values.email, password: values.password })
     await navigateTo(resolveSafeRedirect(route.query.redirect))
   },
 })

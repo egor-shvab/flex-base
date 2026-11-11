@@ -66,7 +66,7 @@ test.describe('allow multiple values', () => {
     ])
 
     await page.goto(table.settingsUrl)
-    await page.getByRole('button', { name: 'Edit' }).first().click()
+    await page.getByRole('button', { name: 'Edit field Stage' }).click()
 
     await expect(page.getByLabel('Allow multiple values')).toBeDisabled()
     await expect(page.getByText(/cannot be changed back to a single value/i)).toBeVisible()
@@ -83,7 +83,7 @@ test.describe('allow multiple values', () => {
     ])
 
     await page.goto(table.settingsUrl)
-    await page.getByRole('button', { name: 'Edit' }).first().click()
+    await page.getByRole('button', { name: 'Edit field Stage' }).click()
 
     await expect(page.getByLabel('Allow multiple values')).toBeEnabled()
   })
@@ -93,7 +93,7 @@ test('the type of an existing field cannot be changed', async ({ page, seedTable
   const table = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }])
 
   await page.goto(table.settingsUrl)
-  await page.getByRole('button', { name: 'Edit' }).first().click()
+  await page.getByRole('button', { name: 'Edit field Company' }).click()
 
   await expect(page.getByLabel('Type')).toBeDisabled()
 })

@@ -14,9 +14,10 @@ vi.mock('#server/utils/auth', () => ({
 }))
 
 const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
+const REGISTRATION = { ...CREDENTIALS, name: 'Ada' }
 const USER_ID = 'usr_1'
 
-const authUser = { id: USER_ID, email: CREDENTIALS.email }
+const authUser = { id: USER_ID, email: CREDENTIALS.email, name: 'Ada' }
 const rowWithHash = { ...authUser, passwordHash: 'stored-hash' }
 
 const conflict = () =>
@@ -32,29 +33,29 @@ describe('AuthService.registerUser', () => {
   it('stores what hashPassword returned, never the password itself', async () => {
     prismaMock.user.create.mockResolvedValue(authUser)
 
-    await expect(AuthService.registerUser(CREDENTIALS)).resolves.toEqual(authUser)
+    await expect(AuthService.registerUser(REGISTRATION)).resolves.toEqual(authUser)
 
     expect(prismaMock.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { email: CREDENTIALS.email, passwordHash: 'fresh-hash' },
+        data: { email: CREDENTIALS.email, name: 'Ada', passwordHash: 'fresh-hash' },
       }),
     )
   })
 
-  it('selects only id and email, so the hash cannot reach a response', async () => {
+  it('selects only id, email and name, so the hash cannot reach a response', async () => {
     prismaMock.user.create.mockResolvedValue(authUser)
 
-    await AuthService.registerUser(CREDENTIALS)
+    await AuthService.registerUser(REGISTRATION)
 
     expect(prismaMock.user.create).toHaveBeenCalledWith(
-      expect.objectContaining({ select: { id: true, email: true } }),
+      expect.objectContaining({ select: { id: true, email: true, name: true } }),
     )
   })
 
   it('runs no uniqueness pre-check — the insert is the check', async () => {
     prismaMock.user.create.mockResolvedValue(authUser)
 
-    await AuthService.registerUser(CREDENTIALS)
+    await AuthService.registerUser(REGISTRATION)
 
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled()
   })
@@ -62,7 +63,7 @@ describe('AuthService.registerUser', () => {
   it('maps a duplicate email onto a 409', async () => {
     prismaMock.user.create.mockRejectedValue(conflict())
 
-    await expect(AuthService.registerUser(CREDENTIALS)).rejects.toMatchObject({
+    await expect(AuthService.registerUser(REGISTRATION)).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'Email is already registered',
     })
@@ -71,7 +72,7 @@ describe('AuthService.registerUser', () => {
   it('passes an unrecognised failure through, so it still surfaces as a 500', async () => {
     prismaMock.user.create.mockRejectedValue(new Error('connection reset'))
 
-    const error = await AuthService.registerUser(CREDENTIALS).catch((thrown: unknown) => thrown)
+    const error = await AuthService.registerUser(REGISTRATION).catch((thrown: unknown) => thrown)
 
     expect(error).toBeInstanceOf(Error)
     expect(error).toMatchObject({ message: 'connection reset' })
@@ -90,7 +91,7 @@ describe('AuthService.authenticateUser', () => {
     expect(user).not.toHaveProperty('passwordHash')
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { email: CREDENTIALS.email },
-      select: { id: true, email: true, passwordHash: true },
+      select: { id: true, email: true, name: true, passwordHash: true },
     })
   })
 
@@ -132,7 +133,7 @@ describe('AuthService.findAuthUser', () => {
 
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { id: USER_ID },
-      select: { id: true, email: true },
+      select: { id: true, email: true, name: true },
     })
   })
 
@@ -140,5 +141,22 @@ describe('AuthService.findAuthUser', () => {
     prismaMock.user.findUnique.mockResolvedValue(null)
 
     await expect(AuthService.findAuthUser(USER_ID)).resolves.toBeNull()
+  })
+})
+
+describe('AuthService.updateProfile', () => {
+  it("updates only the caller's own row, with the select that omits the hash", async () => {
+    prismaMock.user.update.mockResolvedValue({ ...authUser, name: 'Ada Lovelace' })
+
+    await expect(AuthService.updateProfile(USER_ID, { name: 'Ada Lovelace' })).resolves.toEqual({
+      ...authUser,
+      name: 'Ada Lovelace',
+    })
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+      data: { name: 'Ada Lovelace' },
+      select: { id: true, email: true, name: true },
+    })
   })
 })

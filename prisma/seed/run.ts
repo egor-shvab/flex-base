@@ -15,6 +15,7 @@ import type { ICompiledTable } from '~~/prisma/seed/compile'
 
 const DEMO_EMAIL = 'test@test.com'
 const DEMO_PASSWORD = 'testtest'
+const DEMO_NAME = 'Demo User'
 
 function assertSeedableEnvironment(): void {
   if (process.env.DATABASE_URL === undefined || process.env.DATABASE_URL === '') {
@@ -76,6 +77,7 @@ async function seed(): Promise<void> {
     data: {
       id: idFor(`user:${DEMO_EMAIL}`),
       email: DEMO_EMAIL,
+      name: DEMO_NAME,
       passwordHash: await hashPassword(DEMO_PASSWORD),
       tableCounter: tables.length,
     },

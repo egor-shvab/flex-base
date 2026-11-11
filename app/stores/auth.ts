@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { navigateTo } from '#imports'
 import { useAuthApi } from '~/api/auth'
 import type { IAuthUser } from '#shared/types/auth'
-import type { TCredentialsInput } from '#shared/validation/auth'
+import type { TCredentialsInput, TProfileInput, TRegistrationInput } from '#shared/validation/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const api = useAuthApi()
@@ -24,8 +24,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(credentials: TCredentialsInput) {
-    const response = await api.register(credentials)
+  async function register(input: TRegistrationInput) {
+    const response = await api.register(input)
+    user.value = response.user
+  }
+
+  async function updateProfile(input: TProfileInput) {
+    const response = await api.updateProfile(input)
     user.value = response.user
   }
 
@@ -40,5 +45,14 @@ export const useAuthStore = defineStore('auth', () => {
     await navigateTo('/auth/login')
   }
 
-  return { user, isInitialized, isAuthenticated, fetchUser, register, login, logout }
+  return {
+    user,
+    isInitialized,
+    isAuthenticated,
+    fetchUser,
+    register,
+    login,
+    logout,
+    updateProfile,
+  }
 })

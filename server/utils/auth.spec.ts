@@ -156,9 +156,9 @@ describe('clearAuthCookie', () => {
 describe('requireUser', () => {
   it('hands back the user the middleware attached', () => {
     const event = testEvent()
-    event.context.user = { id: USER_ID, email: 'ada@example.com' }
+    event.context.user = { id: USER_ID, email: 'ada@example.com', name: 'Ada' }
 
-    expect(requireUser(event)).toEqual({ id: USER_ID, email: 'ada@example.com' })
+    expect(requireUser(event)).toEqual({ id: USER_ID, email: 'ada@example.com', name: 'Ada' })
   })
 
   it('is the one place a 401 comes from', () => {

@@ -4,6 +4,7 @@ import type { IAuthUser } from '#shared/types/auth'
 export const authUserSelect = {
   id: true,
   email: true,
+  name: true,
 } satisfies Prisma.UserSelect
 
 export const authUserWithHashSelect = {
@@ -15,5 +16,5 @@ export type TAuthUserRow = Prisma.UserGetPayload<{ select: typeof authUserSelect
 export type TAuthUserWithHashRow = Prisma.UserGetPayload<{ select: typeof authUserWithHashSelect }>
 
 export function toAuthUser(row: TAuthUserRow): IAuthUser {
-  return { id: row.id, email: row.email }
+  return { id: row.id, email: row.email, name: row.name }
 }

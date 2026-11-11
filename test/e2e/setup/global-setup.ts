@@ -6,7 +6,11 @@ import { request, type FullConfig } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
 import { assertDisposableDatabase } from '~~/test/disposable-database'
 
-export const E2E_USER = { email: 'e2e@example.com', password: 'correct-horse-battery' }
+export const E2E_USER = {
+  name: 'E2E User',
+  email: 'e2e@example.com',
+  password: 'correct-horse-battery',
+}
 
 const STORAGE_STATE = fileURLToPath(new URL('../.auth/user.json', import.meta.url))
 

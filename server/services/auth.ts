@@ -4,7 +4,7 @@ import { authUserSelect, authUserWithHashSelect, toAuthUser } from '#server/db/u
 import { hashPassword, verifyPassword } from '#server/utils/auth'
 import { toHttpError } from '#server/utils/http-errors'
 import type { IAuthUser } from '#shared/types/auth'
-import type { TCredentialsInput } from '#shared/validation/auth'
+import type { TCredentialsInput, TProfileInput, TRegistrationInput } from '#shared/validation/auth'
 
 const authErrors = { conflict: 'Email is already registered' }
 
@@ -16,12 +16,15 @@ const buildInvalidCredentialsError = () =>
  * The insert is the uniqueness check: a `findUnique` first would race. A duplicate also pays for
  * a hash before being refused, which closes the timing difference.
  */
-async function registerUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
+async function registerUser({ email, password, name }: TRegistrationInput): Promise<IAuthUser> {
   const passwordHash = await hashPassword(password)
 
   try {
     return toAuthUser(
-      await prisma.user.create({ data: { email, passwordHash }, select: authUserSelect }),
+      await prisma.user.create({
+        data: { email, name, passwordHash },
+        select: authUserSelect,
+      }),
     )
   } catch (error) {
     throw toHttpError(error, authErrors)
@@ -43,8 +46,15 @@ async function findAuthUser(userId: string): Promise<IAuthUser | null> {
   return user ? toAuthUser(user) : null
 }
 
+async function updateProfile(userId: string, { name }: TProfileInput): Promise<IAuthUser> {
+  return toAuthUser(
+    await prisma.user.update({ where: { id: userId }, data: { name }, select: authUserSelect }),
+  )
+}
+
 export const AuthService = {
   registerUser,
   authenticateUser,
   findAuthUser,
+  updateProfile,
 }

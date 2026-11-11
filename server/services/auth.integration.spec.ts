@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AuthService } from '#server/services/auth'
 import { prisma } from '#server/db/prisma'
 
-const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
+const CREDENTIALS = { name: 'Ada', email: 'ada@example.com', password: 'correct-horse' }
 
 describe('registration is arbitrated by the unique index, not by a pre-check', () => {
   it('lets exactly one of two concurrent registrations win', async () => {

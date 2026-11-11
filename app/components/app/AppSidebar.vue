@@ -51,8 +51,17 @@
     </div>
 
     <div v-if="auth.user" class="app-sidebar__user">
-      <span class="app-sidebar__avatar" aria-hidden="true">{{ toInitials(auth.user.email) }}</span>
-      <span class="app-sidebar__email">{{ auth.user.email }}</span>
+      <span class="app-sidebar__avatar" aria-hidden="true">{{ toInitials(auth.user.name) }}</span>
+      <span class="app-sidebar__identity">
+        <span class="app-sidebar__name-line">{{ auth.user.name }}</span>
+        <span class="app-sidebar__email">{{ auth.user.email }}</span>
+      </span>
+      <BaseButton
+        variant="icon"
+        prepend-icon="material-symbols:person-edit-outline-rounded"
+        label="Edit profile"
+        @click="isProfileOpen = true"
+      />
       <BaseButton
         variant="icon"
         prepend-icon="material-symbols:logout-rounded"
@@ -60,6 +69,12 @@
         @click="auth.logout()"
       />
     </div>
+
+    <LazyProfileFormModal
+      v-if="isProfileOpen"
+      @saved="isProfileOpen = false"
+      @close="isProfileOpen = false"
+    />
 
     <LazyTableFormModal
       v-if="isCreateOpen"
@@ -84,6 +99,7 @@ const tablesStore = useTablesStore()
 const auth = useAuthStore()
 
 const isCreateOpen = ref(false)
+const isProfileOpen = ref(false)
 
 async function submitTable(name: string) {
   const table = await tablesStore.createTable({ name })
@@ -238,11 +254,23 @@ const isHome = computed(() => route.path === '/')
     color: var(--color-text-secondary);
   }
 
-  &__email {
+  &__identity {
+    display: flex;
     flex: 1;
+    flex-direction: column;
     min-width: 0;
+  }
+
+  &__name-line {
     font-size: var(--font-size-sm);
     font-weight: 500;
+
+    @include truncate;
+  }
+
+  &__email {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
 
     @include truncate;
   }

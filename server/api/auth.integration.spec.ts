@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import login from '#server/api/auth/login.post'
 import logout from '#server/api/auth/logout.post'
 import me from '#server/api/auth/me.get'
+import updateMe from '#server/api/auth/me.patch'
 import register from '#server/api/auth/register.post'
 import authMiddleware from '#server/middleware/auth'
 import { AUTH_COOKIE, signAuthToken } from '#server/utils/auth'
@@ -9,7 +10,7 @@ import { prisma } from '#server/db/prisma'
 import { cookieHeader, testEvent } from '~~/test/integration/event'
 import { createUser } from '~~/test/integration/seed'
 
-const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
+const CREDENTIALS = { name: 'Ada Lovelace', email: 'ada@example.com', password: 'correct-horse' }
 
 const post = (body: unknown) => testEvent({ method: 'POST', body })
 
@@ -23,7 +24,11 @@ describe('registering', () => {
 
     const result = await register(event)
 
-    expect(result.user).toEqual({ id: expect.any(String), email: CREDENTIALS.email })
+    expect(result.user).toEqual({
+      id: expect.any(String),
+      email: CREDENTIALS.email,
+      name: CREDENTIALS.name,
+    })
     expect(JSON.stringify(result)).not.toContain('passwordHash')
   })
 
@@ -68,6 +73,13 @@ describe('registering', () => {
     await expect(register(post({ ...CREDENTIALS, email: 'not-an-email' }))).rejects.toMatchObject({
       statusCode: 400,
     })
+  })
+
+  it('400s without a name, creating nothing', async () => {
+    const { name: _name, ...nameless } = CREDENTIALS
+
+    await expect(register(post(nameless))).rejects.toMatchObject({ statusCode: 400 })
+    await expect(prisma.user.count()).resolves.toBe(0)
   })
 })
 
@@ -128,6 +140,34 @@ describe('the session endpoints', () => {
 
   it('401s for an anonymous caller', () => {
     expect(() => me(testEvent())).toThrow(expect.objectContaining({ statusCode: 401 }))
+  })
+
+  it('renames the caller and returns the updated user', async () => {
+    const user = await createUser()
+
+    const result = await updateMe(testEvent({ user, method: 'PATCH', body: { name: '  Ada  ' } }))
+
+    expect(result.user).toEqual({ ...user, name: 'Ada' })
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { name: true } }),
+    ).resolves.toEqual({ name: 'Ada' })
+  })
+
+  it('400s on a blank name, leaving the stored one alone', async () => {
+    const user = await createUser()
+
+    await expect(
+      updateMe(testEvent({ user, method: 'PATCH', body: { name: '   ' } })),
+    ).rejects.toMatchObject({ statusCode: 400 })
+    await expect(
+      prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { name: true } }),
+    ).resolves.toEqual({ name: user.name })
+  })
+
+  it('401s a rename from an anonymous caller', async () => {
+    await expect(
+      updateMe(testEvent({ method: 'PATCH', body: { name: 'Ada' } })),
+    ).rejects.toMatchObject({ statusCode: 401 })
   })
 
   it('expires the cookie on logout', async () => {

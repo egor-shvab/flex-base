@@ -54,6 +54,7 @@ test.describe('signed out', () => {
     const email = `new-${Date.now()}@example.com`
 
     await page.goto('/auth/register')
+    await page.getByLabel('Name').fill('New Person')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery')
     await page.getByLabel('Confirm password').fill('correct-horse-battery')
@@ -61,6 +62,9 @@ test.describe('signed out', () => {
 
     await expect(page).toHaveURL('/')
     await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
+    await expect(
+      page.getByRole('navigation', { name: 'Your tables' }).getByText('New Person'),
+    ).toBeVisible()
   })
 })
 
@@ -77,6 +81,30 @@ test.describe('signed in', () => {
     await page.goto('/auth/login')
 
     await expect(page).toHaveURL('/')
+  })
+
+  test('the profile dialog renames you, and the sidebar follows', async ({ page }) => {
+    const sidebar = page.getByRole('navigation', { name: 'Your tables' })
+
+    await page.goto('/')
+    await expect(sidebar.getByText(E2E_USER.name)).toBeVisible()
+
+    await sidebar.getByRole('button', { name: 'Edit profile' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Edit profile' })
+    await dialog.getByLabel('Name').fill('Renamed Person')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    await expect(dialog).toBeHidden()
+    await expect(sidebar.getByText('Renamed Person')).toBeVisible()
+
+    await page.reload()
+    await expect(sidebar.getByText('Renamed Person')).toBeVisible()
+
+    // The account is shared by the whole run
+    await sidebar.getByRole('button', { name: 'Edit profile' }).click()
+    await dialog.getByLabel('Name').fill(E2E_USER.name)
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect(sidebar.getByText(E2E_USER.name)).toBeVisible()
   })
 
   test('logging out ends the session and protects the pages again', async ({ page }) => {
