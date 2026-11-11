@@ -31,15 +31,22 @@ Non-negotiable:
 
 - **Metadata-driven** — forms, tables and APIs come from configuration in the database, never from
   hardcoded entities. A new field type plugs into the registries without rewrites (§9).
-- **Server-enforced ownership** — every resource belongs to one user, checked on the server on every
-  request.
+- **Server-enforced access** — every resource belongs to one workspace; membership and the role's
+  permissions are checked on the server on every request.
 - **Full TypeScript coverage**, with zod schemas shared by client and server; **YAGNI** — build what
   the change needs, favouring clean architecture over short-term optimisation.
 
-**Out of scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity
-history, workflows, automations, file uploads, import/export, third-party integrations. The
-architecture may be shaped to accommodate them only where that also improves existing code. A design
-element whose feature is out of scope is not built.
+**In scope:** workspaces (create, rename, delete, switch, transfer ownership), members invited by
+email and accepted in the app, custom roles over a closed permission set, a user's display name, and
+record authorship (`createdBy`/`updatedBy`). While `WORKSPACES_IMPLEMENTATION_PLAN.md` exists it is
+the agreed design for that work and is followed stage by stage.
+
+**Out of scope unless explicitly asked:** per-table or per-field access, invite links, sending email
+or verifying addresses, billing, real-time updates, workspace slug/logo/time zone, moving a table
+between workspaces, account deletion, dashboards, activity history, workflows, automations, file
+uploads, import/export, third-party integrations. The architecture may be shaped to accommodate them
+only where that also improves existing code. A design element whose feature is out of scope is not
+built.
 
 `docs/limitations.md` **Open** entries are in scope; **Accepted** ones are not unless a request says
 so — and an Open entry waits behind its stated trigger.
@@ -127,15 +134,19 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   `FieldService`, `RecordService`, `RelationService`), called as `FieldService.createField(…)`;
   method names are never shortened. `app/api/` modules are bound per resource inside a store, so
   their members stay bare (`api.list`, `api.remove`).
-- **A table-scoped route is declared with a factory from `server/utils/handler.ts`**, never a bare
-  `defineEventHandler` — the ownership check is what produces the context. A shape none covers
-  **adds a factory**.
-- **Ownership lives in the query:** scope every Prisma query inside its `where` (`{ id, userId }` or
-  a relation filter through `table`) via `server/utils/ownership.ts` — never fetch then check.
-- **Status codes:** another user's resource is **404, never 403**; 401 only from
-  `requireUser(event)`; 409 for uniqueness conflicts; every login failure is the same generic 401.
-- `User` rows are read with an explicit `select` (`id`, `email`); `passwordHash` never leaves. Never
-  return another user's data.
+- **A workspace- or table-scoped route is declared with a factory from `server/utils/handler.ts`**,
+  never a bare `defineEventHandler`, and names the permission it needs — the membership check is
+  what produces the context. A shape none covers **adds a factory**.
+- **Access lives in the query:** membership is resolved from the caller's id and the workspace
+  address in one scoped query; every later `where` takes its `workspaceId` from that result (or a
+  `tableId` proved through it), never from a body or an address — never fetch then check.
+- **Role rules live in `shared/`**: a non-owner may only assign, edit or act on a role whose
+  permissions are a subset of their own; one function decides it for server and client alike.
+- **Status codes:** a resource outside the caller's workspaces is **404, never 403**; a member
+  lacking the permission is **403**; 401 only from `requireUser(event)`; 409 for uniqueness and
+  in-use conflicts; every login failure is the same generic 401.
+- `User` rows are read with an explicit `select`; `passwordHash` never leaves. A user's email
+  reaches only members of a workspace they share; authorship carries `id` and `name` only.
 - Errors are `createError({ statusCode, statusMessage })`. Secrets come from
   `useRuntimeConfig(event)`, never `process.env` (sole exception: `server/db/prisma.ts`).
 - Record lists are **always paginated server-side** (default 50, cap 100). **No queries in loops** —
