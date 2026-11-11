@@ -297,32 +297,50 @@ model Record {
 
 ### 4.3. `shared/`
 
-По слоям `types` → `constants` → `utils` → `validation`:
+По слоям `types` → `constants` → `utils` → `validation`. Объявление появляется вместе со своим
+потребителем (`CLAUDE.md` §3, YAGNI): этап 3 положил только то, что нужно правилам и схемам,
+остальное приходит с этапом, который его читает.
 
-- **`shared/types/workspace.ts`** — `TWorkspacePermission` (как `TFieldType`: тип выводится из
-  константы-списка), `IWorkspace` (`id`, `publicId`, `name`, `createdAt`),
-  `IWorkspaceMembership` (`workspace`, `isOwner`, `role: IRoleRef`, `permissions`),
-  `IWorkspaceRole` (`id`, `name`, `permissions`, `memberCount`), `IWorkspaceMember` (`id`, `user:
-IUserRef`, `role: IRoleRef`, `isOwner`, `joinedAt`), `IWorkspaceInvitation` (для админа: `id`,
-  `email`, `role`, `invitedBy`, `expiresAt`), `IIncomingInvitation` (для приглашённого: `id`,
-  `workspace: { name }`, `role: { name }`, `invitedBy`, `expiresAt`).
-- **`shared/types/auth.ts`** — `IAuthUser` получает `name`; новый `IUserRef` (`id`, `name`) для
-  авторства и участников (email участника отдаётся только в `IWorkspaceMember`).
-- **`shared/types/record.ts`** — `IRecordDetail` = `IRecord` + `createdBy`, `updatedBy`
-  (`IUserRef | null`) — только для ответа на чтение одной записи.
-- **`shared/constants/workspace.ts`** — `WORKSPACE_PERMISSIONS` (порядок для UI, с label и описанием),
-  `DEFAULT_WORKSPACE_ROLES`, `INVITATION_TTL_DAYS = 7`, `MAX_PENDING_INVITATIONS = 50`,
-  `MAX_WORKSPACE_ROLES = 20`, `PERSONAL_WORKSPACE_NAME`.
-- **`shared/utils/permissions.ts`** — чистые предикаты: `hasPermission(membership, permission)`,
-  `isPermissionSubset(subset, of)`, `canAssignRole(actor, role)`, `canManageMember(actor, member)`,
-  `canEditRole(actor, role, nextPermissions?)` — реализация §3.3. Этот файл — единственный источник
-  правила для обеих сторон.
+**Сделано на этапе 3:**
+
+- **`shared/constants/workspace.ts`** — `WORKSPACE_PERMISSIONS` (порядок для редактора ролей;
+  повторяет Prisma-enum `WorkspacePermission`), `WORKSPACE_ADDRESS_ALPHABET` и
+  `WORKSPACE_ADDRESS_LENGTH` (общие для `buildPublicId` и `parseWorkspaceAddress`),
+  `RESERVED_ROLE_NAME = 'Owner'`.
+- **`shared/types/workspace.ts`** — `TWorkspacePermission` (выводится из константы, как
+  `TFieldType`), `IWorkspace` (`id`, `publicId`, `name`, `createdAt`) и входы правил:
+  `IWorkspaceActor` (`memberId`, `isOwner`, `permissions`), `IPermissionSet` (`permissions`),
+  `IManagedMember` (`id`, `isOwner`, `role: IPermissionSet`).
+- **`shared/utils/permissions.ts`** — `hasPermission(actor, permission)` (владелец — всё),
+  `isPermissionSubset(subset, of)`, `canAssignRole(actor, role)` (правило 1),
+  `canCreateRole(actor, permissions)` и `canEditRole(actor, role, nextPermissions?)` (правило 3),
+  `canManageMember(actor, member)` (правила 2, 4, 5). Функции отвечают **только** на правило §3.3;
+  право маршрута проверяет фабрика до них. Единственный источник правила для обеих сторон.
 - **`shared/validation/workspace.ts`** — `workspaceInputSchema` (`name: nameSchema`),
-  `roleInputSchema` (`name`, `permissions`: массив из enum без повторов; имя `Owner` в любом регистре
-  запрещено), `memberRoleInputSchema` (`roleId`), `invitationInputSchema` (`email` →
+  `roleInputSchema` (`name` без «Owner» в любом регистре; `permissions` — обязательный массив enum
+  без повторов), `memberRoleInputSchema` (`roleId`), `invitationInputSchema` (`email` →
   `trim().toLowerCase()`, `roleId`), `transferOwnershipSchema` (`memberId`).
-- **`shared/validation/auth.ts`** — `registerSchema` получает `name: displayNameSchema` (trim,
-  1–80); `profileInputSchema` (`name`). `credentialsInputSchema` для входа не меняется.
+- **`shared/utils/address.ts`** — `parseWorkspaceAddress`, `toWorkspaceAddress` (§4.2).
+- **`shared/types/auth.ts`** (этапы 1–2) — `IAuthUser.name`, `IUserRef` (`id`, `name`).
+- **`shared/types/record.ts`** (этап 2) — `IRecordWithAuthors` = `IRecord` + `createdBy`,
+  `updatedBy` (`IUserRef | null`); `IRecordDetail.record` — этого типа. Список и ответы POST/PATCH
+  остаются на `IRecord`.
+
+**Приходит со своим потребителем:**
+
+- **Этап 4.** `IWorkspaceMembership` (`workspace`, `memberId`, `isOwner`, `role: IRoleRef`,
+  `permissions`) в `shared/types/workspace.ts` — `memberId` нужен `canManageMember` на клиенте.
+  `DEFAULT_WORKSPACE_ROLES` и `PERSONAL_WORKSPACE_NAME` — в `server/`: их читает только сервер.
+- **Этап 6.** `IWorkspaceRole` (`id`, `name`, `permissions`, `memberCount`).
+  `MAX_WORKSPACE_ROLES = 20` — в `server/`, в `shared/` только если клиент его покажет. Подписи и
+  описания прав — в `app/` (их читает только интерфейс), как `Record<TWorkspacePermission, …>`,
+  чтобы новое право не скомпилировалось без подписи.
+- **Этап 8.** `IWorkspaceMember` (`id`, `user: IUserRef`, `email`, `role`, `isOwner`, `joinedAt`) —
+  роль несёт `permissions` (или сопоставляется со списком ролей), чтобы клиент мог вызвать
+  `canManageMember`. `IWorkspaceInvitation` (для админа: `id`, `email`, `role`, `invitedBy`,
+  `expiresAt`), `IIncomingInvitation` (для приглашённого: `id`, `workspace: { name }`,
+  `role: { name }`, `invitedBy`, `expiresAt`). `INVITATION_TTL_DAYS = 7` и
+  `MAX_PENDING_INVITATIONS = 50` — в `server/` (в `shared/`, если клиент покажет срок).
 
 ### 4.4. `server/`
 
@@ -363,7 +381,7 @@ IUserRef`, `role: IRoleRef`, `isOwner`, `joinedAt`), `IWorkspaceInvitation` (д�
   - Порядок внутри фабрики: `requireUser` → `requireMembership` → `assertPermission` → табличный
     `require*` по `membership.workspaceId`. Право проверяется **до** загрузки таблицы — участник без
     права получает 403 и для несуществующей таблицы, что ничего не раскрывает (он участник).
-- **`utils/public-id.ts`** — §4.2.
+- **`utils/public-id.ts`** — `buildPublicId`, §4.2.
 
 **Сервисы** (каждый — один объект, полные имена методов):
 
@@ -389,8 +407,8 @@ role first` (по `P2003`, без предварительного `count` — �
   приглашение — 404.
 - **`TableService`** — все методы берут `workspaceId` вместо `userId`; `createTable` наращивает
   `Workspace.tableCounter`; `assertNotRelationTarget(workspaceId, tableId)`.
-- **`RecordService`** — `createRecord`/`updateRecord` принимают `actorId`; `getRecord` возвращает
-  `IRecordDetail`.
+- **`RecordService`** — `createRecord`/`updateRecord` принимают `actorId`; `getRecordDetail` отдаёт
+  запись как `IRecordWithAuthors`.
 
 **Маршруты** — табличные переезжают под пространство:
 
@@ -596,7 +614,7 @@ Conventional Commit.
 ### Этап 2. Авторство записей
 
 - **Что**: `Record.createdById/updatedById` (nullable, `SetNull`, backfill = `Table.userId`
-  таблицы); `RecordService.createRecord/updateRecord(…, actorId)`; `getRecord` → `IRecordDetail`;
+  таблицы); `RecordService.createRecord/updateRecord(…, actorId)`; `getRecordDetail` → `IRecordWithAuthors`;
   обработчики передают `user.id`; `RecordDetail` показывает авторов.
 - **Затронуто**: `prisma/`, `server/db/records.ts`, `server/services/records.ts`, маршруты записей,
   `shared/types/record.ts`, `shared/types/api.ts`, `app/components/records/RecordDetail.vue`, seed.
@@ -609,11 +627,12 @@ Conventional Commit.
 
 - **Что**: `shared/types/workspace.ts`, `shared/constants/workspace.ts`,
   `shared/utils/permissions.ts`, `shared/validation/workspace.ts`, `parseWorkspaceAddress`,
-  `toWorkspaceAddress` в `shared/utils/address.ts`; `server/utils/public-id.ts`.
-- **Затронуто**: только новые модули.
+  `toWorkspaceAddress` в `shared/utils/address.ts`; `server/utils/public-id.ts` (`buildPublicId`).
+  Типы ответов и константы без потребителя — не здесь (§4.3, «Приходит со своим потребителем»).
+- **Затронуто**: новые модули и `shared/utils/address.ts`.
 - **Зависит от**: —
 - **Результат**: чистые, полностью покрытые unit-тестами правила доступа (§3.3) и схемы.
-- **Проверить**: таблица случаев для `canAssignRole`/`canManageMember`/`canEditRole` (владелец,
+- **Проверить**: таблица случаев для `canAssignRole`/`canCreateRole`/`canEditRole`/`canManageMember` (владелец,
   подмножество, надмножество, своя роль, владелец как цель); валидация отвергает повторы прав и
   имя «Owner»; генератор `publicId` на подменённом источнике.
 
@@ -633,7 +652,8 @@ Conventional Commit.
   `ownership.ts` на `workspaceId`, `TableService` на `workspaceId`, перенос
   `server/api/tables/**` → `server/api/workspaces/[workspaceAddress]/tables/**`,
   `GET /api/workspaces`, `GET /api/workspaces/:ws`, `PUT /api/auth/last-workspace`,
-  `registerUser` создаёт личное пространство, lint-правило на новый glob, `isForeignKeyViolation`.
+  `registerUser` создаёт личное пространство, lint-правило на новый glob, `isForeignKeyViolation`;
+  `IWorkspaceMembership`, `DEFAULT_WORKSPACE_ROLES`, `PERSONAL_WORKSPACE_NAME` (§4.3).
 - **4.3. Миграция B**: удалить `Table.userId`, старые уникальные ограничения, `User.tableCounter`.
   Это колонки, выводимые из новых данных, а не пользовательские данные; продакшена нет.
 - **4.4. Клиент**: `apiPath` с `workspaceAddress`, перенос страниц под `/w/[workspaceAddress]/`,
@@ -667,7 +687,7 @@ Conventional Commit.
 ### Этап 6. Роли
 
 - **Что**: `RoleService` и маршруты ролей; `stores/roles.ts`; страница `settings/roles`,
-  `RoleFormModal`.
+  `RoleFormModal`; `IWorkspaceRole`, `MAX_WORKSPACE_ROLES`, подписи прав в `app/` (§4.3).
 - **Зависит от**: 4 (5 — для навигации по настройкам).
 - **Результат**: роли создаются, редактируются, удаляются по правилам §3.3.
 - **Проверить**: unit (prisma-mock) — проверки §3.3 срабатывают до запроса записи; интеграция —
@@ -688,7 +708,8 @@ Conventional Commit.
 - **Что**: `MemberService`, `InvitationService` и их маршруты; `POST …/transfer`, `POST …/leave`;
   `stores/members.ts`, `stores/invitations.ts`; страница `settings/members`, `InviteMemberModal`,
   `TransferOwnershipModal`; `/invitations` и бейдж в переключателе; «Leave workspace» в
-  `settings/danger`.
+  `settings/danger`; `IWorkspaceMember`, `IWorkspaceInvitation`, `IIncomingInvitation`,
+  `INVITATION_TTL_DAYS`, `MAX_PENDING_INVITATIONS` (§4.3).
 - **Зависит от**: 6, 7.
 - **Результат**: полный цикл: пригласить → принять/отклонить → сменить роль → исключить/выйти →
   передать владение.
