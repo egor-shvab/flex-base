@@ -80,12 +80,17 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     if (membership) applyMembership({ ...membership, workspace })
   }
 
-  async function deleteWorkspace(workspaceAddress: string) {
-    await api.remove(workspaceAddress)
+  /** Gone for the caller — deleted, or they were removed — so neither `/` nor the switcher offers it. */
+  function removeMembership(workspaceAddress: string) {
     memberships.value = memberships.value.filter(
       (membership) => membership.workspace.publicId !== workspaceAddress,
     )
     if (lastWorkspaceAddress.value === workspaceAddress) lastWorkspaceAddress.value = null
+  }
+
+  async function deleteWorkspace(workspaceAddress: string) {
+    await api.remove(workspaceAddress)
+    removeMembership(workspaceAddress)
   }
 
   /** Held here too, so `/` reached later in this visit opens it without asking the server. */
@@ -106,6 +111,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     createWorkspace,
     renameWorkspace,
     deleteWorkspace,
+    removeMembership,
     rememberLastWorkspace,
   }
 })

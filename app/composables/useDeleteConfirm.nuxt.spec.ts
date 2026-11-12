@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick } from 'vue'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 
+const resyncAccess = vi.hoisted(() => vi.fn())
+
+vi.mock('~/composables/useAccessResync', () => ({
+  useAccessResync: () => ({ resyncAccess }),
+}))
+
 interface ITable {
   id: string
   name: string
@@ -65,6 +71,21 @@ describe('useDeleteConfirm', () => {
     expect(confirmer.target.value).toBe(TABLE)
     expect(confirmer.dialogProps.value.pending).toBe(false)
     expect(confirmer.dialogProps.value.error).toBe('Remove the field “owner” first')
+
+    confirmer.stop()
+  })
+
+  it('hands a failed delete to the access resync', async () => {
+    resyncAccess.mockClear()
+    const failure = { statusCode: 403, data: { statusMessage: 'No' } }
+    const confirmer = setup(async () => {
+      throw failure
+    })
+
+    confirmer.target.value = TABLE
+    await confirmer.confirm()
+
+    expect(resyncAccess).toHaveBeenCalledWith(failure)
 
     confirmer.stop()
   })

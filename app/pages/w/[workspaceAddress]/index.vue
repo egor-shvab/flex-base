@@ -14,6 +14,7 @@
           </p>
         </div>
         <BaseButton
+          v-if="canManageTables"
           class="dashboard__create"
           prepend-icon="material-symbols:add-rounded"
           @click="isCreateOpen = true"
@@ -29,7 +30,7 @@
       icon="material-symbols:table-outline-rounded"
     >
       A table is a list of things you want to keep track of — customers, deals, invoices.
-      <template #action>
+      <template v-if="canManageTables" #action>
         <BaseButton @click="isCreateOpen = true">Add table</BaseButton>
       </template>
     </BaseEmptyState>
@@ -96,7 +97,9 @@ import { toTableAddress } from '#shared/utils/address'
 useSeoMeta({ title: 'Your tables' })
 
 const tablesStore = useTablesStore()
-const { workspaceAddress } = useActiveWorkspace()
+const { workspaceAddress, hasPermission } = useActiveWorkspace()
+
+const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
 
 const breadcrumbs: IBreadcrumb[] = [{ label: 'Home' }]
 

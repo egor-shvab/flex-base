@@ -21,13 +21,23 @@ const RECORDS: IRecord[] = [
   record({ id: 'rec_2', number: 2, data: { company: 'Globex', total: 2000 } }),
 ]
 
-function table(props: { fields?: IField[]; records?: IRecord[]; sort?: IRecordSort | null } = {}) {
+interface ITableProps {
+  fields?: IField[]
+  records?: IRecord[]
+  sort?: IRecordSort | null
+  editable?: boolean
+  deletable?: boolean
+}
+
+function table(props: ITableProps = {}) {
   return mountTracked(RecordsTable, {
     props: {
       tableNumber: TABLE_NUMBER,
       fields: props.fields ?? FIELDS,
       records: props.records ?? RECORDS,
       sort: props.sort ?? null,
+      editable: props.editable ?? true,
+      deletable: props.deletable ?? true,
     },
   })
 }
@@ -259,6 +269,23 @@ describe('RecordsTable', () => {
       for (const row of rows(wrapper)) {
         expect(row.findAll('.records-table__actions-group > *')).toHaveLength(3)
       }
+    })
+
+    it('offers only what the caller may do, and always the view', async () => {
+      const wrapper = await table({ editable: false, deletable: false })
+
+      for (const row of rows(wrapper)) {
+        expect(row.find('[aria-label="View record"]').exists()).toBe(true)
+        expect(row.find('[aria-label="Edit record"]').exists()).toBe(false)
+        expect(row.find('[aria-label="More actions"]').exists()).toBe(false)
+      }
+    })
+
+    it('keeps the delete menu for a caller who may delete but not edit', async () => {
+      const wrapper = await table({ editable: false, deletable: true })
+
+      expect(rows(wrapper)[0]!.find('[aria-label="Edit record"]').exists()).toBe(false)
+      expect(rows(wrapper)[0]!.find('[aria-label="More actions"]').exists()).toBe(true)
     })
   })
 })

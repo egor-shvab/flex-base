@@ -95,20 +95,16 @@ import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useRolesStore } from '~/stores/roles'
-import { useWorkspacesStore } from '~/stores/workspaces'
 import { formatCount } from '~/utils/format'
 import { summarisePermissions } from '~/utils/workspace-permissions'
 import type { IWorkspaceRole } from '#shared/types/workspace'
-import { canEditRole, hasPermission } from '#shared/utils/permissions'
+import { canEditRole } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 const rolesStore = useRolesStore()
-const workspacesStore = useWorkspacesStore()
-const { workspaceAddress } = useActiveWorkspace()
+const { workspaceAddress, membership, hasPermission } = useActiveWorkspace()
 
 const titleId = useId()
-
-const membership = computed(() => workspacesStore.findMembership(workspaceAddress.value))
 
 const { status, refresh } = await useAsyncData(`workspace-roles-${workspaceAddress.value}`, () =>
   rolesStore.fetchRoles(workspaceAddress.value),
@@ -118,9 +114,7 @@ async function retryRoles() {
   await refresh()
 }
 
-const canManageRoles = computed(
-  () => membership.value !== undefined && hasPermission(membership.value, 'ROLES_MANAGE'),
-)
+const canManageRoles = computed(() => hasPermission('ROLES_MANAGE'))
 
 function canChangeRole(role: IWorkspaceRole): boolean {
   return canManageRoles.value && canEditRole(membership.value!, role)

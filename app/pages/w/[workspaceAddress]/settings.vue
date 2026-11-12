@@ -32,7 +32,6 @@
 import { computed } from 'vue'
 import { useSeoMeta } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
-import { useWorkspacesStore } from '~/stores/workspaces'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import { pagePath, type TWorkspaceSettingsSection } from '~/utils/page-path'
 
@@ -44,16 +43,13 @@ interface ISettingsSection {
 
 useSeoMeta({ title: 'Workspace settings' })
 
-const workspacesStore = useWorkspacesStore()
-const { workspaceAddress } = useActiveWorkspace()
-
-const membership = computed(() => workspacesStore.findMembership(workspaceAddress.value))
+const { workspaceAddress, isOwner } = useActiveWorkspace()
 
 // The danger zone holds only the owner's actions so far
 const sections = computed<ISettingsSection[]>(() => [
   { id: 'general', label: 'General', icon: 'material-symbols:tune-rounded' },
   { id: 'roles', label: 'Roles', icon: 'material-symbols:shield-person-outline-rounded' },
-  ...(membership.value?.isOwner
+  ...(isOwner.value
     ? [
         {
           id: 'danger' as const,

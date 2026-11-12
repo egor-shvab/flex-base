@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getApiErrorMessage, toPageError } from '~/utils/api-error'
+import { getApiErrorMessage, isWorkspaceMissing, toPageError } from '~/utils/api-error'
 
 const GENERIC = 'Something went wrong. Please try again.'
 
@@ -100,5 +100,37 @@ describe('toPageError', () => {
       statusCode: 404,
       statusMessage: 'We couldn’t find that table.',
     })
+  })
+})
+
+describe('isWorkspaceMissing', () => {
+  const marked = { data: { statusMessage: 'Workspace not found', data: { missing: 'workspace' } } }
+
+  it('is true for a 404 the server marked as the workspace’s', () => {
+    expect(isWorkspaceMissing({ statusCode: 404, ...marked })).toBe(true)
+  })
+
+  it('is false for a table’s 404, another status, or no error shape at all', () => {
+    expect(
+      isWorkspaceMissing({ statusCode: 404, data: { statusMessage: 'Table not found' } }),
+    ).toBe(false)
+    expect(isWorkspaceMissing({ statusCode: 403, ...marked })).toBe(false)
+    expect(isWorkspaceMissing(null)).toBe(false)
+    expect(isWorkspaceMissing('boom')).toBe(false)
+  })
+})
+
+describe('reading a fetch error', () => {
+  /** `ofetch`'s `FetchError` serves `data` from a prototype getter, which a spread drops. */
+  class GetterFailure {
+    readonly statusCode = 404
+    get data() {
+      return { statusMessage: 'Workspace not found', data: { missing: 'workspace' } }
+    }
+  }
+
+  it('finds the workspace marker behind a getter', () => {
+    expect(isWorkspaceMissing(new GetterFailure())).toBe(true)
+    expect(toPageError(new GetterFailure()).statusMessage).toBe('We couldn’t find that workspace.')
   })
 })

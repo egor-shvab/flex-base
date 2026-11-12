@@ -343,6 +343,15 @@ Only what the name and the code do not say.
   change), and exposes navigations, not state.
 - **`composables/useDeleteConfirm.ts`** — clears the target **only on success**; a refusal renders
   in the dialog.
+- **`composables/useActiveWorkspace.ts`** — the one place a component asks what the caller may do
+  (`hasPermission`, `isOwner`), answered from the membership in the workspaces store, which the
+  parent page loads during SSR — so a hidden control is hidden on both sides of hydration.
+  **Unknown is "no"**: a control appears once allowed, never flickers away.
+- **`composables/useAccessResync.ts`** — every failure inside a workspace passes through it:
+  `useForm` and `useDeleteConfirm` hand it each refused write, the loaders throw through
+  `throwPageError`. A 403 refetches the membership, so the narrowed role's controls disappear; a
+  workspace 404 drops the workspace from the store before the error page, or `/` would send the
+  caller straight back to it.
 - **`composables/usePopover.ts`** — `containerRef` (outside-click boundary) and `triggerRef`
   (focus-restore target) are separate. **`useAnchoredPosition.ts`** — flips
   above by anchoring `bottom`, reflows on `scroll` **captured at `window`**.
@@ -353,7 +362,8 @@ Only what the name and the code do not say.
   abort + a monotonic request id drop out-of-order responses.
 - **`utils/api-error.ts`** — `toPageError` asserts a cause only for a 404, names the workspace
   only from `data.missing` (`INotFoundData`), never from the message, and is always `fatal`: Nuxt
-  shows a non-fatal error on the client only on a cold load.
+  shows a non-fatal error on the client only on a cold load. **A `FetchError`'s `data` is a
+  prototype getter** — read it off the error, never off a spread copy.
 - **`pages/w/[workspaceAddress].vue`** — the parent of every page in a workspace: its membership
   fetch (through the workspaces store, which keeps it) is the workspace's one 404, and it records
   the visit once that passed.
@@ -418,6 +428,9 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
   chain and returns focus; a deleted target reads "This record no longer exists."; the link's ring
   is not clipped; `Open in …` absent for the current table; badge height equal in row and dialog.
 - **Row actions:** Delete in the `⋯` menu; keyboard focus into it; Escape closes the menu alone.
+- **Permissions:** an Editor gets records but no schema control; a Viewer no change at all; a role
+  narrowed mid-session hides its controls on the first 403; a member removed mid-session lands on
+  the workspace's 404 and `/` no longer offers it.
 - **Multi-value:** the option appears for SELECT and RELATION only and locks once saved; widening
   keeps values, narrowing is a 400; one line in the table (values that fit, in full), wrapped in the
   dialog, cleared reads `Not set`; required/duplicate/over-cap validation; sorts by first value;

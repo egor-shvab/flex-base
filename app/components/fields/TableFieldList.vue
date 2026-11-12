@@ -5,9 +5,11 @@
       title="No fields yet"
       icon="material-symbols:view-column-outline-rounded"
     >
-      Fields decide what each record stores. Add one and it becomes a column here and a question on
-      the form.
-      <template #action>
+      Fields decide what each record stores.
+      <template v-if="editable">
+        Add one and it becomes a column here and a question on the form.
+      </template>
+      <template v-if="editable" #action>
         <BaseButton @click="emit('create')">Add field</BaseButton>
       </template>
     </BaseEmptyState>
@@ -42,7 +44,7 @@
           </div>
         </div>
 
-        <div class="field-row__actions">
+        <div v-if="editable" class="field-row__actions">
           <BaseButton
             variant="icon"
             prepend-icon="material-symbols:edit-outline-rounded"
@@ -70,10 +72,14 @@ import { isMultiValue } from '#shared/field-types/cardinality'
 import { FIELD_CONFIG_SUMMARIES, FIELD_TYPE_ICONS } from '~/field-types/registry'
 import type { IFieldConfigSummaryContext } from '~/field-types/types'
 
-const props = defineProps<{
-  fields: IField[]
-  summaryContext: IFieldConfigSummaryContext
-}>()
+const props = withDefaults(
+  defineProps<{
+    fields: IField[]
+    summaryContext: IFieldConfigSummaryContext
+    editable?: boolean
+  }>(),
+  { editable: false },
+)
 
 const emit = defineEmits<{
   create: []

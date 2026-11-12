@@ -57,20 +57,15 @@ import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useForm } from '~/composables/useForm'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { formatTimestamp } from '~/utils/format'
-import { hasPermission } from '#shared/utils/permissions'
 import { workspaceInputSchema } from '#shared/validation/workspace'
 
 const workspacesStore = useWorkspacesStore()
-const { workspaceAddress } = useActiveWorkspace()
+const { workspaceAddress, membership, hasPermission } = useActiveWorkspace()
 
 const titleId = useId()
 const nameInputId = useId()
 
-const membership = computed(() => workspacesStore.findMembership(workspaceAddress.value))
-
-const canRename = computed(
-  () => membership.value !== undefined && hasPermission(membership.value, 'WORKSPACE_UPDATE'),
-)
+const canRename = computed(() => hasPermission('WORKSPACE_UPDATE'))
 
 const savedMessage = ref('')
 

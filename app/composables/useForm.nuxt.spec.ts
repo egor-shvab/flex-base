@@ -3,6 +3,12 @@ import { effectScope, nextTick } from 'vue'
 import { z } from 'zod'
 import { useForm } from '~/composables/useForm'
 
+const resyncAccess = vi.hoisted(() => vi.fn())
+
+vi.mock('~/composables/useAccessResync', () => ({
+  useAccessResync: () => ({ resyncAccess }),
+}))
+
 const SCHEMA = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
   password: z.string().min(8, 'Use at least 8 characters'),
@@ -92,6 +98,24 @@ describe('useForm', () => {
     expect(form.isSubmitting.value).toBe(false)
 
     form.stop()
+  })
+
+  it('hands a rejected submit to the access resync, and a passing one never', async () => {
+    resyncAccess.mockClear()
+    const failure = { statusCode: 403, data: { statusMessage: 'No' } }
+    const refused = setup({ ...VALID }, async () => {
+      throw failure
+    })
+    const accepted = setup({ ...VALID }, async () => {})
+
+    await refused.submit()
+    await accepted.submit()
+
+    expect(resyncAccess).toHaveBeenCalledTimes(1)
+    expect(resyncAccess).toHaveBeenCalledWith(failure)
+
+    refused.stop()
+    accepted.stop()
   })
 
   it('falls back to generic copy for an error with no message', async () => {

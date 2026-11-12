@@ -69,12 +69,13 @@
                 "
               />
               <BaseButton
+                v-if="editable"
                 variant="icon"
                 prepend-icon="material-symbols:edit-outline-rounded"
                 label="Edit record"
                 @click="emit('edit', record)"
               />
-              <RecordRowMenu @delete="emit('delete', record)" />
+              <RecordRowMenu v-if="deletable" @delete="emit('delete', record)" />
             </div>
           </td>
         </tr>
@@ -93,12 +94,17 @@ import { buildQueryColumns } from '#shared/utils/filter'
 import { useDetailLink } from '~/composables/useDetailLink'
 import { FIELD_TYPE_ICONS, alignFor } from '~/field-types/registry'
 
-const props = defineProps<{
-  tableNumber: number
-  fields: IField[]
-  records: IRecord[]
-  sort?: IRecordSort | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    tableNumber: number
+    fields: IField[]
+    records: IRecord[]
+    sort?: IRecordSort | null
+    editable?: boolean
+    deletable?: boolean
+  }>(),
+  { sort: null, editable: false, deletable: false },
+)
 
 const detailLinkTo = useDetailLink()
 

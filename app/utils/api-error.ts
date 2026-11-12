@@ -16,7 +16,22 @@ export function getApiErrorMessage(error: unknown): string {
   )
 }
 
-function isWorkspaceMissing(data: unknown): boolean {
+export interface IHttpFailure {
+  statusCode?: number
+  data?: unknown
+}
+
+/**
+ * A 404 the server marked as the workspace's: not a member, or no such workspace. Read from the
+ * marker, never the message.
+ */
+export function isWorkspaceMissing(error: unknown): boolean {
+  const failure = error as IHttpFailure | null | undefined
+
+  return failure?.statusCode === 404 && hasWorkspaceMarker(failure.data)
+}
+
+function hasWorkspaceMarker(data: unknown): boolean {
   return (data as { data?: Partial<INotFoundData> } | undefined)?.data?.missing === 'workspace'
 }
 
@@ -33,7 +48,7 @@ function formatPageErrorMessage(statusCode: number, isWorkspace: boolean): strin
  * Fatal, or a client-side navigation leaves the previous page on screen: Nuxt shows its error page
  * on the client only for a fatal error.
  */
-export function toPageError(error: { statusCode?: number; data?: unknown }): {
+export function toPageError(error: IHttpFailure): {
   statusCode: number
   statusMessage: string
   fatal: true
@@ -42,7 +57,7 @@ export function toPageError(error: { statusCode?: number; data?: unknown }): {
 
   return {
     statusCode,
-    statusMessage: formatPageErrorMessage(statusCode, isWorkspaceMissing(error.data)),
+    statusMessage: formatPageErrorMessage(statusCode, hasWorkspaceMarker(error.data)),
     fatal: true,
   }
 }

@@ -4,7 +4,7 @@
       <h2 :id="titleId" class="section-head__title">Danger zone</h2>
     </div>
 
-    <div v-if="membership?.isOwner" class="danger-card">
+    <div v-if="isOwner" class="danger-card">
       <div class="danger-card__row">
         <div class="danger-card__text">
           <h3 class="danger-card__title">Delete workspace</h3>
@@ -50,11 +50,9 @@ import { formatCount } from '~/utils/format'
 
 const workspacesStore = useWorkspacesStore()
 const tablesStore = useTablesStore()
-const { workspaceAddress } = useActiveWorkspace()
+const { workspaceAddress, membership, isOwner } = useActiveWorkspace()
 
 const titleId = useId()
-
-const membership = computed(() => workspacesStore.findMembership(workspaceAddress.value))
 
 /** Counted only from a list known to be this workspace's: a stale one would misstate the loss. */
 const contentsSummary = computed(() => {

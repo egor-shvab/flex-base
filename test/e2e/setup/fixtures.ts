@@ -43,7 +43,8 @@ interface IFixtures {
 
 /**
  * By identity: the sign-up case registers a second user. The oldest is the personal one; any a
- * case created is removed, as is any role it added, and `/` is pointed back at it.
+ * case created is removed, as is any member or role it added, the default roles get their
+ * permissions back, and `/` is pointed back at it.
  */
 async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
   const owner = { email: E2E_USER.email }
@@ -54,12 +55,21 @@ async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
   })
 
   await prisma.workspace.deleteMany({ where: { owner, id: { not: workspace.id } } })
+  await prisma.workspaceMember.deleteMany({
+    where: { workspaceId: workspace.id, user: { isNot: owner } },
+  })
   await prisma.workspaceRole.deleteMany({
     where: {
       workspaceId: workspace.id,
       name: { notIn: DEFAULT_WORKSPACE_ROLES.map((role) => role.name) },
     },
   })
+  for (const role of DEFAULT_WORKSPACE_ROLES) {
+    await prisma.workspaceRole.update({
+      where: { workspaceId_name: { workspaceId: workspace.id, name: role.name } },
+      data: { permissions: [...role.permissions] },
+    })
+  }
   await prisma.user.update({ where: owner, data: { lastWorkspaceId: workspace.id } })
 
   return { ...workspace, url: `/w/${workspace.publicId}` }

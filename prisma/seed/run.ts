@@ -2,7 +2,7 @@ import process from 'node:process'
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { reconcileFieldIndexes } from '#server/db/field-indexes'
-import { createWorkspaceWithDefaults } from '#server/db/workspaces'
+import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithDefaults } from '#server/db/workspaces'
 import { hashPassword } from '#server/utils/auth'
 import { compileDataset } from '~~/prisma/seed/compile'
 import { idFor } from '~~/prisma/seed/ids'
@@ -19,6 +19,11 @@ const DEMO_PASSWORD = 'testtest'
 const DEMO_NAME = 'Demo User'
 const DEMO_WORKSPACE_NAME = 'Demo workspace'
 const DEMO_WORKSPACE_ADDRESS = idFor(`workspace:${DEMO_EMAIL}`).slice(1, 11)
+
+// A member, not an owner, so what a role hides can be seen by signing in as them
+const EDITOR_EMAIL = 'editor@test.com'
+const EDITOR_NAME = 'Demo Editor'
+const EDITOR_ROLE_NAME = 'Editor'
 
 function assertSeedableEnvironment(): void {
   if (process.env.DATABASE_URL === undefined || process.env.DATABASE_URL === '') {
@@ -80,9 +85,11 @@ async function seed(): Promise<void> {
 
   const tables = compileDataset(SEED_TABLES)
 
-  // The owner's workspaces first: `Workspace.ownerId` restricts deleting the user
-  await prisma.workspace.deleteMany({ where: { owner: { email: DEMO_EMAIL } } })
-  await prisma.user.deleteMany({ where: { email: DEMO_EMAIL } })
+  const demoEmails = [DEMO_EMAIL, EDITOR_EMAIL]
+
+  // The owners' workspaces first: `Workspace.ownerId` restricts deleting the user
+  await prisma.workspace.deleteMany({ where: { owner: { email: { in: demoEmails } } } })
+  await prisma.user.deleteMany({ where: { email: { in: demoEmails } } })
 
   const passwordHash = await hashPassword(DEMO_PASSWORD)
 
@@ -103,6 +110,29 @@ async function seed(): Promise<void> {
     })
     await tx.user.update({ where: { id: user.id }, data: { lastWorkspaceId: workspace.id } })
 
+    // Every account owns a personal workspace, as registration leaves it
+    const editor = await tx.user.create({
+      data: {
+        id: idFor(`user:${EDITOR_EMAIL}`),
+        email: EDITOR_EMAIL,
+        name: EDITOR_NAME,
+        passwordHash,
+        lastWorkspaceId: workspace.id,
+      },
+      select: { id: true },
+    })
+    await createWorkspaceWithDefaults(tx, { ownerId: editor.id, name: PERSONAL_WORKSPACE_NAME })
+    await tx.workspaceMember.create({
+      data: {
+        workspace: { connect: { id: workspace.id } },
+        user: { connect: { id: editor.id } },
+        role: {
+          connect: { workspaceId_name: { workspaceId: workspace.id, name: EDITOR_ROLE_NAME } },
+        },
+      },
+      select: { id: true },
+    })
+
     return { user, workspace }
   })
 
@@ -114,6 +144,7 @@ async function seed(): Promise<void> {
 
   const report = [
     `Seeded ${DEMO_EMAIL} (password: ${DEMO_PASSWORD}) in /w/${DEMO_WORKSPACE_ADDRESS}`,
+    `  and ${EDITOR_EMAIL} (same password) as its ${EDITOR_ROLE_NAME}`,
     ...tables.map(
       (table) =>
         `  ${table.name.padEnd(18)} ${String(table.records.length).padStart(4)} records, ` +

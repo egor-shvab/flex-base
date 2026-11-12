@@ -1,4 +1,5 @@
 import { reactive, ref, watch } from 'vue'
+import { useAccessResync } from '~/composables/useAccessResync'
 import { getApiErrorMessage } from '~/utils/api-error'
 import type { ZodType } from 'zod'
 
@@ -16,6 +17,7 @@ export function useForm<TValues extends Record<string, unknown>, TOutput>(
   const errors = reactive({}) as Partial<Record<keyof TValues, string>>
   const serverError = ref('')
   const isSubmitting = ref(false)
+  const { resyncAccess } = useAccessResync()
 
   const fieldKeys = Object.keys(options.initial) as (keyof TValues)[]
 
@@ -59,6 +61,7 @@ export function useForm<TValues extends Record<string, unknown>, TOutput>(
       await options.onSubmit(result.data)
     } catch (error) {
       serverError.value = getApiErrorMessage(error)
+      void resyncAccess(error)
     } finally {
       isSubmitting.value = false
     }

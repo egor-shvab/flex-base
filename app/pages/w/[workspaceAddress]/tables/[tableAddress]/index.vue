@@ -15,6 +15,7 @@
       <header class="records-page__title-row">
         <h1 class="records-page__title">{{ table?.name }}</h1>
         <BaseButton
+          v-if="canCreateRecords"
           class="records-page__create"
           prepend-icon="material-symbols:add-rounded"
           :disabled="!hasFields"
@@ -79,11 +80,14 @@
         class="records-page__empty"
         icon="material-symbols:view-column-outline-rounded"
       >
-        This table has no fields yet —
-        <NuxtLink :to="pagePath.tableSettings(workspaceAddress, tableAddress)" class="text-link"
-          >define its fields</NuxtLink
-        >
-        before adding records.
+        <template v-if="canManageTables">
+          This table has no fields yet —
+          <NuxtLink :to="pagePath.tableSettings(workspaceAddress, tableAddress)" class="text-link"
+            >define its fields</NuxtLink
+          >
+          before adding records.
+        </template>
+        <template v-else>This table has no fields yet.</template>
       </BaseEmptyState>
 
       <template v-else>
@@ -94,8 +98,12 @@
           :title="emptyTitle"
           :icon="emptyIcon"
         >
-          {{ emptyMessage }}
-          <template #action>
+          {{
+            isNarrowed || canCreateRecords
+              ? emptyMessage
+              : 'Records added to this table appear here.'
+          }}
+          <template v-if="isNarrowed || canCreateRecords" #action>
             <BaseButton v-if="isNarrowed" @click="clearNarrowing">Show all records</BaseButton>
             <BaseButton v-else @click="openCreateRecord">Add record</BaseButton>
           </template>
@@ -108,6 +116,8 @@
             :fields="fieldsStore.fields"
             :records="recordsStore.records"
             :sort="queryState.sort"
+            :editable="hasPermission('RECORDS_UPDATE')"
+            :deletable="hasPermission('RECORDS_DELETE')"
             @edit="openEditRecord"
             @delete="deleteTarget = $event"
             @sort="applySort"
@@ -175,7 +185,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
+import { navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
+import { useAccessResync } from '~/composables/useAccessResync'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { QUERY_DEBOUNCE_MS } from '~/composables/useDebouncedModel'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
@@ -186,7 +198,6 @@ import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
 import { parseTableAddress } from '#shared/utils/address'
-import { toPageError } from '~/utils/api-error'
 import { pagePath } from '~/utils/page-path'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IRecord, TRecordData } from '#shared/types/record'
@@ -198,6 +209,10 @@ const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
 const workspaceAddress = route.params.workspaceAddress as string
 const tableAddress = route.params.tableAddress as string
+const { hasPermission } = useActiveWorkspace()
+
+const canCreateRecords = computed(() => hasPermission('RECORDS_CREATE'))
+const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
 
 const {
   queryState,
@@ -214,6 +229,8 @@ const {
   applySearch,
   clearNarrowing,
 } = useRecordListQuery({ fields: () => fieldsStore.fields })
+
+const { throwPageError } = useAccessResync()
 
 const { data, error } = await useAsyncData(
   `table-records-${workspaceAddress}-${tableAddress}`,
@@ -238,7 +255,7 @@ watch(queryKey, async () => {
 })
 
 if (error.value) {
-  throw createError(toPageError(error.value))
+  throwPageError(error.value)
 }
 
 const table = computed(() => data.value)

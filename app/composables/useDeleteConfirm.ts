@@ -1,4 +1,5 @@
 import { computed, ref, shallowRef, watch } from 'vue'
+import { useAccessResync } from '~/composables/useAccessResync'
 import { getApiErrorMessage } from '~/utils/api-error'
 
 /**
@@ -9,6 +10,7 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
   const target = shallowRef<TTarget | null>(null)
   const isDeleting = ref(false)
   const error = ref<string | null>(null)
+  const { resyncAccess } = useAccessResync()
 
   const dialogProps = computed(() => ({
     pending: isDeleting.value,
@@ -31,6 +33,7 @@ export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<v
       target.value = null
     } catch (cause) {
       error.value = getApiErrorMessage(cause)
+      void resyncAccess(cause)
     } finally {
       isDeleting.value = false
     }

@@ -128,7 +128,7 @@ import { RESERVED_ROLE_NAME } from '#shared/constants/workspace'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
 
 const workspacesStore = useWorkspacesStore()
-const { workspaceAddress } = useActiveWorkspace()
+const { workspaceAddress, membership: activeMembership } = useActiveWorkspace()
 
 const { isOpen, containerRef, triggerRef, panelRef, panelId, show, toggle, dismiss } = usePopover()
 
@@ -140,8 +140,6 @@ const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, {
 const { focusMenuItem, stepMenuFocus } = useMenuNavigation(panelRef)
 
 const isCreateOpen = ref(false)
-
-const activeMembership = computed(() => workspacesStore.findMembership(workspaceAddress.value))
 
 const activeInitials = computed(() =>
   activeMembership.value ? toInitials(activeMembership.value.workspace.name) : '',

@@ -15,6 +15,7 @@
       <div class="table-page__title-row">
         <h1 class="table-page__title">{{ table?.name }}</h1>
         <BaseButton
+          v-if="canManageTables"
           class="table-page__create"
           prepend-icon="material-symbols:add-rounded"
           @click="openCreateField"
@@ -55,7 +56,7 @@
           </div>
         </dl>
 
-        <div class="detail-card__actions">
+        <div v-if="canManageTables" class="detail-card__actions">
           <BaseButton variant="link" @click="isRenameOpen = true">Rename</BaseButton>
           <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableAddress">
             Delete table
@@ -73,6 +74,7 @@
       <TableFieldList
         :fields="fieldsStore.fields"
         :summary-context="summaryContext"
+        :editable="canManageTables"
         @create="openCreateField"
         @edit="openEditField"
         @delete="fieldDeleteTarget = $event"
@@ -126,14 +128,15 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { createError, navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
+import { navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
+import { useAccessResync } from '~/composables/useAccessResync'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
 import { useTablesStore } from '~/stores/tables'
 import type { IFieldConfigSummaryContext } from '~/field-types/types'
-import { toPageError } from '~/utils/api-error'
 import { formatNumber, formatTimestamp } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
 import type { IBreadcrumb } from '~/types/breadcrumb'
@@ -147,13 +150,19 @@ const fieldsStore = useFieldsStore()
 const tablesStore = useTablesStore()
 const workspaceAddress = route.params.workspaceAddress as string
 const tableAddress = route.params.tableAddress as string
+const { hasPermission } = useActiveWorkspace()
+
+/** Without it the page still lists the fields, read only. */
+const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
+
+const { throwPageError } = useAccessResync()
 
 const { data, error } = await useAsyncData(`table-${workspaceAddress}-${tableAddress}`, () =>
   loadTable(workspaceAddress, tableAddress),
 )
 
 if (error.value) {
-  throw createError(toPageError(error.value))
+  throwPageError(error.value)
 }
 
 const cachedTableRow = computed(() => tablesStore.findTable(tableAddress))

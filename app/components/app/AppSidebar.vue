@@ -49,7 +49,12 @@
           <span class="app-sidebar__count">{{ table._count.records }}</span>
         </NuxtLink>
 
-        <button type="button" class="app-sidebar__add" @click="isCreateOpen = true">
+        <button
+          v-if="hasPermission('TABLES_MANAGE')"
+          type="button"
+          class="app-sidebar__add"
+          @click="isCreateOpen = true"
+        >
           <Icon name="material-symbols:add-rounded" class="app-sidebar__icon" aria-hidden="true" />
           Add a table
         </button>
@@ -120,7 +125,7 @@ import { pagePath } from '~/utils/page-path'
 const route = useRoute()
 const tablesStore = useTablesStore()
 const auth = useAuthStore()
-const { workspaceAddress } = useActiveWorkspace()
+const { workspaceAddress, hasPermission } = useActiveWorkspace()
 
 const isCreateOpen = ref(false)
 const isProfileOpen = ref(false)
