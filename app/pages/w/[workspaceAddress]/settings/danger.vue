@@ -7,6 +7,19 @@
     <div v-if="isOwner" class="danger-card">
       <div class="danger-card__row">
         <div class="danger-card__text">
+          <h3 class="danger-card__title">Transfer ownership</h3>
+          <p class="danger-card__description">
+            Hand the workspace to another member. You stay in it as {{ membership?.role.name }}, and
+            only they can delete it or hand it on.
+          </p>
+        </div>
+        <BaseButton variant="secondary" class="danger-card__action" @click="isTransferOpen = true">
+          Transfer ownership
+        </BaseButton>
+      </div>
+
+      <div class="danger-card__row">
+        <div class="danger-card__text">
           <h3 class="danger-card__title">Delete workspace</h3>
           <p class="danger-card__description">
             {{ contentsSummary }} Members lose access immediately. This cannot be undone.
@@ -22,7 +35,45 @@
       </div>
     </div>
 
-    <p v-else class="settings-danger__note">Only the workspace owner can delete it.</p>
+    <div v-else class="danger-card">
+      <div class="danger-card__row">
+        <div class="danger-card__text">
+          <h3 class="danger-card__title">Leave workspace</h3>
+          <p class="danger-card__description">
+            You lose access to its tables and records. To come back, someone has to invite you
+            again.
+          </p>
+        </div>
+        <BaseButton
+          variant="danger"
+          class="danger-card__action"
+          @click="leaveTarget = workspaceAddress"
+        >
+          Leave workspace
+        </BaseButton>
+      </div>
+    </div>
+
+    <LazyTransferOwnershipModal
+      v-if="isTransferOpen && membership"
+      :workspace-address="workspaceAddress"
+      :own-role-name="membership.role.name"
+      :submit-handler="transferOwnership"
+      @saved="isTransferOpen = false"
+      @close="isTransferOpen = false"
+    />
+
+    <LazyConfirmModal
+      v-if="leaveTarget && membership"
+      title="Leave workspace"
+      danger
+      v-bind="leaveDialog"
+      confirm-label="Leave workspace"
+      @confirm="confirmLeave"
+      @close="cancelLeave"
+    >
+      Leave “{{ membership.workspace.name }}”? You lose access right away.
+    </LazyConfirmModal>
 
     <LazyConfirmModal
       v-if="deleteTarget && membership"
@@ -40,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, ref, useId } from 'vue'
 import { navigateTo } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
@@ -78,17 +129,27 @@ const {
   await workspacesStore.deleteWorkspace(address)
   await navigateTo('/', { replace: true })
 })
+
+const isTransferOpen = ref(false)
+
+async function transferOwnership(memberId: string) {
+  await workspacesStore.transferOwnership(workspaceAddress.value, memberId)
+}
+
+const {
+  target: leaveTarget,
+  dialogProps: leaveDialog,
+  confirm: confirmLeave,
+  cancel: cancelLeave,
+} = useDeleteConfirm(async (address: string) => {
+  await workspacesStore.leaveWorkspace(address)
+  await navigateTo('/', { replace: true })
+})
 </script>
 
 <style lang="scss" scoped>
 .settings-danger {
   @include stack(10);
-
-  &__note {
-    margin: 0;
-    font-size: var(--font-size-md);
-    color: var(--color-text-secondary);
-  }
 }
 
 .danger-card {
@@ -102,6 +163,10 @@ const {
     align-items: flex-start;
     gap: rem(14);
     padding: rem(16);
+
+    & + & {
+      border-top: 1px solid var(--color-danger-edge);
+    }
   }
 
   &__text {

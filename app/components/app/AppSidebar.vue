@@ -63,6 +63,18 @@
 
     <div v-if="workspaceAddress" class="app-sidebar__footer">
       <NuxtLink
+        :to="pagePath.workspaceSettings(workspaceAddress, 'members')"
+        class="app-sidebar__item"
+        :class="{ 'app-sidebar__item--active': isMembers }"
+      >
+        <Icon
+          name="material-symbols:group-outline-rounded"
+          class="app-sidebar__icon"
+          aria-hidden="true"
+        />
+        <span class="app-sidebar__name">Members</span>
+      </NuxtLink>
+      <NuxtLink
         :to="pagePath.workspaceSettings(workspaceAddress)"
         class="app-sidebar__item"
         :class="{ 'app-sidebar__item--active': isSettings }"
@@ -142,8 +154,14 @@ const activeTableNumber = computed(() => {
 
 const isHome = computed(() => route.path === pagePath.workspace(workspaceAddress.value))
 
-const isSettings = computed(() =>
-  route.path.startsWith(`${pagePath.workspace(workspaceAddress.value)}/settings/`),
+const isMembers = computed(
+  () => route.path === pagePath.workspaceSettings(workspaceAddress.value, 'members'),
+)
+
+const isSettings = computed(
+  () =>
+    !isMembers.value &&
+    route.path.startsWith(`${pagePath.workspace(workspaceAddress.value)}/settings/`),
 )
 </script>
 
@@ -172,7 +190,10 @@ const isSettings = computed(() =>
   }
 
   &__footer {
+    display: flex;
     flex: none;
+    flex-direction: column;
+    gap: rem(2);
     margin-top: rem(8);
   }
 

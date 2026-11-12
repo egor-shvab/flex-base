@@ -1,23 +1,10 @@
 import type { Browser, Page } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
-import { expect, test, type ISeededTable } from '~~/test/e2e/setup/fixtures'
+import { expect, signInNewUser, test, type ISeededTable } from '~~/test/e2e/setup/fixtures'
 
-let memberSequence = 0
-
-/**
- * A second account, signed in in its own context and joined to the e2e user's workspace under one
- * of its roles. Registered through the API, as a person would be.
- */
+/** A second account, joined to the e2e user's workspace under one of its roles. */
 async function signInAsMember(browser: Browser, workspaceId: string, roleName: string) {
-  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
-  const page = await context.newPage()
-  memberSequence += 1
-  const email = `member-${test.info().workerIndex}-${memberSequence}-${Date.now()}@example.com`
-
-  const registered = await page.request.post('/api/auth/register', {
-    data: { name: 'Member', email, password: 'correct-horse-battery' },
-  })
-  expect(registered.ok()).toBe(true)
+  const { page, email } = await signInNewUser(browser)
 
   await prisma.workspaceMember.create({
     data: {

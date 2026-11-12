@@ -45,7 +45,7 @@ describe('deleting a role', () => {
 
     await expect(RoleService.deleteRole(owner, editorId)).rejects.toMatchObject({
       statusCode: 409,
-      statusMessage: 'Reassign the members of this role first',
+      statusMessage: 'Reassign the members of this role and revoke its invitations first',
     })
     await expect(
       prisma.workspaceRole.findUnique({ where: { id: editorId } }),

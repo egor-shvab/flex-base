@@ -59,6 +59,19 @@ registerEndpoint(`/api/workspaces/${OTHER_WS}`, {
   handler: () => ({ ok: true }),
 })
 
+registerEndpoint(`/api/workspaces/${WS}/transfer`, {
+  method: 'POST',
+  handler: () => {
+    calls.push('POST transfer')
+    return { ok: true }
+  },
+})
+
+registerEndpoint(`/api/workspaces/${OTHER_WS}/leave`, {
+  method: 'POST',
+  handler: () => ({ ok: true }),
+})
+
 registerEndpoint(`/api/workspaces/${WS}/visit`, {
   method: 'PUT',
   handler: () => {
@@ -176,5 +189,25 @@ describe('useWorkspacesStore', () => {
     expect(store.lastWorkspaceAddress).toBe(WS)
     await remembering
     expect(calls).toContain('PUT visit')
+  })
+
+  it('reads the caller’s membership back after handing the workspace over', async () => {
+    const store = useWorkspacesStore()
+    await store.fetchWorkspaces()
+
+    await store.transferOwnership(WS, 'mem_grace')
+
+    expect(calls).toContain('POST transfer')
+    expect(store.findMembership(WS)?.isOwner).toBe(false)
+  })
+
+  it('drops a workspace the caller left, and forgets it as the last one', async () => {
+    const store = useWorkspacesStore()
+    await store.fetchWorkspaces()
+
+    await store.leaveWorkspace(OTHER_WS)
+
+    expect(store.findMembership(OTHER_WS)).toBeUndefined()
+    expect(store.lastWorkspaceAddress).toBeNull()
   })
 })

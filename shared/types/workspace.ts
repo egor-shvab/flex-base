@@ -1,4 +1,5 @@
 import type { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type { IUserRef } from '#shared/types/auth'
 
 export type TWorkspacePermission = (typeof WORKSPACE_PERMISSIONS)[number]
 
@@ -43,4 +44,31 @@ export interface IManagedMember {
   id: string
   isOwner: boolean
   role: IPermissionSet
+}
+
+/** A workspace's member as its other members see them — the email included, for them alone. */
+export interface IWorkspaceMember extends IManagedMember {
+  user: IUserRef
+  email: string
+  role: IRoleRef & IPermissionSet
+  joinedAt: string
+}
+
+/** An invitation as the workspace's inviters see it. */
+export interface IWorkspaceInvitation {
+  id: string
+  email: string
+  role: IRoleRef
+  invitedBy: IUserRef | null
+  expiresAt: string
+  isExpired: boolean
+}
+
+/** An invitation as the person invited sees it: no more of the workspace than its name. */
+export interface IIncomingInvitation {
+  id: string
+  workspace: { name: string }
+  role: { name: string }
+  invitedBy: IUserRef | null
+  expiresAt: string
 }

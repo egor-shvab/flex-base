@@ -1,42 +1,26 @@
-import { computed, ref, shallowRef, watch } from 'vue'
-import { useAccessResync } from '~/composables/useAccessResync'
-import { getApiErrorMessage } from '~/utils/api-error'
+import { computed, shallowRef, watch } from 'vue'
+import { useServerAction } from '~/composables/useServerAction'
 
-/**
- * The confirm-then-delete flow. A failure is caught rather than rethrown: `confirm` binds straight
- * to `@confirm`, so a rejection would be unhandled and the dialog would say nothing.
- */
+/** The confirm-then-delete flow: the dialog stays open, with the server's message, on a failure. */
 export function useDeleteConfirm<TTarget>(remove: (target: TTarget) => Promise<void>) {
   const target = shallowRef<TTarget | null>(null)
-  const isDeleting = ref(false)
-  const error = ref<string | null>(null)
-  const { resyncAccess } = useAccessResync()
+  const { isPending, error, run } = useServerAction()
 
   const dialogProps = computed(() => ({
-    pending: isDeleting.value,
-    error: error.value,
+    pending: isPending.value,
+    error: error.value || null,
     confirmLabel: 'Delete',
   }))
 
   watch(target, () => {
-    error.value = null
+    error.value = ''
   })
 
   async function confirm() {
-    if (target.value === null) return
+    const current = target.value
+    if (current === null) return
 
-    isDeleting.value = true
-    error.value = null
-
-    try {
-      await remove(target.value)
-      target.value = null
-    } catch (cause) {
-      error.value = getApiErrorMessage(cause)
-      void resyncAccess(cause)
-    } finally {
-      isDeleting.value = false
-    }
+    if (await run(() => remove(current))) target.value = null
   }
 
   function cancel() {

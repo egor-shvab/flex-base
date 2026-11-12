@@ -18,6 +18,15 @@
       </template>
     </BaseEmptyState>
 
+    <section
+      v-if="workspacesStore.status === 'ready' && invitationsStore.incoming.length > 0"
+      class="workspace-picker__invitations"
+      :aria-labelledby="invitationsTitleId"
+    >
+      <h2 :id="invitationsTitleId" class="workspace-picker__heading">Invitations</h2>
+      <IncomingInvitationList />
+    </section>
+
     <LazyWorkspaceFormModal
       v-if="isCreateOpen"
       @saved="isCreateOpen = false"
@@ -27,14 +36,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, useId } from 'vue'
 import { navigateTo, useAsyncData, useSeoMeta } from '#imports'
+import { useInvitationsStore } from '~/stores/invitations'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { pagePath } from '~/utils/page-path'
 
 useSeoMeta({ title: 'FlexBase' })
 
 const workspacesStore = useWorkspacesStore()
+const invitationsStore = useInvitationsStore()
+const invitationsTitleId = useId()
 
 const isCreateOpen = ref(false)
 
@@ -60,3 +72,20 @@ async function retryWorkspaces() {
 
 await openEntryWorkspace()
 </script>
+
+<style lang="scss" scoped>
+.workspace-picker {
+  &__invitations {
+    @include stack(10);
+
+    max-width: rem(760);
+    margin: 0 auto;
+  }
+
+  &__heading {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+  }
+}
+</style>

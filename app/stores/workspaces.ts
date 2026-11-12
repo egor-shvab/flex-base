@@ -93,6 +93,17 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     removeMembership(workspaceAddress)
   }
 
+  /** The caller stays a member, no longer the owner: their membership is read back. */
+  async function transferOwnership(workspaceAddress: string, memberId: string) {
+    await api.transfer(workspaceAddress, { memberId })
+    await fetchMembership(workspaceAddress)
+  }
+
+  async function leaveWorkspace(workspaceAddress: string) {
+    await api.leave(workspaceAddress)
+    removeMembership(workspaceAddress)
+  }
+
   /** Held here too, so `/` reached later in this visit opens it without asking the server. */
   async function rememberLastWorkspace(workspaceAddress: string) {
     lastWorkspaceAddress.value = workspaceAddress
@@ -107,10 +118,13 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     fetchWorkspaces,
     ensureWorkspaces,
     findMembership,
+    applyMembership,
     fetchMembership,
     createWorkspace,
     renameWorkspace,
     deleteWorkspace,
+    transferOwnership,
+    leaveWorkspace,
     removeMembership,
     rememberLastWorkspace,
   }

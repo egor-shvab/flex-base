@@ -43,22 +43,14 @@ interface ISettingsSection {
 
 useSeoMeta({ title: 'Workspace settings' })
 
-const { workspaceAddress, isOwner } = useActiveWorkspace()
+const { workspaceAddress } = useActiveWorkspace()
 
-// The danger zone holds only the owner's actions so far
-const sections = computed<ISettingsSection[]>(() => [
+const sections: ISettingsSection[] = [
   { id: 'general', label: 'General', icon: 'material-symbols:tune-rounded' },
+  { id: 'members', label: 'Members', icon: 'material-symbols:group-outline-rounded' },
   { id: 'roles', label: 'Roles', icon: 'material-symbols:shield-person-outline-rounded' },
-  ...(isOwner.value
-    ? [
-        {
-          id: 'danger' as const,
-          label: 'Danger zone',
-          icon: 'material-symbols:warning-outline-rounded',
-        },
-      ]
-    : []),
-])
+  { id: 'danger', label: 'Danger zone', icon: 'material-symbols:warning-outline-rounded' },
+]
 
 const breadcrumbs = computed<IBreadcrumb[]>(() => [
   { label: 'Home', to: pagePath.workspace(workspaceAddress.value) },

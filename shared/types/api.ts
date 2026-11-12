@@ -2,7 +2,14 @@ import type { IAuthUser } from '#shared/types/auth'
 import type { IField } from '#shared/types/field'
 import type { IRecord, IRecordOption } from '#shared/types/record'
 import type { ITable, ITableListItem } from '#shared/types/table'
-import type { IWorkspace, IWorkspaceMembership, IWorkspaceRole } from '#shared/types/workspace'
+import type {
+  IIncomingInvitation,
+  IWorkspace,
+  IWorkspaceInvitation,
+  IWorkspaceMember,
+  IWorkspaceMembership,
+  IWorkspaceRole,
+} from '#shared/types/workspace'
 
 export interface IOkResponse {
   ok: true
@@ -84,4 +91,24 @@ export interface IRolesResponse {
 
 export interface IRoleResponse {
   role: IWorkspaceRole
+}
+
+export interface IMembersResponse {
+  members: IWorkspaceMember[]
+}
+
+export interface IMemberResponse {
+  member: IWorkspaceMember
+}
+
+export interface IInvitationsResponse {
+  invitations: IWorkspaceInvitation[]
+}
+
+export interface IInvitationResponse {
+  invitation: IWorkspaceInvitation
+}
+
+export interface IIncomingInvitationsResponse {
+  invitations: IIncomingInvitation[]
 }

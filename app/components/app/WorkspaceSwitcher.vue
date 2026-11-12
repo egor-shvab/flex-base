@@ -19,6 +19,10 @@
           {{ formatRole(activeMembership) }}
         </span>
       </span>
+      <span v-if="invitationCount > 0" class="workspace-switcher__badge">
+        <span aria-hidden="true">{{ invitationCount }}</span>
+        <span class="visually-hidden">{{ invitationSummary }}</span>
+      </span>
       <Icon
         name="material-symbols:unfold-more-rounded"
         class="workspace-switcher__chevron"
@@ -90,6 +94,23 @@
           class="workspace-switcher__separator"
         ></div>
 
+        <NuxtLink
+          v-if="invitationCount > 0"
+          :to="pagePath.invitations"
+          role="menuitem"
+          tabindex="-1"
+          class="workspace-switcher__item workspace-switcher__item--action"
+          @click="dismiss"
+        >
+          <Icon
+            name="material-symbols:mail-outline-rounded"
+            class="workspace-switcher__icon"
+            aria-hidden="true"
+          />
+          <span class="workspace-switcher__label">Invitations</span>
+          <span class="workspace-switcher__badge">{{ invitationCount }}</span>
+        </NuxtLink>
+
         <button
           type="button"
           role="menuitem"
@@ -121,13 +142,16 @@ import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
 import { useMenuNavigation } from '~/composables/useMenuNavigation'
 import { usePopover } from '~/composables/usePopover'
+import { useInvitationsStore } from '~/stores/invitations'
 import { useWorkspacesStore } from '~/stores/workspaces'
+import { formatCount } from '~/utils/format'
 import { toInitials } from '~/utils/initials'
 import { pagePath } from '~/utils/page-path'
 import { RESERVED_ROLE_NAME } from '#shared/constants/workspace'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
 
 const workspacesStore = useWorkspacesStore()
+const invitationsStore = useInvitationsStore()
 const { workspaceAddress, membership: activeMembership } = useActiveWorkspace()
 
 const { isOpen, containerRef, triggerRef, panelRef, panelId, show, toggle, dismiss } = usePopover()
@@ -140,6 +164,11 @@ const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, {
 const { focusMenuItem, stepMenuFocus } = useMenuNavigation(panelRef)
 
 const isCreateOpen = ref(false)
+
+const invitationCount = computed(() => invitationsStore.incoming.length)
+const invitationSummary = computed(
+  () => `${formatCount(invitationCount.value, 'invitation')} waiting`,
+)
 
 const activeInitials = computed(() =>
   activeMembership.value ? toInitials(activeMembership.value.workspace.name) : '',
@@ -288,6 +317,20 @@ function openCreate() {
         background: var(--color-accent-tint);
       }
     }
+  }
+
+  &__badge {
+    flex: none;
+    min-width: rem(20);
+    padding: 0 rem(6);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    line-height: rem(20);
+    color: var(--color-text-on-accent);
+    text-align: center;
   }
 
   &__separator {

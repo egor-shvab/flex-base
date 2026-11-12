@@ -1,6 +1,5 @@
-import { reactive, ref, watch } from 'vue'
-import { useAccessResync } from '~/composables/useAccessResync'
-import { getApiErrorMessage } from '~/utils/api-error'
+import { reactive, watch } from 'vue'
+import { useServerAction } from '~/composables/useServerAction'
 import type { ZodType } from 'zod'
 
 interface IUseFormOptions<TValues extends Record<string, unknown>, TOutput> {
@@ -15,9 +14,7 @@ export function useForm<TValues extends Record<string, unknown>, TOutput>(
   // Vue's `Reactive<T>` cannot be indexed generically by `keyof TValues`
   const form = reactive({ ...options.initial }) as unknown as TValues
   const errors = reactive({}) as Partial<Record<keyof TValues, string>>
-  const serverError = ref('')
-  const isSubmitting = ref(false)
-  const { resyncAccess } = useAccessResync()
+  const { isPending: isSubmitting, error: serverError, run } = useServerAction()
 
   const fieldKeys = Object.keys(options.initial) as (keyof TValues)[]
 
@@ -56,15 +53,7 @@ export function useForm<TValues extends Record<string, unknown>, TOutput>(
       return
     }
 
-    isSubmitting.value = true
-    try {
-      await options.onSubmit(result.data)
-    } catch (error) {
-      serverError.value = getApiErrorMessage(error)
-      void resyncAccess(error)
-    } finally {
-      isSubmitting.value = false
-    }
+    await run(async () => options.onSubmit(result.data))
   }
 
   return { form, errors, serverError, isSubmitting, submit }

@@ -1,5 +1,7 @@
+import type { ISelectOption } from '~/types/select'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { TWorkspacePermission } from '#shared/types/workspace'
+import type { IWorkspaceActor, IWorkspaceRole, TWorkspacePermission } from '#shared/types/workspace'
+import { canAssignRole } from '#shared/utils/permissions'
 
 interface IPermissionText {
   label: string
@@ -35,4 +37,14 @@ export function summarisePermissions(permissions: readonly TWorkspacePermission[
   return WORKSPACE_PERMISSIONS.filter((permission) => permissions.includes(permission))
     .map((permission) => WORKSPACE_PERMISSION_TEXT[permission].label)
     .join(', ')
+}
+
+/** The roles `actor` may hand out, as the options of a role picker. */
+export function buildAssignableRoleOptions(
+  actor: IWorkspaceActor,
+  roles: readonly IWorkspaceRole[],
+): ISelectOption[] {
+  return roles
+    .filter((role) => canAssignRole(actor, role))
+    .map((role) => ({ value: role.id, label: role.name }))
 }

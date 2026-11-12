@@ -3,7 +3,7 @@ import { prisma } from '#server/db/prisma'
 import { buildRoleWhere, roleSelect, toSharedRole } from '#server/db/workspaces'
 import { toHttpError } from '#server/utils/http-errors'
 import type { IPermissionSet, IWorkspaceMembership, IWorkspaceRole } from '#shared/types/workspace'
-import { canCreateRole, canEditRole } from '#shared/utils/permissions'
+import { canAssignRole, canCreateRole, canEditRole } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 export const MAX_WORKSPACE_ROLES = 20
@@ -40,6 +40,18 @@ async function getRole(workspaceId: string, roleId: string): Promise<IPermission
   if (!role) throw createError({ statusCode: 404, statusMessage: roleErrors.notFound })
 
   return role
+}
+
+/** A role of the actor's workspace they may hand out: to a member, or in an invitation. */
+async function requireAssignableRole(actor: IWorkspaceMembership, roleId: string): Promise<void> {
+  const role = await getRole(actor.workspace.id, roleId)
+
+  if (!canAssignRole(actor, role)) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You can only assign roles within your own permissions',
+    })
+  }
 }
 
 /**
@@ -92,7 +104,10 @@ async function updateRole(
   }
 }
 
-/** A role a member still holds is refused by its foreign key, not by a count read first. */
+/**
+ * A role a member or an invitation still holds is refused by its foreign key, not by a count read
+ * first.
+ */
 async function deleteRole(actor: IWorkspaceMembership, roleId: string): Promise<void> {
   const role = await getRole(actor.workspace.id, roleId)
   if (!canEditRole(actor, role)) throw buildEscalationError()
@@ -103,12 +118,16 @@ async function deleteRole(actor: IWorkspaceMembership, roleId: string): Promise<
       select: { id: true },
     })
   } catch (error) {
-    throw toHttpError(error, { ...roleErrors, inUse: 'Reassign the members of this role first' })
+    throw toHttpError(error, {
+      ...roleErrors,
+      inUse: 'Reassign the members of this role and revoke its invitations first',
+    })
   }
 }
 
 export const RoleService = {
   listRoles,
+  requireAssignableRole,
   createRole,
   updateRole,
   deleteRole,

@@ -1,6 +1,9 @@
 import type { Locator, Page } from '@playwright/test'
+import { prisma } from '#server/db/prisma'
 import { expect, test } from '~~/test/e2e/setup/fixtures'
 import { axeViolations, undersizedTargets } from '~~/test/e2e/setup/a11y'
+import { E2E_USER } from '~~/test/e2e/setup/global-setup'
+import { createUser } from '~~/test/integration/seed'
 
 const FIELDS = [
   { key: 'company', type: 'TEXT' as const, name: 'Company' },
@@ -21,16 +24,39 @@ const FIELDS = [
 
 const ROWS = [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won' }]
 
+const IN_A_WEEK = () => new Date(Date.now() + 7 * 86_400_000)
+
+/** Someone else, with a workspace of their own, unique across workers and runs. */
+const createStranger = () =>
+  createUser(`stranger-${test.info().workerIndex}-${Date.now()}@example.com`)
+
+/** A member who can be managed and an invitation to revoke, so every row control renders. */
+async function seedMembersOf(workspaceId: string) {
+  const stranger = await createStranger()
+  const editor = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId, name: 'Editor' } },
+    select: { id: true },
+  })
+  await prisma.workspaceMember.create({
+    data: { workspaceId, userId: stranger.id, roleId: editor.id },
+  })
+  await prisma.workspaceInvitation.create({
+    data: { workspaceId, email: 'invited@example.com', roleId: editor.id, expiresAt: IN_A_WEEK() },
+  })
+}
+
 test.describe('the app screens', () => {
   let url = ''
   let settingsUrl = ''
   let workspaceUrl = ''
+  let workspaceId = ''
 
   test.beforeEach(async ({ seedTable, workspace }) => {
     const table = await seedTable('Deals', FIELDS, ROWS)
     url = table.url
     settingsUrl = table.settingsUrl
     workspaceUrl = workspace.url
+    workspaceId = workspace.id
   })
 
   const screens: Record<string, (page: Page) => Promise<void>> = {
@@ -73,6 +99,40 @@ test.describe('the app screens', () => {
       await page.goto(`${workspaceUrl}/settings/roles`)
       await page.getByRole('button', { name: 'New role' }).click()
       await expect(page.getByRole('dialog')).toBeVisible()
+    },
+    'workspace members': async (page) => {
+      await seedMembersOf(workspaceId)
+      await page.goto(`${workspaceUrl}/settings/members`)
+      await expect(page.getByRole('button', { name: /^Revoke invitation/ })).toBeVisible()
+    },
+    'the invitation form': async (page) => {
+      await page.goto(`${workspaceUrl}/settings/members`)
+      await page.getByRole('button', { name: 'Invite member' }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+    },
+    'the transfer form': async (page) => {
+      await seedMembersOf(workspaceId)
+      await page.goto(`${workspaceUrl}/settings/danger`)
+      await page.getByRole('button', { name: 'Transfer ownership' }).click()
+      await expect(page.getByRole('dialog').getByLabel('New owner')).toBeVisible()
+    },
+    'incoming invitations': async (page) => {
+      const stranger = await createStranger()
+      const viewer = await prisma.workspaceRole.findUniqueOrThrow({
+        where: { workspaceId_name: { workspaceId: stranger.workspace.id, name: 'Viewer' } },
+        select: { id: true },
+      })
+      await prisma.workspaceInvitation.create({
+        data: {
+          workspaceId: stranger.workspace.id,
+          email: E2E_USER.email,
+          roleId: viewer.id,
+          invitedById: stranger.id,
+          expiresAt: IN_A_WEEK(),
+        },
+      })
+      await page.goto('/invitations')
+      await expect(page.getByRole('button', { name: /^Accept the invitation/ })).toBeVisible()
     },
     'the workspace danger zone': async (page) => {
       await page.goto(`${workspaceUrl}/settings/danger`)

@@ -45,7 +45,9 @@ test('a role someone holds cannot be deleted', async ({ page }) => {
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('button', { name: 'Delete' }).click()
 
-  await expect(dialog).toContainText('Reassign the members of this role first')
+  await expect(dialog).toContainText(
+    'Reassign the members of this role and revoke its invitations first',
+  )
   await dialog.getByRole('button', { name: 'Cancel' }).click()
   await expect(roleRow(page, 'Admin')).toBeVisible()
 })

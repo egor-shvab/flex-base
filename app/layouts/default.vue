@@ -29,11 +29,13 @@
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useInvitationsStore } from '~/stores/invitations'
 import { useTablesStore } from '~/stores/tables'
 import { useWorkspacesStore } from '~/stores/workspaces'
 
 const tablesStore = useTablesStore()
 const workspacesStore = useWorkspacesStore()
+const invitationsStore = useInvitationsStore()
 const route = useRoute()
 const { workspaceAddress } = useActiveWorkspace()
 
@@ -43,6 +45,10 @@ const { workspaceAddress } = useActiveWorkspace()
 await Promise.all([
   useAsyncData('app-workspaces', async () => {
     await workspacesStore.ensureWorkspaces()
+    return true
+  }),
+  useAsyncData('app-invitations', async () => {
+    await invitationsStore.ensureIncoming()
     return true
   }),
   useAsyncData(

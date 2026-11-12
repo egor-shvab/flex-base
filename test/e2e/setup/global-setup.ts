@@ -34,7 +34,7 @@ export default async function globalSetup(config: FullConfig) {
   if (!baseURL) throw new Error('No baseURL is configured for the e2e project')
 
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "User", "Workspace", "WorkspaceRole", "WorkspaceMember", "Table", "Field", "Record" CASCADE',
+    'TRUNCATE "User", "Workspace", "WorkspaceRole", "WorkspaceMember", "WorkspaceInvitation", "Table", "Field", "Record" CASCADE',
   )
   await prisma.$disconnect()
 

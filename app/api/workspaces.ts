@@ -6,7 +6,7 @@ import type {
   IWorkspaceResponse,
   IWorkspacesResponse,
 } from '#shared/types/api'
-import type { TWorkspaceInput } from '#shared/validation/workspace'
+import type { TTransferOwnershipInput, TWorkspaceInput } from '#shared/validation/workspace'
 
 export function useWorkspacesApi() {
   const api = useApi()
@@ -26,5 +26,12 @@ export function useWorkspacesApi() {
       api<IOkResponse>(apiPath.workspace(workspaceAddress), { method: 'DELETE' }),
     rememberLast: (workspaceAddress: string) =>
       api<IOkResponse>(apiPath.workspaceVisit(workspaceAddress), { method: 'PUT' }),
+    transfer: (workspaceAddress: string, input: TTransferOwnershipInput) =>
+      api<IOkResponse>(apiPath.workspaceTransfer(workspaceAddress), {
+        method: 'POST',
+        body: input,
+      }),
+    leave: (workspaceAddress: string) =>
+      api<IOkResponse>(apiPath.workspaceLeave(workspaceAddress), { method: 'POST' }),
   }
 }

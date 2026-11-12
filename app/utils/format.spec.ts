@@ -6,6 +6,7 @@ import {
   formatMatchingRecords,
   formatNumber,
   formatTimestamp,
+  formatTimestampDay,
 } from '~/utils/format'
 
 /** ICU has moved en-GB's separators between versions; any whitespace folds to a space. */
@@ -59,6 +60,16 @@ describe('formatDate and formatDateProse', () => {
     expect(formatDate('not-a-date')).toBe('not-a-date')
     expect(formatDateProse('not-a-date')).toBe('not-a-date')
     expect(formatDate('')).toBe('')
+  })
+})
+
+describe('formatTimestampDay', () => {
+  it('writes the day alone, in UTC like the full timestamp', () => {
+    expect(spaces(formatTimestampDay('2026-03-08T23:30:00.000Z'))).toBe('8 Mar 2026')
+  })
+
+  it('returns an unparseable value unchanged', () => {
+    expect(formatTimestampDay('soon')).toBe('soon')
   })
 })
 

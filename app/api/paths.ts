@@ -12,6 +12,20 @@ export const apiPath = {
   workspaces: '/api/workspaces',
   workspace: workspacePath,
   workspaceVisit: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/visit`,
+  workspaceTransfer: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/transfer`,
+  workspaceLeave: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/leave`,
+
+  members: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/members`,
+  member: (workspaceAddress: string, memberId: string) =>
+    `${workspacePath(workspaceAddress)}/members/${memberId}`,
+
+  invitations: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/invitations`,
+  invitation: (workspaceAddress: string, invitationId: string) =>
+    `${workspacePath(workspaceAddress)}/invitations/${invitationId}`,
+
+  incomingInvitations: '/api/invitations',
+  incomingInvitation: (invitationId: string) => `/api/invitations/${invitationId}`,
+  incomingInvitationAccept: (invitationId: string) => `/api/invitations/${invitationId}/accept`,
 
   roles: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/roles`,
   role: (workspaceAddress: string, roleId: string) =>

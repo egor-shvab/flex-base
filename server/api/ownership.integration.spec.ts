@@ -6,6 +6,17 @@ import workspaceGet from '#server/api/workspaces/[workspaceAddress]/index.get'
 import workspacePatch from '#server/api/workspaces/[workspaceAddress]/index.patch'
 import workspaceDelete from '#server/api/workspaces/[workspaceAddress]/index.delete'
 import workspaceVisitPut from '#server/api/workspaces/[workspaceAddress]/visit.put'
+import workspaceTransferPost from '#server/api/workspaces/[workspaceAddress]/transfer.post'
+import workspaceLeavePost from '#server/api/workspaces/[workspaceAddress]/leave.post'
+import membersGet from '#server/api/workspaces/[workspaceAddress]/members/index.get'
+import memberPatch from '#server/api/workspaces/[workspaceAddress]/members/[memberId].patch'
+import memberDelete from '#server/api/workspaces/[workspaceAddress]/members/[memberId].delete'
+import invitationsGet from '#server/api/workspaces/[workspaceAddress]/invitations/index.get'
+import invitationsPost from '#server/api/workspaces/[workspaceAddress]/invitations/index.post'
+import invitationDelete from '#server/api/workspaces/[workspaceAddress]/invitations/[invitationId].delete'
+import incomingInvitationsGet from '#server/api/invitations/index.get'
+import incomingInvitationAccept from '#server/api/invitations/[invitationId]/accept.post'
+import incomingInvitationDecline from '#server/api/invitations/[invitationId]/index.delete'
 import rolesGet from '#server/api/workspaces/[workspaceAddress]/roles/index.get'
 import rolesPost from '#server/api/workspaces/[workspaceAddress]/roles/index.post'
 import rolePatch from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].patch'
@@ -47,6 +58,8 @@ interface IWorld {
   relationFieldId: string
   recordId: string
   viewerRoleId: string
+  adaMemberId: string
+  invitationId: string
 }
 
 interface IEndpoint {
@@ -83,6 +96,20 @@ beforeEach(async () => {
     select: { id: true },
   })
 
+  const adaMember = await prisma.workspaceMember.findFirstOrThrow({
+    where: { workspaceId: ada.workspace.id, userId: ada.id },
+    select: { id: true },
+  })
+  const invitation = await prisma.workspaceInvitation.create({
+    data: {
+      workspaceId: ada.workspace.id,
+      email: 'invited@example.com',
+      roleId: viewerRole.id,
+      expiresAt: new Date(Date.now() + 86_400_000),
+    },
+    select: { id: true },
+  })
+
   world = {
     ada,
     mallory,
@@ -91,15 +118,20 @@ beforeEach(async () => {
     relationFieldId: relation.id,
     recordId: record.id,
     viewerRoleId: viewerRole.id,
+    adaMemberId: adaMember.id,
+    invitationId: invitation.id,
   }
 })
 
 const adaWorkspace = () => world.ada.workspace.publicId
 
 function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
-  const { tableId, fieldId, relationFieldId, recordId, viewerRoleId } = world
+  const { tableId, fieldId, relationFieldId, recordId, viewerRoleId, adaMemberId, invitationId } =
+    world
   const workspaceParams = { workspaceAddress }
   const roleParams = { workspaceAddress, roleId: viewerRoleId }
+  const memberParams = { workspaceAddress, memberId: adaMemberId }
+  const invitationParams = { workspaceAddress, invitationId }
   const tableParams = { workspaceAddress, tableAddress: tableId }
   const fieldParams = { ...tableParams, fieldId }
   const recordParams = { ...tableParams, recordAddress: recordId }
@@ -128,6 +160,51 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       access: 'READ',
       params: workspaceParams,
       method: 'PUT',
+    },
+    {
+      name: 'POST /workspaces/:ws/transfer',
+      handler: workspaceTransferPost,
+      access: 'OWNER',
+      params: workspaceParams,
+      body: { memberId: adaMemberId },
+      method: 'POST',
+    },
+    { name: 'GET /members', handler: membersGet, access: 'READ', params: workspaceParams },
+    {
+      name: 'PATCH /members/:id',
+      handler: memberPatch,
+      access: 'MEMBERS_MANAGE',
+      params: memberParams,
+      body: { roleId: viewerRoleId },
+      method: 'PATCH',
+    },
+    {
+      name: 'DELETE /members/:id',
+      handler: memberDelete,
+      access: 'MEMBERS_MANAGE',
+      params: memberParams,
+      method: 'DELETE',
+    },
+    {
+      name: 'GET /invitations',
+      handler: invitationsGet,
+      access: 'MEMBERS_INVITE',
+      params: workspaceParams,
+    },
+    {
+      name: 'POST /invitations',
+      handler: invitationsPost,
+      access: 'MEMBERS_INVITE',
+      params: workspaceParams,
+      body: { email: 'new@example.com', roleId: viewerRoleId },
+      method: 'POST',
+    },
+    {
+      name: 'DELETE /invitations/:id',
+      handler: invitationDelete,
+      access: 'MEMBERS_INVITE',
+      params: invitationParams,
+      method: 'DELETE',
     },
     { name: 'GET /roles', handler: rolesGet, access: 'READ', params: workspaceParams },
     {
@@ -232,6 +309,14 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       access: 'RECORDS_DELETE',
       params: recordParams,
       method: 'DELETE',
+    },
+    // Last: it ends the caller's membership, so nothing after it would be reached as a member
+    {
+      name: 'POST /workspaces/:ws/leave',
+      handler: workspaceLeavePost,
+      access: 'READ',
+      params: workspaceParams,
+      method: 'POST',
     },
   ]
 }
@@ -456,11 +541,79 @@ describe('a member who manages roles stays within their own permissions', () => 
   })
 })
 
+describe('a member who manages members stays within their own permissions', () => {
+  beforeEach(async () => {
+    await prisma.workspaceRole.create({
+      data: {
+        workspaceId: world.ada.workspace.id,
+        name: 'Manager',
+        permissions: ['MEMBERS_INVITE', 'MEMBERS_MANAGE', 'RECORDS_CREATE'],
+      },
+    })
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Manager')
+  })
+
+  const managerEvent = (
+    method: 'POST' | 'PATCH' | 'DELETE',
+    params: Record<string, string>,
+    body?: unknown,
+  ) =>
+    testEvent({
+      user: world.mallory,
+      method,
+      body,
+      params: { workspaceAddress: adaWorkspace(), ...params },
+    })
+
+  const findRoleId = async (name: string) =>
+    (
+      await prisma.workspaceRole.findUniqueOrThrow({
+        where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name } },
+        select: { id: true },
+      })
+    ).id
+
+  it('invites as a role within their permissions, never above them', async () => {
+    await expect(
+      invitationsPost(
+        managerEvent('POST', {}, { email: 'Clerk@Example.com', roleId: world.viewerRoleId }),
+      ),
+    ).resolves.toMatchObject({ invitation: { email: 'clerk@example.com' } })
+
+    await expect(
+      invitationsPost(
+        managerEvent('POST', {}, { email: 'boss@example.com', roleId: await findRoleId('Admin') }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('cannot touch the owner, nor raise a member above themselves', async () => {
+    const grace = await createUser('grace@example.com')
+    const graceMember = await addMember(world.ada.workspace.id, grace.id, 'Viewer')
+
+    await expect(
+      memberDelete(managerEvent('DELETE', { memberId: world.adaMemberId })),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      memberPatch(
+        managerEvent('PATCH', { memberId: graceMember.id }, { roleId: await findRoleId('Admin') }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 })
+
+    await expect(
+      memberDelete(managerEvent('DELETE', { memberId: graceMember.id })),
+    ).resolves.toEqual({ ok: true })
+  })
+})
+
 describe('an anonymous request is 401 before anything else', () => {
   it('on every endpoint, including ones whose ids do not exist', async () => {
     const endpoints: THandler[] = [
       workspacesGet,
       workspacesPost,
+      incomingInvitationsGet,
+      incomingInvitationAccept,
+      incomingInvitationDecline,
       ...scopedEndpoints().map((endpoint) => endpoint.handler),
     ]
 
@@ -472,6 +625,8 @@ describe('an anonymous request is 401 before anything else', () => {
           fieldId: 'nope',
           recordAddress: 'nope',
           roleId: 'nope',
+          memberId: 'nope',
+          invitationId: 'nope',
         },
       })
 

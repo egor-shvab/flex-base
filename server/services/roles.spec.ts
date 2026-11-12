@@ -2,33 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
 import { MAX_WORKSPACE_ROLES, RoleService } from '#server/services/roles'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { IWorkspaceMembership, TWorkspacePermission } from '#shared/types/workspace'
+import type { TWorkspacePermission } from '#shared/types/workspace'
+import { buildMembership, MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID } from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
 vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 
-const WORKSPACE_ID = 'wsp_1'
 const ROLE_ID = 'rol_1'
 
-function buildActor(permissions: TWorkspacePermission[], isOwner = false): IWorkspaceMembership {
-  return {
-    memberId: 'mem_1',
-    isOwner,
-    permissions: isOwner ? [...WORKSPACE_PERMISSIONS] : permissions,
-    role: { id: 'rol_actor', name: 'Manager' },
-    workspace: {
-      id: WORKSPACE_ID,
-      publicId: 'k3f9x2m8qa',
-      name: 'Acme',
-      createdAt: '2026-01-05T09:14:00.000Z',
-    },
-  }
-}
-
-const manager = buildActor(['ROLES_MANAGE', 'RECORDS_CREATE', 'RECORDS_UPDATE'])
-const owner = buildActor([], true)
+const manager = buildMembership(['ROLES_MANAGE', 'RECORDS_CREATE', 'RECORDS_UPDATE'])
+const owner = buildMembership([], { isOwner: true })
 
 const roleRow = (permissions: TWorkspacePermission[], memberCount = 0) => ({
   id: ROLE_ID,
@@ -208,9 +193,39 @@ describe('RoleService.deleteRole', () => {
 
     await expect(RoleService.deleteRole(manager, ROLE_ID)).rejects.toMatchObject({
       statusCode: 409,
-      statusMessage: 'Reassign the members of this role first',
+      statusMessage: 'Reassign the members of this role and revoke its invitations first',
     })
     expect(prismaMock.workspaceMember.findMany).not.toHaveBeenCalled()
     expect(prismaMock.workspaceRole.count).not.toHaveBeenCalled()
+  })
+})
+
+describe('RoleService.requireAssignableRole', () => {
+  it('passes a role within the actor’s permissions, found by the compound key', async () => {
+    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['RECORDS_CREATE'] })
+
+    await expect(RoleService.requireAssignableRole(manager, ROLE_ID)).resolves.toBeUndefined()
+    expect(prismaMock.workspaceRole.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: roleWhere }),
+    )
+  })
+
+  it('refuses a role granting more than the actor holds, but not to the owner', async () => {
+    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['TABLES_MANAGE'] })
+
+    await expect(RoleService.requireAssignableRole(manager, ROLE_ID)).rejects.toMatchObject({
+      statusCode: 403,
+      statusMessage: 'You can only assign roles within your own permissions',
+    })
+    await expect(RoleService.requireAssignableRole(owner, ROLE_ID)).resolves.toBeUndefined()
+  })
+
+  it('answers a role of another workspace as missing', async () => {
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(null)
+
+    await expect(RoleService.requireAssignableRole(owner, ROLE_ID)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Role not found',
+    })
   })
 })

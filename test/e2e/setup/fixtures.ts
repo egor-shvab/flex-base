@@ -1,5 +1,5 @@
 import { test as base, expect } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Browser, Page } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
 import { DEFAULT_WORKSPACE_ROLES } from '#server/db/workspaces'
 import type { IField, TFieldType } from '#shared/types/field'
@@ -43,8 +43,9 @@ interface IFixtures {
 
 /**
  * By identity: the sign-up case registers a second user. The oldest is the personal one; any a
- * case created is removed, as is any member or role it added, the default roles get their
- * permissions back, and `/` is pointed back at it.
+ * case created is removed, as is any member, invitation or role it added, and any workspace the
+ * user joined or handed over; the default roles get their permissions back, and `/` is pointed
+ * back at it.
  */
 async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
   const owner = { email: E2E_USER.email }
@@ -56,7 +57,15 @@ async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
 
   await prisma.workspace.deleteMany({ where: { owner, id: { not: workspace.id } } })
   await prisma.workspaceMember.deleteMany({
-    where: { workspaceId: workspace.id, user: { isNot: owner } },
+    where: {
+      OR: [
+        { workspaceId: workspace.id, user: { isNot: owner } },
+        { user: owner, workspace: { owner: { isNot: owner } } },
+      ],
+    },
+  })
+  await prisma.workspaceInvitation.deleteMany({
+    where: { OR: [{ workspaceId: workspace.id }, { email: E2E_USER.email.toLowerCase() }] },
   })
   await prisma.workspaceRole.deleteMany({
     where: {
@@ -114,6 +123,26 @@ export const test = base.extend<IFixtures>({
     await use(errors)
   },
 })
+
+let userSequence = 0
+
+/**
+ * Another person, registered through the API as they would be, signed in in a context of their
+ * own. They start with nothing but their personal workspace.
+ */
+export async function signInNewUser(browser: Browser): Promise<{ page: Page; email: string }> {
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+  const page = await context.newPage()
+  userSequence += 1
+  const email = `member-${test.info().workerIndex}-${userSequence}-${Date.now()}@example.com`
+
+  const registered = await page.request.post('/api/auth/register', {
+    data: { name: 'Member', email, password: 'correct-horse-battery' },
+  })
+  expect(registered.ok()).toBe(true)
+
+  return { page, email }
+}
 
 /**
  * Scoped to the dialog: `ConfirmModal` is lazy, so an unscoped `.last()` can resolve before it

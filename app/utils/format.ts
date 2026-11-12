@@ -17,6 +17,13 @@ const DATE_PROSE_FORMAT = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
 })
 
+const TIMESTAMP_DAY_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+
 const TIMESTAMP_FORMAT = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
@@ -53,6 +60,12 @@ export function formatDateProse(value: string): string {
 export function formatTimestamp(value: string): string {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : TIMESTAMP_FORMAT.format(date)
+}
+
+/** The day of a moment, where the time would be noise: when someone joined, when it expires. */
+export function formatTimestampDay(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : TIMESTAMP_DAY_FORMAT.format(date)
 }
 
 export function formatMatchingRecords(total: number, isCapped = false): string {

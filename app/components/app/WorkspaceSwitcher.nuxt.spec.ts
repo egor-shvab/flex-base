@@ -6,6 +6,7 @@ import type { Pinia } from 'pinia'
 import { useNuxtApp } from '#imports'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
 import WorkspaceSwitcher from '~/components/app/WorkspaceSwitcher.vue'
+import { useInvitationsStore } from '~/stores/invitations'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
@@ -65,7 +66,10 @@ describe('WorkspaceSwitcher', () => {
     setActivePinia(useNuxtApp().$pinia as Pinia)
   })
 
-  afterEach(unmountAll)
+  afterEach(() => {
+    unmountAll()
+    useInvitationsStore().incoming = []
+  })
 
   it('names the current workspace and the caller’s place in it', async () => {
     await mountSwitcher()
@@ -143,5 +147,27 @@ describe('WorkspaceSwitcher', () => {
 
     expect(panel()).toBeNull()
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('New workspace')
+  })
+
+  it('counts the invitations waiting, and leads to them', async () => {
+    const invitation = {
+      workspace: { name: 'Elsewhere' },
+      role: { name: 'Viewer' },
+      invitedBy: null,
+      expiresAt: '2026-03-08T12:00:00.000Z',
+    }
+    useInvitationsStore().incoming = [
+      { id: 'inv_1', ...invitation },
+      { id: 'inv_2', ...invitation },
+    ]
+    await mountSwitcher()
+
+    expect(trigger().textContent).toContain('2 invitations waiting')
+
+    trigger().click()
+    await nextTick()
+    const invitations = items().find((item) => item.textContent?.includes('Invitations'))
+    expect(invitations?.getAttribute('href')).toBe('/invitations')
+    expect(invitations?.textContent).toMatch(/Invitations\s*2/)
   })
 })

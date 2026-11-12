@@ -148,13 +148,25 @@ the state. _Raise it only on a real report._
 
 The dot (≥3.1:1) and the word survive; raising fills would break their 4.5:1 text pairings. _Revisit only if the badge palette is retuned._
 
-### The role cap is counted, not locked
+### The role and pending-invitation caps are counted, not locked
 
-Two creates racing past the count can leave a workspace one role over `MAX_WORKSPACE_ROLES`. The cap
-bounds a list the page renders, which one extra role does not break. _Reopen if the cap ever guards
-a cost rather than a list._
+Two creates racing past the count can leave a workspace one over `MAX_WORKSPACE_ROLES` or
+`MAX_PENDING_INVITATIONS`. Each cap bounds a list a page renders, which one extra row does not
+break. _Reopen if a cap ever guards a cost rather than a list._
 
-### The error log is a local file, and the rate limit in front of it is per process
+### The error log is a local file, and the rate limits are per process
 
-More than one instance needs a real sink, and the in-memory rate limit splits per instance. _Revisit
-before any real deployment._
+More than one instance needs a real sink, and the in-memory rate limits (client errors,
+invitations) split per instance. _Revisit before any real deployment._
+
+### An invitation goes to whoever registers its address first
+
+No address is verified, so anyone can register an invited email nobody has claimed yet and accept
+the invitation. _Reopen with the first real deployment: email verification closes it._
+
+### Registration keeps an email's case
+
+`User.email` is stored as typed, so `Ada@x.com` and `ada@x.com` are two accounts. Invitations are
+stored lowercased and matched against the lowercased account email, so either account receives an
+invitation sent to either spelling. Normalising sign-up would change who can sign in with what.
+_Reopen with email verification, or on the first duplicate-account report._

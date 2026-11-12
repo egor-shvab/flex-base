@@ -37,10 +37,11 @@ model User {
   lastWorkspaceId String?
   lastWorkspace   Workspace? @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
 
-  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  ownedWorkspaces Workspace[]           @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
-  createdRecords  Record[]          @relation("RecordCreatedBy")
-  updatedRecords  Record[]          @relation("RecordUpdatedBy")
+  sentInvitations WorkspaceInvitation[]
+  createdRecords  Record[]              @relation("RecordCreatedBy")
+  updatedRecords  Record[]              @relation("RecordUpdatedBy")
 }
 
 model Workspace {
@@ -58,8 +59,9 @@ model Workspace {
 
   members      WorkspaceMember[]
   roles        WorkspaceRole[]
+  invitations  WorkspaceInvitation[]
   tables       Table[]
-  lastVisitors User[]            @relation("LastWorkspace")
+  lastVisitors User[]                @relation("LastWorkspace")
 
   @@index([ownerId])
 }
@@ -72,7 +74,8 @@ model WorkspaceRole {
   permissions WorkspacePermission[]
   createdAt   DateTime              @default(now())
 
-  members WorkspaceMember[]
+  members     WorkspaceMember[]
+  invitations WorkspaceInvitation[]
 
   @@unique([workspaceId, name])
   // The target of `WorkspaceMember`'s role key, which carries the workspace too
@@ -94,6 +97,25 @@ model WorkspaceMember {
 
   @@unique([workspaceId, userId])
   @@index([userId])
+  @@index([roleId])
+}
+
+model WorkspaceInvitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // Lowercased: matched against `User.email` by equality, which keeps the index usable
+  email       String
+  // NoAction for the reason `WorkspaceMember.role` gives
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: NoAction)
+  invitedById String?
+  invitedBy   User?         @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  createdAt   DateTime      @default(now())
+
+  @@unique([workspaceId, email])
+  @@index([email])
   @@index([roleId])
 }
 

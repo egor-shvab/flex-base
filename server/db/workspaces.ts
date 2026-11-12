@@ -1,9 +1,11 @@
 import type { Prisma } from '#server/generated/prisma/client'
 import { isUniqueViolationOn } from '#server/db/prisma-errors'
+import { userRefSelect } from '#server/db/users'
 import { buildPublicId } from '#server/utils/public-id'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IWorkspace,
+  IWorkspaceMember,
   IWorkspaceMembership,
   IWorkspaceRole,
   TWorkspacePermission,
@@ -45,9 +47,19 @@ export const roleSelect = {
   _count: { select: { members: true } },
 } satisfies Prisma.WorkspaceRoleSelect
 
+export const memberSelect = {
+  id: true,
+  userId: true,
+  createdAt: true,
+  user: { select: { ...userRefSelect, email: true } },
+  role: { select: { id: true, name: true, permissions: true } },
+  workspace: { select: { ownerId: true } },
+} satisfies Prisma.WorkspaceMemberSelect
+
 export type TWorkspaceRow = Prisma.WorkspaceGetPayload<{ select: typeof workspaceSelect }>
 export type TMembershipRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof membershipSelect }>
 export type TRoleRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof roleSelect }>
+export type TMemberRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof memberSelect }>
 
 export function buildMembershipWhere(
   userId: string,
@@ -91,6 +103,17 @@ export function toSharedRole(row: TRoleRow): IWorkspaceRole {
     name: row.name,
     permissions: row.permissions,
     memberCount: row._count.members,
+  }
+}
+
+export function toSharedMember(row: TMemberRow): IWorkspaceMember {
+  return {
+    id: row.id,
+    isOwner: row.workspace.ownerId === row.userId,
+    user: { id: row.user.id, name: row.user.name },
+    email: row.user.email,
+    role: row.role,
+    joinedAt: row.createdAt.toISOString(),
   }
 }
 

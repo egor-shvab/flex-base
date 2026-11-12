@@ -260,7 +260,10 @@ sort puts blanks `NULLS LAST` and breaks ties on `"createdAt" DESC`, which keeps
 records reach it through their table, and every relation cascades. Access is membership
 (`WorkspaceMember`) plus the member's role (`WorkspaceRole.permissions`), whose key carries the
 workspace (`(workspaceId, roleId)`), so a member cannot hold another workspace's role; the owner
-(`Workspace.ownerId`) holds every permission and is also a member. `Record.data` is keyed by **`Field.key`**
+(`Workspace.ownerId`) holds every permission and is also a member — transfer keeps the old owner
+under their role, and the owner cannot leave. An invitation (`WorkspaceInvitation`, one per
+workspace and lowercased email) holds its role by the same compound key, so a role still held by a
+member or an invitation cannot be deleted (409). `Record.data` is keyed by **`Field.key`**
 (immutable), so renaming a field rewrites nothing; a multi-value field stores a JSON array, and
 widening is the one operation that rewrites rows. `Table.recordCounter` is never in `tableSelect`.
 
@@ -325,6 +328,11 @@ Only what the name and the code do not say.
 - **`services/fields.ts`** — rejects type changes, retargeting and narrowing (400); widening runs
   `widenToList` in the metadata change's transaction.
 - **`services/records.ts`** — `data` is replaced wholesale on update.
+- **`services/invitations.ts`** — sending to an address already invited **renews** that row (role,
+  inviter, a new expiry); whether the address has an account is never read, so the answer cannot
+  tell. Accepting **deletes the invitation before creating the membership** in one transaction: a
+  second accept racing it waits on the row and finds it gone (404). The rate limit lives in the
+  `POST` handler, keyed on the inviter.
 - **`api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.get.ts`** — validates
   with
   `buildRecordQuerySchema(fields)`, then decodes with `parseRecordQueryState`.
@@ -341,6 +349,9 @@ Only what the name and the code do not say.
 - **`composables/useRecordDetail.ts`** / **`useDetailLink.ts`** — the dialog's only owner: reads
   `detail`, fetches its last entry keyed on a **string** (the query ref is a fresh object on every
   change), and exposes navigations, not state.
+- **`composables/useServerAction.ts`** — a user-started write: pending flag, the server's message,
+  and the refusal handed to `useAccessResync`. **It catches, never rethrows** — `run` binds to an
+  event, where a rejection goes unhandled. `useForm` and `useDeleteConfirm` are built on it.
 - **`composables/useDeleteConfirm.ts`** — clears the target **only on success**; a refusal renders
   in the dialog.
 - **`composables/useActiveWorkspace.ts`** — the one place a component asks what the caller may do
@@ -348,7 +359,7 @@ Only what the name and the code do not say.
   parent page loads during SSR — so a hidden control is hidden on both sides of hydration.
   **Unknown is "no"**: a control appears once allowed, never flickers away.
 - **`composables/useAccessResync.ts`** — every failure inside a workspace passes through it:
-  `useForm` and `useDeleteConfirm` hand it each refused write, the loaders throw through
+  `useServerAction` hands it each refused write, the loaders throw through
   `throwPageError`. A 403 refetches the membership, so the narrowed role's controls disappear; a
   workspace 404 drops the workspace from the store before the error page, or `/` would send the
   caller straight back to it.
@@ -381,9 +392,16 @@ Only what the name and the code do not say.
   refetches when the signed-in user is not the one the list was loaded for: logging out does not
   reload the app. `lastWorkspaceAddress` follows visits and deletions locally, so `/` reached later
   in the same visit opens the right workspace without asking the server.
-- **`stores/roles.ts`** — holds one workspace's roles, dropping answers for another as `tables`
-  does. `updateRole` on the caller's own role refetches their membership: what they may do changed
-  with it.
+- **`composables/useWorkspaceCollection.ts`** — the list a store holds for one workspace at a
+  time (`roles`, `members`, the invitations sent): emptied on a switch, and **an answer or a write
+  for a workspace switched away from is dropped**. Lists are oldest first, so an item new to the
+  list is appended.
+- **`stores/roles.ts`** — `updateRole` on the caller's own role refetches their membership: what
+  they may do changed with it.
+- **`stores/invitations.ts`** — both sides: `outgoing` (one workspace's, for its inviters) and
+  `incoming` (the signed-in user's, which the switcher counts). `ensureIncoming` never throws and
+  reloads for another user, as `ensureWorkspaces` does. **An answer refused with a 404 drops the
+  invitation** — revoked, expired or answered in another tab.
 - **`stores/relations.ts`** — `loadOptions` fetches nothing for a table without relations.
 
 ### Renderers — `app/components/records/`
@@ -428,6 +446,10 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
   chain and returns focus; a deleted target reads "This record no longer exists."; the link's ring
   is not clipped; `Open in …` absent for the current table; badge height equal in row and dialog.
 - **Row actions:** Delete in the `⋯` menu; keyboard focus into it; Escape closes the menu alone.
+- **Members:** an invited person sees the switcher's count, accepts, and lands in the workspace; a
+  role change takes effect on their next page; removal sends them to the workspace's 404; a revoked
+  invitation answers "This invitation is no longer valid"; the owner hands a workspace over and
+  can then leave it.
 - **Permissions:** an Editor gets records but no schema control; a Viewer no change at all; a role
   narrowed mid-session hides its controls on the first 403; a member removed mid-session lands on
   the workspace's 404 and `/` no longer offers it.
