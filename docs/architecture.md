@@ -302,9 +302,10 @@ Only what the name and the code do not say.
   `toSharedRecord` the one place `data` is, `toJsonData` the one cast back.
 - **`db/users.ts`** — `authUserWithHashSelect` is the only select naming the hash, and `toAuthUser`
   the one place it is dropped.
-- **`utils/http-errors.ts`** — `toHttpError(error, { conflict?, notFound? })` maps `P2002` → 409 and
-  `P2025` → 404. **An absent message means "do not map this"**; anything unmapped still surfaces as
-  a 500.
+- **`utils/http-errors.ts`** — `toHttpError(error, { conflict?, inUse?, notFound? })` maps `P2002`
+  and `P2003` → 409 and `P2025` → 404. **An absent message means "do not map this"**; anything
+  unmapped still surfaces as a 500 — so `inUse` goes only on a delete, where a foreign key refusing
+  it means the row is still referenced.
 - **`utils/workspace-access.ts`** — `requireMembership` resolves the caller's membership from their
   id and the workspace address in **one** query (not a member → 404); `assertAccess` turns a
   missing permission — or `OWNER`, which no role grants — into a 403. Every workspace route reaches both through a factory in
@@ -370,6 +371,9 @@ Only what the name and the code do not say.
   refetches when the signed-in user is not the one the list was loaded for: logging out does not
   reload the app. `lastWorkspaceAddress` follows visits and deletions locally, so `/` reached later
   in the same visit opens the right workspace without asking the server.
+- **`stores/roles.ts`** — holds one workspace's roles, dropping answers for another as `tables`
+  does. `updateRole` on the caller's own role refetches their membership: what they may do changed
+  with it.
 - **`stores/relations.ts`** — `loadOptions` fetches nothing for a table without relations.
 
 ### Renderers — `app/components/records/`

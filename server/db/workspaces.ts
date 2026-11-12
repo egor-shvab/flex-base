@@ -5,6 +5,7 @@ import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IWorkspace,
   IWorkspaceMembership,
+  IWorkspaceRole,
   TWorkspacePermission,
 } from '#shared/types/workspace'
 
@@ -37,14 +38,30 @@ export const membershipSelect = {
   workspace: { select: { ...workspaceSelect, ownerId: true } },
 } satisfies Prisma.WorkspaceMemberSelect
 
+export const roleSelect = {
+  id: true,
+  name: true,
+  permissions: true,
+  _count: { select: { members: true } },
+} satisfies Prisma.WorkspaceRoleSelect
+
 export type TWorkspaceRow = Prisma.WorkspaceGetPayload<{ select: typeof workspaceSelect }>
 export type TMembershipRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof membershipSelect }>
+export type TRoleRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof roleSelect }>
 
 export function buildMembershipWhere(
   userId: string,
   workspaceAddress: string,
 ): Prisma.WorkspaceMemberWhereInput {
   return { userId, workspace: { publicId: workspaceAddress } }
+}
+
+/** By the compound key, so a role id from another workspace matches nothing. */
+export function buildRoleWhere(
+  workspaceId: string,
+  roleId: string,
+): Prisma.WorkspaceRoleWhereUniqueInput {
+  return { workspaceId_id: { workspaceId, id: roleId } }
 }
 
 export function toSharedWorkspace(row: TWorkspaceRow): IWorkspace {
@@ -65,6 +82,15 @@ export function toSharedMembership(row: TMembershipRow, userId: string): IWorksp
     permissions: isOwner ? [...WORKSPACE_PERMISSIONS] : row.role.permissions,
     workspace: toSharedWorkspace(row.workspace),
     role: { id: row.role.id, name: row.role.name },
+  }
+}
+
+export function toSharedRole(row: TRoleRow): IWorkspaceRole {
+  return {
+    id: row.id,
+    name: row.name,
+    permissions: row.permissions,
+    memberCount: row._count.members,
   }
 }
 

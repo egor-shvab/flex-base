@@ -52,6 +52,7 @@ const membership = computed(() => workspacesStore.findMembership(workspaceAddres
 // The danger zone holds only the owner's actions so far
 const sections = computed<ISettingsSection[]>(() => [
   { id: 'general', label: 'General', icon: 'material-symbols:tune-rounded' },
+  { id: 'roles', label: 'Roles', icon: 'material-symbols:shield-person-outline-rounded' },
   ...(membership.value?.isOwner
     ? [
         {

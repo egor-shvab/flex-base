@@ -13,6 +13,10 @@ export const apiPath = {
   workspace: workspacePath,
   workspaceVisit: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/visit`,
 
+  roles: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/roles`,
+  role: (workspaceAddress: string, roleId: string) =>
+    `${workspacePath(workspaceAddress)}/roles/${roleId}`,
+
   tables: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/tables`,
   table: tablePath,
 

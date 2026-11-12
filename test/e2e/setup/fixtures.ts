@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
+import { DEFAULT_WORKSPACE_ROLES } from '#server/db/workspaces'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 import { createField, createFields, createRecords, createTable } from '~~/test/integration/seed'
@@ -42,7 +43,7 @@ interface IFixtures {
 
 /**
  * By identity: the sign-up case registers a second user. The oldest is the personal one; any a
- * case created is removed, and `/` is pointed back at it.
+ * case created is removed, as is any role it added, and `/` is pointed back at it.
  */
 async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
   const owner = { email: E2E_USER.email }
@@ -53,6 +54,12 @@ async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
   })
 
   await prisma.workspace.deleteMany({ where: { owner, id: { not: workspace.id } } })
+  await prisma.workspaceRole.deleteMany({
+    where: {
+      workspaceId: workspace.id,
+      name: { notIn: DEFAULT_WORKSPACE_ROLES.map((role) => role.name) },
+    },
+  })
   await prisma.user.update({ where: owner, data: { lastWorkspaceId: workspace.id } })
 
   return { ...workspace, url: `/w/${workspace.publicId}` }

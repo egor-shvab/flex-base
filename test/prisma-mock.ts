@@ -5,6 +5,7 @@ interface IModelMock {
   findUnique: Mock
   findUniqueOrThrow: Mock
   findFirst: Mock
+  count: Mock
   create: Mock
   update: Mock
   delete: Mock
@@ -16,6 +17,7 @@ function modelMock(): IModelMock {
     findUnique: vi.fn(),
     findUniqueOrThrow: vi.fn(),
     findFirst: vi.fn(),
+    count: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -29,6 +31,7 @@ export const prismaMock = {
   user: modelMock(),
   workspace: modelMock(),
   workspaceMember: modelMock(),
+  workspaceRole: modelMock(),
   $queryRaw: vi.fn(),
   $executeRaw: vi.fn(),
   $transaction: vi.fn(),
@@ -53,6 +56,7 @@ export function resetPrismaMock(): void {
     prismaMock.user,
     prismaMock.workspace,
     prismaMock.workspaceMember,
+    prismaMock.workspaceRole,
   ]
 
   for (const model of models) {

@@ -148,6 +148,12 @@ the state. _Raise it only on a real report._
 
 The dot (≥3.1:1) and the word survive; raising fills would break their 4.5:1 text pairings. _Revisit only if the badge palette is retuned._
 
+### The role cap is counted, not locked
+
+Two creates racing past the count can leave a workspace one role over `MAX_WORKSPACE_ROLES`. The cap
+bounds a list the page renders, which one extra role does not break. _Reopen if the cap ever guards
+a cost rather than a list._
+
 ### The error log is a local file, and the rate limit in front of it is per process
 
 More than one instance needs a real sink, and the in-memory rate limit splits per instance. _Revisit

@@ -397,9 +397,10 @@ model Record {
 - **`MemberService`** — `listMembers(workspaceId)`, `changeMemberRole(actor, memberId, roleId)`,
   `removeMember(actor, memberId)`. Все с правилами §3.3; цель ищется в `where` с `workspaceId`.
 - **`RoleService`** — `listRoles(workspaceId)` (с `_count.members`), `createRole`, `updateRole`,
-  `deleteRole`. Удаление используемой роли — 409 `Reassign the members and invitations of this
-role first` (по `P2003`, без предварительного `count` — та же логика, что у регистрации: вставка
-  или удаление и есть проверка). Лимит `MAX_WORKSPACE_ROLES` — `count` в транзакции.
+  `deleteRole`. Удаление используемой роли — 409 `Reassign the members of this role first` (по
+  `P2003`, без предварительного `count` — удаление и есть проверка); этап 8 добавляет в текст
+  приглашения. Лимит `MAX_WORKSPACE_ROLES` — `count` перед вставкой, без блокировки
+  (`limitations.md`).
 - **`InvitationService`** — сторона пространства: `listInvitations(workspaceId)`,
   `createInvitation(actor, input)` (upsert по `(workspaceId, email)` с новым `expiresAt`; email уже
   участник → 409 `Already a member`; лимит ожидающих; per-user rate limit через
@@ -720,6 +721,13 @@ Conventional Commit.
 - **Проверить**: unit (prisma-mock) — проверки §3.3 срабатывают до запроса записи; интеграция —
   удаление используемой роли → 409 через `P2003`, каскад удаления пространства не падает на
   `NoAction`; лимит ролей.
+- **Сделано иначе, чем в плане**: лимит ролей считается без транзакции — без блокировки она
+  ничего не гарантировала, гонка записана в `limitations.md`; сервисы получают членство целиком
+  (`createRole(membership, input)`), а `buildRoleWhere` ищет роль по составному ключу
+  `(workspaceId, id)`. Страница ролей, как `general` и `danger`, пока читает права из членства в
+  сторе — этап 7 переводит на `useActiveWorkspace`. `updateRole` своей роли перезагружает членство
+  (ресинхронизация после 403/404 — по-прежнему этап 7). Строка списка вынесена в миксин
+  `entity-row` (общий с полями таблицы); e2e-фикстура удаляет роли, созданные тестом.
 
 ### Этап 7. Права в интерфейсе и ресинхронизация
 

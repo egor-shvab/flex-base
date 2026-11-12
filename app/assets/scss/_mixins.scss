@@ -220,3 +220,93 @@ $breakpoint-compact: 40em;
   text-transform: uppercase;
   color: var(--color-text-subtle);
 }
+
+/** A row in a settings list: an icon tile, a name with a meta line, and its icon buttons. */
+@mixin entity-row {
+  display: flex;
+  align-items: center;
+  gap: rem(16);
+  padding: rem(8) rem(16);
+  border-bottom: 1px solid var(--color-border-subtle);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--color-surface-row-hover);
+  }
+
+  &__lead {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: rem(16);
+    min-width: 0;
+  }
+
+  &__icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: rem(32);
+    height: rem(32);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-muted);
+    font-size: rem(20);
+    color: var(--color-text-secondary);
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    @include cluster(8);
+
+    margin: 0;
+  }
+
+  &__label {
+    min-width: 0;
+    font-size: var(--font-size-body);
+    font-weight: 500;
+
+    @include truncate;
+  }
+
+  &__meta {
+    margin: rem(2) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+
+    @include truncate;
+
+    @include below-shell {
+      white-space: normal;
+    }
+  }
+
+  &__sep {
+    margin: 0 rem(6);
+    color: var(--color-border-strong);
+  }
+
+  &__actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: rem(4);
+  }
+
+  @include below-shell {
+    flex-wrap: wrap;
+    padding-block: rem(12);
+
+    &__actions {
+      flex-basis: 100%;
+      margin-left: rem(48);
+    }
+  }
+}

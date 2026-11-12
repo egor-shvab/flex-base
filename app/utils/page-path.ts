@@ -1,4 +1,4 @@
-export type TWorkspaceSettingsSection = 'general' | 'danger'
+export type TWorkspaceSettingsSection = 'general' | 'roles' | 'danger'
 
 /** The app's own page URLs, as `apiPath` holds the API's. */
 export const pagePath = {

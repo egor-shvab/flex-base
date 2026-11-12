@@ -30,6 +30,15 @@ describe('toHttpError — mapped constraint errors', () => {
     expect(result.statusMessage).toBe(messages.notFound)
   })
 
+  it('maps a delete refused by a row still referencing it to 409', () => {
+    const result = httpError(
+      toHttpError(prismaError('P2003'), { inUse: 'Reassign the members of this role first' }),
+    )
+
+    expect(result.statusCode).toBe(409)
+    expect(result.statusMessage).toBe('Reassign the members of this role first')
+  })
+
   it('returns the error rather than throwing it — every call site supplies the `throw`', () => {
     expect(() => toHttpError(prismaError('P2025'), messages)).not.toThrow()
     expect(toHttpError(prismaError('P2025'), messages)).toBeInstanceOf(Error)
@@ -49,8 +58,13 @@ describe('toHttpError — what it deliberately does not disguise', () => {
     expect(toHttpError(original, { conflict: 'Email is already registered' })).toBe(original)
   })
 
-  it('passes an unrecognised Prisma code through untouched', () => {
+  it('passes a foreign-key violation through untouched when the service declares no inUse message', () => {
     const original = prismaError('P2003')
+    expect(toHttpError(original, messages)).toBe(original)
+  })
+
+  it('passes an unrecognised Prisma code through untouched', () => {
+    const original = prismaError('P2034')
     expect(toHttpError(original, messages)).toBe(original)
   })
 

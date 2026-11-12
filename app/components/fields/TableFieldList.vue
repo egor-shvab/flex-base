@@ -105,102 +105,17 @@ const configSummaries = computed(
 }
 
 .field-row {
-  display: flex;
-  align-items: center;
-  gap: rem(16);
-  padding: rem(8) rem(16);
-  border-bottom: 1px solid var(--color-border-subtle);
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background: var(--color-surface-row-hover);
-  }
-
-  &__lead {
-    display: flex;
-    align-items: center;
-    gap: rem(16);
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__icon {
-    display: grid;
-    place-items: center;
-    width: rem(32);
-    height: rem(32);
-    flex: none;
-    border-radius: var(--radius-md);
-    background: var(--color-surface-muted);
-    font-size: rem(20);
-    color: var(--color-text-secondary);
-  }
-
-  &__body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__name {
-    @include cluster(8);
-
-    margin: 0;
-  }
-
-  &__label {
-    min-width: 0;
-    font-size: var(--font-size-body);
-    font-weight: 500;
-
-    @include truncate;
-  }
-
-  &__meta {
-    margin: rem(2) 0 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-
-    @include truncate;
-
-    @include below-shell {
-      white-space: normal;
-    }
-  }
+  @include entity-row;
 
   &__type {
     font-weight: 500;
     color: var(--color-text);
   }
 
-  &__sep {
-    margin: 0 rem(6);
-    color: var(--color-border-strong);
-  }
-
   &__key {
     font-family: var(--font-mono);
     font-size: var(--font-size-xs);
     color: var(--color-text-subtle);
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: rem(4);
-    flex: none;
-  }
-
-  @include below-shell {
-    flex-wrap: wrap;
-    padding-block: rem(12);
-
-    &__actions {
-      flex-basis: 100%;
-      margin-left: rem(48);
-    }
   }
 }
 </style>

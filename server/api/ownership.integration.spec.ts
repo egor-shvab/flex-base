@@ -6,6 +6,10 @@ import workspaceGet from '#server/api/workspaces/[workspaceAddress]/index.get'
 import workspacePatch from '#server/api/workspaces/[workspaceAddress]/index.patch'
 import workspaceDelete from '#server/api/workspaces/[workspaceAddress]/index.delete'
 import workspaceVisitPut from '#server/api/workspaces/[workspaceAddress]/visit.put'
+import rolesGet from '#server/api/workspaces/[workspaceAddress]/roles/index.get'
+import rolesPost from '#server/api/workspaces/[workspaceAddress]/roles/index.post'
+import rolePatch from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].patch'
+import roleDelete from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].delete'
 import tableGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].get'
 import tablePatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].patch'
 import tableDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].delete'
@@ -42,6 +46,7 @@ interface IWorld {
   fieldId: string
   relationFieldId: string
   recordId: string
+  viewerRoleId: string
 }
 
 interface IEndpoint {
@@ -73,6 +78,10 @@ beforeEach(async () => {
   })
 
   const record = await createRecord(table.id, { company: 'Acme' })
+  const viewerRole = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: ada.workspace.id, name: 'Viewer' } },
+    select: { id: true },
+  })
 
   world = {
     ada,
@@ -81,14 +90,16 @@ beforeEach(async () => {
     fieldId: field.id,
     relationFieldId: relation.id,
     recordId: record.id,
+    viewerRoleId: viewerRole.id,
   }
 })
 
 const adaWorkspace = () => world.ada.workspace.publicId
 
 function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
-  const { tableId, fieldId, relationFieldId, recordId } = world
+  const { tableId, fieldId, relationFieldId, recordId, viewerRoleId } = world
   const workspaceParams = { workspaceAddress }
+  const roleParams = { workspaceAddress, roleId: viewerRoleId }
   const tableParams = { workspaceAddress, tableAddress: tableId }
   const fieldParams = { ...tableParams, fieldId }
   const recordParams = { ...tableParams, recordAddress: recordId }
@@ -117,6 +128,30 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       access: 'READ',
       params: workspaceParams,
       method: 'PUT',
+    },
+    { name: 'GET /roles', handler: rolesGet, access: 'READ', params: workspaceParams },
+    {
+      name: 'POST /roles',
+      handler: rolesPost,
+      access: 'ROLES_MANAGE',
+      params: workspaceParams,
+      body: { name: 'Clerk', permissions: [] },
+      method: 'POST',
+    },
+    {
+      name: 'PATCH /roles/:id',
+      handler: rolePatch,
+      access: 'ROLES_MANAGE',
+      params: roleParams,
+      body: { name: 'Viewer', permissions: [] },
+      method: 'PATCH',
+    },
+    {
+      name: 'DELETE /roles/:id',
+      handler: roleDelete,
+      access: 'ROLES_MANAGE',
+      params: roleParams,
+      method: 'DELETE',
     },
     { name: 'GET /tables', handler: tablesGet, access: 'READ', params: workspaceParams },
     {
@@ -357,6 +392,70 @@ describe('a member is held to the permissions of their role', () => {
   })
 })
 
+describe('a member who manages roles stays within their own permissions', () => {
+  beforeEach(async () => {
+    await prisma.workspaceRole.create({
+      data: {
+        workspaceId: world.ada.workspace.id,
+        name: 'Manager',
+        permissions: ['ROLES_MANAGE', 'RECORDS_CREATE'],
+      },
+    })
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Manager')
+  })
+
+  const roleEvent = (method: 'POST' | 'PATCH' | 'DELETE', body?: unknown, roleId?: string) =>
+    testEvent({
+      user: world.mallory,
+      method,
+      body,
+      params: { workspaceAddress: adaWorkspace(), ...(roleId ? { roleId } : {}) },
+    })
+
+  const adminRoleId = async () =>
+    (
+      await prisma.workspaceRole.findUniqueOrThrow({
+        where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Admin' } },
+        select: { id: true },
+      })
+    ).id
+
+  it('creates a role from permissions they hold', async () => {
+    await expect(
+      rolesPost(roleEvent('POST', { name: 'Clerk', permissions: ['RECORDS_CREATE'] })),
+    ).resolves.toMatchObject({ role: { name: 'Clerk' } })
+  })
+
+  it('cannot create a role granting more than they hold', async () => {
+    await expect(
+      rolesPost(roleEvent('POST', { name: 'Boss', permissions: ['TABLES_MANAGE'] })),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(prisma.workspaceRole.findFirst({ where: { name: 'Boss' } })).resolves.toBeNull()
+  })
+
+  it('cannot raise a role they could edit above themselves', async () => {
+    await expect(
+      rolePatch(
+        roleEvent('PATCH', { name: 'Viewer', permissions: ['MEMBERS_MANAGE'] }, world.viewerRoleId),
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('cannot change or delete a role above them', async () => {
+    const adminId = await adminRoleId()
+
+    await expect(
+      rolePatch(roleEvent('PATCH', { name: 'Admin', permissions: [] }, adminId)),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(roleDelete(roleEvent('DELETE', undefined, adminId))).rejects.toMatchObject({
+      statusCode: 403,
+    })
+    await expect(
+      prisma.workspaceRole.findUniqueOrThrow({ where: { id: adminId } }),
+    ).resolves.toMatchObject({ permissions: expect.arrayContaining(['TABLES_MANAGE']) })
+  })
+})
+
 describe('an anonymous request is 401 before anything else', () => {
   it('on every endpoint, including ones whose ids do not exist', async () => {
     const endpoints: THandler[] = [
@@ -372,6 +471,7 @@ describe('an anonymous request is 401 before anything else', () => {
           tableAddress: 'nope',
           fieldId: 'nope',
           recordAddress: 'nope',
+          roleId: 'nope',
         },
       })
 

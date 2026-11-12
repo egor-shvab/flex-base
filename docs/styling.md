@@ -26,6 +26,8 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   own `min-width: 0` (`decisions.md` → _The header group needs `min-width: 0`, same as the panes_).
 - **`surface-card`** is geometry and colour only; a card that lifts on hover or wears a ring
   declares that itself.
+- **`entity-row`** is a settings-list row (fields, roles) and brings its `__` elements and the
+  below-shell wrap with it; the block declares only what is its own.
 - **`popover-panel`** is the one floating surface (select list, colour grid, row menu).
 - **`form-control`** is the whole text-field chrome, with its focus half in **`control-focus`** for
   a bordered non-text control (`BaseCheckbox`). Its `:focus` recolours the border (programmatic

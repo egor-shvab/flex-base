@@ -27,3 +27,8 @@ export function isUniqueViolationOn(error: unknown, column: string): boolean {
 export function isMissingRow(error: unknown): boolean {
   return hasCode(error, 'P2025')
 }
+
+/** A row another row still references: deleting it would leave that reference dangling. */
+export function isForeignKeyViolation(error: unknown): boolean {
+  return hasCode(error, 'P2003')
+}

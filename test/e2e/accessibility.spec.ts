@@ -65,6 +65,15 @@ test.describe('the app screens', () => {
       await page.goto(`${workspaceUrl}/settings/general`)
       await expect(page.getByLabel('Workspace name')).toBeVisible()
     },
+    'workspace roles': async (page) => {
+      await page.goto(`${workspaceUrl}/settings/roles`)
+      await expect(page.getByRole('button', { name: 'Edit role Viewer' })).toBeVisible()
+    },
+    'the role form': async (page) => {
+      await page.goto(`${workspaceUrl}/settings/roles`)
+      await page.getByRole('button', { name: 'New role' }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+    },
     'the workspace danger zone': async (page) => {
       await page.goto(`${workspaceUrl}/settings/danger`)
       await page.getByRole('button', { name: 'Delete workspace' }).click()

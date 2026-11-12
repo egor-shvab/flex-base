@@ -34,6 +34,10 @@ export interface IPermissionSet {
   permissions: readonly TWorkspacePermission[]
 }
 
+export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
+  memberCount: number
+}
+
 /** A membership someone may try to change or end, with the permissions its role grants. */
 export interface IManagedMember {
   id: string
