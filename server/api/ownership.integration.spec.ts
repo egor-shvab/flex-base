@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { H3Event } from 'h3'
 import workspacesGet from '#server/api/workspaces/index.get'
+import workspacesPost from '#server/api/workspaces/index.post'
 import workspaceGet from '#server/api/workspaces/[workspaceAddress]/index.get'
+import workspacePatch from '#server/api/workspaces/[workspaceAddress]/index.patch'
+import workspaceDelete from '#server/api/workspaces/[workspaceAddress]/index.delete'
 import workspaceVisitPut from '#server/api/workspaces/[workspaceAddress]/visit.put'
 import tableGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].get'
 import tablePatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].patch'
@@ -93,6 +96,21 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
 
   return [
     { name: 'GET /workspaces/:ws', handler: workspaceGet, access: 'READ', params: workspaceParams },
+    {
+      name: 'PATCH /workspaces/:ws',
+      handler: workspacePatch,
+      access: 'WORKSPACE_UPDATE',
+      params: workspaceParams,
+      body: { name: 'Renamed' },
+      method: 'PATCH',
+    },
+    {
+      name: 'DELETE /workspaces/:ws',
+      handler: workspaceDelete,
+      access: 'OWNER',
+      params: workspaceParams,
+      method: 'DELETE',
+    },
     {
       name: 'PUT /workspaces/:ws/visit',
       handler: workspaceVisitPut,
@@ -343,6 +361,7 @@ describe('an anonymous request is 401 before anything else', () => {
   it('on every endpoint, including ones whose ids do not exist', async () => {
     const endpoints: THandler[] = [
       workspacesGet,
+      workspacesPost,
       ...scopedEndpoints().map((endpoint) => endpoint.handler),
     ]
 
@@ -401,6 +420,50 @@ describe('the workspaces a user sees', () => {
     await expect(workspacesGet(testEvent({ user: world.mallory }))).resolves.toMatchObject({
       lastWorkspaceAddress: null,
     })
+  })
+})
+
+describe('managing a workspace', () => {
+  const workspaceEvent = (user: TSeededUser, method: 'PATCH' | 'DELETE', body?: unknown) =>
+    testEvent({ user, method, body, params: { workspaceAddress: adaWorkspace() } })
+
+  it('creates one the caller owns, validated by the shared schema', async () => {
+    await expect(
+      workspacesPost(testEvent({ user: world.mallory, method: 'POST', body: { name: '  ' } })),
+    ).rejects.toMatchObject({ statusCode: 400 })
+
+    const { membership } = await workspacesPost(
+      testEvent({ user: world.mallory, method: 'POST', body: { name: 'Side project' } }),
+    )
+
+    expect(membership).toMatchObject({ isOwner: true, workspace: { name: 'Side project' } })
+  })
+
+  it('lets an Admin who is not the owner rename it, but never delete it', async () => {
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Admin')
+
+    await expect(
+      workspacePatch(workspaceEvent(world.mallory, 'PATCH', { name: 'Renamed' })),
+    ).resolves.toMatchObject({ workspace: { name: 'Renamed' } })
+
+    await expect(workspaceDelete(workspaceEvent(world.mallory, 'DELETE'))).rejects.toMatchObject({
+      statusCode: 403,
+    })
+    await expect(prisma.workspace.count({ where: { id: world.ada.workspace.id } })).resolves.toBe(1)
+  })
+
+  it('lets the owner delete it, after which it is a 404 to everyone', async () => {
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+
+    await expect(workspaceDelete(workspaceEvent(world.ada, 'DELETE'))).resolves.toEqual({
+      ok: true,
+    })
+
+    for (const user of [world.ada, world.mallory]) {
+      await expect(
+        workspaceGet(testEvent({ user, params: { workspaceAddress: adaWorkspace() } })),
+      ).rejects.toMatchObject({ statusCode: 404, data: { missing: 'workspace' } })
+    }
   })
 })
 

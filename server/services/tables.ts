@@ -1,5 +1,7 @@
 import { createError } from 'h3'
+import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { prisma } from '#server/db/prisma'
+import { recordBackgroundFailure } from '#server/utils/error-log-file'
 import { toHttpError } from '#server/utils/http-errors'
 import { tableListSelect, buildTableAddressWhere, toSharedTableListItem } from '#server/db/tables'
 import type { ITableListItem } from '#shared/types/table'
@@ -104,12 +106,15 @@ async function deleteTable(workspaceId: string, address: string) {
   }
 
   await assertNotRelationTarget(workspaceId, table.id)
+  const indexedFieldIds = await listIndexedFieldIds({ tableId: table.id })
 
   try {
     await prisma.table.delete({ where: { id: table.id } })
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }
+
+  void dropFieldIndexes(indexedFieldIds).catch(recordBackgroundFailure)
 }
 
 export const TableService = {

@@ -1,11 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { mockNuxtImport, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError } from 'h3'
-import { clearNuxtData } from '#imports'
+import { setActivePinia } from 'pinia'
+import type { Pinia } from 'pinia'
+import { clearNuxtData, useNuxtApp } from '#imports'
 import type { IWorkspacesResponse } from '#shared/types/api'
 import WorkspaceEntry from '~/pages/index.vue'
-import { mountTracked } from '~~/test/mount'
+import { useWorkspacesStore } from '~/stores/workspaces'
+import { mountTracked, unmountAll } from '~~/test/mount'
 
 const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)
@@ -33,11 +36,18 @@ registerEndpoint('/api/workspaces', {
 })
 
 beforeEach(() => {
+  const pinia = useNuxtApp().$pinia as Pinia
+  setActivePinia(pinia)
+  // A fresh store per case: a list left `ready` by the last one would never be fetched again
+  useWorkspacesStore().$dispose()
+  delete pinia.state.value.workspaces
   clearNuxtData('workspace-entry')
   navigateTo.mockReset()
   response = { memberships: [], lastWorkspaceAddress: null }
   shouldFail = false
 })
+
+afterEach(unmountAll)
 
 describe('the entry page', () => {
   it('opens the last workspace, replacing itself in history', async () => {
@@ -59,10 +69,11 @@ describe('the entry page', () => {
     expect(navigateTo).toHaveBeenCalledWith(`/w/${WS}`, { replace: true })
   })
 
-  it('says so when the user is in no workspace', async () => {
+  it('says so when the user is in no workspace, offering to create one', async () => {
     const wrapper = await mountTracked(WorkspaceEntry)
 
     expect(wrapper.text()).toContain("You're not in any workspace")
+    expect(wrapper.get('button').text()).toBe('Create workspace')
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     expect(navigateTo).not.toHaveBeenCalled()
   })

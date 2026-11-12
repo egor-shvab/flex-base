@@ -70,12 +70,12 @@ export function toSharedMembership(row: TMembershipRow, userId: string): IWorksp
 
 /**
  * The workspace, its default roles and the owner's membership — every new workspace, personal or
- * not, starts here. Runs inside the caller's transaction.
+ * not, starts here. Runs inside the caller's transaction; returns the owner's membership.
  */
 export async function createWorkspaceWithDefaults(
   tx: Prisma.TransactionClient,
   { ownerId, name }: { ownerId: string; name: string },
-): Promise<TWorkspaceRow> {
+): Promise<TMembershipRow> {
   const workspace = await tx.workspace.create({
     data: {
       publicId: buildPublicId(),
@@ -88,10 +88,10 @@ export async function createWorkspaceWithDefaults(
         })),
       },
     },
-    select: workspaceSelect,
+    select: { id: true },
   })
 
-  await tx.workspaceMember.create({
+  return tx.workspaceMember.create({
     data: {
       workspace: { connect: { id: workspace.id } },
       user: { connect: { id: ownerId } },
@@ -101,9 +101,8 @@ export async function createWorkspaceWithDefaults(
         },
       },
     },
+    select: membershipSelect,
   })
-
-  return workspace
 }
 
 /**

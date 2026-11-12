@@ -3,8 +3,10 @@ import { apiPath } from '~/api/paths'
 import type {
   IOkResponse,
   IWorkspaceMembershipResponse,
+  IWorkspaceResponse,
   IWorkspacesResponse,
 } from '#shared/types/api'
+import type { TWorkspaceInput } from '#shared/validation/workspace'
 
 export function useWorkspacesApi() {
   const api = useApi()
@@ -13,6 +15,15 @@ export function useWorkspacesApi() {
     list: () => api<IWorkspacesResponse>(apiPath.workspaces),
     get: (workspaceAddress: string) =>
       api<IWorkspaceMembershipResponse>(apiPath.workspace(workspaceAddress)),
+    create: (input: TWorkspaceInput) =>
+      api<IWorkspaceMembershipResponse>(apiPath.workspaces, { method: 'POST', body: input }),
+    rename: (workspaceAddress: string, input: TWorkspaceInput) =>
+      api<IWorkspaceResponse>(apiPath.workspace(workspaceAddress), {
+        method: 'PATCH',
+        body: input,
+      }),
+    remove: (workspaceAddress: string) =>
+      api<IOkResponse>(apiPath.workspace(workspaceAddress), { method: 'DELETE' }),
     rememberLast: (workspaceAddress: string) =>
       api<IOkResponse>(apiPath.workspaceVisit(workspaceAddress), { method: 'PUT' }),
   }

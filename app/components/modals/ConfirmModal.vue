@@ -11,15 +11,31 @@
         <slot />
       </p>
       <BaseErrorBanner :message="error" />
+
+      <form v-if="confirmPhrase" novalidate @submit.prevent="confirmIfTyped">
+        <BaseInput
+          :id="phraseInputId"
+          v-model="typedPhrase"
+          :label="`Type “${confirmPhrase}” to confirm`"
+          autocomplete="off"
+          autofocus
+        />
+      </form>
     </div>
 
     <template #footer>
-      <BaseButton variant="secondary" :disabled="pending" autofocus @click="emit('close')">
+      <BaseButton
+        variant="secondary"
+        :disabled="pending"
+        :autofocus="!confirmPhrase"
+        @click="emit('close')"
+      >
         Cancel
       </BaseButton>
       <BaseButton
         :variant="danger ? 'danger' : 'primary'"
         :loading="pending"
+        :disabled="!isPhraseTyped"
         @click="emit('confirm')"
       >
         {{ confirmLabel }}
@@ -29,23 +45,39 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { computed, ref, useId } from 'vue'
+
+const props = withDefaults(
   defineProps<{
     title: string
     confirmLabel?: string
     danger?: boolean
     pending?: boolean
     error?: string | null
+    /** What must be typed before the action unlocks, for one that cannot be undone. */
+    confirmPhrase?: string
   }>(),
   {
     confirmLabel: 'Confirm',
     danger: false,
     pending: false,
     error: null,
+    confirmPhrase: undefined,
   },
 )
 
 const emit = defineEmits<{ confirm: []; close: [] }>()
+
+const phraseInputId = useId()
+const typedPhrase = ref('')
+
+const isPhraseTyped = computed(
+  () => props.confirmPhrase === undefined || typedPhrase.value.trim() === props.confirmPhrase,
+)
+
+function confirmIfTyped() {
+  if (isPhraseTyped.value && !props.pending) emit('confirm')
+}
 </script>
 
 <style lang="scss" scoped>

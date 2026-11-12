@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   dropFieldIndexes,
   listFieldIndexStats,
+  listIndexedFieldIds,
   reconcileFieldIndexes,
   syncFieldIndexes,
 } from '#server/db/field-indexes'
@@ -220,10 +221,38 @@ describe('the index lifecycle', () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
     await syncFieldIndexes(company as IField)
 
-    await dropFieldIndexes(company?.id ?? '')
+    await dropFieldIndexes([company?.id ?? ''])
 
     expect(await indexNames()).toEqual([])
   }, 60_000)
+
+  it('drops the indexes of several fields in one pass, and only theirs', async () => {
+    const [company, stage, kept] = await createFields(tableId, [
+      { key: 'company', type: 'TEXT', indexed: true },
+      { key: 'stage', type: 'TEXT', indexed: true, order: 1 },
+      { key: 'kept', type: 'TEXT', indexed: true, order: 2 },
+    ])
+    for (const field of [company, stage, kept]) await syncFieldIndexes(field as IField)
+
+    await dropFieldIndexes([company?.id ?? '', stage?.id ?? ''])
+
+    expect(await indexNames()).toEqual([
+      `rec_idx_${kept?.id}_f`,
+      `rec_idx_${kept?.id}_sa`,
+      `rec_idx_${kept?.id}_sd`,
+    ])
+  }, 60_000)
+
+  it('lists the indexed fields a delete is about to cascade over, and no others', async () => {
+    const [indexed] = await createFields(tableId, [
+      { key: 'company', type: 'TEXT', indexed: true },
+      { key: 'plain', type: 'TEXT', order: 1 },
+    ])
+    const otherTable = await createTable((await createUser()).workspace.id)
+    await createFields(otherTable.id, [{ key: 'company', type: 'TEXT', indexed: true }])
+
+    await expect(listIndexedFieldIds({ tableId })).resolves.toEqual([indexed?.id])
+  })
 
   it('replaces an invalid index rather than leaving it in place', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])

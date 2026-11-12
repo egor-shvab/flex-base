@@ -9,7 +9,7 @@ import {
 import { requireUser } from '#server/utils/auth'
 import { routeParam } from '#server/utils/route'
 import {
-  assertPermission,
+  assertAccess,
   requireMembership,
   type TWorkspaceAccess,
 } from '#server/utils/workspace-access'
@@ -34,7 +34,7 @@ async function resolveWorkspaceContext(
 ): Promise<IWorkspaceContext> {
   const user = requireUser(event)
   const membership = await requireMembership(user.id, routeParam(event, 'workspaceAddress'))
-  assertPermission(membership, access)
+  assertAccess(membership, access)
 
   return { event, user, membership }
 }

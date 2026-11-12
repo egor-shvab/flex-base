@@ -1,8 +1,6 @@
 <template>
   <nav class="app-sidebar" aria-label="Your tables">
-    <div class="app-sidebar__mark">
-      <AppMark />
-    </div>
+    <WorkspaceSwitcher class="app-sidebar__switcher" />
 
     <div class="app-sidebar__body">
       <template v-if="workspaceAddress">
@@ -56,6 +54,21 @@
           Add a table
         </button>
       </template>
+    </div>
+
+    <div v-if="workspaceAddress" class="app-sidebar__footer">
+      <NuxtLink
+        :to="pagePath.workspaceSettings(workspaceAddress)"
+        class="app-sidebar__item"
+        :class="{ 'app-sidebar__item--active': isSettings }"
+      >
+        <Icon
+          name="material-symbols:settings-outline-rounded"
+          class="app-sidebar__icon"
+          aria-hidden="true"
+        />
+        <span class="app-sidebar__name">Workspace settings</span>
+      </NuxtLink>
     </div>
 
     <div v-if="auth.user" class="app-sidebar__user">
@@ -123,6 +136,10 @@ const activeTableNumber = computed(() => {
 })
 
 const isHome = computed(() => route.path === pagePath.workspace(workspaceAddress.value))
+
+const isSettings = computed(() =>
+  route.path.startsWith(`${pagePath.workspace(workspaceAddress.value)}/settings/`),
+)
 </script>
 
 <style lang="scss" scoped>
@@ -144,13 +161,14 @@ const isHome = computed(() => route.path === pagePath.workspace(workspaceAddress
   height: 100%;
   padding: rem(12);
 
-  &__mark {
-    display: flex;
+  &__switcher {
     flex: none;
-    align-items: center;
-    min-height: var(--control-height);
     margin-bottom: rem(10);
-    padding: 0 rem(10);
+  }
+
+  &__footer {
+    flex: none;
+    margin-top: rem(8);
   }
 
   &__body {

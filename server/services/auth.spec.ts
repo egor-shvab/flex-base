@@ -45,8 +45,8 @@ describe('AuthService.registerUser', () => {
 
   beforeEach(() => {
     prismaMock.user.create.mockResolvedValue({ id: USER_ID })
-    prismaMock.workspace.create.mockResolvedValue(WORKSPACE)
-    prismaMock.workspaceMember.create.mockResolvedValue({ id: 'mem_1' })
+    prismaMock.workspace.create.mockResolvedValue({ id: WORKSPACE.id })
+    prismaMock.workspaceMember.create.mockResolvedValue({ id: 'mem_1', workspace: WORKSPACE })
     prismaMock.user.update.mockResolvedValue(authUser)
   })
 
@@ -77,14 +77,16 @@ describe('AuthService.registerUser', () => {
         data: expect.objectContaining({ name: 'Personal workspace', ownerId: USER_ID }),
       }),
     )
-    expect(prismaMock.workspaceMember.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        user: { connect: { id: USER_ID } },
-        role: {
-          connect: { workspaceId_name: { workspaceId: WORKSPACE.id, name: 'Admin' } },
-        },
+    expect(prismaMock.workspaceMember.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          user: { connect: { id: USER_ID } },
+          role: {
+            connect: { workspaceId_name: { workspaceId: WORKSPACE.id, name: 'Admin' } },
+          },
+        }),
       }),
-    })
+    )
     expect(prismaMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: USER_ID },

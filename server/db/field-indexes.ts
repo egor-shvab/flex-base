@@ -1,3 +1,4 @@
+import type { Prisma } from '#server/generated/prisma/client'
 import { sqlFor } from '#server/db/field-types/registry'
 import { fieldSelect, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
@@ -163,12 +164,29 @@ export async function syncFieldIndexes(field: IField): Promise<void> {
   }
 }
 
-export async function dropFieldIndexes(fieldId: string): Promise<void> {
+/** One catalogue read for any number of fields: a table or a workspace may hold many. */
+export async function dropFieldIndexes(fieldIds: readonly string[]): Promise<void> {
+  if (fieldIds.length === 0) return
+
+  const prefixes = fieldIds.map((fieldId) => `${INDEX_PREFIX}${fieldId}_`)
+
   for (const { name } of await listOwnedIndexes()) {
-    if (name.startsWith(`${INDEX_PREFIX}${fieldId}_`)) {
+    if (prefixes.some((prefix) => name.startsWith(prefix))) {
       await prisma.$executeRawUnsafe(buildDropIndexStatement(name))
     }
   }
+}
+
+/**
+ * Read before a cascade removes the fields: their indexes are DDL on `"Record"`, which no cascade
+ * reaches, so whoever deletes the rows must drop them.
+ */
+export async function listIndexedFieldIds(where: Prisma.FieldWhereInput): Promise<string[]> {
+  const fields = await prisma.field.findMany({
+    where: { ...where, indexed: true },
+    select: { id: true },
+  })
+  return fields.map((field) => field.id)
 }
 
 export async function reconcileFieldIndexes(): Promise<IReconcileReport> {

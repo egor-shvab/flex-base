@@ -369,9 +369,9 @@ model Record {
     `workspaceMember.findFirst({ where: { userId, workspace: { publicId } }, select: … })`; нет
     строки → 404 `Workspace not found`. Возвращает `workspaceId`, `publicId`, `memberId`, `roleId`,
     `isOwner`, `permissions` (у владельца — полный список).
-  - `assertPermission(membership, access)` — `access: TWorkspaceAccess = TWorkspacePermission |
-'READ'`; нехватка → 403 `You don't have permission to …`.
-  - `assertOwner(membership)` → 403.
+  - `assertAccess(membership, access)` — `access: TWorkspaceAccess = TWorkspacePermission |
+'READ' | 'OWNER'`; нехватка → 403 `You don't have permission to …`. `OWNER` — значение доступа,
+    а не отдельный `assertOwner`: владельческий маршрут объявляет его в фабрике, как любое право.
 - **`utils/table-access.ts`** (бывший `ownership.ts`) — табличные `require*` принимают `workspaceId` (уже доказанный членством)
   вместо `userId`. `requireFieldTarget(workspaceId, input)` ищет цель в том же пространстве —
   межпространственная связь становится 404 «Table not found» без отдельной ветки.
@@ -381,7 +381,7 @@ model Record {
     `defineTableHandler('READ', …)`, `defineRecordWriteHandler('RECORDS_CREATE', …)`.
     Аргумент обязательный — забыть о праве нельзя; это значение, а не флаг ветвления, поэтому
     правило «одна фабрика на `require*`» не нарушается.
-  - Порядок внутри фабрики: `requireUser` → `requireMembership` → `assertPermission` → табличный
+  - Порядок внутри фабрики: `requireUser` → `requireMembership` → `assertAccess` → табличный
     `require*` по `membership.workspaceId`. Право проверяется **до** загрузки таблицы — участник без
     права получает 403 и для несуществующей таблицы, что ничего не раскрывает (он участник).
 - **`utils/public-id.ts`** — `buildPublicId`, §4.2.
@@ -513,9 +513,10 @@ role first` (по `P2003`, без предварительного `count` — �
 ### 4.8. Frontend: состояние
 
 - **`stores/workspaces.ts`** — `memberships` (`shallowRef`), `lastWorkspaceAddress`, `status`;
-  `fetchWorkspaces`, `ensureWorkspaces` (не бросает — как `ensureTables`), `createWorkspace`,
-  `renameWorkspace`, `deleteWorkspace`, `leaveWorkspace`, `transferOwnership`, `applyMembership`,
-  `findMembership(address)`.
+  `fetchWorkspaces`, `ensureWorkspaces` (не бросает — как `ensureTables`; перезагружает при смене
+  пользователя), `fetchMembership(address)` (родительская страница пространства; кладёт членство в
+  список), `createWorkspace`, `renameWorkspace`, `deleteWorkspace`, `rememberLastWorkspace`,
+  `findMembership(address)`; `leaveWorkspace`, `transferOwnership` — этап 8.
 - **`composables/useActiveWorkspace.ts`** — `address` (из маршрута), `membership` (из стора),
   `hasPermission(permission)`, `isOwner`. Единственная точка, через которую компоненты спрашивают о
   правах (под капотом — `shared/utils/permissions.ts`).
@@ -542,7 +543,7 @@ role first` (по `P2003`, без предварительного `count` — �
   кнопка «Create workspace» и список входящих приглашений. Возможно после выхода или исключения из
   всех пространств; удалять последнее пространство разрешено — нулевое состояние его покрывает.
 - **Модальные окна** (через `useEntityFormModal`/`useForm`/`BaseModal`): `WorkspaceFormModal`
-  (create/rename), `ProfileFormModal`, `InviteMemberModal` (email + роль из назначаемых),
+  (только создание — переименование идёт формой на `settings/general`, как в референсе), `ProfileFormModal`, `InviteMemberModal` (email + роль из назначаемых),
   `RoleFormModal` (имя + чекбоксы прав с описаниями; недоступные актёру права — `disabled` с
   пояснением, а не скрыты, чтобы роль читалась целиком), `TransferOwnershipModal` (выбор участника,
   текст «You stay with the role X»), `ConfirmModal` получает необязательное подтверждение вводом
@@ -676,7 +677,7 @@ Conventional Commit.
   пространства; все существующие e2e — на новые URL.
 - **Перенесено на этапы-потребители**: таблица `WorkspaceInvitation` — этап 8;
   `stores/workspaces.ts` и кнопка «Create workspace» в пустом состоянии `/` — этап 5 (до него `/` и
-  layout зовут `app/api/workspaces.ts` напрямую); `assertOwner` — этап 5; `isForeignKeyViolation` —
+  layout зовут `app/api/workspaces.ts` напрямую); доступ `OWNER` — этап 5; `isForeignKeyViolation` —
   этап 6; `useActiveWorkspace().membership`/`hasPermission`/`isOwner` и второй демо-аккаунт —
   этап 7.
 - **Затронуто**: почти весь `server/`, `app/pages`, `app/api`, `app/stores`, сайдбар, seed, тесты.
@@ -688,7 +689,7 @@ Conventional Commit.
 
 ### Этап 5. Управление пространствами
 
-- **Что**: `POST /api/workspaces`, `PATCH`, `DELETE` (`assertOwner`); `stores/workspaces.ts`
+- **Что**: `POST /api/workspaces`, `PATCH`, `DELETE` (доступ `OWNER`); `stores/workspaces.ts`
   (§4.8) — `/` и layout переходят на него; `WorkspaceSwitcher`, `WorkspaceFormModal`; «Create
   workspace» в нулевом состоянии на `/`; страницы `settings/general`, `settings/danger` (удаление
   с вводом имени); `ConfirmModal` с подтверждением текстом.
@@ -698,6 +699,16 @@ Conventional Commit.
 - **Проверить**: каскад удаления (таблицы, поля, записи, роли, участники; `lastWorkspaceId` →
   `null`) — интеграционный тест; переключение не показывает таблицы прошлого пространства (nuxt-спек
   стора + e2e); клавиатура и фокус в переключателе (Escape только пока открыт).
+- **Сделано иначе, чем в плане**: владельческий доступ — значение `'OWNER'` в `TWorkspaceAccess`,
+  а `assertPermission` переименован в `assertAccess`; `WorkspaceFormModal` только создаёт; пункт
+  «Danger zone» в настройках виден только владельцу, пока этап 8 не добавит туда «Leave workspace»;
+  `settings/general` и `settings/danger` пока сами читают права из членства в сторе — этап 7
+  переводит их на `useActiveWorkspace`. Клавиатура меню вынесена в `useMenuNavigation` (общая с
+  `RecordRowMenu`), карточка настроек — в партиал `_detail-card.scss`. `accessibility.spec.ts` уже
+  проверяет переключатель, `settings/general` и `settings/danger`; e2e-фикстура удаляет
+  пространства, созданные тестом, и возвращает `/` к личному.
+- **Индексы полей**: удаление таблицы и пространства теперь сбрасывает индексы их полей (каскад
+  до DDL не доходит) — `listIndexedFieldIds` до удаления, `dropFieldIndexes` одним проходом после.
 
 ### Этап 6. Роли
 
@@ -796,16 +807,16 @@ Conventional Commit.
 
 ## 8. Отложено и точки расширения
 
-| Функция                          | Где подключается                                                                                                    |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Доступ к таблицам/полям по ролям | таблица `WorkspaceRoleTableAccess`; `assertPermission` получает `tableId`; фабрики уже передают таблицу после права |
-| Ссылки-приглашения               | `WorkspaceInvitation` с `token` и `email = null`                                                                    |
-| Письма и подтверждение email     | снимает риск §4.5 п. 8                                                                                              |
-| Колонки «Created by/Updated by»  | `RECORD_COLUMNS` и `RECORD_COLUMN_SQL` (§5 архитектуры) + фильтр по участнику                                       |
-| Real-time                        | SSE по пространству поверх `useAccessResync`                                                                        |
-| Перенос таблицы                  | сначала решить инвариант RELATION (§4.5 п. 3)                                                                       |
-| Slug, логотип, часовой пояс      | поля `Workspace`; slug упирается в `limitations.md` («URL без slug»)                                                |
-| Удаление аккаунта                | сначала решить судьбу пространств (`ownerId` — `Restrict`)                                                          |
+| Функция                          | Где подключается                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Доступ к таблицам/полям по ролям | таблица `WorkspaceRoleTableAccess`; `assertAccess` получает `tableId`; фабрики уже передают таблицу после права |
+| Ссылки-приглашения               | `WorkspaceInvitation` с `token` и `email = null`                                                                |
+| Письма и подтверждение email     | снимает риск §4.5 п. 8                                                                                          |
+| Колонки «Created by/Updated by»  | `RECORD_COLUMNS` и `RECORD_COLUMN_SQL` (§5 архитектуры) + фильтр по участнику                                   |
+| Real-time                        | SSE по пространству поверх `useAccessResync`                                                                    |
+| Перенос таблицы                  | сначала решить инвариант RELATION (§4.5 п. 3)                                                                   |
+| Slug, логотип, часовой пояс      | поля `Workspace`; slug упирается в `limitations.md` («URL без slug»)                                            |
+| Удаление аккаунта                | сначала решить судьбу пространств (`ownerId` — `Restrict`)                                                      |
 
 ---
 

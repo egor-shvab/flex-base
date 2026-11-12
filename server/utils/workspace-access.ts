@@ -6,10 +6,14 @@ import type { IWorkspaceMembership, TWorkspacePermission } from '#shared/types/w
 import { parseWorkspaceAddress } from '#shared/utils/address'
 import { hasPermission } from '#shared/utils/permissions'
 
-/** `READ` is membership alone: every member may read everything in the workspace. */
-export type TWorkspaceAccess = TWorkspacePermission | 'READ'
+/**
+ * `READ` is membership alone: every member may read everything in the workspace. `OWNER` is no
+ * permission a role can grant — only `Workspace.ownerId` holds it.
+ */
+export type TWorkspaceAccess = TWorkspacePermission | 'READ' | 'OWNER'
 
-const DENIED_ACTIONS: Record<TWorkspacePermission, string> = {
+const DENIED_ACTIONS: Record<Exclude<TWorkspaceAccess, 'READ'>, string> = {
+  OWNER: 'do this — only the workspace owner can',
   WORKSPACE_UPDATE: 'change this workspace',
   MEMBERS_INVITE: 'invite people to this workspace',
   MEMBERS_MANAGE: 'manage the members of this workspace',
@@ -18,6 +22,15 @@ const DENIED_ACTIONS: Record<TWorkspacePermission, string> = {
   RECORDS_CREATE: 'add records',
   RECORDS_UPDATE: 'edit records',
   RECORDS_DELETE: 'delete records',
+}
+
+/** Also for a workspace that went between the membership check and the write. */
+export function buildWorkspaceNotFoundError() {
+  return createError<INotFoundData>({
+    statusCode: 404,
+    statusMessage: 'Workspace not found',
+    data: { missing: 'workspace' },
+  })
 }
 
 /**
@@ -33,19 +46,20 @@ export async function requireMembership(
     select: membershipSelect,
   })
 
-  if (!row) {
-    throw createError<INotFoundData>({
-      statusCode: 404,
-      statusMessage: 'Workspace not found',
-      data: { missing: 'workspace' },
-    })
-  }
+  if (!row) throw buildWorkspaceNotFoundError()
 
   return toSharedMembership(row, userId)
 }
 
-export function assertPermission(membership: IWorkspaceMembership, access: TWorkspaceAccess) {
-  if (access === 'READ' || hasPermission(membership, access)) return
+function hasAccess(
+  membership: IWorkspaceMembership,
+  access: Exclude<TWorkspaceAccess, 'READ'>,
+): boolean {
+  return access === 'OWNER' ? membership.isOwner : hasPermission(membership, access)
+}
+
+export function assertAccess(membership: IWorkspaceMembership, access: TWorkspaceAccess) {
+  if (access === 'READ' || hasAccess(membership, access)) return
 
   throw createError({
     statusCode: 403,

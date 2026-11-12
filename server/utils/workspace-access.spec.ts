@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { assertPermission, requireMembership } from '#server/utils/workspace-access'
+import { assertAccess, requireMembership } from '#server/utils/workspace-access'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
@@ -94,17 +94,17 @@ describe('requireMembership', () => {
   })
 })
 
-describe('assertPermission', () => {
+describe('assertAccess', () => {
   it('lets any member read', () => {
-    expect(() => assertPermission(membership({ permissions: [] }), 'READ')).not.toThrow()
+    expect(() => assertAccess(membership({ permissions: [] }), 'READ')).not.toThrow()
   })
 
   it('lets a member through with the permission', () => {
-    expect(() => assertPermission(membership(), 'RECORDS_CREATE')).not.toThrow()
+    expect(() => assertAccess(membership(), 'RECORDS_CREATE')).not.toThrow()
   })
 
   it('403s a member without it, naming what they tried', () => {
-    expect(() => assertPermission(membership(), 'RECORDS_DELETE')).toThrow(
+    expect(() => assertAccess(membership(), 'RECORDS_DELETE')).toThrow(
       expect.objectContaining({
         statusCode: 403,
         statusMessage: "You don't have permission to delete records",
@@ -116,7 +116,21 @@ describe('assertPermission', () => {
     const owner = membership({ isOwner: true, permissions: [] })
 
     for (const permission of WORKSPACE_PERMISSIONS) {
-      expect(() => assertPermission(owner, permission)).not.toThrow()
+      expect(() => assertAccess(owner, permission)).not.toThrow()
     }
+  })
+
+  it('lets only the owner through on OWNER, whatever their role grants', () => {
+    const admin = membership({ permissions: [...WORKSPACE_PERMISSIONS] })
+
+    expect(() =>
+      assertAccess(membership({ isOwner: true, permissions: [] }), 'OWNER'),
+    ).not.toThrow()
+    expect(() => assertAccess(admin, 'OWNER')).toThrow(
+      expect.objectContaining({
+        statusCode: 403,
+        statusMessage: "You don't have permission to do this — only the workspace owner can",
+      }),
+    )
   })
 })

@@ -26,10 +26,10 @@
         aria-label="Record actions"
         @keydown.esc.stop="dismiss"
         @keydown.tab="dismiss"
-        @keydown.down.prevent="step(1)"
-        @keydown.up.prevent="step(-1)"
-        @keydown.home.prevent="focusItem(0)"
-        @keydown.end.prevent="focusItem(-1)"
+        @keydown.down.prevent="stepMenuFocus(1)"
+        @keydown.up.prevent="stepMenuFocus(-1)"
+        @keydown.home.prevent="focusMenuItem(0)"
+        @keydown.end.prevent="focusMenuItem(-1)"
       >
         <button
           type="button"
@@ -54,6 +54,7 @@
 import { nextTick } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
+import { useMenuNavigation } from '~/composables/useMenuNavigation'
 import { usePopover } from '~/composables/usePopover'
 
 const emit = defineEmits<{ delete: [] }>()
@@ -62,27 +63,16 @@ const { isOpen, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } =
 
 const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, { maxHeight: 64 })
 
-function menuItems(): HTMLElement[] {
-  return [...(panelRef.value?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
-}
+const { focusMenuItem, stepMenuFocus } = useMenuNavigation(panelRef)
 
 function setTrigger(instance: Element | ComponentPublicInstance | null) {
   const el = instance && '$el' in instance ? instance.$el : instance
   triggerRef.value = el instanceof HTMLElement ? el : undefined
 }
 
-function focusItem(index: number) {
-  const list = menuItems()
-  list[(index + list.length) % list.length]?.focus()
-}
-
-function step(delta: number) {
-  focusItem(menuItems().indexOf(document.activeElement as HTMLElement) + delta)
-}
-
 function toggleMenu() {
   toggle()
-  if (isOpen.value) void nextTick(() => focusItem(0))
+  if (isOpen.value) void nextTick(() => focusMenuItem(0))
 }
 
 function choose(action: 'delete') {

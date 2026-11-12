@@ -11,7 +11,11 @@ import {
 } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
 import process from 'node:process'
-import { formatErrorLogLine, type IErrorLogEntry } from '#server/utils/error-log'
+import {
+  buildErrorLogEntry,
+  formatErrorLogLine,
+  type IErrorLogEntry,
+} from '#server/utils/error-log'
 
 const LOG_PATH = resolve(process.cwd(), 'logs', 'server-errors.log')
 export const MAX_LOG_BYTES = 5 * 1024 * 1024
@@ -96,4 +100,10 @@ export function appendErrorLogLine(line: string): void {
 
 export function recordErrorEntry(entry: IErrorLogEntry): void {
   appendErrorLogLine(formatErrorLogLine(entry))
+}
+
+/** For work fired off the request path, such as index DDL. */
+export function recordBackgroundFailure(error: unknown): void {
+  // Not rethrown: off the request path an uncaught throw would take the process down
+  recordErrorEntry(buildErrorLogEntry(error, null, new Date()))
 }

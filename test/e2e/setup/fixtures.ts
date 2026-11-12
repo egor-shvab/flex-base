@@ -40,12 +40,21 @@ interface IFixtures {
   consoleErrors: string[]
 }
 
-/** By identity: `findFirst` promises no order, and the sign-up case registers a second user. */
-async function findPersonalWorkspace(): Promise<ISeededWorkspace> {
+/**
+ * By identity: the sign-up case registers a second user. The oldest is the personal one; any a
+ * case created is removed, and `/` is pointed back at it.
+ */
+async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
+  const owner = { email: E2E_USER.email }
   const workspace = await prisma.workspace.findFirstOrThrow({
-    where: { owner: { email: E2E_USER.email } },
+    where: { owner },
+    orderBy: { createdAt: 'asc' },
     select: { id: true, publicId: true },
   })
+
+  await prisma.workspace.deleteMany({ where: { owner, id: { not: workspace.id } } })
+  await prisma.user.update({ where: owner, data: { lastWorkspaceId: workspace.id } })
+
   return { ...workspace, url: `/w/${workspace.publicId}` }
 }
 
@@ -53,7 +62,7 @@ export const test = base.extend<IFixtures>({
   // eslint-disable-next-line no-empty-pattern
   workspace: async ({}, use) => {
     await prisma.$executeRawUnsafe('TRUNCATE "Table", "Field", "Record" CASCADE')
-    await use(await findPersonalWorkspace())
+    await use(await resetToPersonalWorkspace())
   },
 
   seedTable: async ({ workspace }, use) => {

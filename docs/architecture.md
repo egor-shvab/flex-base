@@ -269,7 +269,7 @@ widening is the one operation that rewrites rows. `Table.recordCounter` is never
 in a migration; Prisma cannot express them and ignores them (`migrate diff` reports nothing).
 
 **Per-field indexes are opt-in** (`Field.indexed`); `server/db/field-indexes.ts` owns the wanted set
-(from `filterIndex`/`sortIndex`), the DDL, creation, dropping and reaping. Four rules not guessable
+(from `filterIndex`/`sortIndex`), the DDL, creation, dropping and reaping. Five rules not guessable
 from the code:
 
 - **Sorting needs one index per direction.** Order is always `NULLS LAST`; a B-tree read backwards
@@ -282,6 +282,9 @@ from the code:
   `field-indexes.integration.spec.ts` keep the two generators in step.
 - **DDL runs `CONCURRENTLY`, fired and not awaited**; a failure reaches the error log, never the
   caller (`limitations.md`).
+- **No cascade reaches an index.** A delete that takes fields with it (a table, a workspace) lists
+  the indexed ones first (`listIndexedFieldIds`) and drops their indexes once the rows are gone, or
+  each orphan stays on `"Record"` and is maintained on every write.
 
 `listFieldIndexStats()` and `reconcileFieldIndexes()` are exported and tested with **no caller** —
 wiring them waits on a deployment story. Reconcile reports a **reaped** index (failed build, still
@@ -303,8 +306,8 @@ Only what the name and the code do not say.
   `P2025` → 404. **An absent message means "do not map this"**; anything unmapped still surfaces as
   a 500.
 - **`utils/workspace-access.ts`** — `requireMembership` resolves the caller's membership from their
-  id and the workspace address in **one** query (not a member → 404); `assertPermission` turns a
-  missing permission into a 403. Every workspace route reaches both through a factory in
+  id and the workspace address in **one** query (not a member → 404); `assertAccess` turns a
+  missing permission — or `OWNER`, which no role grants — into a 403. Every workspace route reaches both through a factory in
   `utils/handler.ts`, which checks the permission **before** looking up the table.
 - **`utils/table-access.ts`** — the table helpers take the `workspaceId` the membership proved.
   `requireRecordFields` adds a 400 for a field-less table on **writes
@@ -342,6 +345,8 @@ Only what the name and the code do not say.
 - **`composables/usePopover.ts`** — `containerRef` (outside-click boundary) and `triggerRef`
   (focus-restore target) are separate. **`useAnchoredPosition.ts`** — flips
   above by anchoring `bottom`, reflows on `scroll` **captured at `window`**.
+- **`composables/useMenuNavigation.ts`** — a `role="menu"` panel's roving focus, which **wraps**,
+  unlike a listbox's cursor.
 - **`components/common/BaseSelect/useListboxNavigation.ts`** — the cursor never wraps and is keyed
   on option **values**, so a rebuilt options array does not move it. **`useSelectOptions.ts`** —
   abort + a monotonic request id drop out-of-order responses.
@@ -349,7 +354,8 @@ Only what the name and the code do not say.
   only from `data.missing` (`INotFoundData`), never from the message, and is always `fatal`: Nuxt
   shows a non-fatal error on the client only on a cold load.
 - **`pages/w/[workspaceAddress].vue`** — the parent of every page in a workspace: its membership
-  fetch is the workspace's one 404, and it records the visit once that passed.
+  fetch (through the workspaces store, which keeps it) is the workspace's one 404, and it records
+  the visit once that passed.
   **`utils/safe-redirect.ts`** — `?redirect` is internal paths only.
 - **`stores/records.ts`** — **every action takes the query params from the caller**; the store never
   mirrors them (they would have to survive hydration). `createRecord` refetches only when the new
@@ -360,6 +366,10 @@ Only what the name and the code do not say.
   sidebar's Retry calls `ensureTables` again. An answer for a workspace switched away from is
   dropped, writes included. `applyTableRow(row)` is the one way a cached row moves without a
   refetch.
+- **`stores/workspaces.ts`** — `ensureWorkspaces()` never throws, as `ensureTables` does, and
+  refetches when the signed-in user is not the one the list was loaded for: logging out does not
+  reload the app. `lastWorkspaceAddress` follows visits and deletions locally, so `/` reached later
+  in the same visit opens the right workspace without asking the server.
 - **`stores/relations.ts`** — `loadOptions` fetches nothing for a table without relations.
 
 ### Renderers — `app/components/records/`

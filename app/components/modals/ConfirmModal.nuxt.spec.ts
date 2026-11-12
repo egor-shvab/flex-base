@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 
 import ConfirmModal from '~/components/modals/ConfirmModal.vue'
 import { mountTracked, unmountAll } from '~~/test/mount'
@@ -91,5 +92,48 @@ describe('ConfirmModal', () => {
     await mountConfirm({ confirmLabel: 'Delete', danger: true })
 
     expect(button('Delete')).toBeDefined()
+  })
+
+  describe('with a phrase to type', () => {
+    const input = () => dialog()?.querySelector<HTMLInputElement>('input')
+
+    async function typePhrase(value: string) {
+      input()!.value = value
+      input()!.dispatchEvent(new Event('input'))
+      await nextTick()
+    }
+
+    it('names the phrase and starts there, with the action locked', async () => {
+      await mountConfirm({ confirmLabel: 'Delete workspace', confirmPhrase: 'Acme', danger: true })
+
+      expect(dialog()?.textContent).toContain('Type “Acme” to confirm')
+      expect(document.activeElement).toBe(input())
+      expect(button('Delete workspace')?.disabled).toBe(true)
+    })
+
+    it('unlocks only on the exact phrase', async () => {
+      const wrapper = await mountConfirm({ confirmLabel: 'Delete', confirmPhrase: 'Acme' })
+
+      await typePhrase('acme')
+      expect(button('Delete')?.disabled).toBe(true)
+
+      await typePhrase(' Acme ')
+      expect(button('Delete')?.disabled).toBe(false)
+
+      button('Delete')?.click()
+      expect(wrapper.emitted('confirm')).toHaveLength(1)
+    })
+
+    it('confirms on Enter once the phrase is typed, and not before', async () => {
+      const wrapper = await mountConfirm({ confirmLabel: 'Delete', confirmPhrase: 'Acme' })
+      const form = () => input()!.form!
+
+      form().dispatchEvent(new Event('submit', { cancelable: true }))
+      expect(wrapper.emitted('confirm')).toBeUndefined()
+
+      await typePhrase('Acme')
+      form().dispatchEvent(new Event('submit', { cancelable: true }))
+      expect(wrapper.emitted('confirm')).toHaveLength(1)
+    })
   })
 })

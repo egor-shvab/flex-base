@@ -3,8 +3,7 @@ import { Prisma } from '#server/generated/prisma/client'
 import { dropFieldIndexes, syncFieldIndexes } from '#server/db/field-indexes'
 import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
-import { buildErrorLogEntry } from '#server/utils/error-log'
-import { recordErrorEntry } from '#server/utils/error-log-file'
+import { recordBackgroundFailure } from '#server/utils/error-log-file'
 import { toHttpError } from '#server/utils/http-errors'
 import { buildFieldKey } from '#server/utils/field-key'
 import type { IField } from '#shared/types/field'
@@ -13,11 +12,6 @@ import type { TFieldInput } from '#shared/validation/field'
 const fieldErrors = {
   conflict: 'A field with this name already exists',
   notFound: 'Field not found',
-}
-
-function recordBackgroundFailure(error: unknown): void {
-  // Not rethrown: off the request path an uncaught throw would take the process down
-  recordErrorEntry(buildErrorLogEntry(error, null, new Date()))
 }
 
 function syncIndexesInBackground(field: IField): void {
@@ -155,7 +149,7 @@ async function deleteField(tableId: string, fieldId: string) {
     throw toHttpError(error, fieldErrors)
   }
 
-  void dropFieldIndexes(fieldId).catch(recordBackgroundFailure)
+  void dropFieldIndexes([fieldId]).catch(recordBackgroundFailure)
 }
 
 export const FieldService = {

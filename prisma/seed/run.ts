@@ -97,7 +97,7 @@ async function seed(): Promise<void> {
     })
     // A fixed address, so a bookmark survives a reseed; hex is within the address alphabet
     const workspace = await tx.workspace.update({
-      where: { id: created.id },
+      where: { id: created.workspace.id },
       data: { publicId: DEMO_WORKSPACE_ADDRESS, tableCounter: tables.length },
       select: { id: true },
     })

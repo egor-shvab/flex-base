@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
+import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { TableService } from '#server/services/tables'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
 vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
+}))
+
+vi.mock('#server/db/field-indexes', () => ({
+  dropFieldIndexes: vi.fn(),
+  listIndexedFieldIds: vi.fn(),
 }))
 
 const WORKSPACE_ID = 'wsp_1'
@@ -171,6 +177,34 @@ describe('TableService.renameTable', () => {
 
 describe('TableService.deleteTable', () => {
   const resolves = () => prismaMock.table.findUnique.mockResolvedValue({ id: TABLE_ID })
+
+  beforeEach(() => {
+    vi.mocked(listIndexedFieldIds).mockReset().mockResolvedValue([])
+    vi.mocked(dropFieldIndexes).mockReset().mockResolvedValue()
+  })
+
+  it('drops the indexes of its fields, which no cascade reaches', async () => {
+    resolves()
+    prismaMock.field.findFirst.mockResolvedValue(null)
+    prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
+    vi.mocked(listIndexedFieldIds).mockResolvedValue(['fld_1', 'fld_2'])
+
+    await TableService.deleteTable(WORKSPACE_ID, TABLE_ID)
+
+    expect(listIndexedFieldIds).toHaveBeenCalledWith({ tableId: TABLE_ID })
+    expect(dropFieldIndexes).toHaveBeenCalledWith(['fld_1', 'fld_2'])
+  })
+
+  it('drops no index when the delete fails', async () => {
+    resolves()
+    prismaMock.field.findFirst.mockResolvedValue(null)
+    prismaMock.table.delete.mockRejectedValue(missing())
+    vi.mocked(listIndexedFieldIds).mockResolvedValue(['fld_1'])
+
+    await expect(TableService.deleteTable(WORKSPACE_ID, TABLE_ID)).rejects.toThrow()
+
+    expect(dropFieldIndexes).not.toHaveBeenCalled()
+  })
 
   it('looks for a relation pointing here before deleting anything', async () => {
     resolves()

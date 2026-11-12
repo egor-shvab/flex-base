@@ -15,7 +15,7 @@ export function createUser(email = `${unique('user')}@example.com`) {
       data: { email, name: email.split('@')[0] ?? email, passwordHash: 'not-a-real-hash' },
       select: { id: true, email: true, name: true },
     })
-    const workspace = await createWorkspaceWithDefaults(tx, {
+    const { workspace } = await createWorkspaceWithDefaults(tx, {
       ownerId: user.id,
       name: PERSONAL_WORKSPACE_NAME,
     })

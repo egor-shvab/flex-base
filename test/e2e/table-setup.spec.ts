@@ -17,7 +17,7 @@ test('a table, its fields and its first record, start to finish', async ({ page,
   await expect(main.getByRole('link', { name: /Deals/ })).toBeVisible()
 
   await main.getByRole('link', { name: /Deals/ }).click()
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible()
 
   await addField(page, 'Company', 'Text')

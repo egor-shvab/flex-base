@@ -21,14 +21,16 @@ const FIELDS = [
 
 const ROWS = [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won' }]
 
-test.describe('the five screens', () => {
+test.describe('the app screens', () => {
   let url = ''
   let settingsUrl = ''
+  let workspaceUrl = ''
 
-  test.beforeEach(async ({ seedTable }) => {
+  test.beforeEach(async ({ seedTable, workspace }) => {
     const table = await seedTable('Deals', FIELDS, ROWS)
     url = table.url
     settingsUrl = table.settingsUrl
+    workspaceUrl = workspace.url
   })
 
   const screens: Record<string, (page: Page) => Promise<void>> = {
@@ -52,6 +54,20 @@ test.describe('the five screens', () => {
     'the filter drawer': async (page) => {
       await page.goto(url)
       await page.getByRole('button', { name: 'Filters' }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+    },
+    'the workspace switcher': async (page) => {
+      await page.goto(workspaceUrl)
+      await page.getByRole('button', { name: /Owner$/ }).click()
+      await expect(page.getByRole('menu', { name: 'Workspaces' })).toBeVisible()
+    },
+    'workspace settings': async (page) => {
+      await page.goto(`${workspaceUrl}/settings/general`)
+      await expect(page.getByLabel('Workspace name')).toBeVisible()
+    },
+    'the workspace danger zone': async (page) => {
+      await page.goto(`${workspaceUrl}/settings/danger`)
+      await page.getByRole('button', { name: 'Delete workspace' }).click()
       await expect(page.getByRole('dialog')).toBeVisible()
     },
   }

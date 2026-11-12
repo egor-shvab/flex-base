@@ -30,21 +30,29 @@ import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useTablesStore } from '~/stores/tables'
+import { useWorkspacesStore } from '~/stores/workspaces'
 
 const tablesStore = useTablesStore()
+const workspacesStore = useWorkspacesStore()
 const route = useRoute()
 const { workspaceAddress } = useActiveWorkspace()
 
-// Its own key: `useAsyncData` does not dedupe a layout against a page. Keyed on the workspace, so
-// switching refetches. Returns a value, since `undefined` makes Nuxt warn (NUXT_E3006) and re-run
-// the handler on the client
-await useAsyncData(
-  () => `app-tables-${workspaceAddress.value}`,
-  async () => {
-    if (workspaceAddress.value !== '') await tablesStore.ensureTables(workspaceAddress.value)
+// Their own keys: `useAsyncData` does not dedupe a layout against a page. The tables' is keyed on
+// the workspace, so switching refetches. Each returns a value, since `undefined` makes Nuxt warn
+// (NUXT_E3006) and re-run the handler on the client
+await Promise.all([
+  useAsyncData('app-workspaces', async () => {
+    await workspacesStore.ensureWorkspaces()
     return true
-  },
-)
+  }),
+  useAsyncData(
+    () => `app-tables-${workspaceAddress.value}`,
+    async () => {
+      if (workspaceAddress.value !== '') await tablesStore.ensureTables(workspaceAddress.value)
+      return true
+    },
+  ),
+])
 
 const isNavOpen = ref(false)
 

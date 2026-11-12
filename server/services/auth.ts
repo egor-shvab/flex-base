@@ -30,14 +30,14 @@ async function registerUser({ email, password, name }: TRegistrationInput): Prom
             data: { email, name, passwordHash },
             select: { id: true },
           })
-          const workspace = await createWorkspaceWithDefaults(tx, {
+          const membership = await createWorkspaceWithDefaults(tx, {
             ownerId: user.id,
             name: PERSONAL_WORKSPACE_NAME,
           })
 
           return tx.user.update({
             where: { id: user.id },
-            data: { lastWorkspaceId: workspace.id },
+            data: { lastWorkspaceId: membership.workspace.id },
             select: authUserSelect,
           })
         }),
