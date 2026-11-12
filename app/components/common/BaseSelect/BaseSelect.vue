@@ -247,7 +247,7 @@ defineSlots<{
  * Never read `props.multiple` directly: being conditional on `TModel`, a bare `multiple`
  * attribute arrives as `''` rather than `true` — falsy, silently single mode.
  */
-const isMultiple = computed(() => props.multiple !== undefined && props.multiple)
+const isMultiple = computed(() => props.multiple !== undefined && props.multiple !== false)
 
 const { isOpen, containerRef, triggerRef, panelRef, panelId, show, dismiss } = usePopover()
 
