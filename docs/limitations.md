@@ -164,6 +164,12 @@ invitations) split per instance. _Revisit before any real deployment._
 No address is verified, so anyone can register an invited email nobody has claimed yet and accept
 the invitation. _Reopen with the first real deployment: email verification closes it._
 
+### Deleting a workspace is one cascading statement
+
+Its tables, fields and records go in one `DELETE`, which holds its locks for as long as the cascade
+runs — instant now, minutes on a workspace of millions of records. _Reopen when a workspace passes a
+million records: delete in batches, or mark and reap._
+
 ### Registration keeps an email's case
 
 `User.email` is stored as typed, so `Ada@x.com` and `ada@x.com` are two accounts. Invitations are

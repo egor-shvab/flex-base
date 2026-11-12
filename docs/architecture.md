@@ -12,6 +12,14 @@ in an httpOnly `auth_token` cookie; `verifyAuthToken` pins `algorithms: ['HS256'
 `server/middleware/auth.ts` **never rejects** — handlers call `requireUser(event)` for the 401.
 `app/middleware/auth.global.ts` leaves `/ui-test` open (fixtures only).
 
+**Access is never in the token.** Membership and the role's permissions are read from the database
+on every request (`requireMembership`), so a removed member or a narrowed role takes effect on the
+next one. A workspace the caller is not in is a 404, a permission they lack a 403; the owner
+(`Workspace.ownerId`) passes every check, and only they delete or hand over the workspace. The
+anti-escalation rules — no role, member or invitation beyond the actor's own permissions, never the
+owner's membership or one's own — are one set of functions in `shared/utils/permissions.ts`, read
+by the services to refuse and by the client to hide.
+
 ---
 
 ## 2. The `shared/` layers
@@ -109,6 +117,11 @@ scopes the workspace; `buildRecordAddressWhere` scopes the table, because a hand
 already proved the table is in the caller's workspace. **Only a route carries an address:** `requireFieldTarget` refuses a body `targetTableId` that parses as an
 address, or `4` would be stored as a target nothing matches and `assertNotRelationTarget` would stop
 guarding it.
+
+**A workspace is addressed only by its `publicId`** — ten random `[a-z0-9]` characters, with no
+number form and no id form. `parseWorkspaceAddress` answers `''` for anything else, which matches no
+row, so a malformed address is the same 404 as a foreign one. `User.lastWorkspaceId` is written by
+`PUT …/visit`, never by a read.
 
 Invisible until they break:
 
@@ -472,8 +485,9 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
 - **Table settings:** rows state type, configuration and key; icon actions named after the field;
   rename moves heading and sidebar together; delete lands on the dashboard; a targeted table refuses
   naming the field; rows stack at 375px.
-- **Accessibility:** no serious/critical axe violation on dashboard, settings, records, record form,
-  filter drawer, and at 375px; nothing below 24×24, with the chip remove asserted at exactly 24.
+- **Accessibility:** no serious/critical axe violation on dashboard, table settings, records, record
+  form, filter drawer, the workspace switcher, every workspace settings section and its dialogs,
+  incoming invitations, and at 375px; nothing below 24×24, with the chip remove asserted at exactly 24.
 - **Mobile shell (375×812):** sidebar `visibility: hidden` until opened; `aria-expanded` tracks;
   full-height panel; scrim, navigation and Escape dismiss it, but a dialog opened from it takes the
   first Escape; the table scrolls in its own container; a dialog fits both axes and scrolls its

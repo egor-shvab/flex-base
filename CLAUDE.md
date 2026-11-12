@@ -38,8 +38,7 @@ Non-negotiable:
 
 **In scope:** workspaces (create, rename, delete, switch, transfer ownership), members invited by
 email and accepted in the app, custom roles over a closed permission set, a user's display name, and
-record authorship (`createdBy`/`updatedBy`). While `WORKSPACES_IMPLEMENTATION_PLAN.md` exists it is
-the agreed design for that work and is followed stage by stage.
+record authorship (`createdBy`/`updatedBy`).
 
 **Out of scope unless explicitly asked:** per-table or per-field access, invite links, sending email
 or verifying addresses, billing, real-time updates, workspace slug/logo/time zone, moving a table

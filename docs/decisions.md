@@ -259,6 +259,65 @@ and SSR, so a handler logging for itself would only duplicate it.
 
 ---
 
+## Workspaces & access
+
+### The owner is a column, not a role
+
+`Workspace.ownerId` makes "exactly one owner" a schema fact; "exactly one member holding the Owner
+role" cannot be a constraint. The owner's powers are not editable, so a role holding them would need
+a special case in every role handler. The owner is **also a member** under an ordinary role, which
+they keep after a transfer — so listing members is one query and the membership check is one path.
+That invariant is held by the services (create, transfer, never remove or let the owner leave) and an
+integration test. Rejected: an `Owner` role flagged `locked`; `roleId = null` meaning owner; a
+composite foreign key from owner to membership, which forms a cascade cycle with `WorkspaceMember`.
+
+### A role is referenced with its workspace, and the reference is `NO ACTION`
+
+A member's and an invitation's role key is `(workspaceId, roleId)`, so another workspace's role
+cannot be assigned even if a service check were missed (`P2003`). It is `NoAction`, not `Restrict`:
+PostgreSQL checks `RESTRICT` at once and `NO ACTION` at the end of the statement, and deleting a
+workspace cascades to roles and members in one statement — `RESTRICT` fails whenever a role goes
+before the member holding it. A direct delete of a held role is still refused, and that refusal is
+the in-use check (409) — no count is read first.
+
+### Permissions are a PostgreSQL enum array
+
+`WorkspaceRole.permissions` is `WorkspacePermission[]`. Rejected: a `RolePermission` join table
+(rows for a closed list of eight, and a join on every permission read); JSON (the database stops
+checking the values). The list order in `WORKSPACE_PERMISSIONS` is the editor's, and it mirrors the
+Prisma enum.
+
+### A workspace address is random, never a number or a slug
+
+`publicId` is ten random characters, so a URL neither counts workspaces nor leaks a name. Unlike a
+table, a workspace has no number-or-id pair: payloads reference it by id, and only paths address it
+— accepting the cuid in a path would add a second form for no reader. A colliding id aborts the
+whole transaction, so the retry reruns the transaction, never just the insert. Rejected: a global
+number (counts tenants); a slug (needs uniqueness and renaming, and `limitations.md` → _A table's
+URL carries no slug, only its number_ applies).
+
+### The last workspace is a column written on visit
+
+`User.lastWorkspaceId` survives a change of device, which a cookie would not. It is written by
+`PUT …/visit` from the workspace page after its membership check, fire-and-forget. Rejected: writing
+it in `GET /api/workspaces/:ws` — a side effect in a read, which a prefetch would trigger.
+
+### A relation stays inside its workspace because a table never moves
+
+`requireFieldTarget` looks the target up in the caller's workspace, and relation options and linked
+records are read by `targetTableId` alone. That is safe only because a table cannot change
+workspace. **Moving tables between workspaces breaks this first** — it needs a rule for every
+relation pointing in or out before it ships.
+
+### An invitation is matched by lowercased email, and never tells whether the address is registered
+
+The invitation stores the email lowercased and is matched by equality against the lowercased account
+email, which keeps its index usable. Creating one never reads `User` beyond the workspace's own
+members, so the form answers alike for a stranger and an account holder. Registration itself does
+not normalise (`limitations.md`).
+
+---
+
 ## The metadata layer
 
 ### The client/server contract is declared, not inferred
