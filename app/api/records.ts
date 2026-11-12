@@ -17,19 +17,29 @@ export function useRecordsApi() {
   const api = useApi()
 
   return {
-    list: (tableAddress: string, query: IRecordQueryState) =>
-      api<IRecordPage>(apiPath.records(tableAddress), { query: toRecordQueryParams(query) }),
-    detail: (tableAddress: string, recordAddress: string) =>
-      api<IRecordDetail>(apiPath.record(tableAddress, recordAddress)),
-    create: (tableAddress: string, data: TRecordData) =>
-      api<IRecordCreatedResponse>(apiPath.records(tableAddress), { method: 'POST', body: data }),
-    update: (tableAddress: string, recordAddress: string, data: TRecordData) =>
-      api<IRecordResponse>(apiPath.record(tableAddress, recordAddress), {
+    list: (workspaceAddress: string, tableAddress: string, query: IRecordQueryState) =>
+      api<IRecordPage>(apiPath.records(workspaceAddress, tableAddress), {
+        query: toRecordQueryParams(query),
+      }),
+    detail: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
+      api<IRecordDetail>(apiPath.record(workspaceAddress, tableAddress, recordAddress)),
+    create: (workspaceAddress: string, tableAddress: string, data: TRecordData) =>
+      api<IRecordCreatedResponse>(apiPath.records(workspaceAddress, tableAddress), {
+        method: 'POST',
+        body: data,
+      }),
+    update: (
+      workspaceAddress: string,
+      tableAddress: string,
+      recordAddress: string,
+      data: TRecordData,
+    ) =>
+      api<IRecordResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {
         method: 'PATCH',
         body: data,
       }),
-    remove: (tableAddress: string, recordAddress: string) =>
-      api<IRecordDeletedResponse>(apiPath.record(tableAddress, recordAddress), {
+    remove: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
+      api<IRecordDeletedResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {
         method: 'DELETE',
       }),
   }

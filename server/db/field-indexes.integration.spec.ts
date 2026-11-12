@@ -97,7 +97,7 @@ beforeEach(async () => {
   }
 
   const user = await createUser()
-  const table = await createTable(user.id)
+  const table = await createTable(user.workspace.id)
   tableId = table.id
 })
 
@@ -164,7 +164,7 @@ describe('a declared index is one the planner actually uses', () => {
   }, 60_000)
 
   it('serves a RELATION filter from its B-tree, and a widened one from its GIN', async () => {
-    const target = await createTable((await createUser()).id, 'Targets')
+    const target = await createTable((await createUser()).workspace.id, 'Targets')
     const relationOptions = { targetTableId: target.id, labelFieldKey: 'full_name' }
 
     const [owner, owners] = await createFields(tableId, [

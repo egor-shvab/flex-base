@@ -28,7 +28,7 @@ async function storedValue(recordId: string, key: string) {
 }
 
 beforeEach(async () => {
-  const table = await createTable((await createUser()).id)
+  const table = await createTable((await createUser()).workspace.id)
   tableId = table.id
 })
 
@@ -86,7 +86,7 @@ describe('widening a field migrates the rows it describes', () => {
   })
 
   it('leaves another table’s rows untouched', async () => {
-    const other = await createTable((await createUser()).id)
+    const other = await createTable((await createUser()).workspace.id)
     await createField(other.id, {
       key: 'stage',
       type: 'SELECT',
@@ -161,7 +161,7 @@ describe('field keys are unique per table, in the database', () => {
   })
 
   it('allows the same key on a different table', async () => {
-    const other = await createTable((await createUser()).id)
+    const other = await createTable((await createUser()).workspace.id)
     await createField(tableId, { key: 'stage', type: 'TEXT' })
 
     await expect(createField(other.id, { key: 'stage', type: 'TEXT' })).resolves.toMatchObject({

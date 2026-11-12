@@ -1,31 +1,42 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import fieldsGet from '#server/api/tables/[tableAddress]/fields/index.get'
-import fieldPatch from '#server/api/tables/[tableAddress]/fields/[fieldId].patch'
-import type { IAuthUser } from '#shared/types/auth'
+import fieldsGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/index.get'
+import fieldPatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/[fieldId].patch'
 import { testEvent } from '~~/test/integration/event'
-import { createField, createTable, createUser } from '~~/test/integration/seed'
+import { createField, createTable, createUser, type TSeededUser } from '~~/test/integration/seed'
 
-let ada: IAuthUser
+let ada: TSeededUser
 let tableId: string
 let peopleId: string
 
 const fields = async () =>
-  (await fieldsGet(testEvent({ user: ada, params: { tableAddress: tableId } }))).fields
+  (
+    await fieldsGet(
+      testEvent({
+        user: ada,
+        params: { workspaceAddress: ada.workspace.publicId, tableAddress: tableId },
+      }),
+    )
+  ).fields
 
 const patch = (fieldId: string, body: unknown) =>
   fieldPatch(
-    testEvent({ user: ada, params: { tableAddress: tableId, fieldId }, method: 'PATCH', body }),
+    testEvent({
+      user: ada,
+      params: { workspaceAddress: ada.workspace.publicId, tableAddress: tableId, fieldId },
+      method: 'PATCH',
+      body,
+    }),
   )
 
 beforeEach(async () => {
   ada = await createUser()
 
-  const people = await createTable(ada.id, 'People')
+  const people = await createTable(ada.workspace.id, 'People')
   peopleId = people.id
   await createField(peopleId, { key: 'full_name', type: 'TEXT', name: 'Full name' })
   await createField(peopleId, { key: 'nickname', type: 'TEXT', name: 'Nickname', order: 1 })
 
-  const table = await createTable(ada.id, 'Deals')
+  const table = await createTable(ada.workspace.id, 'Deals')
   tableId = table.id
   await createField(tableId, { key: 'company', type: 'TEXT', name: 'Company', order: 0 })
   await createField(tableId, { key: 'notes', type: 'TEXT', name: 'Notes', order: 1 })
@@ -63,7 +74,7 @@ describe('updating a field through the endpoint', () => {
   })
 
   it('404s on a field id belonging to another table', async () => {
-    const other = await createTable(ada.id, 'Other')
+    const other = await createTable(ada.workspace.id, 'Other')
     const stranger = await createField(other.id, { key: 'company', type: 'TEXT' })
 
     await expect(patch(stranger.id, { name: 'Client', type: 'TEXT' })).rejects.toMatchObject({

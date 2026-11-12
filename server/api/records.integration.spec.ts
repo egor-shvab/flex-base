@@ -1,20 +1,31 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import recordsGet from '#server/api/tables/[tableAddress]/records/index.get'
-import recordsPost from '#server/api/tables/[tableAddress]/records/index.post'
-import recordGet from '#server/api/tables/[tableAddress]/records/[recordAddress].get'
-import recordPatch from '#server/api/tables/[tableAddress]/records/[recordAddress].patch'
+import recordsGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.get'
+import recordsPost from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.post'
+import recordGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/[recordAddress].get'
+import recordPatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/[recordAddress].patch'
 import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import { MULTI_VALUE_MAX_ITEMS, RECORD_PAGE_SIZE_MAX } from '#shared/constants/record'
-import type { IAuthUser } from '#shared/types/auth'
 import { testEvent } from '~~/test/integration/event'
-import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
+import {
+  createField,
+  createRecord,
+  createTable,
+  createUser,
+  type TSeededUser,
+} from '~~/test/integration/seed'
 
-let ada: IAuthUser
+let ada: TSeededUser
 let tableId: string
 let peopleId: string
 
 function list(query: Record<string, string | string[]>) {
-  return recordsGet(testEvent({ user: ada, params: { tableAddress: tableId }, query }))
+  return recordsGet(
+    testEvent({
+      user: ada,
+      params: { workspaceAddress: ada.workspace.publicId, tableAddress: tableId },
+      query,
+    }),
+  )
 }
 
 const companies = async (query: Record<string, string | string[]>) =>
@@ -23,11 +34,11 @@ const companies = async (query: Record<string, string | string[]>) =>
 beforeEach(async () => {
   ada = await createUser()
 
-  const people = await createTable(ada.id, 'People')
+  const people = await createTable(ada.workspace.id, 'People')
   peopleId = people.id
   await createField(peopleId, { key: 'full_name', type: 'TEXT' })
 
-  const table = await createTable(ada.id, 'Deals')
+  const table = await createTable(ada.workspace.id, 'Deals')
   tableId = table.id
 
   await createField(tableId, { key: 'company', type: 'TEXT', order: 0 })
@@ -147,7 +158,14 @@ describe('what the endpoint refuses', () => {
 
 describe('writing through the endpoint', () => {
   const write = (body: unknown) =>
-    recordsPost(testEvent({ user: ada, params: { tableAddress: tableId }, method: 'POST', body }))
+    recordsPost(
+      testEvent({
+        user: ada,
+        params: { workspaceAddress: ada.workspace.publicId, tableAddress: tableId },
+        method: 'POST',
+        body,
+      }),
+    )
 
   it('creates a record and hands it back with its number', async () => {
     const { record } = await write({ company: 'Gamma' })
@@ -188,7 +206,11 @@ describe('writing through the endpoint', () => {
       recordPatch(
         testEvent({
           user: ada,
-          params: { tableAddress: tableId, recordAddress },
+          params: {
+            workspaceAddress: ada.workspace.publicId,
+            tableAddress: tableId,
+            recordAddress,
+          },
           method: 'PATCH',
           body,
         }),
@@ -282,11 +304,16 @@ describe('writing through the endpoint', () => {
   })
 
   it('400s writing to a table with no fields, since there is no shape to validate against', async () => {
-    const bare = await createTable(ada.id, 'Bare')
+    const bare = await createTable(ada.workspace.id, 'Bare')
 
     await expect(
       recordsPost(
-        testEvent({ user: ada, params: { tableAddress: bare.id }, method: 'POST', body: {} }),
+        testEvent({
+          user: ada,
+          params: { workspaceAddress: ada.workspace.publicId, tableAddress: bare.id },
+          method: 'POST',
+          body: {},
+        }),
       ),
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'This table has no fields yet' })
   })
@@ -297,7 +324,14 @@ describe('the detail endpoint', () => {
     const record = await createRecord(tableId, { company: 'Gamma' })
 
     const detail = await recordGet(
-      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
+      testEvent({
+        user: ada,
+        params: {
+          workspaceAddress: ada.workspace.publicId,
+          tableAddress: tableId,
+          recordAddress: record.id,
+        },
+      }),
     )
 
     expect(detail.table).toMatchObject({ name: 'Deals' })
@@ -314,14 +348,21 @@ describe('the detail endpoint', () => {
     const { record } = await recordsPost(
       testEvent({
         user: ada,
-        params: { tableAddress: tableId },
+        params: { workspaceAddress: ada.workspace.publicId, tableAddress: tableId },
         method: 'POST',
         body: { company: 'Gamma' },
       }),
     )
 
     const detail = await recordGet(
-      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
+      testEvent({
+        user: ada,
+        params: {
+          workspaceAddress: ada.workspace.publicId,
+          tableAddress: tableId,
+          recordAddress: record.id,
+        },
+      }),
     )
 
     expect(detail.record.createdBy).toEqual({ id: ada.id, name: ada.name })
@@ -334,13 +375,24 @@ describe('the detail endpoint', () => {
     await recordPatch(
       testEvent({
         user: ada,
-        params: { tableAddress: tableId, recordAddress: record.id },
+        params: {
+          workspaceAddress: ada.workspace.publicId,
+          tableAddress: tableId,
+          recordAddress: record.id,
+        },
         method: 'PATCH',
         body: { company: 'Delta' },
       }),
     )
     const detail = await recordGet(
-      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
+      testEvent({
+        user: ada,
+        params: {
+          workspaceAddress: ada.workspace.publicId,
+          tableAddress: tableId,
+          recordAddress: record.id,
+        },
+      }),
     )
 
     expect(detail.record.createdBy).toBeNull()
@@ -348,18 +400,25 @@ describe('the detail endpoint', () => {
   })
 
   it('404s for a record of another table', async () => {
-    const other = await createTable(ada.id, 'Other')
+    const other = await createTable(ada.workspace.id, 'Other')
     const record = await createRecord(other.id, {})
 
     await expect(
       recordGet(
-        testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: record.id } }),
+        testEvent({
+          user: ada,
+          params: {
+            workspaceAddress: ada.workspace.publicId,
+            tableAddress: tableId,
+            recordAddress: record.id,
+          },
+        }),
       ),
     ).rejects.toMatchObject({ statusCode: 404 })
   })
 
   it('404s patching a record of another table', async () => {
-    const other = await createTable(ada.id, 'Other')
+    const other = await createTable(ada.workspace.id, 'Other')
     await createField(other.id, { key: 'company', type: 'TEXT' })
     const record = await createRecord(other.id, {})
 
@@ -367,7 +426,11 @@ describe('the detail endpoint', () => {
       recordPatch(
         testEvent({
           user: ada,
-          params: { tableAddress: tableId, recordAddress: record.id },
+          params: {
+            workspaceAddress: ada.workspace.publicId,
+            tableAddress: tableId,
+            recordAddress: record.id,
+          },
           method: 'PATCH',
           body: { company: 'Beta' },
         }),
@@ -379,7 +442,14 @@ describe('the detail endpoint', () => {
 describe('a record is addressable by its number as well as its cuid', () => {
   const detail = (recordAddress: string) =>
     recordGet(
-      testEvent({ user: ada, params: { tableAddress: tableId, recordAddress: recordAddress } }),
+      testEvent({
+        user: ada,
+        params: {
+          workspaceAddress: ada.workspace.publicId,
+          tableAddress: tableId,
+          recordAddress: recordAddress,
+        },
+      }),
     )
 
   it('reads the same record either way', async () => {
@@ -400,7 +470,11 @@ describe('a record is addressable by its number as well as its cuid', () => {
     await recordPatch(
       testEvent({
         user: ada,
-        params: { tableAddress: tableId, recordAddress: String(target.number) },
+        params: {
+          workspaceAddress: ada.workspace.publicId,
+          tableAddress: tableId,
+          recordAddress: String(target.number),
+        },
         method: 'PATCH',
         body: { company: 'Renamed', contract_value: 100, stage: 'Won', owner: null },
       }),
@@ -415,7 +489,14 @@ describe('a record is addressable by its number as well as its cuid', () => {
 
     const inDeals = await detail('1')
     const inPeople = await recordGet(
-      testEvent({ user: ada, params: { tableAddress: peopleId, recordAddress: '1' } }),
+      testEvent({
+        user: ada,
+        params: {
+          workspaceAddress: ada.workspace.publicId,
+          tableAddress: peopleId,
+          recordAddress: '1',
+        },
+      }),
     )
 
     expect(inDeals.record.id).not.toBe(inPeople.record.id)

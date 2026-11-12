@@ -1,4 +1,4 @@
-import { confirmDeletion, expect, test } from '~~/test/e2e/setup/fixtures'
+import { WORKSPACE_HOME, confirmDeletion, expect, test } from '~~/test/e2e/setup/fixtures'
 
 async function addField(page: import('@playwright/test').Page, name: string, type: string) {
   await page.getByRole('button', { name: 'Add field' }).first().click()
@@ -7,10 +7,8 @@ async function addField(page: import('@playwright/test').Page, name: string, typ
   await page.getByRole('option', { name: type, exact: true }).click()
 }
 
-test('a table, its fields and its first record, start to finish', async ({ page, userId }) => {
-  expect(userId).toBeTruthy()
-
-  await page.goto('/')
+test('a table, its fields and its first record, start to finish', async ({ page, workspace }) => {
+  await page.goto(workspace.url)
   await page.getByRole('button', { name: 'Add table' }).first().click()
   await page.getByLabel('Table name').fill('Deals')
   await page.getByRole('button', { name: 'Create table' }).click()
@@ -160,7 +158,7 @@ test.describe('the table itself', () => {
     await page.getByRole('button', { name: 'Delete table' }).click()
     await confirmDeletion(page)
 
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL(WORKSPACE_HOME)
     await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
   })
 

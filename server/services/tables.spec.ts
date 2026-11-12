@@ -7,7 +7,7 @@ vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 
-const USER_ID = 'usr_1'
+const WORKSPACE_ID = 'wsp_1'
 const TABLE_ID = 'tbl_deals'
 
 const tableRow = {
@@ -28,20 +28,23 @@ const missing = () =>
 beforeEach(resetPrismaMock)
 
 describe('TableService.listTables', () => {
-  it('reads only the owner’s tables, oldest first', async () => {
+  it('reads only the workspace’s tables, oldest first', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
-    await TableService.listTables(USER_ID)
+    await TableService.listTables(WORKSPACE_ID)
 
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: USER_ID }, orderBy: { createdAt: 'asc' } }),
+      expect.objectContaining({
+        where: { workspaceId: WORKSPACE_ID },
+        orderBy: { createdAt: 'asc' },
+      }),
     )
   })
 
   it('carries the counts the dashboard reads', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
-    await TableService.listTables(USER_ID)
+    await TableService.listTables(WORKSPACE_ID)
 
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -54,28 +57,28 @@ describe('TableService.listTables', () => {
 })
 
 describe('TableService.getTableListRow', () => {
-  it('scopes the read by owner, so an id alone cannot reach another account’s counts', async () => {
+  it('scopes the read by workspace, so an id alone cannot reach another workspace’s counts', async () => {
     prismaMock.table.findUniqueOrThrow.mockResolvedValue(tableRow)
 
-    await TableService.getTableListRow(USER_ID, TABLE_ID)
+    await TableService.getTableListRow(WORKSPACE_ID, TABLE_ID)
 
     expect(prismaMock.table.findUniqueOrThrow).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: TABLE_ID, userId: USER_ID } }),
+      expect.objectContaining({ where: { id: TABLE_ID, workspaceId: WORKSPACE_ID } }),
     )
   })
 
   it('carries the counts the sidebar and the dashboard redraw from', async () => {
     prismaMock.table.findUniqueOrThrow.mockResolvedValue(tableRow)
 
-    await expect(TableService.getTableListRow(USER_ID, TABLE_ID)).resolves.toMatchObject({
+    await expect(TableService.getTableListRow(WORKSPACE_ID, TABLE_ID)).resolves.toMatchObject({
       _count: { fields: 0, records: 0 },
     })
   })
 
-  it('answers 404 when the row does not match the owner', async () => {
+  it('answers 404 when the row is not in the workspace', async () => {
     prismaMock.table.findUniqueOrThrow.mockRejectedValue(missing())
 
-    await expect(TableService.getTableListRow(USER_ID, TABLE_ID)).rejects.toMatchObject({
+    await expect(TableService.getTableListRow(WORKSPACE_ID, TABLE_ID)).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Table not found',
     })
@@ -84,27 +87,27 @@ describe('TableService.getTableListRow', () => {
 
 describe('TableService.createTable', () => {
   const allocates = (next: number) =>
-    prismaMock.user.update.mockResolvedValue({ tableCounter: next })
+    prismaMock.workspace.update.mockResolvedValue({ tableCounter: next })
 
-  it('stamps the owner and the allocated number onto the row', async () => {
+  it('stamps the workspace and the allocated number onto the row', async () => {
     allocates(7)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(USER_ID, 'Deals')
+    await TableService.createTable(WORKSPACE_ID, 'Deals')
 
     expect(prismaMock.table.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { userId: USER_ID, name: 'Deals', number: 7 } }),
+      expect.objectContaining({ data: { workspaceId: WORKSPACE_ID, name: 'Deals', number: 7 } }),
     )
   })
 
-  it('allocates by incrementing the owner’s counter, inside the insert’s own transaction', async () => {
+  it('allocates by incrementing the workspace’s counter, inside the insert’s own transaction', async () => {
     allocates(1)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(USER_ID, 'Deals')
+    await TableService.createTable(WORKSPACE_ID, 'Deals')
 
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: USER_ID },
+    expect(prismaMock.workspace.update).toHaveBeenCalledWith({
+      where: { id: WORKSPACE_ID },
       data: { tableCounter: { increment: 1 } },
       select: { tableCounter: true },
     })
@@ -115,7 +118,7 @@ describe('TableService.createTable', () => {
     allocates(1)
     prismaMock.table.create.mockRejectedValue(conflict())
 
-    await expect(TableService.createTable(USER_ID, 'Deals')).rejects.toMatchObject({
+    await expect(TableService.createTable(WORKSPACE_ID, 'Deals')).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A table with this name already exists',
     })
@@ -123,33 +126,35 @@ describe('TableService.createTable', () => {
 })
 
 describe('TableService.renameTable', () => {
-  it('scopes the update by owner, so an id alone cannot reach another account’s table', async () => {
+  it('scopes the update by workspace, so an id alone cannot reach another workspace’s table', async () => {
     prismaMock.table.update.mockResolvedValue(tableRow)
 
-    await TableService.renameTable(USER_ID, TABLE_ID, 'Renamed')
+    await TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Renamed')
 
     expect(prismaMock.table.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: TABLE_ID, userId: USER_ID },
+        where: { id: TABLE_ID, workspaceId: WORKSPACE_ID },
         data: { name: 'Renamed' },
       }),
     )
   })
 
-  it('scopes a numeric address on the owner through the compound unique', async () => {
+  it('scopes a numeric address on the workspace through the compound unique', async () => {
     prismaMock.table.update.mockResolvedValue(tableRow)
 
-    await TableService.renameTable(USER_ID, '4', 'Renamed')
+    await TableService.renameTable(WORKSPACE_ID, '4', 'Renamed')
 
     expect(prismaMock.table.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId_number: { userId: USER_ID, number: 4 } } }),
+      expect.objectContaining({
+        where: { workspaceId_number: { workspaceId: WORKSPACE_ID, number: 4 } },
+      }),
     )
   })
 
   it('maps a name already taken onto a 409', async () => {
     prismaMock.table.update.mockRejectedValue(conflict())
 
-    await expect(TableService.renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
+    await expect(TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
       statusCode: 409,
     })
   })
@@ -157,7 +162,7 @@ describe('TableService.renameTable', () => {
   it('maps a table that is gone onto a 404', async () => {
     prismaMock.table.update.mockRejectedValue(missing())
 
-    await expect(TableService.renameTable(USER_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
+    await expect(TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Table not found',
     })
@@ -172,13 +177,13 @@ describe('TableService.deleteTable', () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
 
-    await TableService.deleteTable(USER_ID, TABLE_ID)
+    await TableService.deleteTable(WORKSPACE_ID, TABLE_ID)
 
     expect(prismaMock.field.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           type: 'RELATION',
-          table: { userId: USER_ID },
+          table: { workspaceId: WORKSPACE_ID },
           options: { path: ['targetTableId'], equals: TABLE_ID },
         }),
       }),
@@ -190,10 +195,12 @@ describe('TableService.deleteTable', () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
 
-    await TableService.deleteTable(USER_ID, '4')
+    await TableService.deleteTable(WORKSPACE_ID, '4')
 
     expect(prismaMock.table.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId_number: { userId: USER_ID, number: 4 } } }),
+      expect.objectContaining({
+        where: { workspaceId_number: { workspaceId: WORKSPACE_ID, number: 4 } },
+      }),
     )
     expect(prismaMock.field.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -207,7 +214,7 @@ describe('TableService.deleteTable', () => {
   it('404s when the address resolves to nothing, before touching anything else', async () => {
     prismaMock.table.findUnique.mockResolvedValue(null)
 
-    await expect(TableService.deleteTable(USER_ID, '9999')).rejects.toMatchObject({
+    await expect(TableService.deleteTable(WORKSPACE_ID, '9999')).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Table not found',
     })
@@ -221,10 +228,10 @@ describe('TableService.deleteTable', () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockResolvedValue({ id: TABLE_ID })
 
-    await TableService.deleteTable(USER_ID, TABLE_ID)
+    await TableService.deleteTable(WORKSPACE_ID, TABLE_ID)
 
     expect(prismaMock.table.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: TABLE_ID, userId: USER_ID } }),
+      expect.objectContaining({ where: { id: TABLE_ID, workspaceId: WORKSPACE_ID } }),
     )
     expect(prismaMock.table.delete).toHaveBeenCalledWith({ where: { id: TABLE_ID } })
   })
@@ -233,7 +240,7 @@ describe('TableService.deleteTable', () => {
     resolves()
     prismaMock.field.findFirst.mockResolvedValue({ name: 'Owner', table: { name: 'Deals' } })
 
-    await expect(TableService.deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({
+    await expect(TableService.deleteTable(WORKSPACE_ID, TABLE_ID)).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: '"Owner" in "Deals" links to this table',
     })
@@ -246,7 +253,7 @@ describe('TableService.deleteTable', () => {
     prismaMock.field.findFirst.mockResolvedValue(null)
     prismaMock.table.delete.mockRejectedValue(missing())
 
-    await expect(TableService.deleteTable(USER_ID, TABLE_ID)).rejects.toMatchObject({
+    await expect(TableService.deleteTable(WORKSPACE_ID, TABLE_ID)).rejects.toMatchObject({
       statusCode: 404,
     })
   })

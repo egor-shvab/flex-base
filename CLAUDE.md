@@ -188,7 +188,7 @@ instant on a small table locks a large one for minutes.
   - `on<Event>` a listener for a raw DOM event, named by element and event — `onListKeydown`; a
     handler for a user action is named for the action (`retryOptions`), never `handle*`
   - `*For(field)` sync registry lookup keyed by a field (§9) — `inputFor`
-  - `require*` · `assert*` throws unless a precondition holds — `requireOwnedTable`
+  - `require*` · `assert*` throws unless a precondition holds — `requireWorkspaceTable`
   - `list*` · `get*` · `count*` server read — a collection, exactly one row (throws if absent), or a
     number of matching rows — `listPageRows`
   - `resolve*` replaces references with what they point at, and may query — `resolveLinkedRecords`

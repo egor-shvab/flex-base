@@ -4,13 +4,19 @@ import { useRelationsApi } from '~/api/relations'
 import type { IField } from '#shared/types/field'
 import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 
+interface IOptionSource {
+  workspaceAddress: string
+  tableAddress: string
+}
+
 export const useRelationsStore = defineStore('relations', () => {
   const api = useRelationsApi()
 
   const optionsByField = ref<Record<string, IRecordOption[]>>({})
   const linkedByField = ref<Record<string, Record<string, ILinkedRecord>>>({})
 
-  const tableAddressByField = ref<Record<string, string>>({})
+  /** Where each field's options were loaded from, so a search asks the same table. */
+  const optionSourceByField = ref<Record<string, IOptionSource>>({})
 
   const linkedByFieldNumber = ref<Record<string, Record<number, ILinkedRecord>>>({})
 
@@ -30,14 +36,14 @@ export const useRelationsStore = defineStore('relations', () => {
     )
   }
 
-  async function loadOptions(tableAddress: string, fields: IField[]) {
+  async function loadOptions(workspaceAddress: string, tableAddress: string, fields: IField[]) {
     const relationFields = fields.filter((field) => field.type === 'RELATION')
     if (relationFields.length === 0) return
 
     await Promise.all(
       relationFields.map(async (field) => {
-        const response = await api.options(tableAddress, field.id)
-        tableAddressByField.value[field.id] = tableAddress
+        const response = await api.options(workspaceAddress, tableAddress, field.id)
+        optionSourceByField.value[field.id] = { workspaceAddress, tableAddress }
         optionsByField.value[field.id] = response.options
         cacheLinkedRecords({ [field.id]: toLinkedRecords(response.options) })
       }),
@@ -61,10 +67,16 @@ export const useRelationsStore = defineStore('relations', () => {
     term: string,
     signal: AbortSignal,
   ): Promise<IRecordOption[]> {
-    const tableAddress = tableAddressByField.value[fieldId]
-    if (tableAddress === undefined) return []
+    const source = optionSourceByField.value[fieldId]
+    if (source === undefined) return []
 
-    const response = await api.search(tableAddress, fieldId, term, signal)
+    const response = await api.search(
+      source.workspaceAddress,
+      source.tableAddress,
+      fieldId,
+      term,
+      signal,
+    )
 
     cacheLinkedRecords({ [fieldId]: toLinkedRecords(response.options) })
 
@@ -75,7 +87,7 @@ export const useRelationsStore = defineStore('relations', () => {
     optionsByField,
     linkedByField,
     linkedByFieldNumber,
-    tableAddressByField,
+    optionSourceByField,
     cacheLinkedRecords,
     loadOptions,
     searchOptions,

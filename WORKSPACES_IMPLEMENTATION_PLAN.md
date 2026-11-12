@@ -204,6 +204,7 @@ model WorkspaceRole {
   invitations WorkspaceInvitation[]
 
   @@unique([workspaceId, name])
+  @@unique([workspaceId, id])
 }
 
 model WorkspaceMember {
@@ -213,7 +214,7 @@ model WorkspaceMember {
   userId      String
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   roleId      String
-  role        WorkspaceRole @relation(fields: [roleId], references: [id], onDelete: NoAction)
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: NoAction)
   createdAt   DateTime      @default(now())
 
   @@unique([workspaceId, userId])
@@ -227,7 +228,7 @@ model WorkspaceInvitation {
   workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   email       String        // хранится в нижнем регистре
   roleId      String
-  role        WorkspaceRole @relation(fields: [roleId], references: [id], onDelete: NoAction)
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: NoAction)
   invitedById String?
   invitedBy   User?         @relation(fields: [invitedById], references: [id], onDelete: SetNull)
   expiresAt   DateTime
@@ -258,6 +259,8 @@ model Record {
 
 Решения, которые не видны из схемы:
 
+- **Роль участника и приглашения — составной ключ `(workspaceId, roleId)`**: роль чужого
+  пространства не назначить даже при пропущенной проверке в сервисе (`P2003`).
 - **`roleId` у участника и приглашения — `NoAction`, не `Restrict`.** PostgreSQL проверяет
   `RESTRICT` немедленно, а `NO ACTION` — в конце оператора. Каскадное удаление пространства
   удаляет и роли, и участников одним оператором; с `RESTRICT` оно упадёт, если роль удалится раньше
@@ -369,7 +372,7 @@ model Record {
   - `assertPermission(membership, access)` — `access: TWorkspaceAccess = TWorkspacePermission |
 'READ'`; нехватка → 403 `You don't have permission to …`.
   - `assertOwner(membership)` → 403.
-- **`utils/ownership.ts`** — табличные `require*` принимают `workspaceId` (уже доказанный членством)
+- **`utils/table-access.ts`** (бывший `ownership.ts`) — табличные `require*` принимают `workspaceId` (уже доказанный членством)
   вместо `userId`. `requireFieldTarget(workspaceId, input)` ищет цель в том же пространстве —
   межпространственная связь становится 404 «Table not found» без отдельной ветки.
 - **`utils/handler.ts`**:
@@ -416,7 +419,7 @@ role first` (по `P2003`, без предварительного `count` — �
 | ------------------------------------------------------------------ | ------------------------- |
 | `POST /api/auth/register` (+`name`)                                | открыт                    |
 | `PATCH /api/auth/me` (`name`)                                      | вход                      |
-| `PUT /api/auth/last-workspace` (`workspaceAddress`)                | участник                  |
+| `PUT /api/workspaces/:ws/visit`                                    | участник                  |
 | `GET /api/workspaces` → членства + `lastWorkspaceAddress`          | вход                      |
 | `POST /api/workspaces`                                             | вход                      |
 | `GET /api/workspaces/:ws` → `IWorkspaceMembership`                 | `READ`                    |
@@ -494,12 +497,16 @@ role first` (по `P2003`, без предварительного `count` — �
 - **`layouts/default.vue`** остаётся единственным layout'ом приложения. Он знает активное
   пространство из `route.params.workspaceAddress`; без него (на `/`, `/invitations`) сайдбар
   показывает переключатель и приглашения без раздела таблиц.
+- **`pages/w/[workspaceAddress].vue`** — родительская страница с `<NuxtPage>`: один раз загружает
+  членство (`GET /api/workspaces/:ws`), отдаёт 404 для любой страницы пространства до её данных и
+  запоминает последнее пространство. Nuxt пересоздаёт её при смене адреса. Здесь же этап 7 возьмёт
+  `membership` для `useActiveWorkspace`.
 - **Ключи `useAsyncData` включают адрес пространства**: `app-workspaces` (layout),
-  `app-tables-${ws}` (layout), `workspace-home-${ws}`, `table-${ws}-${t}`,
+  `app-tables-${ws}` (layout), `workspace-${ws}` (родительская страница), `table-${ws}-${t}`,
   `table-records-${ws}-${t}`, `workspace-members-${ws}`, `workspace-roles-${ws}`. Layout и страница
   по-прежнему никогда не делят ключ.
-- **Запоминание последнего пространства**: при смене `workspaceAddress` (на клиенте) layout
-  вызывает `PUT /api/auth/last-workspace` без ожидания и без показа ошибки. GET-запросы ничего не
+- **Запоминание последнего пространства**: родительская страница после проверки членства
+  вызывает `PUT /api/workspaces/:ws/visit` (фабрика, `READ`) без ожидания и без показа ошибки. GET-запросы ничего не
   пишут. Отвергнуто: запись в `GET /api/workspaces/:ws` (побочный эффект в GET, срабатывает на
   prefetch); cookie (не переживает смену устройства — противоречит решению 18).
 
@@ -641,7 +648,7 @@ Conventional Commit.
 Самый крупный этап: схема адресов таблиц меняется целиком, поэтому сервер и клиент переводятся
 вместе. Управления пространствами ещё нет — у каждого пользователя одно личное пространство.
 
-- **4.1. Миграция A (аддитивная, `--create-only`, ручной SQL)**: enum, четыре новые таблицы,
+- **4.1. Миграция A (аддитивная, `--create-only`, ручной SQL)**: enum, три новые таблицы,
   `Table.workspaceId` nullable, `User.lastWorkspaceId`. Backfill на SQL: на каждого пользователя —
   пространство (`id` = `'w' || md5(…)`-подобный текст, `publicId = substr(md5(random()::text), 1,
 10)`, `name` = `PERSONAL_WORKSPACE_NAME`, `tableCounter` = `User.tableCounter`), три роли по
@@ -649,22 +656,29 @@ Conventional Commit.
   уникальные ограничения. Литерал ролей по умолчанию в миграции дублирует константу — миграция
   заморожена, это допустимо.
 - **4.2. Сервер**: `server/db/workspaces.ts`, `utils/workspace-access.ts`, фабрики с `access`,
-  `ownership.ts` на `workspaceId`, `TableService` на `workspaceId`, перенос
+  `ownership.ts` → `table-access.ts` на `workspaceId`, `TableService` на `workspaceId`, перенос
   `server/api/tables/**` → `server/api/workspaces/[workspaceAddress]/tables/**`,
-  `GET /api/workspaces`, `GET /api/workspaces/:ws`, `PUT /api/auth/last-workspace`,
-  `registerUser` создаёт личное пространство, lint-правило на новый glob, `isForeignKeyViolation`;
-  `IWorkspaceMembership`, `DEFAULT_WORKSPACE_ROLES`, `PERSONAL_WORKSPACE_NAME` (§4.3).
+  `GET /api/workspaces`, `GET /api/workspaces/:ws`, `PUT /api/workspaces/:ws/visit`,
+  `registerUser` создаёт личное пространство (столкновение `publicId` повторяет транзакцию целиком,
+  до трёх раз), lint-правило на новый glob; `IWorkspaceMembership`, `DEFAULT_WORKSPACE_ROLES`,
+  `PERSONAL_WORKSPACE_NAME` (§4.3).
 - **4.3. Миграция B**: удалить `Table.userId`, старые уникальные ограничения, `User.tableCounter`.
   Это колонки, выводимые из новых данных, а не пользовательские данные; продакшена нет.
 - **4.4. Клиент**: `apiPath` с `workspaceAddress`, перенос страниц под `/w/[workspaceAddress]/`,
-  `stores/workspaces.ts`, `useActiveWorkspace`, `tables`/`fields`/`records`/`relations` с адресом
-  пространства, ключи `useAsyncData`, новый `/` с редиректом, все внутренние ссылки
-  (`AppSidebar`, главная, `RelationFieldCell`, хлебные крошки, `useDetailLink`).
+  `useActiveWorkspace` (пока только адрес из маршрута), `tables`/`fields`/`records`/`relations` с
+  адресом пространства, ключи `useAsyncData`, новый `/` с редиректом (без пространств — пустое
+  состояние без действия), все внутренние ссылки через `pagePath` (`AppSidebar`, главная,
+  `RelationFieldCell`, хлебные крошки, `useDetailLink`).
 - **4.5. Тесты**: `TRUNCATE` в `test/integration/setup.ts` и e2e `global-setup.ts` включает новые
   таблицы; `test/integration/seed.ts` и e2e `seedTable` создают таблицы в пространстве (e2e-фикстура
   получает `workspaceId`/`publicId` пространства E2E-пользователя; truncate между тестами по-прежнему
   щадит пользователя — и теперь его пространство, роли и членство); `url` в фикстуре — с адресом
   пространства; все существующие e2e — на новые URL.
+- **Перенесено на этапы-потребители**: таблица `WorkspaceInvitation` — этап 8;
+  `stores/workspaces.ts` и кнопка «Create workspace» в пустом состоянии `/` — этап 5 (до него `/` и
+  layout зовут `app/api/workspaces.ts` напрямую); `assertOwner` — этап 5; `isForeignKeyViolation` —
+  этап 6; `useActiveWorkspace().membership`/`hasPermission`/`isOwner` и второй демо-аккаунт —
+  этап 7.
 - **Затронуто**: почти весь `server/`, `app/pages`, `app/api`, `app/stores`, сайдбар, seed, тесты.
 - **Зависит от**: 3.
 - **Результат**: всё, что работало, работает по адресам `/w/:ws/…`; изоляция — по членству.
@@ -674,9 +688,10 @@ Conventional Commit.
 
 ### Этап 5. Управление пространствами
 
-- **Что**: `POST /api/workspaces`, `PATCH`, `DELETE`; `WorkspaceSwitcher`, `WorkspaceFormModal`;
-  нулевое состояние на `/`; страницы `settings/general`, `settings/danger` (удаление с вводом
-  имени); `ConfirmModal` с подтверждением текстом; запоминание последнего пространства.
+- **Что**: `POST /api/workspaces`, `PATCH`, `DELETE` (`assertOwner`); `stores/workspaces.ts`
+  (§4.8) — `/` и layout переходят на него; `WorkspaceSwitcher`, `WorkspaceFormModal`; «Create
+  workspace» в нулевом состоянии на `/`; страницы `settings/general`, `settings/danger` (удаление
+  с вводом имени); `ConfirmModal` с подтверждением текстом.
 - **Зависит от**: 4.
 - **Результат**: пользователь создаёт, переименовывает, удаляет пространства и переключается между
   ними; после перезагрузки `/` открывает последнее.
@@ -687,7 +702,8 @@ Conventional Commit.
 ### Этап 6. Роли
 
 - **Что**: `RoleService` и маршруты ролей; `stores/roles.ts`; страница `settings/roles`,
-  `RoleFormModal`; `IWorkspaceRole`, `MAX_WORKSPACE_ROLES`, подписи прав в `app/` (§4.3).
+  `RoleFormModal`; `IWorkspaceRole`, `MAX_WORKSPACE_ROLES`, подписи прав в `app/` (§4.3);
+  `isForeignKeyViolation` (§4.4) для 409 на удаление используемой роли.
 - **Зависит от**: 4 (5 — для навигации по настройкам).
 - **Результат**: роли создаются, редактируются, удаляются по правилам §3.3.
 - **Проверить**: unit (prisma-mock) — проверки §3.3 срабатывают до запроса записи; интеграция —
@@ -696,8 +712,9 @@ Conventional Commit.
 
 ### Этап 7. Права в интерфейсе и ресинхронизация
 
-- **Что**: скрытие контролов по `useActiveWorkspace().hasPermission` во всех существующих экранах
-  (§4.9); `useAccessResync`; поведение при 403/404 (§4.10).
+- **Что**: `useActiveWorkspace` получает `membership`, `hasPermission`, `isOwner` (§4.8); скрытие
+  контролов по `hasPermission` во всех существующих экранах (§4.9); `useAccessResync`; поведение
+  при 403/404 (§4.10); второй демо-аккаунт с ролью Editor в seed (§4.11).
 - **Зависит от**: 4, 6.
 - **Результат**: роль Viewer видит данные без единого контрола изменения; Editor — без схемы.
 - **Проверить**: nuxt-спеки компонентов с разными наборами прав; сервер всё равно отвечает 403 на
@@ -705,7 +722,8 @@ Conventional Commit.
 
 ### Этап 8. Участники и приглашения
 
-- **Что**: `MemberService`, `InvitationService` и их маршруты; `POST …/transfer`, `POST …/leave`;
+- **Что**: таблица `WorkspaceInvitation` (миграция, §4.1); `MemberService`, `InvitationService` и
+  их маршруты; `POST …/transfer`, `POST …/leave`;
   `stores/members.ts`, `stores/invitations.ts`; страница `settings/members`, `InviteMemberModal`,
   `TransferOwnershipModal`; `/invitations` и бейдж в переключателе; «Leave workspace» в
   `settings/danger`; `IWorkspaceMember`, `IWorkspaceInvitation`, `IIncomingInvitation`,

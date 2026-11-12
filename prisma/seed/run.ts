@@ -2,6 +2,7 @@ import process from 'node:process'
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { reconcileFieldIndexes } from '#server/db/field-indexes'
+import { createWorkspaceWithDefaults } from '#server/db/workspaces'
 import { hashPassword } from '#server/utils/auth'
 import { compileDataset } from '~~/prisma/seed/compile'
 import { idFor } from '~~/prisma/seed/ids'
@@ -16,6 +17,8 @@ import type { ICompiledTable } from '~~/prisma/seed/compile'
 const DEMO_EMAIL = 'test@test.com'
 const DEMO_PASSWORD = 'testtest'
 const DEMO_NAME = 'Demo User'
+const DEMO_WORKSPACE_NAME = 'Demo workspace'
+const DEMO_WORKSPACE_ADDRESS = idFor(`workspace:${DEMO_EMAIL}`).slice(1, 11)
 
 function assertSeedableEnvironment(): void {
   if (process.env.DATABASE_URL === undefined || process.env.DATABASE_URL === '') {
@@ -27,11 +30,15 @@ function assertSeedableEnvironment(): void {
   }
 }
 
-async function writeTable(userId: string, table: ICompiledTable): Promise<void> {
+async function writeTable(
+  workspaceId: string,
+  userId: string,
+  table: ICompiledTable,
+): Promise<void> {
   await prisma.table.create({
     data: {
       id: table.id,
-      userId,
+      workspaceId,
       name: table.name,
       number: table.number,
       recordCounter: table.records.length,
@@ -73,27 +80,40 @@ async function seed(): Promise<void> {
 
   const tables = compileDataset(SEED_TABLES)
 
+  // The owner's workspaces first: `Workspace.ownerId` restricts deleting the user
+  await prisma.workspace.deleteMany({ where: { owner: { email: DEMO_EMAIL } } })
   await prisma.user.deleteMany({ where: { email: DEMO_EMAIL } })
 
-  const user = await prisma.user.create({
-    data: {
-      id: idFor(`user:${DEMO_EMAIL}`),
-      email: DEMO_EMAIL,
-      name: DEMO_NAME,
-      passwordHash: await hashPassword(DEMO_PASSWORD),
-      tableCounter: tables.length,
-    },
-    select: { id: true },
+  const passwordHash = await hashPassword(DEMO_PASSWORD)
+
+  const { user, workspace } = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { id: idFor(`user:${DEMO_EMAIL}`), email: DEMO_EMAIL, name: DEMO_NAME, passwordHash },
+      select: { id: true },
+    })
+    const created = await createWorkspaceWithDefaults(tx, {
+      ownerId: user.id,
+      name: DEMO_WORKSPACE_NAME,
+    })
+    // A fixed address, so a bookmark survives a reseed; hex is within the address alphabet
+    const workspace = await tx.workspace.update({
+      where: { id: created.id },
+      data: { publicId: DEMO_WORKSPACE_ADDRESS, tableCounter: tables.length },
+      select: { id: true },
+    })
+    await tx.user.update({ where: { id: user.id }, data: { lastWorkspaceId: workspace.id } })
+
+    return { user, workspace }
   })
 
-  for (const table of tables) await writeTable(user.id, table)
+  for (const table of tables) await writeTable(workspace.id, user.id, table)
 
   // `CONCURRENTLY` is refused inside a transaction, and nothing else indexes a directly inserted
   // field
   const indexes = await reconcileFieldIndexes()
 
   const report = [
-    `Seeded ${DEMO_EMAIL} (password: ${DEMO_PASSWORD})`,
+    `Seeded ${DEMO_EMAIL} (password: ${DEMO_PASSWORD}) in /w/${DEMO_WORKSPACE_ADDRESS}`,
     ...tables.map(
       (table) =>
         `  ${table.name.padEnd(18)} ${String(table.records.length).padStart(4)} records, ` +

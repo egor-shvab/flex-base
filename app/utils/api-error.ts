@@ -1,4 +1,5 @@
 import type { FetchError } from 'ofetch'
+import type { INotFoundData } from '#shared/types/api'
 
 /** Blank counts as absent, or a `statusMessage: ''` would win over a good `message`. */
 function toNonBlank(value: unknown): string | undefined {
@@ -15,18 +16,33 @@ export function getApiErrorMessage(error: unknown): string {
   )
 }
 
-function formatPageErrorMessage(statusCode: number): string {
-  if (statusCode === 404) return 'We couldn’t find that table.'
+function isWorkspaceMissing(data: unknown): boolean {
+  return (data as { data?: Partial<INotFoundData> } | undefined)?.data?.missing === 'workspace'
+}
+
+function formatPageErrorMessage(statusCode: number, isWorkspace: boolean): string {
+  if (statusCode === 404) {
+    return isWorkspace ? 'We couldn’t find that workspace.' : 'We couldn’t find that table.'
+  }
   if (statusCode >= 500) return 'Something went wrong at our end.'
 
   return 'That web address could not be read.'
 }
 
-export function toPageError(error: { statusCode?: number }): {
+/**
+ * Fatal, or a client-side navigation leaves the previous page on screen: Nuxt shows its error page
+ * on the client only for a fatal error.
+ */
+export function toPageError(error: { statusCode?: number; data?: unknown }): {
   statusCode: number
   statusMessage: string
+  fatal: true
 } {
   const statusCode = error.statusCode ?? 404
 
-  return { statusCode, statusMessage: formatPageErrorMessage(statusCode) }
+  return {
+    statusCode,
+    statusMessage: formatPageErrorMessage(statusCode, isWorkspaceMissing(error.data)),
+    fatal: true,
+  }
 }

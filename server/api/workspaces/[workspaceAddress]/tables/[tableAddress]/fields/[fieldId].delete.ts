@@ -1,0 +1,17 @@
+import { defineTableHandler } from '#server/utils/handler'
+import { routeParam } from '#server/utils/route'
+import { FieldService } from '#server/services/fields'
+import { TableService } from '#server/services/tables'
+import type { IFieldDeletedResponse } from '#shared/types/api'
+
+export default defineTableHandler(
+  'TABLES_MANAGE',
+  async ({ event, membership, table }): Promise<IFieldDeletedResponse> => {
+    await FieldService.deleteField(table.id, routeParam(event, 'fieldId'))
+
+    return {
+      ok: true,
+      table: await TableService.getTableListRow(membership.workspace.id, table.id),
+    }
+  },
+)

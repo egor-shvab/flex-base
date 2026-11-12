@@ -1,12 +1,15 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
+import { isUniqueViolationOn } from '#server/db/prisma-errors'
 import { authUserSelect, authUserWithHashSelect, toAuthUser } from '#server/db/users'
+import {
+  PERSONAL_WORKSPACE_NAME,
+  createWorkspaceWithDefaults,
+  retryOnPublicIdCollision,
+} from '#server/db/workspaces'
 import { hashPassword, verifyPassword } from '#server/utils/auth'
-import { toHttpError } from '#server/utils/http-errors'
 import type { IAuthUser } from '#shared/types/auth'
 import type { TCredentialsInput, TProfileInput, TRegistrationInput } from '#shared/validation/auth'
-
-const authErrors = { conflict: 'Email is already registered' }
 
 /** Same generic error for unknown email and wrong password — no user enumeration. */
 const buildInvalidCredentialsError = () =>
@@ -21,13 +24,31 @@ async function registerUser({ email, password, name }: TRegistrationInput): Prom
 
   try {
     return toAuthUser(
-      await prisma.user.create({
-        data: { email, name, passwordHash },
-        select: authUserSelect,
-      }),
+      await retryOnPublicIdCollision(() =>
+        prisma.$transaction(async (tx) => {
+          const user = await tx.user.create({
+            data: { email, name, passwordHash },
+            select: { id: true },
+          })
+          const workspace = await createWorkspaceWithDefaults(tx, {
+            ownerId: user.id,
+            name: PERSONAL_WORKSPACE_NAME,
+          })
+
+          return tx.user.update({
+            where: { id: user.id },
+            data: { lastWorkspaceId: workspace.id },
+            select: authUserSelect,
+          })
+        }),
+      ),
     )
   } catch (error) {
-    throw toHttpError(error, authErrors)
+    // The email alone: a public id that kept colliding is our fault, not a taken address
+    if (isUniqueViolationOn(error, 'email')) {
+      throw createError({ statusCode: 409, statusMessage: 'Email is already registered' })
+    }
+    throw error
   }
 }
 

@@ -5,49 +5,57 @@
     </div>
 
     <div class="app-sidebar__body">
-      <NuxtLink to="/" class="app-sidebar__item" :class="{ 'app-sidebar__item--active': isHome }">
-        <Icon
-          name="material-symbols:home-outline-rounded"
-          class="app-sidebar__icon"
-          aria-hidden="true"
-        />
-        <span class="app-sidebar__name">Home</span>
-      </NuxtLink>
+      <template v-if="workspaceAddress">
+        <NuxtLink
+          :to="pagePath.workspace(workspaceAddress)"
+          class="app-sidebar__item"
+          :class="{ 'app-sidebar__item--active': isHome }"
+        >
+          <Icon
+            name="material-symbols:home-outline-rounded"
+            class="app-sidebar__icon"
+            aria-hidden="true"
+          />
+          <span class="app-sidebar__name">Home</span>
+        </NuxtLink>
 
-      <p class="app-sidebar__heading">Tables</p>
+        <p class="app-sidebar__heading">Tables</p>
 
-      <p v-if="tablesStore.status === 'failed'" class="app-sidebar__error">
-        Couldn't load your tables.
-        <BaseButton variant="link" @click="tablesStore.ensureTables()">Try again</BaseButton>
-      </p>
+        <p v-if="tablesStore.status === 'failed'" class="app-sidebar__error">
+          Couldn't load your tables.
+          <BaseButton variant="link" @click="tablesStore.ensureTables(workspaceAddress)"
+            >Try again</BaseButton
+          >
+        </p>
 
-      <p
-        v-else-if="tablesStore.status === 'ready' && tablesStore.tables.length === 0"
-        class="app-sidebar__empty"
-      >
-        No tables yet.
-      </p>
+        <p
+          v-else-if="tablesStore.status === 'ready' && tablesStore.tables.length === 0"
+          class="app-sidebar__empty"
+        >
+          No tables yet.
+        </p>
 
-      <NuxtLink
-        v-for="table in tablesStore.tables"
-        :key="table.id"
-        :to="`/tables/${toTableAddress(table)}`"
-        class="app-sidebar__item"
-        :class="{ 'app-sidebar__item--active': table.number === activeTableNumber }"
-      >
-        <Icon
-          name="material-symbols:table-outline-rounded"
-          class="app-sidebar__icon"
-          aria-hidden="true"
-        />
-        <span class="app-sidebar__name">{{ table.name }}</span>
-        <span class="app-sidebar__count">{{ table._count.records }}</span>
-      </NuxtLink>
+        <NuxtLink
+          v-for="table in tablesStore.tables"
+          :key="table.id"
+          :to="pagePath.table(workspaceAddress, toTableAddress(table))"
+          class="app-sidebar__item"
+          :class="{ 'app-sidebar__item--active': table.number === activeTableNumber }"
+        >
+          <Icon
+            name="material-symbols:table-outline-rounded"
+            class="app-sidebar__icon"
+            aria-hidden="true"
+          />
+          <span class="app-sidebar__name">{{ table.name }}</span>
+          <span class="app-sidebar__count">{{ table._count.records }}</span>
+        </NuxtLink>
 
-      <button type="button" class="app-sidebar__add" @click="isCreateOpen = true">
-        <Icon name="material-symbols:add-rounded" class="app-sidebar__icon" aria-hidden="true" />
-        Add a table
-      </button>
+        <button type="button" class="app-sidebar__add" @click="isCreateOpen = true">
+          <Icon name="material-symbols:add-rounded" class="app-sidebar__icon" aria-hidden="true" />
+          Add a table
+        </button>
+      </template>
     </div>
 
     <div v-if="auth.user" class="app-sidebar__user">
@@ -91,19 +99,22 @@ import { computed, ref } from 'vue'
 import { navigateTo, useRoute } from '#imports'
 import { parseTableAddress, toTableAddress } from '#shared/utils/address'
 import { useAuthStore } from '~/stores/auth'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useTablesStore } from '~/stores/tables'
 import { toInitials } from '~/utils/initials'
+import { pagePath } from '~/utils/page-path'
 
 const route = useRoute()
 const tablesStore = useTablesStore()
 const auth = useAuthStore()
+const { workspaceAddress } = useActiveWorkspace()
 
 const isCreateOpen = ref(false)
 const isProfileOpen = ref(false)
 
 async function submitTable(name: string) {
-  const table = await tablesStore.createTable({ name })
-  await navigateTo(`/tables/${toTableAddress(table)}`)
+  const table = await tablesStore.createTable(workspaceAddress.value, { name })
+  await navigateTo(pagePath.table(workspaceAddress.value, toTableAddress(table)))
 }
 
 const activeTableNumber = computed(() => {
@@ -111,7 +122,7 @@ const activeTableNumber = computed(() => {
   return parseTableAddress(address) || tablesStore.findTable(address)?.number
 })
 
-const isHome = computed(() => route.path === '/')
+const isHome = computed(() => route.path === pagePath.workspace(workspaceAddress.value))
 </script>
 
 <style lang="scss" scoped>

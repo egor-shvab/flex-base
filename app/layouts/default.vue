@@ -28,17 +28,23 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useTablesStore } from '~/stores/tables'
 
 const tablesStore = useTablesStore()
 const route = useRoute()
+const { workspaceAddress } = useActiveWorkspace()
 
-// Its own key: `useAsyncData` does not dedupe a layout against a page. Returns a value, since
-// `undefined` makes Nuxt warn (NUXT_E3006) and re-run the handler on the client
-await useAsyncData('app-tables', async () => {
-  await tablesStore.ensureTables()
-  return true
-})
+// Its own key: `useAsyncData` does not dedupe a layout against a page. Keyed on the workspace, so
+// switching refetches. Returns a value, since `undefined` makes Nuxt warn (NUXT_E3006) and re-run
+// the handler on the client
+await useAsyncData(
+  () => `app-tables-${workspaceAddress.value}`,
+  async () => {
+    if (workspaceAddress.value !== '') await tablesStore.ensureTables(workspaceAddress.value)
+    return true
+  },
+)
 
 const isNavOpen = ref(false)
 
@@ -60,7 +66,10 @@ function onKeydown(event: KeyboardEvent) {
   isNavOpen.value = false
 }
 
-onMounted(() => document.addEventListener('keydown', onKeydown))
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown)
+})
+
 onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 </script>
 

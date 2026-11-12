@@ -1,33 +1,53 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { H3Event } from 'h3'
-import tableGet from '#server/api/tables/[tableAddress].get'
-import tablePatch from '#server/api/tables/[tableAddress].patch'
-import tableDelete from '#server/api/tables/[tableAddress].delete'
-import fieldsGet from '#server/api/tables/[tableAddress]/fields/index.get'
-import fieldsPost from '#server/api/tables/[tableAddress]/fields/index.post'
-import fieldPatch from '#server/api/tables/[tableAddress]/fields/[fieldId].patch'
-import fieldDelete from '#server/api/tables/[tableAddress]/fields/[fieldId].delete'
-import optionsGet from '#server/api/tables/[tableAddress]/fields/[fieldId]/options.get'
-import recordsGet from '#server/api/tables/[tableAddress]/records/index.get'
-import recordsPost from '#server/api/tables/[tableAddress]/records/index.post'
-import recordGet from '#server/api/tables/[tableAddress]/records/[recordAddress].get'
-import recordPatch from '#server/api/tables/[tableAddress]/records/[recordAddress].patch'
-import recordDelete from '#server/api/tables/[tableAddress]/records/[recordAddress].delete'
-import tablesGet from '#server/api/tables/index.get'
-import tablesPost from '#server/api/tables/index.post'
-import type { IAuthUser } from '#shared/types/auth'
+import workspacesGet from '#server/api/workspaces/index.get'
+import workspaceGet from '#server/api/workspaces/[workspaceAddress]/index.get'
+import workspaceVisitPut from '#server/api/workspaces/[workspaceAddress]/visit.put'
+import tableGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].get'
+import tablePatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].patch'
+import tableDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].delete'
+import fieldsGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/index.get'
+import fieldsPost from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/index.post'
+import fieldPatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/[fieldId].patch'
+import fieldDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/[fieldId].delete'
+import optionsGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/[fieldId]/options.get'
+import recordsGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.get'
+import recordsPost from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.post'
+import recordGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/[recordAddress].get'
+import recordPatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/[recordAddress].patch'
+import recordDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/[recordAddress].delete'
+import tablesGet from '#server/api/workspaces/[workspaceAddress]/tables/index.get'
+import tablesPost from '#server/api/workspaces/[workspaceAddress]/tables/index.post'
+import { prisma } from '#server/db/prisma'
+import type { TWorkspaceAccess } from '#server/utils/workspace-access'
 import { testEvent } from '~~/test/integration/event'
-import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
+import {
+  addMember,
+  createField,
+  createRecord,
+  createTable,
+  createUser,
+  type TSeededUser,
+} from '~~/test/integration/seed'
 
 type THandler = (event: H3Event) => unknown
 
 interface IWorld {
-  ada: IAuthUser
-  mallory: IAuthUser
+  ada: TSeededUser
+  mallory: TSeededUser
   tableId: string
   fieldId: string
   relationFieldId: string
   recordId: string
+}
+
+interface IEndpoint {
+  name: string
+  handler: THandler
+  access: TWorkspaceAccess
+  params: Record<string, string>
+  body?: unknown
+  method?: 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 }
 
 let world: IWorld
@@ -36,10 +56,10 @@ beforeEach(async () => {
   const ada = await createUser('ada@example.com')
   const mallory = await createUser('mallory@example.com')
 
-  const table = await createTable(ada.id, 'Deals')
+  const table = await createTable(ada.workspace.id, 'Deals')
   const field = await createField(table.id, { key: 'company', type: 'TEXT', name: 'Company' })
 
-  const people = await createTable(ada.id, 'People')
+  const people = await createTable(ada.workspace.id, 'People')
   await createField(people.id, { key: 'full_name', type: 'TEXT' })
   const relation = await createField(table.id, {
     key: 'owner',
@@ -61,160 +81,279 @@ beforeEach(async () => {
   }
 })
 
-function scopedEndpoints() {
+const adaWorkspace = () => world.ada.workspace.publicId
+
+function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
   const { tableId, fieldId, relationFieldId, recordId } = world
-  const tableParams = { tableAddress: tableId }
-  const fieldParams = { tableAddress: tableId, fieldId }
-  const recordParams = { tableAddress: tableId, recordAddress: recordId }
+  const workspaceParams = { workspaceAddress }
+  const tableParams = { workspaceAddress, tableAddress: tableId }
+  const fieldParams = { ...tableParams, fieldId }
+  const recordParams = { ...tableParams, recordAddress: recordId }
   const validField = { name: 'Renamed', type: 'TEXT' }
 
   return [
-    { name: 'GET /tables/:id', handler: tableGet, params: tableParams },
+    { name: 'GET /workspaces/:ws', handler: workspaceGet, access: 'READ', params: workspaceParams },
+    {
+      name: 'PUT /workspaces/:ws/visit',
+      handler: workspaceVisitPut,
+      access: 'READ',
+      params: workspaceParams,
+      method: 'PUT',
+    },
+    { name: 'GET /tables', handler: tablesGet, access: 'READ', params: workspaceParams },
+    {
+      name: 'POST /tables',
+      handler: tablesPost,
+      access: 'TABLES_MANAGE',
+      params: workspaceParams,
+      body: { name: 'New' },
+      method: 'POST',
+    },
+    { name: 'GET /tables/:id', handler: tableGet, access: 'READ', params: tableParams },
     {
       name: 'PATCH /tables/:id',
       handler: tablePatch,
+      access: 'TABLES_MANAGE',
       params: tableParams,
       body: { name: 'Renamed' },
-      method: 'PATCH' as const,
+      method: 'PATCH',
     },
     {
       name: 'DELETE /tables/:id',
       handler: tableDelete,
+      access: 'TABLES_MANAGE',
       params: tableParams,
-      method: 'DELETE' as const,
+      method: 'DELETE',
     },
-    { name: 'GET /fields', handler: fieldsGet, params: tableParams },
+    { name: 'GET /fields', handler: fieldsGet, access: 'READ', params: tableParams },
     {
       name: 'POST /fields',
       handler: fieldsPost,
+      access: 'TABLES_MANAGE',
       params: tableParams,
       body: validField,
-      method: 'POST' as const,
+      method: 'POST',
     },
     {
       name: 'PATCH /fields/:id',
       handler: fieldPatch,
+      access: 'TABLES_MANAGE',
       params: fieldParams,
       body: validField,
-      method: 'PATCH' as const,
+      method: 'PATCH',
     },
     {
       name: 'DELETE /fields/:id',
       handler: fieldDelete,
+      access: 'TABLES_MANAGE',
       params: fieldParams,
-      method: 'DELETE' as const,
+      method: 'DELETE',
     },
     {
       name: 'GET /fields/:id/options',
       handler: optionsGet,
-      params: { tableAddress: tableId, fieldId: relationFieldId },
+      access: 'READ',
+      params: { ...tableParams, fieldId: relationFieldId },
     },
-    { name: 'GET /records', handler: recordsGet, params: tableParams },
+    { name: 'GET /records', handler: recordsGet, access: 'READ', params: tableParams },
     {
       name: 'POST /records',
       handler: recordsPost,
+      access: 'RECORDS_CREATE',
       params: tableParams,
       body: { company: 'Beta' },
-      method: 'POST' as const,
+      method: 'POST',
     },
-    { name: 'GET /records/:id', handler: recordGet, params: recordParams },
+    { name: 'GET /records/:id', handler: recordGet, access: 'READ', params: recordParams },
     {
       name: 'PATCH /records/:id',
       handler: recordPatch,
+      access: 'RECORDS_UPDATE',
       params: recordParams,
       body: { company: 'Beta' },
-      method: 'PATCH' as const,
+      method: 'PATCH',
     },
     {
       name: 'DELETE /records/:id',
       handler: recordDelete,
+      access: 'RECORDS_DELETE',
       params: recordParams,
-      method: 'DELETE' as const,
+      method: 'DELETE',
     },
   ]
 }
 
+function call(endpoint: IEndpoint, user: TSeededUser) {
+  return endpoint.handler(
+    testEvent({ user, params: endpoint.params, body: endpoint.body, method: endpoint.method }),
+  )
+}
+
 describe('a stranger gets 404, never 403', () => {
-  it('on every endpoint scoped to a table', async () => {
+  it('on every endpoint inside a workspace they are not in', async () => {
     for (const endpoint of scopedEndpoints()) {
-      const event = testEvent({
-        user: world.mallory,
-        params: endpoint.params,
-        body: endpoint.body,
-        method: endpoint.method,
-      })
-
-      await expect((endpoint.handler as THandler)(event), endpoint.name).rejects.toMatchObject({
+      await expect(call(endpoint, world.mallory), endpoint.name).rejects.toMatchObject({
         statusCode: 404,
+        statusMessage: 'Workspace not found',
       })
     }
   })
 
-  it('leaves the owner able to reach the same endpoints', async () => {
+  it('leaves the owner able to read the same endpoints', async () => {
     for (const endpoint of scopedEndpoints().filter((entry) => entry.method === undefined)) {
-      const event = testEvent({ user: world.ada, params: endpoint.params })
-
-      await expect((endpoint.handler as THandler)(event), endpoint.name).resolves.toBeDefined()
+      await expect(call(endpoint, world.ada), endpoint.name).resolves.toBeDefined()
     }
   })
 
-  it('does not leak the table through a 403 or a differing message', async () => {
-    const stranger = testEvent({ user: world.mallory, params: { tableAddress: world.tableId } })
-    const missing = testEvent({ user: world.mallory, params: { tableAddress: 'tbl_nonexistent' } })
+  it('cannot reach a table by its id through their own workspace', async () => {
+    const own = world.mallory.workspace.publicId
 
-    const [a, b] = await Promise.all([
-      tableGet(stranger).catch((error: unknown) => error),
-      tableGet(missing).catch((error: unknown) => error),
-    ])
+    for (const endpoint of scopedEndpoints(own).filter((entry) => 'tableAddress' in entry.params)) {
+      await expect(call(endpoint, world.mallory), endpoint.name).rejects.toMatchObject({
+        statusCode: 404,
+        statusMessage: 'Table not found',
+      })
+    }
+  })
 
-    expect(a).toMatchObject({ statusCode: 404, statusMessage: 'Table not found' })
-    expect(b).toMatchObject({ statusCode: 404, statusMessage: 'Table not found' })
+  it('reads the same for a workspace that does not exist', async () => {
+    const outcomes = await Promise.all(
+      [adaWorkspace(), 'zzzzzzzzzz', world.ada.workspace.id].map((workspaceAddress) =>
+        Promise.resolve(
+          workspaceGet(testEvent({ user: world.mallory, params: { workspaceAddress } })),
+        ).catch((error: unknown) => error),
+      ),
+    )
+
+    for (const outcome of outcomes) {
+      expect(outcome).toMatchObject({ statusCode: 404, statusMessage: 'Workspace not found' })
+    }
   })
 
   it('changes nothing when a stranger tries to write', async () => {
     const event = testEvent({
       user: world.mallory,
-      params: { tableAddress: world.tableId },
+      params: { workspaceAddress: adaWorkspace(), tableAddress: world.tableId },
       body: { name: 'Pwned' },
       method: 'PATCH',
     })
 
     await expect(tablePatch(event)).rejects.toMatchObject({ statusCode: 404 })
-
-    const owner = testEvent({ user: world.ada, params: { tableAddress: world.tableId } })
-    await expect(tableGet(owner)).resolves.toMatchObject({ table: { name: 'Deals' } })
+    await expect(prisma.table.findUnique({ where: { id: world.tableId } })).resolves.toMatchObject({
+      name: 'Deals',
+    })
   })
 
-  it('never lists another user’s tables', async () => {
-    const event = testEvent({ user: world.mallory })
+  it('loses access on the next request once removed', async () => {
+    const membership = await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+    const read = () =>
+      tablesGet(testEvent({ user: world.mallory, params: { workspaceAddress: adaWorkspace() } }))
 
-    await expect(tablesGet(event)).resolves.toEqual({ tables: [] })
+    await expect(read()).resolves.toMatchObject({ tables: expect.any(Array) })
+
+    await prisma.workspaceMember.delete({ where: { id: membership.id } })
+
+    await expect(read()).rejects.toMatchObject({ statusCode: 404 })
+  })
+})
+
+describe('a member is held to the permissions of their role', () => {
+  it.each([
+    ['Viewer', [] as TWorkspaceAccess[]],
+    ['Editor', ['RECORDS_CREATE', 'RECORDS_UPDATE', 'RECORDS_DELETE'] as TWorkspaceAccess[]],
+  ])('refuses a %s every write their role does not grant, with a 403', async (role, granted) => {
+    await addMember(world.ada.workspace.id, world.mallory.id, role)
+
+    const refused = scopedEndpoints().filter(
+      (endpoint) => endpoint.access !== 'READ' && !granted.includes(endpoint.access),
+    )
+    expect(refused.length).toBeGreaterThan(0)
+
+    for (const endpoint of refused) {
+      await expect(call(endpoint, world.mallory), endpoint.name).rejects.toMatchObject({
+        statusCode: 403,
+        statusMessage: expect.stringMatching(/^You don't have permission to /),
+      })
+    }
+  })
+
+  it('lets any member read everything', async () => {
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+
+    for (const endpoint of scopedEndpoints().filter((entry) => entry.access === 'READ')) {
+      await expect(call(endpoint, world.mallory), endpoint.name).resolves.toBeDefined()
+    }
+  })
+
+  it('lets an Editor write records', async () => {
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Editor')
+
+    const { record } = await recordsPost(
+      testEvent({
+        user: world.mallory,
+        params: { workspaceAddress: adaWorkspace(), tableAddress: world.tableId },
+        method: 'POST',
+        body: { company: 'Gamma' },
+      }),
+    )
+
+    expect(record.data).toMatchObject({ company: 'Gamma' })
+  })
+
+  it('checks the permission before the table, so a missing table is a 403 too', async () => {
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+
+    await expect(
+      tableDelete(
+        testEvent({
+          user: world.mallory,
+          params: { workspaceAddress: adaWorkspace(), tableAddress: 'tbl_nonexistent' },
+          method: 'DELETE',
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('grants the owner everything, even under a role that grants nothing', async () => {
+    await prisma.workspaceMember.update({
+      where: {
+        workspaceId_userId: { workspaceId: world.ada.workspace.id, userId: world.ada.id },
+      },
+      data: {
+        role: {
+          connect: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Viewer' } },
+        },
+      },
+    })
+
+    await expect(
+      tablesPost(
+        testEvent({
+          user: world.ada,
+          params: { workspaceAddress: adaWorkspace() },
+          method: 'POST',
+          body: { name: 'Still mine' },
+        }),
+      ),
+    ).resolves.toMatchObject({ table: { name: 'Still mine' } })
   })
 })
 
 describe('an anonymous request is 401 before anything else', () => {
   it('on every endpoint, including ones whose ids do not exist', async () => {
     const endpoints: THandler[] = [
-      tablesGet,
-      tablesPost,
-      tableGet,
-      tablePatch,
-      tableDelete,
-      fieldsGet,
-      fieldsPost,
-      fieldPatch,
-      fieldDelete,
-      optionsGet,
-      recordsGet,
-      recordsPost,
-      recordGet,
-      recordPatch,
-      recordDelete,
+      workspacesGet,
+      ...scopedEndpoints().map((endpoint) => endpoint.handler),
     ]
 
     for (const handler of endpoints) {
       const event = testEvent({
-        params: { tableAddress: 'nope', fieldId: 'nope', recordAddress: 'nope' },
+        params: {
+          workspaceAddress: 'nope',
+          tableAddress: 'nope',
+          fieldId: 'nope',
+          recordAddress: 'nope',
+        },
       })
 
       await expect(handler(event)).rejects.toMatchObject({
@@ -225,14 +364,54 @@ describe('an anonymous request is 401 before anything else', () => {
   })
 })
 
-describe('a relation cannot be pointed across accounts', () => {
-  it('404s when the target table belongs to someone else', async () => {
-    const theirs = await createTable(world.mallory.id, 'Theirs')
+describe('the workspaces a user sees', () => {
+  it('lists only their memberships, with what each lets them do', async () => {
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Editor')
+
+    const { memberships } = await workspacesGet(testEvent({ user: world.mallory }))
+
+    expect(memberships).toHaveLength(2)
+    expect(memberships[0]).toMatchObject({
+      workspace: { publicId: world.mallory.workspace.publicId },
+      isOwner: true,
+      role: { name: 'Admin' },
+    })
+    expect(memberships[1]).toMatchObject({
+      workspace: { publicId: adaWorkspace() },
+      isOwner: false,
+      role: { name: 'Editor' },
+      permissions: ['RECORDS_CREATE', 'RECORDS_UPDATE', 'RECORDS_DELETE'],
+    })
+  })
+
+  it('remembers the last workspace, but only one they can still open', async () => {
+    const membership = await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+    await workspaceVisitPut(
+      testEvent({
+        user: world.mallory,
+        method: 'PUT',
+        params: { workspaceAddress: adaWorkspace() },
+      }),
+    )
+    await expect(workspacesGet(testEvent({ user: world.mallory }))).resolves.toMatchObject({
+      lastWorkspaceAddress: adaWorkspace(),
+    })
+
+    await prisma.workspaceMember.delete({ where: { id: membership.id } })
+    await expect(workspacesGet(testEvent({ user: world.mallory }))).resolves.toMatchObject({
+      lastWorkspaceAddress: null,
+    })
+  })
+})
+
+describe('a relation cannot be pointed across workspaces', () => {
+  it('404s when the target table belongs to another workspace', async () => {
+    const theirs = await createTable(world.mallory.workspace.id, 'Theirs')
     await createField(theirs.id, { key: 'full_name', type: 'TEXT' })
 
     const event = testEvent({
       user: world.ada,
-      params: { tableAddress: world.tableId },
+      params: { workspaceAddress: adaWorkspace(), tableAddress: world.tableId },
       method: 'POST',
       body: {
         name: 'Stolen',
@@ -246,12 +425,12 @@ describe('a relation cannot be pointed across accounts', () => {
   })
 
   it('400s when the label field is not one the target table has', async () => {
-    const people = await createTable(world.ada.id, 'More People')
+    const people = await createTable(world.ada.workspace.id, 'More People')
     await createField(people.id, { key: 'full_name', type: 'TEXT' })
 
     const event = testEvent({
       user: world.ada,
-      params: { tableAddress: world.tableId },
+      params: { workspaceAddress: adaWorkspace(), tableAddress: world.tableId },
       method: 'POST',
       body: {
         name: 'Bad label',
@@ -269,50 +448,50 @@ describe('a relation cannot be pointed across accounts', () => {
 })
 
 describe('a table is addressable by its number as well as by its cuid', () => {
-  it('answers identically either way', async () => {
-    const table = await createTable(world.ada.id, 'Addressed')
+  const get = (user: TSeededUser, workspaceAddress: string, tableAddress: string) =>
+    tableGet(testEvent({ user, params: { workspaceAddress, tableAddress } }))
 
-    const byCuid = await tableGet(
-      testEvent({ user: world.ada, params: { tableAddress: table.id } }),
-    )
-    const byNumber = await tableGet(
-      testEvent({ user: world.ada, params: { tableAddress: String(table.number) } }),
-    )
+  it('answers identically either way', async () => {
+    const table = await createTable(world.ada.workspace.id, 'Addressed')
+
+    const byCuid = await get(world.ada, adaWorkspace(), table.id)
+    const byNumber = await get(world.ada, adaWorkspace(), String(table.number))
 
     expect(byNumber).toEqual(byCuid)
     expect(byNumber.table.id).toBe(table.id)
   })
 
-  it('404s on a number only another account has', async () => {
-    await createTable(world.mallory.id, 'One')
-    await createTable(world.mallory.id, 'Two')
-    const theirs = await createTable(world.mallory.id, 'Three')
+  it('404s on a number only another workspace has', async () => {
+    await createTable(world.mallory.workspace.id, 'One')
+    await createTable(world.mallory.workspace.id, 'Two')
+    const theirs = await createTable(world.mallory.workspace.id, 'Three')
 
-    await expect(
-      tableGet(testEvent({ user: world.ada, params: { tableAddress: String(theirs.number) } })),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Table not found' })
+    await expect(get(world.ada, adaWorkspace(), String(theirs.number))).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Table not found',
+    })
   })
 
-  it('gives each account its own table 1', async () => {
-    const hers = await createTable(world.mallory.id, 'Hers')
+  it('gives each workspace its own table 1', async () => {
+    const hers = await createTable(world.mallory.workspace.id, 'Hers')
 
-    const ada = await tableGet(testEvent({ user: world.ada, params: { tableAddress: '1' } }))
-    const mallory = await tableGet(
-      testEvent({ user: world.mallory, params: { tableAddress: '1' } }),
-    )
+    const ada = await get(world.ada, adaWorkspace(), '1')
+    const mallory = await get(world.mallory, world.mallory.workspace.publicId, '1')
 
     expect(ada.table.name).toBe('Deals')
     expect(mallory.table.id).toBe(hers.id)
   })
 
   it('reaches a table’s fields and records by number too', async () => {
-    const number = String((await createTable(world.ada.id, 'Numbered')).number)
+    const number = String((await createTable(world.ada.workspace.id, 'Numbered')).number)
+    const params = { workspaceAddress: adaWorkspace(), tableAddress: number }
 
-    await expect(
-      fieldsGet(testEvent({ user: world.ada, params: { tableAddress: number } })),
-    ).resolves.toMatchObject({ fields: [] })
-    await expect(
-      recordsGet(testEvent({ user: world.ada, params: { tableAddress: number } })),
-    ).resolves.toMatchObject({ records: [], total: 0 })
+    await expect(fieldsGet(testEvent({ user: world.ada, params }))).resolves.toMatchObject({
+      fields: [],
+    })
+    await expect(recordsGet(testEvent({ user: world.ada, params }))).resolves.toMatchObject({
+      records: [],
+      total: 0,
+    })
   })
 })

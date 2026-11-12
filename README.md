@@ -6,8 +6,8 @@ interfaces generated from that configuration.
 
 The architecture is **metadata-driven**: forms, tables, validation and API contracts are all derived
 from field definitions stored in the database — there are no hardcoded business entities. Every
-resource belongs to a single authenticated user, and ownership is enforced on the server for every
-request.
+resource belongs to a workspace; membership and the member's role are checked on the server for
+every request.
 
 **Stack:** Nuxt 4 · Vue 3 · TypeScript · Nitro · Prisma 7 · PostgreSQL · Pinia · zod · SCSS
 
@@ -66,8 +66,9 @@ npm run db:seed
 It signs in as `test@test.com` / `testtest` and creates eight tables — clients, people, projects,
 tasks, invoices and three smaller ones — holding around 445 records between them, covering every
 field type, both single- and multi-value fields, and the empty, single-row and multi-page list
-states. Re-running it replaces that one account and touches nothing else on the database; it is
-also available as `npx prisma db seed`.
+states, in a workspace at a fixed address the seed prints. Re-running it replaces that one account
+and its workspace and touches nothing else on the database; it is also available as
+`npx prisma db seed`.
 
 ## Commands
 

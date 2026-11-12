@@ -8,6 +8,7 @@ import {
   buildQueryWithDetailChain,
 } from '~/utils/record-detail'
 import { useRecordsApi } from '~/api/records'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useRelationsStore } from '~/stores/relations'
 import { getApiErrorMessage } from '~/utils/api-error'
 
@@ -19,6 +20,7 @@ export function useRecordDetail() {
   const route = useRoute()
   const api = useRecordsApi()
   const relations = useRelationsStore()
+  const { workspaceAddress } = useActiveWorkspace()
 
   const chain = computed(() => parseDetailChain(route.query))
 
@@ -33,12 +35,16 @@ export function useRecordDetail() {
   const { data, status, error, refresh } = useAsyncData<IRecordDetail | null>(
     // Keyed on the record: a constant key would be shared across table pages and the second would
     // keep the first's entry without refetching
-    () => `record-detail-${currentKey.value}`,
+    () => `record-detail-${workspaceAddress.value}-${currentKey.value}`,
     async () => {
       const openRecord = current.value
       if (openRecord === undefined) return null
 
-      const detail = await api.detail(openRecord.tableAddress, openRecord.recordAddress)
+      const detail = await api.detail(
+        workspaceAddress.value,
+        openRecord.tableAddress,
+        openRecord.recordAddress,
+      )
       relations.cacheLinkedRecords(detail.linkedRecords)
       return detail
     },

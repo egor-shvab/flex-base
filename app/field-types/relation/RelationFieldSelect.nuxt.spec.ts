@@ -16,7 +16,7 @@ const SEED = [
   { id: 'rec_grace', number: 2, label: 'Grace Hopper' },
 ]
 
-registerEndpoint('/api/tables/tbl_people/fields/fld_owner/options', () => ({
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_people/fields/fld_owner/options', () => ({
   options: [{ id: 'rec_margaret', number: 3, label: 'Margaret Hamilton' }],
 }))
 
@@ -57,7 +57,9 @@ describe('RelationFieldSelect', () => {
         SEED.map((option) => [option.id, { number: option.number, label: option.label }]),
       ),
     }
-    relations.tableAddressByField = { [FIELD_ID]: 'tbl_people' }
+    relations.optionSourceByField = {
+      [FIELD_ID]: { workspaceAddress: 'k3f9x2m8qa', tableAddress: 'tbl_people' },
+    }
 
     document.body.innerHTML = ''
   })

@@ -7,6 +7,7 @@ import type { IRecord, TRecordData } from '#shared/types/record'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 let userId: string
+let workspaceId: string
 let peopleId: string
 let owner: IField
 
@@ -19,13 +20,15 @@ const asRecord = (data: TRecordData): IRecord => ({
 })
 
 beforeEach(async () => {
-  userId = (await createUser()).id
+  const user = await createUser()
+  userId = user.id
+  workspaceId = user.workspace.id
 
-  const people = await createTable(userId, 'People')
+  const people = await createTable(workspaceId, 'People')
   peopleId = people.id
   await createField(peopleId, { key: 'full_name', type: 'TEXT' })
 
-  const deals = await createTable(userId, 'Deals')
+  const deals = await createTable(workspaceId, 'Deals')
   owner = await createField(deals.id, {
     key: 'owner',
     name: 'Owner',
@@ -64,7 +67,7 @@ describe('resolving linked records', () => {
   })
 
   it('will not resolve an id through the wrong table', async () => {
-    const elsewhere = await createTable(userId, 'Elsewhere')
+    const elsewhere = await createTable(workspaceId, 'Elsewhere')
     const stranger = await createRecord(elsewhere.id, { full_name: 'Not Ada' })
 
     const refs = await RelationService.resolveLinkedRecords(
@@ -102,7 +105,7 @@ describe('checking a write’s targets', () => {
   })
 
   it('rejects an id from another table, which is what a crafted payload looks like', async () => {
-    const elsewhere = await createTable(userId, 'Elsewhere')
+    const elsewhere = await createTable(workspaceId, 'Elsewhere')
     const stranger = await createRecord(elsewhere.id, {})
 
     await expect(
@@ -176,7 +179,7 @@ describe('the options a picker offers', () => {
   })
 
   it('never offers a record of another table', async () => {
-    const elsewhere = await createTable(userId, 'Elsewhere')
+    const elsewhere = await createTable(workspaceId, 'Elsewhere')
     await createRecord(elsewhere.id, { full_name: 'Stranger' })
     await createRecord(peopleId, { full_name: 'Ada' })
 

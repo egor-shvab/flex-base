@@ -7,6 +7,7 @@ import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 let userId: string
+let workspaceId: string
 let tableId: string
 let fields: IField[]
 
@@ -20,8 +21,10 @@ const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
 })
 
 beforeEach(async () => {
-  userId = (await createUser()).id
-  const table = await createTable(userId)
+  const user = await createUser()
+  userId = user.id
+  workspaceId = user.workspace.id
+  const table = await createTable(workspaceId)
   tableId = table.id
   fields = await createFields(tableId, [{ key: 'company', type: 'TEXT' }])
 })
@@ -65,7 +68,7 @@ describe('record numbers', () => {
   })
 
   it('counts per table rather than globally', async () => {
-    const other = await createTable((await createUser()).id)
+    const other = await createTable((await createUser()).workspace.id)
     const otherFields = await createFields(other.id, [{ key: 'company', type: 'TEXT' }])
 
     await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
@@ -122,7 +125,7 @@ describe('writing a record', () => {
   })
 
   it('404s when updating a record of another table', async () => {
-    const other = await createTable((await createUser()).id)
+    const other = await createTable((await createUser()).workspace.id)
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     await expect(
@@ -131,7 +134,7 @@ describe('writing a record', () => {
   })
 
   it('404s when deleting a record of another table, leaving it in place', async () => {
-    const other = await createTable((await createUser()).id)
+    const other = await createTable((await createUser()).workspace.id)
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     await expect(RecordService.deleteRecord(other.id, record.id)).rejects.toMatchObject({
@@ -155,7 +158,7 @@ describe('filtering a relation by the number its URL carries', () => {
   let grace: { id: string; number: number }
 
   beforeEach(async () => {
-    const people = await createTable((await createUser()).id, 'People')
+    const people = await createTable((await createUser()).workspace.id, 'People')
     const [nameField] = await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
     expect(nameField).toBeDefined()
 

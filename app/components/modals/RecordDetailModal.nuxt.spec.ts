@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
@@ -8,6 +9,8 @@ import type { IRecordDetail } from '#shared/types/record'
 import RecordDetailModal from '~/components/modals/RecordDetailModal.vue'
 import { recordWithAuthors, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
+
+mockNuxtImport('useRoute', () => () => ({ params: { workspaceAddress: 'k3f9x2m8qa' }, query: {} }))
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
 const link = (name: string | RegExp) =>
@@ -168,7 +171,9 @@ describe('RecordDetailModal', () => {
         currentTableNumber: 1,
       })
 
-      expect(link(/Open in/)?.getAttribute('href')).toBe(`/tables/2?${DETAIL_PARAM}=2.7`)
+      expect(link(/Open in/)?.getAttribute('href')).toBe(
+        `/w/k3f9x2m8qa/tables/2?${DETAIL_PARAM}=2.7`,
+      )
     })
 
     it('is withheld while loading and while erroring', async () => {

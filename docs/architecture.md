@@ -95,8 +95,9 @@ does not offer so saving a form never drops a link.
 - **`Record.number`** — sequential **per table** (`@@unique([tableId, number])`); what a URL
   addresses and a user reads.
 
-`Table.id` / `Table.number` are the same pair one level up, per user. A number is allocated from the
-parent's counter (`Table.recordCounter`, `User.tableCounter`) inside the insert's transaction —
+`Table.id` / `Table.number` are the same pair one level up, per workspace. A number is allocated
+from the parent's counter (`Table.recordCounter`, `Workspace.tableCounter`) inside the insert's
+transaction —
 Prisma's atomic `increment` takes the row lock, so concurrent creates queue. The counter is a
 **high-water mark**: a deleted row's number is never reused. (Why: `decisions.md` → _Public numbers
 address, cuids reference_.)
@@ -104,8 +105,8 @@ address, cuids reference_.)
 **A route names a row by either form**, through `buildTableAddressWhere` (`server/db/tables.ts`)
 and `buildRecordAddressWhere` (`server/db/records.ts`): an address that parses resolves on the
 compound unique, anything else parses to `0` and resolves on `{ id }`. `buildTableAddressWhere`
-scopes the owner; `buildRecordAddressWhere` scopes the table, because a handler factory has already
-proved the table is the caller's. **Only a route carries an address:** `requireFieldTarget` refuses a body `targetTableId` that parses as an
+scopes the workspace; `buildRecordAddressWhere` scopes the table, because a handler factory has
+already proved the table is in the caller's workspace. **Only a route carries an address:** `requireFieldTarget` refuses a body `targetTableId` that parses as an
 address, or `4` would be stored as a target nothing matches and `assertNotRelationTarget` would stop
 guarding it.
 
@@ -197,7 +198,8 @@ dashed `<span>` with no `#`.
 ```
 
 Reserved, owned by the **page**, never sent to the list API. Outermost first; each half is an
-address (number or legacy cuid) passed as-is to `GET /api/tables/:table/records/:record`. Only the
+address (number or legacy cuid) passed as-is to
+`GET /api/workspaces/:workspace/tables/:table/records/:record`, under the page's own workspace. Only the
 **last** entry is fetched — the rest is the trail Back walks. Decoded leniently: a malformed entry
 ends the chain. `toRecordQueryParams` emits list params only, so any list navigation closes the
 dialog.
@@ -254,8 +256,11 @@ sort puts blanks `NULLS LAST` and breaks ties on `"createdAt" DESC`, which keeps
 ## 9. Data model
 
 `prisma/schema.prisma`; the `datasource` has no inline `url` (Prisma 7 reads it via
-`prisma.config.ts`). **Ownership lives only on `Table.userId`** — fields and records reach the user
-through their table, and every relation cascades. `Record.data` is keyed by **`Field.key`**
+`prisma.config.ts`). **A table belongs to one workspace (`Table.workspaceId`)** — fields and
+records reach it through their table, and every relation cascades. Access is membership
+(`WorkspaceMember`) plus the member's role (`WorkspaceRole.permissions`), whose key carries the
+workspace (`(workspaceId, roleId)`), so a member cannot hold another workspace's role; the owner
+(`Workspace.ownerId`) holds every permission and is also a member. `Record.data` is keyed by **`Field.key`**
 (immutable), so renaming a field rewrites nothing; a multi-value field stores a JSON array, and
 widening is the one operation that rewrites rows. `Table.recordCounter` is never in `tableSelect`.
 
@@ -297,8 +302,13 @@ Only what the name and the code do not say.
 - **`utils/http-errors.ts`** — `toHttpError(error, { conflict?, notFound? })` maps `P2002` → 409 and
   `P2025` → 404. **An absent message means "do not map this"**; anything unmapped still surfaces as
   a 500.
-- **`utils/ownership.ts`** — `requireRecordFields` adds a 400 for a field-less table on **writes
-  only** (a field-less table must still list an empty page); `requireOwnedTableWithFields` exists
+- **`utils/workspace-access.ts`** — `requireMembership` resolves the caller's membership from their
+  id and the workspace address in **one** query (not a member → 404); `assertPermission` turns a
+  missing permission into a 403. Every workspace route reaches both through a factory in
+  `utils/handler.ts`, which checks the permission **before** looking up the table.
+- **`utils/table-access.ts`** — the table helpers take the `workspaceId` the membership proved.
+  `requireRecordFields` adds a 400 for a field-less table on **writes
+  only** (a field-less table must still list an empty page); `requireWorkspaceTableWithFields` exists
   for the record-detail read, which names a table other than the page's.
 - **`utils/error-log.ts`** — an entry is `source` · timestamp · statusCode · name · message · stack ·
   method · path · query **names** · userId and **nothing else**; a client entry nulls status,
@@ -311,7 +321,8 @@ Only what the name and the code do not say.
 - **`services/fields.ts`** — rejects type changes, retargeting and narrowing (400); widening runs
   `widenToList` in the metadata change's transaction.
 - **`services/records.ts`** — `data` is replaced wholesale on update.
-- **`api/tables/[tableAddress]/records/index.get.ts`** — validates with
+- **`api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.get.ts`** — validates
+  with
   `buildRecordQuerySchema(fields)`, then decodes with `parseRecordQueryState`.
 
 ### `app/`
@@ -334,7 +345,11 @@ Only what the name and the code do not say.
 - **`components/common/BaseSelect/useListboxNavigation.ts`** — the cursor never wraps and is keyed
   on option **values**, so a rebuilt options array does not move it. **`useSelectOptions.ts`** —
   abort + a monotonic request id drop out-of-order responses.
-- **`utils/api-error.ts`** — `toPageError` asserts a cause only for a 404.
+- **`utils/api-error.ts`** — `toPageError` asserts a cause only for a 404, names the workspace
+  only from `data.missing` (`INotFoundData`), never from the message, and is always `fatal`: Nuxt
+  shows a non-fatal error on the client only on a cold load.
+- **`pages/w/[workspaceAddress].vue`** — the parent of every page in a workspace: its membership
+  fetch is the workspace's one 404, and it records the visit once that passed.
   **`utils/safe-redirect.ts`** — `?redirect` is internal paths only.
 - **`stores/records.ts`** — **every action takes the query params from the caller**; the store never
   mirrors them (they would have to survive hydration). `createRecord` refetches only when the new
@@ -342,8 +357,9 @@ Only what the name and the code do not say.
   `status` to `'failed'` **and rethrows**.
 - **`stores/tables.ts`** — `ensureTables()` **never throws** (a failed sidebar must not replace a
   working page); `fetchTables` sets `status` and rethrows, `ensureTables` swallows it, and the
-  sidebar's Retry calls `ensureTables` again. `applyTableRow(row)` is the one way a cached row
-  moves without a refetch.
+  sidebar's Retry calls `ensureTables` again. An answer for a workspace switched away from is
+  dropped, writes included. `applyTableRow(row)` is the one way a cached row moves without a
+  refetch.
 - **`stores/relations.ts`** — `loadOptions` fetches nothing for a table without relations.
 
 ### Renderers — `app/components/records/`

@@ -23,12 +23,12 @@ const ROWS = [{ company: 'Acme', contract_value: 100, active: true, stage: 'Won'
 
 test.describe('the five screens', () => {
   let url = ''
-  let tableId = ''
+  let settingsUrl = ''
 
   test.beforeEach(async ({ seedTable }) => {
     const table = await seedTable('Deals', FIELDS, ROWS)
     url = table.url
-    tableId = table.id
+    settingsUrl = table.settingsUrl
   })
 
   const screens: Record<string, (page: Page) => Promise<void>> = {
@@ -37,7 +37,7 @@ test.describe('the five screens', () => {
       await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
     },
     'table settings': async (page) => {
-      await page.goto(`/tables/${tableId}/settings`)
+      await page.goto(settingsUrl)
       await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible()
     },
     'records list': async (page) => {

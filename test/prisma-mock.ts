@@ -27,6 +27,8 @@ export const prismaMock = {
   field: modelMock(),
   record: modelMock(),
   user: modelMock(),
+  workspace: modelMock(),
+  workspaceMember: modelMock(),
   $queryRaw: vi.fn(),
   $executeRaw: vi.fn(),
   $transaction: vi.fn(),
@@ -44,7 +46,16 @@ function installTransaction(): void {
 installTransaction()
 
 export function resetPrismaMock(): void {
-  for (const model of [prismaMock.table, prismaMock.field, prismaMock.record, prismaMock.user]) {
+  const models = [
+    prismaMock.table,
+    prismaMock.field,
+    prismaMock.record,
+    prismaMock.user,
+    prismaMock.workspace,
+    prismaMock.workspaceMember,
+  ]
+
+  for (const model of models) {
     for (const method of Object.values(model)) method.mockReset()
   }
 

@@ -12,7 +12,11 @@ import { useRelationsStore } from '~/stores/relations'
 import { recordWithAuthors, relationField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
-const route = vi.hoisted(() => ({ current: { query: {} as TUrlQuery } }))
+const WS = 'k3f9x2m8qa'
+
+const route = vi.hoisted(() => ({
+  current: { query: {} as TUrlQuery, params: { workspaceAddress: 'k3f9x2m8qa' } },
+}))
 mockNuxtImport('useRoute', () => () => route.current)
 
 function detail(recordId: string, linked: IRecordDetail['linkedRecords'] = {}): IRecordDetail {
@@ -33,7 +37,7 @@ for (const [tableId, recordId] of [
   ['tbl_deals', 'rec_2'],
   ['tbl_people', 'rec_ada'],
 ] as const) {
-  registerEndpoint(`/api/tables/${tableId}/records/${recordId}`, () => {
+  registerEndpoint(`/api/workspaces/k3f9x2m8qa/tables/${tableId}/records/${recordId}`, () => {
     requests.push(recordId)
 
     const status = failures[recordId]
@@ -53,7 +57,7 @@ async function open(query: TUrlQuery = {}) {
   host?.unmount()
   clearNuxtData((key) => key.startsWith('record-detail'))
 
-  route.current = reactive({ query })
+  route.current = reactive({ query, params: { workspaceAddress: WS } })
 
   let dialog!: ReturnType<typeof useRecordDetail>
 

@@ -20,8 +20,19 @@ const USER_ID = 'usr_1'
 const authUser = { id: USER_ID, email: CREDENTIALS.email, name: 'Ada' }
 const rowWithHash = { ...authUser, passwordHash: 'stored-hash' }
 
-const conflict = () =>
-  new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: '7.9.0' })
+/** Shaped as `@prisma/adapter-pg` reports it, quoting only a mixed-case column. */
+const uniqueViolationOn = (column: string) =>
+  new Prisma.PrismaClientKnownRequestError('dup', {
+    code: 'P2002',
+    clientVersion: '7.9.0',
+    meta: {
+      driverAdapterError: {
+        cause: {
+          constraint: { fields: [column === column.toLowerCase() ? column : `"${column}"`] },
+        },
+      },
+    },
+  })
 
 beforeEach(() => {
   resetPrismaMock()
@@ -30,9 +41,16 @@ beforeEach(() => {
 })
 
 describe('AuthService.registerUser', () => {
-  it('stores what hashPassword returned, never the password itself', async () => {
-    prismaMock.user.create.mockResolvedValue(authUser)
+  const WORKSPACE = { id: 'wsp_1', publicId: 'k3f9x2m8qa', name: 'Personal workspace' }
 
+  beforeEach(() => {
+    prismaMock.user.create.mockResolvedValue({ id: USER_ID })
+    prismaMock.workspace.create.mockResolvedValue(WORKSPACE)
+    prismaMock.workspaceMember.create.mockResolvedValue({ id: 'mem_1' })
+    prismaMock.user.update.mockResolvedValue(authUser)
+  })
+
+  it('stores what hashPassword returned, never the password itself', async () => {
     await expect(AuthService.registerUser(REGISTRATION)).resolves.toEqual(authUser)
 
     expect(prismaMock.user.create).toHaveBeenCalledWith(
@@ -43,30 +61,70 @@ describe('AuthService.registerUser', () => {
   })
 
   it('selects only id, email and name, so the hash cannot reach a response', async () => {
-    prismaMock.user.create.mockResolvedValue(authUser)
-
     await AuthService.registerUser(REGISTRATION)
 
-    expect(prismaMock.user.create).toHaveBeenCalledWith(
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ select: { id: true, email: true, name: true } }),
     )
   })
 
-  it('runs no uniqueness pre-check — the insert is the check', async () => {
-    prismaMock.user.create.mockResolvedValue(authUser)
+  it('creates the personal workspace in the same transaction, and remembers it', async () => {
+    await AuthService.registerUser(REGISTRATION)
 
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+    expect(prismaMock.workspace.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: 'Personal workspace', ownerId: USER_ID }),
+      }),
+    )
+    expect(prismaMock.workspaceMember.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        user: { connect: { id: USER_ID } },
+        role: {
+          connect: { workspaceId_name: { workspaceId: WORKSPACE.id, name: 'Admin' } },
+        },
+      }),
+    })
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: USER_ID },
+        data: { lastWorkspaceId: WORKSPACE.id },
+      }),
+    )
+  })
+
+  it('runs no uniqueness pre-check — the insert is the check', async () => {
     await AuthService.registerUser(REGISTRATION)
 
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled()
   })
 
-  it('maps a duplicate email onto a 409', async () => {
-    prismaMock.user.create.mockRejectedValue(conflict())
+  it('reruns the whole transaction when the public id collides', async () => {
+    prismaMock.workspace.create.mockRejectedValueOnce(uniqueViolationOn('publicId'))
+
+    await expect(AuthService.registerUser(REGISTRATION)).resolves.toEqual(authUser)
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2)
+  })
+
+  it('gives up after three collisions rather than looping, and never blames the email', async () => {
+    prismaMock.workspace.create.mockRejectedValue(uniqueViolationOn('publicId'))
+
+    const error = await AuthService.registerUser(REGISTRATION).catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(Error)
+    expect(error).not.toHaveProperty('statusCode')
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(3)
+  })
+
+  it('maps a duplicate email onto a 409, without retrying', async () => {
+    prismaMock.user.create.mockRejectedValue(uniqueViolationOn('email'))
 
     await expect(AuthService.registerUser(REGISTRATION)).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'Email is already registered',
     })
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
   })
 
   it('passes an unrecognised failure through, so it still surfaces as a 500', async () => {

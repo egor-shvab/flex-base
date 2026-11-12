@@ -58,10 +58,10 @@ export default withNuxt(
     },
   },
 
-  // `tables/*/**`, not `tables/[tableAddress]/**`: minimatch reads the brackets as a character
-  // class. The patch and delete routes sit one level up, outside this glob by construction.
+  // `workspaces/*/**`, not `workspaces/[workspaceAddress]/**`: minimatch reads the brackets as a
+  // character class. Every route inside a workspace sits below it, so none can skip the factory.
   {
-    files: ['server/api/tables/*/**/*.ts'],
+    files: ['server/api/workspaces/*/**/*.ts'],
     ignores: ['**/*.spec.ts'],
     rules: {
       'no-restricted-imports': [
@@ -71,7 +71,7 @@ export default withNuxt(
             {
               regex: '^#server/utils/auth$',
               message:
-                'Table-scoped routes take their user from a handler factory (#server/utils/handler), which proves ownership first.',
+                'Workspace-scoped routes take their user from a handler factory (#server/utils/handler), which proves membership and permission first.',
             },
           ],
         },

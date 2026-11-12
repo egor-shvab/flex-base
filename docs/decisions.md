@@ -148,19 +148,21 @@ indexing rules manage.
 
 Fetch-then-check is TOCTOU and one forgotten branch from a leak; scoping in the query makes "not
 yours" and "not there" one path, which is what makes 404-never-403 free (a 403 would confirm the row
-exists). Ownership lives only on `Table.userId` — a denormalized `userId` on `Field`/`Record` could
-not be kept honest. The helpers live in `server/utils/ownership.ts` and read `db/`, never
-`services/`.
+exists). Membership is resolved in one query from the caller's id and the workspace address, and
+every later `where` takes its `workspaceId` from that result, never from a body or a path. A table
+belongs only to `Table.workspaceId` — a denormalized `workspaceId` on `Field`/`Record` could not be
+kept honest. The helpers live in `server/utils/workspace-access.ts` and `server/utils/table-access.ts`
+and read `db/`, never `services/`.
 
 ### Ownership is obtained, not remembered
 
-The factories in `server/utils/handler.ts` produce the route context **from** the ownership check,
-so no table or field can be reached without it; lint refuses `#server/utils/auth` under
-`server/api/tables/*/**`. One factory per `require*` helper — rejected: one factory with an options
-bag (the branch comes back, as a flag). Each is **generic in its return type**; flattening to
-`unknown` would silently widen every response type. `[tableAddress].patch`/`.delete` use none: their
-services take a `userId` and scope on it in their own `where`, so the signature already requires
-ownership.
+The factories in `server/utils/handler.ts` produce the route context **from** the membership
+check, so no workspace, table or field can be reached without it; lint refuses
+`#server/utils/auth` under `server/api/workspaces/*/**`, so **every** route inside a workspace uses
+one. Each names the permission it needs as its first argument — a required value, not a flag, so
+it cannot be forgotten and adds no branch. One factory per `require*` helper — rejected: one
+factory with an options bag (the branch comes back, as a flag). Each is **generic in its return
+type**; flattening to `unknown` would silently widen every response type.
 
 ### A service is one plain object, not loose exports and not a class
 
@@ -201,8 +203,8 @@ forms cannot collide. **Do not "clean it up":** ids are in API responses regardl
 id form hides nothing and breaks every copied link.
 
 **The enumeration risk is accepted on one condition:** with numbers, a `where` that loses its
-`userId` becomes a `1..n` sweep of every tenant. What makes that acceptable is that ownership cannot
-be forgotten — **the handler factories are load-bearing for security.** Fields get no number; if one
+`workspaceId` becomes a `1..n` sweep of every workspace. What makes that acceptable is that the
+membership check cannot be forgotten — **the handler factories are load-bearing for security.** Fields get no number; if one
 ever needs a public name it is `key`. Rejected: renumbering stored relation values (rewrites every
 JSONB row and rebuilds indexes for a value nobody reads); a central id-mapping service.
 
@@ -553,7 +555,8 @@ midnight.
 
 ### The active-table check compares `route.params.tableId`, not the path
 
-`/tables/:id` is a prefix of `/tables/:id/settings`; the param marks the table active on both.
+`/w/:ws/tables/:id` is a prefix of `/w/:ws/tables/:id/settings`; the param marks the table active
+on both.
 
 ### `BaseBreadcrumbs` is prop-driven
 

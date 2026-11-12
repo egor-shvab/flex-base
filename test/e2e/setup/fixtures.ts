@@ -6,11 +6,21 @@ import type { TRecordData } from '#shared/types/record'
 import { createField, createFields, createRecords, createTable } from '~~/test/integration/seed'
 import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 
+/** Where `/` lands the e2e user: their personal workspace's home. */
+export const WORKSPACE_HOME = /\/w\/[a-z0-9]{10}$/
+
+export interface ISeededWorkspace {
+  id: string
+  publicId: string
+  url: string
+}
+
 export interface ISeededTable {
   id: string
-  /** Never assume 1: the truncate spares `User`, so `tableCounter` climbs across the run. */
+  /** Never assume 1: the truncate spares the workspace, so `tableCounter` climbs across the run. */
   number: number
   name: string
+  workspaceAddress: string
   fields: IField[]
   url: string
   settingsUrl: string
@@ -25,30 +35,30 @@ interface IFieldSeed {
 }
 
 interface IFixtures {
-  userId: string
+  workspace: ISeededWorkspace
   seedTable: (name: string, fields: IFieldSeed[], rows?: TRecordData[]) => Promise<ISeededTable>
   consoleErrors: string[]
 }
 
 /** By identity: `findFirst` promises no order, and the sign-up case registers a second user. */
-async function currentUserId(): Promise<string> {
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { email: E2E_USER.email },
-    select: { id: true },
+async function findPersonalWorkspace(): Promise<ISeededWorkspace> {
+  const workspace = await prisma.workspace.findFirstOrThrow({
+    where: { owner: { email: E2E_USER.email } },
+    select: { id: true, publicId: true },
   })
-  return user.id
+  return { ...workspace, url: `/w/${workspace.publicId}` }
 }
 
 export const test = base.extend<IFixtures>({
   // eslint-disable-next-line no-empty-pattern
-  userId: async ({}, use) => {
+  workspace: async ({}, use) => {
     await prisma.$executeRawUnsafe('TRUNCATE "Table", "Field", "Record" CASCADE')
-    await use(await currentUserId())
+    await use(await findPersonalWorkspace())
   },
 
-  seedTable: async ({ userId }, use) => {
+  seedTable: async ({ workspace }, use) => {
     await use(async (name, fields, rows = []) => {
-      const table = await createTable(userId, name)
+      const table = await createTable(workspace.id, name)
       const created = await createFields(
         table.id,
         fields.map((field, index) => ({ ...field, order: index })),
@@ -59,9 +69,10 @@ export const test = base.extend<IFixtures>({
         id: table.id,
         number: table.number,
         name: table.name,
+        workspaceAddress: workspace.publicId,
         fields: created,
-        url: `/tables/${table.number}`,
-        settingsUrl: `/tables/${table.number}/settings`,
+        url: `${workspace.url}/tables/${table.number}`,
+        settingsUrl: `${workspace.url}/tables/${table.number}/settings`,
       }
     })
   },

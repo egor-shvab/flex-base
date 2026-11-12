@@ -29,6 +29,8 @@ import { computed } from 'vue'
 import type { TUrlQuery } from '#shared/types/query'
 import type { IRecordDetail } from '#shared/types/record'
 import { toTableAddress } from '#shared/utils/address'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { pagePath } from '~/utils/page-path'
 import { toDetailParam } from '~/utils/record-detail'
 import { DETAIL_PARAM } from '#shared/constants/filter'
 
@@ -46,6 +48,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{ retry: []; close: [] }>()
 
+const { workspaceAddress } = useActiveWorkspace()
+
 const subtitle = computed(() =>
   props.detail ? `${props.detail.table.name} · #${props.detail.record.number}` : undefined,
 )
@@ -60,7 +64,7 @@ const openInTableTo = computed(() => {
     { tableAddress: String(table.number), recordAddress: String(record.number) },
   ])
 
-  return `/tables/${toTableAddress(table)}?${DETAIL_PARAM}=${chain}`
+  return `${pagePath.table(workspaceAddress.value, toTableAddress(table))}?${DETAIL_PARAM}=${chain}`
 })
 </script>
 

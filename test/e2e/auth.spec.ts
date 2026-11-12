@@ -1,4 +1,4 @@
-import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { WORKSPACE_HOME, expect, test } from '~~/test/e2e/setup/fixtures'
 import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 
 test.describe('signed out', () => {
@@ -7,7 +7,7 @@ test.describe('signed out', () => {
   test('a protected page sends you to sign in, remembering where you were going', async ({
     page,
   }) => {
-    await page.goto('/tables/whatever?stage=Won')
+    await page.goto('/w/whatever/tables/whatever?stage=Won')
 
     await expect(page).toHaveURL(/\/auth\/login\?redirect=/)
     await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible()
@@ -60,7 +60,7 @@ test.describe('signed out', () => {
     await page.getByLabel('Confirm password').fill('correct-horse-battery')
     await page.getByRole('button', { name: 'Register' }).click()
 
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL(WORKSPACE_HOME)
     await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
     await expect(
       page.getByRole('navigation', { name: 'Your tables' }).getByText('New Person'),
@@ -69,10 +69,10 @@ test.describe('signed out', () => {
 })
 
 test.describe('signed in', () => {
-  test('lands on the dashboard', async ({ page, userId }) => {
-    expect(userId).toBeTruthy()
-
+  test('lands on the dashboard of their workspace', async ({ page, workspace }) => {
     await page.goto('/')
+
+    await expect(page).toHaveURL(`${workspace.url}`)
 
     await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
   })
@@ -80,7 +80,7 @@ test.describe('signed in', () => {
   test('is bounced off the sign-in page', async ({ page }) => {
     await page.goto('/auth/login')
 
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL(WORKSPACE_HOME)
   })
 
   test('the profile dialog renames you, and the sidebar follows', async ({ page }) => {

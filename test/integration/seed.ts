@@ -1,5 +1,6 @@
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
+import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithDefaults } from '#server/db/workspaces'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 
@@ -7,22 +8,45 @@ let sequence = 0
 
 const unique = (prefix: string) => `${prefix}_${(sequence += 1)}`
 
+/** A user as registration leaves them: owner of a personal workspace with the default roles. */
 export function createUser(email = `${unique('user')}@example.com`) {
-  return prisma.user.create({
-    data: { email, name: email.split('@')[0] ?? email, passwordHash: 'not-a-real-hash' },
-    select: { id: true, email: true, name: true },
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { email, name: email.split('@')[0] ?? email, passwordHash: 'not-a-real-hash' },
+      select: { id: true, email: true, name: true },
+    })
+    const workspace = await createWorkspaceWithDefaults(tx, {
+      ownerId: user.id,
+      name: PERSONAL_WORKSPACE_NAME,
+    })
+
+    return { ...user, workspace: { id: workspace.id, publicId: workspace.publicId } }
   })
 }
 
-export async function createTable(userId: string, name = unique('Table')) {
-  const { tableCounter } = await prisma.user.update({
-    where: { id: userId },
+export type TSeededUser = Awaited<ReturnType<typeof createUser>>
+
+/** Joins `userId` to the workspace under one of its roles, by name. */
+export function addMember(workspaceId: string, userId: string, roleName: string) {
+  return prisma.workspaceMember.create({
+    data: {
+      workspace: { connect: { id: workspaceId } },
+      user: { connect: { id: userId } },
+      role: { connect: { workspaceId_name: { workspaceId, name: roleName } } },
+    },
+    select: { id: true },
+  })
+}
+
+export async function createTable(workspaceId: string, name = unique('Table')) {
+  const { tableCounter } = await prisma.workspace.update({
+    where: { id: workspaceId },
     data: { tableCounter: { increment: 1 } },
     select: { tableCounter: true },
   })
 
   return prisma.table.create({
-    data: { userId, name, number: tableCounter },
+    data: { workspaceId, name, number: tableCounter },
     select: { id: true, number: true, name: true, createdAt: true, updatedAt: true },
   })
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
@@ -11,6 +11,8 @@ import FieldFormModal from '~/components/modals/FieldFormModal.vue'
 import { useTablesStore } from '~/stores/tables'
 import { asMultiple, relationField, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
+
+mockNuxtImport('useRoute', () => () => ({ params: { workspaceAddress: 'k3f9x2m8qa' }, query: {} }))
 
 const TABLES = [
   { id: 'tbl_deals', name: 'Deals', _count: { fields: 2, records: 3 } },
@@ -28,18 +30,18 @@ function refuse(): never {
   throw createError({ statusCode: 500, statusMessage: 'Nope' })
 }
 
-registerEndpoint('/api/tables', () => {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables', () => {
   tablesRequests += 1
   if (shouldTablesFail) refuse()
 
   return { tables: TABLES }
 })
-registerEndpoint('/api/tables/tbl_people/fields', () => {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_people/fields', () => {
   if (shouldTargetFieldsFail) refuse()
 
   return { fields: targetFields }
 })
-registerEndpoint('/api/tables/tbl_deals/fields', () => ({ fields: [] }))
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_deals/fields', () => ({ fields: [] }))
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
 const text = () => dialog()?.textContent ?? ''

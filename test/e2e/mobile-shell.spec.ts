@@ -1,4 +1,4 @@
-import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { WORKSPACE_HOME, expect, test } from '~~/test/e2e/setup/fixtures'
 import { axeViolations, undersizedTargets } from '~~/test/e2e/setup/a11y'
 
 /** Playwright's visibility honours `visibility: hidden`, so translated-but-focusable fails here. */
@@ -90,7 +90,7 @@ test('the scrim behind it dismisses it without navigating', async ({ page }) => 
   await scrim.click({ position: { x: box!.width - 20, y: box!.height / 2 } })
 
   await expect(sidebar(page)).toBeHidden()
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL(WORKSPACE_HOME)
 })
 
 test('Escape dismisses it when nothing covers it', async ({ page }) => {
@@ -101,7 +101,7 @@ test('Escape dismisses it when nothing covers it', async ({ page }) => {
   await page.keyboard.press('Escape')
 
   await expect(sidebar(page)).toBeHidden()
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL(WORKSPACE_HOME)
 })
 
 test('Escape closes a dialog over it without also closing it', async ({ page }) => {

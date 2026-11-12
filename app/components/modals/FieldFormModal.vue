@@ -136,6 +136,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, useId, watch } from 'vue'
 import { useFieldsApi } from '~/api/fields'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useForm } from '~/composables/useForm'
 import { useTablesStore } from '~/stores/tables'
 import type { TLoadStatus } from '~/types/load-status'
@@ -206,6 +207,7 @@ function removeChoice(index: number) {
 
 const fieldsApi = useFieldsApi()
 const tablesStore = useTablesStore()
+const { workspaceAddress } = useActiveWorkspace()
 
 const tablesStatus = ref<TLoadStatus>('idle')
 
@@ -213,7 +215,7 @@ async function loadTables() {
   tablesStatus.value = 'loading'
 
   try {
-    await tablesStore.fetchTables()
+    await tablesStore.fetchTables(workspaceAddress.value)
     tablesStatus.value = 'ready'
   } catch {
     tablesStatus.value = 'failed'
@@ -263,7 +265,7 @@ async function loadTargetFields(targetTableId: string) {
   targetFieldsStatus.value = 'loading'
 
   try {
-    const response = await fieldsApi.list(targetTableId)
+    const response = await fieldsApi.list(workspaceAddress.value, targetTableId)
     if (requestId !== targetFieldsRequestId) return
 
     targetFields.value = response.fields

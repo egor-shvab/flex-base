@@ -1,20 +1,32 @@
+const workspacePath = (workspaceAddress: string) => `/api/workspaces/${workspaceAddress}`
+
+const tablePath = (workspaceAddress: string, tableAddress: string) =>
+  `${workspacePath(workspaceAddress)}/tables/${tableAddress}`
+
 export const apiPath = {
   me: '/api/auth/me',
   login: '/api/auth/login',
   register: '/api/auth/register',
   logout: '/api/auth/logout',
 
-  tables: '/api/tables',
-  table: (tableAddress: string) => `/api/tables/${tableAddress}`,
+  workspaces: '/api/workspaces',
+  workspace: workspacePath,
+  workspaceVisit: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/visit`,
 
-  fields: (tableAddress: string) => `/api/tables/${tableAddress}/fields`,
-  field: (tableAddress: string, fieldId: string) => `/api/tables/${tableAddress}/fields/${fieldId}`,
-  fieldOptions: (tableAddress: string, fieldId: string) =>
-    `/api/tables/${tableAddress}/fields/${fieldId}/options`,
+  tables: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/tables`,
+  table: tablePath,
+
+  fields: (workspaceAddress: string, tableAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/fields`,
+  field: (workspaceAddress: string, tableAddress: string, fieldId: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/fields/${fieldId}`,
+  fieldOptions: (workspaceAddress: string, tableAddress: string, fieldId: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/fields/${fieldId}/options`,
 
   clientErrors: '/api/client-errors',
 
-  records: (tableAddress: string) => `/api/tables/${tableAddress}/records`,
-  record: (tableAddress: string, recordAddress: string) =>
-    `/api/tables/${tableAddress}/records/${recordAddress}`,
+  records: (workspaceAddress: string, tableAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/records`,
+  record: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/records/${recordAddress}`,
 } as const

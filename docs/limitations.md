@@ -33,8 +33,8 @@ or any multi-database feature ships._
 
 ### A URL discloses roughly how much a user has
 
-`/tables/12` and `#4821` reveal counts the owner already sees; a shared screenshot now reveals them
-too. _Reopen if a table or record is ever shared._
+`/w/…/tables/12` and `#4821` reveal counts every member already sees; a shared screenshot reveals
+them outside the workspace too. _Reopen if a table or record is ever shared beyond its workspace._
 
 ### Four lines of `architecture.md` §11 are approximated, not proven
 

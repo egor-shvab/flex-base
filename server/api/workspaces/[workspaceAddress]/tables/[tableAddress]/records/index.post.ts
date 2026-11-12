@@ -1,0 +1,16 @@
+import { readValidatedBody } from 'h3'
+import { defineRecordWriteHandler } from '#server/utils/handler'
+import { RecordService } from '#server/services/records'
+import { TableService } from '#server/services/tables'
+import { buildRecordSchema } from '#shared/validation/record'
+import type { IRecordCreatedResponse } from '#shared/types/api'
+
+export default defineRecordWriteHandler(
+  'RECORDS_CREATE',
+  async ({ event, user, membership, tableId, fields }): Promise<IRecordCreatedResponse> => {
+    const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
+    const record = await RecordService.createRecord(tableId, fields, data, user.id)
+
+    return { record, table: await TableService.getTableListRow(membership.workspace.id, tableId) }
+  },
+)

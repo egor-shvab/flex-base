@@ -3,12 +3,14 @@ import type { ITable, ITableListItem } from '#shared/types/table'
 import { parseTableAddress } from '#shared/utils/address'
 
 export function buildTableAddressWhere(
-  userId: string,
+  workspaceId: string,
   address: string,
 ): Prisma.TableWhereUniqueInput {
   const number = parseTableAddress(address)
 
-  return number === 0 ? { id: address, userId } : { userId_number: { userId, number } }
+  return number === 0
+    ? { id: address, workspaceId }
+    : { workspaceId_number: { workspaceId, number } }
 }
 
 export const tableSelect = {

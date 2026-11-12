@@ -49,14 +49,29 @@ describe('getApiErrorMessage', () => {
 
 describe('toPageError', () => {
   it('names the cause for a 404, which is the one status that tells us what was wrong', () => {
-    expect(toPageError({ statusCode: 404 })).toEqual({
+    expect(toPageError({ statusCode: 404 })).toMatchObject({
       statusCode: 404,
       statusMessage: 'We couldn’t find that table.',
     })
   })
 
+  it('names the workspace instead when that is what the server could not find', () => {
+    expect(
+      toPageError({
+        statusCode: 404,
+        data: { statusMessage: 'x', data: { missing: 'workspace' } },
+      }),
+    ).toMatchObject({ statusCode: 404, statusMessage: 'We couldn’t find that workspace.' })
+  })
+
+  it('goes by what the server says is missing, never by its message', () => {
+    expect(
+      toPageError({ statusCode: 404, data: { statusMessage: 'Workspace not found' } }),
+    ).toMatchObject({ statusCode: 404, statusMessage: 'We couldn’t find that table.' })
+  })
+
   it('blames the address, not the table, for anything else', () => {
-    expect(toPageError({ statusCode: 400 })).toEqual({
+    expect(toPageError({ statusCode: 400 })).toMatchObject({
       statusCode: 400,
       statusMessage: 'That web address could not be read.',
     })
@@ -68,15 +83,20 @@ describe('toPageError', () => {
   })
 
   it('owns a server fault rather than blaming the address', () => {
-    expect(toPageError({ statusCode: 500 })).toEqual({
+    expect(toPageError({ statusCode: 500 })).toMatchObject({
       statusCode: 500,
       statusMessage: 'Something went wrong at our end.',
     })
     expect(toPageError({ statusCode: 503 }).statusMessage).toBe('Something went wrong at our end.')
   })
 
+  it('is fatal, so a client-side navigation shows it too', () => {
+    expect(toPageError({ statusCode: 404 }).fatal).toBe(true)
+    expect(toPageError({ statusCode: 500 }).fatal).toBe(true)
+  })
+
   it('defaults to 404 when the failure carried no status', () => {
-    expect(toPageError({})).toEqual({
+    expect(toPageError({})).toMatchObject({
       statusCode: 404,
       statusMessage: 'We couldn’t find that table.',
     })

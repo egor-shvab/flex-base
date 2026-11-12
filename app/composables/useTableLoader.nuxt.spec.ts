@@ -11,6 +11,8 @@ import { useFieldsStore } from '~/stores/fields'
 import { textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
+const WS = 'k3f9x2m8qa'
+
 const TABLE: ITable = {
   id: 'tbl_deals',
   number: 4,
@@ -22,13 +24,13 @@ const TABLE: ITable = {
 const requests: string[] = []
 let shouldTableFail = false
 
-registerEndpoint('/api/tables/tbl_deals', () => {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_deals', () => {
   requests.push('table')
   if (shouldTableFail) throw createError({ statusCode: 404, statusMessage: 'Table not found' })
   return { table: TABLE }
 })
 
-registerEndpoint('/api/tables/tbl_deals/fields', () => {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_deals/fields', () => {
   requests.push('fields')
   return { fields: [textField('company')] }
 })
@@ -45,7 +47,7 @@ async function load(tableId = 'tbl_deals') {
     }),
   )
 
-  return loader!(tableId)
+  return loader!(WS, tableId)
 }
 
 describe('useTableLoader', () => {

@@ -49,6 +49,34 @@ describe('registering', () => {
     expect(cookieHeader(event)).toContain('HttpOnly')
   })
 
+  it('gives the new account a personal workspace it owns, and opens there next time', async () => {
+    const { user } = await register(post(CREDENTIALS))
+
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: {
+        lastWorkspaceId: true,
+        memberships: { select: { workspaceId: true, role: { select: { name: true } } } },
+        ownedWorkspaces: { select: { id: true, name: true, roles: { select: { name: true } } } },
+      },
+    })
+
+    expect(stored.ownedWorkspaces).toHaveLength(1)
+    const [workspace] = stored.ownedWorkspaces
+    expect(workspace?.name).toBe('Personal workspace')
+    expect(workspace?.roles.map((role) => role.name).sort()).toEqual(['Admin', 'Editor', 'Viewer'])
+    expect(stored.memberships).toEqual([{ workspaceId: workspace?.id, role: { name: 'Admin' } }])
+    expect(stored.lastWorkspaceId).toBe(workspace?.id)
+  })
+
+  it('leaves no workspace behind for a refused registration', async () => {
+    await register(post(CREDENTIALS))
+
+    await expect(register(post(CREDENTIALS))).rejects.toMatchObject({ statusCode: 409 })
+
+    await expect(prisma.workspace.count()).resolves.toBe(1)
+  })
+
   it('409s on an email already registered, without touching the existing row', async () => {
     await register(post(CREDENTIALS))
     const first = await prisma.user.findUniqueOrThrow({ where: { email: CREDENTIALS.email } })
@@ -147,7 +175,7 @@ describe('the session endpoints', () => {
 
     const result = await updateMe(testEvent({ user, method: 'PATCH', body: { name: '  Ada  ' } }))
 
-    expect(result.user).toEqual({ ...user, name: 'Ada' })
+    expect(result.user).toEqual({ id: user.id, email: user.email, name: 'Ada' })
     await expect(
       prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { name: true } }),
     ).resolves.toEqual({ name: 'Ada' })
@@ -218,6 +246,8 @@ describe('the auth middleware', () => {
   it('leaves a token for a deleted user anonymous', async () => {
     const user = await createUser()
     const token = signAuthToken(user.id, process.env.JWT_SECRET ?? '')
+    // Their workspace first: `Workspace.ownerId` restricts deleting its owner
+    await prisma.workspace.deleteMany({ where: { ownerId: user.id } })
     await prisma.user.delete({ where: { id: user.id } })
 
     const event = testEvent()

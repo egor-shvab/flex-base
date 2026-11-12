@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
-import { isMissingRow, isUniqueViolation } from '#server/db/prisma-errors'
+import { isMissingRow, isUniqueViolation, isUniqueViolationOn } from '#server/db/prisma-errors'
 
 function prismaError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Constraint failed', {
@@ -36,5 +36,32 @@ describe('the Prisma fault predicates', () => {
       expect(isUniqueViolation(value)).toBe(false)
       expect(isMissingRow(value)).toBe(false)
     }
+  })
+})
+
+describe('isUniqueViolationOn', () => {
+  const violationOn = (...fields: string[]) =>
+    new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '7.9.0',
+      meta: { driverAdapterError: { cause: { constraint: { fields } } } },
+    })
+
+  it('names the column the adapter reports, quoted as PostgreSQL quotes it', () => {
+    expect(isUniqueViolationOn(violationOn('"publicId"'), 'publicId')).toBe(true)
+    expect(isUniqueViolationOn(violationOn('email'), 'email')).toBe(true)
+  })
+
+  it('tells one column from another', () => {
+    expect(isUniqueViolationOn(violationOn('email'), 'publicId')).toBe(false)
+    expect(isUniqueViolationOn(violationOn('"publicId"'), 'email')).toBe(false)
+  })
+
+  it('claims nothing when the adapter reports no columns', () => {
+    expect(isUniqueViolationOn(prismaError('P2002'), 'publicId')).toBe(false)
+  })
+
+  it('claims nothing about another fault on the same column', () => {
+    expect(isUniqueViolationOn(prismaError('P2025'), 'publicId')).toBe(false)
   })
 })

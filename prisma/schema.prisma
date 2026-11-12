@@ -16,6 +16,17 @@ enum FieldType {
   RELATION
 }
 
+enum WorkspacePermission {
+  WORKSPACE_UPDATE
+  MEMBERS_INVITE
+  MEMBERS_MANAGE
+  ROLES_MANAGE
+  TABLES_MANAGE
+  RECORDS_CREATE
+  RECORDS_UPDATE
+  RECORDS_DELETE
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -23,18 +34,74 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
+  lastWorkspaceId String?
+  lastWorkspace   Workspace? @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
+
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  createdRecords  Record[]          @relation("RecordCreatedBy")
+  updatedRecords  Record[]          @relation("RecordUpdatedBy")
+}
+
+model Workspace {
+  id       String @id @default(cuid())
+  // The address in every URL: random, so it neither counts workspaces nor leaks a name
+  publicId String @unique
+  name     String
+  ownerId  String
+  owner    User   @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
   tableCounter Int @default(0)
 
-  tables         Table[]
-  createdRecords Record[] @relation("RecordCreatedBy")
-  updatedRecords Record[] @relation("RecordUpdatedBy")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      WorkspaceMember[]
+  roles        WorkspaceRole[]
+  tables       Table[]
+  lastVisitors User[]            @relation("LastWorkspace")
+
+  @@index([ownerId])
+}
+
+model WorkspaceRole {
+  id          String                @id @default(cuid())
+  workspaceId String
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  permissions WorkspacePermission[]
+  createdAt   DateTime              @default(now())
+
+  members WorkspaceMember[]
+
+  @@unique([workspaceId, name])
+  // The target of `WorkspaceMember`'s role key, which carries the workspace too
+  @@unique([workspaceId, id])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Keyed with the workspace, so a member can only hold a role of their own workspace. NoAction,
+  // not Restrict: deleting a workspace cascades to roles and members in one statement, and
+  // RESTRICT would fire mid-statement if a role went before the member using it
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: NoAction)
+  createdAt   DateTime      @default(now())
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([roleId])
 }
 
 model Table {
-  id     String @id @default(cuid())
-  name   String
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  name        String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   number Int
 
@@ -45,24 +112,24 @@ model Table {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, name])
-  @@unique([userId, number])
+  @@unique([workspaceId, name])
+  @@unique([workspaceId, number])
 }
 
 model Field {
-  id        String    @id @default(cuid())
-  tableId   String
-  table     Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  name      String
-  key       String // machine key, immutable after creation
-  type      FieldType
-  required  Boolean   @default(false)
-  options   Json?
-  order     Int       @default(0)
+  id       String    @id @default(cuid())
+  tableId  String
+  table    Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  name     String
+  key      String // machine key, immutable after creation
+  type     FieldType
+  required Boolean   @default(false)
+  options  Json?
+  order    Int       @default(0)
 
-  indexed   Boolean   @default(false)
+  indexed Boolean @default(false)
 
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([tableId, key])
 }

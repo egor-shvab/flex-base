@@ -40,7 +40,7 @@ async function matching(filters: TRecordFilterValues, overrides: Partial<IRecord
 
 beforeEach(async () => {
   const user = await createUser()
-  const table = await createTable(user.id)
+  const table = await createTable(user.workspace.id)
   tableId = table.id
 
   fields = await createFields(tableId, [
@@ -171,7 +171,7 @@ describe('the WHERE clause selects the rows it claims to', () => {
    * applies.
    */
   it('matches a same-day Created at range, including records made later that day', async () => {
-    const table = await createTable((await createUser()).id)
+    const table = await createTable((await createUser()).workspace.id)
     const textOnly = await createFields(table.id, [{ key: 'company', type: 'TEXT' }])
 
     await createRecord(
@@ -216,7 +216,7 @@ describe('free-text search', () => {
   })
 
   it('matches the record number, which nothing else here carries', async () => {
-    const table = await createTable((await createUser()).id)
+    const table = await createTable((await createUser()).workspace.id)
     const textOnly = await createFields(table.id, [{ key: 'company', type: 'TEXT' }])
     await createRecords(table.id, [{ company: 'Alpha' }, { company: 'Beta' }, { company: 'Gamma' }])
 
@@ -238,11 +238,11 @@ describe('free-text search', () => {
 
   it('does not search a RELATION column, by its label or by its stored id', async () => {
     const user = await createUser()
-    const people = await createTable(user.id, 'People')
+    const people = await createTable(user.workspace.id, 'People')
     const nameField = await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
     const [ada] = await createRecords(people.id, [{ full_name: 'Ada Lovelace' }])
 
-    const deals = await createTable(user.id, 'Deals')
+    const deals = await createTable(user.workspace.id, 'Deals')
     const company = await createField(deals.id, { key: 'company', type: 'TEXT' })
     const owner = await createField(deals.id, {
       key: 'owner',
@@ -418,14 +418,14 @@ describe('ORDER BY', () => {
 
   it('sorts by a relation label whether or not a search is narrowing it', async () => {
     const user = await createUser()
-    const people = await createTable(user.id, 'People')
+    const people = await createTable(user.workspace.id, 'People')
     await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
     const [ada, grace] = await createRecords(people.id, [
       { full_name: 'Ada Lovelace' },
       { full_name: 'Grace Hopper' },
     ])
 
-    const deals = await createTable(user.id, 'Deals')
+    const deals = await createTable(user.workspace.id, 'Deals')
     const dealFields = await createFields(deals.id, [
       { key: 'company', type: 'TEXT' },
       {
@@ -455,11 +455,11 @@ describe('ORDER BY', () => {
   describe('the join the relation ordering brings with it', () => {
     async function dealsLinkedTo(links: (string | undefined)[]) {
       const user = await createUser()
-      const people = await createTable(user.id, 'People')
+      const people = await createTable(user.workspace.id, 'People')
       await createFields(people.id, [{ key: 'full_name', type: 'TEXT' }])
       const [ada] = await createRecords(people.id, [{ full_name: 'Ada Lovelace' }])
 
-      const deals = await createTable(user.id, 'Deals')
+      const deals = await createTable(user.workspace.id, 'Deals')
       const dealFields = await createFields(deals.id, [
         { key: 'company', type: 'TEXT' },
         {
@@ -587,7 +587,7 @@ describe('table scoping', () => {
     const page = await RecordService.listRecords(tableId, fields, query())
     expect(page.total).toBe(3)
 
-    const other = await createTable((await createUser()).id)
+    const other = await createTable((await createUser()).workspace.id)
     await createRecords(other.id, [{ company: 'Elsewhere' }])
 
     const again = await RecordService.listRecords(tableId, fields, query())

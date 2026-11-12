@@ -16,6 +16,20 @@ export interface IWorkspaceActor {
   permissions: readonly TWorkspacePermission[]
 }
 
+export interface IRoleRef {
+  id: string
+  name: string
+}
+
+/**
+ * The caller's place in one workspace. `permissions` is what they may do — every permission for
+ * the owner, whatever `role` grants.
+ */
+export interface IWorkspaceMembership extends IWorkspaceActor {
+  workspace: IWorkspace
+  role: IRoleRef
+}
+
 export interface IPermissionSet {
   permissions: readonly TWorkspacePermission[]
 }

@@ -9,9 +9,9 @@ const tableErrors = {
   notFound: 'Table not found',
 }
 
-async function listTables(userId: string): Promise<ITableListItem[]> {
+async function listTables(workspaceId: string): Promise<ITableListItem[]> {
   const tables = await prisma.table.findMany({
-    where: { userId },
+    where: { workspaceId },
     orderBy: { createdAt: 'asc' },
     select: tableListSelect,
   })
@@ -19,11 +19,11 @@ async function listTables(userId: string): Promise<ITableListItem[]> {
   return tables.map(toSharedTableListItem)
 }
 
-async function getTableListRow(userId: string, tableId: string): Promise<ITableListItem> {
+async function getTableListRow(workspaceId: string, tableId: string): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
       await prisma.table.findUniqueOrThrow({
-        where: { id: tableId, userId },
+        where: { id: tableId, workspaceId },
         select: tableListSelect,
       }),
     )
@@ -32,17 +32,17 @@ async function getTableListRow(userId: string, tableId: string): Promise<ITableL
   }
 }
 
-async function createTable(userId: string, name: string): Promise<ITableListItem> {
+async function createTable(workspaceId: string, name: string): Promise<ITableListItem> {
   try {
     const table = await prisma.$transaction(async (tx) => {
-      const { tableCounter } = await tx.user.update({
-        where: { id: userId },
+      const { tableCounter } = await tx.workspace.update({
+        where: { id: workspaceId },
         data: { tableCounter: { increment: 1 } },
         select: { tableCounter: true },
       })
 
       return tx.table.create({
-        data: { userId, name, number: tableCounter },
+        data: { workspaceId, name, number: tableCounter },
         select: tableListSelect,
       })
     })
@@ -53,11 +53,15 @@ async function createTable(userId: string, name: string): Promise<ITableListItem
   }
 }
 
-async function renameTable(userId: string, address: string, name: string): Promise<ITableListItem> {
+async function renameTable(
+  workspaceId: string,
+  address: string,
+  name: string,
+): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
       await prisma.table.update({
-        where: buildTableAddressWhere(userId, address),
+        where: buildTableAddressWhere(workspaceId, address),
         data: { name },
         select: tableListSelect,
       }),
@@ -67,11 +71,11 @@ async function renameTable(userId: string, address: string, name: string): Promi
   }
 }
 
-async function assertNotRelationTarget(userId: string, tableId: string) {
+async function assertNotRelationTarget(workspaceId: string, tableId: string) {
   const reference = await prisma.field.findFirst({
     where: {
       type: 'RELATION',
-      table: { userId },
+      table: { workspaceId },
       options: { path: ['targetTableId'], equals: tableId },
     },
     select: { name: true, table: { select: { name: true } } },
@@ -89,9 +93,9 @@ async function assertNotRelationTarget(userId: string, tableId: string) {
  * The address is resolved to the id before the guard runs, and that order is load-bearing:
  * `options.targetTableId` stores a cuid, so a number would match nothing and the guard would pass.
  */
-async function deleteTable(userId: string, address: string) {
+async function deleteTable(workspaceId: string, address: string) {
   const table = await prisma.table.findUnique({
-    where: buildTableAddressWhere(userId, address),
+    where: buildTableAddressWhere(workspaceId, address),
     select: { id: true },
   })
 
@@ -99,7 +103,7 @@ async function deleteTable(userId: string, address: string) {
     throw createError({ statusCode: 404, statusMessage: tableErrors.notFound })
   }
 
-  await assertNotRelationTarget(userId, table.id)
+  await assertNotRelationTarget(workspaceId, table.id)
 
   try {
     await prisma.table.delete({ where: { id: table.id } })
