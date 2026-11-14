@@ -14,6 +14,18 @@ export function jsonArray(key: string): Prisma.Sql {
   return Prisma.sql`data -> ${key}::text`
 }
 
+const SQL_TYPE_BY_JSON_TYPE = { number: 'numeric', boolean: 'boolean' } as const
+
+/**
+ * Casts only a value stored as that JSON type, anything else reading as NULL: a cast that raises
+ * takes down the whole query — and, inside an index expression, the write that stored the value.
+ */
+export function jsonCast(key: string, jsonType: keyof typeof SQL_TYPE_BY_JSON_TYPE): Prisma.Sql {
+  const storedType = Prisma.raw(`'${jsonType}'`)
+  const sqlType = Prisma.raw(SQL_TYPE_BY_JSON_TYPE[jsonType])
+  return Prisma.sql`CASE WHEN jsonb_typeof(data -> ${key}::text) = ${storedType} THEN (${jsonText(key)})::${sqlType} END`
+}
+
 /**
  * `jsonb_array_elements_text` raises on a scalar, taking down the whole query — and a row written
  * mid-migration is a scalar, as is `null`.

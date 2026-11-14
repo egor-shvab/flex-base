@@ -13,7 +13,7 @@ import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filt
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues, TSortDirection } from '#shared/types/filter'
 import type { IRecordQuery } from '#shared/types/record'
-import { createFields, createTable, createUser } from '~~/test/integration/seed'
+import { createFields, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 let tableId: string
 
@@ -106,7 +106,7 @@ describe('a declared index is one the planner actually uses', () => {
   it('serves a TEXT filter from its trigram, and its ordering from its B-tree', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
     await seedRows()
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
 
     const fields = [company as IField]
@@ -122,7 +122,7 @@ describe('a declared index is one the planner actually uses', () => {
   it('serves an ascending sort from the ascending index, not the descending one', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
     await seedRows()
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
 
     const plan = await planForSort([company as IField], 'company', 'asc')
@@ -135,7 +135,7 @@ describe('a declared index is one the planner actually uses', () => {
       { key: 'contract_value', type: 'NUMBER', indexed: true },
     ])
     await seedRows()
-    await syncFieldIndexes(value as IField)
+    await syncFieldIndexes(tableId, value as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
 
     const fields = [value as IField]
@@ -155,7 +155,7 @@ describe('a declared index is one the planner actually uses', () => {
       },
     ])
     await seedRows()
-    await syncFieldIndexes(tags as IField)
+    await syncFieldIndexes(tableId, tags as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
 
     const plan = await planForFilter([tags as IField], { tags: ['unicorn'] })
@@ -178,8 +178,8 @@ describe('a declared index is one the planner actually uses', () => {
       },
     ])
     await seedRows()
-    await syncFieldIndexes(owner as IField)
-    await syncFieldIndexes(owners as IField)
+    await syncFieldIndexes(tableId, owner as IField)
+    await syncFieldIndexes(tableId, owners as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
 
     const single = await planForFilter([owner as IField], { owner: 'rec_sought' })
@@ -192,14 +192,73 @@ describe('a declared index is one the planner actually uses', () => {
   }, 60_000)
 })
 
+describe('an index belongs to one table', () => {
+  const predicateOf = async (name: string) => {
+    const rows = await prisma.$queryRaw<{ predicate: string | null }[]>`
+      SELECT pg_get_expr(i.indpred, i.indrelid) AS predicate FROM pg_index i
+      WHERE i.indexrelid = ${name}::regclass
+    `
+    return rows[0]?.predicate ?? null
+  }
+
+  it('is partial on the table that owns the field', async () => {
+    const [value] = await createFields(tableId, [
+      { key: 'contract_value', type: 'NUMBER', indexed: true },
+    ])
+    await syncFieldIndexes(tableId, value as IField)
+
+    for (const name of await indexNames()) {
+      expect(await predicateOf(name)).toContain(tableId)
+    }
+  }, 60_000)
+
+  it('never casts another workspace’s value stored under the same key', async () => {
+    const [price] = await createFields(tableId, [{ key: 'price', type: 'NUMBER', indexed: true }])
+    await syncFieldIndexes(tableId, price as IField)
+
+    const otherTable = await createTable((await createUser()).workspace.id)
+    await createFields(otherTable.id, [{ key: 'price', type: 'TEXT' }])
+
+    await expect(createRecord(otherTable.id, { price: 'on request' })).resolves.toBeDefined()
+  }, 60_000)
+
+  it('reads a value of the wrong JSON type in its own table as NULL rather than failing the write', async () => {
+    const [price, active] = await createFields(tableId, [
+      { key: 'price', type: 'NUMBER', indexed: true },
+      { key: 'active', type: 'BOOLEAN', indexed: true, order: 1 },
+    ])
+    await syncFieldIndexes(tableId, price as IField)
+    await syncFieldIndexes(tableId, active as IField)
+
+    await expect(createRecord(tableId, { price: 'abc', active: 'yes' })).resolves.toBeDefined()
+
+    const { records } = await RecordService.listRecords(
+      tableId,
+      [price as IField],
+      query({ filters: { price: { from: 0, to: null } } }),
+    )
+    expect(records).toEqual([])
+  }, 60_000)
+
+  it('rebuilds an index left spanning every table', async () => {
+    const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
+    const name = `rec_idx_${company?.id}_f`
+    await prisma.$executeRawUnsafe(`CREATE INDEX "${name}" ON "Record" ((data ->> 'company'))`)
+
+    await syncFieldIndexes(tableId, company as IField)
+
+    expect(await predicateOf(name)).toContain(tableId)
+  }, 60_000)
+})
+
 describe('the index lifecycle', () => {
   it('creates nothing while the field is opted out, and creates on opt-in', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT' }])
 
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
     expect(await indexNames()).toEqual([])
 
-    await syncFieldIndexes({ ...(company as IField), indexed: true })
+    await syncFieldIndexes(tableId, { ...(company as IField), indexed: true })
     expect(await indexNames()).toEqual([
       `rec_idx_${company?.id}_f`,
       `rec_idx_${company?.id}_sa`,
@@ -210,16 +269,16 @@ describe('the index lifecycle', () => {
   it('drops them again when the field is opted back out', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
 
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
     expect(await indexNames()).toHaveLength(3)
 
-    await syncFieldIndexes({ ...(company as IField), indexed: false })
+    await syncFieldIndexes(tableId, { ...(company as IField), indexed: false })
     expect(await indexNames()).toEqual([])
   }, 60_000)
 
   it('drops everything a field owns when it is deleted', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
 
     await dropFieldIndexes([company?.id ?? ''])
 
@@ -232,7 +291,7 @@ describe('the index lifecycle', () => {
       { key: 'stage', type: 'TEXT', indexed: true, order: 1 },
       { key: 'kept', type: 'TEXT', indexed: true, order: 2 },
     ])
-    for (const field of [company, stage, kept]) await syncFieldIndexes(field as IField)
+    for (const field of [company, stage, kept]) await syncFieldIndexes(tableId, field as IField)
 
     await dropFieldIndexes([company?.id ?? '', stage?.id ?? ''])
 
@@ -256,7 +315,7 @@ describe('the index lifecycle', () => {
 
   it('replaces an invalid index rather than leaving it in place', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
 
     const name = `rec_idx_${company?.id}_f`
     await prisma.$executeRaw`
@@ -265,7 +324,7 @@ describe('the index lifecycle', () => {
     `
     expect(await invalidCount()).toBe(1)
 
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
 
     expect(await invalidCount()).toBe(0)
     expect(await indexNames()).toContain(name)
@@ -273,7 +332,7 @@ describe('the index lifecycle', () => {
 
   it('reports what each index has cost and returned, and which field owns it', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
 
     const stats = await listFieldIndexStats()
 
@@ -293,7 +352,7 @@ describe('the index lifecycle', () => {
       { key: 'contract_value', type: 'NUMBER', indexed: true },
     ])
     await seedRows()
-    await syncFieldIndexes(value as IField)
+    await syncFieldIndexes(tableId, value as IField)
     await prisma.$executeRaw`ANALYZE "Record"`
 
     await RecordService.listRecords(
@@ -311,7 +370,7 @@ describe('the index lifecycle', () => {
 
   it('reports an invalid index as invalid, which nothing else surfaces', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
 
     await prisma.$executeRaw`
       UPDATE pg_index SET indisvalid = false
@@ -351,7 +410,7 @@ describe('the index lifecycle', () => {
 
   it('reconciles the whole database, dropping what no field wants', async () => {
     const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
-    await syncFieldIndexes(company as IField)
+    await syncFieldIndexes(tableId, company as IField)
     expect(await indexNames()).toHaveLength(3)
 
     await prisma.field.update({ where: { id: company?.id }, data: { indexed: false } })

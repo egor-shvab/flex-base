@@ -232,8 +232,8 @@ exact predicates, not a replacement for them_).
 `buildRecordOrderBy` — raw because Prisma cannot `orderBy` a JSON path. Per type,
 `FIELD_SQL_BY_TYPE` gives:
 
-- `expr` — the JSONB projection a **filter** compares (`::numeric` / `::boolean` casts where
-  needed);
+- `expr` — the JSONB projection a **filter** compares; NUMBER and BOOLEAN cast through `jsonCast`,
+  which reads a value of any other JSON type as NULL rather than raising;
 - `sortExpr` — how it **orders**, where that differs;
 - `sortJoin` — ordering by a value in **another row** (RELATION only); it beats `sortExpr`, and
   `buildRecordOrderBy` hands the join back (`IRecordOrder`) because only the caller owns `FROM`;
@@ -285,9 +285,13 @@ widening is the one operation that rewrites rows. `Table.recordCounter` is never
 in a migration; Prisma cannot express them and ignores them (`migrate diff` reports nothing).
 
 **Per-field indexes are opt-in** (`Field.indexed`); `server/db/field-indexes.ts` owns the wanted set
-(from `filterIndex`/`sortIndex`), the DDL, creation, dropping and reaping. Five rules not guessable
+(from `filterIndex`/`sortIndex`), the DDL, creation, dropping and reaping. Six rules not guessable
 from the code:
 
+- **Each index is partial on its field's table** (`WHERE "tableId" = '…'`). PostgreSQL evaluates an
+  index expression for every row the index covers, so one over all of `"Record"` would cast another
+  workspace's value under the same key and fail that write. An owned index with no predicate counts
+  as invalid and is rebuilt.
 - **Sorting needs one index per direction.** Order is always `NULLS LAST`; a B-tree read backwards
   gives `DESC NULLS FIRST`, which PostgreSQL will not use. `_sa` and `_sd` are separate; `_f`
   doubles as `_sa` when the filter is an ascending B-tree on the same expression.

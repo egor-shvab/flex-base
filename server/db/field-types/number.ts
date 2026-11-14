@@ -1,10 +1,9 @@
-import { Prisma } from '#server/generated/prisma/client'
-import { jsonText, matchesText, withinRange } from '#server/db/field-types/fragments'
+import { jsonCast, matchesText, withinRange } from '#server/db/field-types/fragments'
 import type { IFieldSqlModule } from '#server/db/field-types/types'
 
 export const NUMBER_FIELD_SQL: IFieldSqlModule = {
   sql: {
-    expr: (key) => Prisma.sql`(${jsonText(key)})::numeric`,
+    expr: (key) => jsonCast(key, 'number'),
     searchPredicate: matchesText,
     filter: withinRange,
     sortJoin: null,

@@ -14,8 +14,8 @@ const fieldErrors = {
   notFound: 'Field not found',
 }
 
-function syncIndexesInBackground(field: IField): void {
-  void syncFieldIndexes(field).catch(recordBackgroundFailure)
+function syncIndexesInBackground(tableId: string, field: IField): void {
+  void syncFieldIndexes(tableId, field).catch(recordBackgroundFailure)
 }
 
 function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
@@ -76,7 +76,7 @@ async function createField(tableId: string, input: TFieldInput): Promise<IField>
     })
 
     const created = toSharedField(field)
-    syncIndexesInBackground(created)
+    syncIndexesInBackground(tableId, created)
 
     return created
   } catch (error) {
@@ -134,7 +134,7 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     const saved = toSharedField(updated)
     // Outside the transaction, which refuses `CONCURRENTLY`; on every update, since widening
     // changes which index a field wants
-    syncIndexesInBackground(saved)
+    syncIndexesInBackground(tableId, saved)
 
     return saved
   } catch (error) {

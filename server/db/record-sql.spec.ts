@@ -65,17 +65,25 @@ describe('buildRecordWhere — per type', () => {
     const where = whereFor(numberField(), { from: 100, to: 500 })
 
     expect(sqlText(where)).toBe(
-      'WHERE "tableId" = $1 AND (data ->> $2::text)::numeric >= $3 AND (data ->> $4::text)::numeric <= $5',
+      `WHERE "tableId" = $1 AND CASE WHEN jsonb_typeof(data -> $2::text) = 'number' THEN (data ->> $3::text)::numeric END >= $4 AND CASE WHEN jsonb_typeof(data -> $5::text) = 'number' THEN (data ->> $6::text)::numeric END <= $7`,
     )
-    expect(where.values).toEqual([TABLE_ID, 'contract_value', 100, 'contract_value', 500])
+    expect(where.values).toEqual([
+      TABLE_ID,
+      'contract_value',
+      'contract_value',
+      100,
+      'contract_value',
+      'contract_value',
+      500,
+    ])
   })
 
   it('emits only the bound a range actually has', () => {
     expect(sqlText(whereFor(numberField(), { from: 100, to: null }))).toBe(
-      'WHERE "tableId" = $1 AND (data ->> $2::text)::numeric >= $3',
+      `WHERE "tableId" = $1 AND CASE WHEN jsonb_typeof(data -> $2::text) = 'number' THEN (data ->> $3::text)::numeric END >= $4`,
     )
     expect(sqlText(whereFor(numberField(), { from: null, to: 500 }))).toBe(
-      'WHERE "tableId" = $1 AND (data ->> $2::text)::numeric <= $3',
+      `WHERE "tableId" = $1 AND CASE WHEN jsonb_typeof(data -> $2::text) = 'number' THEN (data ->> $3::text)::numeric END <= $4`,
     )
   })
 
@@ -86,8 +94,10 @@ describe('buildRecordWhere — per type', () => {
   it('casts BOOLEAN and compares it exactly', () => {
     const where = whereFor(booleanField(), false)
 
-    expect(sqlText(where)).toBe('WHERE "tableId" = $1 AND (data ->> $2::text)::boolean = $3')
-    expect(where.values).toEqual([TABLE_ID, 'active', false])
+    expect(sqlText(where)).toBe(
+      `WHERE "tableId" = $1 AND CASE WHEN jsonb_typeof(data -> $2::text) = 'boolean' THEN (data ->> $3::text)::boolean END = $4`,
+    )
+    expect(where.values).toEqual([TABLE_ID, 'active', 'active', false])
   })
 
   it('compares DATE as stored text, which is already chronological', () => {
@@ -201,8 +211,8 @@ describe('buildRecordWhere — free-text search', () => {
     const where = buildRecordWhere(TABLE_ID, table, { contract_value: { from: 1, to: 2 } }, 'acme')
     const text = sqlText(where)
 
-    expect(text).toContain('::numeric >= $')
-    expect(text).toContain('::numeric <= $')
+    expect(text).toContain('::numeric END >= $')
+    expect(text).toContain('::numeric END <= $')
     expect(text).toMatch(/AND \([^()]*ILIKE[^()]*OR .+\)$/)
   })
 
