@@ -18,7 +18,9 @@ import type {
   IIncomingInvitation,
   IWorkspaceInvitation,
   IWorkspaceMembership,
+  TWorkspacePermission,
 } from '#shared/types/workspace'
+import { canAssignRole } from '#shared/utils/permissions'
 import type { TInvitationInput } from '#shared/validation/workspace'
 
 export const MAX_PENDING_INVITATIONS = 50
@@ -114,6 +116,25 @@ async function listIncomingInvitations(user: IAuthUser): Promise<IIncomingInvita
  * The invitation is deleted before the membership is created: a second accept racing this one
  * waits on the row, then finds it gone. Someone already a member just loses the invitation.
  */
+/**
+ * An invitation is only as good as its sender's authority now, not when it was sent: removed from
+ * the workspace, or narrowed below the role it grants, and it no longer admits anyone.
+ */
+async function canInviterStillGrant(
+  workspaceId: string,
+  invitedById: string | null,
+  role: { permissions: TWorkspacePermission[] },
+): Promise<boolean> {
+  if (invitedById === null) return false
+
+  const inviter = await prisma.workspaceMember.findFirst({
+    where: { workspaceId, userId: invitedById },
+    select: membershipSelect,
+  })
+
+  return inviter !== null && canAssignRole(toSharedMembership(inviter, invitedById), role)
+}
+
 async function acceptInvitation(
   user: IAuthUser,
   invitationId: string,
@@ -121,11 +142,21 @@ async function acceptInvitation(
   const where = { ...buildIncomingInvitationWhere(user.email, new Date()), id: invitationId }
   const invitation = await prisma.workspaceInvitation.findFirst({
     where,
-    select: { workspaceId: true, roleId: true },
+    select: {
+      workspaceId: true,
+      roleId: true,
+      invitedById: true,
+      role: { select: { permissions: true } },
+    },
   })
   if (!invitation) throw buildNoLongerValidError()
 
   const { workspaceId, roleId } = invitation
+
+  if (!(await canInviterStillGrant(workspaceId, invitation.invitedById, invitation.role))) {
+    await prisma.workspaceInvitation.deleteMany({ where: { id: invitationId } })
+    throw buildNoLongerValidError()
+  }
 
   try {
     const row = await prisma.$transaction(async (tx) => {

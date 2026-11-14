@@ -184,6 +184,20 @@ The CSP carries only `frame-ancestors`, `base-uri`, `object-src` and `form-actio
 would need per-request nonces for Nuxt's inline payload. HSTS is left to whatever terminates TLS.
 _Reopen with the first real deployment._
 
+### Members and tables are listed whole
+
+`listMembers` and `listTables` return every row, unpaged and uncapped, where roles and pending
+invitations have caps. Both are bounded in practice by a team's size and a workspace's schema, and
+the sidebar and the members page render them all anyway. _Reopen when a workspace passes a few
+hundred members or tables: page the members list, cap tables as roles are capped._
+
+### `Table.updatedAt` and `Workspace.updatedAt` move with their counters
+
+Allocating a record or table number, and keeping `Table.recordCount`, are Prisma updates, so
+`@updatedAt` stamps the parent each time: the column reads as "last record or table created", not
+"last renamed". Neither is shown anywhere. _Reopen before either is displayed: move the counters
+to raw increments that leave `updatedAt` alone._
+
 ### Registration keeps an email's case
 
 `User.email` is stored as typed, so `Ada@x.com` and `ada@x.com` are two accounts. Invitations are

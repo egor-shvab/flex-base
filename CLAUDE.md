@@ -242,7 +242,8 @@ instant on a small table locks a large one for minutes.
   shared schemas, never a parallel interface.
 - Data fetching: page → `useAsyncData` / store action → **`app/api/`** → `useApi()`. **Never bare
   `$fetch`** (it drops cookies in SSR). Errors via `getApiErrorMessage`.
-- **A URL and a response type live only in `app/api/`** — paths from `apiPath`, responses declared
+- **A URL and a response type live only in `app/api/`** — paths from `apiPath` (every segment
+  encoded), responses declared
   in `shared/types/api.ts` and annotated on every handler. A store or component writing `/api/…` or
   an `api<{…}>` generic is reaching past that layer.
 - Forms use `useForm`, a field's label and message `BaseField`; list-page deletes use

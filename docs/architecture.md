@@ -374,8 +374,10 @@ Only what the name and the code do not say.
 - **`services/invitations.ts`** — sending to an address already invited **renews** that row (role,
   inviter, a new expiry); whether the address has an account is never read, so the answer cannot
   tell. Accepting **deletes the invitation before creating the membership** in one transaction: a
-  second accept racing it waits on the row and finds it gone (404). The rate limit lives in the
-  `POST` handler, keyed on the inviter.
+  second accept racing it waits on the row and finds it gone (404). **An invitation is only as good
+  as its sender's authority at accept time**: a sender who left, or can no longer `canAssignRole`
+  the role it grants, makes it 404 and it is dropped. The rate limit lives in the `POST` handler,
+  keyed on the inviter.
 - **`api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.get.ts`** — validates
   with
   `buildRecordQuerySchema(fields)`, then decodes with `parseRecordQueryState`.
