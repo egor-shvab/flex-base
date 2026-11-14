@@ -18,6 +18,7 @@ import {
 const SECRET = 'test-secret-not-a-real-one'
 const OTHER_SECRET = 'a-different-secret'
 const USER_ID = 'usr_abc123'
+const SESSION = { userId: USER_ID, sessionVersion: 3 }
 
 function testEvent(): H3Event {
   const request = new IncomingMessage(new Socket())
@@ -50,29 +51,32 @@ describe('assertJwtSecret', () => {
 })
 
 describe('signAuthToken / verifyAuthToken', () => {
-  it('round-trips the user id', () => {
-    expect(verifyAuthToken(signAuthToken(USER_ID, SECRET), SECRET)).toBe(USER_ID)
+  it('round-trips the user id and the session version', () => {
+    expect(verifyAuthToken(signAuthToken(SESSION, SECRET), SECRET)).toEqual(SESSION)
   })
 
-  it('issues a different token per user', () => {
-    expect(signAuthToken(USER_ID, SECRET)).not.toBe(signAuthToken('usr_other', SECRET))
+  it('issues a different token per user and per session version', () => {
+    const token = signAuthToken(SESSION, SECRET)
+
+    expect(token).not.toBe(signAuthToken({ ...SESSION, userId: 'usr_other' }, SECRET))
+    expect(token).not.toBe(signAuthToken({ ...SESSION, sessionVersion: 4 }, SECRET))
   })
 })
 
 describe('verifyAuthToken — rejection', () => {
   it('rejects a token signed with another secret', () => {
-    expect(verifyAuthToken(signAuthToken(USER_ID, OTHER_SECRET), SECRET)).toBeNull()
+    expect(verifyAuthToken(signAuthToken(SESSION, OTHER_SECRET), SECRET)).toBeNull()
   })
 
   it('rejects a tampered payload', () => {
-    const [header, , signature] = signAuthToken(USER_ID, SECRET).split('.')
+    const [header, , signature] = signAuthToken(SESSION, SECRET).split('.')
     const forgedPayload = Buffer.from(JSON.stringify({ sub: 'usr_admin' })).toString('base64url')
 
     expect(verifyAuthToken(`${header}.${forgedPayload}.${signature}`, SECRET)).toBeNull()
   })
 
   it('rejects a tampered signature', () => {
-    const token = signAuthToken(USER_ID, SECRET)
+    const token = signAuthToken(SESSION, SECRET)
 
     expect(verifyAuthToken(`${token}x`, SECRET)).toBeNull()
   })
@@ -87,6 +91,19 @@ describe('verifyAuthToken — rejection', () => {
     expect(verifyAuthToken(jwt.sign({}, SECRET, { algorithm: 'HS256' }), SECRET)).toBeNull()
   })
 
+  it('rejects a token issued before sessions carried a version', () => {
+    const legacy = jwt.sign({}, SECRET, { subject: USER_ID, algorithm: 'HS256' })
+
+    expect(verifyAuthToken(legacy, SECRET)).toBeNull()
+  })
+
+  it('rejects a version that is not a whole number', () => {
+    for (const ver of ['3', 1.5, null]) {
+      const token = jwt.sign({ ver }, SECRET, { subject: USER_ID, algorithm: 'HS256' })
+      expect(verifyAuthToken(token, SECRET)).toBeNull()
+    }
+  })
+
   it('rejects a token whose payload is a bare string', () => {
     expect(verifyAuthToken(jwt.sign('usr_abc123', SECRET), SECRET)).toBeNull()
   })
@@ -94,14 +111,14 @@ describe('verifyAuthToken — rejection', () => {
 
 describe('verifyAuthToken — the algorithm pin', () => {
   it('rejects a token signed with a different HMAC algorithm', () => {
-    const forged = jwt.sign({}, SECRET, { subject: USER_ID, algorithm: 'HS512' })
+    const forged = jwt.sign({ ver: 3 }, SECRET, { subject: USER_ID, algorithm: 'HS512' })
 
     expect(forged.length).toBeGreaterThan(0)
     expect(verifyAuthToken(forged, SECRET)).toBeNull()
   })
 
   it('rejects an unsigned `alg: none` token', () => {
-    const forged = jwt.sign({ sub: USER_ID }, '', { algorithm: 'none' })
+    const forged = jwt.sign({ sub: USER_ID, ver: 3 }, '', { algorithm: 'none' })
 
     expect(verifyAuthToken(forged, SECRET)).toBeNull()
   })
@@ -111,16 +128,16 @@ describe('verifyAuthToken — expiry', () => {
   it('accepts a token inside its lifetime', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-    const token = signAuthToken(USER_ID, SECRET)
+    const token = signAuthToken(SESSION, SECRET)
 
     vi.setSystemTime(new Date('2026-01-06T00:00:00Z'))
-    expect(verifyAuthToken(token, SECRET)).toBe(USER_ID)
+    expect(verifyAuthToken(token, SECRET)).toEqual(SESSION)
   })
 
   it('rejects a token past its lifetime', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-    const token = signAuthToken(USER_ID, SECRET)
+    const token = signAuthToken(SESSION, SECRET)
 
     vi.setSystemTime(new Date('2026-01-09T00:00:00Z'))
     expect(verifyAuthToken(token, SECRET)).toBeNull()

@@ -9,8 +9,8 @@ export default defineEventHandler(async (event) => {
   const token = getCookie(event, AUTH_COOKIE)
   if (!token) return
 
-  const userId = verifyAuthToken(token, useRuntimeConfig(event).jwtSecret)
-  if (!userId) return
+  const session = verifyAuthToken(token, useRuntimeConfig(event).jwtSecret)
+  if (!session) return
 
-  event.context.user = await AuthService.findAuthUser(userId)
+  event.context.user = await AuthService.findAuthUser(session)
 })

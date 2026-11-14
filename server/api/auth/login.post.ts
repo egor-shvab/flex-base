@@ -33,9 +33,12 @@ export default defineEventHandler(async (event): Promise<IAuthUserResponse> => {
 
   assertWithinRateLimit(attemptsByEmail, credentials.email.toLowerCase(), TOO_MANY_ATTEMPTS)
 
-  const user = await AuthService.authenticateUser(credentials)
+  const { user, sessionVersion } = await AuthService.authenticateUser(credentials)
 
-  setAuthCookie(event, signAuthToken(user.id, useRuntimeConfig(event).jwtSecret))
+  setAuthCookie(
+    event,
+    signAuthToken({ userId: user.id, sessionVersion }, useRuntimeConfig(event).jwtSecret),
+  )
 
   return { user }
 })

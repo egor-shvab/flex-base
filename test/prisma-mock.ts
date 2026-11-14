@@ -10,6 +10,7 @@ interface IModelMock {
   create: Mock
   upsert: Mock
   update: Mock
+  updateMany: Mock
   delete: Mock
   deleteMany: Mock
 }
@@ -25,6 +26,7 @@ function modelMock(): IModelMock {
     create: vi.fn(),
     upsert: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     delete: vi.fn(),
     deleteMany: vi.fn(),
   }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import login from '#server/api/auth/login.post'
 import logout from '#server/api/auth/logout.post'
 import me from '#server/api/auth/me.get'
@@ -259,6 +259,66 @@ describe('the session endpoints', () => {
   })
 })
 
+describe('signing out', () => {
+  // An address of its own per case: the sign-in limit counts per email across the whole file
+  let credentials = CREDENTIALS
+  let caseNumber = 0
+  beforeEach(() => {
+    caseNumber += 1
+    credentials = { ...CREDENTIALS, email: `signing-out-${caseNumber}@example.com` }
+  })
+
+  async function userFor(token: string) {
+    const event = testEvent()
+    event.node.req.headers.cookie = `${AUTH_COOKIE}=${token}`
+    await authMiddleware(event)
+    return event.context.user
+  }
+
+  async function signIn(): Promise<string> {
+    const event = post(credentials)
+    await login(event)
+    return tokenFrom(cookieHeader(event))
+  }
+
+  it('stops a token already issued from passing, on every device', async () => {
+    await register(post(credentials))
+    const laptop = await signIn()
+    const phone = await signIn()
+    const user = await userFor(laptop)
+    expect(user?.email).toBe(credentials.email)
+
+    await logout(testEvent({ method: 'POST', user }))
+
+    expect(await userFor(laptop)).toBeNull()
+    expect(await userFor(phone)).toBeNull()
+  })
+
+  it('lets the next sign-in through with a fresh token', async () => {
+    await register(post(credentials))
+    const before = await signIn()
+    await logout(testEvent({ method: 'POST', user: await userFor(before) }))
+
+    const after = await signIn()
+
+    expect((await userFor(after))?.email).toBe(credentials.email)
+  })
+
+  it('leaves everyone else signed in', async () => {
+    await register(post(credentials))
+    const other = await createUser()
+    const otherToken = signAuthToken(
+      { userId: other.id, sessionVersion: 0 },
+      process.env.NUXT_JWT_SECRET ?? '',
+    )
+    const mine = await signIn()
+
+    await logout(testEvent({ method: 'POST', user: await userFor(mine) }))
+
+    expect((await userFor(otherToken))?.id).toBe(other.id)
+  })
+})
+
 describe('the auth middleware', () => {
   it('attaches the user a valid token names', async () => {
     const registration = post(CREDENTIALS)
@@ -290,7 +350,7 @@ describe('the auth middleware', () => {
   it('leaves a token signed with another secret anonymous', async () => {
     const user = await createUser()
     const event = testEvent()
-    event.node.req.headers.cookie = `${AUTH_COOKIE}=${signAuthToken(user.id, 'a-different-secret')}`
+    event.node.req.headers.cookie = `${AUTH_COOKIE}=${signAuthToken({ userId: user.id, sessionVersion: 0 }, 'a-different-secret')}`
     await authMiddleware(event)
 
     expect(event.context.user).toBeNull()
@@ -298,7 +358,10 @@ describe('the auth middleware', () => {
 
   it('leaves a token for a deleted user anonymous', async () => {
     const user = await createUser()
-    const token = signAuthToken(user.id, process.env.NUXT_JWT_SECRET ?? '')
+    const token = signAuthToken(
+      { userId: user.id, sessionVersion: 0 },
+      process.env.NUXT_JWT_SECRET ?? '',
+    )
     // Their workspace first: `Workspace.ownerId` restricts deleting its owner
     await prisma.workspace.deleteMany({ where: { ownerId: user.id } })
     await prisma.user.delete({ where: { id: user.id } })

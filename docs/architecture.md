@@ -7,8 +7,11 @@ How the metadata layer works — the contracts a reader cannot see from a module
 
 ## 1. Auth
 
-Manual: bcrypt + `jsonwebtoken`, no auth library. The JWT (`{ sub: userId }`, HS256, 7 days) lives
-in an httpOnly `auth_token` cookie; `verifyAuthToken` pins `algorithms: ['HS256']`.
+Manual: bcrypt + `jsonwebtoken`, no auth library. The JWT (`{ sub: userId, ver }`, HS256, 7 days)
+lives in an httpOnly `auth_token` cookie; `verifyAuthToken` pins `algorithms: ['HS256']`. **`ver` is
+`User.sessionVersion` at sign-in, matched in `findAuthUser`'s `where`**; logout raises it, so every
+token the user holds stops passing at once — on every device, the price of one counter instead of
+a session table. A token without `ver` is refused.
 `server/middleware/auth.ts` **never rejects** — handlers call `requireUser(event)` for the 401.
 `server/middleware/body-limit.ts` refuses an `/api/` body over 1 MiB (413) or without a declared
 length (411) from its headers alone, before any handler reads it.
@@ -498,6 +501,7 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
 - **Table settings:** rows state type, configuration and key; icon actions named after the field;
   rename moves heading and sidebar together; delete lands on the dashboard; a targeted table refuses
   naming the field; rows stack at 375px.
+- **Sign-out:** logging out on one device signs the user out on another.
 - **Server guards:** a page and a successful API response carry the framing, `nosniff` and referrer
   headers; an error keeps Nitro's stricter `DENY`; an oversized body is a 413.
 - **Accessibility:** no serious/critical axe violation on dashboard, table settings, records, record

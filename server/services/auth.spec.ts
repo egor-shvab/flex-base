@@ -19,7 +19,9 @@ const REGISTRATION = { ...CREDENTIALS, name: 'Ada' }
 const USER_ID = 'usr_1'
 
 const authUser = { id: USER_ID, email: CREDENTIALS.email, name: 'Ada' }
-const rowWithHash = { ...authUser, passwordHash: 'stored-hash' }
+const rowWithSession = { ...authUser, sessionVersion: 2 }
+const rowWithHash = { ...rowWithSession, passwordHash: 'stored-hash' }
+const signedIn = { user: authUser, sessionVersion: 2 }
 
 /** Shaped as `@prisma/adapter-pg` reports it, quoting only a mixed-case column. */
 const uniqueViolationOn = (column: string) =>
@@ -48,11 +50,11 @@ describe('AuthService.registerUser', () => {
     prismaMock.user.create.mockResolvedValue({ id: USER_ID })
     prismaMock.workspace.create.mockResolvedValue({ id: WORKSPACE.id })
     prismaMock.workspaceMember.create.mockResolvedValue({ id: 'mem_1', workspace: WORKSPACE })
-    prismaMock.user.update.mockResolvedValue(authUser)
+    prismaMock.user.update.mockResolvedValue(rowWithSession)
   })
 
   it('stores what hashPassword returned, never the password itself', async () => {
-    await expect(AuthService.registerUser(REGISTRATION)).resolves.toEqual(authUser)
+    await expect(AuthService.registerUser(REGISTRATION)).resolves.toEqual(signedIn)
 
     expect(prismaMock.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -61,11 +63,13 @@ describe('AuthService.registerUser', () => {
     )
   })
 
-  it('selects only id, email and name, so the hash cannot reach a response', async () => {
+  it('selects the user and the session version a token needs, never the hash', async () => {
     await AuthService.registerUser(REGISTRATION)
 
     expect(prismaMock.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ select: { id: true, email: true, name: true } }),
+      expect.objectContaining({
+        select: { id: true, email: true, name: true, sessionVersion: true },
+      }),
     )
   })
 
@@ -105,7 +109,7 @@ describe('AuthService.registerUser', () => {
   it('reruns the whole transaction when the public id collides', async () => {
     prismaMock.workspace.create.mockRejectedValueOnce(uniqueViolationOn('publicId'))
 
-    await expect(AuthService.registerUser(REGISTRATION)).resolves.toEqual(authUser)
+    await expect(AuthService.registerUser(REGISTRATION)).resolves.toEqual(signedIn)
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(2)
   })
@@ -146,13 +150,13 @@ describe('AuthService.authenticateUser', () => {
     prismaMock.user.findUnique.mockResolvedValue(rowWithHash)
     vi.mocked(verifyPassword).mockResolvedValue(true)
 
-    const user = await AuthService.authenticateUser(CREDENTIALS)
+    const result = await AuthService.authenticateUser(CREDENTIALS)
 
-    expect(user).toEqual(authUser)
-    expect(user).not.toHaveProperty('passwordHash')
+    expect(result).toEqual(signedIn)
+    expect(result.user).not.toHaveProperty('passwordHash')
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { email: CREDENTIALS.email },
-      select: { id: true, email: true, name: true, passwordHash: true },
+      select: { id: true, email: true, name: true, sessionVersion: true, passwordHash: true },
     })
   })
 
@@ -197,21 +201,36 @@ describe('AuthService.authenticateUser', () => {
 })
 
 describe('AuthService.findAuthUser', () => {
-  it('reads by id with the select that omits the hash', async () => {
-    prismaMock.user.findUnique.mockResolvedValue(authUser)
+  const session = { userId: USER_ID, sessionVersion: 2 }
 
-    await expect(AuthService.findAuthUser(USER_ID)).resolves.toEqual(authUser)
+  it('matches the token’s session version in the query, with the select that omits the hash', async () => {
+    prismaMock.user.findFirst.mockResolvedValue(authUser)
 
-    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
-      where: { id: USER_ID },
+    await expect(AuthService.findAuthUser(session)).resolves.toEqual(authUser)
+
+    expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+      where: { id: USER_ID, sessionVersion: 2 },
       select: { id: true, email: true, name: true },
     })
   })
 
-  it('returns null when the row is gone', async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null)
+  it('returns null when the row is gone or signed out since', async () => {
+    prismaMock.user.findFirst.mockResolvedValue(null)
 
-    await expect(AuthService.findAuthUser(USER_ID)).resolves.toBeNull()
+    await expect(AuthService.findAuthUser(session)).resolves.toBeNull()
+  })
+})
+
+describe('AuthService.revokeSessions', () => {
+  it('raises the caller’s own session version, without throwing on a vanished row', async () => {
+    prismaMock.user.updateMany.mockResolvedValue({ count: 1 })
+
+    await AuthService.revokeSessions(USER_ID)
+
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+      data: { sessionVersion: { increment: 1 } },
+    })
   })
 })
 

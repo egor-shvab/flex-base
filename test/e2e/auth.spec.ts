@@ -1,4 +1,4 @@
-import { WORKSPACE_HOME, expect, test } from '~~/test/e2e/setup/fixtures'
+import { WORKSPACE_HOME, expect, signInNewUser, test } from '~~/test/e2e/setup/fixtures'
 import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 
 test.describe('signed out', () => {
@@ -107,13 +107,27 @@ test.describe('signed in', () => {
     await expect(sidebar.getByText(E2E_USER.name)).toBeVisible()
   })
 
-  test('logging out ends the session and protects the pages again', async ({ page }) => {
+  // Its own user: logging out revokes every session, and the run's account is shared
+  test('logging out ends the session on every device and protects the pages again', async ({
+    browser,
+  }) => {
+    const { page } = await signInNewUser(browser)
+    const otherDevice = await browser.newContext({
+      storageState: await page.context().storageState(),
+    })
+    const otherPage = await otherDevice.newPage()
+    await otherPage.goto('/')
+    await expect(otherPage).toHaveURL(WORKSPACE_HOME)
+
     await page.goto('/')
     await page.getByRole('button', { name: /log out/i }).click()
 
     await expect(page).toHaveURL(/\/auth\/login/)
-
     await page.goto('/')
     await expect(page).toHaveURL(/\/auth\/login/)
+
+    await otherPage.goto('/')
+    await expect(otherPage).toHaveURL(/\/auth\/login/)
+    await otherDevice.close()
   })
 })

@@ -38,19 +38,34 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
   return bcrypt.compare(password, hash)
 }
 
-export function signAuthToken(userId: string, secret: string): string {
-  return jwt.sign({}, secret, {
+/** Who a token speaks for, and the `User.sessionVersion` it was issued under. */
+export interface IAuthSession {
+  userId: string
+  sessionVersion: number
+}
+
+export function signAuthToken({ userId, sessionVersion }: IAuthSession, secret: string): string {
+  return jwt.sign({ ver: sessionVersion }, secret, {
     subject: userId,
     algorithm: 'HS256',
     expiresIn: AUTH_TOKEN_TTL_SECONDS,
   })
 }
 
-export function verifyAuthToken(token: string, secret: string): string | null {
+/**
+ * Only proves the signature. Whether the session still stands is the user row's to say: a token
+ * whose `ver` is behind `User.sessionVersion` was signed out. One without a `ver` predates
+ * revocation and is refused.
+ */
+export function verifyAuthToken(token: string, secret: string): IAuthSession | null {
   try {
     const payload = jwt.verify(token, secret, { algorithms: ['HS256'] })
     if (typeof payload === 'string' || !payload.sub) return null
-    return payload.sub
+
+    const sessionVersion: unknown = payload.ver
+    if (typeof sessionVersion !== 'number' || !Number.isInteger(sessionVersion)) return null
+
+    return { userId: payload.sub, sessionVersion }
   } catch {
     return null
   }

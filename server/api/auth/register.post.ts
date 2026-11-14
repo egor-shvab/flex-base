@@ -22,9 +22,12 @@ export default defineEventHandler(async (event): Promise<IAuthUserResponse> => {
 
   const input = await readValidatedBody(event, registrationInputSchema.parse)
 
-  const user = await AuthService.registerUser(input)
+  const { user, sessionVersion } = await AuthService.registerUser(input)
 
-  setAuthCookie(event, signAuthToken(user.id, useRuntimeConfig(event).jwtSecret))
+  setAuthCookie(
+    event,
+    signAuthToken({ userId: user.id, sessionVersion }, useRuntimeConfig(event).jwtSecret),
+  )
 
   return { user }
 })

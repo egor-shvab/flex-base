@@ -1,13 +1,25 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { isUniqueViolationOn } from '#server/db/prisma-errors'
-import { authUserSelect, authUserWithHashSelect, toAuthUser } from '#server/db/users'
+import {
+  authUserSelect,
+  authUserWithHashSelect,
+  authUserWithSessionSelect,
+  toAuthUser,
+  toSignedInUser,
+  type ISignedInUser,
+} from '#server/db/users'
 import {
   PERSONAL_WORKSPACE_NAME,
   createWorkspaceWithDefaults,
   retryOnPublicIdCollision,
 } from '#server/db/workspaces'
-import { hashPassword, UNMATCHED_PASSWORD_HASH, verifyPassword } from '#server/utils/auth'
+import {
+  hashPassword,
+  UNMATCHED_PASSWORD_HASH,
+  verifyPassword,
+  type IAuthSession,
+} from '#server/utils/auth'
 import type { IAuthUser } from '#shared/types/auth'
 import type { TCredentialsInput, TProfileInput, TRegistrationInput } from '#shared/validation/auth'
 
@@ -19,11 +31,11 @@ const buildInvalidCredentialsError = () =>
  * The insert is the uniqueness check: a `findUnique` first would race. A duplicate also pays for
  * a hash before being refused, which closes the timing difference.
  */
-async function registerUser({ email, password, name }: TRegistrationInput): Promise<IAuthUser> {
+async function registerUser({ email, password, name }: TRegistrationInput): Promise<ISignedInUser> {
   const passwordHash = await hashPassword(password)
 
   try {
-    return toAuthUser(
+    return toSignedInUser(
       await retryOnPublicIdCollision(() =>
         prisma.$transaction(async (tx) => {
           const user = await tx.user.create({
@@ -38,7 +50,7 @@ async function registerUser({ email, password, name }: TRegistrationInput): Prom
           return tx.user.update({
             where: { id: user.id },
             data: { lastWorkspaceId: membership.workspace.id },
-            select: authUserSelect,
+            select: authUserWithSessionSelect,
           })
         }),
       ),
@@ -52,7 +64,7 @@ async function registerUser({ email, password, name }: TRegistrationInput): Prom
   }
 }
 
-async function authenticateUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
+async function authenticateUser({ email, password }: TCredentialsInput): Promise<ISignedInUser> {
   const user = await prisma.user.findUnique({ where: { email }, select: authUserWithHashSelect })
   const isPasswordValid = await verifyPassword(
     password,
@@ -61,13 +73,25 @@ async function authenticateUser({ email, password }: TCredentialsInput): Promise
 
   if (!user || !isPasswordValid) throw buildInvalidCredentialsError()
 
-  return toAuthUser(user)
+  return toSignedInUser(user)
 }
 
-async function findAuthUser(userId: string): Promise<IAuthUser | null> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: authUserSelect })
+/** The version is in the `where`: a token issued before the last sign-out matches no row. */
+async function findAuthUser({ userId, sessionVersion }: IAuthSession): Promise<IAuthUser | null> {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, sessionVersion },
+    select: authUserSelect,
+  })
 
   return user ? toAuthUser(user) : null
+}
+
+/** Every token the user holds stops passing, on every device. */
+async function revokeSessions(userId: string): Promise<void> {
+  await prisma.user.updateMany({
+    where: { id: userId },
+    data: { sessionVersion: { increment: 1 } },
+  })
 }
 
 async function updateProfile(userId: string, { name }: TProfileInput): Promise<IAuthUser> {
@@ -80,5 +104,6 @@ export const AuthService = {
   registerUser,
   authenticateUser,
   findAuthUser,
+  revokeSessions,
   updateProfile,
 }

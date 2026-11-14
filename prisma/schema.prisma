@@ -34,6 +34,9 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
+  // In every token; raising it signs out every session the user holds
+  sessionVersion Int @default(0)
+
   lastWorkspaceId String?
   lastWorkspace   Workspace? @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
 
