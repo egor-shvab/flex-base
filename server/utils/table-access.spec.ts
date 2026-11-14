@@ -8,7 +8,7 @@ import {
 } from '#server/utils/table-access'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
-import { textField } from '~~/test/fixtures'
+import { asMultiple, relationField, selectField, textField } from '~~/test/fixtures'
 
 vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
@@ -269,6 +269,29 @@ describe('requireFieldTarget', () => {
     await expect(requireFieldTarget(WORKSPACE_ID, relationInput())).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'Unknown field to show for the link',
+    })
+  })
+
+  it('refuses another relation as the label, which would show a cuid', async () => {
+    prismaMock.table.findUnique.mockResolvedValue({
+      id: 'tbl_people',
+      fields: [stored({ ...relationField(), key: 'full_name' })],
+    })
+
+    await expect(requireFieldTarget(WORKSPACE_ID, relationInput())).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'That field cannot be shown for a link: choose a single-value field',
+    })
+  })
+
+  it('refuses a multi-value label field too', async () => {
+    prismaMock.table.findUnique.mockResolvedValue({
+      id: 'tbl_people',
+      fields: [stored({ ...asMultiple(selectField()), key: 'full_name' })],
+    })
+
+    await expect(requireFieldTarget(WORKSPACE_ID, relationInput())).rejects.toMatchObject({
+      statusCode: 400,
     })
   })
 

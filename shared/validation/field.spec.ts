@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
+import { FIELD_CHOICE_MAX_LENGTH, FIELD_CHOICES_MAX } from '#shared/constants/field'
 import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
-import { fieldInputSchema } from '#shared/validation/field'
+import { fieldInputSchema, storedFieldOptionsSchema } from '#shared/validation/field'
 
 const select = (overrides: Record<string, unknown> = {}) => ({
   name: 'Stage',
@@ -23,6 +24,41 @@ function issuePaths(value: unknown): string[] {
   expect(result.success).toBe(false)
   return result.error?.issues.map((issue) => issue.path.join('.')) ?? []
 }
+
+describe('fieldInputSchema — size caps', () => {
+  const choices = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({ value: `Choice ${index}` }))
+
+  it('takes up to the cap of choices and refuses one more', () => {
+    expect(
+      fieldInputSchema.safeParse(select({ choices: choices(FIELD_CHOICES_MAX) })).success,
+    ).toBe(true)
+    expect(issuePaths(select({ choices: choices(FIELD_CHOICES_MAX + 1) }))).toContain('choices')
+  })
+
+  it('refuses a choice longer than the cap', () => {
+    const long = 'x'.repeat(FIELD_CHOICE_MAX_LENGTH + 1)
+
+    expect(issuePaths(select({ choices: [{ value: long }] }))).toContain('choices.0.value')
+  })
+})
+
+describe('storedFieldOptionsSchema', () => {
+  it('reads each stored shape and drops a key it does not know', () => {
+    expect(
+      storedFieldOptionsSchema.parse({
+        choices: [{ value: 'Won', color: 'green' }],
+        multiple: true,
+        legacy: 'gone',
+      }),
+    ).toEqual({ choices: [{ value: 'Won', color: 'green' }], multiple: true })
+  })
+
+  it('refuses a malformed shape rather than passing it through', () => {
+    expect(storedFieldOptionsSchema.safeParse({ choices: 'Won,Lost' }).success).toBe(false)
+    expect(storedFieldOptionsSchema.safeParse({ multiple: 'yes' }).success).toBe(false)
+  })
+})
 
 describe('fieldInputSchema — defaults', () => {
   it('fills in everything a plain TEXT field leaves out', () => {

@@ -144,7 +144,7 @@ import { DEFAULT_BADGE_COLOR } from '#shared/constants/color'
 import { FIELD_TYPES, FIELD_TYPE_LABELS, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import type { IField, TFieldType } from '#shared/types/field'
-import { isMultiValue } from '#shared/field-types/cardinality'
+import { canLabelRecords } from '#shared/utils/record-label'
 
 const props = withDefaults(
   defineProps<{
@@ -239,9 +239,7 @@ const targetOptions = computed(() =>
 /** Not through the fields store, which holds the table being edited. */
 const targetFields = shallowRef<IField[]>([])
 
-const labelCandidates = computed(() =>
-  targetFields.value.filter((field) => field.type !== 'RELATION' && !isMultiValue(field)),
-)
+const labelCandidates = computed(() => targetFields.value.filter(canLabelRecords))
 
 const labelOptions = computed(() =>
   labelCandidates.value.map((field) => ({ value: field.key, label: field.name })),

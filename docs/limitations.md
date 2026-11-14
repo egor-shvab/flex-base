@@ -147,10 +147,10 @@ the state. _Raise it only on a real report._
 
 The dot (≥3.1:1) and the word survive; raising fills would break their 4.5:1 text pairings. _Revisit only if the badge palette is retuned._
 
-### The role and pending-invitation caps are counted, not locked
+### The role, invitation and field caps are counted, not locked
 
 Two creates racing past the count can leave a workspace one over `MAX_WORKSPACE_ROLES` or
-`MAX_PENDING_INVITATIONS`. Each cap bounds a list a page renders, which one extra row does not
+`MAX_PENDING_INVITATIONS`, or a table one over `MAX_TABLE_FIELDS`. Each cap bounds a list a page renders, which one extra row does not
 break. _Reopen if a cap ever guards a cost rather than a list._
 
 ### The error log is a local file, and the rate limits are per process

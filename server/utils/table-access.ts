@@ -5,6 +5,7 @@ import { tableSelect, buildTableAddressWhere, toSharedTable } from '#server/db/t
 import type { IField } from '#shared/types/field'
 import type { ITable } from '#shared/types/table'
 import { parseTableAddress } from '#shared/utils/address'
+import { canLabelRecords } from '#shared/utils/record-label'
 import type { TFieldInput } from '#shared/validation/field'
 
 function tableNotFound() {
@@ -67,8 +68,16 @@ export async function requireFieldTarget(workspaceId: string, input: TFieldInput
 
   const { fields } = await requireWorkspaceTableFields(workspaceId, input.targetTableId)
 
-  if (!fields.some((field) => field.key === input.labelFieldKey)) {
+  const labelField = fields.find((field) => field.key === input.labelFieldKey)
+
+  if (labelField === undefined) {
     throw createError({ statusCode: 400, statusMessage: 'Unknown field to show for the link' })
+  }
+  if (!canLabelRecords(labelField)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'That field cannot be shown for a link: choose a single-value field',
+    })
   }
 }
 

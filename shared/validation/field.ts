@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BADGE_COLORS, DEFAULT_BADGE_COLOR } from '#shared/constants/color'
+import { FIELD_CHOICE_MAX_LENGTH, FIELD_CHOICES_MAX } from '#shared/constants/field'
 import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { nameSchema } from '#shared/validation/name'
 
@@ -11,10 +12,18 @@ export const fieldInputSchema = z
     choices: z
       .array(
         z.object({
-          value: z.string().trim().min(1, 'Choice cannot be empty'),
+          value: z
+            .string()
+            .trim()
+            .min(1, 'Choice cannot be empty')
+            .max(
+              FIELD_CHOICE_MAX_LENGTH,
+              `A choice can be at most ${FIELD_CHOICE_MAX_LENGTH} characters`,
+            ),
           color: z.enum(BADGE_COLORS).default(DEFAULT_BADGE_COLOR),
         }),
       )
+      .max(FIELD_CHOICES_MAX, `A field can have at most ${FIELD_CHOICES_MAX} choices`)
       .default([]),
     targetTableId: z.string().trim().default(''),
     labelFieldKey: z.string().trim().default(''),
@@ -55,3 +64,14 @@ export const fieldInputSchema = z
   })
 
 export type TFieldInput = z.infer<typeof fieldInputSchema>
+
+/**
+ * `Field.options` as stored, checked on the way out of the database: JSON is not typed there, and a
+ * malformed shape would otherwise surface far from where it was read. Unknown keys are stripped.
+ */
+export const storedFieldOptionsSchema = z.object({
+  choices: z.array(z.object({ value: z.string(), color: z.enum(BADGE_COLORS) })).optional(),
+  targetTableId: z.string().optional(),
+  labelFieldKey: z.string().optional(),
+  multiple: z.boolean().optional(),
+})

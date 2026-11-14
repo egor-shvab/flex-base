@@ -16,6 +16,8 @@ import { buildFieldKey } from '#server/utils/field-key'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
 
+export const MAX_TABLE_FIELDS = 200
+
 const fieldErrors = {
   conflict: 'A field with this name already exists',
   notFound: 'Field not found',
@@ -104,6 +106,15 @@ async function createField(tableId: string, input: TFieldInput): Promise<IField>
   })
   const maxOrder = existing.reduce((max, field) => Math.max(max, field.order), -1)
 
+  // Counted from the read above, not locked: two creates racing past the cap by one is accepted,
+  // as for roles
+  if (existing.length >= MAX_TABLE_FIELDS) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `A table can have at most ${MAX_TABLE_FIELDS} fields`,
+    })
+  }
+
   try {
     const field = await prisma.field.create({
       data: {
@@ -146,7 +157,7 @@ async function updateField(
     throw createError({ statusCode: 400, statusMessage: 'Field type cannot be changed' })
   }
 
-  const currentOptions = toFieldOptions(field.options)
+  const currentOptions = toFieldOptions(fieldId, field.options)
 
   const currentTarget = currentOptions?.targetTableId
   if (currentTarget !== undefined && currentTarget !== input.targetTableId) {

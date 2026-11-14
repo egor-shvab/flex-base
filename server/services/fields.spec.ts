@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { z } from 'zod'
 import { Prisma } from '#server/generated/prisma/client'
-import { FieldService } from '#server/services/fields'
+import { FieldService, MAX_TABLE_FIELDS } from '#server/services/fields'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { textField } from '~~/test/fixtures'
@@ -259,6 +259,26 @@ describe('updateField — widening', () => {
     const [call] = prismaMock.field.update.mock.calls
     expect(call?.[0].data).not.toHaveProperty('key')
     expect(call?.[0].data).toMatchObject({ name: 'Renamed' })
+  })
+})
+
+describe('createField — the field cap', () => {
+  it('refuses a field past the cap before writing anything', async () => {
+    prismaMock.field.findMany.mockResolvedValue(
+      Array.from({ length: MAX_TABLE_FIELDS }, (_, order) => ({
+        key: `f${order}`,
+        type: 'TEXT',
+        order,
+      })),
+    )
+
+    await expect(FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))).rejects.toMatchObject(
+      {
+        statusCode: 409,
+        statusMessage: `A table can have at most ${MAX_TABLE_FIELDS} fields`,
+      },
+    )
+    expect(prismaMock.field.create).not.toHaveBeenCalled()
   })
 })
 

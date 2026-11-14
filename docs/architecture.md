@@ -165,8 +165,9 @@ Only two registries know better:
 ## 6. Relations
 
 `options` = `{ targetTableId, labelFieldKey, multiple }`: the target is **immutable** (`updateField`
-400s — retargeting would orphan every stored id), the label field is editable (RELATION fields are
-excluded as label candidates — a link labelled by a link reads as an id), and cardinality is one-way
+400s — retargeting would orphan every stored id), the label field is editable, and **only a field
+`canLabelRecords` accepts can be it** — not a relation (it would read as an id), not a list; the form
+offers only those and `requireFieldTarget` refuses the rest. Cardinality is one-way
 (`decisions.md` → _Cardinality is one-way, and a multi-value column sorts by its first value_).
 
 `server/services/relations.ts` is the only module that knows what a RELATION means, which keeps
