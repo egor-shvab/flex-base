@@ -271,6 +271,40 @@ describe('RecordService.updateRecord', () => {
     expect(prismaMock.record.update).not.toHaveBeenCalled()
   })
 
+  describe('given the version the caller read', () => {
+    const READ = new Date('2026-02-11T16:30:00.000Z')
+    const gone = () =>
+      new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' })
+
+    it('puts the version in the where, so the check and the write are one statement', async () => {
+      prismaMock.record.update.mockResolvedValue(row())
+
+      await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID, READ)
+
+      expect(prismaMock.record.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: RECORD_ID, tableId: TABLE_ID, updatedAt: READ } }),
+      )
+    })
+
+    it('answers 412 when the record is still there under a newer version', async () => {
+      prismaMock.record.update.mockRejectedValue(gone())
+      prismaMock.record.findUnique.mockResolvedValue({ id: RECORD_ID })
+
+      await expect(
+        RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID, READ),
+      ).rejects.toMatchObject({ statusCode: 412 })
+    })
+
+    it('still answers 404 when the record is gone', async () => {
+      prismaMock.record.update.mockRejectedValue(gone())
+      prismaMock.record.findUnique.mockResolvedValue(null)
+
+      await expect(
+        RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID, READ),
+      ).rejects.toMatchObject({ statusCode: 404 })
+    })
+  })
+
   it('maps a missing row onto a 404', async () => {
     prismaMock.record.update.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),

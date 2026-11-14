@@ -3,6 +3,7 @@ import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { toHttpError } from '#server/utils/http-errors'
+import { isMissingRow } from '#server/db/prisma-errors'
 import {
   recordSelect,
   recordWithAuthorsSelect,
@@ -25,6 +26,9 @@ import type {
 import type { ITable } from '#shared/types/table'
 
 const recordErrors = { notFound: 'Record not found' }
+
+const STALE_RECORD_MESSAGE =
+  'Someone changed this record after you opened it. Close the form and open it again to see their changes.'
 
 /**
  * No `WITH … AS MATERIALIZED`: it builds every matching row before the `LIMIT` can discard any,
@@ -142,23 +146,35 @@ async function createRecord(
   }
 }
 
+/**
+ * Given the version the caller read, the write lands only on that version: the check is in the
+ * `where`, so two saves racing cannot both pass it. A miss is told apart afterwards — the row still
+ * there is a 412, a row gone is the usual 404.
+ */
 async function updateRecord(
   tableId: string,
   fields: IField[],
   address: string,
   data: TRecordData,
   actorId: string,
+  expectedUpdatedAt?: Date,
 ): Promise<IRecord> {
   await RelationService.assertRelationTargets(fields, data)
 
+  const where = buildRecordAddressWhere(tableId, address)
+
   try {
     const record = await prisma.record.update({
-      where: buildRecordAddressWhere(tableId, address),
+      where: expectedUpdatedAt ? { ...where, updatedAt: expectedUpdatedAt } : where,
       data: { data: toJsonData(data), updatedById: actorId },
       select: recordSelect,
     })
     return toSharedRecord(record)
   } catch (error) {
+    if (expectedUpdatedAt && isMissingRow(error)) {
+      const current = await prisma.record.findUnique({ where, select: { id: true } })
+      if (current) throw createError({ statusCode: 412, statusMessage: STALE_RECORD_MESSAGE })
+    }
     throw toHttpError(error, recordErrors)
   }
 }

@@ -289,7 +289,7 @@ async function submitRecord(data: TRecordData) {
     await recordsStore.updateRecord(
       workspaceAddress,
       tableAddress,
-      editingRecord.value.id,
+      editingRecord.value,
       data,
       queryState.value,
     )

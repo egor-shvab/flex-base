@@ -250,6 +250,51 @@ describe('writing through the endpoint', () => {
     })
   })
 
+  describe('two people saving the same version', () => {
+    const patchAt = (recordAddress: string, body: unknown, ifMatch: string) => {
+      const event = testEvent({
+        user: ada,
+        params: { workspaceAddress: ada.workspace.publicId, tableAddress: tableId, recordAddress },
+        method: 'PATCH',
+        body,
+      })
+      event.node.req.headers['if-match'] = ifMatch
+      return recordPatch(event)
+    }
+
+    it('lets the first save land and refuses the second with a 412, keeping the first', async () => {
+      const acme = (await list({})).records.find((row) => row.data.company === 'Acme')!
+      const opened = `"${acme.updatedAt}"`
+
+      const first = await patchAt(acme.id, { company: 'First' }, opened)
+      await expect(patchAt(acme.id, { company: 'Second' }, opened)).rejects.toMatchObject({
+        statusCode: 412,
+      })
+
+      expect(first.record.updatedAt).not.toBe(acme.updatedAt)
+      expect(await companies({})).toContain('First')
+      expect(await companies({})).not.toContain('Second')
+    })
+
+    it('accepts a save on the version the previous save returned', async () => {
+      const acme = (await list({})).records.find((row) => row.data.company === 'Acme')!
+
+      const first = await patchAt(acme.id, { company: 'First' }, `"${acme.updatedAt}"`)
+      const second = await patchAt(acme.id, { company: 'Second' }, `"${first.record.updatedAt}"`)
+
+      expect(second.record.data.company).toBe('Second')
+    })
+
+    it('400s a version that is not a timestamp, writing nothing', async () => {
+      const acme = (await list({})).records.find((row) => row.data.company === 'Acme')!
+
+      await expect(patchAt(acme.id, { company: 'X' }, '"*"')).rejects.toMatchObject({
+        statusCode: 400,
+      })
+      expect(await companies({})).toContain('Acme')
+    })
+  })
+
   describe('a multi-value field’s caps', () => {
     async function withTags() {
       await createField(tableId, {

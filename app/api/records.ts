@@ -34,15 +34,18 @@ export function useRecordsApi() {
         method: 'POST',
         body: data,
       }),
+    /** `readUpdatedAt` is the version the form was opened on; a newer one on the server is a 412. */
     update: (
       workspaceAddress: string,
       tableAddress: string,
       recordAddress: string,
       data: TRecordData,
+      readUpdatedAt: string,
     ) =>
       api<IRecordResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {
         method: 'PATCH',
         body: data,
+        headers: { 'If-Match': `"${readUpdatedAt}"` },
       }),
     remove: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
       api<IRecordDeletedResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {

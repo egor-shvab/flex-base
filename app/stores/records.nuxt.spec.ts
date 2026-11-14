@@ -78,9 +78,21 @@ for (const tableId of ['tbl_1', 'tbl_2']) {
   })
 }
 
-registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/records/rec_1', {
+let lastIfMatch: string | undefined
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/records/rec_stale', {
   method: 'PATCH',
   handler: () => {
+    throw createError({ statusCode: 412, statusMessage: 'Someone changed this record' })
+  },
+})
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/records/rec_1', {
+  method: 'PATCH',
+  handler: (event) => {
+    // Case-insensitively: this mock keeps the header's case where Node lower-cases it
+    lastIfMatch =
+      new Headers(event.node.req.headers as Record<string, string>).get('if-match') ?? undefined
     writes.push('PATCH rec_1')
     return { record: record({ id: 'rec_1', number: 1, data: { company: 'Renamed' } }) }
   },
@@ -355,18 +367,51 @@ describe('useRecordsStore', () => {
       await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      await store.updateRecord(WS, 'tbl_1', 'rec_1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
 
       expect(store.records[0]?.data.company).toBe('Renamed')
       expect(store.records[1]).toEqual(GLOBEX)
       expect(listCalls()).toBe(0)
     })
 
+    it('sends the version the form was opened on, so a newer one is refused', async () => {
+      const store = useRecordsStore()
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
+
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
+
+      expect(lastIfMatch).toBe(`"${ACME.updatedAt}"`)
+    })
+
+    it('rejects a lost race and refreshes the list, so reopening shows the winner', async () => {
+      const store = useRecordsStore()
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
+      requests.length = 0
+
+      await expect(
+        store.updateRecord(
+          WS,
+          'tbl_1',
+          { ...ACME, id: 'rec_stale' },
+          { company: 'Mine' },
+          DEFAULT_QUERY,
+        ),
+      ).rejects.toMatchObject({ statusCode: 412 })
+
+      await vi.waitFor(() => expect(listCalls()).toBe(1))
+    })
+
     it('swaps the row when the record was addressed by its number', async () => {
       const store = useRecordsStore()
       await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
-      await store.updateRecord(WS, 'tbl_1', '1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(
+        WS,
+        'tbl_1',
+        { ...ACME, id: '1' },
+        { company: 'Renamed' },
+        DEFAULT_QUERY,
+      )
 
       expect(store.records[0]?.data.company).toBe('Renamed')
     })
@@ -376,7 +421,7 @@ describe('useRecordsStore', () => {
       await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       const before = store.records
 
-      await store.updateRecord(WS, 'tbl_1', 'rec_1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
 
       expect(store.records).not.toBe(before)
     })
@@ -387,7 +432,7 @@ describe('useRecordsStore', () => {
       await store.fetchRecords(WS, 'tbl_1', query)
       requests.length = 0
 
-      await store.updateRecord(WS, 'tbl_1', 'rec_1', { company: 'Renamed' }, query)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, query)
 
       expect(listCalls()).toBe(1)
     })
@@ -397,7 +442,7 @@ describe('useRecordsStore', () => {
       const store = useRecordsStore()
       await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
-      await store.updateRecord(WS, 'tbl_1', 'rec_1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
 
       expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 7 })
     })
@@ -409,7 +454,7 @@ describe('useRecordsStore', () => {
       await store.fetchRecords(WS, 'tbl_1', query)
       requests.length = 0
 
-      await store.updateRecord(WS, 'tbl_1', 'rec_1', { company: 'Renamed' }, query)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, query)
 
       expect(requests[0]?.page).toBe('4')
     })

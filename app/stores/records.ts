@@ -4,9 +4,11 @@ import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
 import type { TLoadStatus } from '~/types/load-status'
+import type { IHttpFailure } from '~/utils/api-error'
 import { createLatestRequest } from '~/utils/latest-request'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
+import type { IRecordResponse } from '#shared/types/api'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
 
 function isDefaultView(query: IRecordQueryState): boolean {
@@ -97,11 +99,22 @@ export const useRecordsStore = defineStore('records', () => {
   async function updateRecord(
     workspaceAddress: string,
     tableAddress: string,
-    recordAddress: string,
+    edited: Pick<IRecord, 'id' | 'updatedAt'>,
     data: TRecordData,
     query: IRecordQueryState,
   ) {
-    const response = await api.update(workspaceAddress, tableAddress, recordAddress, data)
+    let response: IRecordResponse
+    try {
+      response = await api.update(workspaceAddress, tableAddress, edited.id, data, edited.updatedAt)
+    } catch (error) {
+      // The list still holds the version that lost; refreshed, so reopening shows the one that won
+      if ((error as IHttpFailure | null)?.statusCode === 412) {
+        void fetchRecords(workspaceAddress, tableAddress, { ...query, page: page.value }).catch(
+          () => {},
+        )
+      }
+      throw error
+    }
 
     if (!isDefaultView(query)) {
       await fetchRecords(workspaceAddress, tableAddress, { ...query, page: page.value })

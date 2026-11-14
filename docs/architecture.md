@@ -420,7 +420,9 @@ Only what the name and the code do not say.
   mirrors them (they would have to survive hydration). `createRecord` refetches only when the new
   record lands on the current page; state clears when called for another table; `fetchRecords` is
   last-request-wins (a superseded response or failure is dropped) and otherwise sets `status` to
-  `'failed'` **and rethrows**.
+  `'failed'` **and rethrows**. `updateRecord` sends the `updatedAt` the form opened on as
+  `If-Match`; the server puts it in the update's `where`, so of two saves on one version the second
+  is a **412**, and the store then refreshes the list so reopening shows the winner.
 - **`stores/tables.ts`** — `ensureTables()` **never throws** (a failed sidebar must not replace a
   working page); `fetchTables` sets `status` and rethrows, `ensureTables` swallows it, and the
   sidebar's Retry calls `ensureTables` again. An answer for a workspace switched away from is
