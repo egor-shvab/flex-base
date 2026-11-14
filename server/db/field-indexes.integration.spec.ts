@@ -192,6 +192,17 @@ describe('a declared index is one the planner actually uses', () => {
   }, 60_000)
 })
 
+describe('the default order', () => {
+  it('reads a page straight off the table index, tie-break included, with no sort step', async () => {
+    await seedRows()
+
+    const plan = await planForSort([], DEFAULT_SORT_KEY)
+
+    expect(plan).toContain('Record_tableId_createdAt_number_idx')
+    expect(plan).not.toMatch(/^\s*->\s*(Incremental )?Sort/m)
+  }, 60_000)
+})
+
 describe('an index belongs to one table', () => {
   const predicateOf = async (name: string) => {
     const rows = await prisma.$queryRaw<{ predicate: string | null }[]>`
@@ -238,6 +249,23 @@ describe('an index belongs to one table', () => {
       query({ filters: { price: { from: 0, to: null } } }),
     )
     expect(records).toEqual([])
+  }, 60_000)
+
+  it('rebuilds an index built to an older shape, which its name alone cannot reveal', async () => {
+    const [company] = await createFields(tableId, [{ key: 'company', type: 'TEXT', indexed: true }])
+    await syncFieldIndexes(tableId, company as IField)
+    const name = `rec_idx_${company?.id}_sd`
+    await prisma.$executeRawUnsafe(`DROP INDEX "${name}"`)
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX "${name}" ON "Record" ((data ->> 'company'::text) DESC NULLS LAST, "createdAt" DESC) WHERE "tableId" = '${tableId}'`,
+    )
+
+    await syncFieldIndexes(tableId, company as IField)
+
+    const rows = await prisma.$queryRaw<{ definition: string }[]>`
+      SELECT pg_get_indexdef(${name}::regclass) AS definition
+    `
+    expect(rows[0]?.definition).toContain('"createdAt" DESC, number DESC')
   }, 60_000)
 
   it('rebuilds an index left spanning every table', async () => {

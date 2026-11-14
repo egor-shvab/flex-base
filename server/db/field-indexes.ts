@@ -116,15 +116,15 @@ export function buildFieldIndexes(tableId: string, field: IField): IFieldIndex[]
 /**
  * Partial on the field's table: PostgreSQL evaluates an index expression for every row the index
  * covers, so one spanning `"Record"` would cast other tenants' values under the same key and fail
- * their writes. `CONCURRENTLY`, so never inside a transaction. A B-tree trails with `"createdAt"`,
- * the tie-break every ordering carries.
+ * their writes. `CONCURRENTLY`, so never inside a transaction. A B-tree trails with `"createdAt"`
+ * and `"number"`, the tie-break every ordering carries.
  */
 function buildCreateIndexStatement(index: IFieldIndex): string {
   const direction = index.isDescending ? ' DESC NULLS LAST' : ' ASC NULLS LAST'
 
   const target =
     index.kind === 'btree'
-      ? `((${index.expression})${direction}, "createdAt" DESC)`
+      ? `((${index.expression})${direction}, "createdAt" DESC, "number" DESC)`
       : index.kind === 'trigram'
         ? `USING gin ((${index.expression}) gin_trgm_ops)`
         : `USING gin ((${index.expression}))`
@@ -139,12 +139,26 @@ function buildDropIndexStatement(name: string): string {
 }
 
 /**
- * An index with no predicate predates per-table indexes and spans every tenant's rows, so it counts
- * as invalid: dropped and rebuilt like a failed build.
+ * Stamped on an index once it is built. **Change it whenever `buildCreateIndexStatement` or an
+ * index expression changes:** names alone cannot tell an index built to an older shape, which
+ * would stay in place forever.
+ */
+const INDEX_SHAPE = 'flexbase field index v2'
+
+async function createFieldIndex(index: IFieldIndex): Promise<void> {
+  await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
+  await prisma.$executeRawUnsafe(`COMMENT ON INDEX "${index.name}" IS '${INDEX_SHAPE}'`)
+}
+
+/**
+ * An index without the current stamp — built to an older shape, or whose stamp never landed —
+ * counts as invalid: dropped and rebuilt like a failed build.
  */
 async function listOwnedIndexes(): Promise<{ name: string; isValid: boolean }[]> {
   const rows = await prisma.$queryRaw<{ name: string; isValid: boolean }[]>`
-    SELECT c.relname AS name, i.indisvalid AND i.indpred IS NOT NULL AS "isValid"
+    SELECT c.relname AS name,
+           i.indisvalid AND COALESCE(obj_description(c.oid, 'pg_class') = ${INDEX_SHAPE}, false)
+             AS "isValid"
     FROM pg_class c
     JOIN pg_index i ON i.indexrelid = c.oid
     WHERE c.relname LIKE ${`${INDEX_PREFIX}%`}
@@ -173,7 +187,7 @@ export async function syncFieldIndexes(tableId: string, field: IField): Promise<
   const present = new Set(owned.filter((index) => index.isValid).map((index) => index.name))
 
   for (const index of wanted) {
-    if (!present.has(index.name)) await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
+    if (!present.has(index.name)) await createFieldIndex(index)
   }
 }
 
@@ -229,7 +243,7 @@ export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
   for (const index of wanted.values()) {
     if (present.has(index.name)) continue
 
-    await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
+    await createFieldIndex(index)
     created.push(index.name)
   }
 

@@ -178,5 +178,5 @@ model Record {
 
   // The (tableId, createdAt) index stays: the default newest-first order cannot use this one
   @@unique([tableId, number])
-  @@index([tableId, createdAt])
+  @@index([tableId, createdAt, number])
 }

@@ -267,41 +267,41 @@ describe('buildRecordOrderBy', () => {
   it('orders by creation for the default key', () => {
     expect(
       sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'desc' }).orderBy),
-    ).toBe('"createdAt" DESC')
+    ).toBe('"createdAt" DESC, "number" DESC')
     expect(
       sqlText(buildRecordOrderBy(table, { key: CREATED_AT_KEY, direction: 'asc' }).orderBy),
-    ).toBe('"createdAt" ASC')
+    ).toBe('"createdAt" ASC, "number" ASC')
   })
 
   it('falls back to creation for a key the table no longer owns', () => {
     expect(
       sqlText(buildRecordOrderBy(table, { key: 'deleted_field', direction: 'asc' }).orderBy),
-    ).toBe('"createdAt" ASC')
+    ).toBe('"createdAt" ASC, "number" ASC')
   })
 
   it('sorts blanks last and breaks ties newest-first, which is what keeps paging stable', () => {
     expect(sqlText(buildRecordOrderBy(table, { key: 'company', direction: 'asc' }).orderBy)).toBe(
-      'data ->> $1::text ASC NULLS LAST, "createdAt" DESC',
+      'data ->> $1::text ASC NULLS LAST, "createdAt" DESC, "number" DESC',
     )
   })
 
   it('orders the number as an integer though it filters as text, so #9 precedes #10', () => {
     expect(
       sqlText(buildRecordOrderBy([], { key: RECORD_NUMBER_KEY, direction: 'asc' }).orderBy),
-    ).toBe('"number" ASC NULLS LAST, "createdAt" DESC')
+    ).toBe('"number" ASC NULLS LAST, "createdAt" DESC, "number" DESC')
   })
 
   it('orders a timestamp as a timestamp, so two records made in one day still order by time', () => {
     expect(
       sqlText(buildRecordOrderBy([], { key: UPDATED_AT_KEY, direction: 'desc' }).orderBy),
-    ).toBe('"updatedAt" DESC NULLS LAST, "createdAt" DESC')
+    ).toBe('"updatedAt" DESC NULLS LAST, "createdAt" DESC, "number" DESC')
   })
 
   it('orders a RELATION by the label the user reads, not by the id it stores', () => {
     const order = buildRecordOrderBy(table, { key: 'owner', direction: 'asc' })
 
     expect(sqlText(order.orderBy)).toBe(
-      '"sort_target".target_label ASC NULLS LAST, "createdAt" DESC',
+      '"sort_target".target_label ASC NULLS LAST, "createdAt" DESC, "number" DESC',
     )
     expect(sqlText(order.join)).toBe(
       'LEFT JOIN ( SELECT id AS target_id, data ->> $1::text AS target_label FROM "Record" WHERE "tableId" = $2 ) AS "sort_target" ON "sort_target".target_id = data ->> $3::text',
@@ -332,7 +332,7 @@ describe('buildRecordOrderBy', () => {
   it('orders a multi-value SELECT by its first value', () => {
     const multi = asMultiple(selectField())
     expect(sqlText(buildRecordOrderBy([multi], { key: 'stage', direction: 'asc' }).orderBy)).toBe(
-      'data -> $1::text ->> 0 ASC NULLS LAST, "createdAt" DESC',
+      'data -> $1::text ->> 0 ASC NULLS LAST, "createdAt" DESC, "number" DESC',
     )
   })
 
@@ -340,7 +340,9 @@ describe('buildRecordOrderBy', () => {
     const orphan = relationField({ labelFieldKey: undefined })
     const order = buildRecordOrderBy([orphan], { key: 'owner', direction: 'asc' })
 
-    expect(sqlText(order.orderBy)).toBe('data ->> $1::text ASC NULLS LAST, "createdAt" DESC')
+    expect(sqlText(order.orderBy)).toBe(
+      'data ->> $1::text ASC NULLS LAST, "createdAt" DESC, "number" DESC',
+    )
     expect(order.join.text).toBe('')
   })
 })
@@ -348,12 +350,12 @@ describe('buildRecordOrderBy', () => {
 describe('buildRecordLabelOrderBy', () => {
   it('orders a picker alphabetically by the label the user will read', () => {
     expect(sqlText(buildRecordLabelOrderBy('full_name'))).toBe(
-      'data ->> $1::text ASC NULLS LAST, "createdAt" DESC',
+      'data ->> $1::text ASC NULLS LAST, "createdAt" DESC, "number" DESC',
     )
   })
 
   it('falls back to newest-first with no label field', () => {
-    expect(sqlText(buildRecordLabelOrderBy())).toBe('"createdAt" DESC')
+    expect(sqlText(buildRecordLabelOrderBy())).toBe('"createdAt" DESC, "number" DESC')
   })
 })
 

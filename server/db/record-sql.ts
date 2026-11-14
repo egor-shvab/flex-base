@@ -97,6 +97,12 @@ export interface IRecordOrder {
 
 const SORT_JOIN_ALIAS = 'sort_target'
 
+/**
+ * Every ordering ends on `"number"`, unique within a table: rows tied on the sort value and on
+ * `"createdAt"` would otherwise come back in any order, and OFFSET paging would repeat or skip them.
+ */
+const TIE_BREAK = Prisma.sql`"createdAt" DESC, "number" DESC`
+
 export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecordOrder {
   const direction = sort.direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
   const field =
@@ -105,7 +111,10 @@ export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecord
       : buildQueryColumns(fields).find((f) => f.key === sort.key)
 
   if (!field) {
-    return { orderBy: Prisma.sql`"createdAt" ${direction}`, join: Prisma.empty }
+    return {
+      orderBy: Prisma.sql`"createdAt" ${direction}, "number" ${direction}`,
+      join: Prisma.empty,
+    }
   }
 
   const joined = RECORD_COLUMN_SQL[field.key]
@@ -113,15 +122,15 @@ export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecord
     : (sqlFor(field).sortJoin?.(field, SORT_JOIN_ALIAS) ?? null)
 
   return {
-    orderBy: Prisma.sql`${joined?.expr ?? toSortExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`,
+    orderBy: Prisma.sql`${joined?.expr ?? toSortExpr(field)} ${direction} NULLS LAST, ${TIE_BREAK}`,
     join: joined?.join ?? Prisma.empty,
   }
 }
 
 export function buildRecordLabelOrderBy(labelFieldKey?: string): Prisma.Sql {
-  if (labelFieldKey === undefined) return Prisma.sql`"createdAt" DESC`
+  if (labelFieldKey === undefined) return TIE_BREAK
 
-  return Prisma.sql`${jsonText(labelFieldKey)} ASC NULLS LAST, "createdAt" DESC`
+  return Prisma.sql`${jsonText(labelFieldKey)} ASC NULLS LAST, ${TIE_BREAK}`
 }
 
 export function buildRecordLabelSearch(

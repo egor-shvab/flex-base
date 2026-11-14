@@ -266,8 +266,10 @@ nothing. Search adds an indexed **pre-filter** — `record_search_text(data, "nu
 what any type searches, and expression and index must stay byte-identical. `listRecords` composes
 one statement, searching or not. The count runs as `SELECT 1 … LIMIT RECORD_COUNT_CAP + 1` over the
 same WHERE, reported as `IRecordPage.totalCapped`. Keys and values are bound parameters; keys are
-`::text`-cast to pick the `->>` overload. Ordering falls back to `"createdAt" DESC`; an explicit
-sort puts blanks `NULLS LAST` and breaks ties on `"createdAt" DESC`, which keeps paging stable.
+`::text`-cast to pick the `->>` overload. Ordering falls back to `"createdAt"`, `"number"`; an
+explicit sort puts blanks `NULLS LAST` and breaks ties on `"createdAt" DESC, "number" DESC`.
+**`"number"` is the tie-break that makes paging stable** — unique per table, where `"createdAt"`
+is not (a bulk insert shares one timestamp) — and every B-tree that serves an order ends on it.
 
 ---
 
@@ -300,8 +302,10 @@ from the code:
 
 - **Each index is partial on its field's table** (`WHERE "tableId" = '…'`). PostgreSQL evaluates an
   index expression for every row the index covers, so one over all of `"Record"` would cast another
-  workspace's value under the same key and fail that write. An owned index with no predicate counts
-  as invalid and is rebuilt.
+  workspace's value under the same key and fail that write.
+- **A built index is stamped with `INDEX_SHAPE`** (its comment); one without the current stamp
+  counts as invalid and is rebuilt. Names cannot tell an older shape apart, so **any change to the
+  DDL or an index expression bumps the stamp**, or existing indexes keep the old shape for good.
 - **Sorting needs one index per direction.** Order is always `NULLS LAST`; a B-tree read backwards
   gives `DESC NULLS FIRST`, which PostgreSQL will not use. `_sa` and `_sd` are separate; `_f`
   doubles as `_sa` when the filter is an ascending B-tree on the same expression.

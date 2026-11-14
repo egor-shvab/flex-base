@@ -125,6 +125,37 @@ describe('the kept record count', () => {
   })
 })
 
+describe('paging through ties', () => {
+  it('returns every record exactly once when they share a creation time and a sort value', async () => {
+    const createdAt = new Date('2026-03-01T09:00:00.000Z')
+    for (let index = 0; index < 7; index += 1) {
+      await createRecord(tableId, { company: 'Same' }, { createdAt })
+    }
+
+    const pageOf = async (page: number, sort = query().sort) =>
+      (
+        await RecordService.listRecords(tableId, fields, query({ page, pageSize: 3, sort }))
+      ).records.map((record) => record.number)
+
+    for (const sort of [
+      query().sort,
+      { key: 'company', direction: 'asc' as const },
+      { key: 'company', direction: 'desc' as const },
+    ]) {
+      const seen = [
+        ...(await pageOf(1, sort)),
+        ...(await pageOf(2, sort)),
+        ...(await pageOf(3, sort)),
+      ]
+
+      expect(seen).toHaveLength(7)
+      expect(new Set(seen).size).toBe(7)
+    }
+
+    expect(await pageOf(1)).toEqual([7, 6, 5])
+  })
+})
+
 describe('writing a record', () => {
   it('round-trips the data through JSONB', async () => {
     const stored = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
