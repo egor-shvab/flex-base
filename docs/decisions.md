@@ -592,13 +592,13 @@ It must render when data fetching is what failed. **"Go back" reads `history.sta
 goes Home. Three wordings — 404, other 4xx, 5xx — decided by `toPageError` and echoed by the page,
 so a 5xx never blames the user's link.
 
-### `stores/fields.ts` and `stores/relations.ts` carry no per-table guard
+### `stores/fields.ts` carries no per-table guard; `stores/relations.ts` is cleared by the records store
 
 **Fields:** clearing on a table switch would show "This table has no fields yet" for a round trip,
 since `pending` is false while the loader runs. The page body's state order — skeleton tested before
-the fieldless state — is what covers the gap. **Relations:** `linkedByField` is keyed by field id
-and the detail dialog caches fields of other tables, so there is no correct key to clear on;
-merge-only for one session is the design.
+the fieldless state — is what covers the gap. **Relations:** cleared whole when `fetchRecords` moves
+to another table — merge-only grew for the whole session. Nothing is lost that is still read: the
+new page's list and any detail dialog re-send the linked records they show.
 
 ### The records store is not a duplicated cache, and `useAsyncData` would not replace it
 
@@ -773,8 +773,8 @@ they depend on.
 ### `RelationFieldSelect` gets its `tableId` from the store, not from `IField`
 
 `IField` has no `tableId`, and adding one would force `buildRecordColumn()`'s synthetic fields to
-invent one. `loadOptions(tableId, fields)` records it per field. `searchOptions` never writes
-`optionsByField` (the seed others read) but does `cacheLabels`.
+invent one. The page `setOptionSource`s the table it shows. `searchOptions` never writes
+`optionsByField` (the seed others read) but does cache the linked records it finds.
 
 ### A coloured badge carries a dot, not a border
 

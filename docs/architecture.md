@@ -173,7 +173,9 @@ excluded as label candidates — a link labelled by a link reads as an id), and 
 `records.ts` generic:
 
 - **`resolveLinkedRecords`** — after the list, returns `IRecordPage.linkedRecords` keyed by **field
-  id** then target id; one `findMany` per distinct target table.
+  id** then target id; one query per distinct target table **and label field**, projecting only
+  `data -> labelFieldKey`, never the whole row. The list also passes its **resolved filter**, so a
+  filter chip has its record's label even when no row on the page links to it.
 - **`assertRelationTargets`** — gates every write: a value that is not a live record of its target
   table is a 400.
 - **`resolveFilterTargets`** — swaps filter addresses for ids before the WHERE is built;
@@ -442,7 +444,10 @@ Only what the name and the code do not say.
   `incoming` (the signed-in user's, which the switcher counts). `ensureIncoming` never throws and
   reloads for another user, as `ensureWorkspaces` does. **An answer refused with a 404 drops the
   invitation** — revoked, expired or answered in another tab.
-- **`stores/relations.ts`** — `loadOptions` fetches nothing for a table without relations.
+- **`stores/relations.ts`** — options are **lazy**: the page only `setOptionSource`s, and a picker's
+  first mount `ensureOptions` its own field, so a table that is only browsed asks for none; until
+  they answer the picker says "Loading records…", never "no records". Caches are `shallowRef`s
+  mutated in place and triggered, and are cleared on a table switch by the records store.
 
 ### Renderers — `app/components/records/`
 
@@ -460,8 +465,8 @@ Only what the name and the code do not say.
 
 **On the records page the URL is the single source of truth.** `queryState` is
 `parseRecordQueryState(fields, route.query)`; one watcher refetches, keyed on
-`toRecordQueryKey(queryState)` so opening a dialog does not refetch. Records and relation options
-load **after** the table loader, because filters decode against field metadata.
+`toRecordQueryKey(queryState)` so opening a dialog does not refetch. Records load **after** the
+table loader, because filters decode against field metadata.
 
 ---
 

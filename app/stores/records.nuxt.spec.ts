@@ -267,6 +267,18 @@ describe('useRecordsStore', () => {
       expect(store.page).toBe(1)
     })
 
+    it('drops the previous table’s linked records too, so the cache does not grow per table', async () => {
+      const store = useRecordsStore()
+      response = page({ linkedRecords: { fld_owner: { rec_ada: { number: 1, label: 'Ada' } } } })
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
+      expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toBeDefined()
+
+      response = page()
+      await store.fetchRecords(WS, 'tbl_2', DEFAULT_QUERY)
+
+      expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toBeUndefined()
+    })
+
     it('keeps what it has when the same table is refetched', async () => {
       const store = useRecordsStore()
       await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)

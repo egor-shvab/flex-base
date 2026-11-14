@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { UNKNOWN_RECORD_LABEL } from '#shared/constants/record'
 import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
 import { formatLinkedRecord } from '#shared/utils/record-label'
@@ -43,6 +43,16 @@ const props = withDefaults(
 const model = defineModel<string | string[]>({ required: true })
 
 const relations = useRelationsStore()
+
+onMounted(() => void relations.ensureOptions(props.fieldId))
+
+/** Until the options answer, "no records" would be a claim about data nobody has seen yet. */
+const emptyLabel = computed(() => {
+  const status = relations.findOptionStatus(props.fieldId)
+  if (status === 'idle' || status === 'loading') return 'Loading records…'
+  if (status === 'failed') return 'Could not load records. Type to search instead.'
+  return 'No records to link to'
+})
 
 const linkedIds = computed<string[]>(() => toValueList(model.value))
 
@@ -75,7 +85,7 @@ const selectProps = computed(() => ({
   placeholder: props.placeholder,
   clearable: props.clearable,
   error: props.error,
-  emptyLabel: 'No records to link to',
+  emptyLabel: emptyLabel.value,
 }))
 
 const options = computed<ISelectOption[]>(() => {

@@ -232,14 +232,14 @@ const {
 
 const { throwPageError } = useAccessResync()
 
+// Only where to ask: a picker loads its options when a form or the filter panel first shows it
+relationsStore.setOptionSource(workspaceAddress, tableAddress)
+
 const { data, error } = await useAsyncData(
   `table-records-${workspaceAddress}-${tableAddress}`,
   async () => {
     const table = await loadTable(workspaceAddress, tableAddress)
-    await Promise.all([
-      recordsStore.fetchRecords(workspaceAddress, tableAddress, queryState.value),
-      relationsStore.loadOptions(workspaceAddress, tableAddress, fieldsStore.fields),
-    ])
+    await recordsStore.fetchRecords(workspaceAddress, tableAddress, queryState.value)
     return table
   },
 )

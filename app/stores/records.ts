@@ -54,6 +54,7 @@ export const useRecordsStore = defineStore('records', () => {
       tableAddress !== loadedTableAddress.value
     ) {
       clearState()
+      relations.clearState()
     }
     const { signal, isCurrent } = listRequest.start()
     status.value = 'loading'

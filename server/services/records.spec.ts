@@ -116,7 +116,7 @@ describe('RecordService.listRecords', () => {
 
   it('resolves linked records for the ids on this page alone', async () => {
     stubPage([row({ data: { owner: 'rec_9' } })], 1)
-    prismaMock.record.findMany.mockResolvedValue([{ id: 'rec_9', number: 3, data: {} }])
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ id: 'rec_9', number: 3, label: null }])
 
     const page = await RecordService.listRecords(TABLE_ID, [relationField()], query())
 
@@ -230,7 +230,7 @@ describe('RecordService.createRecord', () => {
   })
 
   it('checks the linked records before it allocates anything', async () => {
-    prismaMock.record.findMany.mockResolvedValue([])
+    prismaMock.$queryRaw.mockResolvedValue([])
 
     await expect(
       RecordService.createRecord(TABLE_ID, [relationField()], { owner: 'rec_forged' }, ACTOR_ID),
@@ -256,7 +256,7 @@ describe('RecordService.updateRecord', () => {
   })
 
   it('checks the linked records first here too', async () => {
-    prismaMock.record.findMany.mockResolvedValue([])
+    prismaMock.$queryRaw.mockResolvedValue([])
 
     await expect(
       RecordService.updateRecord(

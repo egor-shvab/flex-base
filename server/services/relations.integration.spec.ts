@@ -3,21 +3,16 @@ import { RelationService } from '#server/services/relations'
 import { RecordService } from '#server/services/records'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
-import type { IRecord, TRecordData } from '#shared/types/record'
+import type { TRecordData } from '#shared/types/record'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
 let userId: string
 let workspaceId: string
 let peopleId: string
+let dealsId: string
 let owner: IField
 
-const asRecord = (data: TRecordData): IRecord => ({
-  id: 'rec',
-  number: 1,
-  data,
-  createdAt: '',
-  updatedAt: '',
-})
+const asRecord = (data: TRecordData): TRecordData => data
 
 beforeEach(async () => {
   const user = await createUser()
@@ -29,6 +24,7 @@ beforeEach(async () => {
   await createField(peopleId, { key: 'full_name', type: 'TEXT' })
 
   const deals = await createTable(workspaceId, 'Deals')
+  dealsId = deals.id
   owner = await createField(deals.id, {
     key: 'owner',
     name: 'Owner',
@@ -92,6 +88,40 @@ describe('resolving linked records', () => {
       [ada.id]: { number: ada.number, label: 'Ada' },
       [grace.id]: { number: grace.number, label: 'Grace' },
     })
+  })
+})
+
+describe('reading only the label', () => {
+  it('labels from a multi-value label field, joined as the cell shows it', async () => {
+    const tags = await createRecord(peopleId, { full_name: ['Ada', 'Lovelace'] })
+
+    const refs = await RelationService.resolveLinkedRecords([owner], [{ owner: tags.id }])
+
+    expect(refs[owner.id]?.[tags.id]).toEqual({ number: tags.number, label: 'Ada, Lovelace' })
+  })
+
+  it('labels a relation with no label field by its number alone', async () => {
+    const ada = await createRecord(peopleId, { full_name: 'Ada' })
+    const unlabelled = { ...owner, options: { targetTableId: peopleId } }
+
+    const refs = await RelationService.resolveLinkedRecords([unlabelled], [{ owner: ada.id }])
+
+    expect(refs[owner.id]?.[ada.id]).toEqual({ number: ada.number, label: null })
+  })
+
+  it('gives a filtered list the labels of the records its filter names', async () => {
+    const ada = await createRecord(peopleId, { full_name: 'Ada' })
+
+    const page = await RecordService.listRecords(dealsId, [owner], {
+      page: 1,
+      pageSize: 50,
+      sort: { key: 'createdAt', direction: 'desc' },
+      filters: { owner: String(ada.number) },
+      search: '',
+    })
+
+    expect(page.records).toEqual([])
+    expect(page.linkedRecords[owner.id]?.[ada.id]).toEqual({ number: ada.number, label: 'Ada' })
   })
 })
 

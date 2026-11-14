@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Prisma } from '#server/generated/prisma/client'
 import { RelationService } from '#server/services/relations'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
@@ -23,9 +24,17 @@ function boundValues(args: unknown[]): unknown[] {
   return args.slice(1).flatMap((arg) => (isSqlFragment(arg) ? arg.values : [arg]))
 }
 
-function targetRow(id: string, number: number, fullName?: string) {
-  return { id, number, data: fullName === undefined ? {} : { full_name: fullName } }
+/** A target row as the label query returns it: the label field's value, never the whole data. */
+function labelRow(id: string, number: number, fullName?: string) {
+  return { id, number, label: fullName ?? null }
 }
+
+function sqlOf(call: unknown[] | undefined): Prisma.Sql {
+  const [strings, ...values] = call ?? [[]]
+  return new Prisma.Sql(strings as string[], values as Prisma.Sql[])
+}
+
+const labelQueries = () => prismaMock.$queryRaw.mock.calls.map(sqlOf)
 
 beforeEach(resetPrismaMock)
 
@@ -101,74 +110,70 @@ describe('RelationService.buildRelationTargets', () => {
 
 describe('RelationService.resolveLinkedRecords', () => {
   it('asks nothing of the database when there is nothing to resolve', async () => {
-    await expect(RelationService.resolveLinkedRecords([owner], [record()])).resolves.toEqual({})
-    expect(prismaMock.record.findMany).not.toHaveBeenCalled()
+    await expect(RelationService.resolveLinkedRecords([owner], [record().data])).resolves.toEqual(
+      {},
+    )
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled()
   })
 
   it('resolves each id to its number and label, keyed by the field that points at it', async () => {
-    prismaMock.record.findMany.mockResolvedValue([targetRow('rec_1', 1, 'Ada')])
+    prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada')])
 
-    const refs = await RelationService.resolveLinkedRecords(
-      [owner],
-      [record({ data: { owner: 'rec_1' } })],
-    )
+    const refs = await RelationService.resolveLinkedRecords([owner], [{ owner: 'rec_1' }])
 
     expect(refs).toEqual({ fld_owner: { rec_1: { number: 1, label: 'Ada' } } })
   })
 
-  it('resolves a blank label field to a null label, never to the number', async () => {
-    prismaMock.record.findMany.mockResolvedValue([targetRow('rec_1', 7)])
+  it('projects only the label field, never the whole data column', async () => {
+    prismaMock.$queryRaw.mockResolvedValue([])
 
-    const refs = await RelationService.resolveLinkedRecords(
-      [owner],
-      [record({ data: { owner: 'rec_1' } })],
-    )
+    await RelationService.resolveLinkedRecords([owner], [{ owner: 'rec_1' }])
+
+    const [query] = labelQueries()
+    expect(query?.text).toMatch(/SELECT id, "number", data -> \$\d+::text AS label FROM "Record"/)
+    expect(query?.values).toEqual(expect.arrayContaining(['full_name', 'tbl_people', 'rec_1']))
+  })
+
+  it('resolves a blank or missing label to a null label, never to the number', async () => {
+    prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 7)])
+
+    const refs = await RelationService.resolveLinkedRecords([owner], [{ owner: 'rec_1' }])
 
     expect(refs.fld_owner?.rec_1).toEqual({ number: 7, label: null })
   })
 
-  it('resolves a target whose data column is null, rather than failing on it', async () => {
-    prismaMock.record.findMany.mockResolvedValue([{ id: 'rec_1', number: 4, data: null }])
+  it('labels from a list-valued label field, as the cell shows it', async () => {
+    prismaMock.$queryRaw.mockResolvedValue([{ id: 'rec_1', number: 3, label: ['Ada', 'Grace'] }])
 
-    const refs = await RelationService.resolveLinkedRecords(
-      [owner],
-      [record({ data: { owner: 'rec_1' } })],
-    )
+    const refs = await RelationService.resolveLinkedRecords([owner], [{ owner: 'rec_1' }])
 
-    expect(refs.fld_owner?.rec_1).toEqual({ number: 4, label: null })
+    expect(refs.fld_owner?.rec_1).toEqual({ number: 3, label: 'Ada, Grace' })
   })
 
   it('leaves an unresolvable id absent rather than inventing a placeholder', async () => {
-    prismaMock.record.findMany.mockResolvedValue([])
+    prismaMock.$queryRaw.mockResolvedValue([])
 
-    const refs = await RelationService.resolveLinkedRecords(
-      [owner],
-      [record({ data: { owner: 'rec_gone' } })],
-    )
+    const refs = await RelationService.resolveLinkedRecords([owner], [{ owner: 'rec_gone' }])
 
     expect(refs).toEqual({ fld_owner: {} })
   })
 
-  it('issues one query per target table, never one per row', async () => {
-    prismaMock.record.findMany.mockResolvedValue([
-      targetRow('rec_1', 1, 'Ada'),
-      targetRow('rec_2', 2, 'Grace'),
+  it('issues one query per target table and label field, never one per row', async () => {
+    prismaMock.$queryRaw.mockResolvedValue([
+      labelRow('rec_1', 1, 'Ada'),
+      labelRow('rec_2', 2, 'Grace'),
     ])
 
     await RelationService.resolveLinkedRecords(
       [owner, reviewer],
       [
-        record({ id: 'a', data: { owner: 'rec_1', reviewer: 'rec_2' } }),
-        record({ id: 'b', data: { owner: 'rec_2', reviewer: 'rec_1' } }),
+        { owner: 'rec_1', reviewer: 'rec_2' },
+        { owner: 'rec_2', reviewer: 'rec_1' },
       ],
     )
 
-    expect(prismaMock.record.findMany).toHaveBeenCalledTimes(1)
-    expect(prismaMock.record.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { tableId: 'tbl_people', id: { in: ['rec_1', 'rec_2'] } },
-      }),
-    )
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(labelQueries()[0]?.values).toEqual(['full_name', 'tbl_people', 'rec_1', 'rec_2'])
   })
 
   it('keeps two target tables in separate lookups, so a foreign id cannot pass as found', async () => {
@@ -176,25 +181,47 @@ describe('RelationService.resolveLinkedRecords', () => {
       { targetTableId: 'tbl_orgs' },
       { key: 'org', id: 'fld_org', name: 'Org' },
     )
-    prismaMock.record.findMany.mockResolvedValue([])
+    prismaMock.$queryRaw.mockResolvedValue([])
 
-    await RelationService.resolveLinkedRecords(
-      [owner, elsewhere],
-      [record({ data: { owner: 'r1', org: 'r2' } })],
+    await RelationService.resolveLinkedRecords([owner, elsewhere], [{ owner: 'r1', org: 'r2' }])
+
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2)
+  })
+
+  it('looks up one table separately per label field, so each projects its own', async () => {
+    const byEmail = relationField(
+      { labelFieldKey: 'email' },
+      { key: 'contact', id: 'fld_contact', name: 'Contact' },
+    )
+    prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'value')])
+
+    const refs = await RelationService.resolveLinkedRecords(
+      [owner, byEmail],
+      [{ owner: 'rec_1', contact: 'rec_1' }],
     )
 
-    expect(prismaMock.record.findMany).toHaveBeenCalledTimes(2)
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2)
+    expect(labelQueries().map((query) => query.values[0])).toEqual(['full_name', 'email'])
+    expect(Object.keys(refs)).toEqual(['fld_owner', 'fld_contact'])
+  })
+
+  it('resolves the records a filter names, even when no row links to them', async () => {
+    prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_9', 9, 'Hedy')])
+
+    const refs = await RelationService.resolveLinkedRecords([owner], [{}, { owner: 'rec_9' }])
+
+    expect(refs.fld_owner?.rec_9).toEqual({ number: 9, label: 'Hedy' })
   })
 
   it('resolves every id of a widened field', async () => {
-    prismaMock.record.findMany.mockResolvedValue([
-      targetRow('rec_1', 1, 'Ada'),
-      targetRow('rec_2', 2, 'Grace'),
+    prismaMock.$queryRaw.mockResolvedValue([
+      labelRow('rec_1', 1, 'Ada'),
+      labelRow('rec_2', 2, 'Grace'),
     ])
 
     const refs = await RelationService.resolveLinkedRecords(
       [asMultiple(owner)],
-      [record({ data: { owner: ['rec_1', 'rec_2'] } })],
+      [{ owner: ['rec_1', 'rec_2'] }],
     )
 
     expect(refs.fld_owner).toEqual({
@@ -292,11 +319,11 @@ describe('RelationService.resolveFilterTargets', () => {
 describe('RelationService.assertRelationTargets', () => {
   it('passes silently when there is nothing linked', async () => {
     await expect(RelationService.assertRelationTargets([owner], {})).resolves.toBeUndefined()
-    expect(prismaMock.record.findMany).not.toHaveBeenCalled()
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled()
   })
 
   it('accepts an id the target table really holds', async () => {
-    prismaMock.record.findMany.mockResolvedValue([targetRow('rec_1', 1, 'Ada')])
+    prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada')])
 
     await expect(
       RelationService.assertRelationTargets([owner], { owner: 'rec_1' }),
@@ -304,7 +331,7 @@ describe('RelationService.assertRelationTargets', () => {
   })
 
   it('rejects a crafted id, naming the field it came in on', async () => {
-    prismaMock.record.findMany.mockResolvedValue([])
+    prismaMock.$queryRaw.mockResolvedValue([])
 
     await expect(
       RelationService.assertRelationTargets([owner], { owner: 'rec_forged' }),
@@ -315,7 +342,7 @@ describe('RelationService.assertRelationTargets', () => {
   })
 
   it('rejects when only some of a widened field’s ids resolve', async () => {
-    prismaMock.record.findMany.mockResolvedValue([targetRow('rec_1', 1, 'Ada')])
+    prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada')])
 
     await expect(
       RelationService.assertRelationTargets([asMultiple(owner)], { owner: ['rec_1', 'rec_gone'] }),
@@ -332,12 +359,21 @@ describe('RelationService.listRelationOptions', () => {
   })
 
   it('offers each candidate as its id, its number and its label', async () => {
-    prismaMock.$queryRaw.mockResolvedValue([targetRow('rec_1', 1, 'Ada'), targetRow('rec_2', 2)])
+    prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada'), labelRow('rec_2', 2)])
 
     await expect(RelationService.listRelationOptions(owner)).resolves.toEqual([
       { id: 'rec_1', number: 1, label: 'Ada' },
       { id: 'rec_2', number: 2, label: null },
     ])
+  })
+
+  it('projects only the label field for its candidates', async () => {
+    prismaMock.$queryRaw.mockResolvedValue([])
+
+    await RelationService.listRelationOptions(owner)
+
+    expect(labelQueries()[0]?.text).toContain('data -> $1::text AS label')
+    expect(labelQueries()[0]?.text).not.toMatch(/"number", data FROM/)
   })
 
   it('binds the target table and the cap as parameters', async () => {

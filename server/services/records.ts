@@ -62,12 +62,8 @@ async function listRecords(
   query: IRecordQuery,
 ): Promise<IRecordPage> {
   const { page, pageSize, sort, filters, search } = query
-  const where = buildRecordWhere(
-    tableId,
-    fields,
-    await RelationService.resolveFilterTargets(fields, filters),
-    search,
-  )
+  const resolvedFilters = await RelationService.resolveFilterTargets(fields, filters)
+  const where = buildRecordWhere(tableId, fields, resolvedFilters, search)
   const order = buildRecordOrderBy(fields, sort)
 
   const [rows, counts] = await prisma.$transaction([
@@ -84,7 +80,10 @@ async function listRecords(
     totalCapped: counted > RECORD_COUNT_CAP,
     page,
     pageSize,
-    linkedRecords: await RelationService.resolveLinkedRecords(fields, records),
+    linkedRecords: await RelationService.resolveLinkedRecords(fields, [
+      ...records.map((record) => record.data),
+      resolvedFilters,
+    ]),
   }
 }
 
@@ -108,7 +107,7 @@ async function getRecordDetail(
     table,
     fields,
     record,
-    linkedRecords: await RelationService.resolveLinkedRecords(fields, [record]),
+    linkedRecords: await RelationService.resolveLinkedRecords(fields, [record.data]),
   }
 }
 
