@@ -1,6 +1,11 @@
 import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
-import { dropFieldIndexes, syncFieldIndexes } from '#server/db/field-indexes'
+import {
+  dropFieldIndexes,
+  reconcileFieldIndexes,
+  syncFieldIndexes,
+  type IReconcileReport,
+} from '#server/db/field-indexes'
 import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
 import { RelationService } from '#server/services/relations'
@@ -16,8 +21,33 @@ const fieldErrors = {
   notFound: 'Field not found',
 }
 
+const indexWorkByField = new Map<string, Promise<void>>()
+
+/**
+ * One field's index DDL runs one job at a time, in the order the edits were saved: two overlapping
+ * syncs could drop an index the other is building and end on a state no edit asked for. Each job
+ * reads the field as it was saved, so the last one leaves the last wanted set.
+ */
+function queueIndexWork(fieldId: string, work: () => Promise<void>): void {
+  const previous = indexWorkByField.get(fieldId) ?? Promise.resolve()
+  const next = previous.then(work).catch(recordBackgroundFailure)
+  indexWorkByField.set(fieldId, next)
+
+  void next.then(() => {
+    if (indexWorkByField.get(fieldId) === next) indexWorkByField.delete(fieldId)
+  })
+}
+
 function syncIndexesInBackground(tableId: string, field: IField): void {
-  void syncFieldIndexes(tableId, field).catch(recordBackgroundFailure)
+  queueIndexWork(field.id, () => syncFieldIndexes(tableId, field))
+}
+
+/**
+ * Run once at start-up: indexes built to an older shape, or left by a sync the process did not live
+ * to finish, are only ever repaired here.
+ */
+function reconcileIndexes(): Promise<IReconcileReport> {
+  return reconcileFieldIndexes()
 }
 
 function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
@@ -191,12 +221,13 @@ async function deleteField(workspaceId: string, tableId: string, fieldId: string
     throw toHttpError(error, fieldErrors)
   }
 
-  void dropFieldIndexes([fieldId]).catch(recordBackgroundFailure)
+  queueIndexWork(fieldId, () => dropFieldIndexes([fieldId]))
 }
 
 export const FieldService = {
   buildOptions,
   listFields,
+  reconcileIndexes,
   createField,
   updateField,
   deleteField,

@@ -367,6 +367,27 @@ describe('FieldService.deleteField', () => {
   })
 })
 
+describe('one field’s index work runs one job at a time', () => {
+  it('starts the second sync only after the first has finished', async () => {
+    let releaseFirst: (rows: unknown[]) => void = () => {}
+    prismaMock.$queryRaw
+      .mockImplementationOnce(() => new Promise((resolve) => (releaseFirst = resolve)))
+      .mockResolvedValue([])
+    prismaMock.field.findFirst.mockResolvedValue(storedField({ type: 'TEXT' }))
+    prismaMock.field.update.mockResolvedValue(stored(textField('owner', { indexed: true })))
+
+    await FieldService.updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT', indexed: true }))
+    await FieldService.updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT', indexed: false }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // The catalogue read is each sync's first step: the second has not begun
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1)
+
+    releaseFirst([])
+    await vi.waitFor(() => expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2))
+  })
+})
+
 describe('a failed index build never reaches the caller', () => {
   it('resolves the write, and does not leave the rejection unhandled', async () => {
     const unhandled = vi.fn()

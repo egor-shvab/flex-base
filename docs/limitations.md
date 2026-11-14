@@ -116,9 +116,8 @@ deployment, not after the first complaint._
 
 ### An index that fails to build says so only in the error log
 
-The build is not awaited, so the toggle reports success and the index is simply absent.
-`reconcileFieldIndexes` repairs it, but nothing calls it on a schedule. _Revisit with the error-log
-sink._
+The build is not awaited, so the toggle reports success and the index is simply absent until the
+next start-up, whose reconcile rebuilds it. _Revisit with the error-log sink._
 
 ### A record count stops at 1000, and past it the UI says `1000+`
 

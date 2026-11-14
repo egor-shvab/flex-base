@@ -325,9 +325,11 @@ from the code:
   the indexed ones first (`listIndexedFieldIds`) and drops their indexes once the rows are gone, or
   each orphan stays on `"Record"` and is maintained on every write.
 
-`listFieldIndexStats()` and `reconcileFieldIndexes()` are exported and tested with **no caller** —
-wiring them waits on a deployment story. Reconcile reports a **reaped** index (failed build, still
-wanted) apart from a **dropped** one.
+**`server/plugins/field-indexes.ts` reconciles once at start-up**, not awaited: it is the only repair
+for an index built to an older `INDEX_SHAPE`, a failed build, or a sync the process did not live to
+finish. While running, one field's DDL is queued per `field.id` in `FieldService`, so overlapping
+edits end on the last saved state. Reconcile reports a **reaped** index (failed build, still wanted)
+apart from a **dropped** one. `listFieldIndexStats()` is exported and tested with **no caller**.
 
 ---
 
@@ -356,7 +358,7 @@ Only what the name and the code do not say.
 - **`utils/error-log.ts`** — an entry is `source` · timestamp · statusCode · name · message · stack ·
   method · path · query **names** · userId and **nothing else**; a client entry nulls status,
   method and query names. `recordErrorEntry` (`error-log-file.ts`) never throws and disables itself
-  after a failure. Rationale: `decisions.md` → _Server errors are recorded from Nitro's `error`
+  after a failure, saying so **once on stderr** — path and error code only, never an entry. Rationale: `decisions.md` → _Server errors are recorded from Nitro's `error`
   hook, and only the 5xx ones_.
 - **`utils/rate-limit.ts`** — a bounded key map, so the guard cannot become the leak; when full it
   sheds its **oldest** window, since clearing would reset every throttled caller at once. Sign-in is

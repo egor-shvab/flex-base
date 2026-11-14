@@ -92,9 +92,26 @@ export function appendErrorLogLine(line: string): void {
     if (handle === null) return
     writeSync(handle, line)
     writtenBytes += bytes
-  } catch {
+  } catch (error) {
     isDisabled = true
     closeLog()
+    reportLogDisabled(error)
+  }
+}
+
+/**
+ * The one line the sink writes anywhere else, once: otherwise a log that cannot be written goes
+ * quiet and every later 5xx is lost unseen. Only the path and the error code — never an entry,
+ * whose redaction is this file's contract.
+ */
+function reportLogDisabled(error: unknown): void {
+  const code = (error as NodeJS.ErrnoException | null)?.code ?? 'unknown error'
+  try {
+    process.stderr.write(
+      `[flexbase] Server error log disabled: cannot write ${LOG_PATH} (${code}). Server errors are no longer recorded until restart.\n`,
+    )
+  } catch {
+    // Nowhere left to say it
   }
 }
 
