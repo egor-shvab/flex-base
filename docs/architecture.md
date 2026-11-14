@@ -10,6 +10,8 @@ How the metadata layer works — the contracts a reader cannot see from a module
 Manual: bcrypt + `jsonwebtoken`, no auth library. The JWT (`{ sub: userId }`, HS256, 7 days) lives
 in an httpOnly `auth_token` cookie; `verifyAuthToken` pins `algorithms: ['HS256']`.
 `server/middleware/auth.ts` **never rejects** — handlers call `requireUser(event)` for the 401.
+`server/middleware/body-limit.ts` refuses an `/api/` body over 1 MiB (413) or without a declared
+length (411) from its headers alone, before any handler reads it.
 `app/middleware/auth.global.ts` leaves `/ui-test` open (fixtures only).
 
 **Access is never in the token.** Membership and the role's permissions are read from the database
@@ -495,6 +497,8 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
 - **Table settings:** rows state type, configuration and key; icon actions named after the field;
   rename moves heading and sidebar together; delete lands on the dashboard; a targeted table refuses
   naming the field; rows stack at 375px.
+- **Server guards:** a page and a successful API response carry the framing, `nosniff` and referrer
+  headers; an error keeps Nitro's stricter `DENY`; an oversized body is a 413.
 - **Accessibility:** no serious/critical axe violation on dashboard, table settings, records, record
   form, filter drawer, the workspace switcher, every workspace settings section and its dialogs,
   incoming invitations, and at 375px; nothing below 24×24, with the chip remove asserted at exactly 24.

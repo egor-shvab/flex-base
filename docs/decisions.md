@@ -246,8 +246,8 @@ and SSR, so a handler logging for itself would only duplicate it.
   with `source`; the user id comes **from the cookie**, never the body; the path is cut at the first
   `?`; the report is a closed schema. Both sources write through `recordErrorEntry`.
 - **The endpoint is unauthenticated on purpose** (an error on the login page is worth having), so it
-  carries its own guards: the **`content-length` check runs before the body is read and refuses a
-  missing length** (or chunked encoding is an uncapped path into memory); the **rate limit keys on
+  carries its own guards: a **missing length is refused** (a report always has a body) and the
+  **16 KB cap runs before the body is read**, tighter than the global 1 MiB; the **rate limit keys on
   the socket address, not `x-forwarded-for`** (a spoofable header would make it opt-out; behind a
   proxy it fails too strict, which is the right direction).
 - **The client plugin's `.catch(() => {})` is the loop breaker** — an unhandled rejection from the

@@ -179,6 +179,12 @@ The field's values are cleared in the delete's transaction, which holds row lock
 that stored one — instant now, minutes on a table of millions. _Reopen with the workspace cascade
 above: clear in batches, keeping the key reserved until done._
 
+### Security headers stop short of a script policy and HSTS
+
+The CSP carries only `frame-ancestors`, `base-uri`, `object-src` and `form-action`: a `script-src`
+would need per-request nonces for Nuxt's inline payload. HSTS is left to whatever terminates TLS.
+_Reopen with the first real deployment._
+
 ### Registration keeps an email's case
 
 `User.email` is stored as typed, so `Ada@x.com` and `ada@x.com` are two accounts. Invitations are

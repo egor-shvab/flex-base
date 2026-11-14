@@ -36,6 +36,21 @@ export default defineNuxtConfig({
     },
   },
 
+  // Framing is limited to our own origin, not refused: DevTools frames the app in development.
+  // HSTS belongs to whatever terminates TLS. A script policy would need nonces for Nuxt's inline
+  // payload, so the CSP carries only directives that cannot break a page
+  routeRules: {
+    '/**': {
+      headers: {
+        'Content-Security-Policy':
+          "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'",
+        'X-Frame-Options': 'SAMEORIGIN',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'same-origin',
+      },
+    },
+  },
+
   // Filled at start-up from `NUXT_JWT_SECRET`. A default read from `process.env` here would be
   // frozen into the build and keep signing with it whatever the deployment sets
   runtimeConfig: {
