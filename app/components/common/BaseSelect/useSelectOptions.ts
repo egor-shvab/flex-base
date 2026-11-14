@@ -2,6 +2,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { QUERY_DEBOUNCE_MS, useDebouncedModel } from '~/composables/useDebouncedModel'
 import type { TLoadStatus } from '~/types/load-status'
+import { createLatestRequest } from '~/utils/latest-request'
 import type { ISelectOption, TLoadSelectOptions } from '~/types/select'
 
 interface IUseSelectOptionsInput<TValue extends string> {
@@ -20,43 +21,30 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
   const remote = shallowRef<ISelectOption<TValue>[]>([])
   const status = ref<TLoadStatus>('idle')
 
-  /**
-   * An out-of-order response is dropped entirely, so a fast typist never sees an error from a
-   * request they abandoned.
-   */
-  let requestId = 0
-  let controller: AbortController | undefined
-
-  function abort() {
-    controller?.abort()
-    controller = undefined
-  }
+  /** A fast typist never sees an error from a request they abandoned. */
+  const optionsRequest = createLatestRequest()
 
   async function runOptionsRequest(value: string) {
     const load = input.loadOptions()
 
     if (load === undefined || value === '') {
-      abort()
-      requestId += 1
+      optionsRequest.cancel()
       remote.value = []
       status.value = 'idle'
       return
     }
 
-    abort()
-    controller = new AbortController()
-
-    const id = (requestId += 1)
+    const { signal, isCurrent } = optionsRequest.start()
     status.value = 'loading'
 
     try {
-      const results = await load(value, controller.signal)
-      if (id !== requestId) return
+      const results = await load(value, signal)
+      if (!isCurrent()) return
 
       remote.value = results
       status.value = 'ready'
     } catch (error) {
-      if (id !== requestId) return
+      if (!isCurrent()) return
       if (error instanceof DOMException && error.name === 'AbortError') return
 
       status.value = 'failed'
@@ -85,8 +73,7 @@ export function useSelectOptions<TValue extends string>(input: IUseSelectOptions
   }
 
   function reset() {
-    abort()
-    requestId += 1
+    optionsRequest.cancel()
     searchDraft.value = ''
     committedTerm.value = ''
     remote.value = []

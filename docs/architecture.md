@@ -15,7 +15,10 @@ a session table. A token without `ver` is refused.
 `server/middleware/auth.ts` **never rejects** — handlers call `requireUser(event)` for the 401.
 `server/middleware/body-limit.ts` refuses an `/api/` body over 1 MiB (413) or without a declared
 length (411) from its headers alone, before any handler reads it.
-`app/middleware/auth.global.ts` leaves `/ui-test` open (fixtures only).
+`app/middleware/auth.global.ts` leaves `/ui-test` open (fixtures only). **Only a 401 from
+`/api/auth/me` means signed out**; any other failure is a fatal page error and leaves the auth store
+uninitialised, so the next navigation asks again. Logout ends in `reloadNuxtApp`, so no store keeps
+the previous session's data.
 
 **Access is never in the token.** Membership and the role's permissions are read from the database
 on every request (`requireMembership`), so a removed member or a narrowed role takes effect on the
@@ -403,7 +406,8 @@ Only what the name and the code do not say.
   unlike a listbox's cursor.
 - **`components/common/BaseSelect/useListboxNavigation.ts`** — the cursor never wraps and is keyed
   on option **values**, so a rebuilt options array does not move it. **`useSelectOptions.ts`** —
-  abort + a monotonic request id drop out-of-order responses.
+  out-of-order responses dropped through `createLatestRequest` (`utils/latest-request.ts`), which
+  any fetch a user can re-trigger before it answers goes through.
 - **`utils/api-error.ts`** — `toPageError` asserts a cause only for a 404, names the workspace
   only from `data.missing` (`INotFoundData`), never from the message, and is always `fatal`: Nuxt
   shows a non-fatal error on the client only on a cold load. **A `FetchError`'s `data` is a
@@ -414,8 +418,9 @@ Only what the name and the code do not say.
   **`utils/safe-redirect.ts`** — `?redirect` is internal paths only.
 - **`stores/records.ts`** — **every action takes the query params from the caller**; the store never
   mirrors them (they would have to survive hydration). `createRecord` refetches only when the new
-  record lands on the current page; state clears when called for another table; `fetchRecords` sets
-  `status` to `'failed'` **and rethrows**.
+  record lands on the current page; state clears when called for another table; `fetchRecords` is
+  last-request-wins (a superseded response or failure is dropped) and otherwise sets `status` to
+  `'failed'` **and rethrows**.
 - **`stores/tables.ts`** — `ensureTables()` **never throws** (a failed sidebar must not replace a
   working page); `fetchTables` sets `status` and rethrows, `ensureTables` swallows it, and the
   sidebar's Retry calls `ensureTables` again. An answer for a workspace switched away from is

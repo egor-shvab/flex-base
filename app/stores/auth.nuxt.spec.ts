@@ -7,16 +7,18 @@ import { useAuthStore } from '~/stores/auth'
 
 const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com', name: 'Ada' }
 
-const navigateTo = vi.hoisted(() => vi.fn())
-mockNuxtImport('navigateTo', () => navigateTo)
+const reloadNuxtApp = vi.hoisted(() => vi.fn())
+mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
-const failing = new Set<string>()
+/** Path → the status it fails with. */
+const failing = new Map<string, number>()
 
 function endpoint(path: string, method: 'GET' | 'POST' | 'PATCH', user: IAuthUser | null = ADA) {
   registerEndpoint(path, {
     method,
     handler: () => {
-      if (failing.has(path)) throw createError({ statusCode: 401, statusMessage: 'Nope' })
+      const statusCode = failing.get(path)
+      if (statusCode !== undefined) throw createError({ statusCode, statusMessage: 'Nope' })
       return user === null ? { ok: true } : { user }
     },
   })
@@ -34,7 +36,7 @@ describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     failing.clear()
-    navigateTo.mockClear()
+    reloadNuxtApp.mockClear()
   })
 
   it('starts signed out and uninitialized', () => {
@@ -55,8 +57,8 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(true)
     })
 
-    it('reads a rejection as signed out rather than throwing', async () => {
-      failing.add('/api/auth/me')
+    it('reads a 401 as signed out rather than throwing', async () => {
+      failing.set('/api/auth/me', 401)
       const store = useAuthStore()
 
       await expect(store.fetchUser()).resolves.toBeUndefined()
@@ -65,16 +67,30 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(false)
     })
 
-    it('marks itself initialized either way', async () => {
+    it('marks itself initialized once it has an answer, signed in or out', async () => {
       const signedIn = useAuthStore()
       await signedIn.fetchUser()
       expect(signedIn.isInitialized).toBe(true)
 
       setActivePinia(createPinia())
-      failing.add('/api/auth/me')
+      failing.set('/api/auth/me', 401)
       const signedOut = useAuthStore()
       await signedOut.fetchUser()
       expect(signedOut.isInitialized).toBe(true)
+    })
+
+    it('throws on a server fault and stays uninitialised, so the next navigation asks again', async () => {
+      failing.set('/api/auth/me', 500)
+      const store = useAuthStore()
+
+      await expect(store.fetchUser()).rejects.toMatchObject({ statusCode: 500 })
+
+      expect(store.isInitialized).toBe(false)
+      expect(store.user).toBeNull()
+
+      failing.clear()
+      await store.fetchUser()
+      expect(store.user).toEqual(ADA)
     })
   })
 
@@ -92,7 +108,7 @@ describe('useAuthStore', () => {
       ['register', '/api/auth/register'],
       ['login', '/api/auth/login'],
     ] as const)('lets a failed %s reject', async (action, path) => {
-      failing.add(path)
+      failing.set(path, 401)
       const store = useAuthStore()
 
       await expect(store[action](CREDENTIALS)).rejects.toThrow()
@@ -112,7 +128,7 @@ describe('useAuthStore', () => {
   })
 
   describe('logout', () => {
-    it('clears the session and leaves for the login page', async () => {
+    it('clears the session and reloads onto the login page, dropping every store', async () => {
       const store = useAuthStore()
       await store.login(CREDENTIALS)
       expect(store.isAuthenticated).toBe(true)
@@ -121,18 +137,18 @@ describe('useAuthStore', () => {
 
       expect(store.user).toBeNull()
       expect(store.isAuthenticated).toBe(false)
-      expect(navigateTo).toHaveBeenCalledWith('/auth/login')
+      expect(reloadNuxtApp).toHaveBeenCalledWith({ path: '/auth/login' })
     })
 
     it('keeps the session when the request fails', async () => {
       const store = useAuthStore()
       await store.login(CREDENTIALS)
 
-      failing.add('/api/auth/logout')
+      failing.set('/api/auth/logout', 500)
       await expect(store.logout()).rejects.toThrow()
 
       expect(store.user).toEqual(ADA)
-      expect(navigateTo).not.toHaveBeenCalled()
+      expect(reloadNuxtApp).not.toHaveBeenCalled()
     })
   })
 })

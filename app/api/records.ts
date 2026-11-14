@@ -17,9 +17,15 @@ export function useRecordsApi() {
   const api = useApi()
 
   return {
-    list: (workspaceAddress: string, tableAddress: string, query: IRecordQueryState) =>
+    list: (
+      workspaceAddress: string,
+      tableAddress: string,
+      query: IRecordQueryState,
+      signal?: AbortSignal,
+    ) =>
       api<IRecordPage>(apiPath.records(workspaceAddress, tableAddress), {
         query: toRecordQueryParams(query),
+        signal,
       }),
     detail: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
       api<IRecordDetail>(apiPath.record(workspaceAddress, tableAddress, recordAddress)),

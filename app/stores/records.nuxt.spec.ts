@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
 import { createPinia, setActivePinia } from 'pinia'
@@ -36,6 +36,23 @@ function buildTableRow(counts: { fields: number; records: number }) {
     _count: counts,
   }
 }
+
+/** The first page answers only when released, so a later request can overtake it. */
+let releaseFirstPage: (() => void) | undefined
+const FIRST_PAGE = page({ records: [ACME] })
+const SECOND_PAGE = page({ records: [GLOBEX], page: 2 })
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_race/records', {
+  method: 'GET',
+  handler: async (event) => {
+    if (getQuery(event).page === '2') return SECOND_PAGE
+
+    await new Promise<void>((resolve) => {
+      releaseFirstPage = resolve
+    })
+    return FIRST_PAGE
+  },
+})
 
 for (const tableId of ['tbl_1', 'tbl_2']) {
   registerEndpoint(`/api/workspaces/k3f9x2m8qa/tables/${tableId}/records`, {
@@ -141,6 +158,20 @@ describe('useRecordsStore', () => {
       expect(store.total).toBe(51)
       expect(store.page).toBe(2)
       expect(store.pageSize).toBe(25)
+    })
+
+    it('keeps the newest request’s page when an older one answers after it', async () => {
+      const store = useRecordsStore()
+
+      const first = store.fetchRecords(WS, 'tbl_race', DEFAULT_QUERY)
+      await vi.waitFor(() => expect(releaseFirstPage).toBeDefined())
+      await store.fetchRecords(WS, 'tbl_race', { ...DEFAULT_QUERY, page: 2 })
+      releaseFirstPage?.()
+      await first
+
+      expect(store.records).toEqual([GLOBEX])
+      expect(store.page).toBe(2)
+      expect(store.status).toBe('ready')
     })
 
     it('caches the linked records the page came with', async () => {

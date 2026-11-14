@@ -4,6 +4,7 @@ import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
 import type { TLoadStatus } from '~/types/load-status'
+import { createLatestRequest } from '~/utils/latest-request'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
@@ -37,6 +38,9 @@ export const useRecordsStore = defineStore('records', () => {
 
   const hasNextPage = computed(() => records.value.length === pageSize.value)
 
+  /** Filters, sort and paging can each start a fetch before the last one answered. */
+  const listRequest = createLatestRequest()
+
   async function fetchRecords(
     workspaceAddress: string,
     tableAddress: string,
@@ -49,10 +53,13 @@ export const useRecordsStore = defineStore('records', () => {
     ) {
       clearState()
     }
+    const { signal, isCurrent } = listRequest.start()
     status.value = 'loading'
 
     try {
-      const response = await api.list(workspaceAddress, tableAddress, query)
+      const response = await api.list(workspaceAddress, tableAddress, query, signal)
+      if (!isCurrent()) return
+
       records.value = response.records
       total.value = response.total
       totalCapped.value = response.totalCapped
@@ -63,6 +70,8 @@ export const useRecordsStore = defineStore('records', () => {
       relations.cacheLinkedRecords(response.linkedRecords)
       status.value = 'ready'
     } catch (error) {
+      if (!isCurrent()) return
+
       // A refetch runs from a watcher, where a rejection would be unhandled; the initial load still
       // throws, so `useAsyncData` can produce the 404
       status.value = 'failed'
