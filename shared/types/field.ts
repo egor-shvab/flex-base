@@ -24,4 +24,6 @@ export interface IField {
   options: IFieldOptions | null
   order: number
   indexed: boolean
+  /** The version an edit sends as `If-Match`; absent on the record columns, which are not stored. */
+  updatedAt?: string
 }

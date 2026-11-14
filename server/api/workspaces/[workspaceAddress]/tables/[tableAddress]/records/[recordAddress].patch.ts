@@ -1,6 +1,6 @@
-import { getRequestHeader, readValidatedBody } from 'h3'
+import { readValidatedBody } from 'h3'
 import { defineRecordWriteHandler } from '#server/utils/handler'
-import { parseRecordVersion } from '#server/utils/record-version'
+import { readIfMatchVersion } from '#server/utils/if-match'
 import { routeParam } from '#server/utils/route'
 import { RecordService } from '#server/services/records'
 import { buildRecordSchema } from '#shared/validation/record'
@@ -10,7 +10,7 @@ export default defineRecordWriteHandler(
   'RECORDS_UPDATE',
   async ({ event, user, tableId, fields }): Promise<IRecordResponse> => {
     const recordAddress = routeParam(event, 'recordAddress')
-    const expectedUpdatedAt = parseRecordVersion(getRequestHeader(event, 'if-match'))
+    const expectedUpdatedAt = readIfMatchVersion(event)
     const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
     const record = await RecordService.updateRecord(
       tableId,

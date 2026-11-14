@@ -20,9 +20,27 @@ describe('summarisePermissions', () => {
 
 describe('buildAssignableRoleOptions', () => {
   const roles = [
-    { id: 'rol_admin', name: 'Admin', permissions: [...WORKSPACE_PERMISSIONS], memberCount: 1 },
-    { id: 'rol_editor', name: 'Editor', permissions: ['RECORDS_CREATE' as const], memberCount: 0 },
-    { id: 'rol_viewer', name: 'Viewer', permissions: [], memberCount: 0 },
+    {
+      id: 'rol_admin',
+      name: 'Admin',
+      permissions: [...WORKSPACE_PERMISSIONS],
+      memberCount: 1,
+      updatedAt: '2026-02-11T16:30:00.000Z',
+    },
+    {
+      id: 'rol_editor',
+      name: 'Editor',
+      permissions: ['RECORDS_CREATE' as const],
+      memberCount: 0,
+      updatedAt: '2026-02-11T16:30:00.000Z',
+    },
+    {
+      id: 'rol_viewer',
+      name: 'Viewer',
+      permissions: [],
+      memberCount: 0,
+      updatedAt: '2026-02-11T16:30:00.000Z',
+    },
   ]
 
   it('offers only the roles within the actor’s permissions, in their order', () => {

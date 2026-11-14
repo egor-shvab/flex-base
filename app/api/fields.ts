@@ -1,4 +1,4 @@
-import { useApi } from '~/api/client'
+import { buildIfMatchHeaders, useApi } from '~/api/client'
 import { apiPath } from '~/api/paths'
 import type {
   IFieldCreatedResponse,
@@ -19,10 +19,17 @@ export function useFieldsApi() {
         method: 'POST',
         body: input,
       }),
-    update: (workspaceAddress: string, tableAddress: string, fieldId: string, input: TFieldInput) =>
+    update: (
+      workspaceAddress: string,
+      tableAddress: string,
+      fieldId: string,
+      input: TFieldInput,
+      readUpdatedAt: string | undefined,
+    ) =>
       api<IFieldResponse>(apiPath.field(workspaceAddress, tableAddress, fieldId), {
         method: 'PATCH',
         body: input,
+        headers: buildIfMatchHeaders(readUpdatedAt),
       }),
     remove: (workspaceAddress: string, tableAddress: string, fieldId: string) =>
       api<IFieldDeletedResponse>(apiPath.field(workspaceAddress, tableAddress, fieldId), {

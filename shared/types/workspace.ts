@@ -37,6 +37,8 @@ export interface IPermissionSet {
 
 export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
   memberCount: number
+  /** The version an edit sends as `If-Match`. */
+  updatedAt: string
 }
 
 /** A membership someone may try to change or end, with the permissions its role grants. */

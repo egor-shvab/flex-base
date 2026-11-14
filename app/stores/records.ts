@@ -4,7 +4,7 @@ import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
 import type { TLoadStatus } from '~/types/load-status'
-import type { IHttpFailure } from '~/utils/api-error'
+import { isStaleWrite } from '~/utils/api-error'
 import { createLatestRequest } from '~/utils/latest-request'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
@@ -109,7 +109,7 @@ export const useRecordsStore = defineStore('records', () => {
       response = await api.update(workspaceAddress, tableAddress, edited.id, data, edited.updatedAt)
     } catch (error) {
       // The list still holds the version that lost; refreshed, so reopening shows the one that won
-      if ((error as IHttpFailure | null)?.statusCode === 412) {
+      if (isStaleWrite(error)) {
         void fetchRecords(workspaceAddress, tableAddress, { ...query, page: page.value }).catch(
           () => {},
         )

@@ -10,6 +10,7 @@ export const fieldSelect = {
   options: true,
   order: true,
   indexed: true,
+  updatedAt: true,
 } satisfies Prisma.FieldSelect
 
 export type TFieldRow = Prisma.FieldGetPayload<{ select: typeof fieldSelect }>
@@ -19,5 +20,9 @@ export function toFieldOptions(options: TFieldRow['options']): IFieldOptions | n
 }
 
 export function toSharedField(field: TFieldRow): IField {
-  return { ...field, options: toFieldOptions(field.options) }
+  return {
+    ...field,
+    options: toFieldOptions(field.options),
+    updatedAt: field.updatedAt.toISOString(),
+  }
 }

@@ -2,6 +2,8 @@ import { shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useFieldsApi } from '~/api/fields'
 import { useTablesStore } from '~/stores/tables'
+import { isStaleWrite } from '~/utils/api-error'
+import type { IFieldResponse } from '#shared/types/api'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
 
@@ -25,11 +27,24 @@ export const useFieldsStore = defineStore('fields', () => {
   async function updateField(
     workspaceAddress: string,
     tableAddress: string,
-    fieldId: string,
+    edited: Pick<IField, 'id' | 'updatedAt'>,
     input: TFieldInput,
   ) {
-    const response = await api.update(workspaceAddress, tableAddress, fieldId, input)
-    fields.value = fields.value.map((field) => (field.id === fieldId ? response.field : field))
+    let response: IFieldResponse
+    try {
+      response = await api.update(
+        workspaceAddress,
+        tableAddress,
+        edited.id,
+        input,
+        edited.updatedAt,
+      )
+    } catch (error) {
+      // Refreshed, so reopening the field shows the version that won
+      if (isStaleWrite(error)) void fetchFields(workspaceAddress, tableAddress).catch(() => {})
+      throw error
+    }
+    fields.value = fields.value.map((field) => (field.id === edited.id ? response.field : field))
   }
 
   async function deleteField(workspaceAddress: string, tableAddress: string, fieldId: string) {

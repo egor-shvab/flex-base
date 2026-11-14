@@ -1,7 +1,8 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { buildRoleWhere, roleSelect, toSharedRole } from '#server/db/workspaces'
-import { toHttpError } from '#server/utils/http-errors'
+import { isMissingRow } from '#server/db/prisma-errors'
+import { buildStaleWriteError, toHttpError } from '#server/utils/http-errors'
 import type { IPermissionSet, IWorkspaceMembership, IWorkspaceRole } from '#shared/types/workspace'
 import { canAssignRole, canCreateRole, canEditRole } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
@@ -83,23 +84,31 @@ async function createRole(actor: IWorkspaceMembership, input: TRoleInput): Promi
   }
 }
 
+/** Given the version the caller read, the write lands only on that version (as `updateRecord`). */
 async function updateRole(
   actor: IWorkspaceMembership,
   roleId: string,
   input: TRoleInput,
+  expectedUpdatedAt?: Date,
 ): Promise<IWorkspaceRole> {
   const role = await getRole(actor.workspace.id, roleId)
   if (!canEditRole(actor, role, input.permissions)) throw buildEscalationError()
 
+  const where = buildRoleWhere(actor.workspace.id, roleId)
+
   try {
     return toSharedRole(
       await prisma.workspaceRole.update({
-        where: buildRoleWhere(actor.workspace.id, roleId),
+        where: expectedUpdatedAt ? { ...where, updatedAt: expectedUpdatedAt } : where,
         data: { name: input.name, permissions: input.permissions },
         select: roleSelect,
       }),
     )
   } catch (error) {
+    if (expectedUpdatedAt && isMissingRow(error)) {
+      const current = await prisma.workspaceRole.findUnique({ where, select: { id: true } })
+      if (current) throw buildStaleWriteError('role')
+    }
     throw toHttpError(error, roleErrors)
   }
 }

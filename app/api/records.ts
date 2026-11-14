@@ -1,4 +1,4 @@
-import { useApi } from '~/api/client'
+import { buildIfMatchHeaders, useApi } from '~/api/client'
 import { apiPath } from '~/api/paths'
 import type {
   IRecordCreatedResponse,
@@ -45,7 +45,7 @@ export function useRecordsApi() {
       api<IRecordResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {
         method: 'PATCH',
         body: data,
-        headers: { 'If-Match': `"${readUpdatedAt}"` },
+        headers: buildIfMatchHeaders(readUpdatedAt),
       }),
     remove: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
       api<IRecordDeletedResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {

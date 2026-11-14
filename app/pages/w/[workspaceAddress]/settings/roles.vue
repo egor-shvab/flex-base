@@ -130,7 +130,7 @@ const {
 
 async function submitRole(input: TRoleInput) {
   if (editingRole.value) {
-    await rolesStore.updateRole(workspaceAddress.value, editingRole.value.id, input)
+    await rolesStore.updateRole(workspaceAddress.value, editingRole.value, input)
   } else {
     await rolesStore.createRole(workspaceAddress.value, input)
   }

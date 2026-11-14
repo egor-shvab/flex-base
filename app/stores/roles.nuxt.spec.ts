@@ -14,6 +14,7 @@ const buildRole = (id: string, name: string, memberCount = 0): IWorkspaceRole =>
   name,
   permissions: [],
   memberCount,
+  updatedAt: '2026-02-11T16:30:00.000Z',
 })
 
 const membership: IWorkspaceMembership = {
@@ -86,7 +87,7 @@ describe('useRolesStore', () => {
     await store.fetchRoles(WS)
 
     await store.createRole(WS, { name: 'Clerk', permissions: ['RECORDS_CREATE'] })
-    await store.updateRole(WS, 'rol_2', { name: 'Reader', permissions: [] })
+    await store.updateRole(WS, buildRole('rol_2', 'Editor'), { name: 'Reader', permissions: [] })
     expect(store.roles.map((role) => role.name)).toEqual(['Manager', 'Reader', 'Clerk'])
 
     await store.deleteRole(WS, 'rol_2')
@@ -106,10 +107,10 @@ describe('useRolesStore', () => {
     const store = useRolesStore()
     await store.fetchRoles(WS)
 
-    await store.updateRole(WS, 'rol_2', { name: 'Reader', permissions: [] })
+    await store.updateRole(WS, buildRole('rol_2', 'Editor'), { name: 'Reader', permissions: [] })
     expect(membershipRequests).toBe(0)
 
-    await store.updateRole(WS, 'rol_mine', { name: 'Lead', permissions: [] })
+    await store.updateRole(WS, buildRole('rol_mine', 'Mine'), { name: 'Lead', permissions: [] })
     expect(membershipRequests).toBe(1)
     expect(useWorkspacesStore().findMembership(WS)?.role.name).toBe('Lead')
   })

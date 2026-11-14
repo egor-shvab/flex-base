@@ -15,10 +15,13 @@ const ROLE_ID = 'rol_1'
 const manager = buildMembership(['ROLES_MANAGE', 'RECORDS_CREATE', 'RECORDS_UPDATE'])
 const owner = buildMembership([], { isOwner: true })
 
+const READ_AT = new Date('2026-02-11T16:30:00.000Z')
+
 const roleRow = (permissions: TWorkspacePermission[], memberCount = 0) => ({
   id: ROLE_ID,
   name: 'Clerk',
   permissions,
+  updatedAt: READ_AT,
   _count: { members: memberCount },
 })
 
@@ -36,7 +39,13 @@ describe('RoleService.listRoles', () => {
     prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow(['RECORDS_CREATE'], 3)])
 
     await expect(RoleService.listRoles(WORKSPACE_ID)).resolves.toEqual([
-      { id: ROLE_ID, name: 'Clerk', permissions: ['RECORDS_CREATE'], memberCount: 3 },
+      {
+        id: ROLE_ID,
+        name: 'Clerk',
+        permissions: ['RECORDS_CREATE'],
+        memberCount: 3,
+        updatedAt: READ_AT.toISOString(),
+      },
     ])
     expect(prismaMock.workspaceRole.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -21,6 +21,11 @@ export interface IHttpFailure {
   data?: unknown
 }
 
+/** A save refused because someone else saved first (`If-Match` was stale). */
+export function isStaleWrite(error: unknown): boolean {
+  return (error as IHttpFailure | null | undefined)?.statusCode === 412
+}
+
 /**
  * A 404 the server marked as the workspace's: not a member, or no such workspace. Read from the
  * marker, never the message.

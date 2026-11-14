@@ -5,7 +5,8 @@ import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
 import { RelationService } from '#server/services/relations'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
-import { toHttpError } from '#server/utils/http-errors'
+import { buildStaleWriteError, toHttpError } from '#server/utils/http-errors'
+import { isMissingRow } from '#server/db/prisma-errors'
 import { buildFieldKey } from '#server/utils/field-key'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
@@ -97,7 +98,13 @@ async function createField(tableId: string, input: TFieldInput): Promise<IField>
   }
 }
 
-async function updateField(tableId: string, fieldId: string, input: TFieldInput): Promise<IField> {
+/** Given the version the caller read, the write lands only on that version (as `updateRecord`). */
+async function updateField(
+  tableId: string,
+  fieldId: string,
+  input: TFieldInput,
+  expectedUpdatedAt?: Date,
+): Promise<IField> {
   const field = await prisma.field.findFirst({
     where: { id: fieldId, tableId },
     select: { key: true, type: true, options: true },
@@ -127,7 +134,9 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
   try {
     const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.field.update({
-        where: { id: fieldId, tableId },
+        where: expectedUpdatedAt
+          ? { id: fieldId, tableId, updatedAt: expectedUpdatedAt }
+          : { id: fieldId, tableId },
         data: {
           name: input.name,
           required: input.required,
@@ -151,6 +160,13 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
 
     return saved
   } catch (error) {
+    if (expectedUpdatedAt && isMissingRow(error)) {
+      const current = await prisma.field.findFirst({
+        where: { id: fieldId, tableId },
+        select: { id: true },
+      })
+      if (current) throw buildStaleWriteError('field')
+    }
     throw toHttpError(error, fieldErrors)
   }
 }

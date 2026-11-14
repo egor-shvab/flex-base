@@ -7,6 +7,17 @@ interface IPrismaErrorMessages {
   notFound?: string
 }
 
+/**
+ * A write carrying an `If-Match` version that matched no row, while the row is still there: someone
+ * saved in between. `what` names the thing in the message the form shows.
+ */
+export function buildStaleWriteError(what: string): Error {
+  return createError({
+    statusCode: 412,
+    statusMessage: `Someone changed this ${what} after you opened it. Close the form and open it again to see their changes.`,
+  })
+}
+
 export function toHttpError(error: unknown, messages: IPrismaErrorMessages): Error {
   if (isUniqueViolation(error) && messages.conflict) {
     return createError({ statusCode: 409, statusMessage: messages.conflict })

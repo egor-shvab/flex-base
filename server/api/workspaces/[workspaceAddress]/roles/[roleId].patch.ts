@@ -1,5 +1,6 @@
 import { readValidatedBody } from 'h3'
 import { defineWorkspaceHandler } from '#server/utils/handler'
+import { readIfMatchVersion } from '#server/utils/if-match'
 import { routeParam } from '#server/utils/route'
 import { RoleService } from '#server/services/roles'
 import { roleInputSchema } from '#shared/validation/workspace'
@@ -8,8 +9,14 @@ import type { IRoleResponse } from '#shared/types/api'
 export default defineWorkspaceHandler(
   'ROLES_MANAGE',
   async ({ event, membership }): Promise<IRoleResponse> => {
+    const expectedUpdatedAt = readIfMatchVersion(event)
     const input = await readValidatedBody(event, roleInputSchema.parse)
-    const role = await RoleService.updateRole(membership, routeParam(event, 'roleId'), input)
+    const role = await RoleService.updateRole(
+      membership,
+      routeParam(event, 'roleId'),
+      input,
+      expectedUpdatedAt,
+    )
     return { role }
   },
 )

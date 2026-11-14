@@ -44,6 +44,7 @@ export const roleSelect = {
   id: true,
   name: true,
   permissions: true,
+  updatedAt: true,
   _count: { select: { members: true } },
 } satisfies Prisma.WorkspaceRoleSelect
 
@@ -103,6 +104,7 @@ export function toSharedRole(row: TRoleRow): IWorkspaceRole {
     name: row.name,
     permissions: row.permissions,
     memberCount: row._count.members,
+    updatedAt: row.updatedAt.toISOString(),
   }
 }
 

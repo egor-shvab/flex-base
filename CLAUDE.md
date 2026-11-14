@@ -143,8 +143,8 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   permissions are a subset of their own; one function decides it for server and client alike.
 - **Status codes:** a resource outside the caller's workspaces is **404, never 403**; a member
   lacking the permission is **403**; 401 only from `requireUser(event)`; 409 for uniqueness and
-  in-use conflicts; 412 for a write whose `If-Match` version is stale; every login failure is the
-  same generic 401.
+  in-use conflicts; 412 for a write whose `If-Match` version is stale (records, fields, roles);
+  every login failure is the same generic 401.
 - `User` rows are read with an explicit `select`; `passwordHash` never leaves. A user's email
   reaches only members of a workspace they share; authorship carries `id` and `name` only.
 - Errors are `createError({ statusCode, statusMessage })`. Secrets come from

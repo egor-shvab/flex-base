@@ -210,7 +210,7 @@ const {
 
 async function submitField(input: TFieldInput) {
   if (editingField.value) {
-    await fieldsStore.updateField(workspaceAddress, tableAddress, editingField.value.id, input)
+    await fieldsStore.updateField(workspaceAddress, tableAddress, editingField.value, input)
   } else {
     await fieldsStore.createField(workspaceAddress, tableAddress, input)
   }

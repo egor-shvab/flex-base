@@ -25,6 +25,12 @@ const table = {
   updatedAt: new Date('2026-02-11T16:30:00.000Z'),
 }
 
+/** A field as Prisma returns it: `updatedAt` is a Date until the mapper reads it. */
+const stored = <T extends object>(field: T) => ({
+  ...field,
+  updatedAt: new Date('2026-02-11T16:30:00.000Z'),
+})
+
 function relationInput(overrides: Partial<TFieldInput> = {}): TFieldInput {
   return fieldInputSchema.parse({
     name: 'Owner',
@@ -181,7 +187,7 @@ describe('what the helpers return', () => {
   it('narrows each field’s JSON options on the way out', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
       id: TABLE_ID,
-      fields: [{ ...textField('company'), options: null }],
+      fields: [stored({ ...textField('company'), options: null })],
     })
 
     const { fields } = await requireWorkspaceTableFields(WORKSPACE_ID, TABLE_ID)
@@ -199,7 +205,10 @@ describe('what the helpers return', () => {
   })
 
   it('names the table alongside its fields, which the detail dialog needs', async () => {
-    prismaMock.table.findUnique.mockResolvedValue({ ...table, fields: [textField('company')] })
+    prismaMock.table.findUnique.mockResolvedValue({
+      ...table,
+      fields: [stored(textField('company'))],
+    })
 
     const result = await requireWorkspaceTableWithFields(WORKSPACE_ID, TABLE_ID)
 
@@ -221,7 +230,7 @@ describe('requireFieldTarget', () => {
   it('accepts a label field the target table really has', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
       id: 'tbl_people',
-      fields: [textField('full_name')],
+      fields: [stored(textField('full_name'))],
     })
 
     await expect(requireFieldTarget(WORKSPACE_ID, relationInput())).resolves.toBeUndefined()
@@ -241,7 +250,7 @@ describe('requireFieldTarget', () => {
   it('scopes the target table by workspace too, so a relation cannot reach across workspaces', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
       id: 'tbl_people',
-      fields: [textField('full_name')],
+      fields: [stored(textField('full_name'))],
     })
 
     await requireFieldTarget(WORKSPACE_ID, relationInput())
@@ -254,7 +263,7 @@ describe('requireFieldTarget', () => {
   it('rejects a label field the target table does not have', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
       id: 'tbl_people',
-      fields: [textField('company')],
+      fields: [stored(textField('company'))],
     })
 
     await expect(requireFieldTarget(WORKSPACE_ID, relationInput())).rejects.toMatchObject({
@@ -276,7 +285,7 @@ describe('requireRecordFields', () => {
   it('passes the fields through when the table has some', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
       id: TABLE_ID,
-      fields: [textField('company')],
+      fields: [stored(textField('company'))],
     })
 
     const { fields } = await requireRecordFields(WORKSPACE_ID, TABLE_ID)

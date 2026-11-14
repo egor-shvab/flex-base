@@ -107,7 +107,12 @@ describe('useFieldsStore', () => {
     const store = useFieldsStore()
     await store.fetchFields(WS, 'tbl_1')
 
-    await store.updateField(WS, 'tbl_1', 'fld_company', INPUT)
+    await store.updateField(
+      WS,
+      'tbl_1',
+      { id: 'fld_company', updatedAt: '2026-02-11T16:30:00.000Z' },
+      INPUT,
+    )
 
     expect(store.fields).toEqual([updated, TOTAL])
   })
@@ -144,7 +149,12 @@ describe('useFieldsStore', () => {
       const tables = await loadedTables()
       const store = useFieldsStore()
 
-      await store.updateField(WS, 'tbl_1', 'fld_company', INPUT)
+      await store.updateField(
+        WS,
+        'tbl_1',
+        { id: 'fld_company', updatedAt: '2026-02-11T16:30:00.000Z' },
+        INPUT,
+      )
 
       expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 7 })
     })
@@ -158,7 +168,12 @@ describe('useFieldsStore', () => {
     [
       'updateField',
       (store: ReturnType<typeof useFieldsStore>) =>
-        store.updateField(WS, 'tbl_1', 'fld_company', INPUT),
+        store.updateField(
+          WS,
+          'tbl_1',
+          { id: 'fld_company', updatedAt: '2026-02-11T16:30:00.000Z' },
+          INPUT,
+        ),
     ],
     [
       'deleteField',

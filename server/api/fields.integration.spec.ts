@@ -42,6 +42,48 @@ beforeEach(async () => {
   await createField(tableId, { key: 'notes', type: 'TEXT', name: 'Notes', order: 1 })
 })
 
+describe('two people saving the same field version', () => {
+  const patchAt = (fieldId: string, body: unknown, ifMatch: string) => {
+    const event = testEvent({
+      user: ada,
+      params: { workspaceAddress: ada.workspace.publicId, tableAddress: tableId, fieldId },
+      method: 'PATCH',
+      body,
+    })
+    event.node.req.headers['if-match'] = ifMatch
+    return fieldPatch(event)
+  }
+
+  it('lets the first save land and refuses the second with a 412, keeping the first', async () => {
+    const [company] = await fields()
+    const opened = `"${company!.updatedAt}"`
+
+    await patchAt(company!.id, { name: 'Client', type: 'TEXT' }, opened)
+    await expect(
+      patchAt(company!.id, { name: 'Customer', type: 'TEXT' }, opened),
+    ).rejects.toMatchObject({ statusCode: 412 })
+
+    expect((await fields())[0]?.name).toBe('Client')
+  })
+
+  it('accepts a save on the version the previous save returned', async () => {
+    const [company] = await fields()
+
+    const { field } = await patchAt(
+      company!.id,
+      { name: 'Client', type: 'TEXT' },
+      `"${company!.updatedAt}"`,
+    )
+    const second = await patchAt(
+      company!.id,
+      { name: 'Customer', type: 'TEXT' },
+      `"${field.updatedAt}"`,
+    )
+
+    expect(second.field.name).toBe('Customer')
+  })
+})
+
 describe('updating a field through the endpoint', () => {
   it('updates the field the route names, and leaves its siblings alone', async () => {
     const [company, notes] = await fields()

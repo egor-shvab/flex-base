@@ -22,6 +22,7 @@ const clerk: IWorkspaceRole = {
   name: 'Clerk',
   permissions: ['RECORDS_CREATE'],
   memberCount: 2,
+  updatedAt: '2026-02-11T16:30:00.000Z',
 }
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')!

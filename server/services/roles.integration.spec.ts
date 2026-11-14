@@ -86,6 +86,24 @@ describe('creating and changing a role', () => {
     ).rejects.toMatchObject({ statusCode: 409 })
   })
 
+  it('refuses a save made on a version someone has since replaced, keeping theirs', async () => {
+    const role = await RoleService.createRole(owner, { name: 'Clerk', permissions: [] })
+    const opened = new Date(role.updatedAt)
+
+    await RoleService.updateRole(
+      owner,
+      role.id,
+      { name: 'Clerk', permissions: ['RECORDS_CREATE'] },
+      opened,
+    )
+    await expect(
+      RoleService.updateRole(owner, role.id, { name: 'Typist', permissions: [] }, opened),
+    ).rejects.toMatchObject({ statusCode: 412 })
+
+    const [stored] = (await RoleService.listRoles(ada.workspace.id)).filter((r) => r.id === role.id)
+    expect(stored).toMatchObject({ name: 'Clerk', permissions: ['RECORDS_CREATE'] })
+  })
+
   it('stops at the cap', async () => {
     await prisma.workspaceRole.createMany({
       data: Array.from({ length: MAX_WORKSPACE_ROLES - 3 }, (_, index) => ({

@@ -422,9 +422,12 @@ Only what the name and the code do not say.
   mirrors them (they would have to survive hydration). `createRecord` refetches only when the new
   record lands on the current page; state clears when called for another table; `fetchRecords` is
   last-request-wins (a superseded response or failure is dropped) and otherwise sets `status` to
-  `'failed'` **and rethrows**. `updateRecord` sends the `updatedAt` the form opened on as
-  `If-Match`; the server puts it in the update's `where`, so of two saves on one version the second
-  is a **412**, and the store then refreshes the list so reopening shows the winner.
+  `'failed'` **and rethrows**.
+- **Edits are conditional writes.** Records, fields and roles carry `updatedAt`; their edit forms
+  send the one they opened on as `If-Match` (`buildIfMatchHeaders`), the service puts it in the
+  update's `where` (`readIfMatchVersion` on the route), and a miss on a row still there is a **412**
+  (`buildStaleWriteError`). The store then refreshes its list, so reopening shows the winner. A new
+  editable resource follows the same three steps.
 - **`stores/tables.ts`** — `ensureTables()` **never throws** (a failed sidebar must not replace a
   working page); `fetchTables` sets `status` and rethrows, `ensureTables` swallows it, and the
   sidebar's Retry calls `ensureTables` again. An answer for a workspace switched away from is

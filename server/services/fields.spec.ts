@@ -31,6 +31,11 @@ function storedField(overrides: Partial<{ key: string; type: string; options: un
 
 beforeEach(resetPrismaMock)
 
+const READ_AT = new Date('2026-02-11T16:30:00.000Z')
+
+/** A field as Prisma returns it: `updatedAt` is a Date until the mapper reads it. */
+const stored = <T extends object>(field: T) => ({ ...field, updatedAt: READ_AT })
+
 describe('FieldService.buildOptions', () => {
   it('stores a SELECT’s choices and its cardinality', () => {
     expect(
@@ -61,7 +66,9 @@ describe('FieldService.buildOptions', () => {
 
 describe('FieldService.listFields', () => {
   it('reads a table’s fields in stored order and narrows their options', async () => {
-    prismaMock.field.findMany.mockResolvedValue([{ ...textField('company'), options: null }])
+    prismaMock.field.findMany.mockResolvedValue([
+      stored({ ...textField('company'), options: null }),
+    ])
 
     const fields = await FieldService.listFields(TABLE_ID)
 
@@ -75,7 +82,7 @@ describe('FieldService.listFields', () => {
 describe('createField — order allocation', () => {
   it('starts an empty table at zero', async () => {
     prismaMock.field.findMany.mockResolvedValue([])
-    prismaMock.field.create.mockResolvedValue(textField('owner'))
+    prismaMock.field.create.mockResolvedValue(stored(textField('owner')))
 
     await FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))
 
@@ -89,7 +96,7 @@ describe('createField — order allocation', () => {
       { key: 'a', type: 'TEXT', order: 0 },
       { key: 'b', type: 'TEXT', order: 7 },
     ])
-    prismaMock.field.create.mockResolvedValue(textField('owner'))
+    prismaMock.field.create.mockResolvedValue(stored(textField('owner')))
 
     await FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))
 
@@ -100,7 +107,7 @@ describe('createField — order allocation', () => {
 
   it('derives the key from the name, against the keys already taken', async () => {
     prismaMock.field.findMany.mockResolvedValue([{ key: 'owner', type: 'TEXT', order: 0 }])
-    prismaMock.field.create.mockResolvedValue(textField('owner_2'))
+    prismaMock.field.create.mockResolvedValue(stored(textField('owner_2')))
 
     await FieldService.createField(TABLE_ID, input({ type: 'TEXT' }))
 
@@ -161,7 +168,7 @@ describe('updateField — the write guards', () => {
     prismaMock.field.findFirst.mockResolvedValue(
       storedField({ options: { targetTableId: 'tbl_people', labelFieldKey: 'full_name' } }),
     )
-    prismaMock.field.update.mockResolvedValue(textField('owner'))
+    prismaMock.field.update.mockResolvedValue(stored(textField('owner')))
 
     await expect(
       FieldService.updateField(TABLE_ID, FIELD_ID, relation({ labelFieldKey: 'email' })),
@@ -198,7 +205,7 @@ describe('updateField — widening', () => {
     prismaMock.field.findFirst.mockResolvedValue(
       storedField({ key: 'stage', type: 'SELECT', options: { choices: [], multiple: false } }),
     )
-    prismaMock.field.update.mockResolvedValue(textField('stage'))
+    prismaMock.field.update.mockResolvedValue(stored(textField('stage')))
 
     await FieldService.updateField(TABLE_ID, FIELD_ID, select({ multiple: true }))
 
@@ -211,7 +218,7 @@ describe('updateField — widening', () => {
     prismaMock.field.findFirst.mockResolvedValue(
       storedField({ key: 'stage', type: 'SELECT', options: { choices: [], multiple: false } }),
     )
-    prismaMock.field.update.mockResolvedValue(textField('stage'))
+    prismaMock.field.update.mockResolvedValue(stored(textField('stage')))
 
     await FieldService.updateField(TABLE_ID, FIELD_ID, select({ multiple: false }))
 
@@ -222,7 +229,7 @@ describe('updateField — widening', () => {
     prismaMock.field.findFirst.mockResolvedValue(
       storedField({ key: 'stage', type: 'SELECT', options: { choices: [], multiple: true } }),
     )
-    prismaMock.field.update.mockResolvedValue(textField('stage'))
+    prismaMock.field.update.mockResolvedValue(stored(textField('stage')))
 
     await FieldService.updateField(TABLE_ID, FIELD_ID, select({ multiple: true }))
 
@@ -245,13 +252,39 @@ describe('updateField — widening', () => {
 
   it('keeps the key out of the update — it is immutable once records reference it', async () => {
     prismaMock.field.findFirst.mockResolvedValue(storedField({ type: 'TEXT' }))
-    prismaMock.field.update.mockResolvedValue(textField('owner'))
+    prismaMock.field.update.mockResolvedValue(stored(textField('owner')))
 
     await FieldService.updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT', name: 'Renamed' }))
 
     const [call] = prismaMock.field.update.mock.calls
     expect(call?.[0].data).not.toHaveProperty('key')
     expect(call?.[0].data).toMatchObject({ name: 'Renamed' })
+  })
+})
+
+describe('updateField — given the version the caller read', () => {
+  it('puts the version in the update’s where, so the check and the write are one statement', async () => {
+    prismaMock.field.findFirst.mockResolvedValue(storedField({ type: 'TEXT' }))
+    prismaMock.field.update.mockResolvedValue(stored(textField('owner')))
+
+    await FieldService.updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT' }), READ_AT)
+
+    expect(prismaMock.field.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: FIELD_ID, tableId: TABLE_ID, updatedAt: READ_AT } }),
+    )
+  })
+
+  it('answers 412 when the field is still there under a newer version', async () => {
+    prismaMock.field.findFirst
+      .mockResolvedValueOnce(storedField({ type: 'TEXT' }))
+      .mockResolvedValueOnce({ id: FIELD_ID })
+    prismaMock.field.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),
+    )
+
+    await expect(
+      FieldService.updateField(TABLE_ID, FIELD_ID, input({ type: 'TEXT' }), READ_AT),
+    ).rejects.toMatchObject({ statusCode: 412 })
   })
 })
 
@@ -341,7 +374,7 @@ describe('a failed index build never reaches the caller', () => {
 
     prismaMock.field.findMany.mockResolvedValue([])
     prismaMock.$queryRaw.mockRejectedValue(new Error('no such relation'))
-    prismaMock.field.create.mockResolvedValue(textField('owner', { indexed: true }))
+    prismaMock.field.create.mockResolvedValue(stored(textField('owner', { indexed: true })))
 
     await expect(
       FieldService.createField(TABLE_ID, input({ type: 'TEXT' })),

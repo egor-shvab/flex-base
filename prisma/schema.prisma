@@ -76,6 +76,8 @@ model WorkspaceRole {
   name        String
   permissions WorkspacePermission[]
   createdAt   DateTime              @default(now())
+  // The version an edit form sends back as `If-Match`
+  updatedAt   DateTime              @default(now()) @updatedAt
 
   members     WorkspaceMember[]
   invitations WorkspaceInvitation[]
@@ -156,6 +158,8 @@ model Field {
   indexed Boolean @default(false)
 
   createdAt DateTime @default(now())
+  // The version an edit form sends back as `If-Match`
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([tableId, key])
 }

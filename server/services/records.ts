@@ -2,7 +2,7 @@ import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
-import { toHttpError } from '#server/utils/http-errors'
+import { buildStaleWriteError, toHttpError } from '#server/utils/http-errors'
 import { isMissingRow } from '#server/db/prisma-errors'
 import {
   recordSelect,
@@ -26,9 +26,6 @@ import type {
 import type { ITable } from '#shared/types/table'
 
 const recordErrors = { notFound: 'Record not found' }
-
-const STALE_RECORD_MESSAGE =
-  'Someone changed this record after you opened it. Close the form and open it again to see their changes.'
 
 /**
  * No `WITH … AS MATERIALIZED`: it builds every matching row before the `LIMIT` can discard any,
@@ -172,7 +169,7 @@ async function updateRecord(
   } catch (error) {
     if (expectedUpdatedAt && isMissingRow(error)) {
       const current = await prisma.record.findUnique({ where, select: { id: true } })
-      if (current) throw createError({ statusCode: 412, statusMessage: STALE_RECORD_MESSAGE })
+      if (current) throw buildStaleWriteError('record')
     }
     throw toHttpError(error, recordErrors)
   }
