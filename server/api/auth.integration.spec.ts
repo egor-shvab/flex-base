@@ -111,6 +111,59 @@ describe('registering', () => {
   })
 })
 
+describe('throttling', () => {
+  const postFrom = (ip: string, body: unknown) => testEvent({ method: 'POST', body, ip })
+
+  it('refuses an account’s eleventh sign-in in a window, the right password included', async () => {
+    const credentials = { ...CREDENTIALS, email: 'throttled@example.com' }
+    await register(postFrom('10.0.0.1', credentials))
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const email = attempt % 2 === 0 ? credentials.email : credentials.email.toUpperCase()
+      await login(postFrom(`10.0.1.${attempt}`, { email, password: 'wrong-horse' })).catch(
+        () => null,
+      )
+    }
+
+    await expect(login(postFrom('10.0.2.1', credentials))).rejects.toMatchObject({
+      statusCode: 429,
+      statusMessage: 'Too many sign-in attempts. Try again in 15 minutes',
+    })
+  })
+
+  it('refuses a hundred-and-first sign-in from one address, across accounts', async () => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      await login(
+        postFrom('10.0.3.1', { email: `spray-${attempt}@example.com`, password: 'wrong-horse' }),
+      ).catch(() => null)
+    }
+
+    await expect(
+      login(postFrom('10.0.3.1', { email: 'spray-last@example.com', password: 'wrong-horse' })),
+    ).rejects.toMatchObject({ statusCode: 429 })
+    await expect(
+      login(postFrom('10.0.3.2', { email: 'spray-last@example.com', password: 'wrong-horse' })),
+    ).rejects.toMatchObject({ statusCode: 401 })
+  }, 60_000)
+
+  it('refuses a thirty-first account from one address, and creates nothing for it', async () => {
+    const registration = (index: number) => ({
+      ...CREDENTIALS,
+      email: `bulk-${index}@example.com`,
+    })
+
+    for (let index = 0; index < 30; index += 1) {
+      await register(postFrom('10.0.4.1', registration(index)))
+    }
+
+    await expect(register(postFrom('10.0.4.1', registration(30)))).rejects.toMatchObject({
+      statusCode: 429,
+    })
+    await expect(prisma.user.count({ where: { email: 'bulk-30@example.com' } })).resolves.toBe(0)
+    await expect(register(postFrom('10.0.4.2', registration(31)))).resolves.toBeDefined()
+  }, 60_000)
+})
+
 describe('logging in', () => {
   it('accepts the right password and sets the cookie', async () => {
     await register(post(CREDENTIALS))

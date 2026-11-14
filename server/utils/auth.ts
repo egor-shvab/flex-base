@@ -24,6 +24,12 @@ export function assertJwtSecret(secret: string): void {
   }
 }
 
+/**
+ * No one's password, hashed at the same cost: compared against when no user matches, so an unknown
+ * email takes as long as a wrong password and the timing does not say which it was.
+ */
+export const UNMATCHED_PASSWORD_HASH = bcrypt.hashSync('unmatched-password', BCRYPT_COST)
+
 export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_COST)
 }

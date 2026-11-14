@@ -343,7 +343,9 @@ Only what the name and the code do not say.
   method and query names. `recordErrorEntry` (`error-log-file.ts`) never throws and disables itself
   after a failure. Rationale: `decisions.md` → _Server errors are recorded from Nitro's `error`
   hook, and only the 5xx ones_.
-- **`utils/rate-limit.ts`** — a bounded key map, so the guard cannot become the leak.
+- **`utils/rate-limit.ts`** — a bounded key map, so the guard cannot become the leak; when full it
+  sheds its **oldest** window, since clearing would reset every throttled caller at once. Sign-in is
+  limited per address and per lower-cased email, registration per address.
 - **`utils/field-key.ts`** — `buildFieldKey` frees a key for **every query param it would claim**:
   "Page" → `page_2`, "Budget from" → `budget_from_2` beside a NUMBER `budget`. Server-only.
 - **`services/fields.ts`** — rejects type changes, retargeting and narrowing (400); widening runs

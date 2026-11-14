@@ -1,13 +1,7 @@
-import {
-  createError,
-  defineEventHandler,
-  getRequestHeader,
-  getRequestIP,
-  readValidatedBody,
-} from 'h3'
+import { createError, defineEventHandler, getRequestHeader, readValidatedBody } from 'h3'
 import { buildClientErrorLogEntry } from '#server/utils/error-log'
 import { recordErrorEntry } from '#server/utils/error-log-file'
-import { createRateLimiter } from '#server/utils/rate-limit'
+import { assertWithinRateLimit, createRateLimiter, toClientAddress } from '#server/utils/rate-limit'
 import {
   CLIENT_ERROR_MAX_BYTES,
   CLIENT_ERROR_RATE_LIMIT,
@@ -35,13 +29,7 @@ export default defineEventHandler(async (event): Promise<IOkResponse> => {
     throw createError({ statusCode: 413, statusMessage: 'Report too large' })
   }
 
-  /**
-   * Keyed on the socket address, not `x-forwarded-for`, which an attacker controls. Behind a proxy
-   * this degrades to one shared allowance — too strict rather than bypassable.
-   */
-  if (!limiter.shouldAllow(getRequestIP(event) ?? 'unknown', Date.now())) {
-    throw createError({ statusCode: 429, statusMessage: 'Too many reports' })
-  }
+  assertWithinRateLimit(limiter, toClientAddress(event), 'Too many reports')
 
   const report = await readValidatedBody(event, clientErrorReportSchema.parse)
 

@@ -48,7 +48,33 @@ describe('createRateLimiter', () => {
       }
     })
 
-    it('drops what has expired before resorting to clearing', () => {
+    it('sheds the oldest window when full, keeping every newer caller throttled', () => {
+      const rate = createRateLimiter({ limit: 1, windowMs: 1000, maxKeys: 3 })
+
+      rate.shouldAllow('oldest', 0)
+      rate.shouldAllow('throttled-1', 10)
+      rate.shouldAllow('throttled-2', 20)
+
+      rate.shouldAllow('newcomer', 30)
+
+      expect(rate.shouldAllow('throttled-1', 40)).toBe(false)
+      expect(rate.shouldAllow('throttled-2', 40)).toBe(false)
+      expect(rate.shouldAllow('oldest', 40)).toBe(true)
+    })
+
+    it('counts a reopened window as new, so it is not the next one shed', () => {
+      const rate = createRateLimiter({ limit: 1, windowMs: 1000, maxKeys: 2 })
+
+      rate.shouldAllow('a', 0)
+      rate.shouldAllow('b', 500)
+      rate.shouldAllow('a', 1000)
+
+      rate.shouldAllow('c', 1200)
+
+      expect(rate.shouldAllow('a', 1300)).toBe(false)
+    })
+
+    it('drops what has expired before shedding anything live', () => {
       const rate = createRateLimiter({ limit: 3, windowMs: 1000, maxKeys: 3 })
 
       rate.shouldAllow('old-1', 0)

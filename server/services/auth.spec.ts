@@ -11,6 +11,7 @@ vi.mock('#server/db/prisma', async () => ({
 vi.mock('#server/utils/auth', () => ({
   hashPassword: vi.fn(),
   verifyPassword: vi.fn(),
+  UNMATCHED_PASSWORD_HASH: 'unmatched-hash',
 }))
 
 const CREDENTIALS = { email: 'ada@example.com', password: 'correct-horse' }
@@ -164,14 +165,24 @@ describe('AuthService.authenticateUser', () => {
     expect(verifyPassword).toHaveBeenCalledWith(CREDENTIALS.password, 'stored-hash')
   })
 
-  it('answers an unknown email with a 401, without a password to compare', async () => {
+  it('still pays a comparison for an unknown email, so its timing matches a wrong password', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null)
+    vi.mocked(verifyPassword).mockResolvedValue(false)
 
     await expect(AuthService.authenticateUser(CREDENTIALS)).rejects.toMatchObject({
       statusCode: 401,
       statusMessage: 'Invalid email or password',
     })
-    expect(verifyPassword).not.toHaveBeenCalled()
+    expect(verifyPassword).toHaveBeenCalledWith(CREDENTIALS.password, 'unmatched-hash')
+  })
+
+  it('refuses an unknown email even if the stand-in hash were to match', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null)
+    vi.mocked(verifyPassword).mockResolvedValue(true)
+
+    await expect(AuthService.authenticateUser(CREDENTIALS)).rejects.toMatchObject({
+      statusCode: 401,
+    })
   })
 
   it('answers a wrong password identically to an unknown email', async () => {

@@ -157,7 +157,10 @@ break. _Reopen if a cap ever guards a cost rather than a list._
 ### The error log is a local file, and the rate limits are per process
 
 More than one instance needs a real sink, and the in-memory rate limits (client errors,
-invitations) split per instance. _Revisit before any real deployment._
+invitations, sign-in, registration) split per instance. They key on the socket address, so behind a
+reverse proxy every caller shares one allowance — 100 sign-ins and 30 registrations per window for
+the whole site. The per-email sign-in limit lets anyone hold an account's sign-in shut for 15
+minutes. _Revisit before any real deployment: a shared store, and a trusted-proxy setting._
 
 ### An invitation goes to whoever registers its address first
 

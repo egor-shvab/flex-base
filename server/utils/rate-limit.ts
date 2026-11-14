@@ -1,3 +1,6 @@
+import { createError, getRequestIP } from 'h3'
+import type { H3Event } from 'h3'
+
 interface IRateLimitOptions {
   limit: number
   windowMs: number
@@ -13,6 +16,10 @@ export interface IRateLimiter {
   shouldAllow(key: string, now: number): boolean
 }
 
+/**
+ * Windows are kept in the order they opened, so a full map sheds its oldest first. Clearing it
+ * instead would hand every throttled caller a fresh allowance — one flood of new keys away.
+ */
 export function createRateLimiter({ limit, windowMs, maxKeys }: IRateLimitOptions): IRateLimiter {
   const windows = new Map<string, IRateLimitWindow>()
 
@@ -21,7 +28,10 @@ export function createRateLimiter({ limit, windowMs, maxKeys }: IRateLimitOption
       if (now - window.startedAt >= windowMs) windows.delete(key)
     }
 
-    if (windows.size >= maxKeys) windows.clear()
+    for (const key of windows.keys()) {
+      if (windows.size < maxKeys) break
+      windows.delete(key)
+    }
   }
 
   return {
@@ -29,6 +39,7 @@ export function createRateLimiter({ limit, windowMs, maxKeys }: IRateLimitOption
       const window = windows.get(key)
 
       if (window === undefined || now - window.startedAt >= windowMs) {
+        windows.delete(key)
         if (windows.size >= maxKeys) evict(now)
         windows.set(key, { startedAt: now, count: 1 })
         return true
@@ -40,4 +51,22 @@ export function createRateLimiter({ limit, windowMs, maxKeys }: IRateLimitOption
       return true
     },
   }
+}
+
+export function assertWithinRateLimit(
+  limiter: IRateLimiter,
+  key: string,
+  statusMessage: string,
+): void {
+  if (!limiter.shouldAllow(key, Date.now())) {
+    throw createError({ statusCode: 429, statusMessage })
+  }
+}
+
+/**
+ * The socket address, not `x-forwarded-for`, which an attacker controls. Behind a proxy this
+ * degrades to one shared allowance — too strict rather than bypassable.
+ */
+export function toClientAddress(event: H3Event): string {
+  return getRequestIP(event) ?? 'unknown'
 }

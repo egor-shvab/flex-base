@@ -182,7 +182,8 @@ calling `TableService` couples fields and records to a count for nothing.
 
 `findUnique`-then-`create` races: both requests see nothing and the loser becomes an unmapped 500.
 The `create` is the check, and `P2002` becomes the 409. A duplicate pays a bcrypt hash first, which
-also removes a timing tell.
+also removes a timing tell. Login closes the same tell: an unknown email is compared against
+`UNMATCHED_PASSWORD_HASH`, so it costs what a wrong password costs.
 
 ### The persistence layer does not speak HTTP
 

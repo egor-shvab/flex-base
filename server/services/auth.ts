@@ -7,7 +7,7 @@ import {
   createWorkspaceWithDefaults,
   retryOnPublicIdCollision,
 } from '#server/db/workspaces'
-import { hashPassword, verifyPassword } from '#server/utils/auth'
+import { hashPassword, UNMATCHED_PASSWORD_HASH, verifyPassword } from '#server/utils/auth'
 import type { IAuthUser } from '#shared/types/auth'
 import type { TCredentialsInput, TProfileInput, TRegistrationInput } from '#shared/validation/auth'
 
@@ -54,9 +54,12 @@ async function registerUser({ email, password, name }: TRegistrationInput): Prom
 
 async function authenticateUser({ email, password }: TCredentialsInput): Promise<IAuthUser> {
   const user = await prisma.user.findUnique({ where: { email }, select: authUserWithHashSelect })
-  if (!user) throw buildInvalidCredentialsError()
+  const isPasswordValid = await verifyPassword(
+    password,
+    user?.passwordHash ?? UNMATCHED_PASSWORD_HASH,
+  )
 
-  if (!(await verifyPassword(password, user.passwordHash))) throw buildInvalidCredentialsError()
+  if (!user || !isPasswordValid) throw buildInvalidCredentialsError()
 
   return toAuthUser(user)
 }

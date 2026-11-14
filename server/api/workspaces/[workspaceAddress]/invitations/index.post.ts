@@ -1,6 +1,6 @@
-import { createError, readValidatedBody } from 'h3'
+import { readValidatedBody } from 'h3'
 import { defineWorkspaceHandler } from '#server/utils/handler'
-import { createRateLimiter } from '#server/utils/rate-limit'
+import { assertWithinRateLimit, createRateLimiter } from '#server/utils/rate-limit'
 import { InvitationService } from '#server/services/invitations'
 import { invitationInputSchema } from '#shared/validation/workspace'
 import type { IInvitationResponse } from '#shared/types/api'
@@ -13,12 +13,7 @@ export default defineWorkspaceHandler(
   async ({ event, user, membership }): Promise<IInvitationResponse> => {
     const input = await readValidatedBody(event, invitationInputSchema.parse)
 
-    if (!limiter.shouldAllow(user.id, Date.now())) {
-      throw createError({
-        statusCode: 429,
-        statusMessage: 'Too many invitations sent. Try again in an hour',
-      })
-    }
+    assertWithinRateLimit(limiter, user.id, 'Too many invitations sent. Try again in an hour')
 
     const invitation = await InvitationService.createInvitation(membership, user.id, input)
     return { invitation }
