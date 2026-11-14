@@ -36,10 +36,10 @@ Copy the environment template and fill it in:
 cp .env.example .env
 ```
 
-| Variable       | Purpose                                                                 |
-| -------------- | ----------------------------------------------------------------------- |
-| `DATABASE_URL` | PostgreSQL connection string — matches the `docker-compose.yml` service |
-| `JWT_SECRET`   | Secret for signing auth tokens; use a long random string                |
+| Variable          | Purpose                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `DATABASE_URL`    | PostgreSQL connection string — matches the `docker-compose.yml` service             |
+| `NUXT_JWT_SECRET` | Auth-token signing secret, ≥ 32 random characters; read at start-up, never built in |
 
 Start PostgreSQL and apply the migrations:
 

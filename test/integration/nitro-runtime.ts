@@ -3,5 +3,5 @@
  * mapped exactly as `nuxt.config.ts` declares it.
  */
 export function useRuntimeConfig(): { jwtSecret: string } {
-  return { jwtSecret: process.env.JWT_SECRET ?? '' }
+  return { jwtSecret: process.env.NUXT_JWT_SECRET ?? '' }
 }

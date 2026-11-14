@@ -14,7 +14,6 @@ jobs:
       # Nothing here connects to a database — `prisma generate` only needs the
       # datasource variable to resolve, and the build never boots the server.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-      JWT_SECRET: ci-not-a-real-secret
 
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +64,6 @@ jobs:
       # reads `INTEGRATION_DATABASE_URL`, which is the only name that overrides its default.
       DATABASE_URL: postgresql://flexbase:flexbase@localhost:5432/flexbase_test
       INTEGRATION_DATABASE_URL: postgresql://flexbase:flexbase@localhost:5432/flexbase_test
-      JWT_SECRET: ci-not-a-real-secret
 
     steps:
       - uses: actions/checkout@v4
@@ -121,7 +119,6 @@ jobs:
       # `E2E_DATABASE_URL`, which is the only name that overrides its default.
       DATABASE_URL: postgresql://flexbase:flexbase@localhost:5432/flexbase_e2e
       E2E_DATABASE_URL: postgresql://flexbase:flexbase@localhost:5432/flexbase_e2e
-      JWT_SECRET: ci-not-a-real-secret
 
     steps:
       - uses: actions/checkout@v4

@@ -13,6 +13,16 @@ declare module 'h3' {
 export const AUTH_COOKIE = 'auth_token'
 const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 const BCRYPT_COST = 10
+const JWT_SECRET_MIN_LENGTH = 32
+
+/** Run at start-up: an empty secret fails only at the first sign-in, a short one can be guessed. */
+export function assertJwtSecret(secret: string): void {
+  if (secret.length < JWT_SECRET_MIN_LENGTH) {
+    throw new Error(
+      `NUXT_JWT_SECRET must be set to at least ${JWT_SECRET_MIN_LENGTH} characters of random text`,
+    )
+  }
+}
 
 export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_COST)

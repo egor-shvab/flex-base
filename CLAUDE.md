@@ -432,7 +432,8 @@ The rest â€” the e2e and integration rigs, coverage, the spec-only invariants â€
 
 ## 11. Environment & tooling
 
-Setup and `.env` are in `README.md`; `JWT_SECRET` reaches the server as `runtimeConfig.jwtSecret`.
+Setup and `.env` are in `README.md`; `NUXT_JWT_SECRET` reaches the server as `runtimeConfig.jwtSecret`
+at start-up, never at build time.
 
 - **Prisma 7:** CLI config in `prisma.config.ts` (loads `.env` via `dotenv/config`); the client
   generates into `server/generated/prisma` (never edit) and needs `@prisma/adapter-pg`.

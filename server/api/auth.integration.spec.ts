@@ -245,7 +245,7 @@ describe('the auth middleware', () => {
 
   it('leaves a token for a deleted user anonymous', async () => {
     const user = await createUser()
-    const token = signAuthToken(user.id, process.env.JWT_SECRET ?? '')
+    const token = signAuthToken(user.id, process.env.NUXT_JWT_SECRET ?? '')
     // Their workspace first: `Workspace.ownerId` restricts deleting its owner
     await prisma.workspace.deleteMany({ where: { ownerId: user.id } })
     await prisma.user.delete({ where: { id: user.id } })

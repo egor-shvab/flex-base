@@ -36,8 +36,10 @@ export default defineNuxtConfig({
     },
   },
 
+  // Filled at start-up from `NUXT_JWT_SECRET`. A default read from `process.env` here would be
+  // frozen into the build and keep signing with it whatever the deployment sets
   runtimeConfig: {
-    jwtSecret: process.env.JWT_SECRET || '',
+    jwtSecret: '',
   },
 
   typescript: {

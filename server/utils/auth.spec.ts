@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import { createEvent, getResponseHeader, type H3Event } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  assertJwtSecret,
   AUTH_COOKIE,
   clearAuthCookie,
   hashPassword,
@@ -29,6 +30,23 @@ function setCookieHeader(event: H3Event): string {
 
 afterEach(() => {
   vi.useRealTimers()
+})
+
+describe('assertJwtSecret', () => {
+  it('refuses to start without a secret, rather than failing at the first sign-in', () => {
+    expect(() => assertJwtSecret('')).toThrow(/NUXT_JWT_SECRET/)
+  })
+
+  it('refuses a secret short enough to guess', () => {
+    expect(() => assertJwtSecret('a'.repeat(31))).toThrow(/at least 32/)
+  })
+
+  it('accepts 32 characters, and never echoes the secret back', () => {
+    expect(() => assertJwtSecret('a'.repeat(32))).not.toThrow()
+    expect(() => assertJwtSecret('short-secret')).toThrow(
+      expect.objectContaining({ message: expect.not.stringContaining('short-secret') }),
+    )
+  })
 })
 
 describe('signAuthToken / verifyAuthToken', () => {
