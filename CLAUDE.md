@@ -89,8 +89,10 @@ Commit message.
 ## 3. Layering
 
 **`server/` is three layers pointing one way — `api` → `services` → `db` —** with `utils/`
-importable by all three and importing none. `db/` is the only place that touches the Prisma client,
-a `select` shape, a row mapper or `Prisma.Sql` (so the per-type SQL lives in `db/field-types/`).
+importable by all three; `utils/` may read `db/` (the access helpers query through it) but never
+`services/` or `api/`. `db/` is the only home of a `select` shape, a row mapper or `Prisma.Sql` (so
+the per-type SQL lives in `db/field-types/`); services and `utils/` call the Prisma client with
+them directly — Prisma is already the repository (`docs/decisions.md`).
 **`db/` may not import `h3`**: it classifies a fault, `utils/http-errors.ts` maps it. Enforced by
 `no-restricted-imports` — **an alias-prefixed restriction must be a `regex` pattern, never a
 `group`** (`docs/decisions.md`).

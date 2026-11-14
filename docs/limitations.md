@@ -198,6 +198,13 @@ Allocating a record or table number, and keeping `Table.recordCount`, are Prisma
 "last renamed". Neither is shown anywhere. _Reopen before either is displayed: move the counters
 to raw increments that leave `updatedAt` alone._
 
+### One SSR render re-reads the user and the membership per internal fetch
+
+Each `useRequestFetch` during SSR is a full request: the auth middleware reads the user again and
+every workspace route runs `requireMembership` again — a records page costs several identical
+lookups, each an indexed single-row read. _Reopen if those reads show up in a profile: memoise them
+on the originating request's `event.context`._
+
 ### Registration keeps an email's case
 
 `User.email` is stored as typed, so `Ada@x.com` and `ada@x.com` are two accounts. Invitations are

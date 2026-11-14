@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   credentialsInputSchema,
   displayNameSchema,
+  PASSWORD_MAX_BYTES,
   profileInputSchema,
   registerSchema,
   registrationInputSchema,
@@ -58,6 +59,30 @@ describe('registrationInputSchema', () => {
   it('requires a name beside the credentials', () => {
     expect(registrationInputSchema.parse(registration)).toEqual(registration)
     expect(registrationInputSchema.safeParse(credentials).success).toBe(false)
+  })
+
+  it('takes a new password up to bcrypt’s 72 bytes and refuses one byte more', () => {
+    const at = { ...registration, password: 'a'.repeat(PASSWORD_MAX_BYTES) }
+    const over = { ...registration, password: 'a'.repeat(PASSWORD_MAX_BYTES + 1) }
+
+    expect(registrationInputSchema.safeParse(at).success).toBe(true)
+    expect(registrationInputSchema.safeParse(over).success).toBe(false)
+  })
+
+  it('counts bytes, not characters, so a non-Latin password meets the cap sooner', () => {
+    // 'ж' is two bytes in UTF-8: 37 of them are 74 bytes
+    expect(
+      registrationInputSchema.safeParse({ ...registration, password: 'ж'.repeat(37) }).success,
+    ).toBe(false)
+    expect(
+      registrationInputSchema.safeParse({ ...registration, password: 'ж'.repeat(36) }).success,
+    ).toBe(true)
+  })
+
+  it('leaves signing in uncapped, so a password set before the cap still works', () => {
+    expect(
+      credentialsInputSchema.safeParse({ ...credentials, password: 'a'.repeat(200) }).success,
+    ).toBe(true)
   })
 })
 

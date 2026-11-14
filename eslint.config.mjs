@@ -27,12 +27,7 @@ export default withNuxt(
       'no-restricted-imports': [
         'error',
         {
-          patterns: [
-            {
-              group: ['./*', './**', '../*', '../**'],
-              message: 'Use an alias (~/…, #shared/…, #server/…) instead of a relative import.',
-            },
-          ],
+          patterns: [NO_RELATIVE_IMPORTS],
         },
       ],
     },

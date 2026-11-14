@@ -30,23 +30,8 @@ export interface IWorkspaceTableFields {
   fields: IField[]
 }
 
-export async function requireWorkspaceTableFields(
-  workspaceId: string,
-  address: string,
-): Promise<IWorkspaceTableFields> {
-  const table = await prisma.table.findUnique({
-    where: buildTableAddressWhere(workspaceId, address),
-    select: { id: true, fields: { orderBy: FIELD_ORDER, select: fieldSelect } },
-  })
-
-  if (!table) {
-    throw tableNotFound()
-  }
-
-  return { tableId: table.id, fields: table.fields.map(toSharedField) }
-}
-
-export async function requireWorkspaceTableWithFields(workspaceId: string, address: string) {
+/** The one lookup both helpers below share; a few table columns more than one needs cost nothing. */
+async function requireTableWithFieldRows(workspaceId: string, address: string) {
   const table = await prisma.table.findUnique({
     where: buildTableAddressWhere(workspaceId, address),
     select: { ...tableSelect, fields: { orderBy: FIELD_ORDER, select: fieldSelect } },
@@ -56,6 +41,19 @@ export async function requireWorkspaceTableWithFields(workspaceId: string, addre
     throw tableNotFound()
   }
 
+  return table
+}
+
+export async function requireWorkspaceTableFields(
+  workspaceId: string,
+  address: string,
+): Promise<IWorkspaceTableFields> {
+  const table = await requireTableWithFieldRows(workspaceId, address)
+  return { tableId: table.id, fields: table.fields.map(toSharedField) }
+}
+
+export async function requireWorkspaceTableWithFields(workspaceId: string, address: string) {
+  const table = await requireTableWithFieldRows(workspaceId, address)
   return { table: toSharedTable(table), fields: table.fields.map(toSharedField) }
 }
 
