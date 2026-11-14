@@ -277,8 +277,12 @@ workspace (`(workspaceId, roleId)`), so a member cannot hold another workspace's
 under their role, and the owner cannot leave. An invitation (`WorkspaceInvitation`, one per
 workspace and lowercased email) holds its role by the same compound key, so a role still held by a
 member or an invitation cannot be deleted (409). `Record.data` is keyed by **`Field.key`**
-(immutable), so renaming a field rewrites nothing; a multi-value field stores a JSON array, and
-widening is the one operation that rewrites rows. `Table.recordCounter` is never in `tableSelect`.
+(immutable), so renaming a field rewrites nothing; a multi-value field stores a JSON array.
+Widening and deleting a field are the two operations that rewrite rows. **A delete clears the key
+from its table's records in the same transaction** — a freed key goes to the next field of that
+name, whatever its type, which would inherit the old values or fail to cast them. It is refused
+(409) while a RELATION shows the field as its label (`RelationService.assertNotRelationTarget`).
+`Table.recordCounter` is never in `tableSelect`.
 
 **One index covers `data` for every table:** `Record_search_trgm_idx`, a `gin_trgm_ops` GIN over
 `record_search_text(data, "number")`. It, the function and the `pg_trgm` extension are hand-written

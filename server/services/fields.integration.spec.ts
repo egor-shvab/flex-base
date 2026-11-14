@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { FieldService } from '#server/services/fields'
+import { RecordService } from '#server/services/records'
 import { prisma } from '#server/db/prisma'
 import type { TRecordData } from '#shared/types/record'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { createField, createRecord, createTable, createUser } from '~~/test/integration/seed'
 
+let workspaceId: string
 let tableId: string
 
 const input = (overrides: Partial<TFieldInput> & Pick<TFieldInput, 'type'>): TFieldInput =>
@@ -28,8 +30,8 @@ async function storedValue(recordId: string, key: string) {
 }
 
 beforeEach(async () => {
-  const table = await createTable((await createUser()).workspace.id)
-  tableId = table.id
+  workspaceId = (await createUser()).workspace.id
+  tableId = (await createTable(workspaceId)).id
 })
 
 describe('widening a field migrates the rows it describes', () => {
@@ -171,12 +173,77 @@ describe('field keys are unique per table, in the database', () => {
 })
 
 describe('deleting a field', () => {
-  it('leaves the records standing, values and all', async () => {
+  it('clears its key from the table’s records and leaves every other key standing', async () => {
     const field = await createField(tableId, { key: 'stage', type: 'TEXT' })
     const record = await createRecord(tableId, { stage: 'Won', company: 'Acme' })
 
-    await prisma.field.delete({ where: { id: field.id } })
+    await FieldService.deleteField(workspaceId, tableId, field.id)
 
+    expect(await storedValue(record.id, 'stage')).toBeUndefined()
     expect(await storedValue(record.id, 'company')).toBe('Acme')
+  })
+
+  it('leaves another table’s value under the same key alone', async () => {
+    const field = await createField(tableId, { key: 'stage', type: 'TEXT' })
+    const other = await createTable(workspaceId, 'Other')
+    await createField(other.id, { key: 'stage', type: 'TEXT' })
+    const kept = await createRecord(other.id, { stage: 'Won' })
+
+    await FieldService.deleteField(workspaceId, tableId, field.id)
+
+    expect(await storedValue(kept.id, 'stage')).toBe('Won')
+  })
+
+  it('hands a re-created field of another type an empty column, so its filter runs', async () => {
+    const text = await FieldService.createField(tableId, input({ type: 'TEXT', name: 'Amount' }))
+    await createRecord(tableId, { amount: 'on request' })
+
+    await FieldService.deleteField(workspaceId, tableId, text.id)
+    const number = await FieldService.createField(
+      tableId,
+      input({ type: 'NUMBER', name: 'Amount' }),
+    )
+
+    expect(number.key).toBe('amount')
+    const page = await RecordService.listRecords(tableId, [number], {
+      page: 1,
+      pageSize: 50,
+      sort: { key: number.key, direction: 'asc' },
+      filters: { amount: { from: 0, to: null } },
+      search: '',
+    })
+    expect(page.records).toEqual([])
+  })
+
+  it('refuses while a relation shows it as its label, and keeps field and values', async () => {
+    const label = await createField(tableId, { key: 'full_name', type: 'TEXT' })
+    const record = await createRecord(tableId, { full_name: 'Ada' })
+    const deals = await createTable(workspaceId, 'Deals')
+    await createField(deals.id, {
+      key: 'owner',
+      name: 'Owner',
+      type: 'RELATION',
+      options: { targetTableId: tableId, labelFieldKey: 'full_name' },
+    })
+
+    await expect(FieldService.deleteField(workspaceId, tableId, label.id)).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: '"Owner" in "Deals" shows this field as its label',
+    })
+
+    expect(await prisma.field.count({ where: { id: label.id } })).toBe(1)
+    expect(await storedValue(record.id, 'full_name')).toBe('Ada')
+  })
+
+  it('lets a field go that a relation targets the table of but labels with another', async () => {
+    const plain = await createField(tableId, { key: 'notes', type: 'TEXT' })
+    const deals = await createTable(workspaceId, 'Deals')
+    await createField(deals.id, {
+      key: 'owner',
+      type: 'RELATION',
+      options: { targetTableId: tableId, labelFieldKey: 'full_name' },
+    })
+
+    await expect(FieldService.deleteField(workspaceId, tableId, plain.id)).resolves.toBeUndefined()
   })
 })

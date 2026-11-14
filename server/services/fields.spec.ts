@@ -256,22 +256,78 @@ describe('updateField — widening', () => {
 })
 
 describe('FieldService.deleteField', () => {
+  const WORKSPACE_ID = 'ws_acme'
+
+  const finds = (field: { key: string } | null, labelReference: unknown = null) =>
+    prismaMock.field.findFirst.mockResolvedValueOnce(field).mockResolvedValueOnce(labelReference)
+
   it('scopes the delete to the table, so a field id alone is not enough', async () => {
+    finds({ key: 'owner' })
     prismaMock.field.delete.mockResolvedValue(textField('owner'))
 
-    await FieldService.deleteField(TABLE_ID, FIELD_ID)
+    await FieldService.deleteField(WORKSPACE_ID, TABLE_ID, FIELD_ID)
 
+    expect(prismaMock.field.findFirst).toHaveBeenNthCalledWith(1, {
+      where: { id: FIELD_ID, tableId: TABLE_ID },
+      select: { key: true },
+    })
     expect(prismaMock.field.delete).toHaveBeenCalledWith({
       where: { id: FIELD_ID, tableId: TABLE_ID },
     })
   })
 
-  it('maps a missing row onto a 404', async () => {
+  it('clears the key from the table’s records in the same transaction as the delete', async () => {
+    finds({ key: 'owner' })
+    prismaMock.field.delete.mockResolvedValue(textField('owner'))
+
+    await FieldService.deleteField(WORKSPACE_ID, TABLE_ID, FIELD_ID)
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+    const [[template, ...values]] = prismaMock.$executeRaw.mock.calls as [[string[], ...unknown[]]]
+    expect(template.join('?')).toContain('SET data = data - ?::text')
+    expect(values).toEqual(['owner', TABLE_ID, 'owner'])
+  })
+
+  it('refuses while a relation shows the field as its label, before deleting anything', async () => {
+    finds({ key: 'full_name' }, { name: 'Owner', table: { name: 'Deals' } })
+
+    await expect(FieldService.deleteField(WORKSPACE_ID, TABLE_ID, FIELD_ID)).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: '"Owner" in "Deals" shows this field as its label',
+    })
+
+    expect(prismaMock.field.findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          table: { workspaceId: WORKSPACE_ID },
+          options: { path: ['targetTableId'], equals: TABLE_ID },
+          AND: [{ options: { path: ['labelFieldKey'], equals: 'full_name' } }],
+        }),
+      }),
+    )
+    expect(prismaMock.field.delete).not.toHaveBeenCalled()
+    expect(prismaMock.$executeRaw).not.toHaveBeenCalled()
+  })
+
+  it('404s on a field outside the table, before touching anything else', async () => {
+    finds(null)
+
+    await expect(FieldService.deleteField(WORKSPACE_ID, TABLE_ID, FIELD_ID)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Field not found',
+    })
+    expect(prismaMock.field.findFirst).toHaveBeenCalledTimes(1)
+    expect(prismaMock.field.delete).not.toHaveBeenCalled()
+  })
+
+  it('maps a row deleted in between onto a 404', async () => {
+    finds({ key: 'owner' })
     prismaMock.field.delete.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),
     )
 
-    await expect(FieldService.deleteField(TABLE_ID, FIELD_ID)).rejects.toMatchObject({
+    await expect(FieldService.deleteField(WORKSPACE_ID, TABLE_ID, FIELD_ID)).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Field not found',
     })

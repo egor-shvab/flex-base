@@ -170,6 +170,12 @@ Its tables, fields and records go in one `DELETE`, which holds its locks for as 
 runs — instant now, minutes on a workspace of millions of records. _Reopen when a workspace passes a
 million records: delete in batches, or mark and reap._
 
+### Deleting a field rewrites its table's rows in the request
+
+The field's values are cleared in the delete's transaction, which holds row locks on every record
+that stored one — instant now, minutes on a table of millions. _Reopen with the workspace cascade
+above: clear in batches, keeping the key reserved until done._
+
 ### Registration keeps an email's case
 
 `User.email` is stored as typed, so `Ada@x.com` and `ada@x.com` are two accounts. Invitations are

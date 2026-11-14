@@ -3,6 +3,7 @@ import { Prisma } from '#server/generated/prisma/client'
 import { dropFieldIndexes, syncFieldIndexes } from '#server/db/field-indexes'
 import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
+import { RelationService } from '#server/services/relations'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
 import { toHttpError } from '#server/utils/http-errors'
 import { buildFieldKey } from '#server/utils/field-key'
@@ -41,6 +42,18 @@ function widenToList(tx: Prisma.TransactionClient, tableId: string, key: string)
     WHERE "tableId" = ${tableId}
       AND data ? ${key}::text
       AND jsonb_typeof(data -> ${key}::text) NOT IN ('array', 'null')
+  `
+}
+
+/**
+ * In the same transaction as the field's delete: once the key is free a new field may take it, and
+ * must not inherit — or fail to cast — what the old one stored.
+ */
+function clearFieldValues(tx: Prisma.TransactionClient, tableId: string, key: string) {
+  return tx.$executeRaw`
+    UPDATE "Record"
+    SET data = data - ${key}::text
+    WHERE "tableId" = ${tableId} AND data ? ${key}::text
   `
 }
 
@@ -142,9 +155,22 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
   }
 }
 
-async function deleteField(tableId: string, fieldId: string) {
+async function deleteField(workspaceId: string, tableId: string, fieldId: string) {
+  const field = await prisma.field.findFirst({
+    where: { id: fieldId, tableId },
+    select: { key: true },
+  })
+  if (!field) {
+    throw createError({ statusCode: 404, statusMessage: fieldErrors.notFound })
+  }
+
+  await RelationService.assertNotRelationTarget(workspaceId, tableId, field.key)
+
   try {
-    await prisma.field.delete({ where: { id: fieldId, tableId } })
+    await prisma.$transaction(async (tx) => {
+      await tx.field.delete({ where: { id: fieldId, tableId } })
+      await clearFieldValues(tx, tableId, field.key)
+    })
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }

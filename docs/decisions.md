@@ -169,7 +169,7 @@ type**; flattening to `unknown` would silently widen every response type.
 The call site names the layer (`FieldService.createField`). Full method names stay — the object
 qualifies, it does not abbreviate. Members are module-scope functions listed in the object, so **no
 member depends on `this`** (a destructured method would throw). The literal is the public surface
-(`widenToList`, `assertNotRelationTarget` are absent). No annotation, no `satisfies`, no
+(`widenToList`, `clearFieldValues` are absent). No annotation, no `satisfies`, no
 `Object.freeze`.
 
 ### The four count-moving writes repeat their counts call, and that is the end state

@@ -173,6 +173,37 @@ async function resolveFilterTargets(
   return resolved
 }
 
+/**
+ * Refuses with a 409 while a RELATION field points at the table — or, given a key, shows that field
+ * of the table as its label, which would silently fall back to record numbers.
+ */
+async function assertNotRelationTarget(
+  workspaceId: string,
+  tableId: string,
+  labelFieldKey?: string,
+): Promise<void> {
+  const reference = await prisma.field.findFirst({
+    where: {
+      type: 'RELATION',
+      table: { workspaceId },
+      options: { path: ['targetTableId'], equals: tableId },
+      ...(labelFieldKey === undefined
+        ? {}
+        : { AND: [{ options: { path: ['labelFieldKey'], equals: labelFieldKey } }] }),
+    },
+    select: { name: true, table: { select: { name: true } } },
+  })
+
+  if (reference) {
+    const reason =
+      labelFieldKey === undefined ? 'links to this table' : 'shows this field as its label'
+    throw createError({
+      statusCode: 409,
+      statusMessage: `"${reference.name}" in "${reference.table.name}" ${reason}`,
+    })
+  }
+}
+
 async function assertRelationTargets(fields: IField[], data: TRecordData): Promise<void> {
   const targets = buildRelationTargets(fields, [data])
   if (targets.length === 0) return
@@ -215,6 +246,7 @@ export const RelationService = {
   buildRelationTargets,
   resolveLinkedRecords,
   assertRelationTargets,
+  assertNotRelationTarget,
   resolveFilterTargets,
   listRelationOptions,
 }

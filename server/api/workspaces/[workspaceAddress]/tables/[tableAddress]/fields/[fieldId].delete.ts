@@ -7,7 +7,7 @@ import type { IFieldDeletedResponse } from '#shared/types/api'
 export default defineTableHandler(
   'TABLES_MANAGE',
   async ({ event, membership, table }): Promise<IFieldDeletedResponse> => {
-    await FieldService.deleteField(table.id, routeParam(event, 'fieldId'))
+    await FieldService.deleteField(membership.workspace.id, table.id, routeParam(event, 'fieldId'))
 
     return {
       ok: true,

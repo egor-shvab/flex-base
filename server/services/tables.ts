@@ -1,6 +1,7 @@
 import { createError } from 'h3'
 import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { prisma } from '#server/db/prisma'
+import { RelationService } from '#server/services/relations'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
 import { toHttpError } from '#server/utils/http-errors'
 import { tableListSelect, buildTableAddressWhere, toSharedTableListItem } from '#server/db/tables'
@@ -73,24 +74,6 @@ async function renameTable(
   }
 }
 
-async function assertNotRelationTarget(workspaceId: string, tableId: string) {
-  const reference = await prisma.field.findFirst({
-    where: {
-      type: 'RELATION',
-      table: { workspaceId },
-      options: { path: ['targetTableId'], equals: tableId },
-    },
-    select: { name: true, table: { select: { name: true } } },
-  })
-
-  if (reference) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: `"${reference.name}" in "${reference.table.name}" links to this table`,
-    })
-  }
-}
-
 /**
  * The address is resolved to the id before the guard runs, and that order is load-bearing:
  * `options.targetTableId` stores a cuid, so a number would match nothing and the guard would pass.
@@ -105,7 +88,7 @@ async function deleteTable(workspaceId: string, address: string) {
     throw createError({ statusCode: 404, statusMessage: tableErrors.notFound })
   }
 
-  await assertNotRelationTarget(workspaceId, table.id)
+  await RelationService.assertNotRelationTarget(workspaceId, table.id)
   const indexedFieldIds = await listIndexedFieldIds({ tableId: table.id })
 
   try {
