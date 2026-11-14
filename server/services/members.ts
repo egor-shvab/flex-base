@@ -2,7 +2,8 @@ import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { memberSelect, toSharedMember, type TMemberRow } from '#server/db/workspaces'
 import { RoleService } from '#server/services/roles'
-import { toHttpError } from '#server/utils/http-errors'
+import { isMissingRow } from '#server/db/prisma-errors'
+import { buildChangedMeanwhileError, toHttpError } from '#server/utils/http-errors'
 import type { IWorkspaceMember, IWorkspaceMembership } from '#shared/types/workspace'
 import { canManageMember } from '#shared/utils/permissions'
 
@@ -44,37 +45,66 @@ async function getManagedMember(
   return row
 }
 
+/**
+ * The decision rests on the member's role as read, so the write repeats it: the same role with the
+ * same permissions, or nothing is written. Without it, a member raised past the actor's reach in
+ * between could still be changed or removed by them.
+ */
+function buildManagedMemberWhere(actor: IWorkspaceMembership, row: TMemberRow) {
+  return {
+    id: row.id,
+    workspaceId: actor.workspace.id,
+    roleId: row.role.id,
+    role: { permissions: { equals: row.role.permissions } },
+  }
+}
+
+async function toMemberWriteError(error: unknown, actor: IWorkspaceMembership, memberId: string) {
+  if (isMissingRow(error)) {
+    const current = await prisma.workspaceMember.findFirst({
+      where: { id: memberId, workspaceId: actor.workspace.id },
+      select: { id: true },
+    })
+    if (current) return buildChangedMeanwhileError('member')
+  }
+  return toHttpError(error, memberErrors)
+}
+
+/**
+ * The new role is checked, not repeated in the write: widening it meanwhile takes someone allowed
+ * to, so the member ends with what that person set, never more than the actor could grant.
+ */
 async function changeMemberRole(
   actor: IWorkspaceMembership,
   memberId: string,
   roleId: string,
 ): Promise<IWorkspaceMember> {
-  await getManagedMember(actor, memberId)
+  const row = await getManagedMember(actor, memberId)
   await RoleService.requireAssignableRole(actor, roleId)
 
   try {
     return toSharedMember(
       await prisma.workspaceMember.update({
-        where: { id: memberId, workspaceId: actor.workspace.id },
+        where: buildManagedMemberWhere(actor, row),
         data: { roleId },
         select: memberSelect,
       }),
     )
   } catch (error) {
-    throw toHttpError(error, memberErrors)
+    throw await toMemberWriteError(error, actor, memberId)
   }
 }
 
 async function removeMember(actor: IWorkspaceMembership, memberId: string): Promise<void> {
-  await getManagedMember(actor, memberId)
+  const row = await getManagedMember(actor, memberId)
 
   try {
     await prisma.workspaceMember.delete({
-      where: { id: memberId, workspaceId: actor.workspace.id },
+      where: buildManagedMemberWhere(actor, row),
       select: { id: true },
     })
   } catch (error) {
-    throw toHttpError(error, memberErrors)
+    throw await toMemberWriteError(error, actor, memberId)
   }
 }
 

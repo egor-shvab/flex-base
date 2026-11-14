@@ -26,7 +26,9 @@ next one. A workspace the caller is not in is a 404, a permission they lack a 40
 (`Workspace.ownerId`) passes every check, and only they delete or hand over the workspace. The
 anti-escalation rules — no role, member or invitation beyond the actor's own permissions, never the
 owner's membership or one's own — are one set of functions in `shared/utils/permissions.ts`, read
-by the services to refuse and by the client to hide.
+by the services to refuse and by the client to hide. **The role a decision read is repeated in the
+write's `where`** — a member's `roleId` and that role's permissions, a role's own permissions — so a
+change between check and write writes nothing and answers 409 (`buildChangedMeanwhileError`).
 
 ---
 

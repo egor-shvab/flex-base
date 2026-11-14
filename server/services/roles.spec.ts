@@ -130,7 +130,7 @@ describe('RoleService.updateRole', () => {
     )
     expect(prismaMock.workspaceRole.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: roleWhere,
+        where: { ...roleWhere, permissions: { equals: ['RECORDS_CREATE'] } },
         data: { name: 'Clerk', permissions: ['RECORDS_UPDATE'] },
       }),
     )
@@ -164,12 +164,25 @@ describe('RoleService.updateRole', () => {
   })
 
   it('reports a role deleted since it was read as missing', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: [] })
+    prismaMock.workspaceRole.findUnique
+      .mockResolvedValueOnce({ permissions: [] })
+      .mockResolvedValueOnce(null)
     prismaMock.workspaceRole.update.mockRejectedValue(knownError('P2025'))
 
     await expect(
       RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: [] }),
     ).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  it('refuses with a 409 when the role’s permissions changed under the check', async () => {
+    prismaMock.workspaceRole.findUnique
+      .mockResolvedValueOnce({ permissions: [] })
+      .mockResolvedValueOnce({ id: ROLE_ID })
+    prismaMock.workspaceRole.update.mockRejectedValue(knownError('P2025'))
+
+    await expect(
+      RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: [] }),
+    ).rejects.toMatchObject({ statusCode: 409 })
   })
 })
 
@@ -181,7 +194,7 @@ describe('RoleService.deleteRole', () => {
     await RoleService.deleteRole(manager, ROLE_ID)
 
     expect(prismaMock.workspaceRole.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: roleWhere }),
+      expect.objectContaining({ where: { ...roleWhere, permissions: { equals: [] } } }),
     )
   })
 

@@ -1,8 +1,12 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { buildRoleWhere, roleSelect, toSharedRole } from '#server/db/workspaces'
-import { isMissingRow } from '#server/db/prisma-errors'
-import { buildStaleWriteError, toHttpError } from '#server/utils/http-errors'
+import { isForeignKeyViolation, isMissingRow } from '#server/db/prisma-errors'
+import {
+  buildChangedMeanwhileError,
+  buildStaleWriteError,
+  toHttpError,
+} from '#server/utils/http-errors'
 import type { IPermissionSet, IWorkspaceMembership, IWorkspaceRole } from '#shared/types/workspace'
 import { canAssignRole, canCreateRole, canEditRole } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
@@ -99,18 +103,40 @@ async function updateRole(
   try {
     return toSharedRole(
       await prisma.workspaceRole.update({
-        where: expectedUpdatedAt ? { ...where, updatedAt: expectedUpdatedAt } : where,
+        where: {
+          ...buildGuardedRoleWhere(where, role),
+          ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
+        },
         data: { name: input.name, permissions: input.permissions },
         select: roleSelect,
       }),
     )
   } catch (error) {
-    if (expectedUpdatedAt && isMissingRow(error)) {
-      const current = await prisma.workspaceRole.findUnique({ where, select: { id: true } })
-      if (current) throw buildStaleWriteError('role')
-    }
-    throw toHttpError(error, roleErrors)
+    throw await toRoleWriteError(error, where, expectedUpdatedAt !== undefined)
   }
+}
+
+/** The permissions the decision read are repeated in the write, as for a member's role. */
+function buildGuardedRoleWhere(
+  where: ReturnType<typeof buildRoleWhere>,
+  role: IPermissionSet,
+): ReturnType<typeof buildRoleWhere> {
+  return { ...where, permissions: { equals: [...role.permissions] } }
+}
+
+/** A miss on a role still there: stale in the form (412), or changed under the check (409). */
+async function toRoleWriteError(
+  error: unknown,
+  where: ReturnType<typeof buildRoleWhere>,
+  hasClientVersion: boolean,
+) {
+  if (isMissingRow(error)) {
+    const current = await prisma.workspaceRole.findUnique({ where, select: { id: true } })
+    if (current) {
+      return hasClientVersion ? buildStaleWriteError('role') : buildChangedMeanwhileError('role')
+    }
+  }
+  return toHttpError(error, roleErrors)
 }
 
 /**
@@ -121,16 +147,20 @@ async function deleteRole(actor: IWorkspaceMembership, roleId: string): Promise<
   const role = await getRole(actor.workspace.id, roleId)
   if (!canEditRole(actor, role)) throw buildEscalationError()
 
+  const where = buildRoleWhere(actor.workspace.id, roleId)
+
   try {
     await prisma.workspaceRole.delete({
-      where: buildRoleWhere(actor.workspace.id, roleId),
+      where: buildGuardedRoleWhere(where, role),
       select: { id: true },
     })
   } catch (error) {
-    throw toHttpError(error, {
-      ...roleErrors,
-      inUse: 'Reassign the members of this role and revoke its invitations first',
-    })
+    if (isForeignKeyViolation(error)) {
+      throw toHttpError(error, {
+        inUse: 'Reassign the members of this role and revoke its invitations first',
+      })
+    }
+    throw await toRoleWriteError(error, where, false)
   }
 }
 

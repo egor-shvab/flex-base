@@ -1,5 +1,5 @@
 import { createError } from 'h3'
-import { fieldSelect, toSharedField } from '#server/db/fields'
+import { FIELD_ORDER, fieldSelect, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
 import { tableSelect, buildTableAddressWhere, toSharedTable } from '#server/db/tables'
 import type { IField } from '#shared/types/field'
@@ -36,7 +36,7 @@ export async function requireWorkspaceTableFields(
 ): Promise<IWorkspaceTableFields> {
   const table = await prisma.table.findUnique({
     where: buildTableAddressWhere(workspaceId, address),
-    select: { id: true, fields: { orderBy: { order: 'asc' }, select: fieldSelect } },
+    select: { id: true, fields: { orderBy: FIELD_ORDER, select: fieldSelect } },
   })
 
   if (!table) {
@@ -49,7 +49,7 @@ export async function requireWorkspaceTableFields(
 export async function requireWorkspaceTableWithFields(workspaceId: string, address: string) {
   const table = await prisma.table.findUnique({
     where: buildTableAddressWhere(workspaceId, address),
-    select: { ...tableSelect, fields: { orderBy: { order: 'asc' }, select: fieldSelect } },
+    select: { ...tableSelect, fields: { orderBy: FIELD_ORDER, select: fieldSelect } },
   })
 
   if (!table) {

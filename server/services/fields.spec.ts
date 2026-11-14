@@ -73,7 +73,10 @@ describe('FieldService.listFields', () => {
     const fields = await FieldService.listFields(TABLE_ID)
 
     expect(prismaMock.field.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { tableId: TABLE_ID }, orderBy: { order: 'asc' } }),
+      expect.objectContaining({
+        where: { tableId: TABLE_ID },
+        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+      }),
     )
     expect(fields[0]).toMatchObject({ key: 'company', options: null })
   })
@@ -259,6 +262,42 @@ describe('updateField — widening', () => {
     const [call] = prismaMock.field.update.mock.calls
     expect(call?.[0].data).not.toHaveProperty('key')
     expect(call?.[0].data).toMatchObject({ name: 'Renamed' })
+  })
+})
+
+describe('createField — a key lost to a racing create', () => {
+  const keyTaken = () =>
+    new Prisma.PrismaClientKnownRequestError('dup', {
+      code: 'P2002',
+      clientVersion: '7.9.0',
+      meta: { driverAdapterError: { cause: { constraint: { fields: ['"tableId"', 'key'] } } } },
+    })
+
+  it('reads again and takes the next free key instead of answering 409', async () => {
+    prismaMock.field.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ key: 'price', type: 'TEXT', order: 0 }])
+    prismaMock.field.create
+      .mockRejectedValueOnce(keyTaken())
+      .mockResolvedValueOnce(stored(textField('price_2')))
+
+    await expect(
+      FieldService.createField(TABLE_ID, input({ type: 'TEXT', name: 'Price' })),
+    ).resolves.toMatchObject({ key: 'price_2' })
+
+    expect(prismaMock.field.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ key: 'price_2', order: 1 }) }),
+    )
+  })
+
+  it('gives up after a few attempts and reports the conflict', async () => {
+    prismaMock.field.findMany.mockResolvedValue([])
+    prismaMock.field.create.mockRejectedValue(keyTaken())
+
+    await expect(
+      FieldService.createField(TABLE_ID, input({ type: 'TEXT', name: 'Price' })),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(prismaMock.field.create).toHaveBeenCalledTimes(3)
   })
 })
 

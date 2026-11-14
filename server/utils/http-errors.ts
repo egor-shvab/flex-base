@@ -18,6 +18,17 @@ export function buildStaleWriteError(what: string): Error {
   })
 }
 
+/**
+ * A guarded write that found its row changed between the check and the write — the role a decision
+ * rested on was edited meanwhile. Nothing was written; asking again decides on the new state.
+ */
+export function buildChangedMeanwhileError(what: string): Error {
+  return createError({
+    statusCode: 409,
+    statusMessage: `This ${what} changed while your request was being handled. Reload and try again.`,
+  })
+}
+
 export function toHttpError(error: unknown, messages: IPrismaErrorMessages): Error {
   if (isUniqueViolation(error) && messages.conflict) {
     return createError({ statusCode: 409, statusMessage: messages.conflict })

@@ -34,6 +34,13 @@ const knownError = (code: string) =>
 
 const memberWhere = { id: MEMBER_ID, workspaceId: WORKSPACE_ID }
 
+/** The member's role as the check read it, repeated in the write. */
+const guardedMemberWhere = (permissions: TWorkspacePermission[]) => ({
+  ...memberWhere,
+  roleId: 'rol_current',
+  role: { permissions: { equals: permissions } },
+})
+
 beforeEach(() => {
   resetPrismaMock()
 })
@@ -86,7 +93,10 @@ describe('MemberService.changeMemberRole', () => {
       }),
     )
     expect(prismaMock.workspaceMember.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: memberWhere, data: { roleId: ROLE_ID } }),
+      expect.objectContaining({
+        where: guardedMemberWhere(['RECORDS_CREATE']),
+        data: { roleId: ROLE_ID },
+      }),
     )
   })
 
@@ -124,10 +134,25 @@ describe('MemberService.changeMemberRole', () => {
   })
 
   it('reports a member removed since the check as missing', async () => {
+    prismaMock.workspaceMember.findFirst
+      .mockResolvedValueOnce(memberRow(['RECORDS_CREATE']))
+      .mockResolvedValueOnce(null)
     prismaMock.workspaceMember.update.mockRejectedValue(knownError('P2025'))
 
     await expect(MemberService.changeMemberRole(owner, MEMBER_ID, ROLE_ID)).rejects.toMatchObject({
       statusCode: 404,
+    })
+  })
+
+  it('refuses with a 409 when the member’s role changed between the check and the write', async () => {
+    prismaMock.workspaceMember.findFirst
+      .mockResolvedValueOnce(memberRow(['RECORDS_CREATE']))
+      .mockResolvedValueOnce({ id: MEMBER_ID })
+    prismaMock.workspaceMember.update.mockRejectedValue(knownError('P2025'))
+
+    await expect(MemberService.changeMemberRole(owner, MEMBER_ID, ROLE_ID)).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: expect.stringContaining('changed while your request was being handled'),
     })
   })
 })
@@ -140,7 +165,7 @@ describe('MemberService.removeMember', () => {
     await MemberService.removeMember(manager, MEMBER_ID)
 
     expect(prismaMock.workspaceMember.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: memberWhere }),
+      expect.objectContaining({ where: guardedMemberWhere(['RECORDS_CREATE']) }),
     )
   })
 

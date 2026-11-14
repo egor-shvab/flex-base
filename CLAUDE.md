@@ -142,8 +142,8 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
 - **Role rules live in `shared/`**: a non-owner may only assign, edit or act on a role whose
   permissions are a subset of their own; one function decides it for server and client alike.
 - **Status codes:** a resource outside the caller's workspaces is **404, never 403**; a member
-  lacking the permission is **403**; 401 only from `requireUser(event)`; 409 for uniqueness and
-  in-use conflicts; 412 for a write whose `If-Match` version is stale (records, fields, roles);
+  lacking the permission is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use
+  conflicts and a guarded write whose checked row changed meanwhile; 412 for a write whose `If-Match` version is stale (records, fields, roles);
   every login failure is the same generic 401.
 - `User` rows are read with an explicit `select`; `passwordHash` never leaves. A user's email
   reaches only members of a workspace they share; authorship carries `id` and `name` only.

@@ -6,17 +6,19 @@ import {
   syncFieldIndexes,
   type IReconcileReport,
 } from '#server/db/field-indexes'
-import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
+import { FIELD_ORDER, fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
 import { RelationService } from '#server/services/relations'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
 import { buildStaleWriteError, toHttpError } from '#server/utils/http-errors'
-import { isMissingRow } from '#server/db/prisma-errors'
+import { isMissingRow, isUniqueViolationOn } from '#server/db/prisma-errors'
 import { buildFieldKey } from '#server/utils/field-key'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
 
 export const MAX_TABLE_FIELDS = 200
+
+const KEY_ATTEMPTS = 3
 
 const fieldErrors = {
   conflict: 'A field with this name already exists',
@@ -93,13 +95,30 @@ function clearFieldValues(tx: Prisma.TransactionClient, tableId: string, key: st
 async function listFields(tableId: string): Promise<IField[]> {
   const fields = await prisma.field.findMany({
     where: { tableId },
-    orderBy: { order: 'asc' },
+    orderBy: FIELD_ORDER,
     select: fieldSelect,
   })
   return fields.map(toSharedField)
 }
 
+/**
+ * The key is derived from the fields read just before, so a create racing another of a similar name
+ * can lose the unique key: it reads again and takes the next free one rather than answering a 409
+ * for a name that is not actually taken. Two racing creates may share an `order`; listing breaks
+ * that tie by creation.
+ */
 async function createField(tableId: string, input: TFieldInput): Promise<IField> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await insertField(tableId, input)
+    } catch (error) {
+      if (attempt < KEY_ATTEMPTS && isUniqueViolationOn(error, 'key')) continue
+      throw toHttpError(error, fieldErrors)
+    }
+  }
+}
+
+async function insertField(tableId: string, input: TFieldInput): Promise<IField> {
   const existing = await prisma.field.findMany({
     where: { tableId },
     select: { key: true, type: true, order: true },
@@ -115,28 +134,24 @@ async function createField(tableId: string, input: TFieldInput): Promise<IField>
     })
   }
 
-  try {
-    const field = await prisma.field.create({
-      data: {
-        tableId,
-        name: input.name,
-        key: buildFieldKey(input.name, input.type, existing),
-        type: input.type,
-        required: input.required,
-        options: buildOptions(input),
-        order: maxOrder + 1,
-        indexed: input.indexed,
-      },
-      select: fieldSelect,
-    })
+  const field = await prisma.field.create({
+    data: {
+      tableId,
+      name: input.name,
+      key: buildFieldKey(input.name, input.type, existing),
+      type: input.type,
+      required: input.required,
+      options: buildOptions(input),
+      order: maxOrder + 1,
+      indexed: input.indexed,
+    },
+    select: fieldSelect,
+  })
 
-    const created = toSharedField(field)
-    syncIndexesInBackground(tableId, created)
+  const created = toSharedField(field)
+  syncIndexesInBackground(tableId, created)
 
-    return created
-  } catch (error) {
-    throw toHttpError(error, fieldErrors)
-  }
+  return created
 }
 
 /** Given the version the caller read, the write lands only on that version (as `updateRecord`). */

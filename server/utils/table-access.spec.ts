@@ -74,7 +74,7 @@ describe('the workspace is scoped in the query', () => {
     )
   })
 
-  it('reads the fields in stored order, which every caller depends on', async () => {
+  it('reads the fields in stored order, creation breaking a tie, which every caller depends on', async () => {
     prismaMock.table.findUnique.mockResolvedValue({ id: TABLE_ID, fields: [] })
 
     await requireWorkspaceTableFields(WORKSPACE_ID, TABLE_ID)
@@ -82,7 +82,7 @@ describe('the workspace is scoped in the query', () => {
     expect(prismaMock.table.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          fields: expect.objectContaining({ orderBy: { order: 'asc' } }),
+          fields: expect.objectContaining({ orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] }),
         }),
       }),
     )

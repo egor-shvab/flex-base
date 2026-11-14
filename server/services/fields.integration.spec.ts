@@ -146,6 +146,31 @@ describe('widening a field migrates the rows it describes', () => {
   })
 })
 
+describe('two fields created at once', () => {
+  it('both land, under distinct keys, when their names slug alike', async () => {
+    const created = await Promise.all([
+      FieldService.createField(tableId, input({ type: 'TEXT', name: 'Price' })),
+      FieldService.createField(tableId, input({ type: 'TEXT', name: 'price!' })),
+      FieldService.createField(tableId, input({ type: 'TEXT', name: 'PRICE' })),
+    ])
+
+    expect(new Set(created.map((field) => field.key)).size).toBe(3)
+    expect(created.map((field) => field.key).sort()).toEqual(['price', 'price_2', 'price_3'])
+  })
+
+  it('lists them in a stable order even if they share an order value', async () => {
+    await Promise.all([
+      FieldService.createField(tableId, input({ type: 'TEXT', name: 'Alpha' })),
+      FieldService.createField(tableId, input({ type: 'TEXT', name: 'Beta' })),
+    ])
+
+    const first = (await FieldService.listFields(tableId)).map((field) => field.id)
+    const second = (await FieldService.listFields(tableId)).map((field) => field.id)
+
+    expect(second).toEqual(first)
+  })
+})
+
 describe('field keys are unique per table, in the database', () => {
   it('refuses a second field with a key already taken', async () => {
     await createField(tableId, { key: 'stage', type: 'TEXT' })

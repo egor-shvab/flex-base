@@ -15,6 +15,12 @@ export const fieldSelect = {
   updatedAt: true,
 } satisfies Prisma.FieldSelect
 
+/** Two fields created in a race can share an `order`; creation breaks the tie. */
+export const FIELD_ORDER = [
+  { order: 'asc' },
+  { createdAt: 'asc' },
+] satisfies Prisma.FieldOrderByWithRelationInput[]
+
 export type TFieldRow = Prisma.FieldGetPayload<{ select: typeof fieldSelect }>
 
 const reportedFieldIds = new Set<string>()
