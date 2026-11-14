@@ -22,7 +22,8 @@ const tableRow = {
   name: 'Deals',
   createdAt: new Date('2026-01-05T09:14:00.000Z'),
   updatedAt: new Date('2026-02-11T16:30:00.000Z'),
-  _count: { fields: 0, records: 0 },
+  recordCount: 0,
+  _count: { fields: 0 },
 }
 
 const conflict = () =>
@@ -47,7 +48,7 @@ describe('TableService.listTables', () => {
     )
   })
 
-  it('carries the counts the dashboard reads', async () => {
+  it('reads the kept record count, never a per-table COUNT of the records', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
     await TableService.listTables(WORKSPACE_ID)
@@ -55,7 +56,8 @@ describe('TableService.listTables', () => {
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          _count: { select: { fields: true, records: true } },
+          recordCount: true,
+          _count: { select: { fields: true } },
         }),
       }),
     )
@@ -74,10 +76,14 @@ describe('TableService.getTableListRow', () => {
   })
 
   it('carries the counts the sidebar and the dashboard redraw from', async () => {
-    prismaMock.table.findUniqueOrThrow.mockResolvedValue(tableRow)
+    prismaMock.table.findUniqueOrThrow.mockResolvedValue({
+      ...tableRow,
+      recordCount: 12,
+      _count: { fields: 3 },
+    })
 
     await expect(TableService.getTableListRow(WORKSPACE_ID, TABLE_ID)).resolves.toMatchObject({
-      _count: { fields: 0, records: 0 },
+      _count: { fields: 3, records: 12 },
     })
   })
 

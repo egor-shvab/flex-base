@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { RecordService } from '#server/services/records'
+import { TableService } from '#server/services/tables'
 import { prisma } from '#server/db/prisma'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
@@ -88,6 +89,39 @@ describe('record numbers', () => {
     await expect(
       prisma.record.create({ data: { tableId, number: 1, data: {} } }),
     ).rejects.toMatchObject({ code: 'P2002' })
+  })
+})
+
+describe('the kept record count', () => {
+  const countOf = async (id: string) =>
+    (await TableService.getTableListRow(workspaceId, id))._count.records
+
+  it('follows creates and deletes, matching the rows actually there', async () => {
+    const created = []
+    for (const company of ['Acme', 'Globex', 'Initech']) {
+      created.push(await RecordService.createRecord(tableId, fields, { company }, userId))
+    }
+    await RecordService.deleteRecord(tableId, created[1]?.id ?? '')
+
+    expect(await countOf(tableId)).toBe(2)
+    await expect(prisma.record.count({ where: { tableId } })).resolves.toBe(2)
+  })
+
+  it('stays put when the delete finds nothing', async () => {
+    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    await RecordService.deleteRecord(tableId, record.id)
+
+    await expect(RecordService.deleteRecord(tableId, record.id)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+    expect(await countOf(tableId)).toBe(0)
+  })
+
+  it('moves only its own table’s count', async () => {
+    const other = await createTable(workspaceId, 'Other')
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+
+    expect(await countOf(other.id)).toBe(0)
   })
 })
 

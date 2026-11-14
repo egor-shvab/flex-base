@@ -120,7 +120,7 @@ async function createRecord(
     const record = await prisma.$transaction(async (tx) => {
       const { recordCounter } = await tx.table.update({
         where: { id: tableId },
-        data: { recordCounter: { increment: 1 } },
+        data: { recordCounter: { increment: 1 }, recordCount: { increment: 1 } },
         select: { recordCounter: true },
       })
 
@@ -163,9 +163,17 @@ async function updateRecord(
   }
 }
 
+/** The count moves only after the delete found its row: a missing one throws before it. */
 async function deleteRecord(tableId: string, address: string) {
   try {
-    await prisma.record.delete({ where: buildRecordAddressWhere(tableId, address) })
+    await prisma.$transaction(async (tx) => {
+      await tx.record.delete({ where: buildRecordAddressWhere(tableId, address) })
+      await tx.table.update({
+        where: { id: tableId },
+        data: { recordCount: { decrement: 1 } },
+        select: { id: true },
+      })
+    })
   } catch (error) {
     throw toHttpError(error, recordErrors)
   }

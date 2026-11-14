@@ -196,7 +196,9 @@ describe('RecordService.createRecord', () => {
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
     expect(prismaMock.table.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { recordCounter: { increment: 1 } } }),
+      expect.objectContaining({
+        data: { recordCounter: { increment: 1 }, recordCount: { increment: 1 } },
+      }),
     )
     expect(prismaMock.record.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ number: 12 }) }),
@@ -316,7 +318,21 @@ describe('RecordService.deleteRecord', () => {
     })
   })
 
-  it('maps a missing row onto a 404', async () => {
+  it('lowers the table’s record count in the same transaction', async () => {
+    prismaMock.record.delete.mockResolvedValue(row())
+
+    await RecordService.deleteRecord(TABLE_ID, RECORD_ID)
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+    expect(prismaMock.table.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: TABLE_ID },
+        data: { recordCount: { decrement: 1 } },
+      }),
+    )
+  })
+
+  it('maps a missing row onto a 404, leaving the count alone', async () => {
     prismaMock.record.delete.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),
     )
@@ -324,5 +340,6 @@ describe('RecordService.deleteRecord', () => {
     await expect(RecordService.deleteRecord(TABLE_ID, RECORD_ID)).rejects.toMatchObject({
       statusCode: 404,
     })
+    expect(prismaMock.table.update).not.toHaveBeenCalled()
   })
 })

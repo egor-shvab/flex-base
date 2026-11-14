@@ -111,7 +111,7 @@ export async function createRecord(
 ) {
   const { recordCounter } = await prisma.table.update({
     where: { id: tableId },
-    data: { recordCounter: { increment: 1 } },
+    data: { recordCounter: { increment: 1 }, recordCount: { increment: 1 } },
     select: { recordCounter: true },
   })
 

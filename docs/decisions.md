@@ -520,6 +520,12 @@ the extra row separates "exactly the cap" from "more". Past the cap `pageCount` 
 **Next follows whether the page came back full**, never `page >= pageCount`. `Table.recordCounter`
 is a high-water mark, not a count.
 
+The sidebar's per-table number is **`Table.recordCount`, kept by `createRecord` and `deleteRecord`
+in their transactions** — `_count.records` was a `COUNT(*)` per table on every workspace load and
+after every write. Rejected: the capped subquery, which would print `1000+` in a sidebar. **Any new
+path that inserts or deletes records must move it too** (the seeds do); a row that skips it leaves
+the number wrong for good.
+
 ### Type-only imports are invisible to HMR, and `compiler-sfc` caches resolved types
 
 `import type` is erased, so it is no edge in Vite's graph, and `@vue/compiler-sfc` caches resolved

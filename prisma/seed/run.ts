@@ -47,6 +47,7 @@ async function writeTable(
       name: table.name,
       number: table.number,
       recordCounter: table.records.length,
+      recordCount: table.records.length,
     },
   })
 

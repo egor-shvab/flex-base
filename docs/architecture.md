@@ -284,7 +284,8 @@ Widening and deleting a field are the two operations that rewrite rows. **A dele
 from its table's records in the same transaction** — a freed key goes to the next field of that
 name, whatever its type, which would inherit the old values or fail to cast them. It is refused
 (409) while a RELATION shows the field as its label (`RelationService.assertNotRelationTarget`).
-`Table.recordCounter` is never in `tableSelect`.
+`Table.recordCounter` is never in `tableSelect`; `Table.recordCount` reaches the wire as
+`_count.records` (`decisions.md` → _The count is bounded, and Next does not read the page count_).
 
 **One index covers `data` for every table:** `Record_search_trgm_idx`, a `gin_trgm_ops` GIN over
 `record_search_text(data, "number")`. It, the function and the `pg_trgm` extension are hand-written

@@ -21,9 +21,11 @@ export const tableSelect = {
   updatedAt: true,
 } satisfies Prisma.TableSelect
 
+/** Records are read from the kept count, never `_count`: that is a `COUNT(*)` per table per load. */
 export const tableListSelect = {
   ...tableSelect,
-  _count: { select: { fields: true, records: true } },
+  recordCount: true,
+  _count: { select: { fields: true } },
 } satisfies Prisma.TableSelect
 
 export type TTableRow = Prisma.TableGetPayload<{ select: typeof tableSelect }>
@@ -40,5 +42,8 @@ export function toSharedTable(row: TTableRow): ITable {
 }
 
 export function toSharedTableListItem(row: TTableListRow): ITableListItem {
-  return { ...toSharedTable(row), _count: row._count }
+  return {
+    ...toSharedTable(row),
+    _count: { fields: row._count.fields, records: row.recordCount },
+  }
 }
