@@ -26,6 +26,15 @@ describe('BaseDetailRow', () => {
     expect(wrapper.find('dd').classes()).toContain('base-detail-row__value--address')
   })
 
+  it('marks a wrapping row and its value, so whole content is never clipped', async () => {
+    const wrapper = await mountTracked(BaseDetailRow, {
+      props: { term: 'Tags', variant: 'wrap' },
+    })
+
+    expect(wrapper.classes()).toContain('base-detail-row--wrap')
+    expect(wrapper.find('dd').classes()).toContain('base-detail-row__value--wrap')
+  })
+
   it('labels a control and leaves its cell unclipped', async () => {
     const wrapper = await mountTracked(BaseDetailRow, {
       props: { term: 'Workspace name', labelFor: 'name-input', variant: 'mono' },

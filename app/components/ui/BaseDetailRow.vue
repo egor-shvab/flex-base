@@ -1,5 +1,5 @@
 <template>
-  <div class="base-detail-row">
+  <div class="base-detail-row" :class="{ 'base-detail-row--wrap': variant === 'wrap' }">
     <dt class="base-detail-row__term">
       <label v-if="labelFor" :for="labelFor">{{ term }}</label>
       <template v-else>{{ term }}</template>
@@ -19,7 +19,8 @@ withDefaults(
   defineProps<{
     term: string
     labelFor?: string
-    variant?: 'text' | 'mono' | 'address'
+    /** `wrap` is for content that must stay whole: long text, several values, links. */
+    variant?: 'text' | 'mono' | 'address' | 'wrap'
   }>(),
   { labelFor: undefined, variant: 'text' },
 )
@@ -32,11 +33,15 @@ withDefaults(
   gap: rem(16);
   align-items: center;
   min-height: rem(44);
-  padding: rem(8) rem(16);
+  padding: rem(8) var(--detail-row-inset, #{rem(16)});
   border-bottom: 1px solid var(--color-border-subtle);
 
   &:last-child {
     border-bottom: none;
+  }
+
+  &--wrap {
+    align-items: baseline;
   }
 
   @include below-shell {
@@ -70,6 +75,11 @@ withDefaults(
       font-family: var(--font-mono);
       font-size: var(--font-size-sm);
       color: var(--color-text-secondary);
+    }
+
+    &--wrap {
+      font-size: var(--font-size-md);
+      overflow-wrap: anywhere;
     }
   }
 }

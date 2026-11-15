@@ -8,7 +8,7 @@ import { recordWithAuthors, relationField, selectField, textField } from '~~/tes
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 const terms = (wrapper: { findAll: (selector: string) => { text: () => string }[] }) =>
-  wrapper.findAll('.record-detail__term').map((term) => term.text())
+  wrapper.findAll('dt').map((term) => term.text())
 
 const FIELDS = [textField('company', { name: 'Company' }), selectField()]
 
@@ -37,7 +37,7 @@ describe('RecordDetail', () => {
       props: { fields: FIELDS, record: recordWithAuthors() },
     })
 
-    const keys = wrapper.findAll('.record-detail__row').length
+    const keys = wrapper.findAll('dl > div').length
 
     expect(terms(wrapper)).not.toContain('Record #')
     expect(keys).toBe(6)
@@ -64,7 +64,7 @@ describe('RecordDetail', () => {
       props: { fields: FIELDS, record: recordWithAuthors({ data: { company: 'Acme' } }) },
     })
 
-    expect(wrapper.findAll('.record-detail__value')).toHaveLength(terms(wrapper).length)
+    expect(wrapper.findAll('dd')).toHaveLength(terms(wrapper).length)
     expect(wrapper.text()).toContain('Acme')
   })
 })

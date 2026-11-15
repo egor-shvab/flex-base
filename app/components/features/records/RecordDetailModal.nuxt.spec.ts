@@ -115,7 +115,7 @@ describe('RecordDetailModal', () => {
 
   describe('who wrote the record', () => {
     const valueOf = (term: string) =>
-      [...document.querySelectorAll('.record-detail__row')]
+      [...document.querySelectorAll('.record-detail > div')]
         .find((row) => row.querySelector('dt')?.textContent === term)
         ?.querySelector('dd')
         ?.textContent?.trim()
