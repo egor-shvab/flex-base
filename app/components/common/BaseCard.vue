@@ -1,5 +1,5 @@
 <template>
-  <component :is="tag" class="base-card">
+  <component :is="tag" class="base-card" :class="`base-card--${tone}`">
     <!-- A `<header>` outside a sectioning element would become a page-level banner landmark -->
     <div v-if="$slots.header" class="base-card__header">
       <slot name="header" />
@@ -17,8 +17,9 @@
 withDefaults(
   defineProps<{
     tag?: 'div' | 'section' | 'figure'
+    tone?: 'default' | 'danger'
   }>(),
-  { tag: 'div' },
+  { tag: 'div', tone: 'default' },
 )
 </script>
 
@@ -28,6 +29,10 @@ withDefaults(
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+
+  &--danger {
+    border-color: var(--color-danger-edge);
+  }
 
   &__header {
     @include cluster(10);

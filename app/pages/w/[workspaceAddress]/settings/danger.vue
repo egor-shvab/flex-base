@@ -2,55 +2,37 @@
   <section class="settings-danger" :aria-labelledby="titleId">
     <BaseSectionHead title="Danger zone" :title-id="titleId" />
 
-    <div v-if="isOwner" class="danger-card">
-      <div class="danger-card__row">
-        <div class="danger-card__text">
-          <h3 class="danger-card__title">Transfer ownership</h3>
-          <p class="danger-card__description">
-            Hand the workspace to another member. You stay in it as {{ membership?.role.name }}, and
-            only they can delete it or hand it on.
-          </p>
-        </div>
-        <BaseButton variant="secondary" class="danger-card__action" @click="isTransferOpen = true">
-          Transfer ownership
-        </BaseButton>
-      </div>
+    <BaseCard v-if="isOwner" tone="danger">
+      <BaseActionRow title="Transfer ownership" tone="danger">
+        Hand the workspace to another member. You stay in it as {{ membership?.role.name }}, and
+        only they can delete it or hand it on.
+        <template #action>
+          <BaseButton variant="secondary" @click="isTransferOpen = true">
+            Transfer ownership
+          </BaseButton>
+        </template>
+      </BaseActionRow>
 
-      <div class="danger-card__row">
-        <div class="danger-card__text">
-          <h3 class="danger-card__title">Delete workspace</h3>
-          <p class="danger-card__description">
-            {{ contentsSummary }} Members lose access immediately. This cannot be undone.
-          </p>
-        </div>
-        <BaseButton
-          variant="danger"
-          class="danger-card__action"
-          @click="deleteTarget = workspaceAddress"
-        >
-          Delete workspace
-        </BaseButton>
-      </div>
-    </div>
+      <BaseActionRow title="Delete workspace" tone="danger">
+        {{ contentsSummary }} Members lose access immediately. This cannot be undone.
+        <template #action>
+          <BaseButton variant="danger" @click="deleteTarget = workspaceAddress">
+            Delete workspace
+          </BaseButton>
+        </template>
+      </BaseActionRow>
+    </BaseCard>
 
-    <div v-else class="danger-card">
-      <div class="danger-card__row">
-        <div class="danger-card__text">
-          <h3 class="danger-card__title">Leave workspace</h3>
-          <p class="danger-card__description">
-            You lose access to its tables and records. To come back, someone has to invite you
-            again.
-          </p>
-        </div>
-        <BaseButton
-          variant="danger"
-          class="danger-card__action"
-          @click="leaveTarget = workspaceAddress"
-        >
-          Leave workspace
-        </BaseButton>
-      </div>
-    </div>
+    <BaseCard v-else tone="danger">
+      <BaseActionRow title="Leave workspace" tone="danger">
+        You lose access to its tables and records. To come back, someone has to invite you again.
+        <template #action>
+          <BaseButton variant="danger" @click="leaveTarget = workspaceAddress">
+            Leave workspace
+          </BaseButton>
+        </template>
+      </BaseActionRow>
+    </BaseCard>
 
     <LazyTransferOwnershipModal
       v-if="isTransferOpen && membership"
@@ -148,46 +130,5 @@ const {
 <style lang="scss" scoped>
 .settings-danger {
   @include stack(10);
-}
-
-.danger-card {
-  border: 1px solid var(--color-danger-edge);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-
-  &__row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: rem(14);
-    padding: rem(16);
-
-    & + & {
-      border-top: 1px solid var(--color-danger-edge);
-    }
-  }
-
-  &__text {
-    @include stack(4);
-
-    flex: 1;
-    min-width: rem(220);
-  }
-
-  &__title {
-    margin: 0;
-    font-size: var(--font-size-body);
-    font-weight: 600;
-  }
-
-  &__description {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
-  &__action {
-    flex: none;
-  }
 }
 </style>

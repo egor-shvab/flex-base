@@ -31,6 +31,14 @@ describe('BaseCard', () => {
     expect(wrapper.find('.base-card__footer button').text()).toBe('Act')
   })
 
+  it('marks its tone, default unless asked', async () => {
+    const plain = await mountTracked(BaseCard)
+    const danger = await mountTracked(BaseCard, { props: { tone: 'danger' } })
+
+    expect(plain.classes()).toContain('base-card--default')
+    expect(danger.classes()).toContain('base-card--danger')
+  })
+
   it('renders the requested element and keeps the caller attributes on it', async () => {
     const wrapper = await mountTracked(BaseCard, {
       props: { tag: 'section' },
