@@ -22,15 +22,16 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
 
 - **`truncate`** works only on a **bounded** box — a `max-width`, or `min-width: 0` on a flex item.
   Without the bound it is silently inert.
-- **`stack` / `cluster`** declare no `flex-wrap`. A heading group inside `page-title-row` needs its
-  own `min-width: 0` (`decisions.md` → _The header group needs `min-width: 0`, same as the panes_).
+- **`stack` / `cluster`** declare no `flex-wrap`. A heading group inside a `cluster` needs its own
+  `min-width: 0` (`decisions.md` → _The header group needs `min-width: 0`, same as the panes_).
 - **`BaseCard`** is every card: border, radius and surface, with `#header` / `#footer` slots that
   own the chrome. Geometry and colour only; a card that lifts on hover or wears a ring declares
   that itself. A list goes inside it, never as its `tag` — a header in a `<ul>` is invalid.
 - **`BaseListRow`** (in `BaseList`) is an entity row — fields, members, roles, a dashboard table —
   and **`BaseDetailRow`** (in `BaseDetailList`) a term/value row; a block styles only what it puts
-  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip. The heading
-  above a card is **`BaseSectionHead`**; a titled action with a description (Danger zone) is
+  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip. A page opens
+  with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
+  its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with a description (Danger zone) is
   **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard` turns the edges red.
 - **`popover-panel`** is the one floating surface (select list, colour grid, row menu).
 - **`form-control`** is the whole text-field chrome, with its focus half in **`control-focus`** for

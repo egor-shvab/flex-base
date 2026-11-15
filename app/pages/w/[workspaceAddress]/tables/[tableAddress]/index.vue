@@ -1,29 +1,26 @@
 <template>
   <section class="records-page">
     <div class="records-page__top">
-      <div class="records-page__crumbs">
-        <BaseBreadcrumbs :items="breadcrumbs" />
-        <BaseButton
-          variant="ghost"
-          prepend-icon="material-symbols:settings-outline-rounded"
-          :to="pagePath.tableSettings(workspaceAddress, tableAddress)"
-        >
-          Settings
-        </BaseButton>
-      </div>
-
-      <header class="records-page__title-row">
-        <h1 class="records-page__title">{{ table?.name }}</h1>
-        <BaseButton
-          v-if="canCreateRecords"
-          class="records-page__create"
-          prepend-icon="material-symbols:add-rounded"
-          :disabled="!hasFields"
-          @click="openCreateRecord"
-        >
-          Add record
-        </BaseButton>
-      </header>
+      <BasePageHead :title="table?.name ?? ''" :crumbs="breadcrumbs">
+        <template #crumbs-actions>
+          <BaseButton
+            variant="ghost"
+            prepend-icon="material-symbols:settings-outline-rounded"
+            :to="pagePath.tableSettings(workspaceAddress, tableAddress)"
+          >
+            Settings
+          </BaseButton>
+        </template>
+        <template v-if="canCreateRecords" #actions>
+          <BaseButton
+            prepend-icon="material-symbols:add-rounded"
+            :disabled="!hasFields"
+            @click="openCreateRecord"
+          >
+            Add record
+          </BaseButton>
+        </template>
+      </BasePageHead>
 
       <div v-if="hasFields" class="records-page__toolbar">
         <BaseInput
@@ -343,22 +340,6 @@ const {
 
     flex: none;
     margin-bottom: rem(20);
-  }
-
-  &__crumbs {
-    @include page-crumbs;
-  }
-
-  &__title-row {
-    @include page-title-row;
-  }
-
-  &__title {
-    @include page-title;
-  }
-
-  &__create {
-    flex: none;
   }
 
   &__toolbar {

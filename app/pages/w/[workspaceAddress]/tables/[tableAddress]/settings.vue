@@ -1,8 +1,7 @@
 <template>
   <div class="table-page">
-    <div class="table-page__top">
-      <div class="table-page__crumbs">
-        <BaseBreadcrumbs :items="breadcrumbs" />
+    <BasePageHead :title="table?.name ?? ''" :crumbs="breadcrumbs">
+      <template #crumbs-actions>
         <BaseButton
           variant="ghost"
           prepend-icon="material-symbols:table-outline-rounded"
@@ -10,22 +9,14 @@
         >
           Records
         </BaseButton>
-      </div>
-
-      <div class="table-page__title-row">
-        <h1 class="table-page__title">{{ table?.name }}</h1>
-        <BaseButton
-          v-if="canManageTables"
-          class="table-page__create"
-          prepend-icon="material-symbols:add-rounded"
-          @click="openCreateField"
-        >
+      </template>
+      <template v-if="canManageTables" #actions>
+        <BaseButton prepend-icon="material-symbols:add-rounded" @click="openCreateField">
           Add field
         </BaseButton>
-      </div>
-
-      <p class="table-page__eyebrow">Table settings</p>
-    </div>
+      </template>
+      Table settings
+    </BasePageHead>
 
     <section class="table-page__section">
       <BaseSectionHead title="Table" />
@@ -225,32 +216,6 @@ const {
   @include stack(24);
 
   max-width: rem(928);
-
-  &__top {
-    @include stack(14);
-  }
-
-  &__crumbs {
-    @include page-crumbs;
-  }
-
-  &__title-row {
-    @include page-title-row;
-  }
-
-  &__title {
-    @include page-title;
-  }
-
-  &__create {
-    flex: none;
-  }
-
-  &__eyebrow {
-    @include eyebrow;
-
-    margin: 0;
-  }
 
   &__section {
     @include stack(10);

@@ -1,9 +1,8 @@
 <template>
   <section class="invitations-page" :aria-labelledby="titleId">
-    <h1 :id="titleId" class="invitations-page__title">Invitations</h1>
-    <p class="invitations-page__lead">
+    <BasePageHead title="Invitations" :title-id="titleId">
       Workspaces you have been invited to. Accepting one adds it to your workspaces.
-    </p>
+    </BasePageHead>
 
     <IncomingInvitationList />
   </section>
@@ -32,15 +31,5 @@ await useAsyncData('incoming-invitations', async () => {
   @include stack(14);
 
   max-width: rem(760);
-
-  &__title {
-    @include page-title;
-  }
-
-  &__lead {
-    margin: 0;
-    font-size: var(--font-size-md);
-    color: var(--color-text-secondary);
-  }
 }
 </style>

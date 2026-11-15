@@ -1,28 +1,16 @@
 <template>
   <section class="dashboard">
-    <div class="dashboard__top">
-      <div class="dashboard__crumbs">
-        <BaseBreadcrumbs :items="breadcrumbs" />
-      </div>
-
-      <div class="dashboard__title-row">
-        <div class="dashboard__heading">
-          <h1 class="dashboard__title">Your tables</h1>
-          <p v-if="tablesStore.tables.length > 0" class="dashboard__meta">
-            {{ formatCount(tablesStore.tables.length, 'table') }} ·
-            {{ formatCount(totalRecords, 'record') }}
-          </p>
-        </div>
-        <BaseButton
-          v-if="canManageTables"
-          class="dashboard__create"
-          prepend-icon="material-symbols:add-rounded"
-          @click="isCreateOpen = true"
-        >
+    <BasePageHead class="dashboard__head" title="Your tables" :crumbs="breadcrumbs">
+      <template v-if="canManageTables" #actions>
+        <BaseButton prepend-icon="material-symbols:add-rounded" @click="isCreateOpen = true">
           Add table
         </BaseButton>
-      </div>
-    </div>
+      </template>
+      <template v-if="tablesStore.tables.length > 0">
+        {{ formatCount(tablesStore.tables.length, 'table') }} ·
+        {{ formatCount(totalRecords, 'record') }}
+      </template>
+    </BasePageHead>
 
     <BaseEmptyState
       v-if="tablesStore.tables.length === 0"
@@ -108,46 +96,8 @@ async function submitTable(name: string) {
 
 <style lang="scss" scoped>
 .dashboard {
-  &__top {
-    @include stack(14);
-
+  &__head {
     margin-bottom: rem(20);
-  }
-
-  &__crumbs {
-    @include page-crumbs;
-
-    @include below-compact {
-      display: none;
-    }
-  }
-
-  &__title-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: rem(12) rem(24);
-  }
-
-  &__heading {
-    @include stack(4);
-
-    min-width: 0;
-  }
-
-  &__title {
-    @include page-title;
-  }
-
-  &__meta {
-    margin: 0;
-    font-size: var(--font-size-md);
-    color: var(--color-text-secondary);
-  }
-
-  &__create {
-    flex: none;
   }
 }
 

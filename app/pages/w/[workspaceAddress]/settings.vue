@@ -1,11 +1,6 @@
 <template>
   <div class="workspace-settings">
-    <div class="workspace-settings__top">
-      <div class="workspace-settings__crumbs">
-        <BaseBreadcrumbs :items="breadcrumbs" />
-      </div>
-      <h1 class="workspace-settings__title">Workspace settings</h1>
-    </div>
+    <BasePageHead title="Workspace settings" :crumbs="breadcrumbs" />
 
     <div class="workspace-settings__body">
       <nav class="workspace-settings__nav" aria-label="Settings sections">
@@ -61,18 +56,6 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 <style lang="scss" scoped>
 .workspace-settings {
   @include stack(24);
-
-  &__top {
-    @include stack(14);
-  }
-
-  &__crumbs {
-    @include page-crumbs;
-  }
-
-  &__title {
-    @include page-title;
-  }
 
   &__body {
     display: flex;
