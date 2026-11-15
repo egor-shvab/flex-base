@@ -258,7 +258,7 @@ describe('FieldFormModal', () => {
   })
 
   describe('when an option list cannot be loaded', () => {
-    const loadError = () => dialog()?.querySelector('.field-form__load-error')?.textContent ?? ''
+    const loadError = () => dialog()?.querySelector('[role="alert"]')?.textContent ?? ''
 
     const relation = () =>
       mountForm({

@@ -1,133 +1,32 @@
 <template>
-  <span ref="containerRef" class="record-row-menu">
-    <BaseButton
-      :ref="setTrigger"
-      variant="icon"
-      prepend-icon="material-symbols:more-horiz-rounded"
-      label="More actions"
-      aria-haspopup="menu"
-      :aria-expanded="isOpen"
-      :aria-controls="isOpen ? panelId : undefined"
-      @click="toggleMenu"
-    />
+  <BaseMenu class="record-row-menu" label="Record actions" :max-height="64">
+    <template #trigger="{ triggerAttrs, setTriggerRef, toggle }">
+      <BaseButton
+        :ref="setTriggerRef"
+        v-bind="triggerAttrs"
+        variant="icon"
+        prepend-icon="material-symbols:more-horiz-rounded"
+        label="More actions"
+        @click="toggle"
+      />
+    </template>
 
-    <!--
-      Teleported: the pinned actions cell is a stacking context, so a fixed panel inside it would
-      paint under every later row's pinned cell.
-    -->
-    <Teleport to="body">
-      <div
-        v-if="isOpen"
-        :id="panelId"
-        ref="panelRef"
-        class="record-row-menu__panel"
-        :style="panelStyle"
-        role="menu"
-        aria-label="Record actions"
-        @keydown.esc.stop="dismiss"
-        @keydown.tab="dismiss"
-        @keydown.down.prevent="stepMenuFocus(1)"
-        @keydown.up.prevent="stepMenuFocus(-1)"
-        @keydown.home.prevent="focusMenuItem(0)"
-        @keydown.end.prevent="focusMenuItem(-1)"
-      >
-        <button
-          type="button"
-          role="menuitem"
-          tabindex="-1"
-          class="record-row-menu__item record-row-menu__item--danger"
-          @click="choose('delete')"
-        >
-          <Icon
-            name="material-symbols:delete-outline-rounded"
-            class="record-row-menu__icon"
-            aria-hidden="true"
-          />
-          Delete record
-        </button>
-      </div>
-    </Teleport>
-  </span>
+    <BaseMenuItem
+      tone="danger"
+      icon="material-symbols:delete-outline-rounded"
+      @click="emit('delete')"
+    >
+      Delete record
+    </BaseMenuItem>
+  </BaseMenu>
 </template>
 
 <script setup lang="ts">
-import { nextTick } from 'vue'
-import type { ComponentPublicInstance } from 'vue'
-import { useAnchoredPosition } from '~/composables/useAnchoredPosition'
-import { useMenuNavigation } from '~/composables/useMenuNavigation'
-import { usePopover } from '~/composables/usePopover'
-
 const emit = defineEmits<{ delete: [] }>()
-
-const { isOpen, containerRef, triggerRef, panelRef, panelId, toggle, dismiss } = usePopover()
-
-const panelStyle = useAnchoredPosition(containerRef, panelRef, isOpen, { maxHeight: 64 })
-
-const { focusMenuItem, stepMenuFocus } = useMenuNavigation(panelRef)
-
-function setTrigger(instance: Element | ComponentPublicInstance | null) {
-  const el = instance && '$el' in instance ? instance.$el : instance
-  triggerRef.value = el instanceof HTMLElement ? el : undefined
-}
-
-function toggleMenu() {
-  toggle()
-  if (isOpen.value) void nextTick(() => focusMenuItem(0))
-}
-
-function choose(action: 'delete') {
-  dismiss()
-  emit(action)
-}
 </script>
 
 <style lang="scss" scoped>
 .record-row-menu {
   display: inline-flex;
-
-  &__panel {
-    @include popover-panel;
-
-    display: flex;
-    flex-direction: column;
-    gap: rem(2);
-    min-width: rem(180);
-    padding: rem(6);
-  }
-
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: rem(10);
-    height: var(--control-height);
-    padding: 0 rem(8);
-    border: none;
-    border-radius: var(--radius-sm);
-    font: inherit;
-    font-size: var(--font-size-md);
-    color: var(--color-text);
-    background: none;
-    text-align: left;
-    cursor: pointer;
-
-    @include focus-ring;
-
-    &:hover {
-      background: var(--color-surface-hover);
-    }
-
-    &--danger {
-      color: var(--color-danger);
-
-      &:hover {
-        background: var(--color-danger-tint);
-      }
-    }
-  }
-
-  &__icon {
-    flex: none;
-    font-size: rem(18);
-  }
 }
 </style>

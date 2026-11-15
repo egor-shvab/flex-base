@@ -867,7 +867,7 @@ change the group's min-content. Rejected: `flex: 1` on the group (pushes the act
 edge). The primary button takes `flex: none` through a page-owned class, or it shrinks and wraps its
 label.
 
-### `text-link` is a class, not a mixin
+### `g-text-link` is a class, not a mixin
 
 No per-site variation, so a shared block. It is the one look for a link **inside a sentence**; a
 link standing alone in an action row is a `BaseButton` with `to` (header links at 21px failed SC

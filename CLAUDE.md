@@ -317,7 +317,7 @@ replaces the keyboard walk.
   is the only tier below. Content-sized controls need **both** axes floored. 44×44 is AAA — never
   quote it as the AA bar.
 - The gate (`test/e2e/accessibility.spec.ts`, `test/e2e/setup/a11y.ts`) encodes three SC 2.5.8
-  exceptions — `.text-link` inline, an `<input>` whose wrapping `<label>` is the target, anything
+  exceptions — `.g-text-link` inline, an `<input>` whose wrapping `<label>` is the target, anything
   not rendered. **Do not add a fourth to make a failure go away.**
 - Text contrast ≥ 4.5:1; control outlines and other non-text UI ≥ 3:1 (hence
   `--color-border-control` apart from `--color-border-strong`).
@@ -332,7 +332,8 @@ replaces the keyboard walk.
   entry file automatically (Vite `additionalData`), but **not** a transitively
   `@use`d partial — such a partial `@use`s both itself, and `main.scss` must not re-`@use` either.
 - **Reuse before you paste:** check `_mixins.scss`; a block with no per-site variation is a class in
-  its own partial under `scss/classes/` (`.auth-form`, `.text-link`, `.visually-hidden`). Use `.visually-hidden` to hide
+  its own partial under `scss/classes/`, named with a `g-` prefix so a global reads as one
+  (`.g-eyebrow`, `.g-text-link`, `.g-visually-hidden`). Use `.g-visually-hidden` to hide
   text — `display: none` / `visibility: hidden` remove it from the accessibility tree.
 - **Components consume `var(--color-*)` and nothing else**; palette primitives must stay unreachable
   from an SFC.

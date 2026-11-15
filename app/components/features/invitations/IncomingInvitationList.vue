@@ -37,7 +37,7 @@
               :disabled="isAnswering"
               @click="declineInvitation(invitation)"
             >
-              Decline<span class="visually-hidden">
+              Decline<span class="g-visually-hidden">
                 the invitation to {{ invitation.workspace.name }}</span
               >
             </BaseButton>
@@ -46,7 +46,7 @@
               :disabled="isAnswering"
               @click="acceptInvitation(invitation)"
             >
-              Accept<span class="visually-hidden">
+              Accept<span class="g-visually-hidden">
                 the invitation to {{ invitation.workspace.name }}</span
               >
             </BaseButton>

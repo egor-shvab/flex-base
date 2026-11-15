@@ -88,4 +88,24 @@ describe('BaseSegmented', () => {
     await group.trigger('keydown', { key: 'Home' })
     expect(lastModel(wrapper)).toBe('')
   })
+
+  it('is a named navigation of links when given links instead of options', async () => {
+    const wrapper = await mountTracked(BaseSegmented, {
+      props: {
+        ariaLabel: 'Log in or register',
+        links: [
+          { label: 'Log in', to: '/auth/login' },
+          { label: 'Register', to: '/auth/register' },
+        ],
+      },
+    })
+
+    expect(wrapper.element.tagName).toBe('NAV')
+    expect(wrapper.attributes('aria-label')).toBe('Log in or register')
+    expect(wrapper.findAll('a').map((link) => link.attributes('href'))).toEqual([
+      '/auth/login',
+      '/auth/register',
+    ])
+    expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
+  })
 })

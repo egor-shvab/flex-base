@@ -1,6 +1,6 @@
 <template>
   <BaseCard tag="figure" class="ui-test-specimen" :class="{ 'ui-test-specimen--wide': wide }">
-    <figcaption class="ui-test-specimen__label">{{ label }}</figcaption>
+    <figcaption class="g-eyebrow">{{ label }}</figcaption>
     <div class="ui-test-specimen__stage">
       <slot />
     </div>
@@ -29,10 +29,6 @@ withDefaults(
 
   &--wide {
     grid-column: 1 / -1;
-  }
-
-  &__label {
-    @include eyebrow;
   }
 
   &__stage {

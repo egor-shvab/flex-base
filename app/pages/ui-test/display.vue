@@ -71,7 +71,7 @@
       <UiTestSpecimen label="slot with an inline link">
         <BaseErrorBanner>
           Could not load this view.
-          <NuxtLink to="/ui-test" class="text-link">Reset the filters</NuxtLink>
+          <NuxtLink to="/ui-test" class="g-text-link">Reset the filters</NuxtLink>
           or try again later.
         </BaseErrorBanner>
       </UiTestSpecimen>
@@ -113,7 +113,7 @@
       <UiTestSpecimen label="message with an inline link">
         <BaseEmptyState icon="material-symbols:filter-list-off-rounded">
           No records match these filters.
-          <NuxtLink to="/ui-test" class="text-link">Clear all filters</NuxtLink>
+          <NuxtLink to="/ui-test" class="g-text-link">Clear all filters</NuxtLink>
           to see every record.
         </BaseEmptyState>
       </UiTestSpecimen>

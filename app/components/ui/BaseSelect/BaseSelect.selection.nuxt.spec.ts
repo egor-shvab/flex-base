@@ -257,7 +257,7 @@ describe('BaseSelect', () => {
       const value = wrapper.get('.base-select__value')
 
       expect(value.get('.base-select__more').attributes('aria-hidden')).toBe('true')
-      expect(value.get('.visually-hidden').text()).toBe('and 2 more')
+      expect(value.get('.g-visually-hidden').text()).toBe('and 2 more')
     })
 
     it('shows no count for a single selection', async () => {

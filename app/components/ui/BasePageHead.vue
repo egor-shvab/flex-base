@@ -68,7 +68,17 @@ withDefaults(
   }
 
   &__title {
-    @include page-title;
+    @include truncate;
+
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    letter-spacing: var(--letter-spacing-display);
+
+    @include below-compact {
+      font-size: var(--font-size-xl);
+    }
   }
 
   &__actions {
@@ -79,6 +89,7 @@ withDefaults(
   }
 
   &__description {
+    max-width: 72ch;
     margin: 0;
     font-size: var(--font-size-md);
     color: var(--color-text-secondary);

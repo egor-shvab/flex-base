@@ -1,6 +1,6 @@
 // Not `display: none` or `visibility: hidden`, which drop it from the accessibility tree. Clipped
 // rather than off-screen, which would scroll the page sideways when it takes focus.
-.visually-hidden {
+.g-visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;

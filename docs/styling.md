@@ -33,17 +33,19 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
   its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with a description (Danger zone) is
   **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard` turns the edges red.
-- **`popover-panel`** is the one floating surface (select list, colour grid, row menu).
+- **`popover-panel`** is the one floating surface (select list, colour grid, `BaseMenu`). A
+  `role="menu"` is **`BaseMenu`** with **`BaseMenuItem`**s: choosing an item closes it and returns
+  focus, unless the item is `keep-open`; `checked` (even `false`) makes it a `menuitemradio`.
 - **`form-control`** is the whole text-field chrome, with its focus half in **`control-focus`** for
   a bordered non-text control (`BaseCheckbox`). Its `:focus` recolours the border (programmatic
   focus included), while the halo is `:focus-visible` only.
-- **`field-error`** is the danger line's type, shared by `BaseFieldMessage` and a failed-load
-  alert; a field's hint and error share **one** line there, the error replacing the hint.
+- **`BaseFieldMessage`** is the line under a field — hint and error share **one** line, the error
+  replacing the hint. Without an `id` it is a standalone line (a failed load's alert, its retry in
+  `#action`).
 - **A link that fills a card:** the **card** wears the ring via `:has(:focus-visible)`, and the link
   suppresses both halves of its own.
-- **`centred-viewport` / `centred-column` / `centred-card`** build the two surfaces outside the
-  shell (auth, `error.vue`). The segment mixin reads `aria-current` as well as `aria-checked`, so
-  `AuthModeSwitch` can be a segmented track over **two links**.
+- **`BaseCenteredPanel`** is the surface outside the shell (the auth layout, `error.vue`); below
+  `$breakpoint-compact` its card dissolves into the page.
 
 ## `BaseButton` variants
 
@@ -85,7 +87,8 @@ beside it are unequal on purpose_).
 - **`BaseSelect`** — read `isMultiple`, never `props.multiple` (`decisions.md` → _`multiple` is
   tied to the model's type, and is read through `isMultiple`_).
 - **`BaseSegmented`** — always one value, so no empty state and no `disabled`. The chosen plate's
-  `--color-border-control-hover` edge is what makes the state 3:1.
+  `--color-border-control-hover` edge is what makes the state 3:1. Given `links` instead of
+  `options` it is a `<nav>`, the current page (`aria-current`) taking the chosen plate.
 - **`BaseCheckbox`** — the check is drawn as an **icon** (`forced-colors` drops fills but keeps
   `currentColor`). The label is the 36px target.
 - **`BaseBadge`** — `chip` is a user value (never uppercased), `label` a mono uppercase meta marker

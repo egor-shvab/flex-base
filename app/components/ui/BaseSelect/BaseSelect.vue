@@ -76,7 +76,7 @@
         <span v-else class="base-select__value-text">{{ firstSelected?.label }}</span>
         <template v-if="moreCount > 0">
           <span class="base-select__more" aria-hidden="true">+{{ moreCount }}</span>
-          <span class="visually-hidden"> and {{ moreCount }} more</span>
+          <span class="g-visually-hidden"> and {{ moreCount }} more</span>
         </template>
       </span>
 
@@ -121,7 +121,7 @@
       Mirrors the status row, which lives in a `<Teleport v-if>`: a live region inserted with its
       content is not reliably read, so this one is mounted for the component's life.
     -->
-    <span class="visually-hidden" role="status">{{ isOpen ? statusText : '' }}</span>
+    <span class="g-visually-hidden" role="status">{{ isOpen ? statusText : '' }}</span>
 
     <!--
       Teleported because `BaseModal` marks `#__nuxt` `inert`; in place the panel would be

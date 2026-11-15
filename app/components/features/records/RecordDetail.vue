@@ -11,7 +11,7 @@
       <dd class="record-detail__value">
         <template v-if="author.user">{{ author.user.name }}</template>
         <span v-else class="record-detail__unknown"
-          ><span aria-hidden="true">—</span><span class="visually-hidden">Unknown</span></span
+          ><span aria-hidden="true">—</span><span class="g-visually-hidden">Unknown</span></span
         >
       </dd>
     </div>
@@ -74,7 +74,7 @@ const authors = computed(() => [
     }
   }
 
-  // `relative` keeps the absolutely positioned `.visually-hidden` inside the drawer's scroller
+  // `relative` keeps the absolutely positioned `.g-visually-hidden` inside the drawer's scroller
   &__unknown {
     position: relative;
     color: var(--color-text-subtle);

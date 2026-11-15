@@ -1,6 +1,7 @@
 <template>
-  <span v-if="messageId" :id="messageId" class="base-field-message" :class="modifierClass">
+  <span v-if="error || hint" :id="messageId" class="base-field-message" :class="modifierClass">
     {{ error || hint }}
+    <slot name="action" />
   </span>
 </template>
 
@@ -8,16 +9,17 @@
 import { computed } from 'vue'
 import { toMessageId } from '~/utils/field-message'
 
+/** Without an `id` it describes no control: a standalone line, such as a failed load's alert. */
 const props = withDefaults(
   defineProps<{
-    id: string
+    id?: string
     error?: string
     hint?: string
   }>(),
-  { error: undefined, hint: undefined },
+  { id: undefined, error: undefined, hint: undefined },
 )
 
-const messageId = computed(() => toMessageId(props.id, props))
+const messageId = computed(() => (props.id ? toMessageId(props.id, props) : undefined))
 const modifierClass = computed(() =>
   props.error ? 'base-field-message--error' : 'base-field-message--hint',
 )
@@ -25,13 +27,18 @@ const modifierClass = computed(() =>
 
 <style lang="scss" scoped>
 .base-field-message {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: rem(6);
+  font-size: var(--font-size-xs);
+
   &--hint {
-    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
   }
 
   &--error {
-    @include field-error;
+    color: var(--color-danger);
   }
 }
 </style>

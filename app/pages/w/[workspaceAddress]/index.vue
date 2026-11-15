@@ -47,7 +47,7 @@
       </BaseList>
 
       <template #footer>
-        <span class="table-panel__total-label">Total</span>
+        <span class="g-eyebrow">Total</span>
         <span class="table-panel__total-value">{{ formatCount(totalRecords, 'record') }}</span>
       </template>
     </BaseCard>
@@ -119,10 +119,6 @@ async function submitTable(name: string) {
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     font-variant-numeric: tabular-nums;
-  }
-
-  &__total-label {
-    @include eyebrow;
   }
 
   &__total-value {

@@ -1,5 +1,11 @@
 <template>
-  <BaseField :id="id" v-slot="{ labelId }" class="base-segmented" :label="label">
+  <nav v-if="links" class="base-segmented base-segmented__track" :aria-label="ariaLabel">
+    <NuxtLink v-for="link in links" :key="link.to" :to="link.to" class="base-segmented__segment">
+      {{ link.label }}
+    </NuxtLink>
+  </nav>
+
+  <BaseField v-else-if="id" :id="id" v-slot="{ labelId }" class="base-segmented" :label="label">
     <div
       :id="id"
       class="base-segmented__track"
@@ -28,19 +34,25 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
+import type { INavLink } from '~/types/nav-link'
 import type { ISelectOption } from '~/types/select'
 
+/**
+ * A radiogroup over `options` bound by `v-model`, or, given `links`, a navigation whose current
+ * page is the chosen segment.
+ */
 const props = withDefaults(
   defineProps<{
-    id: string
-    options: ISelectOption[]
+    id?: string
+    options?: ISelectOption[]
+    links?: INavLink[]
     label?: string
     ariaLabel?: string
   }>(),
-  { label: undefined, ariaLabel: undefined },
+  { id: undefined, options: () => [], links: undefined, label: undefined, ariaLabel: undefined },
 )
 
-const model = defineModel<string>({ required: true })
+const model = defineModel<string>()
 
 const segments: HTMLButtonElement[] = []
 
@@ -88,13 +100,47 @@ function onKeydown(event: KeyboardEvent) {
 <style lang="scss" scoped>
 .base-segmented {
   &__track {
-    @include segmented-track;
+    display: flex;
+    gap: rem(2);
+    min-height: var(--control-height);
+    padding: rem(3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-muted);
   }
 
   &__segment {
-    @include segmented-segment;
-
+    display: inline-flex;
     flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: rem(6);
+    min-height: rem(28);
+    padding: 0 rem(12);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+
+    @include focus-ring;
+
+    &:hover {
+      color: var(--color-text);
+    }
+
+    &[aria-checked='true'],
+    &[aria-current='page'] {
+      border-color: var(--color-border-control-hover);
+      background: var(--color-surface);
+      box-shadow: var(--shadow-sm);
+      font-weight: 600;
+      color: var(--color-accent);
+    }
   }
 }
 </style>

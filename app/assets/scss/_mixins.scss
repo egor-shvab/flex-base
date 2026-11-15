@@ -46,34 +46,6 @@ $breakpoint-compact: 40em;
   white-space: nowrap;
 }
 
-@mixin centred-viewport {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100dvh;
-  padding: rem(32) rem(16);
-  background: var(--color-canvas);
-}
-
-@mixin centred-column($max-width) {
-  @include stack(20);
-
-  width: 100%;
-  max-width: $max-width;
-}
-
-@mixin centred-card($padding: 24) {
-  padding: rem($padding);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-}
-
-@mixin field-error {
-  font-size: var(--font-size-xs);
-  color: var(--color-danger);
-}
-
 @mixin form-control {
   min-height: var(--control-height);
   padding: rem(6) rem(12);
@@ -128,62 +100,6 @@ $breakpoint-compact: 40em;
   }
 }
 
-@mixin segmented-track {
-  display: flex;
-  gap: rem(2);
-  min-height: var(--control-height);
-  padding: rem(3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-}
-
-@mixin segmented-segment {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: rem(6);
-  min-height: rem(28);
-  padding: 0 rem(12);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: none;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-
-  @include focus-ring;
-
-  &:hover {
-    color: var(--color-text);
-  }
-
-  &[aria-checked='true'],
-  &[aria-current='page'] {
-    border-color: var(--color-border-control-hover);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-sm);
-    font-weight: 600;
-    color: var(--color-accent);
-  }
-}
-
-@mixin page-title {
-  min-width: 0;
-  margin: 0;
-  font-size: var(--font-size-2xl);
-  font-weight: 600;
-  letter-spacing: var(--letter-spacing-display);
-
-  @include truncate;
-  @include below-compact {
-    font-size: var(--font-size-xl);
-  }
-}
-
 @mixin popover-panel {
   position: fixed;
   z-index: var(--z-popover);
@@ -192,13 +108,3 @@ $breakpoint-compact: 40em;
   background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }
-
-@mixin eyebrow {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-text-subtle);
-}
-
-/** A row in a settings list: an icon tile, a name with a meta line, and its icon buttons. */

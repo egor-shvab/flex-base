@@ -13,7 +13,8 @@ export const panel = () => document.querySelector<HTMLElement>('.base-select__pa
 export const listbox = () => document.querySelector<HTMLElement>('[role="listbox"]')
 export const options = () => [...document.querySelectorAll<HTMLElement>('[role="option"]')]
 export const status = () => document.querySelector<HTMLElement>('.base-select__status')
-export const liveRegion = () => document.querySelector<HTMLElement>('.visually-hidden[role=status]')
+export const liveRegion = () =>
+  document.querySelector<HTMLElement>('.g-visually-hidden[role=status]')
 export const retry = () => status()?.querySelector<HTMLButtonElement>('button') ?? null
 
 export const labels = () => options().map((option) => option.textContent?.trim())

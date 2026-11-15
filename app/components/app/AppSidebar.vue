@@ -17,7 +17,7 @@
           <span class="app-sidebar__name">Home</span>
         </NuxtLink>
 
-        <p class="app-sidebar__heading">Tables</p>
+        <p class="g-eyebrow app-sidebar__heading">Tables</p>
 
         <p v-if="tablesStore.status === 'failed'" class="app-sidebar__error">
           Couldn't load your tables.
@@ -209,8 +209,6 @@ const isSettings = computed(
   }
 
   &__heading {
-    @include eyebrow;
-
     margin: rem(16) 0 rem(4);
     padding: 0 rem(10);
   }

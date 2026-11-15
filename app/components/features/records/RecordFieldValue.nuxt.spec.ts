@@ -27,7 +27,7 @@ function cell(column: IField, row: IRecord = record()) {
 }
 
 function blankName(wrapper: Awaited<ReturnType<typeof cell>>) {
-  return wrapper.find('.record-field-value__blank .visually-hidden').text()
+  return wrapper.find('.record-field-value__blank .g-visually-hidden').text()
 }
 
 function rowWith(column: IField, value: unknown): IRecord {

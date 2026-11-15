@@ -1,14 +1,12 @@
 <template>
-  <form class="auth-form" novalidate @submit.prevent="submit">
-    <div class="auth-form__heading">
-      <h1 class="auth-form__title">Create an account</h1>
-      <p class="auth-form__subtitle">It takes a minute — your first table is one click away.</p>
-    </div>
-
-    <AuthModeSwitch />
-
-    <BaseErrorBanner :message="serverError" />
-
+  <AuthForm
+    title="Create an account"
+    subtitle="It takes a minute — your first table is one click away."
+    submit-label="Register"
+    :submitting="isSubmitting"
+    :error="serverError"
+    @submit="submit"
+  >
     <BaseInput
       id="name"
       v-model="form.name"
@@ -49,20 +47,11 @@
       :error="errors.passwordConfirm"
     />
 
-    <BaseButton
-      type="submit"
-      class="auth-form__submit"
-      append-icon="material-symbols:arrow-forward-rounded"
-      :loading="isSubmitting"
-    >
-      Register
-    </BaseButton>
-
-    <p class="auth-form__footer">
+    <template #footer>
       Already have an account?
-      <NuxtLink class="text-link" to="/auth/login">Log in</NuxtLink>
-    </p>
-  </form>
+      <NuxtLink class="g-text-link" to="/auth/login">Log in</NuxtLink>
+    </template>
+  </AuthForm>
 </template>
 
 <script setup lang="ts">

@@ -1,6 +1,6 @@
 <template>
   <BaseCard class="records-skeleton" role="status">
-    <span class="visually-hidden">Loading records…</span>
+    <span class="g-visually-hidden">Loading records…</span>
 
     <div class="records-skeleton__row records-skeleton__row--head" aria-hidden="true">
       <span v-for="bar in BAR_COUNT" :key="bar" class="records-skeleton__bar" />

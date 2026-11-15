@@ -96,10 +96,15 @@
             :error="errors.targetTableId"
             :disabled="mode === 'edit'"
           />
-          <p v-if="tablesStatus === 'failed'" class="field-form__load-error" role="alert">
-            Couldn’t load your tables.
-            <BaseButton variant="link" @click="loadTables">Try again</BaseButton>
-          </p>
+          <BaseFieldMessage
+            v-if="tablesStatus === 'failed'"
+            error="Couldn’t load your tables."
+            role="alert"
+          >
+            <template #action>
+              <BaseButton variant="link" @click="loadTables">Try again</BaseButton>
+            </template>
+          </BaseFieldMessage>
         </div>
 
         <div class="field-form__source">
@@ -114,10 +119,15 @@
             :empty-label="labelEmptyLabel"
             :error="errors.labelFieldKey"
           />
-          <p v-if="targetFieldsStatus === 'failed'" class="field-form__load-error" role="alert">
-            Couldn’t load that table’s fields.
-            <BaseButton variant="link" @click="retryTargetFields">Try again</BaseButton>
-          </p>
+          <BaseFieldMessage
+            v-if="targetFieldsStatus === 'failed'"
+            error="Couldn’t load that table’s fields."
+            role="alert"
+          >
+            <template #action>
+              <BaseButton variant="link" @click="retryTargetFields">Try again</BaseButton>
+            </template>
+          </BaseFieldMessage>
         </div>
       </template>
     </form>
@@ -310,14 +320,6 @@ const labelEmptyLabel = computed(() => {
 
   &__source {
     @include stack(4);
-  }
-
-  &__load-error {
-    @include field-error;
-
-    display: inline-flex;
-    align-items: baseline;
-    gap: rem(6);
   }
 
   &__choices {

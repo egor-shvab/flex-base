@@ -3,7 +3,7 @@
     <header class="ui-test__header">
       <div class="ui-test__brand">
         <AppMark />
-        <span class="ui-test__eyebrow">Component showcase</span>
+        <span class="g-eyebrow">Component showcase</span>
       </div>
       <nav class="ui-test__nav" aria-label="Showcase sections">
         <NuxtLink to="/ui-test" class="ui-test__link" exact-active-class="ui-test__link--active">
@@ -53,10 +53,6 @@ definePageMeta({ layout: false })
 
   &__brand {
     @include cluster(12);
-  }
-
-  &__eyebrow {
-    @include eyebrow;
   }
 
   &__nav {

@@ -64,7 +64,7 @@
 
     <BaseErrorBanner v-if="recordsStore.status === 'failed'" class="records-page__failed">
       That view couldn’t be loaded. Check the web address, or
-      <NuxtLink :to="pagePath.table(workspaceAddress, tableAddress)" class="text-link"
+      <NuxtLink :to="pagePath.table(workspaceAddress, tableAddress)" class="g-text-link"
         >start again with all records</NuxtLink
       >.
     </BaseErrorBanner>
@@ -79,7 +79,7 @@
       >
         <template v-if="canManageTables">
           This table has no fields yet —
-          <NuxtLink :to="pagePath.tableSettings(workspaceAddress, tableAddress)" class="text-link"
+          <NuxtLink :to="pagePath.tableSettings(workspaceAddress, tableAddress)" class="g-text-link"
             >define its fields</NuxtLink
           >
           before adding records.

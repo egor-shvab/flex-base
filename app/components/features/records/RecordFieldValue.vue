@@ -1,6 +1,6 @@
 <template>
   <span v-if="isBlank" class="record-field-value__blank"
-    ><span aria-hidden="true">—</span><span class="visually-hidden">Not set</span></span
+    ><span aria-hidden="true">—</span><span class="g-visually-hidden">Not set</span></span
   >
   <component
     :is="cellComponent(column)"
@@ -35,7 +35,7 @@ const isBlank = computed(() =>
 
 <style lang="scss" scoped>
 // `-subtle` clears 4.5:1 only on white and a hovered row. `relative`, or the absolutely
-// positioned `.visually-hidden` escapes the table's scroller and scrolls the document sideways
+// positioned `.g-visually-hidden` escapes the table's scroller and scrolls the document sideways
 .record-field-value__blank {
   position: relative;
   color: var(--color-text-subtle);
