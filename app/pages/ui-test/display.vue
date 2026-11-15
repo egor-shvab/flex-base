@@ -59,6 +59,68 @@
       </UiTestSpecimen>
     </UiTestSection>
 
+    <UiTestSection title="Avatar" component="BaseAvatar">
+      <template #description>
+        Decorative: the name it stands for is always written beside it. Round for a person, square
+        for a workspace.
+      </template>
+      <UiTestSpecimen label="sm · md × round · square">
+        <div class="inline-row">
+          <BaseAvatar initials="DU" shape="round" />
+          <BaseAvatar initials="DW" />
+          <BaseAvatar initials="DU" size="md" shape="round" />
+          <BaseAvatar initials="DW" size="md" />
+        </div>
+      </UiTestSpecimen>
+      <UiTestSpecimen label="icon">
+        <div class="inline-row">
+          <BaseAvatar icon="material-symbols:table-outline-rounded" />
+          <BaseAvatar icon="material-symbols:table-outline-rounded" size="md" />
+        </div>
+      </UiTestSpecimen>
+    </UiTestSection>
+
+    <UiTestSection title="Identity" component="BaseIdentity">
+      <UiTestSpecimen label="name · caption, beside an avatar">
+        <div class="identity-row">
+          <BaseAvatar initials="DW" />
+          <BaseIdentity name="Demo workspace" caption="Owner" />
+        </div>
+      </UiTestSpecimen>
+      <UiTestSpecimen label="no caption">
+        <div class="identity-row">
+          <BaseIdentity name="Choose a workspace" />
+        </div>
+      </UiTestSpecimen>
+      <UiTestSpecimen label="long text in a bounded box">
+        <div class="identity-row bounded-row">
+          <BaseAvatar initials="AL" shape="round" />
+          <BaseIdentity
+            name="Augusta Ada King, Countess of Lovelace"
+            caption="ada.lovelace@analytical-engine.example"
+          />
+        </div>
+      </UiTestSpecimen>
+    </UiTestSection>
+
+    <UiTestSection title="Count" component="BaseCount">
+      <UiTestSpecimen label="one · two · three digits">
+        <div class="inline-row">
+          <BaseCount>1</BaseCount>
+          <BaseCount>12</BaseCount>
+          <BaseCount>128</BaseCount>
+        </div>
+      </UiTestSpecimen>
+      <UiTestSpecimen label="inside a button">
+        <div class="inline-row">
+          <BaseButton variant="ghost" prepend-icon="material-symbols:filter-list-rounded" selected>
+            Filters
+            <BaseCount>2</BaseCount>
+          </BaseButton>
+        </div>
+      </UiTestSpecimen>
+    </UiTestSection>
+
     <UiTestSection title="Skeleton" component="BaseSkeleton">
       <UiTestSpecimen label="md · sm">
         <div class="skeletons">
@@ -143,6 +205,16 @@ useSeoMeta({ title: 'Display · Component showcase' })
   flex-wrap: wrap;
   align-items: center;
   gap: rem(6);
+}
+
+.identity-row {
+  display: flex;
+  align-items: center;
+  gap: rem(10);
+}
+
+.bounded-row {
+  max-width: rem(220);
 }
 
 .skeletons {

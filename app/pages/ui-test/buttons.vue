@@ -98,6 +98,21 @@
           />
         </div>
       </UiTestSpecimen>
+      <UiTestSpecimen label="bordered · square (36px)">
+        <div class="button-row">
+          <BaseButton
+            variant="secondary"
+            prepend-icon="material-symbols:menu-rounded"
+            label="Show tables"
+          />
+          <BaseButton variant="primary" prepend-icon="material-symbols:add-rounded" label="Add" />
+          <BaseButton
+            variant="ghost"
+            prepend-icon="material-symbols:settings-outline-rounded"
+            label="Settings"
+          />
+        </div>
+      </UiTestSpecimen>
     </UiTestSection>
 
     <UiTestSection title="Link-styled" component="BaseButton">

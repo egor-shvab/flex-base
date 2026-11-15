@@ -9,7 +9,14 @@ export const UI_TEST_SECTIONS: IUiTestSection[] = [
   {
     path: '/ui-test/inputs',
     label: 'Inputs',
-    components: ['BaseInput', 'BaseCheckbox', 'BaseRange', 'BaseSegmented', 'BaseColorPicker'],
+    components: [
+      'BaseInput',
+      'BaseCheckbox',
+      'BaseRange',
+      'BaseSegmented',
+      'BaseFieldMessage',
+      'BaseColorPicker',
+    ],
   },
   { path: '/ui-test/select', label: 'Select', components: ['BaseSelect'] },
   {
@@ -18,15 +25,40 @@ export const UI_TEST_SECTIONS: IUiTestSection[] = [
     components: [
       'BaseBadge',
       'BaseLinkedRecord',
+      'BaseAvatar',
+      'BaseIdentity',
+      'BaseCount',
       'BaseSkeleton',
       'BaseErrorBanner',
       'BaseEmptyState',
     ],
   },
   {
+    path: '/ui-test/layout',
+    label: 'Layout',
+    components: [
+      'BasePageHead',
+      'BaseSectionHead',
+      'BaseCard',
+      'BaseList',
+      'BaseListRow',
+      'BaseDetailList',
+      'BaseDetailRow',
+      'BaseActionRow',
+      'BaseCenteredPanel',
+    ],
+  },
+  {
     path: '/ui-test/navigation',
     label: 'Navigation',
-    components: ['BaseBreadcrumbs', 'BasePagination'],
+    components: [
+      'BaseBreadcrumbs',
+      'BasePagination',
+      'BaseNavItem',
+      'BaseMenu',
+      'BaseMenuItem',
+      'BaseMenuSeparator',
+    ],
   },
-  { path: '/ui-test/overlays', label: 'Overlays', components: ['BaseModal'] },
+  { path: '/ui-test/overlays', label: 'Overlays', components: ['BaseModal', 'ConfirmModal'] },
 ]

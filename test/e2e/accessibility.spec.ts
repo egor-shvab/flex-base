@@ -157,7 +157,7 @@ test.describe('the app screens', () => {
 })
 
 test.describe('the component showcase', () => {
-  const SUBPAGES = ['buttons', 'inputs', 'select', 'display', 'navigation', 'overlays']
+  const SUBPAGES = ['buttons', 'inputs', 'select', 'display', 'layout', 'navigation', 'overlays']
 
   for (const subpage of SUBPAGES) {
     const open = async (page: Page) => {
