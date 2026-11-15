@@ -30,6 +30,6 @@ await useAsyncData('incoming-invitations', async () => {
 .invitations-page {
   @include stack(14);
 
-  max-width: rem(760);
+  max-width: var(--page-column-width);
 }
 </style>

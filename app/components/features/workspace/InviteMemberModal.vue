@@ -22,7 +22,7 @@
         :error="errors.roleId"
       />
 
-      <p class="invite-form__note">
+      <p class="g-note">
         The invitation expires after {{ INVITATION_TTL_DAYS }} days. They’ll find it in FlexBase
         once they sign in with this email. Inviting the same email again renews it.
       </p>
@@ -83,11 +83,5 @@ const { form, errors, serverError, isSubmitting, submit } = useForm({
 <style lang="scss" scoped>
 .invite-form {
   @include stack;
-
-  &__note {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
 }
 </style>

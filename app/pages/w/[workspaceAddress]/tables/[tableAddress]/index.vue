@@ -42,9 +42,7 @@
           @click="isFilterPanelOpen = true"
         >
           Filters
-          <span v-if="activeFilterCount > 0" class="records-page__filter-count">{{
-            activeFilterCount
-          }}</span>
+          <BaseCount v-if="activeFilterCount > 0">{{ activeFilterCount }}</BaseCount>
         </BaseButton>
       </div>
     </div>
@@ -353,20 +351,6 @@ const {
     flex: 1 1 rem(160);
     min-width: 0;
     max-width: rem(300);
-  }
-
-  &__filter-count {
-    display: inline-grid;
-    place-items: center;
-    min-width: rem(18);
-    height: rem(18);
-    padding: 0 rem(4);
-    border-radius: var(--radius-pill);
-    background: var(--color-accent);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-2xs);
-    line-height: 1;
-    color: var(--color-text-on-accent);
   }
 
   &__failed {

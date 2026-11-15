@@ -100,6 +100,27 @@ describe('BaseButton', () => {
 
       expect(wrapper.classes()).not.toContain('base-button--sm')
     })
+
+    it('squares a bordered variant that holds only an icon', async () => {
+      const iconOnly = await mountTracked(BaseButton, {
+        props: {
+          variant: 'secondary',
+          prependIcon: 'material-symbols:menu-rounded',
+          label: 'Menu',
+        },
+      })
+      const labelled = await mountTracked(BaseButton, {
+        props: { variant: 'secondary', prependIcon: 'material-symbols:menu-rounded' },
+        slots: { default: () => 'Menu' },
+      })
+      const iconVariant = await mountTracked(BaseButton, {
+        props: { variant: 'icon', prependIcon: 'material-symbols:menu-rounded', label: 'Menu' },
+      })
+
+      expect(iconOnly.classes()).toContain('base-button--icon-only')
+      expect(labelled.classes()).not.toContain('base-button--icon-only')
+      expect(iconVariant.classes()).not.toContain('base-button--icon-only')
+    })
   })
 
   describe('accessible naming', () => {

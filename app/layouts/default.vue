@@ -1,16 +1,14 @@
 <template>
   <div ref="shell" class="app-layout" :class="{ 'app-layout--nav-open': isNavOpen }">
     <header class="app-layout__header">
-      <button
-        type="button"
-        class="app-layout__toggle"
+      <BaseButton
+        variant="secondary"
+        prepend-icon="material-symbols:menu-rounded"
+        label="Show tables"
         :aria-expanded="isNavOpen"
         aria-controls="app-sidebar"
-        aria-label="Show tables"
         @click="isNavOpen = !isNavOpen"
-      >
-        <Icon name="material-symbols:menu-rounded" aria-hidden="true" />
-      </button>
+      />
 
       <AppMark />
     </header>
@@ -99,29 +97,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
   &__header {
     display: none;
-  }
-
-  &__toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: var(--control-height);
-    height: var(--control-height);
-    padding: 0;
-    border: 1px solid var(--color-border-control);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    font-size: rem(20);
-    color: var(--color-text);
-    cursor: pointer;
-
-    @include focus-ring;
-
-    &:hover {
-      border-color: var(--color-border-control-hover);
-      background: var(--color-surface-raised);
-    }
   }
 
   &__sidebar {

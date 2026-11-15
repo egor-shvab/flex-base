@@ -1,7 +1,7 @@
 <template>
   <BaseModal title="Filters" variant="drawer" @close="emit('close')">
     <div class="filter-panel">
-      <p class="filter-panel__intro">
+      <p class="g-note filter-panel__intro">
         Each field filters on its own. A record has to match every filter to show.
       </p>
       <component
@@ -24,7 +24,7 @@
         >
           Clear all
         </BaseButton>
-        <span class="filter-panel__count">
+        <span class="g-note filter-panel__count">
           {{ pending ? 'Filtering…' : formatMatchingRecords(total, totalCapped) }}
         </span>
         <BaseButton @click="emit('close')">Done</BaseButton>
@@ -92,12 +92,6 @@ function applyFieldValue(changed: IField, value: TFilterValue) {
 .filter-panel {
   @include stack;
 
-  &__intro {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
   &__footer {
     display: flex;
     flex: 1;
@@ -108,8 +102,6 @@ function applyFieldValue(changed: IField, value: TFilterValue) {
   &__count {
     flex: 1;
     min-width: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 }
 </style>

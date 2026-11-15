@@ -7,15 +7,11 @@
       <BaseButton variant="link" @click="invitationsStore.ensureIncoming()">Try again</BaseButton>
     </BaseErrorBanner>
 
-    <p
-      v-else-if="invitationsStore.incomingStatus !== 'ready'"
-      class="incoming-invitations__note"
-      role="status"
-    >
+    <p v-else-if="invitationsStore.incomingStatus !== 'ready'" class="g-note" role="status">
       Loading invitations…
     </p>
 
-    <p v-else-if="invitationsStore.incoming.length === 0" class="incoming-invitations__note">
+    <p v-else-if="invitationsStore.incoming.length === 0" class="g-note">
       No invitations are waiting for you.
     </p>
 
@@ -88,11 +84,5 @@ async function declineInvitation(invitation: IIncomingInvitation) {
 <style lang="scss" scoped>
 .incoming-invitations {
   @include stack(10);
-
-  &__note {
-    margin: 0;
-    font-size: var(--font-size-md);
-    color: var(--color-text-secondary);
-  }
 }
 </style>

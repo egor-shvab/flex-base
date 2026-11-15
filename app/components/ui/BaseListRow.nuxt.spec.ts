@@ -15,8 +15,7 @@ describe('BaseListRow', () => {
     expect(wrapper.element.tagName).toBe('LI')
     expect(wrapper.find('.base-list-row__title').text()).toBe('Company name')
     expect(wrapper.find('.base-list-row__name').text()).toContain('required')
-    expect(wrapper.find('.base-list-row__icon').exists()).toBe(true)
-    expect(wrapper.find('.base-list-row__icon--initials').exists()).toBe(false)
+    expect(wrapper.find('.base-avatar--square').exists()).toBe(true)
   })
 
   it('shows initials instead of an icon when both are given', async () => {
@@ -24,8 +23,8 @@ describe('BaseListRow', () => {
       props: { title: 'Demo User', initials: 'DU', icon: 'material-symbols:abc' },
     })
 
-    expect(wrapper.find('.base-list-row__icon--initials').text()).toBe('DU')
-    expect(wrapper.findAll('.base-list-row__icon')).toHaveLength(1)
+    expect(wrapper.find('.base-avatar--round').text()).toBe('DU')
+    expect(wrapper.findAll('.base-avatar')).toHaveLength(1)
   })
 
   it('separates meta parts with hidden dots and renders each tone', async () => {

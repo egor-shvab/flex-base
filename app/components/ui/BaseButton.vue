@@ -9,6 +9,7 @@
         'base-button--sm': size === 'sm',
         'base-button--selected': selected,
         'base-button--loading': loading,
+        'base-button--icon-only': isIconOnly,
       },
     ]"
     v-bind="rootProps"
@@ -29,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useSlots } from 'vue'
 import type { Component } from 'vue'
 import { NuxtLink } from '#components'
 import type { TUrlQuery } from '#shared/types/query'
@@ -61,6 +62,18 @@ const props = withDefaults(
     selected: false,
     loading: false,
   },
+)
+
+const slots = useSlots()
+
+/** A bordered variant with only an icon is a square, named by `label` like the `icon` variant. */
+const isIconOnly = computed(
+  () =>
+    Boolean(props.prependIcon) &&
+    !slots.default &&
+    !props.appendIcon &&
+    props.variant !== 'icon' &&
+    props.variant !== 'link',
 )
 
 const isInert = computed(() => props.disabled || props.loading)
@@ -269,6 +282,12 @@ const rootProps = computed(() =>
       background: var(--color-surface);
       color: var(--color-text-secondary);
     }
+  }
+
+  // After every variant's padding, which it replaces
+  &--icon-only {
+    width: var(--control-height);
+    padding: 0;
   }
 
   &__icon {

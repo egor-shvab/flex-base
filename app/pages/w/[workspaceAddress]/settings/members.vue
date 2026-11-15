@@ -61,7 +61,7 @@
         </BaseList>
       </BaseCard>
 
-      <p class="settings-members__note">
+      <p class="g-note">
         Removing a member revokes their access immediately. Records they created stay in the
         workspace.
       </p>
@@ -74,7 +74,7 @@
           :count="invitationsStore.outgoing.length"
         />
 
-        <p v-if="invitationsStore.outgoing.length === 0" class="settings-members__note">
+        <p v-if="invitationsStore.outgoing.length === 0" class="g-note">
           Nobody is waiting to join. Invitations you send appear here until they are accepted.
         </p>
 
@@ -242,12 +242,6 @@ const {
 <style lang="scss" scoped>
 .settings-members {
   @include stack(10);
-
-  &__note {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
 
   &__invitations {
     @include stack(10);

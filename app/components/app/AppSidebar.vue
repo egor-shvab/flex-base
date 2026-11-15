@@ -4,96 +4,79 @@
 
     <div class="app-sidebar__body">
       <template v-if="workspaceAddress">
-        <NuxtLink
+        <BaseNavItem
           :to="pagePath.workspace(workspaceAddress)"
-          class="app-sidebar__item"
-          :class="{ 'app-sidebar__item--active': isHome }"
+          icon="material-symbols:home-outline-rounded"
+          :active="isHome"
         >
-          <Icon
-            name="material-symbols:home-outline-rounded"
-            class="app-sidebar__icon"
-            aria-hidden="true"
-          />
-          <span class="app-sidebar__name">Home</span>
-        </NuxtLink>
+          Home
+        </BaseNavItem>
 
         <p class="g-eyebrow app-sidebar__heading">Tables</p>
 
-        <p v-if="tablesStore.status === 'failed'" class="app-sidebar__error">
-          Couldn't load your tables.
-          <BaseButton variant="link" @click="tablesStore.ensureTables(workspaceAddress)"
-            >Try again</BaseButton
-          >
-        </p>
+        <BaseFieldMessage
+          v-if="tablesStore.status === 'failed'"
+          class="app-sidebar__message"
+          error="Couldn't load your tables."
+          role="alert"
+        >
+          <template #action>
+            <BaseButton variant="link" @click="tablesStore.ensureTables(workspaceAddress)">
+              Try again
+            </BaseButton>
+          </template>
+        </BaseFieldMessage>
 
         <p
           v-else-if="tablesStore.status === 'ready' && tablesStore.tables.length === 0"
-          class="app-sidebar__empty"
+          class="g-note app-sidebar__message"
         >
           No tables yet.
         </p>
 
-        <NuxtLink
+        <BaseNavItem
           v-for="table in tablesStore.tables"
           :key="table.id"
           :to="pagePath.table(workspaceAddress, toTableAddress(table))"
-          class="app-sidebar__item"
-          :class="{ 'app-sidebar__item--active': table.number === activeTableNumber }"
+          icon="material-symbols:table-outline-rounded"
+          :active="table.number === activeTableNumber"
         >
-          <Icon
-            name="material-symbols:table-outline-rounded"
-            class="app-sidebar__icon"
-            aria-hidden="true"
-          />
-          <span class="app-sidebar__name">{{ table.name }}</span>
-          <span class="app-sidebar__count">{{ table._count.records }}</span>
-        </NuxtLink>
+          {{ table.name }}
+          <template #trailing>{{ table._count.records }}</template>
+        </BaseNavItem>
 
-        <button
+        <BaseNavItem
           v-if="hasPermission('TABLES_MANAGE')"
-          type="button"
           class="app-sidebar__add"
+          icon="material-symbols:add-rounded"
+          tone="accent"
           @click="isCreateOpen = true"
         >
-          <Icon name="material-symbols:add-rounded" class="app-sidebar__icon" aria-hidden="true" />
           Add a table
-        </button>
+        </BaseNavItem>
       </template>
     </div>
 
     <div v-if="workspaceAddress" class="app-sidebar__footer">
-      <NuxtLink
+      <BaseNavItem
         :to="pagePath.workspaceSettings(workspaceAddress, 'members')"
-        class="app-sidebar__item"
-        :class="{ 'app-sidebar__item--active': isMembers }"
+        icon="material-symbols:group-outline-rounded"
+        :active="isMembers"
       >
-        <Icon
-          name="material-symbols:group-outline-rounded"
-          class="app-sidebar__icon"
-          aria-hidden="true"
-        />
-        <span class="app-sidebar__name">Members</span>
-      </NuxtLink>
-      <NuxtLink
+        Members
+      </BaseNavItem>
+      <BaseNavItem
         :to="pagePath.workspaceSettings(workspaceAddress)"
-        class="app-sidebar__item"
-        :class="{ 'app-sidebar__item--active': isSettings }"
+        icon="material-symbols:settings-outline-rounded"
+        :active="isSettings"
       >
-        <Icon
-          name="material-symbols:settings-outline-rounded"
-          class="app-sidebar__icon"
-          aria-hidden="true"
-        />
-        <span class="app-sidebar__name">Workspace settings</span>
-      </NuxtLink>
+        Workspace settings
+      </BaseNavItem>
     </div>
 
     <div v-if="auth.user" class="app-sidebar__user">
-      <span class="app-sidebar__avatar" aria-hidden="true">{{ toInitials(auth.user.name) }}</span>
-      <span class="app-sidebar__identity">
-        <span class="app-sidebar__name-line">{{ auth.user.name }}</span>
-        <span class="app-sidebar__email">{{ auth.user.email }}</span>
-      </span>
+      <BaseAvatar :initials="toInitials(auth.user.name)" shape="round" />
+      <BaseIdentity :name="auth.user.name" :caption="auth.user.email" />
       <BaseButton
         variant="icon"
         prepend-icon="material-symbols:person-edit-outline-rounded"
@@ -166,18 +149,6 @@ const isSettings = computed(
 </script>
 
 <style lang="scss" scoped>
-@mixin sidebar-row {
-  display: flex;
-  align-items: center;
-  gap: rem(10);
-  min-height: var(--control-height);
-  padding: 0 rem(10);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-
-  @include focus-ring;
-}
-
 .app-sidebar {
   display: flex;
   flex-direction: column;
@@ -213,74 +184,12 @@ const isSettings = computed(
     padding: 0 rem(10);
   }
 
-  &__item {
-    @include sidebar-row;
-
-    color: var(--color-text);
-    text-decoration: none;
-
-    &:hover {
-      background: var(--color-surface-hover);
-    }
-
-    &--active {
-      background: var(--color-accent-tint);
-      color: var(--color-accent);
-      font-weight: 600;
-    }
-  }
-
-  &__icon {
-    flex: none;
-    font-size: rem(18);
-    color: var(--color-text-secondary);
-  }
-
-  &__item--active &__icon,
-  &__add &__icon {
-    color: inherit;
-  }
-
-  &__name {
-    flex: 1;
-    min-width: 0;
-
-    @include truncate;
-  }
-
-  &__count {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-  }
-
-  &__item--active &__count {
-    font-weight: 600;
-    color: var(--color-accent);
-  }
-
   &__add {
-    @include sidebar-row;
-
     margin-top: rem(4);
-    border: none;
-    background: none;
-    font-weight: 600;
-    color: var(--color-accent);
-    text-align: left;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--color-accent-tint);
-    }
   }
 
-  &__empty,
-  &__error {
-    margin: 0;
+  &__message {
     padding: rem(4) rem(10);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 
   &__user {
@@ -292,40 +201,6 @@ const isSettings = computed(
     margin-top: rem(8);
     padding: rem(4) 0 0 rem(10);
     border-top: 1px solid var(--color-border-subtle);
-  }
-
-  &__avatar {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: rem(26);
-    height: rem(26);
-    border-radius: 50%;
-    background: var(--color-surface-muted);
-    font-size: var(--font-size-2xs);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-  }
-
-  &__identity {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-width: 0;
-  }
-
-  &__name-line {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-
-    @include truncate;
-  }
-
-  &__email {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-
-    @include truncate;
   }
 }
 </style>

@@ -29,9 +29,9 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   that itself. A list goes inside it, never as its `tag` — a header in a `<ul>` is invalid.
 - **`BaseListRow`** (in `BaseList`) is an entity row — fields, members, roles, a dashboard table —
   and **`BaseDetailRow`** (in `BaseDetailList`) a term/value row; a block styles only what it puts
-  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip; `variant="wrap"` wraps a value
-  that must stay whole (a record's field), and a `flush` list drops the side padding outside a card. A page opens
-  with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
+  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip;
+  `variant="wrap"` wraps a value that must stay whole (a record's field), and a `flush` list drops
+  the side padding outside a card. A page opens with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
   its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with
   a description (Danger zone) is **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard`
   turns the edges red.
@@ -43,7 +43,11 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   focus included), while the halo is `:focus-visible` only.
 - **`BaseFieldMessage`** is the line under a field — hint and error share **one** line, the error
   replacing the hint. Without an `id` it is a standalone line (a failed load's alert, its retry in
-  `#action`).
+  `#action`). **A failed load** is a `BaseErrorBanner` for a whole page, that line inside a block,
+  and a `keep-open` item inside a menu.
+- **`BaseNavItem`** is a vertical-navigation row (the sidebar, settings sections); `NuxtLink`'s
+  `aria-current` marks the page, `active` a section spanning several routes. A person or a
+  workspace is **`BaseAvatar`** + **`BaseIdentity`** — round for a person, square for a workspace.
 - **A link that fills a card:** the **card** wears the ring via `:has(:focus-visible)`, and the link
   suppresses both halves of its own.
 - **`BaseCenteredPanel`** is the surface outside the shell (the auth layout, `error.vue`); below

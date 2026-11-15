@@ -3,10 +3,10 @@
     <span class="g-visually-hidden">Loading records…</span>
 
     <div class="records-skeleton__row records-skeleton__row--head" aria-hidden="true">
-      <span v-for="bar in BAR_COUNT" :key="bar" class="records-skeleton__bar" />
+      <BaseSkeleton v-for="bar in BAR_COUNT" :key="bar" size="sm" />
     </div>
     <div v-for="row in ROW_COUNT" :key="row" class="records-skeleton__row" aria-hidden="true">
-      <span v-for="bar in BAR_COUNT" :key="bar" class="records-skeleton__bar" />
+      <BaseSkeleton v-for="bar in BAR_COUNT" :key="bar" />
     </div>
   </BaseCard>
 </template>
@@ -38,30 +38,7 @@ const BAR_COUNT = 3
       height: var(--control-height);
       border-bottom-color: var(--color-border);
       background: var(--color-surface-raised);
-
-      .records-skeleton__bar {
-        height: rem(10);
-      }
     }
-  }
-
-  &__bar {
-    height: rem(12);
-    border-radius: var(--radius-xs);
-    background: var(--color-surface-muted);
-    animation: pulse 1.6s ease-in-out infinite;
-  }
-}
-
-@keyframes pulse {
-  50% {
-    opacity: 0.5;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .records-skeleton__bar {
-    animation: none;
   }
 }
 </style>

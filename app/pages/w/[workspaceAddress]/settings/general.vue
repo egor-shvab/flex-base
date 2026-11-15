@@ -33,7 +33,7 @@
         <BaseButton variant="secondary" :disabled="isSubmitting" @click="discardChanges">
           Discard
         </BaseButton>
-        <p class="settings-general__status" role="status">{{ savedMessage }}</p>
+        <p class="g-note" role="status">{{ savedMessage }}</p>
       </div>
     </form>
   </section>
@@ -90,12 +90,6 @@ function discardChanges() {
 
   &__actions {
     @include cluster(10);
-  }
-
-  &__status {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 }
 </style>

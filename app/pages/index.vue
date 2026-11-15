@@ -23,7 +23,7 @@
       class="workspace-picker__invitations"
       :aria-labelledby="invitationsTitleId"
     >
-      <h2 :id="invitationsTitleId" class="workspace-picker__heading">Invitations</h2>
+      <BaseSectionHead title="Invitations" :title-id="invitationsTitleId" />
       <IncomingInvitationList />
     </section>
 
@@ -78,14 +78,8 @@ await openEntryWorkspace()
   &__invitations {
     @include stack(10);
 
-    max-width: rem(760);
+    max-width: var(--page-column-width);
     margin: 0 auto;
-  }
-
-  &__heading {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: 600;
   }
 }
 </style>

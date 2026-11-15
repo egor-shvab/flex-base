@@ -4,16 +4,17 @@
 
     <div class="workspace-settings__body">
       <nav class="workspace-settings__nav" aria-label="Settings sections">
-        <NuxtLink
+        <BaseNavItem
           v-for="section in sections"
           :key="section.id"
           :to="pagePath.workspaceSettings(workspaceAddress, section.id)"
+          :icon="section.icon"
+          :tone="section.id === 'danger' ? 'danger' : 'default'"
           class="workspace-settings__link"
           :class="{ 'workspace-settings__link--danger': section.id === 'danger' }"
         >
-          <Icon :name="section.icon" class="workspace-settings__icon" aria-hidden="true" />
           {{ section.label }}
-        </NuxtLink>
+        </BaseNavItem>
       </nav>
 
       <div class="workspace-settings__content">
@@ -86,48 +87,21 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
   }
 
   &__link {
-    display: flex;
-    align-items: center;
-    gap: rem(10);
-    min-height: var(--control-height);
-    padding: 0 rem(10);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-md);
-    color: var(--color-text);
-    text-decoration: none;
-    white-space: nowrap;
-
-    @include focus-ring;
-
-    &:hover {
-      background: var(--color-surface-hover);
-    }
+    flex: none;
 
     &--danger {
       margin-top: rem(12);
-      color: var(--color-danger);
 
       @include below-compact {
         margin-top: 0;
       }
     }
-
-    &[aria-current='page'] {
-      background: var(--color-accent-tint);
-      color: var(--color-accent);
-      font-weight: 600;
-    }
-  }
-
-  &__icon {
-    flex: none;
-    font-size: rem(18);
   }
 
   &__content {
     flex: 1;
     min-width: 0;
-    max-width: rem(760);
+    max-width: var(--page-column-width);
   }
 }
 </style>

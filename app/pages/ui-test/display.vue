@@ -59,6 +59,15 @@
       </UiTestSpecimen>
     </UiTestSection>
 
+    <UiTestSection title="Skeleton" component="BaseSkeleton">
+      <UiTestSpecimen label="md · sm">
+        <div class="skeletons">
+          <BaseSkeleton />
+          <BaseSkeleton size="sm" />
+        </div>
+      </UiTestSpecimen>
+    </UiTestSection>
+
     <UiTestSection title="Error banner" component="BaseErrorBanner">
       <UiTestSpecimen label="message">
         <BaseErrorBanner message="Could not load records." />
@@ -134,6 +143,12 @@ useSeoMeta({ title: 'Display · Component showcase' })
   flex-wrap: wrap;
   align-items: center;
   gap: rem(6);
+}
+
+.skeletons {
+  @include stack(8);
+
+  width: rem(180);
 }
 
 .bounded {

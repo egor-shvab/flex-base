@@ -15,7 +15,13 @@ export const UI_TEST_SECTIONS: IUiTestSection[] = [
   {
     path: '/ui-test/display',
     label: 'Display',
-    components: ['BaseBadge', 'BaseLinkedRecord', 'BaseErrorBanner', 'BaseEmptyState'],
+    components: [
+      'BaseBadge',
+      'BaseLinkedRecord',
+      'BaseSkeleton',
+      'BaseErrorBanner',
+      'BaseEmptyState',
+    ],
   },
   {
     path: '/ui-test/navigation',

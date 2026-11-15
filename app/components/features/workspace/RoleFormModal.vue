@@ -14,7 +14,7 @@
 
       <fieldset class="role-form__permissions" :aria-describedby="noteId">
         <legend class="role-form__legend">Permissions</legend>
-        <p :id="noteId" class="role-form__note">
+        <p :id="noteId" class="g-note role-form__note">
           Every member can read all tables and records. A role adds what they may change.
         </p>
 
@@ -115,9 +115,7 @@ function setPermissionGranted(permission: TWorkspacePermission, isGranted: boole
   }
 
   &__note {
-    margin: 0 0 rem(4);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+    margin-bottom: rem(4);
   }
 }
 </style>

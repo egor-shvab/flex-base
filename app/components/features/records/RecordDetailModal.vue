@@ -1,12 +1,17 @@
 <template>
   <BaseModal title="Record details" variant="drawer" :subtitle="subtitle" @close="emit('close')">
     <div class="record-detail-modal">
-      <NuxtLink v-if="backTo" class="record-detail-modal__back" :to="backTo">
-        <Icon name="material-symbols:arrow-back-rounded" aria-hidden="true" />
+      <BaseButton
+        v-if="backTo"
+        class="record-detail-modal__back"
+        variant="link"
+        prepend-icon="material-symbols:arrow-back-rounded"
+        :to="backTo"
+      >
         Back
-      </NuxtLink>
+      </BaseButton>
 
-      <p v-if="pending" class="record-detail-modal__status" role="status">Loading record…</p>
+      <p v-if="pending" class="g-note" role="status">Loading record…</p>
 
       <div v-else-if="errorMessage" class="record-detail-modal__error">
         <BaseErrorBanner class="record-detail-modal__error-text" :message="errorMessage" />
@@ -73,26 +78,7 @@ const openInTableTo = computed(() => {
   @include stack(12);
 
   &__back {
-    display: inline-flex;
-    gap: rem(4);
-    align-items: center;
     align-self: flex-start;
-    min-height: rem(24);
-    padding-block: rem(2);
-    font-size: var(--font-size-sm);
-    color: var(--color-accent);
-    text-decoration: none;
-
-    @include focus-ring;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-
-  &__status {
-    margin: 0;
-    color: var(--color-text-secondary);
   }
 
   &__error {

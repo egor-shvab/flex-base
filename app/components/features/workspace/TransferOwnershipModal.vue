@@ -8,11 +8,9 @@
         <BaseButton variant="link" @click="loadCandidates">Try again</BaseButton>
       </BaseErrorBanner>
 
-      <p v-else-if="status !== 'ready'" class="transfer-form__note" role="status">
-        Loading members…
-      </p>
+      <p v-else-if="status !== 'ready'" class="g-note" role="status">Loading members…</p>
 
-      <p v-else-if="candidateOptions.length === 0" class="transfer-form__note">
+      <p v-else-if="candidateOptions.length === 0" class="g-note">
         There is no one to hand this workspace to yet. Invite someone first.
       </p>
 
@@ -25,7 +23,7 @@
           :options="candidateOptions"
           :error="errors.memberId"
         />
-        <p class="transfer-form__note">
+        <p class="g-note">
           They get every permission and become the only one who can delete the workspace or hand it
           on. You stay a member as {{ ownRoleName }}.
         </p>
@@ -105,11 +103,5 @@ const { form, errors, serverError, isSubmitting, submit } = useForm({
 <style lang="scss" scoped>
 .transfer-form {
   @include stack;
-
-  &__note {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
 }
 </style>

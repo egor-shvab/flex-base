@@ -6,16 +6,13 @@
       class="base-list-row__main"
       :class="{ 'base-list-row__main--link': to }"
     >
-      <span
-        v-if="initials"
-        class="base-list-row__icon base-list-row__icon--initials"
-        aria-hidden="true"
-      >
-        {{ initials }}
-      </span>
-      <span v-else-if="icon" class="base-list-row__icon">
-        <Icon :name="icon" aria-hidden="true" />
-      </span>
+      <BaseAvatar
+        v-if="initials || icon"
+        size="md"
+        :shape="initials ? 'round' : 'square'"
+        :initials="initials"
+        :icon="initials ? undefined : icon"
+      />
 
       <div class="base-list-row__body">
         <p class="base-list-row__name">
@@ -111,24 +108,6 @@ withDefaults(
       &--link {
         flex-wrap: nowrap;
       }
-    }
-  }
-
-  &__icon {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: rem(32);
-    height: rem(32);
-    border-radius: var(--radius-md);
-    background: var(--color-surface-muted);
-    font-size: rem(20);
-    color: var(--color-text-secondary);
-
-    &--initials {
-      border-radius: 50%;
-      font-size: var(--font-size-xs);
-      font-weight: 600;
     }
   }
 

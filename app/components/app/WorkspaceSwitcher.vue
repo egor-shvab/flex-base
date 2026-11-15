@@ -10,19 +10,15 @@
           @click="toggle"
           @keydown.down.prevent="open"
         >
-          <span class="workspace-switcher__tile" aria-hidden="true">{{ activeInitials }}</span>
-          <span class="workspace-switcher__label">
-            <span class="workspace-switcher__name">
-              {{ activeMembership?.workspace.name ?? 'Choose a workspace' }}
-            </span>
-            <span v-if="activeMembership" class="workspace-switcher__role">
-              {{ formatRole(activeMembership) }}
-            </span>
-          </span>
-          <span v-if="invitationCount > 0" class="workspace-switcher__badge">
+          <BaseAvatar :initials="activeInitials" />
+          <BaseIdentity
+            :name="activeMembership?.workspace.name ?? 'Choose a workspace'"
+            :caption="activeMembership ? formatRole(activeMembership) : undefined"
+          />
+          <BaseCount v-if="invitationCount > 0">
             <span aria-hidden="true">{{ invitationCount }}</span>
             <span class="g-visually-hidden">{{ invitationSummary }}</span>
-          </span>
+          </BaseCount>
           <Icon
             name="material-symbols:unfold-more-rounded"
             class="workspace-switcher__chevron"
@@ -37,13 +33,8 @@
         :to="pagePath.workspace(membership.workspace.publicId)"
         :checked="membership.workspace.publicId === workspaceAddress"
       >
-        <span class="workspace-switcher__tile" aria-hidden="true">
-          {{ toInitials(membership.workspace.name) }}
-        </span>
-        <span class="workspace-switcher__label">
-          <span class="workspace-switcher__name">{{ membership.workspace.name }}</span>
-          <span class="workspace-switcher__role">{{ formatRole(membership) }}</span>
-        </span>
+        <BaseAvatar :initials="toInitials(membership.workspace.name)" />
+        <BaseIdentity :name="membership.workspace.name" :caption="formatRole(membership)" />
         <Icon
           v-if="membership.workspace.publicId === workspaceAddress"
           name="material-symbols:check-rounded"
@@ -70,8 +61,8 @@
         tone="accent"
         icon="material-symbols:mail-outline-rounded"
       >
-        <span class="workspace-switcher__label">Invitations</span>
-        <span class="workspace-switcher__badge">{{ invitationCount }}</span>
+        <span class="workspace-switcher__fill">Invitations</span>
+        <BaseCount>{{ invitationCount }}</BaseCount>
       </BaseMenuItem>
 
       <BaseMenuItem tone="accent" icon="material-symbols:add-rounded" @click="isCreateOpen = true">
@@ -152,38 +143,8 @@ const activeIndex = computed(() =>
     }
   }
 
-  &__tile {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: rem(28);
-    height: rem(28);
-    border-radius: var(--radius-md);
-    background: var(--color-surface-muted);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-  }
-
-  &__label {
-    display: flex;
+  &__fill {
     flex: 1;
-    flex-direction: column;
-    min-width: 0;
-  }
-
-  &__name {
-    font-size: var(--font-size-md);
-    font-weight: 600;
-
-    @include truncate;
-  }
-
-  &__role {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-
-    @include truncate;
   }
 
   &__chevron,
@@ -198,20 +159,6 @@ const activeIndex = computed(() =>
 
   &__check {
     color: var(--color-accent);
-  }
-
-  &__badge {
-    flex: none;
-    min-width: rem(20);
-    padding: 0 rem(6);
-    border-radius: var(--radius-pill);
-    background: var(--color-accent);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    line-height: rem(20);
-    color: var(--color-text-on-accent);
-    text-align: center;
   }
 }
 </style>
