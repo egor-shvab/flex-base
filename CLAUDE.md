@@ -332,7 +332,7 @@ replaces the keyboard walk.
   entry file automatically (Vite `additionalData`), but **not** a transitively
   `@use`d partial — such a partial `@use`s both itself, and `main.scss` must not re-`@use` either.
 - **Reuse before you paste:** check `_mixins.scss`; a block with no per-site variation is a class in
-  its own partial (`.auth-form`, `.text-link`, `.visually-hidden`). Use `.visually-hidden` to hide
+  its own partial under `scss/classes/` (`.auth-form`, `.text-link`, `.visually-hidden`). Use `.visually-hidden` to hide
   text — `display: none` / `visibility: hidden` remove it from the accessibility tree.
 - **Components consume `var(--color-*)` and nothing else**; palette primitives must stay unreachable
   from an SFC.

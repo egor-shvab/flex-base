@@ -1,5 +1,5 @@
 @use 'variables';
 @use 'reset';
-@use 'auth-form';
-@use 'text-link';
-@use 'visually-hidden';
+@use 'classes/auth-form';
+@use 'classes/text-link';
+@use 'classes/visually-hidden';
