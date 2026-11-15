@@ -1,8 +1,6 @@
 <template>
   <section v-if="membership" class="settings-general" :aria-labelledby="titleId">
-    <div class="section-head">
-      <h2 :id="titleId" class="section-head__title">General</h2>
-    </div>
+    <BaseSectionHead title="General" :title-id="titleId" />
 
     <form class="settings-general__form" novalidate @submit.prevent="submit">
       <BaseErrorBanner :message="serverError" />

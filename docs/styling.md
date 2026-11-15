@@ -29,7 +29,8 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   that itself. A list goes inside it, never as its `tag` — a header in a `<ul>` is invalid.
 - **`BaseListRow`** (in `BaseList`) is an entity row — fields, members, roles, a dashboard table —
   and **`BaseDetailRow`** (in `BaseDetailList`) a term/value row; a block styles only what it puts
-  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip.
+  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip. The heading
+  above a card is **`BaseSectionHead`**.
 - **`popover-panel`** is the one floating surface (select list, colour grid, row menu).
 - **`form-control`** is the whole text-field chrome, with its focus half in **`control-focus`** for
   a bordered non-text control (`BaseCheckbox`). Its `:focus` recolours the border (programmatic

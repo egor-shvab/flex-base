@@ -1,8 +1,6 @@
 <template>
   <section class="settings-danger" :aria-labelledby="titleId">
-    <div class="section-head">
-      <h2 :id="titleId" class="section-head__title">Danger zone</h2>
-    </div>
+    <BaseSectionHead title="Danger zone" :title-id="titleId" />
 
     <div v-if="isOwner" class="danger-card">
       <div class="danger-card__row">

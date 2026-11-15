@@ -1,19 +1,19 @@
 <template>
   <section class="settings-members" :aria-labelledby="titleId">
-    <div class="section-head">
-      <h2 :id="titleId" class="section-head__title">Members</h2>
-      <span v-if="status === 'success'" class="section-head__count">
-        {{ membersStore.members.length }}
-      </span>
-      <BaseButton
-        v-if="canInvite"
-        class="settings-members__invite"
-        prepend-icon="material-symbols:person-add-outline-rounded"
-        @click="isInviteOpen = true"
-      >
-        Invite member
-      </BaseButton>
-    </div>
+    <BaseSectionHead
+      title="Members"
+      :title-id="titleId"
+      :count="status === 'success' ? membersStore.members.length : undefined"
+    >
+      <template v-if="canInvite" #actions>
+        <BaseButton
+          prepend-icon="material-symbols:person-add-outline-rounded"
+          @click="isInviteOpen = true"
+        >
+          Invite member
+        </BaseButton>
+      </template>
+    </BaseSectionHead>
 
     <BaseErrorBanner v-if="status === 'error'">
       Couldn't load the members.
@@ -67,10 +67,12 @@
       </p>
 
       <section v-if="canInvite" class="settings-members__invitations" :aria-labelledby="invitesId">
-        <div class="section-head">
-          <h3 :id="invitesId" class="section-head__title">Pending invitations</h3>
-          <span class="section-head__count">{{ invitationsStore.outgoing.length }}</span>
-        </div>
+        <BaseSectionHead
+          title="Pending invitations"
+          :level="3"
+          :title-id="invitesId"
+          :count="invitationsStore.outgoing.length"
+        />
 
         <p v-if="invitationsStore.outgoing.length === 0" class="settings-members__note">
           Nobody is waiting to join. Invitations you send appear here until they are accepted.
@@ -240,10 +242,6 @@ const {
 <style lang="scss" scoped>
 .settings-members {
   @include stack(10);
-
-  &__invite {
-    margin-left: auto;
-  }
 
   &__note {
     margin: 0;

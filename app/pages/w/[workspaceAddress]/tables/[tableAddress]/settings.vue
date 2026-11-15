@@ -28,9 +28,7 @@
     </div>
 
     <section class="table-page__section">
-      <div class="section-head">
-        <h2 class="section-head__title">Table</h2>
-      </div>
+      <BaseSectionHead title="Table" />
 
       <BaseCard>
         <BaseDetailList>
@@ -55,10 +53,7 @@
     </section>
 
     <section class="table-page__section">
-      <div class="section-head">
-        <h2 class="section-head__title">Fields</h2>
-        <span v-if="fieldCount > 0" class="section-head__count">{{ fieldCount }}</span>
-      </div>
+      <BaseSectionHead title="Fields" :count="fieldCount > 0 ? fieldCount : undefined" />
 
       <TableFieldList
         :fields="fieldsStore.fields"

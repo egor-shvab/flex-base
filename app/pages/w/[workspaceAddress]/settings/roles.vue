@@ -1,19 +1,16 @@
 <template>
   <section class="settings-roles" :aria-labelledby="titleId">
-    <div class="section-head">
-      <h2 :id="titleId" class="section-head__title">Roles</h2>
-      <span v-if="status === 'success'" class="section-head__count">
-        {{ rolesStore.roles.length }}
-      </span>
-      <BaseButton
-        v-if="canManageRoles"
-        class="settings-roles__create"
-        prepend-icon="material-symbols:add-rounded"
-        @click="openCreate"
-      >
-        New role
-      </BaseButton>
-    </div>
+    <BaseSectionHead
+      title="Roles"
+      :title-id="titleId"
+      :count="status === 'success' ? rolesStore.roles.length : undefined"
+    >
+      <template v-if="canManageRoles" #actions>
+        <BaseButton prepend-icon="material-symbols:add-rounded" @click="openCreate">
+          New role
+        </BaseButton>
+      </template>
+    </BaseSectionHead>
 
     <p class="settings-roles__note">
       A role decides what its members may change. The workspace owner may do everything, whatever
@@ -139,10 +136,6 @@ const {
 <style lang="scss" scoped>
 .settings-roles {
   @include stack(10);
-
-  &__create {
-    margin-left: auto;
-  }
 
   &__note {
     margin: 0 0 rem(6);
