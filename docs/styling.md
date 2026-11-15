@@ -31,8 +31,9 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   and **`BaseDetailRow`** (in `BaseDetailList`) a term/value row; a block styles only what it puts
   in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip. A page opens
   with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
-  its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with a description (Danger zone) is
-  **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard` turns the edges red.
+  its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with
+  a description (Danger zone) is **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard`
+  turns the edges red.
 - **`popover-panel`** is the one floating surface (select list, colour grid, `BaseMenu`). A
   `role="menu"` is **`BaseMenu`** with **`BaseMenuItem`**s: choosing an item closes it and returns
   focus, unless the item is `keep-open`; `checked` (even `false`) makes it a `menuitemradio`.

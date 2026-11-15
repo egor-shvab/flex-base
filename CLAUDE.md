@@ -240,6 +240,8 @@ instant on a small table locks a large one for minutes.
   generic dialogs, taking everything through props and slots, never a store, `app/api/` or another
   component folder (lint-enforced); `app/` is the shell; `features/<domain>/` holds whatever knows
   records, fields, tables or the workspace, its modals included. A modal goes by domain, not shape.
+  **The kit must be able to leave as a library:** a reusable look is a `ui/` component, never a
+  mixin or a block copied between pages.
 - **A composable belonging to one component lives in that component's folder** (`Foo/Foo.vue` +
   `Foo/useThing.ts` + its specs) — `BaseSelect/` today. **A page is the exception** (a sibling
   folder would become a route): its composable stays in `app/composables/`, scoped by TSDoc.
@@ -331,10 +333,12 @@ replaces the keyboard walk.
 - `functions` and `mixins` reach every SFC and
   entry file automatically (Vite `additionalData`), but **not** a transitively
   `@use`d partial — such a partial `@use`s both itself, and `main.scss` must not re-`@use` either.
-- **Reuse before you paste:** check `_mixins.scss`; a block with no per-site variation is a class in
-  its own partial under `scss/classes/`, named with a `g-` prefix so a global reads as one
-  (`.g-eyebrow`, `.g-text-link`, `.g-visually-hidden`). Use `.g-visually-hidden` to hide
-  text — `display: none` / `visibility: hidden` remove it from the accessibility tree.
+- **Reuse before you paste, in this order:** a `ui/` component for anything with markup; a global
+  class in `scss/classes/` for a look with no per-site variation, always named `g-*` (`.g-eyebrow`,
+  `.g-text-link`, `.g-visually-hidden`); a mixin only for a primitive (`stack`, `cluster`,
+  `truncate`, `focus-ring`, breakpoints) or a chassis used only inside `ui/`. Use
+  `.g-visually-hidden` to hide text — `display: none` / `visibility: hidden` remove it from the
+  accessibility tree.
 - **Components consume `var(--color-*)` and nothing else**; palette primitives must stay unreachable
   from an SFC.
 - **Tokens come in coherent semantic sets**, consumed by real UI in the same change — never a

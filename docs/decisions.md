@@ -651,6 +651,12 @@ not reproduce it.
 
 ## Components
 
+### The look lives in `ui/` components, not in mixins
+
+A mixin carries no markup, ARIA or behaviour, so every consumer rebuilt them and the copies drifted —
+the page heads had already split on button placement, crumb hiding and margins. Rejected: a mixin
+per surface (`centred-*`, `segmented-*`, `page-title`), each of which had exactly that history.
+
 ### `BaseButton` renders the element its role implies
 
 One component, one stylesheet: `variant` is the appearance, `to` the element. Rejected: a
