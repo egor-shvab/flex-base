@@ -25,45 +25,35 @@
       <BaseButton variant="link" @click="retryRoles">Try again</BaseButton>
     </BaseErrorBanner>
 
-    <ul v-else-if="status === 'success'" class="role-list">
-      <li v-for="role in rolesStore.roles" :key="role.id" class="role-row">
-        <div class="role-row__lead">
-          <span class="role-row__icon">
-            <Icon name="material-symbols:shield-person-outline-rounded" aria-hidden="true" />
-          </span>
-
-          <div class="role-row__body">
-            <p class="role-row__name">
-              <span class="role-row__label">{{ role.name }}</span>
-              <BaseBadge v-if="role.id === membership?.role.id" variant="label"
-                >your role</BaseBadge
-              >
-            </p>
-            <p class="role-row__meta">
-              <span>{{ formatCount(role.memberCount, 'member') }}</span>
-              <span class="role-row__sep" aria-hidden="true">·</span>
-              <span>{{ summarisePermissions(role.permissions) }}</span>
-            </p>
-          </div>
-        </div>
-
-        <div v-if="canChangeRole(role)" class="role-row__actions">
-          <BaseButton
-            variant="icon"
-            prepend-icon="material-symbols:edit-outline-rounded"
-            :label="`Edit role ${role.name}`"
-            @click="openEdit(role)"
-          />
-          <BaseButton
-            variant="icon"
-            prepend-icon="material-symbols:delete-outline-rounded"
-            tone="danger"
-            :label="`Delete role ${role.name}`"
-            @click="deleteTarget = role"
-          />
-        </div>
-      </li>
-    </ul>
+    <BaseCard v-else-if="status === 'success'">
+      <BaseList>
+        <BaseListRow
+          v-for="role in rolesStore.roles"
+          :key="role.id"
+          :title="role.name"
+          icon="material-symbols:shield-person-outline-rounded"
+          :badge="role.id === membership?.role.id ? 'your role' : undefined"
+          :meta="[formatCount(role.memberCount, 'member'), summarisePermissions(role.permissions)]"
+          wrap-meta
+        >
+          <template v-if="canChangeRole(role)" #trailing>
+            <BaseButton
+              variant="icon"
+              prepend-icon="material-symbols:edit-outline-rounded"
+              :label="`Edit role ${role.name}`"
+              @click="openEdit(role)"
+            />
+            <BaseButton
+              variant="icon"
+              prepend-icon="material-symbols:delete-outline-rounded"
+              tone="danger"
+              :label="`Delete role ${role.name}`"
+              @click="deleteTarget = role"
+            />
+          </template>
+        </BaseListRow>
+      </BaseList>
+    </BaseCard>
 
     <LazyRoleFormModal
       v-if="isFormOpen && membership"
@@ -158,23 +148,6 @@ const {
     margin: 0 0 rem(6);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
-  }
-}
-
-.role-list {
-  @include surface-card;
-
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.role-row {
-  @include entity-row;
-
-  // The permission list is the point of the row: wrapped, never cut off
-  &__meta {
-    white-space: normal;
   }
 }
 </style>

@@ -69,7 +69,8 @@ In order:
 3. `npm run build` passes;
 4. `npm run test` passes, with tests for the changed logic (§10);
 5. interactive or visual change: the keyboard path works and the focus ring is visible (a manual
-   walk; target size and axe are gated by `npm run test:e2e`);
+   walk; target size and axe are gated by `npm run test:e2e`, which is slow — run it only when the
+   user asks or the change is substantial: a new route or flow, auth/access, the shell layout);
 6. verified in the running app (`preview_start` with `dev`; `npm run db:seed` gives an account to
    sign in with — credentials in `README.md`);
 7. a knowingly left limitation is recorded in `docs/limitations.md`;
@@ -248,9 +249,9 @@ instant on a small table locks a large one for minutes.
   encoded), responses declared
   in `shared/types/api.ts` and annotated on every handler. A store or component writing `/api/…` or
   an `api<{…}>` generic is reaching past that layer.
-- Forms use `useForm`, a field's label and message `BaseField`; list-page deletes use
-  `useDeleteConfirm`; a popover uses `usePopover` (+ `useAnchoredPosition` to escape a clipping
-  ancestor).
+- Forms use `useForm`, a field's label and message `BaseField`; a card is `BaseCard`, its rows
+  `BaseListRow` or `BaseDetailRow`; list-page deletes use `useDeleteConfirm`; a popover uses
+  `usePopover` (+ `useAnchoredPosition` to escape a clipping ancestor).
 - **A popover swallows Escape only while it has something open.** `BaseModal` and the shell's
   sidebar hold the only two `document` Escape listeners; a popover adds none — `@keydown.esc.stop`
   on its panel where focus is inside it, a JS check on `isOpen` where focus stays outside (a

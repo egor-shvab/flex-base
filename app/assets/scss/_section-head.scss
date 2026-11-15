@@ -1,0 +1,19 @@
+@use 'mixins' as *;
+
+.section-head {
+  @include cluster(12);
+
+  min-height: var(--control-height);
+
+  &__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+  }
+
+  &__count {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-md);
+    color: var(--color-text-subtle);
+  }
+}

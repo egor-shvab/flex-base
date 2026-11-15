@@ -32,37 +32,26 @@
         <h2 class="section-head__title">Table</h2>
       </div>
 
-      <div class="detail-card">
-        <dl class="detail-card__list">
-          <div class="detail-card__row">
-            <dt class="detail-card__term">Name</dt>
-            <dd class="detail-card__value">{{ table?.name }}</dd>
-          </div>
-          <div v-if="recordCount !== null" class="detail-card__row">
-            <dt class="detail-card__term">Records</dt>
-            <dd class="detail-card__value detail-card__value--mono">{{ recordCount }}</dd>
-          </div>
-          <div class="detail-card__row">
-            <dt class="detail-card__term">Fields</dt>
-            <dd class="detail-card__value detail-card__value--mono">{{ fieldCount }}</dd>
-          </div>
-          <div class="detail-card__row">
-            <dt class="detail-card__term">Created</dt>
-            <dd class="detail-card__value">{{ createdAt }}</dd>
-          </div>
-          <div v-if="address" class="detail-card__row">
-            <dt class="detail-card__term">Address</dt>
-            <dd class="detail-card__value detail-card__value--address">{{ address }}</dd>
-          </div>
-        </dl>
+      <BaseCard>
+        <BaseDetailList>
+          <BaseDetailRow term="Name">{{ table?.name }}</BaseDetailRow>
+          <BaseDetailRow v-if="recordCount !== null" term="Records" variant="mono">
+            {{ recordCount }}
+          </BaseDetailRow>
+          <BaseDetailRow term="Fields" variant="mono">{{ fieldCount }}</BaseDetailRow>
+          <BaseDetailRow term="Created">{{ createdAt }}</BaseDetailRow>
+          <BaseDetailRow v-if="address" term="Address" variant="address">
+            {{ address }}
+          </BaseDetailRow>
+        </BaseDetailList>
 
-        <div v-if="canManageTables" class="detail-card__actions">
+        <template v-if="canManageTables" #footer>
           <BaseButton variant="link" @click="isRenameOpen = true">Rename</BaseButton>
           <BaseButton variant="link" tone="danger" @click="tableDeleteTarget = tableAddress">
             Delete table
           </BaseButton>
-        </div>
-      </div>
+        </template>
+      </BaseCard>
     </section>
 
     <section class="table-page__section">

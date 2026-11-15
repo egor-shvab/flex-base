@@ -23,52 +23,43 @@
     <template v-else-if="status === 'success'">
       <BaseErrorBanner :message="roleChangeError" />
 
-      <ul class="member-list">
-        <li v-for="member in membersStore.members" :key="member.id" class="member-row">
-          <div class="member-row__lead">
-            <span class="member-row__icon member-row__icon--person" aria-hidden="true">
-              {{ toInitials(member.user.name) }}
-            </span>
+      <BaseCard>
+        <BaseList>
+          <BaseListRow
+            v-for="member in membersStore.members"
+            :key="member.id"
+            :title="member.user.name"
+            :initials="toInitials(member.user.name)"
+            :badge="member.id === membership?.memberId ? 'you' : undefined"
+            :meta="[member.email, `Joined ${formatTimestampDay(member.joinedAt)}`]"
+          >
+            <template #trailing>
+              <BaseSelect
+                v-if="canManage(member)"
+                :id="`${roleSelectIdPrefix}-${member.id}`"
+                class="settings-members__role"
+                :aria-label="`Role of ${member.user.name}`"
+                :model-value="member.role.id"
+                :options="roleOptions"
+                :disabled="changingMemberId === member.id"
+                @update:model-value="changeMemberRole(member, $event)"
+              />
+              <span v-else class="settings-members__role settings-members__role--text">
+                {{ member.isOwner ? RESERVED_ROLE_NAME : member.role.name }}
+              </span>
 
-            <div class="member-row__body">
-              <p class="member-row__name">
-                <span class="member-row__label">{{ member.user.name }}</span>
-                <BaseBadge v-if="member.id === membership?.memberId" variant="label">you</BaseBadge>
-              </p>
-              <p class="member-row__meta">
-                <span>{{ member.email }}</span>
-                <span class="member-row__sep" aria-hidden="true">·</span>
-                <span>Joined {{ formatTimestampDay(member.joinedAt) }}</span>
-              </p>
-            </div>
-          </div>
-
-          <div class="member-row__actions">
-            <BaseSelect
-              v-if="canManage(member)"
-              :id="`${roleSelectIdPrefix}-${member.id}`"
-              class="member-row__role"
-              :aria-label="`Role of ${member.user.name}`"
-              :model-value="member.role.id"
-              :options="roleOptions"
-              :disabled="changingMemberId === member.id"
-              @update:model-value="changeMemberRole(member, $event)"
-            />
-            <span v-else class="member-row__role member-row__role--text">
-              {{ member.isOwner ? RESERVED_ROLE_NAME : member.role.name }}
-            </span>
-
-            <BaseButton
-              v-if="canManage(member)"
-              variant="icon"
-              tone="danger"
-              prepend-icon="material-symbols:person-remove-outline-rounded"
-              :label="`Remove ${member.user.name}`"
-              @click="removeTarget = member"
-            />
-          </div>
-        </li>
-      </ul>
+              <BaseButton
+                v-if="canManage(member)"
+                variant="icon"
+                tone="danger"
+                prepend-icon="material-symbols:person-remove-outline-rounded"
+                :label="`Remove ${member.user.name}`"
+                @click="removeTarget = member"
+              />
+            </template>
+          </BaseListRow>
+        </BaseList>
+      </BaseCard>
 
       <p class="settings-members__note">
         Removing a member revokes their access immediately. Records they created stay in the
@@ -85,46 +76,32 @@
           Nobody is waiting to join. Invitations you send appear here until they are accepted.
         </p>
 
-        <ul v-else class="member-list">
-          <li
-            v-for="invitation in invitationsStore.outgoing"
-            :key="invitation.id"
-            class="member-row"
-          >
-            <div class="member-row__lead">
-              <span class="member-row__icon">
-                <Icon name="material-symbols:mail-outline-rounded" aria-hidden="true" />
-              </span>
-
-              <div class="member-row__body">
-                <p class="member-row__name">
-                  <span class="member-row__label">{{ invitation.email }}</span>
-                  <BaseBadge v-if="invitation.isExpired" variant="label">expired</BaseBadge>
-                </p>
-                <p class="member-row__meta">
-                  <span>{{ invitation.role.name }}</span>
-                  <span class="member-row__sep" aria-hidden="true">·</span>
-                  <span>Invited by {{ invitation.invitedBy?.name ?? 'Unknown user' }}</span>
-                  <span class="member-row__sep" aria-hidden="true">·</span>
-                  <span>
-                    {{ invitation.isExpired ? 'Expired' : 'Expires' }}
-                    {{ formatTimestampDay(invitation.expiresAt) }}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            <div class="member-row__actions">
-              <BaseButton
-                variant="icon"
-                tone="danger"
-                prepend-icon="material-symbols:close-rounded"
-                :label="`Revoke invitation for ${invitation.email}`"
-                @click="revokeTarget = invitation"
-              />
-            </div>
-          </li>
-        </ul>
+        <BaseCard v-else>
+          <BaseList>
+            <BaseListRow
+              v-for="invitation in invitationsStore.outgoing"
+              :key="invitation.id"
+              :title="invitation.email"
+              icon="material-symbols:mail-outline-rounded"
+              :badge="invitation.isExpired ? 'expired' : undefined"
+              :meta="[
+                invitation.role.name,
+                `Invited by ${invitation.invitedBy?.name ?? 'Unknown user'}`,
+                `${invitation.isExpired ? 'Expired' : 'Expires'} ${formatTimestampDay(invitation.expiresAt)}`,
+              ]"
+            >
+              <template #trailing>
+                <BaseButton
+                  variant="icon"
+                  tone="danger"
+                  prepend-icon="material-symbols:close-rounded"
+                  :label="`Revoke invitation for ${invitation.email}`"
+                  @click="revokeTarget = invitation"
+                />
+              </template>
+            </BaseListRow>
+          </BaseList>
+        </BaseCard>
       </section>
     </template>
 
@@ -278,24 +255,6 @@ const {
     @include stack(10);
 
     margin-top: rem(18);
-  }
-}
-
-.member-list {
-  @include surface-card;
-
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.member-row {
-  @include entity-row;
-
-  &__icon--person {
-    border-radius: 50%;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
   }
 
   &__role {

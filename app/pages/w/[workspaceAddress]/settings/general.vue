@@ -7,38 +7,28 @@
     <form class="settings-general__form" novalidate @submit.prevent="submit">
       <BaseErrorBanner :message="serverError" />
 
-      <div class="detail-card">
-        <div class="detail-card__row">
-          <label v-if="canRename" :for="nameInputId" class="detail-card__term">
-            Workspace name
-          </label>
-          <span v-else class="detail-card__term">Workspace name</span>
-
-          <div v-if="canRename" class="detail-card__control">
+      <BaseCard>
+        <BaseDetailList>
+          <BaseDetailRow term="Workspace name" :label-for="canRename ? nameInputId : undefined">
             <BaseInput
+              v-if="canRename"
               :id="nameInputId"
               v-model.trim="form.name"
               class="settings-general__name"
               :error="errors.name"
             />
-          </div>
-          <span v-else class="detail-card__value">{{ membership.workspace.name }}</span>
-        </div>
+            <template v-else>{{ membership.workspace.name }}</template>
+          </BaseDetailRow>
 
-        <div class="detail-card__row">
-          <span class="detail-card__term">Workspace ID</span>
-          <span class="detail-card__value detail-card__value--address">
+          <BaseDetailRow term="Workspace ID" variant="address">
             {{ membership.workspace.publicId }}
-          </span>
-        </div>
+          </BaseDetailRow>
 
-        <div class="detail-card__row">
-          <span class="detail-card__term">Created</span>
-          <span class="detail-card__value">
+          <BaseDetailRow term="Created">
             {{ formatTimestamp(membership.workspace.createdAt) }}
-          </span>
-        </div>
-      </div>
+          </BaseDetailRow>
+        </BaseDetailList>
+      </BaseCard>
 
       <div v-if="canRename" class="settings-general__actions">
         <BaseButton type="submit" :loading="isSubmitting">Save changes</BaseButton>

@@ -1,5 +1,5 @@
 <template>
-  <div class="records-table">
+  <BaseCard class="records-table">
     <table class="records-table__table">
       <thead>
         <tr>
@@ -81,7 +81,7 @@
         </tr>
       </tbody>
     </table>
-  </div>
+  </BaseCard>
 </template>
 
 <script setup lang="ts">
@@ -139,8 +139,6 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
 
 .records-table {
   overflow: auto;
-
-  @include surface-card;
 
   &__table {
     width: 100%;

@@ -1,5 +1,5 @@
 <template>
-  <div class="records-skeleton" role="status">
+  <BaseCard class="records-skeleton" role="status">
     <span class="visually-hidden">Loading records…</span>
 
     <div class="records-skeleton__row records-skeleton__row--head" aria-hidden="true">
@@ -8,7 +8,7 @@
     <div v-for="row in ROW_COUNT" :key="row" class="records-skeleton__row" aria-hidden="true">
       <span v-for="bar in BAR_COUNT" :key="bar" class="records-skeleton__bar" />
     </div>
-  </div>
+  </BaseCard>
 </template>
 
 <script setup lang="ts">
@@ -18,7 +18,6 @@ const BAR_COUNT = 3
 
 <style lang="scss" scoped>
 .records-skeleton {
-  @include surface-card;
   overflow: hidden;
 
   &__row {

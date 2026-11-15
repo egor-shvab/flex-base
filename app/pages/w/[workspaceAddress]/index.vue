@@ -35,44 +35,34 @@
       </template>
     </BaseEmptyState>
 
-    <section v-else class="table-panel" :aria-labelledby="panelTitleId">
-      <header class="table-panel__head">
+    <BaseCard v-else tag="section" class="table-panel" :aria-labelledby="panelTitleId">
+      <template #header>
         <h2 :id="panelTitleId" class="table-panel__title">Tables</h2>
         <span class="table-panel__count">{{ tablesStore.tables.length }}</span>
-      </header>
+      </template>
 
-      <ul class="table-panel__list">
-        <li v-for="table in tablesStore.tables" :key="table.id">
-          <NuxtLink
-            :to="pagePath.table(workspaceAddress, toTableAddress(table))"
-            class="table-panel__row"
-          >
-            <span class="table-panel__tile">
-              <Icon name="material-symbols:table-outline-rounded" aria-hidden="true" />
-            </span>
-            <span class="table-panel__name-line">
-              <span class="table-panel__name">{{ table.name }}</span>
-              <span class="table-panel__fields">
-                {{ formatCount(table._count.fields, 'field') }}
-              </span>
-            </span>
+      <BaseList>
+        <BaseListRow
+          v-for="table in tablesStore.tables"
+          :key="table.id"
+          :to="pagePath.table(workspaceAddress, toTableAddress(table))"
+          :title="table.name"
+          icon="material-symbols:table-outline-rounded"
+          :meta="[formatCount(table._count.fields, 'field')]"
+        >
+          <template #trailing>
             <span class="table-panel__records">
               {{ formatCount(table._count.records, 'record') }}
             </span>
-            <Icon
-              name="material-symbols:chevron-right-rounded"
-              class="table-panel__chevron"
-              aria-hidden="true"
-            />
-          </NuxtLink>
-        </li>
-      </ul>
+          </template>
+        </BaseListRow>
+      </BaseList>
 
-      <footer class="table-panel__total">
+      <template #footer>
         <span class="table-panel__total-label">Total</span>
         <span class="table-panel__total-value">{{ formatCount(totalRecords, 'record') }}</span>
-      </footer>
-    </section>
+      </template>
+    </BaseCard>
 
     <LazyTableFormModal
       v-if="isCreateOpen"
@@ -162,18 +152,6 @@ async function submitTable(name: string) {
 }
 
 .table-panel {
-  @include surface-card;
-
-  &__head {
-    display: flex;
-    align-items: center;
-    gap: rem(10);
-    padding: rem(12) rem(16);
-    border-bottom: 1px solid var(--color-border);
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    background: var(--color-surface-raised);
-  }
-
   &__title {
     margin: 0;
     font-size: var(--font-size-md);
@@ -186,82 +164,11 @@ async function submitTable(name: string) {
     color: var(--color-text-subtle);
   }
 
-  &__list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  &__row {
-    display: flex;
-    align-items: center;
-    gap: rem(14);
-    padding: rem(12) rem(16);
-    border-bottom: 1px solid var(--color-border-subtle);
-    color: inherit;
-    text-decoration: none;
-
-    @include focus-ring;
-
-    &:hover {
-      background: var(--color-surface-row-hover);
-    }
-  }
-
-  &__tile {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: rem(32);
-    height: rem(32);
-    border-radius: var(--radius-md);
-    font-size: rem(18);
-    color: var(--color-text-secondary);
-    background: var(--color-surface-muted);
-  }
-
-  &__name-line {
-    display: flex;
-    flex: 1;
-    align-items: baseline;
-    gap: rem(8);
-    min-width: 0;
-  }
-
-  &__name {
-    min-width: 0;
-    font-size: var(--font-size-md);
-    font-weight: 500;
-
-    @include truncate;
-  }
-
-  &__fields {
-    flex: none;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-subtle);
-  }
-
   &__records {
     flex: none;
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     font-variant-numeric: tabular-nums;
-  }
-
-  &__chevron {
-    flex: none;
-    font-size: rem(18);
-    color: var(--color-glyph-faint);
-  }
-
-  &__total {
-    display: flex;
-    align-items: center;
-    gap: rem(8);
-    padding: rem(10) rem(16);
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-    background: var(--color-canvas);
   }
 
   &__total-label {

@@ -1,5 +1,5 @@
 <template>
-  <div class="field-card">
+  <BaseCard>
     <BaseEmptyState
       v-if="fields.length === 0"
       title="No fields yet"
@@ -14,37 +14,16 @@
       </template>
     </BaseEmptyState>
 
-    <ul v-else class="field-list">
-      <li v-for="field in fields" :key="field.id" class="field-row">
-        <div class="field-row__lead">
-          <span class="field-row__icon">
-            <Icon :name="FIELD_TYPE_ICONS[field.type]" aria-hidden="true" />
-          </span>
-
-          <div class="field-row__body">
-            <p class="field-row__name">
-              <span class="field-row__label">{{ field.name }}</span>
-              <BaseBadge v-if="field.required" variant="label">required</BaseBadge>
-            </p>
-            <!-- Every part is an element: Vue's `condense` spaces loose text differently, which
-                 would space one separator differently from the next. -->
-            <p class="field-row__meta">
-              <span class="field-row__type">{{ FIELD_TYPE_LABELS[field.type] }}</span>
-              <template v-if="configSummaries.get(field.id)">
-                <span class="field-row__sep" aria-hidden="true">·</span>
-                <span>{{ configSummaries.get(field.id) }}</span>
-              </template>
-              <template v-if="isMultiValue(field)">
-                <span class="field-row__sep" aria-hidden="true">·</span>
-                <span>multiple values</span>
-              </template>
-              <span class="field-row__sep" aria-hidden="true">·</span>
-              <code class="field-row__key">{{ field.key }}</code>
-            </p>
-          </div>
-        </div>
-
-        <div v-if="editable" class="field-row__actions">
+    <BaseList v-else>
+      <BaseListRow
+        v-for="field in fields"
+        :key="field.id"
+        :title="field.name"
+        :icon="FIELD_TYPE_ICONS[field.type]"
+        :badge="field.required ? 'required' : undefined"
+        :meta="metaByFieldId.get(field.id)"
+      >
+        <template v-if="editable" #trailing>
           <BaseButton
             variant="icon"
             prepend-icon="material-symbols:edit-outline-rounded"
@@ -58,10 +37,10 @@
             :label="`Delete field ${field.name}`"
             @click="emit('delete', field)"
           />
-        </div>
-      </li>
-    </ul>
-  </div>
+        </template>
+      </BaseListRow>
+    </BaseList>
+  </BaseCard>
 </template>
 
 <script setup lang="ts">
@@ -71,6 +50,7 @@ import type { IField } from '#shared/types/field'
 import { isMultiValue } from '#shared/field-types/cardinality'
 import { FIELD_CONFIG_SUMMARIES, FIELD_TYPE_ICONS } from '~/field-types/registry'
 import type { IFieldConfigSummaryContext } from '~/field-types/types'
+import type { TListRowMetaItem } from '~/types/list-row'
 
 const props = withDefaults(
   defineProps<{
@@ -87,41 +67,20 @@ const emit = defineEmits<{
   delete: [field: IField]
 }>()
 
-const configSummaries = computed(
+const metaByFieldId = computed(
   () =>
     new Map(
-      props.fields.flatMap((field) => {
-        const summarise = FIELD_CONFIG_SUMMARIES[field.type]
+      props.fields.map((field) => {
+        const configSummary = FIELD_CONFIG_SUMMARIES[field.type]?.(field, props.summaryContext)
+        const meta: TListRowMetaItem[] = [
+          { text: FIELD_TYPE_LABELS[field.type], tone: 'strong' },
+          ...(configSummary ? [configSummary] : []),
+          ...(isMultiValue(field) ? ['multiple values'] : []),
+          { text: field.key, tone: 'code' },
+        ]
 
-        return summarise ? [[field.id, summarise(field, props.summaryContext)] as const] : []
+        return [field.id, meta] as const
       }),
     ),
 )
 </script>
-
-<style lang="scss" scoped>
-.field-card {
-  @include surface-card;
-}
-
-.field-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.field-row {
-  @include entity-row;
-
-  &__type {
-    font-weight: 500;
-    color: var(--color-text);
-  }
-
-  &__key {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-subtle);
-  }
-}
-</style>
