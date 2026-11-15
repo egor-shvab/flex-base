@@ -236,7 +236,10 @@ instant on a small table locks a large one for minutes.
 ## 7. Frontend conventions
 
 - Pinia stores are **setup-style**; state is mutated only inside the store's actions.
-- `Base*` prefix for generic atoms in `app/components/common/`.
+- **`app/components/` splits by what a component may know:** `ui/` is the kit — `Base*` atoms and
+  generic dialogs, taking everything through props and slots, never a store, `app/api/` or another
+  component folder (lint-enforced); `app/` is the shell; `features/<domain>/` holds whatever knows
+  records, fields, tables or the workspace, its modals included. A modal goes by domain, not shape.
 - **A composable belonging to one component lives in that component's folder** (`Foo/Foo.vue` +
   `Foo/useThing.ts` + its specs) — `BaseSelect/` today. **A page is the exception** (a sibling
   folder would become a route): its composable stays in `app/composables/`, scoped by TSDoc.

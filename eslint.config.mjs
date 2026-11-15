@@ -34,6 +34,26 @@ export default withNuxt(
   },
 
   {
+    files: ['app/components/ui/**/*.{ts,vue}'],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            NO_RELATIVE_IMPORTS,
+            {
+              regex: '^~/(stores|api)/|^~/components/(?!ui/)',
+              message:
+                'The UI kit knows no app data or feature: take it through props and slots, so the kit can leave the app intact.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     files: ['shared/field-types/**/*.ts'],
     ignores: ['**/*.spec.ts'],
     rules: {

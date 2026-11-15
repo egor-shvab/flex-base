@@ -1,5 +1,5 @@
 import { markRaw } from 'vue'
-import BaseSelect from '~/components/common/BaseSelect/BaseSelect.vue'
+import BaseSelect from '~/components/ui/BaseSelect/BaseSelect.vue'
 import { choiceOptions, choiceValues } from '#shared/field-types/select'
 import type { IField } from '#shared/types/field'
 import { blankIsNull, listValue } from '~/field-types/adapters'

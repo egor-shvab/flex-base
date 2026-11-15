@@ -1,11 +1,11 @@
 <template>
   <UiTestPage title="Component showcase">
     <template #lede>
-      Every component in <code>app/components/common/</code>, in every state it supports, built from
+      Every component in <code>app/components/ui/</code>, in every state it supports, built from
       local fixtures. Nothing here reads or writes data.
     </template>
 
-    <UiTestSection title="Sections" component="app/components/common/">
+    <UiTestSection title="Sections" component="app/components/ui/">
       <UiTestSpecimen
         v-for="section in UI_TEST_SECTIONS"
         :key="section.path"

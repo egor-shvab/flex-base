@@ -1,5 +1,5 @@
 import { markRaw } from 'vue'
-import BaseInput from '~/components/common/BaseInput.vue'
+import BaseInput from '~/components/ui/BaseInput.vue'
 import { blankIsNull } from '~/field-types/adapters'
 import TextFieldCell from '~/field-types/text/TextFieldCell.vue'
 import type { IAppFieldType } from '~/field-types/types'

@@ -413,7 +413,7 @@ Only what the name and the code do not say.
   above by anchoring `bottom`, reflows on `scroll` **captured at `window`**.
 - **`composables/useMenuNavigation.ts`** — a `role="menu"` panel's roving focus, which **wraps**,
   unlike a listbox's cursor.
-- **`components/common/BaseSelect/useListboxNavigation.ts`** — the cursor never wraps and is keyed
+- **`components/ui/BaseSelect/useListboxNavigation.ts`** — the cursor never wraps and is keyed
   on option **values**, so a rebuilt options array does not move it. **`useSelectOptions.ts`** —
   out-of-order responses dropped through `createLatestRequest` (`utils/latest-request.ts`), which
   any fetch a user can re-trigger before it answers goes through.
@@ -459,7 +459,7 @@ Only what the name and the code do not say.
   they answer the picker says "Loading records…", never "no records". Caches are `shallowRef`s
   mutated in place and triggered, and are cleared on a table switch by the records store.
 
-### Renderers — `app/components/records/`
+### Renderers — `app/components/features/records/`
 
 - **`RecordForm`** — values down as props, changes up as `update: [key, value]`; **the parent's
   `useForm` object is never mutated**.

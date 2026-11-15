@@ -1,6 +1,6 @@
 import { markRaw } from 'vue'
-import BaseInput from '~/components/common/BaseInput.vue'
-import BaseRange from '~/components/common/BaseRange.vue'
+import BaseInput from '~/components/ui/BaseInput.vue'
+import BaseRange from '~/components/ui/BaseRange.vue'
 import NumberFieldCell from '~/field-types/number/NumberFieldCell.vue'
 import { summariseRange } from '~/field-types/prose'
 import type { IAppFieldType } from '~/field-types/types'
