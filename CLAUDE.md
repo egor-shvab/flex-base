@@ -37,10 +37,11 @@ Non-negotiable:
   the change needs, favouring clean architecture over short-term optimisation.
 
 **In scope:** workspaces (create, rename, delete, switch, transfer ownership), members invited by
-email and accepted in the app, custom roles over a closed permission set, a user's display name, and
-record authorship (`createdBy`/`updatedBy`).
+email and accepted in the app, custom roles over a closed permission set with per-table and
+per-field record access (`docs/plans/role-access.md`), a user's display name, and record authorship
+(`createdBy`/`updatedBy`).
 
-**Out of scope unless explicitly asked:** per-table or per-field access, invite links, sending email
+**Out of scope unless explicitly asked:** invite links, sending email
 or verifying addresses, billing, real-time updates, workspace slug/logo/time zone, moving a table
 between workspaces, account deletion, dashboards, activity history, workflows, automations, file
 uploads, import/export, third-party integrations. The architecture may be shaped to accommodate them
@@ -137,15 +138,16 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   method names are never shortened. `app/api/` modules are bound per resource inside a store, so
   their members stay bare (`api.list`, `api.remove`).
 - **A workspace- or table-scoped route is declared with a factory from `server/utils/handler.ts`**,
-  never a bare `defineEventHandler`, and names the permission it needs — the membership check is
-  what produces the context. A shape none covers **adds a factory**.
+  never a bare `defineEventHandler`, and names the permission it needs — or, for a record route,
+  the record action the table's access must allow — the membership check is what produces the
+  context. A shape none covers **adds a factory**.
 - **Access lives in the query:** membership is resolved from the caller's id and the workspace
   address in one scoped query; every later `where` takes its `workspaceId` from that result (or a
   `tableId` proved through it), never from a body or an address — never fetch then check.
 - **Role rules live in `shared/`**: a non-owner may only assign, edit or act on a role whose
   permissions are a subset of their own; one function decides it for server and client alike.
-- **Status codes:** a resource outside the caller's workspaces is **404, never 403**; a member
-  lacking the permission is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use
+- **Status codes:** a resource outside the caller's workspaces, or a table their role may not read,
+  is **404, never 403**; a member lacking the permission or record action is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use
   conflicts and a guarded write whose checked row changed meanwhile; 412 for a write whose `If-Match` version is stale (records, fields, roles);
   every login failure is the same generic 401.
 - `User` rows are read with an explicit `select`; `passwordHash` never leaves. A user's email

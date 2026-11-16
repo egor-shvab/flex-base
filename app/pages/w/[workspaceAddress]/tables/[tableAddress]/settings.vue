@@ -142,7 +142,7 @@ if (error.value) {
 
 const cachedTableRow = computed(() => tablesStore.findTable(tableAddress))
 
-const table = computed(() => cachedTableRow.value ?? data.value)
+const table = computed(() => cachedTableRow.value ?? data.value?.table)
 
 useSeoMeta({ title: () => table.value?.name ?? 'Table' })
 

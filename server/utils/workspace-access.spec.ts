@@ -118,21 +118,6 @@ describe('assertAccess', () => {
     )
   })
 
-  it.each([
-    ['RECORDS_CREATE', { canCreate: true }],
-    ['RECORDS_UPDATE', { updateScope: 'ALL' }],
-    ['RECORDS_DELETE', { deleteScope: 'ALL' }],
-  ] as const)('reads %s off the record defaults, not the permissions', (access, records) => {
-    const granted = membership({ permissions: [], recordDefaults: buildRecordDefaults(records) })
-    const denied = membership({
-      permissions: [...WORKSPACE_PERMISSIONS],
-      recordDefaults: buildRecordDefaults(),
-    })
-
-    expect(() => assertAccess(granted, access)).not.toThrow()
-    expect(() => assertAccess(denied, access)).toThrow(expect.objectContaining({ statusCode: 403 }))
-  })
-
   it('lets the owner through on everything', () => {
     const owner = membership({ isOwner: true, permissions: [] })
 

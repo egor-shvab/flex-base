@@ -83,7 +83,7 @@ test('a role narrowed mid-session hides its controls on the first refusal', asyn
 
   await prisma.workspaceRole.update({
     where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
-    data: { permissions: [] },
+    data: { canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' },
   })
 
   await dialog.getByLabel('Company').fill('Acme Ltd')
@@ -91,6 +91,36 @@ test('a role narrowed mid-session hides its controls on the first refusal', asyn
 
   await expect(dialog).toContainText("You don't have permission to edit records")
   await expect(page.getByRole('button', { name: 'Add record' })).toHaveCount(0)
+
+  await page.context().close()
+})
+
+test('a table hidden from a role is not listed, and its address is a 404', async ({
+  browser,
+  workspace,
+}) => {
+  const role = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    select: { id: true },
+  })
+  await prisma.roleTableAccess.create({
+    data: {
+      workspaceId: workspace.id,
+      roleId: role.id,
+      tableId: table.id,
+      readScope: 'NONE',
+      canCreate: false,
+      updateScope: 'NONE',
+      deleteScope: 'NONE',
+    },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(workspace.url)
+  await expect(sidebar(page).getByRole('link', { name: 'Deals' })).toHaveCount(0)
+
+  await page.goto(table.url)
+  await expect(page.getByText('We couldn’t find that table.')).toBeVisible()
 
   await page.context().close()
 })

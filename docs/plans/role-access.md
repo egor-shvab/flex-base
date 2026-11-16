@@ -140,38 +140,37 @@ resolveTableAccess({
       записями через API). Отдельного автотеста миграции нет: интеграционный прогон применяет её к
       чистой базе, бэкфилл проверен вручную на dev-базе.
 
-## Этап 2 — Эффективный доступ и видимость таблиц
+## Этап 2 — Эффективный доступ и видимость таблиц ✅
 
-- [ ] `shared/utils/table-access.ts`: `resolveTableAccess` (см. «Модель»), `canReadRecords`
-      (`isScopeWithin` уже есть в `shared/utils/permissions.ts`). Unit-спеки: владелец, `TABLES_MANAGE`, override против умолчаний, поле
-      по умолчанию, RELATION на невидимую таблицу.
-- [ ] `server/db/tables.ts`: `buildReadableTablesWhere(roleId, roleDefaults)` — если умолчание
-      `readScope = NONE`: `tableAccess: { some: { roleId, readScope: { not: NONE } } }`, иначе
-      `NOT: { tableAccess: { some: { roleId, readScope: NONE } } }`. Для владельца и `TABLES_MANAGE`
-      фильтр не применяется.
-- [ ] `server/utils/table-access.ts`: `requireTableWithFieldRows` получает членство и в **том же
-      запросе** выбирает `tableAccess: { where: { roleId } }`, а у полей
-      `fieldAccess: { where: { roleId } }`. Для RELATION-полей видимость целевых таблиц доезжает одним
-      дополнительным запросом на все цели сразу (без запросов в цикле). Таблица с
-      `readScope = NONE` отдаёт тот же 404, что и несуществующая.
-- [ ] `server/utils/handler.ts`: контекст табличных фабрик получает `access: IEffectiveTableAccess`.
-      Записи объявляются по действию (`TRecordAction` уже есть: `create | update | delete`; чтение
-      добавить отдельно) вместо `TWorkspaceAccess`. Действие с областью `NONE` отдаёт 403 (сообщения в духе
-      `DENIED_ACTIONS`). Схемные маршруты (поля, таблицы) остаются на `TABLES_MANAGE`.
-- [ ] Убрать мост этапа 1 и записи `RECORDS_*` из `DENIED_ACTIONS`; `READ` у таблиц теперь значит
-      «членство + `readScope ≠ NONE`», а не только членство (переписать комментарий в
-      `workspace-access.ts`).
-- [ ] `GET /tables` фильтрует; `GET /tables/:t` и `GET /fields` отдают `access` вызывающего (поля с
-      `access: 'READ' | 'EDIT'`, скрытые не отдаются вовсе). Типы ответа в `shared/types/api.ts`.
-- [ ] Удаление пространства и вкладка danger считают записи по всем таблицам — это владелец, фильтр
-      не применяется; проверить, что `_count` не идёт через отфильтрованный список.
-- [ ] Клиент: `hasRecordAction(...)` в
-      `pages/w/[workspaceAddress]/tables/[tableAddress]/index.vue` заменяется доступом из ответа
-      таблицы (через стор `tables`/`fields`). Сайдбар уже получает отфильтрованный список.
-- [ ] `roleInputSchema`: `readScope` расширяется до `NONE | ALL`; в `RoleFormModal` — выбор чтения.
-- [ ] Тесты: service/utils со стабом prisma (форма `where`, один запрос на лукап); интеграционные
-      тесты: невидимая таблица → 404 на всех табличных маршрутах и отсутствует в списке; права по
-      таблицам переопределяют умолчания.
+- [x] `shared/utils/table-access.ts`: `resolveTableAccess(actor, override)` (владелец — всё; строка
+      таблицы целиком заменяет умолчания; `TABLES_MANAGE` — `readScope = ALL`, действия свои),
+      `isTableVisibilityBypassed`, `canReadRecords`.
+- [x] `server/db/tables.ts`: `buildRoleTableAccessSelect(roleId)`, `toTableOverride`,
+      `buildReadableTablesWhere(membership)` (`some … not NONE` при умолчании `NONE`, иначе
+      `none … NONE`; владельцу и `TABLES_MANAGE` — без фильтра). `TableService.listTables(membership)`.
+- [x] `server/utils/table-access.ts`: все лукапы принимают членство и в том же запросе читают строку
+      роли для таблицы; нечитаемая таблица — тот же 404. `assertRecordAction` (403 «… records in
+      this table»), `assertTableHasFields` (вместо `requireRecordFields`; проверяется **после**
+      действия, чтобы участник без права получал 403, а не 400). `requireFieldTarget(membership, …)`.
+- [x] `server/utils/handler.ts`: контекст табличных фабрик несёт `access: ITableAccess`;
+      `TTableRouteAccess = TWorkspaceAccess | TRecordAction`; маршруты записей называют
+      `create`/`update`/`delete`, действие проверяется после лукапа. Мост этапа 1 удалён.
+- [x] `GET /tables` фильтрует, `GET /tables/:t` отдаёт `{ table, access }`; `useTableLoader`
+      возвращает весь ответ; страница записей берёт действия из `access`
+      (`useActiveWorkspace().hasRecordAction` удалён).
+- [x] `useAccessResync`: после 403 кроме членства делает `refreshNuxtData()` — доступ таблицы
+      приходит с данными страницы, иначе кнопки не прятались бы после отказа.
+- [x] e2e-фикстура сбрасывает и колонки записей ролей, и строки `RoleTableAccess`/`RoleFieldAccess`;
+      новый e2e: скрытая таблица не в сайдбаре, её адрес — 404.
+- [x] Тесты: unit (резолвер, лукапы, `where` списка, resync), интеграционные (скрытая таблица → 404 на
+      всех табличных маршрутах и нет в списке; строка таблицы расширяет Viewer и сужает Editor;
+      `TABLES_MANAGE` видит скрытую без расширения действий), e2e — все проходят.
+- Перенесено: доступ к полям (выбор `fieldAccess` в лукапе, поля с `access` в `GET /fields`,
+  видимость целевых таблиц RELATION) — в этап 4, где он применяется; расширение `readScope` в
+  `roleInputSchema` и выбор чтения в форме — в этап 6/7: без строк таблиц умолчание «не видеть»
+  скрыло бы все таблицы, а строки пока задать нечем.
+- Известное до этапа 4: метки связей из скрытой таблицы всё ещё видны в связанной; пикер связи
+  предлагает её записи.
 
 ## Этап 3 — Row-level (`OWN`)
 
@@ -241,6 +240,8 @@ WHERE id/tableId [AND "updatedAt" = v] [AND "createdById" = u] RETURNING …` (S
 
 ## Этап 6 — API доступа роли и анти-эскалация
 
+- [ ] `roleInputSchema`: `readScope` умолчаний расширяется до `NONE | ALL` (с этапа 3 — и `OWN`).
+
 - [ ] `shared/validation/role-access.ts`: `roleAccessSchema` = `recordDefaults` + `tables: [{ tableId,
 ...ITableAccess }]` + `fields: [{ fieldId, access }]`; дубликаты запрещены.
 - [ ] `GET /roles/:roleId/access` (`ROLES_MANAGE`) → умолчания, override'ы и для редактора таблицы
@@ -301,4 +302,4 @@ WHERE id/tableId [AND "updatedAt" = v] [AND "createdById" = u] RETURNING …` (S
       create — запрет конфигурации.
 - [ ] `docs/limitations.md`: записи без автора не видны при `OWN`; другие оставленные ограничения,
       если появятся по ходу.
-- [ ] Удалить этот файл.
+- [ ] Удалить этот файл и ссылку на него из `CLAUDE.md` §1.

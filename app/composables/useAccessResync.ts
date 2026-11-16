@@ -1,4 +1,4 @@
-import { createError, showError } from '#imports'
+import { createError, refreshNuxtData, showError } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { isWorkspaceMissing, toPageError, type IHttpFailure } from '~/utils/api-error'
@@ -34,7 +34,8 @@ export function useAccessResync() {
 
   /**
    * For a write: its form or dialog still shows the server's message; this refreshes what the
-   * controls are drawn from. Never throws — the write has already failed.
+   * controls are drawn from — the membership, and the page's data, which carries a table's access.
+   * Never throws — the write has already failed.
    */
   async function resyncAccess(error: unknown): Promise<void> {
     if (showLostWorkspace(error)) return
@@ -44,7 +45,9 @@ export function useAccessResync() {
       await workspacesStore.fetchMembership(workspaceAddress.value)
     } catch (refetchError) {
       showLostWorkspace(refetchError)
+      return
     }
+    await refreshNuxtData()
   }
 
   return { resyncAccess, throwPageError }

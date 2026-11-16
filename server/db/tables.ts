@@ -1,6 +1,8 @@
 import type { Prisma } from '#server/generated/prisma/client'
 import type { ITable, ITableListItem } from '#shared/types/table'
+import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
 import { parseTableAddress } from '#shared/utils/address'
+import { isTableVisibilityBypassed } from '#shared/utils/table-access'
 
 export function buildTableAddressWhere(
   workspaceId: string,
@@ -27,6 +29,38 @@ export const tableListSelect = {
   recordCount: true,
   _count: { select: { fields: true } },
 } satisfies Prisma.TableSelect
+
+const tableAccessSelect = {
+  readScope: true,
+  canCreate: true,
+  updateScope: true,
+  deleteScope: true,
+} satisfies Prisma.RoleTableAccessSelect
+
+/** The caller's role's row for the table, if it has one: at most one, by the primary key. */
+export function buildRoleTableAccessSelect(roleId: string) {
+  return {
+    roleAccess: { where: { roleId }, select: tableAccessSelect },
+  } satisfies Prisma.TableSelect
+}
+
+export function toTableOverride(rows: readonly ITableAccess[]): ITableAccess | null {
+  return rows[0] ?? null
+}
+
+/**
+ * The tables the caller's role may open, decided in the query as `resolveTableAccess` decides one
+ * table: a row of the role's for the table wins, the role's default read applies otherwise.
+ */
+export function buildReadableTablesWhere(membership: IWorkspaceMembership): Prisma.TableWhereInput {
+  if (isTableVisibilityBypassed(membership)) return {}
+
+  const roleId = membership.role.id
+
+  return membership.recordDefaults.readScope === 'NONE'
+    ? { roleAccess: { some: { roleId, readScope: { not: 'NONE' } } } }
+    : { roleAccess: { none: { roleId, readScope: 'NONE' } } }
+}
 
 export type TTableRow = Prisma.TableGetPayload<{ select: typeof tableSelect }>
 export type TTableListRow = Prisma.TableGetPayload<{ select: typeof tableListSelect }>

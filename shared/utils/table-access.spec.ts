@@ -1,0 +1,66 @@
+import { describe, expect, it } from 'vitest'
+import { buildRecordDefaults } from '~~/test/membership'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
+import type { IWorkspaceActor } from '#shared/types/workspace'
+import {
+  canReadRecords,
+  isTableVisibilityBypassed,
+  resolveTableAccess,
+} from '#shared/utils/table-access'
+
+const editorDefaults = buildRecordDefaults({ canCreate: true, updateScope: 'ALL' })
+
+const actor = (overrides: Partial<IWorkspaceActor> = {}): IWorkspaceActor => ({
+  memberId: 'mem_1',
+  isOwner: false,
+  permissions: [],
+  recordDefaults: editorDefaults,
+  ...overrides,
+})
+
+const hidden = buildRecordDefaults({ readScope: 'NONE' })
+
+describe('resolveTableAccess', () => {
+  it('falls back to the role’s defaults for a table it has no row for', () => {
+    expect(resolveTableAccess(actor(), null)).toEqual(editorDefaults)
+  })
+
+  it('lets the table’s row replace the defaults whole, narrower or wider', () => {
+    const narrower = buildRecordDefaults({ readScope: 'OWN' })
+    const wider = buildRecordDefaults({ canCreate: true, updateScope: 'ALL', deleteScope: 'ALL' })
+
+    expect(resolveTableAccess(actor(), narrower)).toEqual(narrower)
+    expect(resolveTableAccess(actor(), wider)).toEqual(wider)
+  })
+
+  it('gives the owner everything, whatever the role or the table’s row says', () => {
+    expect(resolveTableAccess(actor({ isOwner: true }), hidden)).toEqual(FULL_TABLE_ACCESS)
+  })
+
+  it('lets a schema manager read a table hidden from their role, and nothing more', () => {
+    const manager = actor({ permissions: ['TABLES_MANAGE'] })
+
+    expect(resolveTableAccess(manager, hidden)).toEqual({ ...hidden, readScope: 'ALL' })
+    expect(
+      resolveTableAccess(actor({ permissions: ['TABLES_MANAGE'], recordDefaults: hidden }), null),
+    ).toEqual({ ...hidden, readScope: 'ALL' })
+  })
+})
+
+describe('isTableVisibilityBypassed', () => {
+  it('holds for the owner and a schema manager only', () => {
+    expect(isTableVisibilityBypassed(actor({ isOwner: true }))).toBe(true)
+    expect(isTableVisibilityBypassed(actor({ permissions: ['TABLES_MANAGE'] }))).toBe(true)
+    expect(isTableVisibilityBypassed(actor({ permissions: ['ROLES_MANAGE'] }))).toBe(false)
+  })
+})
+
+describe('canReadRecords', () => {
+  it.each([
+    ['NONE', false],
+    ['OWN', true],
+    ['ALL', true],
+  ] as const)('reads a table scoped to %s: %s', (readScope, expected) => {
+    expect(canReadRecords(buildRecordDefaults({ readScope }))).toBe(expected)
+  })
+})

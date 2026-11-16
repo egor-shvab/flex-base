@@ -13,7 +13,7 @@ export default defineTableHandler(
     const fieldId = routeParam(event, 'fieldId')
     const expectedUpdatedAt = readIfMatchVersion(event)
     const input = await readValidatedBody(event, fieldInputSchema.parse)
-    await requireFieldTarget(membership.workspace.id, input)
+    await requireFieldTarget(membership, input)
     const field = await FieldService.updateField(table.id, fieldId, input, expectedUpdatedAt)
     return { field }
   },

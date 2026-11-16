@@ -9,6 +9,7 @@ import type { ITable } from '#shared/types/table'
 import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
 import { textField } from '~~/test/fixtures'
+import { buildRecordDefaults } from '~~/test/membership'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 const WS = 'k3f9x2m8qa'
@@ -21,13 +22,15 @@ const TABLE: ITable = {
   updatedAt: '2026-01-05T09:14:00.000Z',
 }
 
+const ACCESS = buildRecordDefaults({ canCreate: true })
+
 const requests: string[] = []
 let shouldTableFail = false
 
 registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_deals', () => {
   requests.push('table')
   if (shouldTableFail) throw createError({ statusCode: 404, statusMessage: 'Table not found' })
-  return { table: TABLE }
+  return { table: TABLE, access: ACCESS }
 })
 
 registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_deals/fields', () => {
@@ -60,8 +63,8 @@ describe('useTableLoader', () => {
     shouldTableFail = false
   })
 
-  it('answers with the table itself, not the response envelope', async () => {
-    expect(await load()).toEqual(TABLE)
+  it('answers with the table and the caller’s access to its records', async () => {
+    expect(await load()).toEqual({ table: TABLE, access: ACCESS })
   })
 
   it('fetches the table and its fields together', async () => {

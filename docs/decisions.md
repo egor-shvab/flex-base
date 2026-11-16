@@ -160,7 +160,10 @@ The factories in `server/utils/handler.ts` produce the route context **from** th
 check, so no workspace, table or field can be reached without it; lint refuses
 `#server/utils/auth` under `server/api/workspaces/*/**`, so **every** route inside a workspace uses
 one. Each names the permission it needs as its first argument — a required value, not a flag, so
-it cannot be forgotten and adds no branch. One factory per `require*` helper — rejected: one
+it cannot be forgotten and adds no branch. A record route names a record action instead
+(`create`/`update`/`delete`): the table's access grants it, so it is checked after the lookup, which
+already answered a table the role may not read with the missing table's 404 — rejected: checking
+the role's defaults before the lookup, which a table's own row can widen or narrow. One factory per `require*` helper — rejected: one
 factory with an options bag (the branch comes back, as a flag). Each is **generic in its return
 type**; flattening to `unknown` would silently widen every response type.
 
@@ -289,6 +292,15 @@ checking the values). The list order in `WORKSPACE_PERMISSIONS` is the editor's,
 Prisma enum. Record actions are not in it: each takes a scope (`NONE`/`OWN`/`ALL`), which a flag in
 an array cannot say, so they are the role's own columns (`readScope`, `canCreate`, `updateScope`,
 `deleteScope`), compared in that order by the anti-escalation rules.
+
+### A table's access row replaces the role's defaults whole
+
+`RoleTableAccess` holds all four columns, and a row present wins outright; without one the role's
+defaults apply (`resolveTableAccess`, and `buildReadableTablesWhere` deciding the same in SQL for
+the list). Rejected: nullable columns merged over the defaults flag by flag — a table's access
+could no longer be read off one row. `TABLES_MANAGE` sees every table, since a table one may change
+but not open would be changed blind; their record actions still come from the role. A hidden table
+is a 404, as one outside the workspace.
 
 ### A workspace address is random, never a number or a slug
 

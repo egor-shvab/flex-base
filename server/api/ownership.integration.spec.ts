@@ -37,9 +37,10 @@ import recordDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tabl
 import tablesGet from '#server/api/workspaces/[workspaceAddress]/tables/index.get'
 import tablesPost from '#server/api/workspaces/[workspaceAddress]/tables/index.post'
 import { prisma } from '#server/db/prisma'
-import type { TWorkspaceAccess } from '#server/utils/workspace-access'
+import type { TTableRouteAccess } from '#server/utils/handler'
+import type { ITableAccess } from '#shared/types/workspace'
 import { testEvent } from '~~/test/integration/event'
-import { buildRoleInput } from '~~/test/membership'
+import { buildRecordDefaults, buildRoleInput } from '~~/test/membership'
 import {
   addMember,
   createField,
@@ -66,7 +67,7 @@ interface IWorld {
 interface IEndpoint {
   name: string
   handler: THandler
-  access: TWorkspaceAccess
+  access: TTableRouteAccess
   params: Record<string, string>
   body?: unknown
   method?: 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -290,7 +291,7 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
     {
       name: 'POST /records',
       handler: recordsPost,
-      access: 'RECORDS_CREATE',
+      access: 'create',
       params: tableParams,
       body: { company: 'Beta' },
       method: 'POST',
@@ -299,7 +300,7 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
     {
       name: 'PATCH /records/:id',
       handler: recordPatch,
-      access: 'RECORDS_UPDATE',
+      access: 'update',
       params: recordParams,
       body: { company: 'Beta' },
       method: 'PATCH',
@@ -307,7 +308,7 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
     {
       name: 'DELETE /records/:id',
       handler: recordDelete,
-      access: 'RECORDS_DELETE',
+      access: 'delete',
       params: recordParams,
       method: 'DELETE',
     },
@@ -398,8 +399,8 @@ describe('a stranger gets 404, never 403', () => {
 
 describe('a member is held to the permissions of their role', () => {
   it.each([
-    ['Viewer', [] as TWorkspaceAccess[]],
-    ['Editor', ['RECORDS_CREATE', 'RECORDS_UPDATE', 'RECORDS_DELETE'] as TWorkspaceAccess[]],
+    ['Viewer', [] as TTableRouteAccess[]],
+    ['Editor', ['create', 'update', 'delete'] as TTableRouteAccess[]],
   ])('refuses a %s every write their role does not grant, with a 403', async (role, granted) => {
     await addMember(world.ada.workspace.id, world.mallory.id, role)
 
@@ -477,6 +478,93 @@ describe('a member is held to the permissions of their role', () => {
     ).resolves.toMatchObject({ table: { name: 'Still mine' } })
   })
 })
+
+describe('a role’s row for a table replaces its defaults there', () => {
+  const setTableAccess = async (roleName: string, access: Partial<ITableAccess>) => {
+    const role = await prisma.workspaceRole.findUniqueOrThrow({
+      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: roleName } },
+      select: { id: true },
+    })
+    await prisma.roleTableAccess.create({
+      data: {
+        workspaceId: world.ada.workspace.id,
+        roleId: role.id,
+        tableId: world.tableId,
+        ...buildRecordDefaults(access),
+      },
+    })
+  }
+
+  const tableRoutes = () =>
+    scopedEndpoints().filter(
+      (endpoint) => 'tableAddress' in endpoint.params && endpoint.access !== 'TABLES_MANAGE',
+    )
+
+  it('hides the table: unlisted, and every route under it a 404 as if it did not exist', async () => {
+    await setTableAccess('Viewer', { readScope: 'NONE' })
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+
+    const { tables } = await tablesGet(
+      testEvent({ user: world.mallory, params: { workspaceAddress: adaWorkspace() } }),
+    )
+    expect(tables.map((table) => table.name)).toEqual(['People'])
+
+    expect(tableRoutes().length).toBeGreaterThan(0)
+    for (const endpoint of tableRoutes()) {
+      await expect(call(endpoint, world.mallory), endpoint.name).rejects.toMatchObject({
+        statusCode: 404,
+        statusMessage: 'Table not found',
+      })
+    }
+  })
+
+  it('still shows the hidden table to a schema manager, without their write access widening', async () => {
+    await prisma.workspaceRole.update({
+      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Viewer' } },
+      data: { permissions: ['TABLES_MANAGE'] },
+    })
+    await setTableAccess('Viewer', { readScope: 'NONE' })
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+
+    await expect(call(tableEndpoint('GET /tables/:id'), world.mallory)).resolves.toMatchObject({
+      access: { readScope: 'ALL', canCreate: false },
+    })
+    await expect(call(tableEndpoint('POST /records'), world.mallory)).rejects.toMatchObject({
+      statusCode: 403,
+    })
+  })
+
+  it('grants a read-only role what its row for the table allows, there only', async () => {
+    await setTableAccess('Viewer', { canCreate: true })
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Viewer')
+
+    await expect(call(tableEndpoint('POST /records'), world.mallory)).resolves.toMatchObject({
+      record: { data: { company: 'Beta' } },
+    })
+    await expect(call(tableEndpoint('PATCH /records/:id'), world.mallory)).rejects.toMatchObject({
+      statusCode: 403,
+      statusMessage: "You don't have permission to edit records in this table",
+    })
+  })
+
+  it('narrows an Editor on that table, and tells them through the table’s access', async () => {
+    await setTableAccess('Editor', { canCreate: true, updateScope: 'ALL' })
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Editor')
+
+    await expect(call(tableEndpoint('GET /tables/:id'), world.mallory)).resolves.toMatchObject({
+      access: { canCreate: true, updateScope: 'ALL', deleteScope: 'NONE' },
+    })
+    await expect(call(tableEndpoint('DELETE /records/:id'), world.mallory)).rejects.toMatchObject({
+      statusCode: 403,
+    })
+  })
+})
+
+function tableEndpoint(name: string): IEndpoint {
+  const endpoint = scopedEndpoints().find((candidate) => candidate.name === name)
+  if (!endpoint) throw new Error(`No endpoint named ${name}`)
+  return endpoint
+}
 
 describe('a member who manages roles stays within their own permissions', () => {
   beforeEach(async () => {

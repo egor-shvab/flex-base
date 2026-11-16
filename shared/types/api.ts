@@ -3,6 +3,7 @@ import type { IField } from '#shared/types/field'
 import type { IRecord, IRecordOption } from '#shared/types/record'
 import type { ITable, ITableListItem } from '#shared/types/table'
 import type {
+  ITableAccess,
   IIncomingInvitation,
   IWorkspace,
   IWorkspaceInvitation,
@@ -35,8 +36,10 @@ export interface ITableListItemResponse {
   table: ITableListItem
 }
 
+/** `access` is the caller's: what they may do with this table's records. */
 export interface ITableResponse {
   table: ITable
+  access: ITableAccess
 }
 
 export interface IFieldsResponse {

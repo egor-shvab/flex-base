@@ -114,8 +114,8 @@
             :fields="fieldsStore.fields"
             :records="recordsStore.records"
             :sort="queryState.sort"
-            :editable="hasRecordAction('update')"
-            :deletable="hasRecordAction('delete')"
+            :editable="canDoRecordAction('update')"
+            :deletable="canDoRecordAction('delete')"
             @edit="openEditRecord"
             @delete="deleteTarget = $event"
             @sort="applySort"
@@ -200,6 +200,8 @@ import { parseTableAddress } from '#shared/utils/address'
 import { pagePath } from '~/utils/page-path'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IRecord, TRecordData } from '#shared/types/record'
+import type { TRecordAction } from '#shared/types/workspace'
+import { hasRecordAction } from '#shared/utils/permissions'
 
 const route = useRoute()
 const loadTable = useTableLoader()
@@ -208,9 +210,9 @@ const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
 const workspaceAddress = route.params.workspaceAddress as string
 const tableAddress = route.params.tableAddress as string
-const { hasPermission, hasRecordAction } = useActiveWorkspace()
+const { hasPermission } = useActiveWorkspace()
 
-const canCreateRecords = computed(() => hasRecordAction('create'))
+const canCreateRecords = computed(() => canDoRecordAction('create'))
 const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
 
 const {
@@ -237,9 +239,9 @@ relationsStore.setOptionSource(workspaceAddress, tableAddress)
 const { data, error } = await useAsyncData(
   `table-records-${workspaceAddress}-${tableAddress}`,
   async () => {
-    const table = await loadTable(workspaceAddress, tableAddress)
+    const loaded = await loadTable(workspaceAddress, tableAddress)
     await recordsStore.fetchRecords(workspaceAddress, tableAddress, queryState.value)
-    return table
+    return loaded
   },
 )
 
@@ -257,7 +259,12 @@ if (error.value) {
   throwPageError(error.value)
 }
 
-const table = computed(() => data.value)
+const table = computed(() => data.value?.table)
+
+/** False until the table is loaded: a control appears once it is allowed, never before. */
+function canDoRecordAction(action: TRecordAction): boolean {
+  return data.value !== undefined && hasRecordAction(data.value.access, action)
+}
 
 const tableNumber = computed(() => table.value?.number ?? parseTableAddress(tableAddress))
 useSeoMeta({ title: () => table.value?.name ?? 'Records' })

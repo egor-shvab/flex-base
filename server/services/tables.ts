@@ -4,17 +4,24 @@ import { prisma } from '#server/db/prisma'
 import { RelationService } from '#server/services/relations'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
 import { toHttpError } from '#server/utils/http-errors'
-import { tableListSelect, buildTableAddressWhere, toSharedTableListItem } from '#server/db/tables'
+import {
+  buildReadableTablesWhere,
+  buildTableAddressWhere,
+  tableListSelect,
+  toSharedTableListItem,
+} from '#server/db/tables'
 import type { ITableListItem } from '#shared/types/table'
+import type { IWorkspaceMembership } from '#shared/types/workspace'
 
 const tableErrors = {
   conflict: 'A table with this name already exists',
   notFound: 'Table not found',
 }
 
-async function listTables(workspaceId: string): Promise<ITableListItem[]> {
+/** Only those the caller's role may open: a hidden table is not listed, as if it did not exist. */
+async function listTables(membership: IWorkspaceMembership): Promise<ITableListItem[]> {
   const tables = await prisma.table.findMany({
-    where: { workspaceId },
+    where: { workspaceId: membership.workspace.id, ...buildReadableTablesWhere(membership) },
     orderBy: { createdAt: 'asc' },
     select: tableListSelect,
   })

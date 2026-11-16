@@ -7,7 +7,7 @@ import { buildRecordSchema } from '#shared/validation/record'
 import type { IRecordResponse } from '#shared/types/api'
 
 export default defineRecordWriteHandler(
-  'RECORDS_UPDATE',
+  'update',
   async ({ event, user, tableId, fields }): Promise<IRecordResponse> => {
     const recordAddress = routeParam(event, 'recordAddress')
     const expectedUpdatedAt = readIfMatchVersion(event)

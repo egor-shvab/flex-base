@@ -12,10 +12,14 @@ const OTHER_WS = 'p7q2w9e4rt'
 
 const routeParams = vi.hoisted(() => ({ value: {} as Record<string, string> }))
 const shownErrors = vi.hoisted(() => [] as unknown[])
+const pageRefreshes = vi.hoisted(() => ({ count: 0 }))
 
 mockNuxtImport('useRoute', () => () => ({ params: routeParams.value, query: {} }))
 mockNuxtImport('showError', () => (error: unknown) => {
   shownErrors.push(error)
+})
+mockNuxtImport('refreshNuxtData', () => async () => {
+  pageRefreshes.count += 1
 })
 
 function buildMembership(publicId: string, permissions: IWorkspaceMembership['permissions']) {
@@ -65,6 +69,7 @@ describe('useAccessResync', () => {
     membershipAnswer = 'narrowed'
     membershipRequests = 0
     shownErrors.length = 0
+    pageRefreshes.count = 0
   })
 
   it('refetches the membership after a 403, so the narrowed role hides its controls', async () => {
@@ -73,6 +78,12 @@ describe('useAccessResync', () => {
     expect(membershipRequests).toBe(1)
     expect(useWorkspacesStore().findMembership(WS)?.permissions).toEqual([])
     expect(shownErrors).toEqual([])
+  })
+
+  it('refreshes the page’s data after a 403, since a table’s access comes with it', async () => {
+    await useAccessResync().resyncAccess(fetchFailure(403))
+
+    expect(pageRefreshes.count).toBe(1)
   })
 
   it('forgets a workspace the caller lost and shows its error page, without asking again', async () => {
@@ -98,6 +109,7 @@ describe('useAccessResync', () => {
 
     expect(useWorkspacesStore().findMembership(WS)).toBeUndefined()
     expect(shownErrors).toHaveLength(1)
+    expect(pageRefreshes.count).toBe(0)
   })
 
   it('leaves everything alone for any other failure, or outside a workspace', async () => {
@@ -107,6 +119,7 @@ describe('useAccessResync', () => {
     await useAccessResync().resyncAccess(fetchFailure(403))
 
     expect(membershipRequests).toBe(0)
+    expect(pageRefreshes.count).toBe(0)
     expect(useWorkspacesStore().memberships).toHaveLength(2)
     expect(shownErrors).toEqual([])
   })

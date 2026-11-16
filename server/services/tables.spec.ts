@@ -3,6 +3,7 @@ import { Prisma } from '#server/generated/prisma/client'
 import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { TableService } from '#server/services/tables'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
+import { buildMembership, buildRecordDefaults } from '~~/test/membership'
 
 vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
@@ -35,23 +36,54 @@ const missing = () =>
 beforeEach(resetPrismaMock)
 
 describe('TableService.listTables', () => {
-  it('reads only the workspace’s tables, oldest first', async () => {
+  const member = buildMembership([])
+  const whereOf = () => prismaMock.table.findMany.mock.calls[0]?.[0]?.where
+
+  it('reads only the workspace’s tables the role may open, oldest first', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
-    await TableService.listTables(WORKSPACE_ID)
+    await TableService.listTables(member)
 
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { workspaceId: WORKSPACE_ID },
+        where: {
+          workspaceId: WORKSPACE_ID,
+          roleAccess: { none: { roleId: member.role.id, readScope: 'NONE' } },
+        },
         orderBy: { createdAt: 'asc' },
       }),
     )
   })
 
+  it('lists only the tables opened to a role that sees none by default', async () => {
+    prismaMock.table.findMany.mockResolvedValue([])
+    const blind = buildMembership([], {
+      recordDefaults: buildRecordDefaults({ readScope: 'NONE' }),
+    })
+
+    await TableService.listTables(blind)
+
+    expect(whereOf()).toEqual({
+      workspaceId: WORKSPACE_ID,
+      roleAccess: { some: { roleId: blind.role.id, readScope: { not: 'NONE' } } },
+    })
+  })
+
+  it.each([
+    ['the owner', buildMembership([], { isOwner: true })],
+    ['a schema manager', buildMembership(['TABLES_MANAGE'])],
+  ])('lists every table to %s', async (_, actor) => {
+    prismaMock.table.findMany.mockResolvedValue([])
+
+    await TableService.listTables(actor)
+
+    expect(whereOf()).toEqual({ workspaceId: WORKSPACE_ID })
+  })
+
   it('reads the kept record count, never a per-table COUNT of the records', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
-    await TableService.listTables(WORKSPACE_ID)
+    await TableService.listTables(buildMembership([]))
 
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

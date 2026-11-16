@@ -2,32 +2,16 @@ import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
 import { buildMembershipWhere, membershipSelect, toSharedMembership } from '#server/db/workspaces'
 import type { INotFoundData } from '#shared/types/api'
-import type {
-  IWorkspaceMembership,
-  TRecordAction,
-  TWorkspacePermission,
-} from '#shared/types/workspace'
+import type { IWorkspaceMembership, TWorkspacePermission } from '#shared/types/workspace'
 import { parseWorkspaceAddress } from '#shared/utils/address'
-import { hasPermission, hasRecordAction } from '#shared/utils/permissions'
-
-/** A record action, granted by the role's record defaults rather than by a permission. */
-type TRecordAccess = 'RECORDS_CREATE' | 'RECORDS_UPDATE' | 'RECORDS_DELETE'
+import { hasPermission } from '#shared/utils/permissions'
 
 /**
- * `READ` is membership alone: every member may read everything in the workspace. `OWNER` is no
- * permission a role can grant — only `Workspace.ownerId` holds it.
+ * `READ` is membership alone. A table route adds the table's own read on top of it, in the table
+ * lookup (`server/utils/table-access.ts`). `OWNER` is no permission a role can grant — only
+ * `Workspace.ownerId` holds it.
  */
-export type TWorkspaceAccess = TWorkspacePermission | TRecordAccess | 'READ' | 'OWNER'
-
-const RECORD_ACCESS: Record<TRecordAccess, TRecordAction> = {
-  RECORDS_CREATE: 'create',
-  RECORDS_UPDATE: 'update',
-  RECORDS_DELETE: 'delete',
-}
-
-function isRecordAccess(access: TWorkspaceAccess): access is TRecordAccess {
-  return access in RECORD_ACCESS
-}
+export type TWorkspaceAccess = TWorkspacePermission | 'READ' | 'OWNER'
 
 const DENIED_ACTIONS: Record<Exclude<TWorkspaceAccess, 'READ'>, string> = {
   OWNER: 'do this — only the workspace owner can',
@@ -36,9 +20,6 @@ const DENIED_ACTIONS: Record<Exclude<TWorkspaceAccess, 'READ'>, string> = {
   MEMBERS_MANAGE: 'manage the members of this workspace',
   ROLES_MANAGE: 'manage the roles of this workspace',
   TABLES_MANAGE: 'change the tables of this workspace',
-  RECORDS_CREATE: 'add records',
-  RECORDS_UPDATE: 'edit records',
-  RECORDS_DELETE: 'delete records',
 }
 
 /** Also for a workspace that went between the membership check and the write. */
@@ -72,11 +53,7 @@ function hasAccess(
   membership: IWorkspaceMembership,
   access: Exclude<TWorkspaceAccess, 'READ'>,
 ): boolean {
-  if (access === 'OWNER') return membership.isOwner
-  if (isRecordAccess(access))
-    return hasRecordAction(membership.recordDefaults, RECORD_ACCESS[access])
-
-  return hasPermission(membership, access)
+  return access === 'OWNER' ? membership.isOwner : hasPermission(membership, access)
 }
 
 export function assertAccess(membership: IWorkspaceMembership, access: TWorkspaceAccess) {

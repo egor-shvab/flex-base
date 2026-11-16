@@ -10,7 +10,7 @@ export default defineTableHandler(
   'TABLES_MANAGE',
   async ({ event, membership, table }): Promise<IFieldCreatedResponse> => {
     const input = await readValidatedBody(event, fieldInputSchema.parse)
-    await requireFieldTarget(membership.workspace.id, input)
+    await requireFieldTarget(membership, input)
     const field = await FieldService.createField(table.id, input)
 
     return { field, table: await TableService.getTableListRow(membership.workspace.id, table.id) }

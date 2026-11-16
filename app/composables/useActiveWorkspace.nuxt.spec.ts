@@ -40,15 +40,6 @@ describe('useActiveWorkspace', () => {
     expect(hasPermission('TABLES_MANAGE')).toBe(false)
   })
 
-  it('answers record actions from the role’s record defaults', () => {
-    useWorkspacesStore().memberships = [buildMembership()]
-    const { hasRecordAction } = useActiveWorkspace()
-
-    expect(hasRecordAction('create')).toBe(true)
-    expect(hasRecordAction('update')).toBe(false)
-    expect(hasRecordAction('delete')).toBe(false)
-  })
-
   it('grants the owner everything', () => {
     useWorkspacesStore().memberships = [buildMembership({ isOwner: true, permissions: [] })]
     const { isOwner, hasPermission } = useActiveWorkspace()
@@ -59,7 +50,6 @@ describe('useActiveWorkspace', () => {
 
   it('allows nothing while the membership is unknown, or outside a workspace', () => {
     expect(useActiveWorkspace().hasPermission('MEMBERS_INVITE')).toBe(false)
-    expect(useActiveWorkspace().hasRecordAction('create')).toBe(false)
 
     routeParams.value = {}
     useWorkspacesStore().memberships = [buildMembership()]
@@ -67,19 +57,15 @@ describe('useActiveWorkspace', () => {
 
     expect(outside.workspaceAddress.value).toBe('')
     expect(outside.hasPermission('MEMBERS_INVITE')).toBe(false)
-    expect(outside.hasRecordAction('create')).toBe(false)
   })
 
   it('follows the store, so a refetched role hides what it no longer grants', () => {
     const store = useWorkspacesStore()
     store.memberships = [buildMembership()]
-    const { hasPermission, hasRecordAction } = useActiveWorkspace()
+    const { hasPermission } = useActiveWorkspace()
 
-    store.memberships = [
-      buildMembership({ permissions: [], recordDefaults: buildRecordDefaults() }),
-    ]
+    store.memberships = [buildMembership({ permissions: [] })]
 
     expect(hasPermission('MEMBERS_INVITE')).toBe(false)
-    expect(hasRecordAction('create')).toBe(false)
   })
 })
