@@ -6,7 +6,7 @@ import {
   syncFieldIndexes,
   type IReconcileReport,
 } from '#server/db/field-indexes'
-import { FIELD_ORDER, fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
+import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
 import { RelationService } from '#server/services/relations'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
@@ -90,15 +90,6 @@ function clearFieldValues(tx: Prisma.TransactionClient, tableId: string, key: st
     SET data = data - ${key}::text
     WHERE "tableId" = ${tableId} AND data ? ${key}::text
   `
-}
-
-async function listFields(tableId: string): Promise<IField[]> {
-  const fields = await prisma.field.findMany({
-    where: { tableId },
-    orderBy: FIELD_ORDER,
-    select: fieldSelect,
-  })
-  return fields.map(toSharedField)
 }
 
 /**
@@ -252,7 +243,6 @@ async function deleteField(workspaceId: string, tableId: string, fieldId: string
 
 export const FieldService = {
   buildOptions,
-  listFields,
   reconcileIndexes,
   createField,
   updateField,

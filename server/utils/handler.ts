@@ -17,7 +17,6 @@ import {
 } from '#server/utils/workspace-access'
 import { RECORD_ACTIONS } from '#shared/constants/workspace'
 import type { IAuthUser } from '#shared/types/auth'
-import type { IField } from '#shared/types/field'
 import type { ITable } from '#shared/types/table'
 import type { IWorkspaceMembership, TRecordAction } from '#shared/types/workspace'
 
@@ -94,9 +93,7 @@ export function defineFieldsHandler<T>(
 
 export function defineTableWithFieldsHandler<T>(
   access: TTableRouteAccess,
-  handler: (
-    context: IWorkspaceContext & ITableScope & { table: ITable; fields: IField[] },
-  ) => Promise<T>,
+  handler: (context: IWorkspaceContext & IWorkspaceTableFields & { table: ITable }) => Promise<T>,
 ) {
   return defineTableScopedHandler(access, requireWorkspaceTableWithFields, handler)
 }

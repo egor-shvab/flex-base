@@ -1,7 +1,9 @@
 import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type { IRecordActor } from '#server/db/records'
 import type {
   ITableAccess,
   IWorkspaceMembership,
+  TRecordScope,
   TWorkspacePermission,
 } from '#shared/types/workspace'
 import type { TRoleInput } from '#shared/validation/workspace'
@@ -70,5 +72,14 @@ export function buildMembership(
   }
 }
 
+/** A caller of the record services; every linked table read whole unless `targetScopes` says. */
+export function buildRecordActor(
+  userId: string,
+  access: ITableAccess = FULL_TABLE_ACCESS,
+  targetScopes: ReadonlyMap<string, TRecordScope> = new Map(),
+): IRecordActor {
+  return { userId, access, targetScopes }
+}
+
 /** A caller who reaches every record of a table, for specs about something other than access. */
-export const FULL_RECORD_ACTOR = { userId: 'usr_1', access: FULL_TABLE_ACCESS }
+export const FULL_RECORD_ACTOR = buildRecordActor('usr_1')

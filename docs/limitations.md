@@ -38,6 +38,13 @@ too. A member who reads only their own records is shown no table count, yet thei
 numbers still bound how many others hold. _Reopen if a table or record is ever shared beyond its
 workspace, or if that bound must be hidden from a scoped member._
 
+### A link to a table read only in part shows record numbers, not labels
+
+Where a role reads only its own records of a link's target, every link in the source table shows
+`#number`, the role's own records included: a label of another's record, or the order the label
+sort would put them in, would show what the role cannot read. _Reopen if own-record labels are
+wanted: the label lookup, the picker and the sort join would each take the caller's scope._
+
 ### A record without an author belongs to no one
 
 `Record.createdById` is set null when its author's account goes, and an `OWN` scope then reaches

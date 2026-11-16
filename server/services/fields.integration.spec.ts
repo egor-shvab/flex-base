@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { FULL_RECORD_ACTOR } from '~~/test/membership'
 import { FieldService } from '#server/services/fields'
 import { RecordService } from '#server/services/records'
+import { FIELD_ORDER } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
 import type { TRecordData } from '#shared/types/record'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
@@ -165,8 +166,16 @@ describe('two fields created at once', () => {
       FieldService.createField(tableId, input({ type: 'TEXT', name: 'Beta' })),
     ])
 
-    const first = (await FieldService.listFields(tableId)).map((field) => field.id)
-    const second = (await FieldService.listFields(tableId)).map((field) => field.id)
+    const listIds = async () =>
+      (
+        await prisma.field.findMany({
+          where: { tableId },
+          orderBy: FIELD_ORDER,
+          select: { id: true },
+        })
+      ).map((field) => field.id)
+    const first = await listIds()
+    const second = await listIds()
 
     expect(second).toEqual(first)
   })

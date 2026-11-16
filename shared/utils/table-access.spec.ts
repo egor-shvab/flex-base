@@ -8,6 +8,7 @@ import {
   canReadRecords,
   canUpdateRecord,
   isTableVisibilityBypassed,
+  resolveFieldAccess,
   resolveTableAccess,
 } from '#shared/utils/table-access'
 
@@ -93,6 +94,29 @@ describe('canUpdateRecord and canDeleteRecord', () => {
     )
     expect([mine, theirs, orphan].map((r) => canDeleteRecord(remove, r, 'usr_me'))).toEqual(
       expected,
+    )
+  })
+})
+
+describe('resolveFieldAccess', () => {
+  const readOnly = buildRecordDefaults()
+  const writer = buildRecordDefaults({ updateScope: 'OWN' })
+
+  it('follows the table: edit where the role writes records, read where it does not', () => {
+    expect(resolveFieldAccess(actor(), writer, null)).toBe('EDIT')
+    expect(resolveFieldAccess(actor(), buildRecordDefaults({ canCreate: true }), null)).toBe('EDIT')
+    expect(resolveFieldAccess(actor(), readOnly, null)).toBe('READ')
+  })
+
+  it('lets the field’s row narrow it', () => {
+    expect(resolveFieldAccess(actor(), writer, 'HIDDEN')).toBe('HIDDEN')
+    expect(resolveFieldAccess(actor(), writer, 'READ')).toBe('READ')
+  })
+
+  it('shows and opens every field to the owner and a schema manager', () => {
+    expect(resolveFieldAccess(actor({ isOwner: true }), readOnly, 'HIDDEN')).toBe('EDIT')
+    expect(resolveFieldAccess(actor({ permissions: ['TABLES_MANAGE'] }), readOnly, 'HIDDEN')).toBe(
+      'EDIT',
     )
   })
 })

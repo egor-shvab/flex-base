@@ -3,6 +3,7 @@ import type { Prisma } from '#server/generated/prisma/client'
 import {
   buildRecordLabelOrderBy,
   buildRecordLabelSearch,
+  buildRecordMergeUpdate,
   buildRecordOrderBy,
   buildRecordWhere,
   type IRecordReader,
@@ -207,6 +208,16 @@ describe('buildRecordWhere — free-text search', () => {
 
   it('adds no group when nothing is being searched', () => {
     expect(sqlText(buildRecordWhere(READ_ALL, table, {}, ''))).toBe('WHERE "tableId" = $1')
+  })
+
+  it('never lets the index pre-filter decide alone, so a hidden field’s value matches nothing', () => {
+    // The pre-filter flattens all of `data`, hidden keys too; only the visible fields' arms decide
+    const where = buildRecordWhere(READ_ALL, [textField('company')], {}, 'secret')
+    const group = sqlText(where).split(' AND (')[1] ?? ''
+
+    expect(group).not.toContain('record_search_text')
+    expect(where.values).toEqual(expect.arrayContaining(['company']))
+    expect(where.values).not.toContain('salary')
   })
 
   it('wraps every arm in one parenthesised OR group', () => {
@@ -414,5 +425,57 @@ describe('MULTI_SQL — the cross-registry invariant', () => {
 
       expect(whole(flat) !== whole(widened)).toBe(MULTI_VALUE_BY_TYPE[type])
     }
+  })
+})
+
+describe('buildRecordMergeUpdate', () => {
+  const merge = {
+    tableId: TABLE_ID,
+    address: 'rec_1',
+    patch: { company: 'Beta' },
+    userId: 'usr_1',
+    updateScope: 'ALL' as const,
+    now: new Date('2026-03-01T10:00:00.000Z'),
+  }
+
+  it('merges the patch over the stored data rather than replacing it', () => {
+    const statement = buildRecordMergeUpdate(merge)
+
+    expect(sqlText(statement)).toContain(`SET data = COALESCE(data, '{}'::jsonb) || $1::jsonb`)
+    expect(statement.values[0]).toBe('{"company":"Beta"}')
+  })
+
+  it('sets the version and the editor itself, since only the Prisma client fills @updatedAt', () => {
+    const text = sqlText(buildRecordMergeUpdate(merge))
+
+    expect(text).toContain('"updatedAt" = $2::timestamp(3)')
+    expect(text).toContain('"updatedById" = $3')
+    expect(buildRecordMergeUpdate(merge).values).toContain('2026-03-01T10:00:00.000Z')
+  })
+
+  it('finds the record by id or by number, always within the table', () => {
+    expect(sqlText(buildRecordMergeUpdate(merge))).toContain('WHERE "tableId" = $4 AND id = $5')
+    expect(sqlText(buildRecordMergeUpdate({ ...merge, address: '7' }))).toContain(
+      'WHERE "tableId" = $4 AND "number" = $5',
+    )
+  })
+
+  it('narrows to the caller’s records under OWN, and to the version they read', () => {
+    const statement = buildRecordMergeUpdate({
+      ...merge,
+      updateScope: 'OWN',
+      expectedUpdatedAt: new Date('2026-02-11T16:30:00.000Z'),
+    })
+
+    expect(sqlText(statement)).toMatch(
+      /AND "createdById" = \$6 AND "updatedAt" = \$7::timestamp\(3\) RETURNING/,
+    )
+    expect(statement.values.slice(5)).toEqual(['usr_1', '2026-02-11T16:30:00.000Z'])
+  })
+
+  it('returns the columns a record is read with, the version among them', () => {
+    expect(sqlText(buildRecordMergeUpdate(merge))).toMatch(
+      /RETURNING id, "number", "createdById", data, "createdAt", "updatedAt"$/,
+    )
   })
 })

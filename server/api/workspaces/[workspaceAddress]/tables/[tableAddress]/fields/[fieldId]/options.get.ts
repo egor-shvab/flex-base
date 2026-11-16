@@ -1,22 +1,21 @@
 import { createError, getValidatedQuery } from 'h3'
 import { defineFieldsHandler } from '#server/utils/handler'
+import { toRecordActor } from '#server/utils/table-access'
 import { routeParam } from '#server/utils/route'
 import { RelationService } from '#server/services/relations'
 import { relationOptionsQuerySchema } from '#shared/validation/relation'
 import type { IRelationOptionsResponse } from '#shared/types/api'
 
-export default defineFieldsHandler(
-  'READ',
-  async ({ event, fields }): Promise<IRelationOptionsResponse> => {
-    const fieldId = routeParam(event, 'fieldId')
-    const { q } = await getValidatedQuery(event, relationOptionsQuerySchema.parse)
+export default defineFieldsHandler('READ', async (context): Promise<IRelationOptionsResponse> => {
+  const { event, fields } = context
+  const fieldId = routeParam(event, 'fieldId')
+  const { q } = await getValidatedQuery(event, relationOptionsQuerySchema.parse)
 
-    const field = fields.find((candidate) => candidate.id === fieldId)
+  const field = fields.find((candidate) => candidate.id === fieldId)
 
-    if (!field) {
-      throw createError({ statusCode: 404, statusMessage: 'Field not found' })
-    }
+  if (!field) {
+    throw createError({ statusCode: 404, statusMessage: 'Field not found' })
+  }
 
-    return { options: await RelationService.listRelationOptions(field, q) }
-  },
-)
+  return { options: await RelationService.listRelationOptions(field, toRecordActor(context), q) }
+})

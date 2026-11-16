@@ -3,7 +3,10 @@ import { Prisma } from '#server/generated/prisma/client'
 import { RelationService } from '#server/services/relations'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
+import { buildRecordActor, FULL_RECORD_ACTOR } from '~~/test/membership'
 import { asMultiple, record, relationField, textField } from '~~/test/fixtures'
+
+const REACH = FULL_RECORD_ACTOR
 
 vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
@@ -25,9 +28,12 @@ function boundValues(args: unknown[]): unknown[] {
 }
 
 /** A target row as the label query returns it: the label field's value, never the whole data. */
-function labelRow(id: string, number: number, fullName?: string) {
-  return { id, number, label: fullName ?? null }
+function labelRow(id: string, number: number, fullName?: string, createdById = 'usr_1') {
+  return { id, number, createdById, label: fullName ?? null }
 }
+
+/** A caller who reads only their own records of the people table. */
+const OWN_PEOPLE = buildRecordActor('usr_me', undefined, new Map([['tbl_people', 'OWN']]))
 
 function sqlOf(call: unknown[] | undefined): Prisma.Sql {
   const [strings, ...values] = call ?? [[]]
@@ -130,7 +136,9 @@ describe('RelationService.resolveLinkedRecords', () => {
     await RelationService.resolveLinkedRecords([owner], [{ owner: 'rec_1' }])
 
     const [query] = labelQueries()
-    expect(query?.text).toMatch(/SELECT id, "number", data -> \$\d+::text AS label FROM "Record"/)
+    expect(query?.text).toMatch(
+      /SELECT id, "number", "createdById", data -> \$\d+::text AS label FROM "Record"/,
+    )
     expect(query?.values).toEqual(expect.arrayContaining(['full_name', 'tbl_people', 'rec_1']))
   })
 
@@ -318,7 +326,7 @@ describe('RelationService.resolveFilterTargets', () => {
 
 describe('RelationService.assertRelationTargets', () => {
   it('passes silently when there is nothing linked', async () => {
-    await expect(RelationService.assertRelationTargets([owner], {})).resolves.toBeUndefined()
+    await expect(RelationService.assertRelationTargets([owner], {}, REACH)).resolves.toBeUndefined()
     expect(prismaMock.$queryRaw).not.toHaveBeenCalled()
   })
 
@@ -326,7 +334,7 @@ describe('RelationService.assertRelationTargets', () => {
     prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada')])
 
     await expect(
-      RelationService.assertRelationTargets([owner], { owner: 'rec_1' }),
+      RelationService.assertRelationTargets([owner], { owner: 'rec_1' }, REACH),
     ).resolves.toBeUndefined()
   })
 
@@ -334,7 +342,7 @@ describe('RelationService.assertRelationTargets', () => {
     prismaMock.$queryRaw.mockResolvedValue([])
 
     await expect(
-      RelationService.assertRelationTargets([owner], { owner: 'rec_forged' }),
+      RelationService.assertRelationTargets([owner], { owner: 'rec_forged' }, REACH),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'owner: the linked record no longer exists',
@@ -345,15 +353,69 @@ describe('RelationService.assertRelationTargets', () => {
     prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada')])
 
     await expect(
-      RelationService.assertRelationTargets([asMultiple(owner)], { owner: ['rec_1', 'rec_gone'] }),
+      RelationService.assertRelationTargets(
+        [asMultiple(owner)],
+        { owner: ['rec_1', 'rec_gone'] },
+        REACH,
+      ),
     ).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  describe('a caller who reads only their own records of the target', () => {
+    it('may link to a record they created', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada', 'usr_me')])
+
+      await expect(
+        RelationService.assertRelationTargets([owner], { owner: 'rec_1' }, OWN_PEOPLE),
+      ).resolves.toBeUndefined()
+    })
+
+    it('may not link to another’s record, which they cannot see', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada', 'usr_other')])
+
+      await expect(
+        RelationService.assertRelationTargets([owner], { owner: 'rec_1' }, OWN_PEOPLE),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: 'owner: you can only link to your own records',
+      })
+    })
+
+    it('keeps a link to another’s record that the record already holds', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada', 'usr_other')])
+      const findStoredData = vi.fn().mockResolvedValue({ owner: 'rec_1' })
+
+      await expect(
+        RelationService.assertRelationTargets(
+          [owner],
+          { owner: 'rec_1' },
+          OWN_PEOPLE,
+          findStoredData,
+        ),
+      ).resolves.toBeUndefined()
+      expect(findStoredData).toHaveBeenCalledTimes(1)
+    })
+
+    it('reads the stored data only when a link reaches past their sight', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada', 'usr_me')])
+      const findStoredData = vi.fn()
+
+      await RelationService.assertRelationTargets(
+        [owner],
+        { owner: 'rec_1' },
+        OWN_PEOPLE,
+        findStoredData,
+      )
+
+      expect(findStoredData).not.toHaveBeenCalled()
+    })
   })
 })
 
 describe('RelationService.listRelationOptions', () => {
   it('has nothing to offer for a field with no target', async () => {
     await expect(
-      RelationService.listRelationOptions(relationField({ targetTableId: undefined })),
+      RelationService.listRelationOptions(relationField({ targetTableId: undefined }), REACH),
     ).resolves.toEqual([])
     expect(prismaMock.$queryRaw).not.toHaveBeenCalled()
   })
@@ -361,7 +423,7 @@ describe('RelationService.listRelationOptions', () => {
   it('offers each candidate as its id, its number and its label', async () => {
     prismaMock.$queryRaw.mockResolvedValue([labelRow('rec_1', 1, 'Ada'), labelRow('rec_2', 2)])
 
-    await expect(RelationService.listRelationOptions(owner)).resolves.toEqual([
+    await expect(RelationService.listRelationOptions(owner, REACH)).resolves.toEqual([
       { id: 'rec_1', number: 1, label: 'Ada' },
       { id: 'rec_2', number: 2, label: null },
     ])
@@ -370,7 +432,7 @@ describe('RelationService.listRelationOptions', () => {
   it('projects only the label field for its candidates', async () => {
     prismaMock.$queryRaw.mockResolvedValue([])
 
-    await RelationService.listRelationOptions(owner)
+    await RelationService.listRelationOptions(owner, REACH)
 
     expect(labelQueries()[0]?.text).toContain('data -> $1::text AS label')
     expect(labelQueries()[0]?.text).not.toMatch(/"number", data FROM/)
@@ -379,7 +441,7 @@ describe('RelationService.listRelationOptions', () => {
   it('binds the target table and the cap as parameters', async () => {
     prismaMock.$queryRaw.mockResolvedValue([])
 
-    await RelationService.listRelationOptions(owner)
+    await RelationService.listRelationOptions(owner, REACH)
 
     const values = prismaMock.$queryRaw.mock.calls[0]?.slice(1)
     expect(values).toContain('tbl_people')
@@ -389,15 +451,25 @@ describe('RelationService.listRelationOptions', () => {
   it('pushes a search term into the query as a bound pattern', async () => {
     prismaMock.$queryRaw.mockResolvedValue([])
 
-    await RelationService.listRelationOptions(owner, 'ada')
+    await RelationService.listRelationOptions(owner, REACH, 'ada')
 
     expect(boundValues(prismaMock.$queryRaw.mock.calls[0] ?? [])).toContain('%ada%')
+  })
+
+  it('offers only the caller’s own records of a target they read only partly', async () => {
+    prismaMock.$queryRaw.mockResolvedValue([])
+
+    await RelationService.listRelationOptions(owner, OWN_PEOPLE)
+
+    const query = sqlOf(prismaMock.$queryRaw.mock.calls[0])
+    expect(query.text).toContain('"createdById" =')
+    expect(query.values).toContain('usr_me')
   })
 
   it('adds no search fragment at all when nothing was typed', async () => {
     prismaMock.$queryRaw.mockResolvedValue([])
 
-    await RelationService.listRelationOptions(owner)
+    await RelationService.listRelationOptions(owner, REACH)
 
     expect(boundValues(prismaMock.$queryRaw.mock.calls[0] ?? [])).not.toContain('%%')
   })

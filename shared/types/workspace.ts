@@ -12,6 +12,11 @@ export type TRecordScope = (typeof RECORD_SCOPES)[number]
 
 export type TRecordAction = (typeof RECORD_ACTIONS)[number]
 
+/** What a role may do with one field: `EDIT` is never stored, it is the absence of a row. */
+export type TFieldAccess = 'HIDDEN' | 'READ' | 'EDIT'
+
+export type TFieldAccessOverride = Exclude<TFieldAccess, 'EDIT'>
+
 /** What a member may do with the records of one table. */
 export interface ITableAccess {
   readScope: TRecordScope

@@ -1,6 +1,12 @@
 import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IRecord } from '#shared/types/record'
-import type { ITableAccess, IWorkspaceActor, TRecordScope } from '#shared/types/workspace'
+import type {
+  ITableAccess,
+  IWorkspaceActor,
+  TFieldAccess,
+  TFieldAccessOverride,
+  TRecordScope,
+} from '#shared/types/workspace'
 import { hasPermission } from '#shared/utils/permissions'
 
 type TTableAccessHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions' | 'recordDefaults'>
@@ -26,6 +32,22 @@ export function resolveTableAccess(
   const access = tableOverride ?? actor.recordDefaults
 
   return isTableVisibilityBypassed(actor) ? { ...access, readScope: 'ALL' } : access
+}
+
+/**
+ * What the caller may do with one field of a table they read. Whoever changes the schema sees and
+ * edits every field, as they see every table; anyone else takes the role's row for the field, or
+ * else edits it wherever they may write records at all.
+ */
+export function resolveFieldAccess(
+  actor: TTableAccessHolder,
+  tableAccess: ITableAccess,
+  fieldOverride: TFieldAccessOverride | null,
+): TFieldAccess {
+  if (isTableVisibilityBypassed(actor)) return 'EDIT'
+  if (fieldOverride) return fieldOverride
+
+  return tableAccess.canCreate || tableAccess.updateScope !== 'NONE' ? 'EDIT' : 'READ'
 }
 
 export function canReadRecords(access: ITableAccess): boolean {

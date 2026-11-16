@@ -10,6 +10,8 @@ import {
 } from '#shared/constants/filter'
 import type { IRecordSort, TRecordFilterValues } from '#shared/types/filter'
 import type { TRecordScope } from '#shared/types/workspace'
+import type { TRecordData } from '#shared/types/record'
+import { parseAddressNumber } from '#shared/utils/address'
 import { buildQueryColumns } from '#shared/utils/filter'
 
 const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql }> = {
@@ -76,9 +78,9 @@ export interface IRecordReader {
   userId: string
 }
 
-function buildReadScopeCondition(reader: IRecordReader): Prisma.Sql | null {
-  if (reader.readScope === 'ALL') return null
-  if (reader.readScope === 'OWN') return Prisma.sql`"createdById" = ${reader.userId}`
+function buildScopeCondition(scope: TRecordScope, userId: string): Prisma.Sql | null {
+  if (scope === 'ALL') return null
+  if (scope === 'OWN') return Prisma.sql`"createdById" = ${userId}`
   return Prisma.sql`FALSE`
 }
 
@@ -90,7 +92,7 @@ export function buildRecordWhere(
 ): Prisma.Sql {
   const conditions = [Prisma.sql`"tableId" = ${reader.tableId}`]
 
-  const scopeCondition = buildReadScopeCondition(reader)
+  const scopeCondition = buildScopeCondition(reader.readScope, reader.userId)
   if (scopeCondition) conditions.push(scopeCondition)
 
   for (const field of buildQueryColumns(fields)) {
@@ -164,4 +166,48 @@ export function buildRecordLabelSearch(
   }
 
   return Prisma.sql`(${Prisma.join(arms, ' OR ')})`
+}
+
+export interface IRecordMerge {
+  tableId: string
+  address: string
+  patch: TRecordData
+  userId: string
+  updateScope: TRecordScope
+  expectedUpdatedAt?: Date
+  now: Date
+}
+
+/** Prisma sends a `Date` as `timestamptz`; the column has no zone, and holds UTC. */
+function toTimestamp(date: Date): Prisma.Sql {
+  return Prisma.sql`${date.toISOString()}::timestamp(3)`
+}
+
+/**
+ * Merges `patch` over the stored data, so a key the caller may not write keeps its value, and
+ * returns the row — or none when the record, the caller's update scope or the version missed.
+ * `"updatedAt"` is set here: only the Prisma client fills `@updatedAt`. The returned value is the
+ * column's own, rounded to milliseconds, so it is the version a later `If-Match` must send.
+ */
+export function buildRecordMergeUpdate(merge: IRecordMerge): Prisma.Sql {
+  const number = parseAddressNumber(merge.address)
+  const conditions = [
+    Prisma.sql`"tableId" = ${merge.tableId}`,
+    number === 0 ? Prisma.sql`id = ${merge.address}` : Prisma.sql`"number" = ${number}`,
+  ]
+
+  const scopeCondition = buildScopeCondition(merge.updateScope, merge.userId)
+  if (scopeCondition) conditions.push(scopeCondition)
+  if (merge.expectedUpdatedAt) {
+    conditions.push(Prisma.sql`"updatedAt" = ${toTimestamp(merge.expectedUpdatedAt)}`)
+  }
+
+  return Prisma.sql`
+    UPDATE "Record"
+    SET data = COALESCE(data, '{}'::jsonb) || ${JSON.stringify(merge.patch)}::jsonb,
+        "updatedAt" = ${toTimestamp(merge.now)},
+        "updatedById" = ${merge.userId}
+    WHERE ${Prisma.join(conditions, ' AND ')}
+    RETURNING id, "number", "createdById", data, "createdAt", "updatedAt"
+  `
 }

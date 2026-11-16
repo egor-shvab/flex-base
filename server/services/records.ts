@@ -5,6 +5,7 @@ import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { buildStaleWriteError, toHttpError } from '#server/utils/http-errors'
 import { isMissingRow } from '#server/db/prisma-errors'
 import {
+  type IRecordActor,
   recordSelect,
   recordWithAuthorsSelect,
   buildRecordAddressWhere,
@@ -14,7 +15,12 @@ import {
   toSharedRecord,
   type TRecordRow,
 } from '#server/db/records'
-import { buildRecordOrderBy, buildRecordWhere, type IRecordOrder } from '#server/db/record-sql'
+import {
+  buildRecordMergeUpdate,
+  buildRecordOrderBy,
+  buildRecordWhere,
+  type IRecordOrder,
+} from '#server/db/record-sql'
 import { RelationService } from '#server/services/relations'
 import type { IField } from '#shared/types/field'
 import type {
@@ -25,23 +31,20 @@ import type {
   TRecordData,
 } from '#shared/types/record'
 import type { ITable } from '#shared/types/table'
-import type { ITableAccess } from '#shared/types/workspace'
 import { canDeleteRecord, canUpdateRecord } from '#shared/utils/table-access'
 
 const recordErrors = { notFound: 'Record not found' }
-
-/** Who acts on a table's records, and what their role lets them reach there. */
-export interface IRecordActor {
-  userId: string
-  access: ITableAccess
-}
 
 function buildOwnRecordsError(verb: 'edit' | 'delete') {
   return createError({ statusCode: 403, statusMessage: `You can only ${verb} your own records` })
 }
 
 /** After a scoped write missed: what the caller can read of the record, if anything. */
-function findReadableRecord(tableId: string, address: string, actor: IRecordActor) {
+function findReadableRecord(
+  tableId: string,
+  address: string,
+  actor: Pick<IRecordActor, 'userId' | 'access'>,
+) {
   return prisma.record.findUnique({
     where: buildRecordAddressWhere(
       tableId,
@@ -95,7 +98,7 @@ async function listRecords(
     countMatchingRecords(where),
   ])
 
-  const records = rows.map(toSharedRecord)
+  const records = rows.map((row) => toSharedRecord(row, fields))
   const counted = counts[0]?.count ?? 0
 
   return {
@@ -130,7 +133,7 @@ async function getRecordDetail(
     throw createError({ statusCode: 404, statusMessage: recordErrors.notFound })
   }
 
-  const record = toRecordWithAuthors(row)
+  const record = toRecordWithAuthors(row, fields)
 
   return {
     table,
@@ -140,13 +143,14 @@ async function getRecordDetail(
   }
 }
 
+/** `fields` are the caller's visible ones; `data` holds only those they may write. */
 async function createRecord(
   tableId: string,
   fields: IField[],
   data: TRecordData,
-  actorId: string,
+  actor: IRecordActor,
 ): Promise<IRecord> {
-  await RelationService.assertRelationTargets(fields, data)
+  await RelationService.assertRelationTargets(fields, data, actor)
 
   try {
     const record = await prisma.$transaction(async (tx) => {
@@ -161,24 +165,25 @@ async function createRecord(
           tableId,
           number: recordCounter,
           data: toJsonData(data),
-          createdById: actorId,
-          updatedById: actorId,
+          createdById: actor.userId,
+          updatedById: actor.userId,
         },
         select: recordSelect,
       })
     })
 
-    return toSharedRecord(record)
+    return toSharedRecord(record, fields)
   } catch (error) {
     throw toHttpError(error, recordErrors)
   }
 }
 
 /**
- * The caller's update scope and the version they read are both in the `where`, so neither a save
- * racing another nor a record changing hands can slip past them. A miss is told apart afterwards,
- * scope before version: a record they read but may not edit is a 403 whatever its version, one
- * they may edit is a 412, one gone or out of their sight is the usual 404.
+ * `data` holds only the fields the caller may write, merged over the stored data so every other
+ * keeps its value. The caller's update scope and the version they read are both in the `where`,
+ * so neither a save racing another nor a record changing hands can slip past them. A miss is told
+ * apart afterwards, scope before version: a record they read but may not edit is a 403 whatever its
+ * version, one they may edit is a 412, one gone or out of their sight is the usual 404.
  */
 async function updateRecord(
   tableId: string,
@@ -188,35 +193,51 @@ async function updateRecord(
   actor: IRecordActor,
   expectedUpdatedAt?: Date,
 ): Promise<IRecord> {
-  await RelationService.assertRelationTargets(fields, data)
-
-  try {
-    const record = await prisma.record.update({
-      where: buildRecordAddressWhere(tableId, address, {
-        ...buildRecordScopeWhere(actor.access.updateScope, actor.userId),
-        ...(expectedUpdatedAt && { updatedAt: expectedUpdatedAt }),
-      }),
-      data: { data: toJsonData(data), updatedById: actor.userId },
-      select: recordSelect,
+  await RelationService.assertRelationTargets(fields, data, actor, async () => {
+    const stored = await prisma.record.findUnique({
+      where: buildRecordAddressWhere(tableId, address),
+      select: { data: true },
     })
-    return toSharedRecord(record)
+    return (stored?.data as TRecordData | null | undefined) ?? null
+  })
+
+  let rows: TRecordRow[]
+  try {
+    rows = await prisma.$queryRaw<TRecordRow[]>(
+      buildRecordMergeUpdate({
+        tableId,
+        address,
+        patch: data,
+        userId: actor.userId,
+        updateScope: actor.access.updateScope,
+        expectedUpdatedAt,
+        now: new Date(),
+      }),
+    )
   } catch (error) {
-    if (isMissingRow(error)) {
-      const current = await findReadableRecord(tableId, address, actor)
-      if (current && !canUpdateRecord(actor.access, current, actor.userId)) {
-        throw buildOwnRecordsError('edit')
-      }
-      if (current && expectedUpdatedAt) throw buildStaleWriteError('record')
-    }
     throw toHttpError(error, recordErrors)
   }
+
+  const [row] = rows
+  if (row) return toSharedRecord(row, fields)
+
+  const current = await findReadableRecord(tableId, address, actor)
+  if (current && !canUpdateRecord(actor.access, current, actor.userId)) {
+    throw buildOwnRecordsError('edit')
+  }
+  if (current && expectedUpdatedAt) throw buildStaleWriteError('record')
+  throw createError({ statusCode: 404, statusMessage: recordErrors.notFound })
 }
 
 /**
  * The count moves only after the delete found its row: a missing one throws before it. The scope
  * is in the `where`; a miss on a record the caller reads is theirs to be refused, not a 404.
  */
-async function deleteRecord(tableId: string, address: string, actor: IRecordActor) {
+async function deleteRecord(
+  tableId: string,
+  address: string,
+  actor: Pick<IRecordActor, 'userId' | 'access'>,
+) {
   try {
     await prisma.$transaction(async (tx) => {
       await tx.record.delete({

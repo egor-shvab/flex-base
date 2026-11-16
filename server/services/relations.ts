@@ -2,6 +2,7 @@ import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { buildRecordLabelOrderBy, buildRecordLabelSearch } from '#server/db/record-sql'
+import type { IRecordActor } from '#server/db/records'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
@@ -20,7 +21,15 @@ export interface IRelationTarget {
 interface ILabelRow {
   id: string
   number: number
+  createdById: string | null
   label: unknown
+}
+
+/** Whose records of the target a caller reaches: `undefined` for all of them. */
+type TRelationReach = Pick<IRecordActor, 'userId' | 'targetScopes'>
+
+function findTargetAuthorId(reach: TRelationReach, targetTableId: string): string | undefined {
+  return reach.targetScopes.get(targetTableId) === 'OWN' ? reach.userId : undefined
 }
 
 function labelExpr(labelFieldKey: string | undefined): Prisma.Sql {
@@ -89,7 +98,7 @@ async function listTargetRecords(
       async ([key, { tableId, labelFieldKey, ids }]): Promise<[string, ILabelRow[]]> => [
         key,
         await prisma.$queryRaw<ILabelRow[]>`
-        SELECT id, "number", ${labelExpr(labelFieldKey)} AS label FROM "Record"
+        SELECT id, "number", "createdById", ${labelExpr(labelFieldKey)} AS label FROM "Record"
         WHERE "tableId" = ${tableId} AND id IN (${Prisma.join([...ids])})
       `,
       ],
@@ -222,37 +231,67 @@ async function assertNotRelationTarget(
   }
 }
 
-async function assertRelationTargets(fields: IField[], data: TRecordData): Promise<void> {
+/**
+ * Every linked record must exist, and a new link must reach a record the caller reads: under an
+ * `OWN` scope on the target, one they created. A link already stored stays, whoever made it, or
+ * the caller could not save a record someone else linked onwards. `findStoredData` reads what the
+ * record holds now, and is asked only when a link reaches past the caller's sight.
+ */
+async function assertRelationTargets(
+  fields: IField[],
+  data: TRecordData,
+  reach: TRelationReach,
+  findStoredData: () => Promise<TRecordData | null> = async () => null,
+): Promise<void> {
   const targets = buildRelationTargets(fields, [data])
   if (targets.length === 0) return
 
   const recordsByLookup = await listTargetRecords(targets)
+  let stored: TRecordData | null | undefined
 
   for (const target of targets) {
     const { field, ids } = target
     const found = recordsByLookup.get(toLookupKey(target))
+    const authorId = findTargetAuthorId(reach, target.targetTableId)
 
     for (const id of ids) {
-      if (!found?.has(id)) {
+      const linked = found?.get(id)
+      if (!linked) {
         throw createError({
           statusCode: 400,
           statusMessage: `${field.name}: the linked record no longer exists`,
         })
       }
+      if (authorId === undefined || linked.createdById === authorId) continue
+
+      stored ??= await findStoredData()
+      const kept = stored?.[field.key]
+      if (Array.isArray(kept) ? kept.includes(id) : kept === id) continue
+
+      throw createError({
+        statusCode: 400,
+        statusMessage: `${field.name}: you can only link to your own records`,
+      })
     }
   }
 }
 
-async function listRelationOptions(field: IField, search = ''): Promise<IRecordOption[]> {
+async function listRelationOptions(
+  field: IField,
+  reach: TRelationReach,
+  search = '',
+): Promise<IRecordOption[]> {
   const targetTableId = field.options?.targetTableId
   if (targetTableId === undefined) return []
 
   const labelFieldKey = field.options?.labelFieldKey
   const searchGroup = buildRecordLabelSearch(labelFieldKey, search)
+  const authorId = findTargetAuthorId(reach, targetTableId)
 
   const rows = await prisma.$queryRaw<ILabelRow[]>`
-    SELECT id, "number", ${labelExpr(labelFieldKey)} AS label FROM "Record"
+    SELECT id, "number", "createdById", ${labelExpr(labelFieldKey)} AS label FROM "Record"
     WHERE "tableId" = ${targetTableId}
+    ${authorId === undefined ? Prisma.empty : Prisma.sql`AND "createdById" = ${authorId}`}
     ${searchGroup ? Prisma.sql`AND ${searchGroup}` : Prisma.empty}
     ORDER BY ${buildRecordLabelOrderBy(labelFieldKey)}
     LIMIT ${RELATION_OPTIONS_LIMIT}

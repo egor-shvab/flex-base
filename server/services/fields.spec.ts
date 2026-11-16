@@ -64,24 +64,6 @@ describe('FieldService.buildOptions', () => {
   })
 })
 
-describe('FieldService.listFields', () => {
-  it('reads a table’s fields in stored order and narrows their options', async () => {
-    prismaMock.field.findMany.mockResolvedValue([
-      stored({ ...textField('company'), options: null }),
-    ])
-
-    const fields = await FieldService.listFields(TABLE_ID)
-
-    expect(prismaMock.field.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { tableId: TABLE_ID },
-        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
-      }),
-    )
-    expect(fields[0]).toMatchObject({ key: 'company', options: null })
-  })
-})
-
 describe('createField — order allocation', () => {
   it('starts an empty table at zero', async () => {
     prismaMock.field.findMany.mockResolvedValue([])

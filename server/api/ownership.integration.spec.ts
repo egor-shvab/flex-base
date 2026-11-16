@@ -560,6 +560,176 @@ describe('a role’s row for a table replaces its defaults there', () => {
   })
 })
 
+describe('a field hidden from a role', () => {
+  const editorRole = () =>
+    prisma.workspaceRole.findUniqueOrThrow({
+      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Editor' } },
+      select: { id: true },
+    })
+  const peopleTable = () =>
+    prisma.table.findFirstOrThrow({
+      where: { workspaceId: world.ada.workspace.id, name: 'People' },
+      select: { id: true, fields: { select: { id: true } } },
+    })
+
+  async function setFieldAccess(fieldId: string, access: 'HIDDEN' | 'READ') {
+    await prisma.roleFieldAccess.create({
+      data: {
+        workspaceId: world.ada.workspace.id,
+        roleId: (await editorRole()).id,
+        fieldId,
+        access,
+      },
+    })
+  }
+
+  async function setPeopleAccess(access: Partial<ITableAccess>) {
+    await prisma.roleTableAccess.create({
+      data: {
+        workspaceId: world.ada.workspace.id,
+        roleId: (await editorRole()).id,
+        tableId: (await peopleTable()).id,
+        ...buildRecordDefaults(access),
+      },
+    })
+  }
+
+  const tableParams = () => ({ workspaceAddress: adaWorkspace(), tableAddress: world.tableId })
+  const recordParams = () => ({ ...tableParams(), recordAddress: world.recordId })
+  const optionsParams = (fieldId: string) => ({ ...tableParams(), fieldId })
+  const asMallory = (input: Omit<NonNullable<Parameters<typeof testEvent>[0]>, 'user'> = {}) =>
+    testEvent({ user: world.mallory, params: tableParams(), ...input })
+  const patchRecord = (body: unknown) =>
+    recordPatch(asMallory({ params: recordParams(), method: 'PATCH', body }))
+  const storedData = async (id: string) =>
+    (await prisma.record.findUniqueOrThrow({ where: { id }, select: { data: true } })).data
+
+  beforeEach(async () => {
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Editor')
+  })
+
+  it('is absent from the fields, the list, the record and the record’s own fields', async () => {
+    await setFieldAccess(world.fieldId, 'HIDDEN')
+
+    const { fields } = await fieldsGet(asMallory())
+    expect(fields.map((field) => field.key)).toEqual(['owner'])
+
+    const page = await recordsGet(asMallory())
+    expect(page.records[0]?.data).not.toHaveProperty('company')
+
+    const detail = await recordGet(asMallory({ params: recordParams() }))
+    expect(detail.record.data).not.toHaveProperty('company')
+    expect(detail.fields.map((field) => field.key)).toEqual(['owner'])
+  })
+
+  it('keeps its value through a save by the role, and leaves it out of the answer', async () => {
+    await setFieldAccess(world.fieldId, 'HIDDEN')
+
+    const { record } = await patchRecord({ company: 'Forged', owner: null })
+
+    expect(record.data).toEqual({ owner: null })
+    await expect(storedData(world.recordId)).resolves.toEqual({ company: 'Acme', owner: null })
+  })
+
+  it('keeps a read-only value through a save too', async () => {
+    await setFieldAccess(world.fieldId, 'READ')
+
+    const { record } = await patchRecord({ company: 'Forged' })
+
+    expect(record.data).toMatchObject({ company: 'Acme' })
+  })
+
+  it('leaves its key out of a record the role creates', async () => {
+    await setFieldAccess(world.fieldId, 'HIDDEN')
+
+    const { record } = await recordsPost(asMallory({ method: 'POST', body: { company: 'Forged' } }))
+
+    await expect(storedData(record.id)).resolves.toEqual({ owner: null })
+  })
+
+  it('cannot be filtered, sorted or searched on, as if it did not exist', async () => {
+    await setFieldAccess(world.fieldId, 'HIDDEN')
+
+    const filtered = await recordsGet(asMallory({ query: { company: 'zzz' } }))
+    expect(filtered.total).toBe(1)
+
+    await expect(recordsGet(asMallory({ query: { sort: 'company' } }))).rejects.toMatchObject({
+      statusCode: 400,
+    })
+
+    const searched = await recordsGet(asMallory({ query: { search: 'Acme' } }))
+    expect(searched.total).toBe(0)
+  })
+
+  it('hides a link to a table the role may not read, with its options', async () => {
+    await setPeopleAccess({ readScope: 'NONE' })
+
+    const { fields } = await fieldsGet(asMallory())
+    expect(fields.map((field) => field.key)).toEqual(['company'])
+    await expect(
+      optionsGet(asMallory({ params: optionsParams(world.relationFieldId) })),
+    ).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  describe('a link', () => {
+    async function createPerson(name: string, createdById: string) {
+      const people = await peopleTable()
+      const person = await createRecord(people.id, { full_name: name })
+      await prisma.record.update({ where: { id: person.id }, data: { createdById } })
+      return person
+    }
+
+    const linkTo = (id: string) =>
+      prisma.record.update({
+        where: { id: world.recordId },
+        data: { data: { company: 'Acme', owner: id } },
+      })
+
+    it('shows no label where the label field is hidden', async () => {
+      const ada = await createPerson('Ada', world.ada.id)
+      await linkTo(ada.id)
+      await setFieldAccess((await peopleTable()).fields[0]!.id, 'HIDDEN')
+
+      const page = await recordsGet(asMallory())
+      const { options } = await optionsGet(
+        asMallory({ params: optionsParams(world.relationFieldId) }),
+      )
+
+      expect(page.linkedRecords[world.relationFieldId]?.[ada.id]?.label).not.toBe('Ada')
+      expect(options.map((option) => option.label)).not.toContain('Ada')
+    })
+
+    it('offers and accepts only the role’s own records of a table it reads partly', async () => {
+      const theirs = await createPerson('Ada', world.ada.id)
+      const mine = await createPerson('Mo', world.mallory.id)
+      await setPeopleAccess({ readScope: 'OWN', canCreate: true, updateScope: 'OWN' })
+
+      const { options } = await optionsGet(
+        asMallory({ params: optionsParams(world.relationFieldId) }),
+      )
+      expect(options.map((option) => option.id)).toEqual([mine.id])
+
+      await expect(patchRecord({ owner: theirs.id })).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: 'Owner: you can only link to your own records',
+      })
+      await expect(patchRecord({ owner: mine.id })).resolves.toMatchObject({
+        record: { data: { owner: mine.id } },
+      })
+    })
+
+    it('keeps a link someone else made to a record out of the role’s sight', async () => {
+      const theirs = await createPerson('Ada', world.ada.id)
+      await linkTo(theirs.id)
+      await setPeopleAccess({ readScope: 'OWN' })
+
+      await expect(patchRecord({ company: 'Beta', owner: theirs.id })).resolves.toMatchObject({
+        record: { data: { company: 'Beta', owner: theirs.id } },
+      })
+    })
+  })
+})
+
 describe('a role scoped to its own records', () => {
   const recordEvent = (
     method: 'GET' | 'PATCH' | 'DELETE',

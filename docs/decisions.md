@@ -302,6 +302,15 @@ could no longer be read off one row. `TABLES_MANAGE` sees every table, since a t
 but not open would be changed blind; their record actions still come from the role. A hidden table
 is a 404, as one outside the workspace.
 
+### A record update merges over the stored data
+
+`updateRecord` is one raw `UPDATE … SET data = data || patch`, the patch holding only the fields the
+caller may write, so a hidden or read-only value survives their save. It sets `"updatedAt"` itself
+— only the Prisma client fills `@updatedAt` — and returns the column's own value, rounded to
+milliseconds, which is the version the next `If-Match` must send. Rejected: replacing `data` whole,
+which would erase what the caller cannot see; and reading the row to merge in JavaScript, two
+statements a concurrent save could slip between.
+
 ### A scoped write carries its scope in the `where`, and a miss is refused scope before version
 
 Under `OWN` the author joins the version in the write's `where` (`buildRecordScopeWhere`), and only

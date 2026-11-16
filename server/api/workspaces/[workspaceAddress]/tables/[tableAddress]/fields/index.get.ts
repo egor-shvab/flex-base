@@ -1,8 +1,7 @@
-import { defineTableHandler } from '#server/utils/handler'
-import { FieldService } from '#server/services/fields'
+import { defineFieldsHandler } from '#server/utils/handler'
 import type { IFieldsResponse } from '#shared/types/api'
 
-export default defineTableHandler('READ', async ({ table }): Promise<IFieldsResponse> => {
-  const fields = await FieldService.listFields(table.id)
-  return { fields }
-})
+/** The caller's visible fields, as the record routes see them: a hidden one is not listed. */
+export default defineFieldsHandler('READ', async ({ fields }): Promise<IFieldsResponse> => ({
+  fields,
+}))

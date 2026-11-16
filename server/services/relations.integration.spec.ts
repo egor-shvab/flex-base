@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { FULL_RECORD_ACTOR } from '~~/test/membership'
+import { buildRecordActor, FULL_RECORD_ACTOR } from '~~/test/membership'
 import { RelationService } from '#server/services/relations'
 import { RecordService } from '#server/services/records'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
@@ -136,7 +136,7 @@ describe('checking a write’s targets', () => {
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
     await expect(
-      RelationService.assertRelationTargets([owner], { owner: ada.id }),
+      RelationService.assertRelationTargets([owner], { owner: ada.id }, FULL_RECORD_ACTOR),
     ).resolves.toBeUndefined()
   })
 
@@ -145,7 +145,7 @@ describe('checking a write’s targets', () => {
     const stranger = await createRecord(elsewhere.id, {})
 
     await expect(
-      RelationService.assertRelationTargets([owner], { owner: stranger.id }),
+      RelationService.assertRelationTargets([owner], { owner: stranger.id }, FULL_RECORD_ACTOR),
     ).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: 'Owner: the linked record no longer exists',
@@ -157,7 +157,12 @@ describe('checking a write’s targets', () => {
     const dealsFields = [owner]
 
     await expect(
-      RecordService.createRecord(owner.id, dealsFields, { owner: `${ada.id}x` }, userId),
+      RecordService.createRecord(
+        owner.id,
+        dealsFields,
+        { owner: `${ada.id}x` },
+        buildRecordActor(userId),
+      ),
     ).rejects.toMatchObject({ statusCode: 400 })
   })
 })
@@ -167,7 +172,7 @@ describe('the options a picker offers', () => {
     const grace = await createRecord(peopleId, { full_name: 'Grace' })
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
-    const options = await RelationService.listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner, FULL_RECORD_ACTOR)
 
     expect(options).toEqual([
       { id: ada.id, number: ada.number, label: 'Ada' },
@@ -180,7 +185,7 @@ describe('the options a picker offers', () => {
     await createRecord(peopleId, { full_name: 'Ada' })
     await createRecord(peopleId, { full_name: 'Mo' })
 
-    const options = await RelationService.listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner, FULL_RECORD_ACTOR)
 
     expect(options.map((option) => option.label)).toEqual(['Ada', 'Mo', 'Zoe'])
   })
@@ -189,7 +194,7 @@ describe('the options a picker offers', () => {
     await createRecord(peopleId, { full_name: 'Ada Lovelace' })
     await createRecord(peopleId, { full_name: 'Grace Hopper' })
 
-    const options = await RelationService.listRelationOptions(owner, 'hopp')
+    const options = await RelationService.listRelationOptions(owner, FULL_RECORD_ACTOR, 'hopp')
 
     expect(options.map((option) => option.label)).toEqual(['Grace Hopper'])
   })
@@ -197,7 +202,11 @@ describe('the options a picker offers', () => {
   it('matches the #number a blank-labelled record reads by', async () => {
     const blank = await createRecord(peopleId, { full_name: '' })
 
-    const options = await RelationService.listRelationOptions(owner, `#${blank.number}`)
+    const options = await RelationService.listRelationOptions(
+      owner,
+      FULL_RECORD_ACTOR,
+      `#${blank.number}`,
+    )
 
     expect(options.map((option) => option.id)).toEqual([blank.id])
   })
@@ -205,13 +214,17 @@ describe('the options a picker offers', () => {
   it('treats a wildcard the user typed as a literal', async () => {
     await createRecord(peopleId, { full_name: 'Ada' })
 
-    await expect(RelationService.listRelationOptions(owner, '%')).resolves.toEqual([])
+    await expect(
+      RelationService.listRelationOptions(owner, FULL_RECORD_ACTOR, '%'),
+    ).resolves.toEqual([])
   })
 
   it('offers nothing for a field with no target', async () => {
     const untargeted = { ...owner, options: {} }
 
-    await expect(RelationService.listRelationOptions(untargeted)).resolves.toEqual([])
+    await expect(
+      RelationService.listRelationOptions(untargeted, FULL_RECORD_ACTOR),
+    ).resolves.toEqual([])
   })
 
   it('never offers a record of another table', async () => {
@@ -219,7 +232,7 @@ describe('the options a picker offers', () => {
     await createRecord(elsewhere.id, { full_name: 'Stranger' })
     await createRecord(peopleId, { full_name: 'Ada' })
 
-    const options = await RelationService.listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner, FULL_RECORD_ACTOR)
 
     expect(options.map((option) => option.label)).toEqual(['Ada'])
   })
@@ -229,7 +242,7 @@ describe('the options a picker offers', () => {
       await createRecord(peopleId, { full_name: `Person ${String(index).padStart(4, '0')}` })
     }
 
-    const options = await RelationService.listRelationOptions(owner)
+    const options = await RelationService.listRelationOptions(owner, FULL_RECORD_ACTOR)
 
     expect(options).toHaveLength(RELATION_OPTIONS_LIMIT)
   })

@@ -35,6 +35,7 @@ const table = {
 /** A field as Prisma returns it: `updatedAt` is a Date until the mapper reads it. */
 const stored = <T extends object>(field: T) => ({
   ...field,
+  roleAccess: [],
   updatedAt: new Date('2026-02-11T16:30:00.000Z'),
 })
 
@@ -284,6 +285,9 @@ describe('requireFieldTarget', () => {
   })
 
   it('refuses another relation as the label, which would show a cuid', async () => {
+    prismaMock.table.findMany.mockResolvedValue([
+      { id: relationField().options?.targetTableId, roleAccess: [], fields: [] },
+    ])
     prismaMock.table.findUnique.mockResolvedValue({
       roleAccess: [],
       id: 'tbl_people',
@@ -409,5 +413,121 @@ describe('assertTableHasFields', () => {
     expect(() => assertTableHasFields([])).toThrow(
       expect.objectContaining({ statusCode: 400, statusMessage: 'This table has no fields yet' }),
     )
+  })
+})
+
+describe('a table’s fields as the caller sees them', () => {
+  const company = stored(textField('company'))
+  const salary = { ...stored(textField('salary')), id: 'fld_salary' }
+  const owner = stored(relationField())
+  const withFields = (...fields: object[]) =>
+    prismaMock.table.findUnique.mockResolvedValue({ roleAccess: [], id: TABLE_ID, fields })
+  const people = (overrides: object = {}) => ({
+    id: 'tbl_people',
+    roleAccess: [],
+    fields: [{ key: 'full_name', roleAccess: [] }],
+    ...overrides,
+  })
+  const keysOf = (fields: { key: string }[]) => fields.map((field) => field.key)
+
+  it('leaves a hidden field out of both the visible and the writable fields', async () => {
+    withFields(company, { ...salary, roleAccess: [{ access: 'HIDDEN' }] })
+
+    const scope = await requireWorkspaceTableFields(member, TABLE_ID)
+
+    expect(keysOf(scope.fields)).toEqual(['company'])
+    expect(keysOf(scope.editableFields)).toEqual(['company'])
+  })
+
+  it('shows a read-only field, but not among those a write may set', async () => {
+    withFields(company, { ...salary, roleAccess: [{ access: 'READ' }] })
+
+    const scope = await requireWorkspaceTableFields(member, TABLE_ID)
+
+    expect(keysOf(scope.fields)).toEqual(['company', 'salary'])
+    expect(keysOf(scope.editableFields)).toEqual(['company'])
+  })
+
+  it('reads its role’s rows for the fields in the same query', async () => {
+    withFields()
+
+    await requireWorkspaceTableFields(member, TABLE_ID)
+
+    expect(prismaMock.table.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          fields: expect.objectContaining({
+            select: expect.objectContaining({
+              roleAccess: { where: { roleId: member.role.id }, select: { access: true } },
+            }),
+          }),
+        }),
+      }),
+    )
+  })
+
+  it('hides a link to a table the role may not read', async () => {
+    withFields(company, owner)
+    prismaMock.table.findMany.mockResolvedValue([
+      people({ roleAccess: [buildRecordDefaults({ readScope: 'NONE' })] }),
+    ])
+
+    expect(keysOf((await requireWorkspaceTableFields(member, TABLE_ID)).fields)).toEqual([
+      'company',
+    ])
+  })
+
+  it('keeps a link’s label where the role reads its table whole and sees the label field', async () => {
+    withFields(owner)
+    prismaMock.table.findMany.mockResolvedValue([people()])
+
+    const scope = await requireWorkspaceTableFields(member, TABLE_ID)
+
+    expect(scope.fields[0]?.options?.labelFieldKey).toBe('full_name')
+    expect(scope.targetScopes.get('tbl_people')).toBe('ALL')
+  })
+
+  it.each([
+    [
+      'the label field is hidden',
+      people({ fields: [{ key: 'full_name', roleAccess: [{ access: 'HIDDEN' }] }] }),
+    ],
+    [
+      'the role reads only its own records there',
+      people({ roleAccess: [buildRecordDefaults({ readScope: 'OWN' })] }),
+    ],
+  ])('drops a link’s label where %s', async (_, target) => {
+    withFields(owner)
+    prismaMock.table.findMany.mockResolvedValue([target])
+
+    const [field] = (await requireWorkspaceTableFields(member, TABLE_ID)).fields
+
+    expect(field?.key).toBe('owner')
+    expect(field?.options).not.toHaveProperty('labelFieldKey')
+    expect(field?.options?.targetTableId).toBe('tbl_people')
+  })
+
+  it('reads every target in one query, scoped to the workspace', async () => {
+    withFields(owner, { ...stored(relationField({ targetTableId: 'tbl_firms' })), key: 'firm' })
+    prismaMock.table.findMany.mockResolvedValue([people(), people({ id: 'tbl_firms' })])
+
+    await requireWorkspaceTableFields(member, TABLE_ID)
+
+    expect(prismaMock.table.findMany).toHaveBeenCalledTimes(1)
+    expect(prismaMock.table.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId: WORKSPACE_ID, id: { in: ['tbl_people', 'tbl_firms'] } },
+      }),
+    )
+  })
+
+  it('narrows nothing for a schema manager, and asks nothing about the targets', async () => {
+    withFields(company, { ...salary, roleAccess: [{ access: 'HIDDEN' }] }, owner)
+
+    const scope = await requireWorkspaceTableFields(buildMembership(['TABLES_MANAGE']), TABLE_ID)
+
+    expect(keysOf(scope.fields)).toEqual(['company', 'salary', 'owner'])
+    expect(scope.fields[2]?.options?.labelFieldKey).toBe('full_name')
+    expect(prismaMock.table.findMany).not.toHaveBeenCalled()
   })
 })

@@ -7,7 +7,7 @@ import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IField } from '#shared/types/field'
 import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createRecord, createTable, createUser } from '~~/test/integration/seed'
-import { FULL_RECORD_ACTOR } from '~~/test/membership'
+import { buildRecordActor, FULL_RECORD_ACTOR } from '~~/test/membership'
 
 let userId: string
 let workspaceId: string
@@ -34,15 +34,25 @@ beforeEach(async () => {
 
 describe('record numbers', () => {
   it('starts at one', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const record = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
 
     expect(record.number).toBe(1)
   })
 
   it('increments per record', async () => {
-    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
-    await RecordService.createRecord(tableId, fields, { company: 'Beta' }, userId)
-    const third = await RecordService.createRecord(tableId, fields, { company: 'Gamma' }, userId)
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, buildRecordActor(userId))
+    await RecordService.createRecord(tableId, fields, { company: 'Beta' }, buildRecordActor(userId))
+    const third = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Gamma' },
+      buildRecordActor(userId),
+    )
 
     expect(third.number).toBe(3)
   })
@@ -50,7 +60,12 @@ describe('record numbers', () => {
   it('gives every concurrent create a distinct number', async () => {
     const created = await Promise.all(
       Array.from({ length: 20 }, (_, index) =>
-        RecordService.createRecord(tableId, fields, { company: `Co ${index}` }, userId),
+        RecordService.createRecord(
+          tableId,
+          fields,
+          { company: `Co ${index}` },
+          buildRecordActor(userId),
+        ),
       ),
     )
 
@@ -61,11 +76,21 @@ describe('record numbers', () => {
   })
 
   it('never reuses the number of a deleted record', async () => {
-    const first = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
-    await RecordService.createRecord(tableId, fields, { company: 'Beta' }, userId)
+    const first = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
+    await RecordService.createRecord(tableId, fields, { company: 'Beta' }, buildRecordActor(userId))
 
     await RecordService.deleteRecord(tableId, first.id, FULL_RECORD_ACTOR)
-    const next = await RecordService.createRecord(tableId, fields, { company: 'Gamma' }, userId)
+    const next = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Gamma' },
+      buildRecordActor(userId),
+    )
 
     expect(next.number).toBe(3)
   })
@@ -74,19 +99,19 @@ describe('record numbers', () => {
     const other = await createTable((await createUser()).workspace.id)
     const otherFields = await createFields(other.id, [{ key: 'company', type: 'TEXT' }])
 
-    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, buildRecordActor(userId))
     const elsewhere = await RecordService.createRecord(
       other.id,
       otherFields,
       { company: 'Beta' },
-      userId,
+      buildRecordActor(userId),
     )
 
     expect(elsewhere.number).toBe(1)
   })
 
   it('is unique per table in the database, not only by convention', async () => {
-    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, buildRecordActor(userId))
 
     await expect(
       prisma.record.create({ data: { tableId, number: 1, data: {} } }),
@@ -101,7 +126,9 @@ describe('the kept record count', () => {
   it('follows creates and deletes, matching the rows actually there', async () => {
     const created = []
     for (const company of ['Acme', 'Globex', 'Initech']) {
-      created.push(await RecordService.createRecord(tableId, fields, { company }, userId))
+      created.push(
+        await RecordService.createRecord(tableId, fields, { company }, buildRecordActor(userId)),
+      )
     }
     await RecordService.deleteRecord(tableId, created[1]?.id ?? '', FULL_RECORD_ACTOR)
 
@@ -110,7 +137,12 @@ describe('the kept record count', () => {
   })
 
   it('stays put when the delete finds nothing', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const record = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
     await RecordService.deleteRecord(tableId, record.id, FULL_RECORD_ACTOR)
 
     await expect(
@@ -123,7 +155,7 @@ describe('the kept record count', () => {
 
   it('moves only its own table’s count', async () => {
     const other = await createTable(workspaceId, 'Other')
-    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    await RecordService.createRecord(tableId, fields, { company: 'Acme' }, buildRecordActor(userId))
 
     expect(await countOf(other.id)).toBe(0)
   })
@@ -167,21 +199,31 @@ describe('paging through ties', () => {
 
 describe('writing a record', () => {
   it('round-trips the data through JSONB', async () => {
-    const stored = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const stored = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
     const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
 
     expect(page.records[0]).toMatchObject({ id: stored.id, data: { company: 'Acme' } })
   })
 
   it('replaces the data wholesale rather than merging', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const record = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
 
     await RecordService.updateRecord(
       tableId,
       fields,
       record.id,
       { company: 'Beta' },
-      { userId, access: FULL_TABLE_ACCESS },
+      buildRecordActor(userId),
     )
     const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
 
@@ -189,7 +231,12 @@ describe('writing a record', () => {
   })
 
   it('moves updatedAt but not createdAt', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const record = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
     const updated = await RecordService.updateRecord(
       tableId,
       fields,
@@ -197,7 +244,7 @@ describe('writing a record', () => {
       {
         company: 'Beta',
       },
-      { userId, access: FULL_TABLE_ACCESS },
+      buildRecordActor(userId),
     )
 
     expect(updated.createdAt).toBe(record.createdAt)
@@ -206,7 +253,12 @@ describe('writing a record', () => {
 
   it('404s when updating a record of another table', async () => {
     const other = await createTable((await createUser()).workspace.id)
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const record = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
 
     await expect(
       RecordService.updateRecord(
@@ -214,14 +266,19 @@ describe('writing a record', () => {
         fields,
         record.id,
         { company: 'Beta' },
-        { userId, access: FULL_TABLE_ACCESS },
+        buildRecordActor(userId),
       ),
     ).rejects.toMatchObject({ statusCode: 404 })
   })
 
   it('404s when deleting a record of another table, leaving it in place', async () => {
     const other = await createTable((await createUser()).workspace.id)
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const record = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
 
     await expect(
       RecordService.deleteRecord(other.id, record.id, FULL_RECORD_ACTOR),
@@ -232,7 +289,12 @@ describe('writing a record', () => {
   })
 
   it('really removes the row on delete', async () => {
-    const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
+    const record = await RecordService.createRecord(
+      tableId,
+      fields,
+      { company: 'Acme' },
+      buildRecordActor(userId),
+    )
 
     await RecordService.deleteRecord(tableId, record.id, FULL_RECORD_ACTOR)
 

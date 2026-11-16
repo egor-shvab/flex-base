@@ -1,6 +1,7 @@
 import type { Prisma } from '#server/generated/prisma/client'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
 import type { IField, IFieldOptions } from '#shared/types/field'
+import type { TFieldAccessOverride } from '#shared/types/workspace'
 import { storedFieldOptionsSchema } from '#shared/validation/field'
 
 export const fieldSelect = {
@@ -14,6 +15,19 @@ export const fieldSelect = {
   indexed: true,
   updatedAt: true,
 } satisfies Prisma.FieldSelect
+
+/** The caller's role's row for the field, if it narrows it: at most one, by the primary key. */
+export function buildRoleFieldAccessSelect(roleId: string) {
+  return {
+    roleAccess: { where: { roleId }, select: { access: true } },
+  } satisfies Prisma.FieldSelect
+}
+
+export function toFieldOverride(
+  rows: readonly { access: TFieldAccessOverride }[],
+): TFieldAccessOverride | null {
+  return rows[0]?.access ?? null
+}
 
 /** Two fields created in a race can share an `order`; creation breaks the tie. */
 export const FIELD_ORDER = [

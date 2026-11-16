@@ -1,8 +1,19 @@
 import type { Prisma } from '#server/generated/prisma/client'
+import type { IField } from '#shared/types/field'
 import type { IRecord, IRecordWithAuthors, TRecordData } from '#shared/types/record'
-import type { TRecordScope } from '#shared/types/workspace'
+import type { ITableAccess, TRecordScope } from '#shared/types/workspace'
 import { parseAddressNumber } from '#shared/utils/address'
 import { toUserRef, userRefSelect } from '#server/db/users'
+
+/**
+ * Who acts on a table's records, what their role lets them reach there, and how far they read each
+ * table its RELATION fields link to — keyed by that table's id, absent where they read it whole.
+ */
+export interface IRecordActor {
+  userId: string
+  access: ITableAccess
+  targetScopes: ReadonlyMap<string, TRecordScope>
+}
 
 /** What may narrow a lookup by address: a unique where cannot take another `id` condition. */
 type TRecordNarrowing = Pick<Prisma.RecordWhereInput, 'createdById' | 'updatedAt' | 'AND'>
@@ -47,20 +58,35 @@ export type TRecordWithAuthorsRow = Prisma.RecordGetPayload<{
   select: typeof recordWithAuthorsSelect
 }>
 
-export function toSharedRecord(record: TRecordRow): IRecord {
+/** Only the keys of `fields` leave: the caller's visible ones, never a hidden value. */
+function toVisibleData(data: TRecordRow['data'], fields: readonly IField[]): TRecordData {
+  const stored = (data as TRecordData | null) ?? {}
+  const visible: TRecordData = {}
+
+  for (const field of fields) {
+    if (Object.hasOwn(stored, field.key)) visible[field.key] = stored[field.key]!
+  }
+
+  return visible
+}
+
+export function toSharedRecord(record: TRecordRow, fields: readonly IField[]): IRecord {
   return {
     id: record.id,
     number: record.number,
     createdById: record.createdById,
-    data: (record.data as TRecordData | null) ?? {},
+    data: toVisibleData(record.data, fields),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   }
 }
 
-export function toRecordWithAuthors(record: TRecordWithAuthorsRow): IRecordWithAuthors {
+export function toRecordWithAuthors(
+  record: TRecordWithAuthorsRow,
+  fields: readonly IField[],
+): IRecordWithAuthors {
   return {
-    ...toSharedRecord(record),
+    ...toSharedRecord(record, fields),
     createdBy: toUserRef(record.createdBy),
     updatedBy: toUserRef(record.updatedBy),
   }

@@ -180,13 +180,20 @@ offers only those and `requireFieldTarget` refuses the rest. Cardinality is one-
   `data -> labelFieldKey`, never the whole row. The list also passes its **resolved filter**, so a
   filter chip has its record's label even when no row on the page links to it.
 - **`assertRelationTargets`** — gates every write: a value that is not a live record of its target
-  table is a 400.
+  table is a 400, and so is a **new** link past the caller's read scope on the target (one already
+  stored stays, or a record someone else linked onwards could not be saved).
 - **`resolveFilterTargets`** — swaps filter addresses for ids before the WHERE is built;
   **unresolved values pass through unchanged** (`decisions.md` → _A relation filter is resolved from
   numbers to ids before the SQL sees it_).
-- **`listRelationOptions(field, search)`** — scoped by the **source field**, capped at
+- **`listRelationOptions(field, reach, search)`** — scoped by the **source field** and, under an
+  `OWN` read of the target, to the caller's records there; capped at
   `RELATION_OPTIONS_LIMIT`, label-ascending (so numbers are not ascending, blank labels last). `?q=`
   matches the label or `#number` and leaves the ordering alone.
+
+**A link is seen through the caller's access to its target** (`toFieldView`, in the table lookup):
+a target they may not read hides the field; a hidden label field, or a target read only in part,
+drops `labelFieldKey` from the field they are handed, so labels, the label sort join and the
+picker's search all fall back to record numbers without knowing why.
 
 Client side, `app/stores/relations.ts` keeps `linkedByFieldNumber` beside `linkedByField`, keyed the
 way a filter addresses. `RelationFieldCell` takes the target table's **number** from the tables
@@ -345,7 +352,8 @@ Only what the name and the code do not say.
 ### `server/`
 
 - **`db/{tables,fields,records}.ts`** — `toSharedField` is the one place `options` JSON is narrowed,
-  `toSharedRecord` the one place `data` is, `toJsonData` the one cast back.
+  `toSharedRecord` the one place `data` is — **projected to the fields it is given, the caller's
+  visible ones**, so a hidden value never leaves — and `toJsonData` the one cast back.
 - **`db/users.ts`** — `authUserWithHashSelect` is the only select naming the hash, and `toAuthUser`
   the one place it is dropped.
 - **`utils/http-errors.ts`** — `toHttpError(error, { conflict?, inUse?, notFound? })` maps `P2002`
@@ -356,10 +364,13 @@ Only what the name and the code do not say.
   id and the workspace address in **one** query (not a member → 404); `assertAccess` turns a
   missing permission — or `OWNER`, which no role grants — into a 403. Every workspace route reaches both through a factory in
   `utils/handler.ts`, which checks the permission **before** looking up the table.
-- **`utils/table-access.ts`** — the table helpers take the `workspaceId` the membership proved.
-  `requireRecordFields` adds a 400 for a field-less table on **writes
-  only** (a field-less table must still list an empty page); `requireWorkspaceTableWithFields` exists
-  for the record-detail read, which names a table other than the page's.
+- **`utils/table-access.ts`** — the table helpers take the membership and read the role's rows
+  for the table and its fields in the same query. A field-scoped context carries the **visible**
+  `fields` (a hidden one is absent, so validation, filters, sort, search and responses never see
+  it), the `editableFields` a write's schema is built from, and each link target's read scope.
+  `assertTableHasFields` adds a 400 for a field-less table on **writes only** (a field-less table
+  must still list an empty page); `requireWorkspaceTableWithFields` exists for the record-detail
+  read, which names a table other than the page's.
 - **`utils/error-log.ts`** — an entry is `source` · timestamp · statusCode · name · message · stack ·
   method · path · query **names** · userId and **nothing else**; a client entry nulls status,
   method and query names. `recordErrorEntry` (`error-log-file.ts`) never throws and disables itself
@@ -372,7 +383,9 @@ Only what the name and the code do not say.
   "Page" → `page_2`, "Budget from" → `budget_from_2` beside a NUMBER `budget`. Server-only.
 - **`services/fields.ts`** — rejects type changes, retargeting and narrowing (400); widening runs
   `widenToList` in the metadata change's transaction.
-- **`services/records.ts`** — `data` is replaced wholesale on update.
+- **`services/records.ts`** — an update **merges** the caller's writable fields over the stored
+  `data` (`buildRecordMergeUpdate`), so every other key keeps its value
+  (`decisions.md` → _A record update merges over the stored data_).
 - **`services/invitations.ts`** — sending to an address already invited **renews** that row (role,
   inviter, a new expiry); whether the address has an account is never read, so the answer cannot
   tell. Accepting **deletes the invitation before creating the membership** in one transaction: a
