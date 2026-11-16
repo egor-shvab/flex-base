@@ -1,6 +1,12 @@
 import { buildIfMatchHeaders, useApi } from '~/api/client'
 import { apiPath } from '~/api/paths'
-import type { IOkResponse, IRoleResponse, IRolesResponse } from '#shared/types/api'
+import type {
+  IOkResponse,
+  IRoleAccessResponse,
+  IRoleResponse,
+  IRolesResponse,
+} from '#shared/types/api'
+import type { TRoleAccessInput } from '#shared/validation/role-access'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 export function useRolesApi() {
@@ -18,5 +24,18 @@ export function useRolesApi() {
       }),
     remove: (workspaceAddress: string, roleId: string) =>
       api<IOkResponse>(apiPath.role(workspaceAddress, roleId), { method: 'DELETE' }),
+    access: (workspaceAddress: string, roleId: string) =>
+      api<IRoleAccessResponse>(apiPath.roleAccess(workspaceAddress, roleId)),
+    updateAccess: (
+      workspaceAddress: string,
+      roleId: string,
+      input: TRoleAccessInput,
+      readUpdatedAt: string,
+    ) =>
+      api<IRoleAccessResponse>(apiPath.roleAccess(workspaceAddress, roleId), {
+        method: 'PUT',
+        body: input,
+        headers: buildIfMatchHeaders(readUpdatedAt),
+      }),
   }
 }

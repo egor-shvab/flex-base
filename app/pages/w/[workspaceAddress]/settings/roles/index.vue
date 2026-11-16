@@ -36,6 +36,12 @@
           <template v-if="canChangeRole(role)" #trailing>
             <BaseButton
               variant="icon"
+              prepend-icon="material-symbols:table-edit-outline-rounded"
+              :label="`Table and field access of ${role.name}`"
+              :to="pagePath.roleAccess(workspaceAddress, role.id)"
+            />
+            <BaseButton
+              variant="icon"
               prepend-icon="material-symbols:edit-outline-rounded"
               :label="`Edit role ${role.name}`"
               @click="openEdit(role)"
@@ -83,6 +89,7 @@ import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useRolesStore } from '~/stores/roles'
 import { formatCount } from '~/utils/format'
+import { pagePath } from '~/utils/page-path'
 import { summarisePermissions } from '~/utils/workspace-permissions'
 import type { IWorkspaceRole } from '#shared/types/workspace'
 import type { TRoleInput } from '#shared/validation/workspace'

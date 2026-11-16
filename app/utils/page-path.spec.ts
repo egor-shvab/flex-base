@@ -7,4 +7,10 @@ describe('pagePath', () => {
     expect(pagePath.table('k3f9x2m8qa', '4')).toBe('/w/k3f9x2m8qa/tables/4')
     expect(pagePath.tableSettings('k3f9x2m8qa', '4')).toBe('/w/k3f9x2m8qa/tables/4/settings')
   })
+
+  it('puts a role’s access page under the roles section of the settings', () => {
+    expect(pagePath.roleAccess('k3f9x2m8qa', 'rol_1')).toBe(
+      `${pagePath.workspaceSettings('k3f9x2m8qa', 'roles')}/rol_1`,
+    )
+  })
 })

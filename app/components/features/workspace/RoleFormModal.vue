@@ -33,33 +33,11 @@
       <fieldset class="role-form__permissions" :aria-describedby="noteId">
         <legend class="role-form__legend">Records</legend>
         <p :id="noteId" class="g-note role-form__note">
-          Applies in every table. A record is a member’s own if they created it. Choices beyond your
-          own role are unavailable.
+          Applies in every table the role has no setting of its own for. A record is a member’s own
+          if they created it. Choices beyond your own role are unavailable.
         </p>
 
-        <BaseSelect
-          :id="readScopeId"
-          :model-value="form.recordDefaults.readScope"
-          :label="RECORD_SCOPE_TEXT.readScope.label"
-          :options="readScopeOptions"
-          @update:model-value="form.recordDefaults = applyReadScope(form.recordDefaults, $event)"
-        />
-
-        <BaseCheckbox
-          v-model="form.recordDefaults.canCreate"
-          :label="CREATE_RECORDS_TEXT.label"
-          :hint="canGrantCreate ? CREATE_RECORDS_TEXT.description : UNGRANTABLE_HINT"
-          :disabled="!canGrantCreate"
-        />
-
-        <BaseSelect
-          v-for="key in ACTION_SCOPE_KEYS"
-          :id="`${actionScopeIdPrefix}-${key}`"
-          :key="key"
-          v-model="form.recordDefaults[key]"
-          :label="RECORD_SCOPE_TEXT[key].label"
-          :options="buildActionScopeOptions(key)"
-        />
+        <RecordAccessControls v-model="form.recordDefaults" :limit="actor.recordDefaults" />
       </fieldset>
     </form>
 
@@ -75,24 +53,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { useId } from 'vue'
 import { useForm } from '~/composables/useForm'
-import {
-  applyReadScope,
-  buildScopeOptions,
-  CREATE_RECORDS_TEXT,
-  RECORD_SCOPE_TEXT,
-  WORKSPACE_PERMISSION_TEXT,
-  type TScopedRecordKey,
-} from '~/utils/workspace-permissions'
-import { RECORD_SCOPES, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type {
-  IWorkspaceActor,
-  IWorkspaceRole,
-  TRecordScope,
-  TWorkspacePermission,
-} from '#shared/types/workspace'
-import { hasPermission, isScopeWithin } from '#shared/utils/permissions'
+import { WORKSPACE_PERMISSION_TEXT } from '~/utils/workspace-permissions'
+import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type { IWorkspaceActor, IWorkspaceRole, TWorkspacePermission } from '#shared/types/workspace'
+import { hasPermission } from '#shared/utils/permissions'
 import { roleInputSchema, type TRoleInput } from '#shared/validation/workspace'
 
 const props = withDefaults(
@@ -109,10 +75,6 @@ const emit = defineEmits<{ saved: []; close: [] }>()
 const formId = useId()
 const nameInputId = useId()
 const noteId = useId()
-const readScopeId = useId()
-const actionScopeIdPrefix = useId()
-
-const ACTION_SCOPE_KEYS = ['updateScope', 'deleteScope'] as const
 
 const UNGRANTABLE_HINT = 'You don’t have this permission, so you can’t grant it'
 
@@ -139,28 +101,6 @@ const { form, errors, serverError, isSubmitting, submit } = useForm({
 /** Shown, not hidden, when out of reach: the role still reads whole. */
 function canGrant(permission: TWorkspacePermission): boolean {
   return hasPermission(props.actor, permission)
-}
-
-/** Adding records to a table the role cannot read is refused, so a read of none locks it off. */
-const canGrantCreate = computed(
-  () =>
-    form.recordDefaults.readScope !== 'NONE' &&
-    (props.actor.isOwner || props.actor.recordDefaults.canCreate),
-)
-
-function canGrantScope(key: TScopedRecordKey, scope: TRecordScope): boolean {
-  return props.actor.isOwner || isScopeWithin(scope, props.actor.recordDefaults[key])
-}
-
-const readScopeOptions = computed(() =>
-  buildScopeOptions(RECORD_SCOPES, (scope) => canGrantScope('readScope', scope)),
-)
-
-function buildActionScopeOptions(key: (typeof ACTION_SCOPE_KEYS)[number]) {
-  return buildScopeOptions(
-    RECORD_SCOPES,
-    (scope) => canGrantScope(key, scope) && isScopeWithin(scope, form.recordDefaults.readScope),
-  )
 }
 
 /** Kept in the editor's order, so an unchanged role sends what it was loaded with. */

@@ -30,6 +30,32 @@ const membership: IWorkspaceMembership = {
 }
 
 let membershipRequests = 0
+let savedAccess: { body: unknown; ifMatch: string | undefined } | null = null
+
+const ACCESS_TABLES = [{ id: 'tbl_deals', name: 'Deals', fields: [] }]
+
+registerEndpoint(`/api/workspaces/${WS}/roles/rol_2/access`, {
+  method: 'GET',
+  handler: () => ({
+    role: buildRole('rol_2', 'Viewer'),
+    overrides: { tables: [], fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
+    tables: ACCESS_TABLES,
+  }),
+})
+
+registerEndpoint(`/api/workspaces/${WS}/roles/rol_2/access`, {
+  method: 'PUT',
+  handler: async (event) => {
+    // The test server hands headers over as a plain object; `Headers` reads it case-blind
+    const headers = new Headers(event.node.req.headers as Record<string, string>)
+    savedAccess = { body: await readBody(event), ifMatch: headers.get('if-match') ?? undefined }
+    return {
+      role: { ...buildRole('rol_2', 'Viewer'), updatedAt: '2026-03-01T10:00:00.000Z' },
+      overrides: { tables: [], fields: [] },
+      tables: ACCESS_TABLES,
+    }
+  },
+})
 
 registerEndpoint(`/api/workspaces/${WS}/roles`, {
   method: 'GET',
@@ -73,6 +99,7 @@ describe('useRolesStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     membershipRequests = 0
+    savedAccess = null
     useWorkspacesStore().memberships = [membership]
   })
 
@@ -117,5 +144,26 @@ describe('useRolesStore', () => {
     await store.updateRole(WS, buildRole('rol_mine', 'Mine'), buildRoleInput('Lead'))
     expect(membershipRequests).toBe(1)
     expect(useWorkspacesStore().findMembership(WS)?.role.name).toBe('Lead')
+  })
+
+  it('reads a role’s access with the tables to set it on', async () => {
+    const access = await useRolesStore().fetchRoleAccess(WS, 'rol_2')
+
+    expect(access.overrides.fields).toEqual([{ fieldId: 'fld_salary', access: 'HIDDEN' }])
+    expect(access.tables.map((table) => table.name)).toEqual(['Deals'])
+  })
+
+  it('saves a role’s access at the version read, and puts the saved role in the list', async () => {
+    const store = useRolesStore()
+    await store.fetchRoles(WS)
+    const input = { recordDefaults: buildRecordDefaults(), tables: [], fields: [] }
+
+    await store.saveRoleAccess(WS, buildRole('rol_2', 'Viewer'), input)
+
+    expect(savedAccess).toEqual({ body: input, ifMatch: '"2026-02-11T16:30:00.000Z"' })
+    expect(store.roles.find((role) => role.id === 'rol_2')?.updatedAt).toBe(
+      '2026-03-01T10:00:00.000Z',
+    )
+    expect(membershipRequests).toBe(0)
   })
 })

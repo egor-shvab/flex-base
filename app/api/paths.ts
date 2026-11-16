@@ -37,6 +37,8 @@ export const apiPath = {
   roles: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/roles`,
   role: (workspaceAddress: string, roleId: string) =>
     `${workspacePath(workspaceAddress)}/roles/${segment(roleId)}`,
+  roleAccess: (workspaceAddress: string, roleId: string) =>
+    `${workspacePath(workspaceAddress)}/roles/${segment(roleId)}/access`,
 
   tables: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/tables`,
   table: tablePath,

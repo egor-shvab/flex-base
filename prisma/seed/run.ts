@@ -25,6 +25,59 @@ const EDITOR_EMAIL = 'editor@test.com'
 const EDITOR_NAME = 'Demo Editor'
 const EDITOR_ROLE_NAME = 'Editor'
 
+/**
+ * What the Editor is narrowed to, so signing in as them shows each kind of limit: a table they do
+ * not see, a field hidden from them, and a table where they change only the records they made.
+ */
+const EDITOR_LIMITS = {
+  hiddenTable: 'Invoices',
+  hiddenField: { table: 'Clients', field: 'Annual budget' },
+  ownRecordsTable: 'Tasks',
+}
+
+function requireSeedTable(tables: ICompiledTable[], name: string): ICompiledTable {
+  const table = tables.find((candidate) => candidate.name === name)
+  if (!table) throw new Error(`The seed has no table named ${name}`)
+  return table
+}
+
+async function narrowEditorRole(workspaceId: string, tables: ICompiledTable[]): Promise<void> {
+  const role = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId, name: EDITOR_ROLE_NAME } },
+    select: { id: true },
+  })
+  const clients = requireSeedTable(tables, EDITOR_LIMITS.hiddenField.table)
+  const hiddenField = clients.fields.find((field) => field.name === EDITOR_LIMITS.hiddenField.field)
+  if (!hiddenField)
+    throw new Error(`The seed has no field named ${EDITOR_LIMITS.hiddenField.field}`)
+
+  await prisma.roleTableAccess.createMany({
+    data: [
+      {
+        workspaceId,
+        roleId: role.id,
+        tableId: requireSeedTable(tables, EDITOR_LIMITS.hiddenTable).id,
+        readScope: 'NONE',
+        canCreate: false,
+        updateScope: 'NONE',
+        deleteScope: 'NONE',
+      },
+      {
+        workspaceId,
+        roleId: role.id,
+        tableId: requireSeedTable(tables, EDITOR_LIMITS.ownRecordsTable).id,
+        readScope: 'ALL',
+        canCreate: true,
+        updateScope: 'OWN',
+        deleteScope: 'OWN',
+      },
+    ],
+  })
+  await prisma.roleFieldAccess.create({
+    data: { workspaceId, roleId: role.id, fieldId: hiddenField.id, access: 'HIDDEN' },
+  })
+}
+
 function assertSeedableEnvironment(): void {
   if (process.env.DATABASE_URL === undefined || process.env.DATABASE_URL === '') {
     throw new Error('DATABASE_URL is not set. Copy `.env.example` to `.env` first.')
@@ -138,6 +191,7 @@ async function seed(): Promise<void> {
   })
 
   for (const table of tables) await writeTable(workspace.id, user.id, table)
+  await narrowEditorRole(workspace.id, tables)
 
   // `CONCURRENTLY` is refused inside a transaction, and nothing else indexes a directly inserted
   // field
@@ -145,7 +199,9 @@ async function seed(): Promise<void> {
 
   const report = [
     `Seeded ${DEMO_EMAIL} (password: ${DEMO_PASSWORD}) in /w/${DEMO_WORKSPACE_ADDRESS}`,
-    `  and ${EDITOR_EMAIL} (same password) as its ${EDITOR_ROLE_NAME}`,
+    `  and ${EDITOR_EMAIL} (same password) as its ${EDITOR_ROLE_NAME}: ${EDITOR_LIMITS.hiddenTable} ` +
+      `hidden, ${EDITOR_LIMITS.hiddenField.table} › ${EDITOR_LIMITS.hiddenField.field} hidden, ` +
+      `only own records changed in ${EDITOR_LIMITS.ownRecordsTable}`,
     ...tables.map(
       (table) =>
         `  ${table.name.padEnd(18)} ${String(table.records.length).padStart(4)} records, ` +

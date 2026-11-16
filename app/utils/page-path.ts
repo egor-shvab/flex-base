@@ -6,6 +6,8 @@ export const pagePath = {
   workspace: (workspaceAddress: string) => `/w/${workspaceAddress}`,
   workspaceSettings: (workspaceAddress: string, section: TWorkspaceSettingsSection = 'general') =>
     `/w/${workspaceAddress}/settings/${section}`,
+  roleAccess: (workspaceAddress: string, roleId: string) =>
+    `/w/${workspaceAddress}/settings/roles/${roleId}`,
   table: (workspaceAddress: string, tableAddress: string) =>
     `/w/${workspaceAddress}/tables/${tableAddress}`,
   tableSettings: (workspaceAddress: string, tableAddress: string) =>

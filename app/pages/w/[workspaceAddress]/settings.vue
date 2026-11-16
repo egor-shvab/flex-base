@@ -9,6 +9,7 @@
           :key="section.id"
           :to="pagePath.workspaceSettings(workspaceAddress, section.id)"
           :icon="section.icon"
+          :active="isSectionActive(section.id)"
           :tone="section.id === 'danger' ? 'danger' : 'default'"
           class="workspace-settings__link"
           :class="{ 'workspace-settings__link--danger': section.id === 'danger' }"
@@ -26,7 +27,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useSeoMeta } from '#imports'
+import { useRoute, useSeoMeta } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import { pagePath, type TWorkspaceSettingsSection } from '~/utils/page-path'
@@ -40,6 +41,12 @@ interface ISettingsSection {
 useSeoMeta({ title: 'Workspace settings' })
 
 const { workspaceAddress } = useActiveWorkspace()
+const route = useRoute()
+
+/** A section's own pages count too: a role's access sits under Roles. */
+function isSectionActive(section: TWorkspaceSettingsSection): boolean {
+  return route.path.startsWith(`${pagePath.workspaceSettings(workspaceAddress.value, section)}/`)
+}
 
 const sections: ISettingsSection[] = [
   { id: 'general', label: 'General', icon: 'material-symbols:tune-rounded' },

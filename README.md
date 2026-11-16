@@ -64,7 +64,9 @@ npm run db:seed
 ```
 
 It signs in as `test@test.com` / `testtest`, the workspace owner, and adds `editor@test.com` /
-`testtest` as a member with the Editor role — sign in as them to see what a role hides. It creates
+`testtest` as a member with the Editor role, narrowed to show each kind of limit: Invoices is
+hidden from it, so is the Annual budget field of Clients, and in Tasks it changes only the records
+it created — sign in as them to see what a role hides. It creates
 eight tables — clients, people, projects,
 tasks, invoices and three smaller ones — holding around 445 records between them, covering every
 field type, both single- and multi-value fields, and the empty, single-row and multi-page list
