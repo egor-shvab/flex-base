@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 import { useNuxtApp } from '#imports'
 import { setActivePinia } from 'pinia'
@@ -7,6 +8,7 @@ import { CREATED_AT_KEY, RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
 import RecordsFilterSummary from '~/components/features/records/RecordsFilterSummary.vue'
+import { INDICATOR_DELAY_MS } from '~/composables/useDelayedFlag'
 import { useRelationsStore } from '~/stores/relations'
 import { numberField, relationField, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
@@ -174,10 +176,22 @@ describe('RecordsFilterSummary', () => {
       )
     })
 
-    it('says it is filtering rather than showing a stale count', async () => {
-      const wrapper = await summary({ company: 'acme' }, { total: 12, pending: true })
+    it('says it is filtering once a slow request outlasts the indicator delay', async () => {
+      const wrapper = await summary({ company: 'acme' }, { total: 12 })
+      vi.useFakeTimers()
 
-      expect(wrapper.get('.filter-summary__count').text()).toBe('Filtering…')
+      try {
+        await wrapper.setProps({ pending: true })
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS - 1)
+        await nextTick()
+        expect(wrapper.get('.filter-summary__count').text()).toBe('Showing 12 matching records:')
+
+        vi.advanceTimersByTime(1)
+        await nextTick()
+        expect(wrapper.get('.filter-summary__count').text()).toBe('Filtering…')
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 

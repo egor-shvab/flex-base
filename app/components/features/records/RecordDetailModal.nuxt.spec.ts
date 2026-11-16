@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 
 import { useNuxtApp } from '#imports'
@@ -7,6 +8,7 @@ import type { Pinia } from 'pinia'
 import { DETAIL_PARAM } from '#shared/constants/filter'
 import type { IRecordDetail } from '#shared/types/record'
 import RecordDetailModal from '~/components/features/records/RecordDetailModal.vue'
+import { INDICATOR_DELAY_MS } from '~/composables/useDelayedFlag'
 import { recordWithAuthors, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
@@ -83,11 +85,24 @@ describe('RecordDetailModal', () => {
       expect(document.querySelector('.base-modal--drawer')).not.toBeNull()
     })
 
-    it('states that it is loading, and shows no values yet', async () => {
-      await mountModal({ detail: null, pending: true })
+    it('shows nothing until the indicator delay passes, then states that it is loading', async () => {
+      const wrapper = await mountModal()
+      vi.useFakeTimers()
 
-      expect(document.querySelector('[role="status"]')?.textContent).toContain('Loading record…')
-      expect(dialog()?.textContent).not.toContain('Acme')
+      try {
+        await wrapper.setProps({ pending: true })
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS - 1)
+        await nextTick()
+        expect(document.querySelector('[role="status"]')).toBeNull()
+        expect(dialog()?.textContent).not.toContain('Acme')
+
+        vi.advanceTimersByTime(1)
+        await nextTick()
+        expect(document.querySelector('[role="status"]')?.textContent).toContain('Loading record…')
+        expect(dialog()?.textContent).not.toContain('Acme')
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('shows an error instead of the record', async () => {

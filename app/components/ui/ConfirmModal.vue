@@ -26,7 +26,7 @@
     <template #footer>
       <BaseButton
         variant="secondary"
-        :disabled="pending"
+        :busy="pending"
         :autofocus="!confirmPhrase"
         @click="emit('close')"
       >

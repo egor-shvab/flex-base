@@ -25,7 +25,7 @@
           Clear all
         </BaseButton>
         <span class="g-note filter-panel__count">
-          {{ pending ? 'Filtering…' : formatMatchingRecords(total, totalCapped) }}
+          {{ isFilteringShown ? 'Filtering…' : formatMatchingRecords(total, totalCapped) }}
         </span>
         <BaseButton @click="emit('close')">Done</BaseButton>
       </div>
@@ -42,6 +42,7 @@ import {
 } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
 import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import { useDelayedFlag } from '~/composables/useDelayedFlag'
 import { useFieldControls } from '~/composables/useFieldControls'
 import { filterFor } from '~/field-types/registry'
 import { formatMatchingRecords } from '~/utils/format'
@@ -58,6 +59,9 @@ const emit = defineEmits<{
   'update:filters': [filters: TRecordFilterValues]
   close: []
 }>()
+
+/** A fast filter keeps its count rather than blinking "Filtering…". */
+const isFilteringShown = useDelayedFlag(() => props.pending)
 
 const panelId = useId()
 

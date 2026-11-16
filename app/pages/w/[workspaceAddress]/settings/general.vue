@@ -30,7 +30,7 @@
 
       <div v-if="canRename" class="settings-general__actions">
         <BaseButton type="submit" :loading="isSubmitting">Save changes</BaseButton>
-        <BaseButton variant="secondary" :disabled="isSubmitting" @click="discardChanges">
+        <BaseButton variant="secondary" :busy="isSubmitting" @click="discardChanges">
           Discard
         </BaseButton>
         <p class="g-note" role="status">{{ savedMessage }}</p>

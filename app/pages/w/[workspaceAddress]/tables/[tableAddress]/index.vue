@@ -68,7 +68,10 @@
     </BaseErrorBanner>
 
     <div class="records-page__body">
-      <RecordsTableSkeleton v-if="isRowsLoading" class="records-page__skeleton" />
+      <!-- Nothing until the skeleton's delay passes: "no records" would be a claim about unseen data -->
+      <template v-if="isRowsLoading || isSkeletonShown">
+        <RecordsTableSkeleton v-if="isSkeletonShown" class="records-page__skeleton" />
+      </template>
 
       <BaseEmptyState
         v-else-if="!hasFields"
@@ -185,6 +188,7 @@ import { useAccessResync } from '~/composables/useAccessResync'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { QUERY_DEBOUNCE_MS } from '~/composables/useDebouncedModel'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
+import { useDelayedFlag } from '~/composables/useDelayedFlag'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useRecordListQuery } from '~/composables/useRecordListQuery'
@@ -268,6 +272,7 @@ const hasFields = computed(() => fieldsStore.fields.length > 0)
 const isRowsLoading = computed(
   () => recordsStore.status === 'loading' && recordsStore.records.length === 0,
 )
+const isSkeletonShown = useDelayedFlag(isRowsLoading)
 
 const isFilterPanelOpen = ref(false)
 

@@ -11,7 +11,9 @@
         Back
       </BaseButton>
 
-      <p v-if="pending" class="g-note" role="status">Loading record…</p>
+      <template v-if="isWaiting">
+        <p v-if="isLoadingShown" class="g-note" role="status">Loading record…</p>
+      </template>
 
       <div v-else-if="errorMessage" class="record-detail-modal__error">
         <BaseErrorBanner class="record-detail-modal__error-text" :message="errorMessage" />
@@ -23,7 +25,7 @@
       <RecordDetail v-else-if="detail" :fields="detail.fields" :record="detail.record" />
     </div>
 
-    <template v-if="detail && isOtherTable && !pending && !errorMessage" #footer>
+    <template v-if="detail && isOtherTable && !isWaiting && !errorMessage" #footer>
       <BaseButton variant="link" :to="openInTableTo">Open in {{ detail.table.name }}</BaseButton>
     </template>
   </BaseModal>
@@ -35,6 +37,7 @@ import type { TUrlQuery } from '#shared/types/query'
 import type { IRecordDetail } from '#shared/types/record'
 import { toTableAddress } from '#shared/utils/address'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useDelayedFlag } from '~/composables/useDelayedFlag'
 import { pagePath } from '~/utils/page-path'
 import { toDetailParam } from '~/utils/record-detail'
 import { DETAIL_PARAM } from '#shared/constants/filter'
@@ -58,6 +61,10 @@ const { workspaceAddress } = useActiveWorkspace()
 const subtitle = computed(() =>
   props.detail ? `${props.detail.table.name} · #${props.detail.record.number}` : undefined,
 )
+
+const isLoadingShown = useDelayedFlag(() => props.pending)
+/** Until the delay passes nothing is shown — neither the note nor a previous record. */
+const isWaiting = computed(() => props.pending || isLoadingShown.value)
 
 const isOtherTable = computed(() => props.detail?.table.number !== props.currentTableNumber)
 

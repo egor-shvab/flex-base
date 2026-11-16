@@ -8,6 +8,7 @@ import { CREATED_AT_KEY, RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
 import type { TRecordFilterValues } from '#shared/types/filter'
 import RecordsFilterPanel from '~/components/features/records/RecordsFilterPanel.vue'
+import { INDICATOR_DELAY_MS } from '~/composables/useDelayedFlag'
 import { asMultiple, booleanField, numberField, selectField, textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
@@ -318,10 +319,22 @@ describe('RecordsFilterPanel', () => {
       expect(count()).toBe('0 matching records')
     })
 
-    it('says it is filtering rather than showing a stale count', async () => {
-      await panel({ total: 12, pending: true })
+    it('says it is filtering once a slow request outlasts the indicator delay', async () => {
+      const wrapper = await panel({ total: 12 })
+      vi.useFakeTimers()
 
-      expect(count()).toBe('Filtering…')
+      try {
+        await wrapper.setProps({ pending: true })
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS - 1)
+        await nextTick()
+        expect(count()).toBe('12 matching records')
+
+        vi.advanceTimersByTime(1)
+        await nextTick()
+        expect(count()).toBe('Filtering…')
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('offers Clear all only when something is filtered', async () => {

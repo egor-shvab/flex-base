@@ -8,7 +8,9 @@
         'base-button--danger-tone': tone === 'danger',
         'base-button--sm': size === 'sm',
         'base-button--selected': selected,
-        'base-button--loading': loading,
+        'base-button--holding': isIdleLookHeld,
+        'base-button--spinning': isSpinnerShown,
+        'base-button--veiled': isSpinnerShown && !prependIcon,
         'base-button--icon-only': isIconOnly,
       },
     ]"
@@ -17,7 +19,14 @@
     :title="label"
     :aria-busy="loading || undefined"
   >
-    <span v-if="loading" class="base-button__spinner" aria-hidden="true" />
+    <!-- In the leading icon's box when there is one, else centred over the veiled label: either
+         way the button keeps its width -->
+    <span
+      v-if="isSpinnerShown"
+      class="base-button__spinner"
+      :class="prependIcon ? 'base-button__spinner--lead' : 'base-button__spinner--overlay'"
+      aria-hidden="true"
+    />
     <Icon
       v-else-if="prependIcon"
       :name="prependIcon"
@@ -33,6 +42,7 @@
 import { computed, useSlots } from 'vue'
 import type { Component } from 'vue'
 import { NuxtLink } from '#components'
+import { useDelayedFlag } from '~/composables/useDelayedFlag'
 import type { TUrlQuery } from '#shared/types/query'
 
 const props = withDefaults(
@@ -48,6 +58,7 @@ const props = withDefaults(
     size?: 'md' | 'sm'
     selected?: boolean
     loading?: boolean
+    busy?: boolean
   }>(),
   {
     type: 'button',
@@ -61,6 +72,7 @@ const props = withDefaults(
     size: 'md',
     selected: false,
     loading: false,
+    busy: false,
   },
 )
 
@@ -76,7 +88,17 @@ const isIconOnly = computed(
     props.variant !== 'link',
 )
 
-const isInert = computed(() => props.disabled || props.loading)
+/** `loading` and `busy` make the button inert at once; only the look waits, so a fast request
+ * changes nothing visible. */
+const isSpinnerShown = useDelayedFlag(() => props.loading)
+const isBusyLookShown = useDelayedFlag(() => props.busy)
+
+/** `loading` keeps the idle look throughout, `busy` until its delay passes. */
+const isIdleLookHeld = computed(
+  () => !props.disabled && (props.loading || (props.busy && !isBusyLookShown.value)),
+)
+
+const isInert = computed(() => props.disabled || props.loading || props.busy)
 const isLink = computed(() => Boolean(props.to) && !isInert.value)
 
 const root = computed<Component | string>(() => (isLink.value ? NuxtLink : 'button'))
@@ -261,8 +283,8 @@ const rootProps = computed(() =>
     }
   }
 
-  &--loading:disabled {
-    opacity: 0.85;
+  // Inert at once but still looking idle: the disabled plate would flash on a fast request
+  &--holding:disabled {
     cursor: progress;
 
     &.base-button--primary {
@@ -280,7 +302,25 @@ const rootProps = computed(() =>
     &.base-button--secondary {
       border-color: var(--color-border-control);
       background: var(--color-surface);
+      color: var(--color-text);
+    }
+  }
+
+  &--spinning {
+    position: relative;
+    opacity: 0.85;
+
+    &.base-button--secondary:disabled {
       color: var(--color-text-secondary);
+    }
+  }
+
+  // The label keeps its width and its accessible name; only its glyphs are hidden
+  &--veiled {
+    -webkit-text-fill-color: transparent;
+
+    .base-button__icon {
+      visibility: hidden;
     }
   }
 
@@ -312,6 +352,17 @@ const rootProps = computed(() =>
     border-top-color: currentcolor;
     border-radius: 50%;
     animation: base-button-spin 0.8s linear infinite;
+
+    // Fills the 18px box of the icon it replaces
+    &--lead {
+      margin: rem(3);
+    }
+
+    &--overlay {
+      position: absolute;
+      inset: 0;
+      margin: auto;
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 <template>
   <div class="filter-summary">
     <span class="filter-summary__count">
-      {{ pending ? 'Filtering…' : `Showing ${countLabel}:` }}
+      {{ isFilteringShown ? 'Filtering…' : `Showing ${countLabel}:` }}
     </span>
 
     <!-- `{{ ' ' }}` is a real space formatting cannot collapse, so a chip reads as a sentence. -->
@@ -46,6 +46,7 @@ import {
 } from '#shared/utils/filter'
 import { summaryFor } from '~/field-types/registry'
 import { useRelationsStore } from '~/stores/relations'
+import { useDelayedFlag } from '~/composables/useDelayedFlag'
 import { formatMatchingRecords } from '~/utils/format'
 
 const props = defineProps<{
@@ -62,6 +63,9 @@ const emit = defineEmits<{
   'update:search': [search: string]
   clear: []
 }>()
+
+/** A fast filter keeps its count rather than blinking "Filtering…". */
+const isFilteringShown = useDelayedFlag(() => props.pending)
 
 const relations = useRelationsStore()
 

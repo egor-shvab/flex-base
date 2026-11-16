@@ -35,7 +35,7 @@
     </form>
 
     <template #footer>
-      <BaseButton variant="secondary" :disabled="isSubmitting" @click="emit('close')">
+      <BaseButton variant="secondary" :busy="isSubmitting" @click="emit('close')">
         Cancel
       </BaseButton>
       <BaseButton type="submit" :form="formId" :loading="isSubmitting">

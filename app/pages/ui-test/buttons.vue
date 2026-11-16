@@ -165,17 +165,24 @@
           <BaseButton variant="secondary">Cancel and discard every change</BaseButton>
         </div>
       </UiTestSpecimen>
-      <UiTestSpecimen label="interactive loading">
+      <UiTestSpecimen label="interactive loading" wide>
         <div class="button-row">
           <BaseButton
-            prepend-icon="material-symbols:save-outline-rounded"
-            :loading="isSaving"
-            @click="simulateSave"
+            v-for="run in SAVE_RUNS"
+            :key="run.id"
+            :prepend-icon="run.hasIcon ? 'material-symbols:save-outline-rounded' : undefined"
+            :loading="savingRunId === run.id"
+            @click="simulateSave(run)"
           >
-            Save
+            {{ run.label }}
           </BaseButton>
+          <BaseButton variant="secondary" :busy="savingRunId !== null">Discard</BaseButton>
         </div>
-        <template #readout>{{ isSaving ? 'saving…' : 'idle — click to run for 2s' }}</template>
+        <template #readout>
+          {{ savingRunId ? `saving… (${savingRunId})` : 'idle' }} — the spinner waits 300 ms and
+          then stays at least 500 ms, so the fast save shows none; Discard is busy meanwhile,
+          greying only after the same delay
+        </template>
       </UiTestSpecimen>
     </UiTestSection>
   </UiTestPage>
@@ -194,12 +201,26 @@ const LOADING_VARIANTS: TLabelledVariant[] = ['primary', 'secondary', 'danger']
 
 const submitCount = ref(0)
 
-const isSaving = ref(false)
+interface ISaveRun {
+  id: string
+  label: string
+  durationMs: number
+  hasIcon: boolean
+}
+
+const SAVE_RUNS: ISaveRun[] = [
+  { id: 'fast', label: 'Fast save · 100 ms', durationMs: 100, hasIcon: true },
+  { id: 'slow', label: 'Slow save · 2 s', durationMs: 2000, hasIcon: true },
+  { id: 'no-icon', label: 'Without an icon · 2 s', durationMs: 2000, hasIcon: false },
+]
+
+const savingRunId = ref<string | null>(null)
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 
-function simulateSave() {
-  isSaving.value = true
-  saveTimer = setTimeout(() => (isSaving.value = false), 2000)
+function simulateSave(run: ISaveRun) {
+  clearTimeout(saveTimer)
+  savingRunId.value = run.id
+  saveTimer = setTimeout(() => (savingRunId.value = null), run.durationMs)
 }
 
 onBeforeUnmount(() => clearTimeout(saveTimer))

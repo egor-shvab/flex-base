@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 import BaseButton from '~/components/ui/BaseButton.vue'
+import { INDICATOR_DELAY_MS, INDICATOR_MIN_DURATION_MS } from '~/composables/useDelayedFlag'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 describe('BaseButton', () => {
@@ -201,13 +203,107 @@ describe('BaseButton', () => {
       expect(onClick).not.toHaveBeenCalled()
     })
 
-    it('draws the spinner in place of the leading icon', async () => {
-      const wrapper = await mountTracked(BaseButton, {
-        props: { loading: true, prependIcon: 'material-symbols:add-rounded' },
+    describe('the spinner', () => {
+      afterEach(() => vi.useRealTimers())
+
+      async function startLoading(props: Record<string, unknown> = {}) {
+        const wrapper = await mountTracked(BaseButton, {
+          props: { prependIcon: 'material-symbols:add-rounded', ...props },
+          slots: { default: () => 'Save' },
+        })
+        vi.useFakeTimers()
+        await wrapper.setProps({ loading: true })
+        return wrapper
+      }
+
+      it('waits out a fast request, while the button is already inert', async () => {
+        const wrapper = await startLoading()
+
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS - 1)
+        await nextTick()
+
+        expect(wrapper.attributes('disabled')).toBeDefined()
+        expect(wrapper.find('.base-button__spinner').exists()).toBe(false)
+        expect(wrapper.classes()).not.toContain('base-button--spinning')
+
+        await wrapper.setProps({ loading: false })
+        vi.advanceTimersByTime(INDICATOR_MIN_DURATION_MS)
+        await nextTick()
+
+        expect(wrapper.find('.base-button__spinner').exists()).toBe(false)
       })
 
-      expect(wrapper.find('.base-button__spinner').attributes('aria-hidden')).toBe('true')
-      expect(wrapper.find('.base-button__icon').exists()).toBe(false)
+      it('takes the leading icon’s place once the delay has passed', async () => {
+        const wrapper = await startLoading()
+
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS)
+        await nextTick()
+
+        expect(wrapper.find('.base-button__spinner--lead').attributes('aria-hidden')).toBe('true')
+        expect(wrapper.find('.base-button__icon').exists()).toBe(false)
+        expect(wrapper.classes()).not.toContain('base-button--veiled')
+      })
+
+      it('centres over a veiled label when there is no leading icon', async () => {
+        const wrapper = await startLoading({ prependIcon: undefined })
+
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS)
+        await nextTick()
+
+        expect(wrapper.find('.base-button__spinner--overlay').exists()).toBe(true)
+        expect(wrapper.classes()).toContain('base-button--veiled')
+        expect(wrapper.text()).toBe('Save')
+      })
+
+      it('stays for the minimum duration once shown', async () => {
+        const wrapper = await startLoading()
+
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS)
+        await wrapper.setProps({ loading: false })
+        vi.advanceTimersByTime(INDICATOR_MIN_DURATION_MS - 1)
+        await nextTick()
+
+        expect(wrapper.find('.base-button__spinner').exists()).toBe(true)
+        expect(wrapper.attributes('disabled')).toBeUndefined()
+
+        vi.advanceTimersByTime(1)
+        await nextTick()
+
+        expect(wrapper.find('.base-button__spinner').exists()).toBe(false)
+      })
+    })
+
+    describe('busy', () => {
+      afterEach(() => vi.useRealTimers())
+
+      it('is inert at once but keeps its idle look until the delay passes', async () => {
+        const onClick = vi.fn()
+        const wrapper = await mountTracked(BaseButton, {
+          props: { variant: 'secondary' },
+          attrs: { onClick },
+          slots: { default: () => 'Discard' },
+        })
+        vi.useFakeTimers()
+        await wrapper.setProps({ busy: true })
+
+        expect(wrapper.attributes('disabled')).toBeDefined()
+        expect(wrapper.attributes('aria-busy')).toBeUndefined()
+        expect(wrapper.classes()).toContain('base-button--holding')
+        await wrapper.trigger('click')
+        expect(onClick).not.toHaveBeenCalled()
+
+        vi.advanceTimersByTime(INDICATOR_DELAY_MS)
+        await nextTick()
+
+        expect(wrapper.classes()).not.toContain('base-button--holding')
+        expect(wrapper.find('.base-button__spinner').exists()).toBe(false)
+      })
+
+      it('looks disabled at once when it is also disabled', async () => {
+        const wrapper = await mountTracked(BaseButton, { props: { busy: true, disabled: true } })
+
+        expect(wrapper.classes()).not.toContain('base-button--holding')
+      })
     })
 
     it('sets no busy state when idle', async () => {

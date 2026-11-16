@@ -75,10 +75,17 @@ beside it are unequal on purpose_).
   chip remove): a 16px glyph + `rem(3)` padding + 1px border on each side is exactly 24, the
   boundary `test/e2e/setup/a11y.ts` measures — **neither number moves alone**.
 - **Disabled is never opacity:** filled variants become a grey plate, every variant takes
-  `--color-text-disabled`, and `link` loses its underline. `loading` (filled variants only) keeps
-  its label so the row does not move. `selected` is inert outside `ghost` and sets no ARIA.
-- **`to` makes the root a `<NuxtLink>`** with an unchanged look; **`disabled` and `loading` win over
-  `to`** (`decisions.md` → _`BaseButton` renders the element its role implies_).
+  `--color-text-disabled`, and `link` loses its underline. `selected` is inert outside `ghost` and
+  sets no ARIA.
+- **`loading`** (filled variants only) makes the button inert at once but keeps its idle look; the
+  spinner waits `INDICATOR_DELAY_MS` and then stays at least `INDICATOR_MIN_DURATION_MS`
+  (`useDelayedFlag`), so a fast request shows none. It takes the leading icon's box, or sits over
+  the label's transparent glyphs — the width never changes. **`busy`** is the same wait without a
+  spinner, for a button blocked by another's request (Cancel, Discard): inert at once, disabled-looking
+  only after the delay. `disabled` wins over both. Any other indicator that blinks on a fast load uses
+  the same composable.
+- **`to` makes the root a `<NuxtLink>`** with an unchanged look; **`disabled`, `loading` and `busy` win
+  over `to`** (`decisions.md` → _`BaseButton` renders the element its role implies_).
 
 ## Atoms — traps only
 
