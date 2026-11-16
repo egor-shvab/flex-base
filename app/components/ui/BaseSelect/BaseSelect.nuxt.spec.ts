@@ -55,11 +55,12 @@ describe('BaseSelect', () => {
       expect(trigger(wrapper).attributes('aria-labelledby')).toBe('stage-label stage-value')
     })
 
-    it('falls back to ariaLabel when there is no visible label', async () => {
+    it('falls back to ariaLabel when there is no visible label, still naming its value', async () => {
       const wrapper = await select({ ariaLabel: 'Stage' })
 
-      expect(trigger(wrapper).attributes('aria-label')).toBe('Stage')
-      expect(trigger(wrapper).attributes('aria-labelledby')).toBeUndefined()
+      expect(trigger(wrapper).attributes('aria-label')).toBeUndefined()
+      expect(trigger(wrapper).attributes('aria-labelledby')).toBe('stage-name stage-value')
+      expect(wrapper.get('#stage-name').text()).toBe('Stage')
     })
 
     it('renders the chevron as a button that is neither tabbable nor announced', async () => {

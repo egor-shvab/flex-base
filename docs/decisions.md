@@ -741,7 +741,8 @@ screen**, which separates an outside change from an echo.
 
 A native `<select>` cannot colour options, search, load asynchronously, or state
 loading/empty/failed. `searchable` picks the root only: `false` is a
-`<button aria-haspopup="listbox">` named _label + value_, `true` an `<input role="combobox">`.
+`<button aria-haspopup="listbox">` named _label + value_ (with no visible label, `ariaLabel` via a
+hidden span — a bare `aria-label` would drop the value), `true` an `<input role="combobox">`.
 Costs, all deliberate: the OS-native touch picker (`limitations.md`); arrow keys changing a closed
 value (they open instead, or a filter would fire a request per press). Hand-rolled type-ahead (500
 ms buffer) on the button branch **must stay**.

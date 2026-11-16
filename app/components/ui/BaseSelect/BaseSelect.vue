@@ -52,13 +52,17 @@
         aria-haspopup="listbox"
         :aria-expanded="isOpen"
         :aria-controls="isOpen ? listboxId : undefined"
-        :aria-labelledby="labelId ? `${labelId} ${id}-value` : undefined"
-        :aria-label="labelId ? undefined : ariaLabel"
+        :aria-labelledby="`${labelId ?? `${id}-name`} ${id}-value`"
         :aria-invalid="error ? true : undefined"
         :aria-describedby="describedBy"
         :disabled="disabled"
         @keydown="onTriggerKeydown"
       />
+
+      <!-- `aria-label` would take the value out of the name, which `aria-labelledby` joins in -->
+      <span v-if="!searchable && !labelId" :id="`${id}-name`" class="g-visually-hidden">
+        {{ ariaLabel }}
+      </span>
 
       <span
         v-if="shouldShowValue"

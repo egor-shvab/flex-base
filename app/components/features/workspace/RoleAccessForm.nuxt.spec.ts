@@ -70,11 +70,19 @@ const checkbox = (label: string) =>
     .find((element) => element.textContent?.trim() === label)!
     .querySelector<HTMLInputElement>('input')!
 
-const fieldSelect = (name: string) =>
-  document.querySelector<HTMLElement>(`[aria-label="${name} access"]`)!
+/** The trigger is named by `aria-labelledby`, pointing at a hidden span holding the label. */
+function fieldSelect(name: string): HTMLElement | null {
+  const nameSpan = [...document.querySelectorAll('.base-select__control [id$="-name"]')].find(
+    (element) => element.textContent?.trim() === `${name} access`,
+  )
+
+  return nameSpan
+    ? document.querySelector<HTMLElement>(`[aria-labelledby^="${nameSpan.id} "]`)
+    : null
+}
 
 async function openFieldOptions(name: string) {
-  fieldSelect(name).closest('.base-select__control')!.dispatchEvent(new MouseEvent('click'))
+  fieldSelect(name)!.closest('.base-select__control')!.dispatchEvent(new MouseEvent('click'))
   await nextTick()
   await nextTick()
   return [...document.querySelectorAll<HTMLElement>('[role="option"]')]

@@ -92,8 +92,7 @@ test('a role’s table and field access is set and saved from the keyboard', asy
   await expect(page.getByRole('option', { name: 'Hidden' })).toBeVisible()
   await page.keyboard.press('Home')
   await page.keyboard.press('Enter')
-  // The value sits beside the trigger, which is named by its aria-label alone
-  await expect(company.locator('xpath=..')).toContainText('Hidden')
+  await expect(company).toHaveAccessibleName('Company access Hidden')
 
   await page.getByRole('button', { name: 'Save access' }).focus()
   await page.keyboard.press('Enter')

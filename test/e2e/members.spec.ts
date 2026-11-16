@@ -49,7 +49,9 @@ test('an invited person joins, works under the role given, and loses access once
   const memberRow = listRow(page, invitee.email)
   await memberRow.getByRole('button', { name: 'Role of Member' }).click()
   await page.getByRole('option', { name: 'Viewer', exact: true }).click()
-  await expect(memberRow).toContainText('Viewer')
+  await expect(memberRow.getByRole('button', { name: 'Role of Member' })).toHaveAccessibleName(
+    'Role of Member Viewer',
+  )
 
   await other.goto(table.url)
   await expect(other.getByRole('cell', { name: 'Acme' })).toBeVisible()
