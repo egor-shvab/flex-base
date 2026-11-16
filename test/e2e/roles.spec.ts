@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { prisma } from '#server/db/prisma'
 import { confirmDeletion, expect, test } from '~~/test/e2e/setup/fixtures'
 
 const roleRow = (page: Page, name: string) =>
@@ -60,4 +61,51 @@ test('a taken name is refused in the form', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Create role' }).click()
 
   await expect(dialog).toContainText('A role with this name already exists')
+})
+
+test('a role’s table and field access is set and saved from the keyboard', async ({
+  page,
+  seedTable,
+  workspace,
+}) => {
+  const deals = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }], [])
+  await page.goto(`${workspace.url}/settings/roles`)
+  await page.getByRole('link', { name: 'Table and field access of Viewer' }).click()
+  await expect(page.getByRole('heading', { name: 'Access of Viewer' })).toBeVisible()
+
+  const expand = page.getByRole('button', { name: 'Set access for Deals' })
+  await expand.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: 'Close for Deals' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  )
+
+  await page.keyboard.press('Tab')
+  await expect(page.getByLabel('Own setting for this table')).toBeFocused()
+  await page.keyboard.press('Space')
+  await expect(page.getByLabel('Own setting for this table')).toBeChecked()
+
+  const company = page.getByRole('button', { name: /^Company access/ })
+  await company.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('option', { name: 'Hidden' })).toBeVisible()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Enter')
+  // The value sits beside the trigger, which is named by its aria-label alone
+  await expect(company.locator('xpath=..')).toContainText('Hidden')
+
+  await page.getByRole('button', { name: 'Save access' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status').filter({ hasText: 'Access saved.' })).toBeVisible()
+
+  const viewer = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Viewer' } },
+    select: {
+      tableAccess: { select: { tableId: true } },
+      fieldAccess: { select: { access: true } },
+    },
+  })
+  expect(viewer.tableAccess).toEqual([{ tableId: deals.id }])
+  expect(viewer.fieldAccess).toEqual([{ access: 'HIDDEN' }])
 })

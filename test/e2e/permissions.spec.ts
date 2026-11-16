@@ -151,7 +151,22 @@ test('a field hidden from a role is nowhere on its page, and its save keeps the 
   await page.goto(people.url)
   await expect(page.getByRole('cell', { name: 'Ada' })).toBeVisible()
   await expect(page.getByRole('columnheader', { name: /Salary/ })).toHaveCount(0)
-  await expect(page.getByText('90000')).toHaveCount(0)
+  await expect(page.getByText(/90,?000/)).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Filters' }).click()
+  const filters = page.getByRole('dialog')
+  await expect(filters).toBeVisible()
+  await expect(filters.getByText('Salary')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(filters).toHaveCount(0)
+
+  await page.getByRole('link', { name: 'View record' }).click()
+  const detail = page.getByRole('dialog')
+  await expect(detail.getByText('Ada', { exact: true })).toBeVisible()
+  await expect(detail.getByText('Salary')).toHaveCount(0)
+  await expect(detail.getByText(/90,?000/)).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(detail).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Edit record' }).click()
   const dialog = page.getByRole('dialog')

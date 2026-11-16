@@ -38,7 +38,7 @@ Non-negotiable:
 
 **In scope:** workspaces (create, rename, delete, switch, transfer ownership), members invited by
 email and accepted in the app, custom roles over a closed permission set with per-table and
-per-field record access (`docs/plans/role-access.md`), a user's display name, and record authorship
+per-field record access, a user's display name, and record authorship
 (`createdBy`/`updatedBy`).
 
 **Out of scope unless explicitly asked:** invite links, sending email
@@ -149,7 +149,8 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   (`isAccessWithin`). The server decides it; the client reads its answer per role
   (`isWithinCaller`), never recomputes it.
 - **Status codes:** a resource outside the caller's workspaces, or a table their role may not read,
-  is **404, never 403**; a member lacking the permission or record action is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use
+  is **404, never 403**; a member lacking the permission or record action, or acting on a record
+  they read but did not create under an `OWN` scope, is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use
   conflicts and a guarded write whose checked row changed meanwhile; 412 for a write whose `If-Match` version is stale (records, fields, roles);
   every login failure is the same generic 401.
 - `User` rows are read with an explicit `select`; `passwordHash` never leaves. A user's email

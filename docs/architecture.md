@@ -294,8 +294,13 @@ is not (a bulk insert shares one timestamp) — and every B-tree that serves an 
 `prisma/schema.prisma`; the `datasource` has no inline `url` (Prisma 7 reads it via
 `prisma.config.ts`). **A table belongs to one workspace (`Table.workspaceId`)** — fields and
 records reach it through their table, and every relation cascades. Access is membership
-(`WorkspaceMember`) plus the member's role (`WorkspaceRole.permissions`), whose key carries the
-workspace (`(workspaceId, roleId)`), so a member cannot hold another workspace's role; the owner
+(`WorkspaceMember`) plus the member's role: its `permissions`, its record defaults (`readScope`,
+`canCreate`, `updateScope`, `deleteScope`), and the rows it sets apart — `RoleTableAccess` for a
+table (replacing the defaults there whole) and `RoleFieldAccess` for a field (`HIDDEN` or `READ`;
+`EDIT` is no row). Both rows cascade with their role, table and field. `resolveTableAccess` and
+`resolveFieldAccess` (`shared/utils/table-access.ts`) turn them into what one member meets; the
+table lookup applies them on every table route. The role's key carries the workspace
+(`(workspaceId, roleId)`), so a member cannot hold another workspace's role; the owner
 (`Workspace.ownerId`) holds every permission and is also a member — transfer keeps the old owner
 under their role, and the owner cannot leave. An invitation (`WorkspaceInvitation`, one per
 workspace and lowercased email) holds its role by the same compound key, so a role still held by a
@@ -530,7 +535,11 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
   can then leave it.
 - **Permissions:** an Editor gets records but no schema control; a Viewer no change at all; a role
   narrowed mid-session hides its controls on the first 403; a member removed mid-session lands on
-  the workspace's 404 and `/` no longer offers it.
+  the workspace's 404 and `/` no longer offers it. A hidden table is gone from the sidebar and its
+  address is a 404; a hidden field is absent from the table, the filter drawer, the record dialog
+  and the form, and a save by that role keeps its value; a read-only field is a value in the form;
+  under `OWN` only the role's own rows carry edit and delete; a role's table and field access is
+  set and saved from the keyboard.
 - **Multi-value:** the option appears for SELECT and RELATION only and locks once saved; widening
   keeps values, narrowing is a 400; one line in the table (values that fit, in full), wrapped in the
   dialog, cleared reads `Not set`; required/duplicate/over-cap validation; sorts by first value;
@@ -554,7 +563,8 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
 - **Server guards:** a page and a successful API response carry the framing, `nosniff` and referrer
   headers; an error keeps Nitro's stricter `DENY`; an oversized body is a 413.
 - **Accessibility:** no serious/critical axe violation on dashboard, table settings, records, record
-  form, filter drawer, the workspace switcher, every workspace settings section and its dialogs,
+  form, filter drawer, the workspace switcher, every workspace settings section and its dialogs, a
+  role's table and field access with a table opened,
   incoming invitations, and at 375px; nothing below 24×24, with the chip remove asserted at exactly 24.
 - **Mobile shell (375×812):** sidebar `visibility: hidden` until opened; `aria-expanded` tracks;
   full-height panel; scrim, navigation and Escape dismiss it, but a dialog opened from it takes the

@@ -302,6 +302,14 @@ could no longer be read off one row. `TABLES_MANAGE` sees every table, since a t
 but not open would be changed blind; their record actions still come from the role. A hidden table
 is a 404, as one outside the workspace.
 
+### A link is seen through the caller's access to its target
+
+A RELATION whose target table the role may not read is hidden like any hidden field; one whose
+target's label field is hidden, or whose target the role reads only in part, loses
+`labelFieldKey` in the field the caller is handed (`toFieldView`), so every label reader falls back
+to numbers without a branch of its own. Rejected: showing such a link as bare record numbers — the
+column would announce a table the role cannot open, and its filter would probe it.
+
 ### A role is compared on its effective access, table by table and field by field
 
 `isAccessWithin` resolves both roles on every table and field of the workspace, as a member holding

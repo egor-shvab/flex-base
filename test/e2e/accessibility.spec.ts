@@ -95,6 +95,14 @@ test.describe('the app screens', () => {
       await page.goto(`${workspaceUrl}/settings/roles`)
       await expect(page.getByRole('button', { name: 'Edit role Viewer' })).toBeVisible()
     },
+    'a role’s table and field access': async (page) => {
+      await page.goto(`${workspaceUrl}/settings/roles`)
+      await page.getByRole('link', { name: 'Table and field access of Viewer' }).click()
+      await page.getByRole('button', { name: 'Set access for Deals' }).click()
+      await expect(page.getByRole('button', { name: 'Close for Deals' })).toBeVisible()
+      await page.getByLabel('Own setting for this table').check()
+      await expect(page.getByRole('button', { name: /^Records they can edit/ })).toHaveCount(2)
+    },
     'the role form': async (page) => {
       await page.goto(`${workspaceUrl}/settings/roles`)
       await page.getByRole('button', { name: 'New role' }).click()
