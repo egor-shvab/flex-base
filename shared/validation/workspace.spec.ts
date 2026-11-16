@@ -21,50 +21,70 @@ describe('workspaceInputSchema', () => {
 })
 
 describe('roleInputSchema', () => {
-  it('accepts a name and a set of known permissions', () => {
+  const readOnly = { readScope: 'ALL', canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' }
+  const role = (overrides: Record<string, unknown>) => ({
+    name: 'Editor',
+    permissions: [],
+    recordDefaults: readOnly,
+    ...overrides,
+  })
+
+  it('accepts a name, a set of known permissions and record defaults', () => {
+    const recordDefaults = { ...readOnly, canCreate: true, updateScope: 'ALL' }
+
     expect(
-      roleInputSchema.parse({
-        name: ' Editor ',
-        permissions: ['RECORDS_CREATE', 'RECORDS_UPDATE'],
-      }),
-    ).toEqual({ name: 'Editor', permissions: ['RECORDS_CREATE', 'RECORDS_UPDATE'] })
+      roleInputSchema.parse(
+        role({ name: ' Editor ', permissions: ['TABLES_MANAGE'], recordDefaults }),
+      ),
+    ).toEqual({ name: 'Editor', permissions: ['TABLES_MANAGE'], recordDefaults })
   })
 
   it('accepts a role with no permissions at all', () => {
-    expect(roleInputSchema.safeParse({ name: 'Viewer', permissions: [] }).success).toBe(true)
+    expect(roleInputSchema.safeParse(role({ name: 'Viewer' })).success).toBe(true)
   })
 
   it('rejects a permission outside the closed list', () => {
-    expect(
-      roleInputSchema.safeParse({ name: 'Root', permissions: ['WORKSPACE_DELETE'] }).success,
-    ).toBe(false)
+    expect(roleInputSchema.safeParse(role({ permissions: ['RECORDS_CREATE'] })).success).toBe(false)
   })
 
   it('rejects a permission listed twice', () => {
-    const result = roleInputSchema.safeParse({
-      name: 'Editor',
-      permissions: ['RECORDS_CREATE', 'RECORDS_CREATE'],
-    })
+    const result = roleInputSchema.safeParse(
+      role({ permissions: ['TABLES_MANAGE', 'TABLES_MANAGE'] }),
+    )
 
     expect(result.success).toBe(false)
     expect(result.error?.issues[0]?.path).toEqual(['permissions'])
   })
 
+  it.each([
+    ['their own records to edit', { updateScope: 'OWN' }],
+    ['their own records to delete', { deleteScope: 'OWN' }],
+    ['a narrower read', { readScope: 'NONE' }],
+  ])('rejects %s until the server enforces it', (_, overrides) => {
+    const result = roleInputSchema.safeParse(
+      role({ recordDefaults: { ...readOnly, ...overrides } }),
+    )
+
+    expect(result.success).toBe(false)
+  })
+
+  it('requires the record defaults, rather than reading their absence as none', () => {
+    expect(roleInputSchema.safeParse(role({ recordDefaults: undefined })).success).toBe(false)
+  })
+
   it.each(['Owner', 'owner', '  OWNER  '])('reserves %j for the workspace owner', (name) => {
-    const result = roleInputSchema.safeParse({ name, permissions: [] })
+    const result = roleInputSchema.safeParse(role({ name }))
 
     expect(result.success).toBe(false)
     expect(result.error?.issues[0]?.path).toEqual(['name'])
   })
 
   it('allows a name that only contains the reserved one', () => {
-    expect(roleInputSchema.safeParse({ name: 'Owners’ assistant', permissions: [] }).success).toBe(
-      true,
-    )
+    expect(roleInputSchema.safeParse(role({ name: 'Owners’ assistant' })).success).toBe(true)
   })
 
   it('requires the permissions, rather than reading their absence as none', () => {
-    expect(roleInputSchema.safeParse({ name: 'Viewer' }).success).toBe(false)
+    expect(roleInputSchema.safeParse(role({ permissions: undefined })).success).toBe(false)
   })
 })
 

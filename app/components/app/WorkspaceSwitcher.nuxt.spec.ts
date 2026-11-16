@@ -9,6 +9,7 @@ import WorkspaceSwitcher from '~/components/app/WorkspaceSwitcher.vue'
 import { useInvitationsStore } from '~/stores/invitations'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { mountTracked, unmountAll } from '~~/test/mount'
+import { buildRecordDefaults } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 const OTHER_WS = 'p7q2w9e4rt'
@@ -24,6 +25,7 @@ function buildMembership(
     memberId: `mem_${publicId}`,
     isOwner: false,
     permissions: [],
+    recordDefaults: buildRecordDefaults(),
     role: { id: 'rol_1', name: 'Editor' },
     workspace: { id: `wsp_${publicId}`, publicId, name, createdAt: '2026-01-01T00:00:00.000Z' },
     ...overrides,

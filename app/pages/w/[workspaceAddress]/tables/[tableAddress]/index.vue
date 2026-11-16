@@ -114,8 +114,8 @@
             :fields="fieldsStore.fields"
             :records="recordsStore.records"
             :sort="queryState.sort"
-            :editable="hasPermission('RECORDS_UPDATE')"
-            :deletable="hasPermission('RECORDS_DELETE')"
+            :editable="hasRecordAction('update')"
+            :deletable="hasRecordAction('delete')"
             @edit="openEditRecord"
             @delete="deleteTarget = $event"
             @sort="applySort"
@@ -208,9 +208,9 @@ const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
 const workspaceAddress = route.params.workspaceAddress as string
 const tableAddress = route.params.tableAddress as string
-const { hasPermission } = useActiveWorkspace()
+const { hasPermission, hasRecordAction } = useActiveWorkspace()
 
-const canCreateRecords = computed(() => hasPermission('RECORDS_CREATE'))
+const canCreateRecords = computed(() => hasRecordAction('create'))
 const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
 
 const {

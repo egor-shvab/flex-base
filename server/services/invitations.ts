@@ -9,16 +9,21 @@ import {
 } from '#server/db/invitations'
 import { prisma } from '#server/db/prisma'
 import { isMissingRow, isUniqueViolation } from '#server/db/prisma-errors'
-import { membershipSelect, toSharedMembership } from '#server/db/workspaces'
+import {
+  membershipSelect,
+  permissionSetSelect,
+  toPermissionSet,
+  toSharedMembership,
+} from '#server/db/workspaces'
 import { RoleService } from '#server/services/roles'
 import { toHttpError } from '#server/utils/http-errors'
 import { INVITATION_TTL_DAYS } from '#shared/constants/workspace'
 import type { IAuthUser } from '#shared/types/auth'
 import type {
   IIncomingInvitation,
+  IPermissionSet,
   IWorkspaceInvitation,
   IWorkspaceMembership,
-  TWorkspacePermission,
 } from '#shared/types/workspace'
 import { canAssignRole } from '#shared/utils/permissions'
 import type { TInvitationInput } from '#shared/validation/workspace'
@@ -123,7 +128,7 @@ async function listIncomingInvitations(user: IAuthUser): Promise<IIncomingInvita
 async function canInviterStillGrant(
   workspaceId: string,
   invitedById: string | null,
-  role: { permissions: TWorkspacePermission[] },
+  role: IPermissionSet,
 ): Promise<boolean> {
   if (invitedById === null) return false
 
@@ -146,14 +151,15 @@ async function acceptInvitation(
       workspaceId: true,
       roleId: true,
       invitedById: true,
-      role: { select: { permissions: true } },
+      role: { select: permissionSetSelect },
     },
   })
   if (!invitation) throw buildNoLongerValidError()
 
   const { workspaceId, roleId } = invitation
 
-  if (!(await canInviterStillGrant(workspaceId, invitation.invitedById, invitation.role))) {
+  const role = toPermissionSet(invitation.role)
+  if (!(await canInviterStillGrant(workspaceId, invitation.invitedById, role))) {
     await prisma.workspaceInvitation.deleteMany({ where: { id: invitationId } })
     throw buildNoLongerValidError()
   }

@@ -1,7 +1,30 @@
-import type { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type {
+  RECORD_ACTIONS,
+  RECORD_SCOPES,
+  WORKSPACE_PERMISSIONS,
+} from '#shared/constants/workspace'
 import type { IUserRef } from '#shared/types/auth'
 
 export type TWorkspacePermission = (typeof WORKSPACE_PERMISSIONS)[number]
+
+/** Which records an action reaches: none, those the member created, or all of them. */
+export type TRecordScope = (typeof RECORD_SCOPES)[number]
+
+export type TRecordAction = (typeof RECORD_ACTIONS)[number]
+
+/** What a member may do with the records of one table. */
+export interface ITableAccess {
+  readScope: TRecordScope
+  canCreate: boolean
+  updateScope: TRecordScope
+  deleteScope: TRecordScope
+}
+
+/** What a role grants: workspace permissions, and record access for every table. */
+export interface IPermissionSet {
+  permissions: readonly TWorkspacePermission[]
+  recordDefaults: ITableAccess
+}
 
 export interface IWorkspace {
   id: string
@@ -11,10 +34,9 @@ export interface IWorkspace {
 }
 
 /** The caller inside one workspace: who they are there and what they may do. */
-export interface IWorkspaceActor {
+export interface IWorkspaceActor extends IPermissionSet {
   memberId: string
   isOwner: boolean
-  permissions: readonly TWorkspacePermission[]
 }
 
 export interface IRoleRef {
@@ -23,16 +45,12 @@ export interface IRoleRef {
 }
 
 /**
- * The caller's place in one workspace. `permissions` is what they may do — every permission for
- * the owner, whatever `role` grants.
+ * The caller's place in one workspace. `permissions` and `recordDefaults` are what they may do —
+ * everything for the owner, whatever `role` grants.
  */
 export interface IWorkspaceMembership extends IWorkspaceActor {
   workspace: IWorkspace
   role: IRoleRef
-}
-
-export interface IPermissionSet {
-  permissions: readonly TWorkspacePermission[]
 }
 
 export interface IWorkspaceRole extends IRoleRef, IPermissionSet {

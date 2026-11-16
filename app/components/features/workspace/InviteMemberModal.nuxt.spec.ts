@@ -4,19 +4,26 @@ import InviteMemberModal from '~/components/features/workspace/InviteMemberModal
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type { IWorkspaceActor, IWorkspaceRole } from '#shared/types/workspace'
 import { mountTracked, unmountAll } from '~~/test/mount'
+import { buildRecordDefaults } from '~~/test/membership'
 
 const ROLES: IWorkspaceRole[] = [
   {
     id: 'rol_admin',
     name: 'Admin',
     permissions: [...WORKSPACE_PERMISSIONS],
+    recordDefaults: buildRecordDefaults({
+      canCreate: true,
+      updateScope: 'ALL',
+      deleteScope: 'ALL',
+    }),
     memberCount: 1,
     updatedAt: '2026-02-11T16:30:00.000Z',
   },
   {
     id: 'rol_editor',
     name: 'Editor',
-    permissions: ['RECORDS_CREATE', 'RECORDS_UPDATE'],
+    permissions: [],
+    recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
     memberCount: 0,
     updatedAt: '2026-02-11T16:30:00.000Z',
   },
@@ -24,6 +31,7 @@ const ROLES: IWorkspaceRole[] = [
     id: 'rol_viewer',
     name: 'Viewer',
     permissions: [],
+    recordDefaults: buildRecordDefaults(),
     memberCount: 0,
     updatedAt: '2026-02-11T16:30:00.000Z',
   },
@@ -32,7 +40,8 @@ const ROLES: IWorkspaceRole[] = [
 const inviter: IWorkspaceActor = {
   memberId: 'mem_1',
   isOwner: false,
-  permissions: ['MEMBERS_INVITE', 'RECORDS_CREATE', 'RECORDS_UPDATE'],
+  permissions: ['MEMBERS_INVITE'],
+  recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
 }
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')!

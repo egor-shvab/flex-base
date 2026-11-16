@@ -284,9 +284,11 @@ the in-use check (409) — no count is read first.
 ### Permissions are a PostgreSQL enum array
 
 `WorkspaceRole.permissions` is `WorkspacePermission[]`. Rejected: a `RolePermission` join table
-(rows for a closed list of eight, and a join on every permission read); JSON (the database stops
+(rows for a short closed list, and a join on every permission read); JSON (the database stops
 checking the values). The list order in `WORKSPACE_PERMISSIONS` is the editor's, and it mirrors the
-Prisma enum.
+Prisma enum. Record actions are not in it: each takes a scope (`NONE`/`OWN`/`ALL`), which a flag in
+an array cannot say, so they are the role's own columns (`readScope`, `canCreate`, `updateScope`,
+`deleteScope`), compared in that order by the anti-escalation rules.
 
 ### A workspace address is random, never a number or a slug
 

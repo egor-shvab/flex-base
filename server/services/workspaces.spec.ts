@@ -210,7 +210,7 @@ describe('WorkspaceService.leaveWorkspace', () => {
   it('ends the caller’s own membership', async () => {
     prismaMock.workspaceMember.delete.mockResolvedValue({ id: 'mem_actor' })
 
-    await WorkspaceService.leaveWorkspace(buildMembership(['RECORDS_CREATE']))
+    await WorkspaceService.leaveWorkspace(buildMembership(['TABLES_MANAGE']))
 
     expect(prismaMock.workspaceMember.delete).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'mem_actor' } }),
@@ -228,7 +228,7 @@ describe('WorkspaceService.leaveWorkspace', () => {
     prismaMock.workspaceMember.delete.mockRejectedValue(knownError('P2025'))
 
     await expect(
-      WorkspaceService.leaveWorkspace(buildMembership(['RECORDS_CREATE'])),
+      WorkspaceService.leaveWorkspace(buildMembership(['TABLES_MANAGE'])),
     ).rejects.toMatchObject({ statusCode: 404, data: { missing: 'workspace' } })
   })
 })

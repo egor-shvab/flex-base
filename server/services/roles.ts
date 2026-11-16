@@ -1,6 +1,13 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
-import { buildRoleWhere, roleSelect, toSharedRole } from '#server/db/workspaces'
+import {
+  buildPermissionSetWhere,
+  buildRoleWhere,
+  permissionSetSelect,
+  roleSelect,
+  toPermissionSet,
+  toSharedRole,
+} from '#server/db/workspaces'
 import { isForeignKeyViolation, isMissingRow } from '#server/db/prisma-errors'
 import {
   buildChangedMeanwhileError,
@@ -39,12 +46,12 @@ async function listRoles(workspaceId: string): Promise<IWorkspaceRole[]> {
 async function getRole(workspaceId: string, roleId: string): Promise<IPermissionSet> {
   const role = await prisma.workspaceRole.findUnique({
     where: buildRoleWhere(workspaceId, roleId),
-    select: { permissions: true },
+    select: permissionSetSelect,
   })
 
   if (!role) throw createError({ statusCode: 404, statusMessage: roleErrors.notFound })
 
-  return role
+  return toPermissionSet(role)
 }
 
 /** A role of the actor's workspace they may hand out: to a member, or in an invitation. */
@@ -64,7 +71,7 @@ async function requireAssignableRole(actor: IWorkspaceMembership, roleId: string
  * It bounds the list a page renders, which one extra role does not break.
  */
 async function createRole(actor: IWorkspaceMembership, input: TRoleInput): Promise<IWorkspaceRole> {
-  if (!canCreateRole(actor, input.permissions)) throw buildEscalationError()
+  if (!canCreateRole(actor, input)) throw buildEscalationError()
 
   const workspaceId = actor.workspace.id
   const roleCount = await prisma.workspaceRole.count({ where: { workspaceId } })
@@ -79,7 +86,7 @@ async function createRole(actor: IWorkspaceMembership, input: TRoleInput): Promi
   try {
     return toSharedRole(
       await prisma.workspaceRole.create({
-        data: { workspaceId, name: input.name, permissions: input.permissions },
+        data: { workspaceId, ...toRoleData(input) },
         select: roleSelect,
       }),
     )
@@ -96,7 +103,7 @@ async function updateRole(
   expectedUpdatedAt?: Date,
 ): Promise<IWorkspaceRole> {
   const role = await getRole(actor.workspace.id, roleId)
-  if (!canEditRole(actor, role, input.permissions)) throw buildEscalationError()
+  if (!canEditRole(actor, role, input)) throw buildEscalationError()
 
   const where = buildRoleWhere(actor.workspace.id, roleId)
 
@@ -107,7 +114,7 @@ async function updateRole(
           ...buildGuardedRoleWhere(where, role),
           ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
         },
-        data: { name: input.name, permissions: input.permissions },
+        data: toRoleData(input),
         select: roleSelect,
       }),
     )
@@ -116,12 +123,16 @@ async function updateRole(
   }
 }
 
-/** The permissions the decision read are repeated in the write, as for a member's role. */
+/** The grants the decision read are repeated in the write, as for a member's role. */
 function buildGuardedRoleWhere(
   where: ReturnType<typeof buildRoleWhere>,
   role: IPermissionSet,
 ): ReturnType<typeof buildRoleWhere> {
-  return { ...where, permissions: { equals: [...role.permissions] } }
+  return { ...where, ...buildPermissionSetWhere(role) }
+}
+
+function toRoleData(input: TRoleInput) {
+  return { name: input.name, permissions: input.permissions, ...input.recordDefaults }
 }
 
 /** A miss on a role still there: stale in the form (412), or changed under the check (409). */

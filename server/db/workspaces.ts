@@ -2,27 +2,36 @@ import type { Prisma } from '#server/generated/prisma/client'
 import { isUniqueViolationOn } from '#server/db/prisma-errors'
 import { userRefSelect } from '#server/db/users'
 import { buildPublicId } from '#server/utils/public-id'
-import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
+  IPermissionSet,
+  ITableAccess,
   IWorkspace,
   IWorkspaceMember,
   IWorkspaceMembership,
   IWorkspaceRole,
-  TWorkspacePermission,
 } from '#shared/types/workspace'
 
 export const PERSONAL_WORKSPACE_NAME = 'Personal workspace'
 
-interface IDefaultRole {
+interface IDefaultRole extends IPermissionSet {
   name: string
-  permissions: readonly TWorkspacePermission[]
 }
 
 /** The first is the owner's: they keep it after handing the workspace over. */
 export const DEFAULT_WORKSPACE_ROLES = [
-  { name: 'Admin', permissions: WORKSPACE_PERMISSIONS },
-  { name: 'Editor', permissions: ['RECORDS_CREATE', 'RECORDS_UPDATE', 'RECORDS_DELETE'] },
-  { name: 'Viewer', permissions: [] },
+  { name: 'Admin', permissions: WORKSPACE_PERMISSIONS, recordDefaults: FULL_TABLE_ACCESS },
+  { name: 'Editor', permissions: [], recordDefaults: FULL_TABLE_ACCESS },
+  {
+    name: 'Viewer',
+    permissions: [],
+    recordDefaults: {
+      readScope: 'ALL',
+      canCreate: false,
+      updateScope: 'NONE',
+      deleteScope: 'NONE',
+    },
+  },
 ] as const satisfies readonly IDefaultRole[]
 
 const PUBLIC_ID_ATTEMPTS = 3
@@ -34,16 +43,25 @@ export const workspaceSelect = {
   createdAt: true,
 } satisfies Prisma.WorkspaceSelect
 
+/** What a role grants, in the columns `toPermissionSet` reads and `buildPermissionSetWhere` guards. */
+export const permissionSetSelect = {
+  permissions: true,
+  readScope: true,
+  canCreate: true,
+  updateScope: true,
+  deleteScope: true,
+} satisfies Prisma.WorkspaceRoleSelect
+
 export const membershipSelect = {
   id: true,
-  role: { select: { id: true, name: true, permissions: true } },
+  role: { select: { id: true, name: true, ...permissionSetSelect } },
   workspace: { select: { ...workspaceSelect, ownerId: true } },
 } satisfies Prisma.WorkspaceMemberSelect
 
 export const roleSelect = {
   id: true,
   name: true,
-  permissions: true,
+  ...permissionSetSelect,
   updatedAt: true,
   _count: { select: { members: true } },
 } satisfies Prisma.WorkspaceRoleSelect
@@ -53,10 +71,11 @@ export const memberSelect = {
   userId: true,
   createdAt: true,
   user: { select: { ...userRefSelect, email: true } },
-  role: { select: { id: true, name: true, permissions: true } },
+  role: { select: { id: true, name: true, ...permissionSetSelect } },
   workspace: { select: { ownerId: true } },
 } satisfies Prisma.WorkspaceMemberSelect
 
+type TPermissionSetRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof permissionSetSelect }>
 export type TWorkspaceRow = Prisma.WorkspaceGetPayload<{ select: typeof workspaceSelect }>
 export type TMembershipRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof membershipSelect }>
 export type TRoleRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof roleSelect }>
@@ -77,6 +96,24 @@ export function buildRoleWhere(
   return { workspaceId_id: { workspaceId, id: roleId } }
 }
 
+function toTableAccess(row: TPermissionSetRow): ITableAccess {
+  return {
+    readScope: row.readScope,
+    canCreate: row.canCreate,
+    updateScope: row.updateScope,
+    deleteScope: row.deleteScope,
+  }
+}
+
+export function toPermissionSet(row: TPermissionSetRow): IPermissionSet {
+  return { permissions: row.permissions, recordDefaults: toTableAccess(row) }
+}
+
+/** The role's grants as read, repeated in a guarded write so it lands only if they still hold. */
+export function buildPermissionSetWhere(set: IPermissionSet) {
+  return { permissions: { equals: [...set.permissions] }, ...set.recordDefaults }
+}
+
 export function toSharedWorkspace(row: TWorkspaceRow): IWorkspace {
   return {
     id: row.id,
@@ -93,6 +130,7 @@ export function toSharedMembership(row: TMembershipRow, userId: string): IWorksp
     memberId: row.id,
     isOwner,
     permissions: isOwner ? [...WORKSPACE_PERMISSIONS] : row.role.permissions,
+    recordDefaults: isOwner ? FULL_TABLE_ACCESS : toTableAccess(row.role),
     workspace: toSharedWorkspace(row.workspace),
     role: { id: row.role.id, name: row.role.name },
   }
@@ -102,7 +140,7 @@ export function toSharedRole(row: TRoleRow): IWorkspaceRole {
   return {
     id: row.id,
     name: row.name,
-    permissions: row.permissions,
+    ...toPermissionSet(row),
     memberCount: row._count.members,
     updatedAt: row.updatedAt.toISOString(),
   }
@@ -114,7 +152,7 @@ export function toSharedMember(row: TMemberRow): IWorkspaceMember {
     isOwner: row.workspace.ownerId === row.userId,
     user: { id: row.user.id, name: row.user.name },
     email: row.user.email,
-    role: row.role,
+    role: { id: row.role.id, name: row.role.name, ...toPermissionSet(row.role) },
     joinedAt: row.createdAt.toISOString(),
   }
 }
@@ -136,6 +174,7 @@ export async function createWorkspaceWithDefaults(
         create: DEFAULT_WORKSPACE_ROLES.map((role) => ({
           name: role.name,
           permissions: [...role.permissions],
+          ...role.recordDefaults,
         })),
       },
     },

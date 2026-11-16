@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
 import { useForm } from '~/composables/useForm'
-import { buildAssignableRoleOptions } from '~/utils/workspace-permissions'
+import { buildAssignableRoleOptions, toGrantCount } from '~/utils/workspace-permissions'
 import { INVITATION_TTL_DAYS } from '#shared/constants/workspace'
 import type { IWorkspaceActor, IWorkspaceRole } from '#shared/types/workspace'
 import { canAssignRole } from '#shared/utils/permissions'
@@ -64,7 +64,7 @@ const roleOptions = computed(() => buildAssignableRoleOptions(props.actor, props
 function findNarrowestRoleId(): string {
   const assignable = props.roles.filter((role) => canAssignRole(props.actor, role))
   const narrowest = assignable.reduce<IWorkspaceRole | undefined>(
-    (best, role) => (!best || role.permissions.length < best.permissions.length ? role : best),
+    (best, role) => (!best || toGrantCount(role) < toGrantCount(best) ? role : best),
     undefined,
   )
   return narrowest?.id ?? ''

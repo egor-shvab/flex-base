@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { assertAccess, requireMembership } from '#server/utils/workspace-access'
-import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { IWorkspaceMembership } from '#shared/types/workspace'
+import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
+import { buildPermissionSetRow, buildRecordDefaults } from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
 vi.mock('#server/db/prisma', async () => ({
@@ -11,10 +12,12 @@ vi.mock('#server/db/prisma', async () => ({
 const USER_ID = 'usr_ada'
 const ADDRESS = 'k3f9x2m8qa'
 
-function memberRow(ownerId = 'usr_owner', permissions: string[] = ['RECORDS_CREATE']) {
+const CREATE = { canCreate: true } as const
+
+function memberRow(ownerId = 'usr_owner', records: Partial<ITableAccess> = CREATE) {
   return {
     id: 'mem_1',
-    role: { id: 'rol_1', name: 'Editor', permissions },
+    role: { id: 'rol_1', name: 'Editor', ...buildPermissionSetRow(['TABLES_MANAGE'], records) },
     workspace: {
       id: 'wsp_1',
       publicId: ADDRESS,
@@ -29,7 +32,8 @@ function membership(overrides: Partial<IWorkspaceMembership> = {}): IWorkspaceMe
   return {
     memberId: 'mem_1',
     isOwner: false,
-    permissions: ['RECORDS_CREATE'],
+    permissions: ['TABLES_MANAGE'],
+    recordDefaults: buildRecordDefaults(CREATE),
     workspace: { id: 'wsp_1', publicId: ADDRESS, name: 'Acme', createdAt: '' },
     role: { id: 'rol_1', name: 'Editor' },
     ...overrides,
@@ -72,25 +76,27 @@ describe('requireMembership', () => {
     })
   })
 
-  it('reads a member’s permissions off their role', async () => {
+  it('reads a member’s permissions and record defaults off their role', async () => {
     prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow())
 
     await expect(requireMembership(USER_ID, ADDRESS)).resolves.toMatchObject({
       memberId: 'mem_1',
       isOwner: false,
-      permissions: ['RECORDS_CREATE'],
+      permissions: ['TABLES_MANAGE'],
+      recordDefaults: buildRecordDefaults(CREATE),
       role: { id: 'rol_1', name: 'Editor' },
       workspace: { id: 'wsp_1', publicId: ADDRESS, createdAt: '2026-01-05T09:14:00.000Z' },
     })
   })
 
-  it('gives the owner every permission, whatever their role grants', async () => {
-    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(USER_ID, []))
+  it('gives the owner everything, whatever their role grants', async () => {
+    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(USER_ID, {}))
 
     const result = await requireMembership(USER_ID, ADDRESS)
 
     expect(result.isOwner).toBe(true)
     expect(result.permissions).toEqual([...WORKSPACE_PERMISSIONS])
+    expect(result.recordDefaults).toEqual(FULL_TABLE_ACCESS)
   })
 })
 
@@ -100,16 +106,31 @@ describe('assertAccess', () => {
   })
 
   it('lets a member through with the permission', () => {
-    expect(() => assertAccess(membership(), 'RECORDS_CREATE')).not.toThrow()
+    expect(() => assertAccess(membership(), 'TABLES_MANAGE')).not.toThrow()
   })
 
   it('403s a member without it, naming what they tried', () => {
-    expect(() => assertAccess(membership(), 'RECORDS_DELETE')).toThrow(
+    expect(() => assertAccess(membership(), 'ROLES_MANAGE')).toThrow(
       expect.objectContaining({
         statusCode: 403,
-        statusMessage: "You don't have permission to delete records",
+        statusMessage: "You don't have permission to manage the roles of this workspace",
       }),
     )
+  })
+
+  it.each([
+    ['RECORDS_CREATE', { canCreate: true }],
+    ['RECORDS_UPDATE', { updateScope: 'ALL' }],
+    ['RECORDS_DELETE', { deleteScope: 'ALL' }],
+  ] as const)('reads %s off the record defaults, not the permissions', (access, records) => {
+    const granted = membership({ permissions: [], recordDefaults: buildRecordDefaults(records) })
+    const denied = membership({
+      permissions: [...WORKSPACE_PERMISSIONS],
+      recordDefaults: buildRecordDefaults(),
+    })
+
+    expect(() => assertAccess(granted, access)).not.toThrow()
+    expect(() => assertAccess(denied, access)).toThrow(expect.objectContaining({ statusCode: 403 }))
   })
 
   it('lets the owner through on everything', () => {

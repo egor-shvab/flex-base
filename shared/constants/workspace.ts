@@ -1,3 +1,5 @@
+import type { ITableAccess } from '#shared/types/workspace'
+
 /** In the order a role editor lists them. Mirrors the Prisma `WorkspacePermission` enum. */
 export const WORKSPACE_PERMISSIONS = [
   'WORKSPACE_UPDATE',
@@ -5,10 +7,21 @@ export const WORKSPACE_PERMISSIONS = [
   'MEMBERS_MANAGE',
   'ROLES_MANAGE',
   'TABLES_MANAGE',
-  'RECORDS_CREATE',
-  'RECORDS_UPDATE',
-  'RECORDS_DELETE',
 ] as const
+
+/** Narrowest first: the order comparisons use. Mirrors the Prisma `RecordScope` enum. */
+export const RECORD_SCOPES = ['NONE', 'OWN', 'ALL'] as const
+
+/** What a member may do to a record beyond reading it, in the order a role editor lists them. */
+export const RECORD_ACTIONS = ['create', 'update', 'delete'] as const
+
+/** The owner's, whatever their role says. */
+export const FULL_TABLE_ACCESS: ITableAccess = {
+  readScope: 'ALL',
+  canCreate: true,
+  updateScope: 'ALL',
+  deleteScope: 'ALL',
+}
 
 export const WORKSPACE_ADDRESS_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789'
 

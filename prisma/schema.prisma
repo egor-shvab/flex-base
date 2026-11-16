@@ -22,9 +22,17 @@ enum WorkspacePermission {
   MEMBERS_MANAGE
   ROLES_MANAGE
   TABLES_MANAGE
-  RECORDS_CREATE
-  RECORDS_UPDATE
-  RECORDS_DELETE
+}
+
+enum RecordScope {
+  NONE
+  OWN
+  ALL
+}
+
+enum FieldAccess {
+  HIDDEN
+  READ
 }
 
 model User {
@@ -75,12 +83,19 @@ model WorkspaceRole {
   workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   name        String
   permissions WorkspacePermission[]
+  // What the role may do with the records of a table it has no `RoleTableAccess` row for
+  readScope   RecordScope           @default(ALL)
+  canCreate   Boolean               @default(false)
+  updateScope RecordScope           @default(NONE)
+  deleteScope RecordScope           @default(NONE)
   createdAt   DateTime              @default(now())
   // The version an edit form sends back as `If-Match`
   updatedAt   DateTime              @default(now()) @updatedAt
 
   members     WorkspaceMember[]
   invitations WorkspaceInvitation[]
+  tableAccess RoleTableAccess[]
+  fieldAccess RoleFieldAccess[]
 
   @@unique([workspaceId, name])
   // The target of `WorkspaceMember`'s role key, which carries the workspace too
@@ -135,13 +150,16 @@ model Table {
   recordCounter Int @default(0)
   recordCount   Int @default(0)
 
-  fields    Field[]
-  records   Record[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  fields     Field[]
+  records    Record[]
+  roleAccess RoleTableAccess[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
   @@unique([workspaceId, name])
   @@unique([workspaceId, number])
+  // The target of `RoleTableAccess`'s table key, which carries the workspace too
+  @@unique([workspaceId, id])
 }
 
 model Field {
@@ -156,6 +174,8 @@ model Field {
   order    Int       @default(0)
 
   indexed Boolean @default(false)
+
+  roleAccess RoleFieldAccess[]
 
   createdAt DateTime @default(now())
   // The version an edit form sends back as `If-Match`
@@ -183,4 +203,39 @@ model Record {
   // The (tableId, createdAt) index stays: the default newest-first order cannot use this one
   @@unique([tableId, number])
   @@index([tableId, createdAt, number])
+  // A role that may read or change only its own records filters on it
+  @@index([tableId, createdById])
+}
+
+/**
+ * A table set apart from the role's defaults: the row replaces them whole, never flag by flag.
+ */
+model RoleTableAccess {
+  workspaceId String
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: Cascade)
+  tableId     String
+  table       Table         @relation(fields: [workspaceId, tableId], references: [workspaceId, id], onDelete: Cascade)
+  readScope   RecordScope
+  canCreate   Boolean
+  updateScope RecordScope
+  deleteScope RecordScope
+
+  @@id([roleId, tableId])
+  @@index([tableId])
+}
+
+/**
+ * A field narrowed for a role; without a row it follows the table. `Field` has no workspace column.
+ */
+model RoleFieldAccess {
+  workspaceId String
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: Cascade)
+  fieldId     String
+  field       Field         @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  access      FieldAccess
+
+  @@id([roleId, fieldId])
+  @@index([fieldId])
 }

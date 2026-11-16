@@ -8,6 +8,7 @@ import { useNuxtApp } from '#imports'
 import TransferOwnershipModal from '~/components/features/workspace/TransferOwnershipModal.vue'
 import type { IWorkspaceMember } from '#shared/types/workspace'
 import { mountTracked, unmountAll } from '~~/test/mount'
+import { buildRecordDefaults } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 const LONELY_WS = 'l0n3lyw0rk'
@@ -18,7 +19,12 @@ const buildMember = (id: string, name: string, isOwner = false): IWorkspaceMembe
   isOwner,
   user: { id: `usr_${id}`, name },
   email: `${name.toLowerCase()}@example.com`,
-  role: { id: 'rol_editor', name: isOwner ? 'Admin' : 'Editor', permissions: [] },
+  role: {
+    id: 'rol_editor',
+    name: isOwner ? 'Admin' : 'Editor',
+    permissions: [],
+    recordDefaults: buildRecordDefaults(),
+  },
   joinedAt: '2026-02-01T10:00:00.000Z',
 })
 

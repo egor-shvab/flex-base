@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
 import { InvitationService, MAX_PENDING_INVITATIONS } from '#server/services/invitations'
 import type { IAuthUser } from '#shared/types/auth'
-import { buildMembership, MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID } from '~~/test/membership'
+import {
+  buildMembership,
+  buildPermissionSetRow as setRow,
+  buildRecordDefaults,
+  MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID,
+} from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
 vi.mock('#server/db/prisma', async () => ({
@@ -14,7 +19,9 @@ const IN_A_WEEK = new Date('2026-03-08T12:00:00.000Z')
 const INVITATION_ID = 'inv_1'
 const ROLE_ID = 'rol_clerk'
 
-const inviter = buildMembership(['MEMBERS_INVITE', 'RECORDS_CREATE'])
+const CREATE = { canCreate: true } as const
+
+const inviter = buildMembership(['MEMBERS_INVITE'], { recordDefaults: buildRecordDefaults(CREATE) })
 const invitee: IAuthUser = { id: 'usr_grace', email: 'Grace@Example.com', name: 'Grace' }
 
 const invitationRow = (expiresAt = IN_A_WEEK) => ({
@@ -27,7 +34,7 @@ const invitationRow = (expiresAt = IN_A_WEEK) => ({
 
 const membershipRow = {
   id: 'mem_grace',
-  role: { id: ROLE_ID, name: 'Clerk', permissions: ['RECORDS_CREATE'] },
+  role: { id: ROLE_ID, name: 'Clerk', ...setRow([], CREATE) },
   workspace: {
     id: WORKSPACE_ID,
     publicId: 'k3f9x2m8qa',
@@ -81,7 +88,7 @@ describe('InvitationService.createInvitation', () => {
   const input = { email: 'grace@example.com', roleId: ROLE_ID }
 
   beforeEach(() => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['RECORDS_CREATE'] })
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], CREATE))
     prismaMock.workspaceMember.findFirst.mockResolvedValue(null)
     prismaMock.workspaceInvitation.count.mockResolvedValue(0)
     prismaMock.workspaceInvitation.upsert.mockResolvedValue(invitationRow())
@@ -103,7 +110,7 @@ describe('InvitationService.createInvitation', () => {
   })
 
   it('refuses a role granting more than the inviter holds, before anything else', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['TABLES_MANAGE'] })
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow(['TABLES_MANAGE']))
 
     await expect(
       InvitationService.createInvitation(inviter, 'usr_ada', input),
@@ -201,7 +208,7 @@ describe('InvitationService.acceptInvitation', () => {
       workspaceId: WORKSPACE_ID,
       roleId: ROLE_ID,
       invitedById: 'usr_ada',
-      role: { permissions: ['RECORDS_CREATE'] },
+      role: setRow([], CREATE),
     })
     // The inviter, Ada, owns the workspace: she may grant any role
     prismaMock.workspaceMember.findFirst.mockResolvedValue({ ...membershipRow, id: 'mem_ada' })
@@ -238,7 +245,7 @@ describe('InvitationService.acceptInvitation', () => {
       prismaMock.workspaceMember.findFirst.mockResolvedValue({
         ...membershipRow,
         id: 'mem_bob',
-        role: { id: 'rol_viewer', name: 'Viewer', permissions: [] },
+        role: { id: 'rol_viewer', name: 'Viewer', ...setRow() },
         workspace: { ...membershipRow.workspace, ownerId: 'usr_someone_else' },
       })
       prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
@@ -256,7 +263,7 @@ describe('InvitationService.acceptInvitation', () => {
         workspaceId: WORKSPACE_ID,
         roleId: ROLE_ID,
         invitedById: null,
-        role: { permissions: [] },
+        role: setRow(),
       })
       prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
 
@@ -273,7 +280,8 @@ describe('InvitationService.acceptInvitation', () => {
       {
         memberId: 'mem_grace',
         isOwner: false,
-        permissions: ['RECORDS_CREATE'],
+        permissions: [],
+        recordDefaults: buildRecordDefaults(CREATE),
       },
     )
 

@@ -10,6 +10,7 @@ import type {
 import { useAuthStore } from '~/stores/auth'
 import { useInvitationsStore } from '~/stores/invitations'
 import { useWorkspacesStore } from '~/stores/workspaces'
+import { buildRecordDefaults } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 const JOINED_WS = 'j0in3dw0rk'
@@ -34,7 +35,8 @@ const buildIncoming = (id: string, workspaceName: string): IIncomingInvitation =
 const joined: IWorkspaceMembership = {
   memberId: 'mem_new',
   isOwner: false,
-  permissions: ['RECORDS_CREATE'],
+  permissions: [],
+  recordDefaults: buildRecordDefaults({ canCreate: true }),
   role: { id: 'rol_editor', name: 'Editor' },
   workspace: {
     id: 'wsp_j',

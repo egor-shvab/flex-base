@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { IWorkspaceMembership, IWorkspaceRole } from '#shared/types/workspace'
 import { useRolesStore } from '~/stores/roles'
 import { useWorkspacesStore } from '~/stores/workspaces'
+import { buildRecordDefaults, buildRoleInput } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 const OTHER_WS = 'p7q2w9e4rt'
@@ -13,6 +14,7 @@ const buildRole = (id: string, name: string, memberCount = 0): IWorkspaceRole =>
   id,
   name,
   permissions: [],
+  recordDefaults: buildRecordDefaults(),
   memberCount,
   updatedAt: '2026-02-11T16:30:00.000Z',
 })
@@ -21,6 +23,7 @@ const membership: IWorkspaceMembership = {
   memberId: 'mem_1',
   isOwner: false,
   permissions: ['ROLES_MANAGE'],
+  recordDefaults: buildRecordDefaults(),
   role: { id: 'rol_mine', name: 'Manager' },
   workspace: { id: 'wsp_1', publicId: WS, name: 'Acme', createdAt: '2026-01-01T00:00:00.000Z' },
 }
@@ -86,8 +89,8 @@ describe('useRolesStore', () => {
     const store = useRolesStore()
     await store.fetchRoles(WS)
 
-    await store.createRole(WS, { name: 'Clerk', permissions: ['RECORDS_CREATE'] })
-    await store.updateRole(WS, buildRole('rol_2', 'Editor'), { name: 'Reader', permissions: [] })
+    await store.createRole(WS, buildRoleInput('Clerk', [], { canCreate: true }))
+    await store.updateRole(WS, buildRole('rol_2', 'Editor'), buildRoleInput('Reader'))
     expect(store.roles.map((role) => role.name)).toEqual(['Manager', 'Reader', 'Clerk'])
 
     await store.deleteRole(WS, 'rol_2')
@@ -98,7 +101,7 @@ describe('useRolesStore', () => {
     const store = useRolesStore()
     await store.fetchRoles(OTHER_WS)
 
-    await store.createRole(WS, { name: 'Clerk', permissions: [] })
+    await store.createRole(WS, buildRoleInput('Clerk'))
 
     expect(store.roles.map((role) => role.name)).toEqual(['Elsewhere'])
   })
@@ -107,10 +110,10 @@ describe('useRolesStore', () => {
     const store = useRolesStore()
     await store.fetchRoles(WS)
 
-    await store.updateRole(WS, buildRole('rol_2', 'Editor'), { name: 'Reader', permissions: [] })
+    await store.updateRole(WS, buildRole('rol_2', 'Editor'), buildRoleInput('Reader'))
     expect(membershipRequests).toBe(0)
 
-    await store.updateRole(WS, buildRole('rol_mine', 'Mine'), { name: 'Lead', permissions: [] })
+    await store.updateRole(WS, buildRole('rol_mine', 'Mine'), buildRoleInput('Lead'))
     expect(membershipRequests).toBe(1)
     expect(useWorkspacesStore().findMembership(WS)?.role.name).toBe('Lead')
   })

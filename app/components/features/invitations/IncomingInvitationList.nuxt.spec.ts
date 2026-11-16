@@ -10,6 +10,7 @@ import { useInvitationsStore } from '~/stores/invitations'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import type { IIncomingInvitation, IWorkspaceMembership } from '#shared/types/workspace'
 import { mountTracked, unmountAll } from '~~/test/mount'
+import { buildRecordDefaults } from '~~/test/membership'
 
 const JOINED_WS = 'j0in3dw0rk'
 
@@ -32,6 +33,7 @@ const joined: IWorkspaceMembership = {
   memberId: 'mem_new',
   isOwner: false,
   permissions: [],
+  recordDefaults: buildRecordDefaults(),
   role: { id: 'rol_editor', name: 'Editor' },
   workspace: { id: 'wsp_j', publicId: JOINED_WS, name: 'Acme', createdAt: '2026-01-01T00:00:00Z' },
 }

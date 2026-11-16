@@ -39,6 +39,7 @@ import tablesPost from '#server/api/workspaces/[workspaceAddress]/tables/index.p
 import { prisma } from '#server/db/prisma'
 import type { TWorkspaceAccess } from '#server/utils/workspace-access'
 import { testEvent } from '~~/test/integration/event'
+import { buildRoleInput } from '~~/test/membership'
 import {
   addMember,
   createField,
@@ -212,7 +213,7 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       handler: rolesPost,
       access: 'ROLES_MANAGE',
       params: workspaceParams,
-      body: { name: 'Clerk', permissions: [] },
+      body: buildRoleInput('Clerk'),
       method: 'POST',
     },
     {
@@ -220,7 +221,7 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       handler: rolePatch,
       access: 'ROLES_MANAGE',
       params: roleParams,
-      body: { name: 'Viewer', permissions: [] },
+      body: buildRoleInput('Viewer'),
       method: 'PATCH',
     },
     {
@@ -483,7 +484,8 @@ describe('a member who manages roles stays within their own permissions', () => 
       data: {
         workspaceId: world.ada.workspace.id,
         name: 'Manager',
-        permissions: ['ROLES_MANAGE', 'RECORDS_CREATE'],
+        permissions: ['ROLES_MANAGE'],
+        canCreate: true,
       },
     })
     await addMember(world.ada.workspace.id, world.mallory.id, 'Manager')
@@ -505,32 +507,34 @@ describe('a member who manages roles stays within their own permissions', () => 
       })
     ).id
 
-  it('creates a role from permissions they hold', async () => {
+  it('creates a role from what they hold', async () => {
     await expect(
-      rolesPost(roleEvent('POST', { name: 'Clerk', permissions: ['RECORDS_CREATE'] })),
+      rolesPost(roleEvent('POST', buildRoleInput('Clerk', [], { canCreate: true }))),
     ).resolves.toMatchObject({ role: { name: 'Clerk' } })
   })
 
-  it('cannot create a role granting more than they hold', async () => {
-    await expect(
-      rolesPost(roleEvent('POST', { name: 'Boss', permissions: ['TABLES_MANAGE'] })),
-    ).rejects.toMatchObject({ statusCode: 403 })
+  it.each([
+    ['a permission', buildRoleInput('Boss', ['TABLES_MANAGE'])],
+    ['a record action', buildRoleInput('Boss', [], { deleteScope: 'ALL' })],
+  ])('cannot create a role granting %s they lack', async (_, body) => {
+    await expect(rolesPost(roleEvent('POST', body))).rejects.toMatchObject({ statusCode: 403 })
     await expect(prisma.workspaceRole.findFirst({ where: { name: 'Boss' } })).resolves.toBeNull()
   })
 
-  it('cannot raise a role they could edit above themselves', async () => {
-    await expect(
-      rolePatch(
-        roleEvent('PATCH', { name: 'Viewer', permissions: ['MEMBERS_MANAGE'] }, world.viewerRoleId),
-      ),
-    ).rejects.toMatchObject({ statusCode: 403 })
+  it.each([
+    ['a permission', buildRoleInput('Viewer', ['MEMBERS_MANAGE'])],
+    ['a record action', buildRoleInput('Viewer', [], { updateScope: 'ALL' })],
+  ])('cannot raise a role they could edit above themselves by %s', async (_, body) => {
+    await expect(rolePatch(roleEvent('PATCH', body, world.viewerRoleId))).rejects.toMatchObject({
+      statusCode: 403,
+    })
   })
 
   it('cannot change or delete a role above them', async () => {
     const adminId = await adminRoleId()
 
     await expect(
-      rolePatch(roleEvent('PATCH', { name: 'Admin', permissions: [] }, adminId)),
+      rolePatch(roleEvent('PATCH', buildRoleInput('Admin'), adminId)),
     ).rejects.toMatchObject({ statusCode: 403 })
     await expect(roleDelete(roleEvent('DELETE', undefined, adminId))).rejects.toMatchObject({
       statusCode: 403,
@@ -547,7 +551,8 @@ describe('a member who manages members stays within their own permissions', () =
       data: {
         workspaceId: world.ada.workspace.id,
         name: 'Manager',
-        permissions: ['MEMBERS_INVITE', 'MEMBERS_MANAGE', 'RECORDS_CREATE'],
+        permissions: ['MEMBERS_INVITE', 'MEMBERS_MANAGE'],
+        canCreate: true,
       },
     })
     await addMember(world.ada.workspace.id, world.mallory.id, 'Manager')
@@ -654,7 +659,8 @@ describe('the workspaces a user sees', () => {
       workspace: { publicId: adaWorkspace() },
       isOwner: false,
       role: { name: 'Editor' },
-      permissions: ['RECORDS_CREATE', 'RECORDS_UPDATE', 'RECORDS_DELETE'],
+      permissions: [],
+      recordDefaults: { readScope: 'ALL', canCreate: true, updateScope: 'ALL', deleteScope: 'ALL' },
     })
   })
 

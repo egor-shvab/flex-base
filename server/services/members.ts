@@ -1,6 +1,12 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
-import { memberSelect, toSharedMember, type TMemberRow } from '#server/db/workspaces'
+import {
+  buildPermissionSetWhere,
+  memberSelect,
+  toPermissionSet,
+  toSharedMember,
+  type TMemberRow,
+} from '#server/db/workspaces'
 import { RoleService } from '#server/services/roles'
 import { isMissingRow } from '#server/db/prisma-errors'
 import { buildChangedMeanwhileError, toHttpError } from '#server/utils/http-errors'
@@ -55,7 +61,7 @@ function buildManagedMemberWhere(actor: IWorkspaceMembership, row: TMemberRow) {
     id: row.id,
     workspaceId: actor.workspace.id,
     roleId: row.role.id,
-    role: { permissions: { equals: row.role.permissions } },
+    role: buildPermissionSetWhere(toPermissionSet(row.role)),
   }
 }
 

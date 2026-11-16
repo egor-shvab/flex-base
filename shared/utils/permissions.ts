@@ -1,7 +1,11 @@
+import { RECORD_SCOPES } from '#shared/constants/workspace'
 import type {
   IManagedMember,
   IPermissionSet,
+  ITableAccess,
   IWorkspaceActor,
+  TRecordAction,
+  TRecordScope,
   TWorkspacePermission,
 } from '#shared/types/workspace'
 
@@ -11,10 +15,17 @@ import type {
  * `ROLES_MANAGE`, …) is checked before it.
  */
 
-type TPermissionHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions'>
+type TPermissionHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions' | 'recordDefaults'>
 
 export function hasPermission(actor: TPermissionHolder, permission: TWorkspacePermission): boolean {
   return actor.isOwner || actor.permissions.includes(permission)
+}
+
+/** Whether `access` allows the action on at least some records. */
+export function hasRecordAction(access: ITableAccess, action: TRecordAction): boolean {
+  if (action === 'create') return access.canCreate
+
+  return (action === 'update' ? access.updateScope : access.deleteScope) !== 'NONE'
 }
 
 export function isPermissionSubset(
@@ -24,35 +35,43 @@ export function isPermissionSubset(
   return subset.every((permission) => of.includes(permission))
 }
 
-function isWithinActor(
-  actor: TPermissionHolder,
-  permissions: readonly TWorkspacePermission[],
-): boolean {
-  return actor.isOwner || isPermissionSubset(permissions, actor.permissions)
+export function isScopeWithin(scope: TRecordScope, of: TRecordScope): boolean {
+  return RECORD_SCOPES.indexOf(scope) <= RECORD_SCOPES.indexOf(of)
+}
+
+export function isTableAccessWithin(access: ITableAccess, of: ITableAccess): boolean {
+  return (
+    isScopeWithin(access.readScope, of.readScope) &&
+    (!access.canCreate || of.canCreate) &&
+    isScopeWithin(access.updateScope, of.updateScope) &&
+    isScopeWithin(access.deleteScope, of.deleteScope)
+  )
+}
+
+function isWithinActor(actor: TPermissionHolder, set: IPermissionSet): boolean {
+  return (
+    actor.isOwner ||
+    (isPermissionSubset(set.permissions, actor.permissions) &&
+      isTableAccessWithin(set.recordDefaults, actor.recordDefaults))
+  )
 }
 
 /** To a member or in an invitation: never a role granting more than the actor holds. */
 export function canAssignRole(actor: TPermissionHolder, role: IPermissionSet): boolean {
-  return isWithinActor(actor, role.permissions)
+  return isWithinActor(actor, role)
 }
 
-export function canCreateRole(
-  actor: TPermissionHolder,
-  permissions: readonly TWorkspacePermission[],
-): boolean {
-  return isWithinActor(actor, permissions)
+export function canCreateRole(actor: TPermissionHolder, set: IPermissionSet): boolean {
+  return isWithinActor(actor, set)
 }
 
-/** Without `nextPermissions` this answers renaming or deleting the role. */
+/** Without `next` this answers renaming or deleting the role. */
 export function canEditRole(
   actor: TPermissionHolder,
   role: IPermissionSet,
-  nextPermissions?: readonly TWorkspacePermission[],
+  next?: IPermissionSet,
 ): boolean {
-  return (
-    isWithinActor(actor, role.permissions) &&
-    (nextPermissions === undefined || isWithinActor(actor, nextPermissions))
-  )
+  return isWithinActor(actor, role) && (next === undefined || isWithinActor(actor, next))
 }
 
 /**
@@ -62,5 +81,5 @@ export function canEditRole(
 export function canManageMember(actor: IWorkspaceActor, member: IManagedMember): boolean {
   if (member.isOwner || member.id === actor.memberId) return false
 
-  return isWithinActor(actor, member.role.permissions)
+  return isWithinActor(actor, member.role)
 }

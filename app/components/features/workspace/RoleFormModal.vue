@@ -12,11 +12,8 @@
         :error="errors.name"
       />
 
-      <fieldset class="role-form__permissions" :aria-describedby="noteId">
-        <legend class="role-form__legend">Permissions</legend>
-        <p :id="noteId" class="g-note role-form__note">
-          Every member can read all tables and records. A role adds what they may change.
-        </p>
+      <fieldset class="role-form__permissions">
+        <legend class="role-form__legend">Workspace</legend>
 
         <BaseCheckbox
           v-for="permission in WORKSPACE_PERMISSIONS"
@@ -26,10 +23,31 @@
           :hint="
             canGrant(permission)
               ? WORKSPACE_PERMISSION_TEXT[permission].description
-              : 'You don’t have this permission, so you can’t grant it'
+              : UNGRANTABLE_HINT
           "
           :disabled="!canGrant(permission)"
           @update:model-value="setPermissionGranted(permission, $event)"
+        />
+      </fieldset>
+
+      <fieldset class="role-form__permissions" :aria-describedby="noteId">
+        <legend class="role-form__legend">Records</legend>
+        <p :id="noteId" class="g-note role-form__note">
+          Every member can read all tables and records. A role adds what they may change.
+        </p>
+
+        <BaseCheckbox
+          v-for="action in RECORD_ACTIONS"
+          :key="action"
+          :model-value="hasRecordAction(form.recordDefaults, action)"
+          :label="RECORD_ACTION_TEXT[action].label"
+          :hint="
+            canGrantRecordAction(action) ? RECORD_ACTION_TEXT[action].description : UNGRANTABLE_HINT
+          "
+          :disabled="!canGrantRecordAction(action)"
+          @update:model-value="
+            form.recordDefaults = applyRecordAction(form.recordDefaults, action, $event)
+          "
         />
       </fieldset>
     </form>
@@ -48,10 +66,19 @@
 <script setup lang="ts">
 import { useId } from 'vue'
 import { useForm } from '~/composables/useForm'
-import { WORKSPACE_PERMISSION_TEXT } from '~/utils/workspace-permissions'
-import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { IWorkspaceActor, IWorkspaceRole, TWorkspacePermission } from '#shared/types/workspace'
-import { hasPermission } from '#shared/utils/permissions'
+import {
+  applyRecordAction,
+  RECORD_ACTION_TEXT,
+  WORKSPACE_PERMISSION_TEXT,
+} from '~/utils/workspace-permissions'
+import { RECORD_ACTIONS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type {
+  IWorkspaceActor,
+  IWorkspaceRole,
+  TRecordAction,
+  TWorkspacePermission,
+} from '#shared/types/workspace'
+import { hasPermission, hasRecordAction } from '#shared/utils/permissions'
 import { roleInputSchema, type TRoleInput } from '#shared/validation/workspace'
 
 const props = withDefaults(
@@ -69,11 +96,31 @@ const formId = useId()
 const nameInputId = useId()
 const noteId = useId()
 
+const UNGRANTABLE_HINT = 'You don’t have this permission, so you can’t grant it'
+
+/** A new role reads; an existing one opens with each action on every record or on none. */
+function toRecordDefaultsInput(role?: IWorkspaceRole): TRoleInput['recordDefaults'] {
+  const readOnly: TRoleInput['recordDefaults'] = {
+    readScope: 'ALL',
+    canCreate: false,
+    updateScope: 'NONE',
+    deleteScope: 'NONE',
+  }
+  if (!role) return readOnly
+
+  return RECORD_ACTIONS.reduce(
+    (access, action) =>
+      applyRecordAction(access, action, hasRecordAction(role.recordDefaults, action)),
+    readOnly,
+  )
+}
+
 const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: roleInputSchema,
   initial: {
     name: props.role?.name ?? '',
     permissions: [...(props.role?.permissions ?? [])] as TWorkspacePermission[],
+    recordDefaults: toRecordDefaultsInput(props.role),
   },
   onSubmit: async (input) => {
     await props.submitHandler(input)
@@ -84,6 +131,10 @@ const { form, errors, serverError, isSubmitting, submit } = useForm({
 /** Shown, not hidden, when out of reach: the role still reads whole. */
 function canGrant(permission: TWorkspacePermission): boolean {
   return hasPermission(props.actor, permission)
+}
+
+function canGrantRecordAction(action: TRecordAction): boolean {
+  return props.actor.isOwner || hasRecordAction(props.actor.recordDefaults, action)
 }
 
 /** Kept in the editor's order, so an unchanged role sends what it was loaded with. */

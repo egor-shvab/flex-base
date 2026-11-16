@@ -1,26 +1,34 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import RoleFormModal from '~/components/features/workspace/RoleFormModal.vue'
-import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import {
+  FULL_TABLE_ACCESS,
+  RECORD_ACTIONS,
+  WORKSPACE_PERMISSIONS,
+} from '#shared/constants/workspace'
 import type { IWorkspaceActor, IWorkspaceRole } from '#shared/types/workspace'
+import { buildRecordDefaults } from '~~/test/membership'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 const owner: IWorkspaceActor = {
   memberId: 'mem_owner',
   isOwner: true,
   permissions: [...WORKSPACE_PERMISSIONS],
+  recordDefaults: FULL_TABLE_ACCESS,
 }
 
 const manager: IWorkspaceActor = {
   memberId: 'mem_manager',
   isOwner: false,
-  permissions: ['ROLES_MANAGE', 'RECORDS_CREATE'],
+  permissions: ['ROLES_MANAGE'],
+  recordDefaults: buildRecordDefaults({ canCreate: true }),
 }
 
 const clerk: IWorkspaceRole = {
   id: 'rol_clerk',
   name: 'Clerk',
-  permissions: ['RECORDS_CREATE'],
+  permissions: [],
+  recordDefaults: buildRecordDefaults({ canCreate: true }),
   memberCount: 2,
   updatedAt: '2026-02-11T16:30:00.000Z',
 }
@@ -53,7 +61,7 @@ describe('RoleFormModal', () => {
     await mountForm(owner, clerk)
 
     expect(dialog().querySelectorAll('input[type="checkbox"]')).toHaveLength(
-      WORKSPACE_PERMISSIONS.length,
+      WORKSPACE_PERMISSIONS.length + RECORD_ACTIONS.length,
     )
     expect(checkbox('Add records').checked).toBe(true)
     expect(checkbox('Edit records').checked).toBe(false)
@@ -68,9 +76,10 @@ describe('RoleFormModal', () => {
     expect(tables.disabled).toBe(true)
     expect(document.getElementById(hintId)?.textContent).toMatch(/can’t grant it/)
     expect(checkbox('Add records').disabled).toBe(false)
+    expect(checkbox('Delete records').disabled).toBe(true)
   })
 
-  it('sends the name and the permissions in the editor’s order', async () => {
+  it('sends the name, the permissions in the editor’s order, and the record defaults', async () => {
     const submitHandler = await mountForm(owner, clerk)
 
     checkbox('Delete records').click()
@@ -81,7 +90,13 @@ describe('RoleFormModal', () => {
     await vi.waitFor(() =>
       expect(submitHandler).toHaveBeenCalledWith({
         name: 'Clerk',
-        permissions: ['WORKSPACE_UPDATE', 'RECORDS_CREATE', 'RECORDS_DELETE'],
+        permissions: ['WORKSPACE_UPDATE'],
+        recordDefaults: {
+          readScope: 'ALL',
+          canCreate: true,
+          updateScope: 'NONE',
+          deleteScope: 'ALL',
+        },
       }),
     )
   })

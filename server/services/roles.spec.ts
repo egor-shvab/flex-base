@@ -2,8 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
 import { MAX_WORKSPACE_ROLES, RoleService } from '#server/services/roles'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { TWorkspacePermission } from '#shared/types/workspace'
-import { buildMembership, MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID } from '~~/test/membership'
+import type { ITableAccess, TWorkspacePermission } from '#shared/types/workspace'
+import {
+  buildMembership,
+  buildPermissionSetRow as setRow,
+  buildRecordDefaults,
+  buildRoleInput as input,
+  MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID,
+} from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
 vi.mock('#server/db/prisma', async () => ({
@@ -12,15 +18,25 @@ vi.mock('#server/db/prisma', async () => ({
 
 const ROLE_ID = 'rol_1'
 
-const manager = buildMembership(['ROLES_MANAGE', 'RECORDS_CREATE', 'RECORDS_UPDATE'])
+const manager = buildMembership(['ROLES_MANAGE'], {
+  recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
+})
 const owner = buildMembership([], { isOwner: true })
 
 const READ_AT = new Date('2026-02-11T16:30:00.000Z')
 
-const roleRow = (permissions: TWorkspacePermission[], memberCount = 0) => ({
+const CREATE = { canCreate: true } as const
+const UPDATE = { updateScope: 'ALL' } as const
+const DELETE = { deleteScope: 'ALL' } as const
+
+const roleRow = (
+  permissions: TWorkspacePermission[],
+  records: Partial<ITableAccess> = {},
+  memberCount = 0,
+) => ({
   id: ROLE_ID,
   name: 'Clerk',
-  permissions,
+  ...setRow(permissions, records),
   updatedAt: READ_AT,
   _count: { members: memberCount },
 })
@@ -36,13 +52,14 @@ beforeEach(() => {
 
 describe('RoleService.listRoles', () => {
   it('reads this workspace’s roles in a stable order, with how many members hold each', async () => {
-    prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow(['RECORDS_CREATE'], 3)])
+    prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow([], CREATE, 3)])
 
     await expect(RoleService.listRoles(WORKSPACE_ID)).resolves.toEqual([
       {
         id: ROLE_ID,
         name: 'Clerk',
-        permissions: ['RECORDS_CREATE'],
+        permissions: [],
+        recordDefaults: buildRecordDefaults(CREATE),
         memberCount: 3,
         updatedAt: READ_AT.toISOString(),
       },
@@ -59,32 +76,41 @@ describe('RoleService.listRoles', () => {
 describe('RoleService.createRole', () => {
   beforeEach(() => {
     prismaMock.workspaceRole.count.mockResolvedValue(3)
-    prismaMock.workspaceRole.create.mockResolvedValue(roleRow(['RECORDS_CREATE']))
+    prismaMock.workspaceRole.create.mockResolvedValue(roleRow([], CREATE))
   })
 
-  it('creates a role within the actor’s own permissions, in the proved workspace', async () => {
+  it('creates a role within the actor’s own reach, in the proved workspace', async () => {
     await expect(
-      RoleService.createRole(manager, { name: 'Clerk', permissions: ['RECORDS_CREATE'] }),
+      RoleService.createRole(manager, input('Clerk', [], CREATE)),
     ).resolves.toMatchObject({ id: ROLE_ID, memberCount: 0 })
 
     expect(prismaMock.workspaceRole.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { workspaceId: WORKSPACE_ID, name: 'Clerk', permissions: ['RECORDS_CREATE'] },
+        data: {
+          workspaceId: WORKSPACE_ID,
+          name: 'Clerk',
+          permissions: [],
+          ...buildRecordDefaults(CREATE),
+        },
       }),
     )
   })
 
-  it('refuses a permission the actor lacks before anything is read or written', async () => {
-    await expect(
-      RoleService.createRole(manager, { name: 'Boss', permissions: ['TABLES_MANAGE'] }),
-    ).rejects.toMatchObject({ statusCode: 403 })
+  it.each([
+    ['a permission', input('Boss', ['TABLES_MANAGE'])],
+    ['a record action', input('Boss', [], DELETE)],
+  ])('refuses %s the actor lacks before anything is read or written', async (_, role) => {
+    await expect(RoleService.createRole(manager, role)).rejects.toMatchObject({ statusCode: 403 })
 
     expect(prismaMock.workspaceRole.count).not.toHaveBeenCalled()
     expect(prismaMock.workspaceRole.create).not.toHaveBeenCalled()
   })
 
   it('lets the owner grant everything', async () => {
-    await RoleService.createRole(owner, { name: 'All', permissions: [...WORKSPACE_PERMISSIONS] })
+    await RoleService.createRole(
+      owner,
+      input('All', [...WORKSPACE_PERMISSIONS], { ...CREATE, ...UPDATE, ...DELETE }),
+    )
 
     expect(prismaMock.workspaceRole.create).toHaveBeenCalledTimes(1)
   })
@@ -92,9 +118,7 @@ describe('RoleService.createRole', () => {
   it('refuses a role over the cap with a 409, writing nothing', async () => {
     prismaMock.workspaceRole.count.mockResolvedValue(MAX_WORKSPACE_ROLES)
 
-    await expect(
-      RoleService.createRole(owner, { name: 'One more', permissions: [] }),
-    ).rejects.toMatchObject({
+    await expect(RoleService.createRole(owner, input('One more'))).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: `A workspace can have at most ${MAX_WORKSPACE_ROLES} roles`,
     })
@@ -107,9 +131,7 @@ describe('RoleService.createRole', () => {
   it('reports a taken name as a 409', async () => {
     prismaMock.workspaceRole.create.mockRejectedValue(knownError('P2002'))
 
-    await expect(
-      RoleService.createRole(owner, { name: 'Editor', permissions: [] }),
-    ).rejects.toMatchObject({
+    await expect(RoleService.createRole(owner, input('Editor'))).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A role with this name already exists',
     })
@@ -118,20 +140,20 @@ describe('RoleService.createRole', () => {
 
 describe('RoleService.updateRole', () => {
   it('reads the role inside the proved workspace, then writes it there', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['RECORDS_CREATE'] })
-    prismaMock.workspaceRole.update.mockResolvedValue(roleRow(['RECORDS_UPDATE'], 2))
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], CREATE))
+    prismaMock.workspaceRole.update.mockResolvedValue(roleRow([], UPDATE, 2))
 
     await expect(
-      RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: ['RECORDS_UPDATE'] }),
-    ).resolves.toMatchObject({ permissions: ['RECORDS_UPDATE'], memberCount: 2 })
+      RoleService.updateRole(manager, ROLE_ID, input('Clerk', [], UPDATE)),
+    ).resolves.toMatchObject({ recordDefaults: buildRecordDefaults(UPDATE), memberCount: 2 })
 
     expect(prismaMock.workspaceRole.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: roleWhere }),
     )
     expect(prismaMock.workspaceRole.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { ...roleWhere, permissions: { equals: ['RECORDS_CREATE'] } },
-        data: { name: 'Clerk', permissions: ['RECORDS_UPDATE'] },
+        where: { ...roleWhere, permissions: { equals: [] }, ...buildRecordDefaults(CREATE) },
+        data: { name: 'Clerk', permissions: [], ...buildRecordDefaults(UPDATE) },
       }),
     )
   })
@@ -139,69 +161,71 @@ describe('RoleService.updateRole', () => {
   it('is a 404 for a role outside the workspace', async () => {
     prismaMock.workspaceRole.findUnique.mockResolvedValue(null)
 
-    await expect(
-      RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: [] }),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Role not found' })
+    await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Role not found',
+    })
     expect(prismaMock.workspaceRole.update).not.toHaveBeenCalled()
   })
 
   it('refuses to change a role that already grants more than the actor holds', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['TABLES_MANAGE'] })
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], DELETE))
 
-    await expect(
-      RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: [] }),
-    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
+      statusCode: 403,
+    })
     expect(prismaMock.workspaceRole.update).not.toHaveBeenCalled()
   })
 
-  it('refuses to raise a role above the actor', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: [] })
+  it.each([
+    ['a permission', input('Clerk', ['MEMBERS_MANAGE'])],
+    ['a record action', input('Clerk', [], DELETE)],
+  ])('refuses to raise a role above the actor by %s', async (_, next) => {
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow())
 
-    await expect(
-      RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: ['MEMBERS_MANAGE'] }),
-    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(RoleService.updateRole(manager, ROLE_ID, next)).rejects.toMatchObject({
+      statusCode: 403,
+    })
     expect(prismaMock.workspaceRole.update).not.toHaveBeenCalled()
   })
 
   it('reports a role deleted since it was read as missing', async () => {
-    prismaMock.workspaceRole.findUnique
-      .mockResolvedValueOnce({ permissions: [] })
-      .mockResolvedValueOnce(null)
+    prismaMock.workspaceRole.findUnique.mockResolvedValueOnce(setRow()).mockResolvedValueOnce(null)
     prismaMock.workspaceRole.update.mockRejectedValue(knownError('P2025'))
 
-    await expect(
-      RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: [] }),
-    ).rejects.toMatchObject({ statusCode: 404 })
+    await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
+      statusCode: 404,
+    })
   })
 
-  it('refuses with a 409 when the role’s permissions changed under the check', async () => {
+  it('refuses with a 409 when the role’s grants changed under the check', async () => {
     prismaMock.workspaceRole.findUnique
-      .mockResolvedValueOnce({ permissions: [] })
+      .mockResolvedValueOnce(setRow())
       .mockResolvedValueOnce({ id: ROLE_ID })
     prismaMock.workspaceRole.update.mockRejectedValue(knownError('P2025'))
 
-    await expect(
-      RoleService.updateRole(manager, ROLE_ID, { name: 'Clerk', permissions: [] }),
-    ).rejects.toMatchObject({ statusCode: 409 })
+    await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
+      statusCode: 409,
+    })
   })
 })
 
 describe('RoleService.deleteRole', () => {
   it('deletes by the compound key, so another workspace’s role cannot match', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: [] })
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow())
     prismaMock.workspaceRole.delete.mockResolvedValue({ id: ROLE_ID })
 
     await RoleService.deleteRole(manager, ROLE_ID)
 
     expect(prismaMock.workspaceRole.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { ...roleWhere, permissions: { equals: [] } } }),
+      expect.objectContaining({
+        where: { ...roleWhere, permissions: { equals: [] }, ...buildRecordDefaults() },
+      }),
     )
   })
 
   it('refuses a role above the actor before deleting', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({
-      permissions: ['ROLES_MANAGE', 'TABLES_MANAGE'],
-    })
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow(['ROLES_MANAGE', 'TABLES_MANAGE']))
 
     await expect(RoleService.deleteRole(manager, ROLE_ID)).rejects.toMatchObject({
       statusCode: 403,
@@ -210,7 +234,7 @@ describe('RoleService.deleteRole', () => {
   })
 
   it('turns a role still held by a member into a 409, without counting first', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: [] })
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow())
     prismaMock.workspaceRole.delete.mockRejectedValue(knownError('P2003'))
 
     await expect(RoleService.deleteRole(manager, ROLE_ID)).rejects.toMatchObject({
@@ -223,8 +247,8 @@ describe('RoleService.deleteRole', () => {
 })
 
 describe('RoleService.requireAssignableRole', () => {
-  it('passes a role within the actor’s permissions, found by the compound key', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['RECORDS_CREATE'] })
+  it('passes a role within the actor’s reach, found by the compound key', async () => {
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], CREATE))
 
     await expect(RoleService.requireAssignableRole(manager, ROLE_ID)).resolves.toBeUndefined()
     expect(prismaMock.workspaceRole.findUnique).toHaveBeenCalledWith(
@@ -232,8 +256,11 @@ describe('RoleService.requireAssignableRole', () => {
     )
   })
 
-  it('refuses a role granting more than the actor holds, but not to the owner', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue({ permissions: ['TABLES_MANAGE'] })
+  it.each([
+    ['a permission', setRow(['TABLES_MANAGE'])],
+    ['a record action', setRow([], DELETE)],
+  ])('refuses a role granting %s the actor lacks, but not to the owner', async (_, row) => {
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(row)
 
     await expect(RoleService.requireAssignableRole(manager, ROLE_ID)).rejects.toMatchObject({
       statusCode: 403,

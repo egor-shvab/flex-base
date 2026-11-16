@@ -33,7 +33,10 @@ describe('an invitation outliving its sender’s authority', () => {
       data: {
         workspaceId: ada.workspace.id,
         name: 'Recruiter',
-        permissions: ['MEMBERS_INVITE', 'RECORDS_CREATE', 'RECORDS_UPDATE', 'RECORDS_DELETE'],
+        permissions: ['MEMBERS_INVITE'],
+        canCreate: true,
+        updateScope: 'ALL',
+        deleteScope: 'ALL',
       },
     })
     const bob = await createUser('bob@example.com')

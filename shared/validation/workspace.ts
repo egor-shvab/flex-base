@@ -19,6 +19,14 @@ export const roleInputSchema = z.object({
       (permissions) => new Set(permissions).size === permissions.length,
       'A permission is listed twice',
     ),
+  // Each scope opens as the server starts enforcing it: `OWN` with row-level access, a narrower
+  // read with table visibility. Accepting one earlier would store a limit nothing applies.
+  recordDefaults: z.object({
+    readScope: z.enum(['ALL']),
+    canCreate: z.boolean(),
+    updateScope: z.enum(['NONE', 'ALL']),
+    deleteScope: z.enum(['NONE', 'ALL']),
+  }),
 })
 
 export const memberRoleInputSchema = z.object({

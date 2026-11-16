@@ -4,6 +4,7 @@ import { readBody } from 'h3'
 import { createPinia, setActivePinia } from 'pinia'
 import type { IWorkspaceMember } from '#shared/types/workspace'
 import { useMembersStore } from '~/stores/members'
+import { buildRecordDefaults } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 
@@ -12,7 +13,12 @@ const buildMember = (id: string, name: string, roleName = 'Editor'): IWorkspaceM
   isOwner: false,
   user: { id: `usr_${id}`, name },
   email: `${name.toLowerCase()}@example.com`,
-  role: { id: `rol_${roleName.toLowerCase()}`, name: roleName, permissions: [] },
+  role: {
+    id: `rol_${roleName.toLowerCase()}`,
+    name: roleName,
+    permissions: [],
+    recordDefaults: buildRecordDefaults(),
+  },
   joinedAt: '2026-02-01T10:00:00.000Z',
 })
 

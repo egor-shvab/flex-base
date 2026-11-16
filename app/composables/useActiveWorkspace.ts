@@ -1,8 +1,11 @@
 import { computed } from 'vue'
 import { useRoute } from '#imports'
 import { useWorkspacesStore } from '~/stores/workspaces'
-import type { TWorkspacePermission } from '#shared/types/workspace'
-import { hasPermission as holdsPermission } from '#shared/utils/permissions'
+import type { TRecordAction, TWorkspacePermission } from '#shared/types/workspace'
+import {
+  hasPermission as holdsPermission,
+  hasRecordAction as holdsRecordAction,
+} from '#shared/utils/permissions'
 
 /**
  * The workspace the current page belongs to — its address (`''` on a page outside one) and the
@@ -23,5 +26,12 @@ export function useActiveWorkspace() {
     return membership.value !== undefined && holdsPermission(membership.value, permission)
   }
 
-  return { workspaceAddress, membership, isOwner, hasPermission }
+  /** Like `hasPermission`, for what the role's record defaults allow. */
+  function hasRecordAction(action: TRecordAction): boolean {
+    return (
+      membership.value !== undefined && holdsRecordAction(membership.value.recordDefaults, action)
+    )
+  }
+
+  return { workspaceAddress, membership, isOwner, hasPermission, hasRecordAction }
 }

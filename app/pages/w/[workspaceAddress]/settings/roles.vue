@@ -30,7 +30,7 @@
           :title="role.name"
           icon="material-symbols:shield-person-outline-rounded"
           :badge="role.id === membership?.role.id ? 'your role' : undefined"
-          :meta="[formatCount(role.memberCount, 'member'), summarisePermissions(role.permissions)]"
+          :meta="[formatCount(role.memberCount, 'member'), summarisePermissions(role)]"
           wrap-meta
         >
           <template v-if="canChangeRole(role)" #trailing>
