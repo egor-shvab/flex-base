@@ -12,10 +12,13 @@ export const useFieldsStore = defineStore('fields', () => {
   const tables = useTablesStore()
 
   const fields = shallowRef<IField[]>([])
+  /** Only a list fetch says; a field created or changed here is a schema manager's, who writes all. */
+  const readOnlyFieldIds = shallowRef<ReadonlySet<string>>(new Set())
 
   async function fetchFields(workspaceAddress: string, tableAddress: string) {
     const response = await api.list(workspaceAddress, tableAddress)
     fields.value = response.fields
+    readOnlyFieldIds.value = new Set(response.readOnlyFieldIds)
   }
 
   async function createField(workspaceAddress: string, tableAddress: string, input: TFieldInput) {
@@ -53,5 +56,5 @@ export const useFieldsStore = defineStore('fields', () => {
     tables.applyTableRow(response.table)
   }
 
-  return { fields, fetchFields, createField, updateField, deleteField }
+  return { fields, readOnlyFieldIds, fetchFields, createField, updateField, deleteField }
 })

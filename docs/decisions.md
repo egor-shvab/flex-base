@@ -302,6 +302,14 @@ could no longer be read off one row. `TABLES_MANAGE` sees every table, since a t
 but not open would be changed blind; their record actions still come from the role. A hidden table
 is a 404, as one outside the workspace.
 
+### A required field must be fillable by every role that adds records to its table
+
+Marking a field required is a 409 while a role that creates records there (by the table's row or
+its defaults) holds the field hidden or read-only: every record that role adds would be refused,
+or saved without the value. A new field has no role rows yet, so only an update is checked; a
+schema manager writes every field and never blocks it. Rejected: letting the create through with
+the field empty — `required` would stop meaning anything for that role.
+
 ### A record update merges over the stored data
 
 `updateRecord` is one raw `UPDATE … SET data = data || patch`, the patch holding only the fields the

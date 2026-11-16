@@ -41,6 +41,7 @@ export const prismaMock = {
   workspaceMember: modelMock(),
   workspaceRole: modelMock(),
   workspaceInvitation: modelMock(),
+  roleFieldAccess: modelMock(),
   $queryRaw: vi.fn(),
   $executeRaw: vi.fn(),
   $transaction: vi.fn(),
@@ -67,6 +68,7 @@ export function resetPrismaMock(): void {
     prismaMock.workspaceMember,
     prismaMock.workspaceRole,
     prismaMock.workspaceInvitation,
+    prismaMock.roleFieldAccess,
   ]
 
   for (const model of models) {

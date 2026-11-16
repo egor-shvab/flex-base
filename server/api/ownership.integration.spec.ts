@@ -639,6 +639,53 @@ describe('a field hidden from a role', () => {
     expect(record.data).toMatchObject({ company: 'Acme' })
   })
 
+  it('lists a read-only field with the fields, and names it as one', async () => {
+    await setFieldAccess(world.fieldId, 'READ')
+
+    const { fields, readOnlyFieldIds } = await fieldsGet(asMallory())
+
+    expect(fields.map((field) => field.key)).toEqual(['company', 'owner'])
+    expect(readOnlyFieldIds).toEqual([world.fieldId])
+  })
+
+  describe('marking it required', () => {
+    const markRequired = () =>
+      fieldPatch(
+        testEvent({
+          user: world.ada,
+          method: 'PATCH',
+          params: { ...tableParams(), fieldId: world.fieldId },
+          body: { name: 'Company', type: 'TEXT', required: true },
+        }),
+      )
+
+    it.each(['HIDDEN', 'READ'] as const)(
+      'is refused while a role that adds records has it %s',
+      async (access) => {
+        await setFieldAccess(world.fieldId, access)
+
+        await expect(markRequired()).rejects.toMatchObject({
+          statusCode: 409,
+          statusMessage: 'Role "Editor" can add records but cannot fill "Company"',
+        })
+      },
+    )
+
+    it('is allowed once that role adds no records to this table', async () => {
+      await setFieldAccess(world.fieldId, 'HIDDEN')
+      await prisma.roleTableAccess.create({
+        data: {
+          workspaceId: world.ada.workspace.id,
+          roleId: (await editorRole()).id,
+          tableId: world.tableId,
+          ...buildRecordDefaults({ updateScope: 'ALL' }),
+        },
+      })
+
+      await expect(markRequired()).resolves.toMatchObject({ field: { required: true } })
+    })
+  })
+
   it('leaves its key out of a record the role creates', async () => {
     await setFieldAccess(world.fieldId, 'HIDDEN')
 

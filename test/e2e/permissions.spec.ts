@@ -169,6 +169,53 @@ test('a field hidden from a role is nowhere on its page, and its save keeps the 
   await page.context().close()
 })
 
+test('a read-only field shows its value in the form, with nothing to change it', async ({
+  browser,
+  seedTable,
+  workspace,
+}) => {
+  const people = await seedTable(
+    'People',
+    [
+      { key: 'full_name', type: 'TEXT', name: 'Full name' },
+      { key: 'salary', type: 'NUMBER', name: 'Salary' },
+    ],
+    [{ full_name: 'Ada', salary: 90000 }],
+  )
+  const salary = await prisma.field.findFirstOrThrow({
+    where: { tableId: people.id, key: 'salary' },
+    select: { id: true },
+  })
+  const role = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    select: { id: true },
+  })
+  await prisma.roleFieldAccess.create({
+    data: { workspaceId: workspace.id, roleId: role.id, fieldId: salary.id, access: 'READ' },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(people.url)
+  await expect(page.getByRole('columnheader', { name: /Salary/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Edit record' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('Salary', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('Read only')).toBeVisible()
+  await expect(dialog.getByRole('textbox', { name: 'Salary' })).toHaveCount(0)
+  await dialog.getByLabel('Full name').fill('Ada Lovelace')
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('cell', { name: 'Ada Lovelace' })).toBeVisible()
+
+  const stored = await prisma.record.findFirstOrThrow({
+    where: { tableId: people.id },
+    select: { data: true },
+  })
+  expect(stored.data).toEqual({ full_name: 'Ada Lovelace', salary: 90000 })
+
+  await page.context().close()
+})
+
 test('a table hidden from a role is not listed, and its address is a 404', async ({
   browser,
   workspace,

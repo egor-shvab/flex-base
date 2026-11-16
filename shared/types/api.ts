@@ -44,6 +44,8 @@ export interface ITableResponse {
 
 export interface IFieldsResponse {
   fields: IField[]
+  /** The fields the caller sees but may not write; every other one they may. */
+  readOnlyFieldIds: string[]
 }
 
 export interface IFieldResponse {

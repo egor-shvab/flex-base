@@ -367,7 +367,8 @@ Only what the name and the code do not say.
 - **`utils/table-access.ts`** — the table helpers take the membership and read the role's rows
   for the table and its fields in the same query. A field-scoped context carries the **visible**
   `fields` (a hidden one is absent, so validation, filters, sort, search and responses never see
-  it), the `editableFields` a write's schema is built from, and each link target's read scope.
+  it), the `editableFields` a write's schema is built from — `GET /fields` names the rest as
+  `readOnlyFieldIds` — and each link target's read scope.
   `assertTableHasFields` adds a 400 for a field-less table on **writes only** (a field-less table
   must still list an empty page); `requireWorkspaceTableWithFields` exists for the record-detail
   read, which names a table other than the page's.
@@ -477,7 +478,9 @@ Only what the name and the code do not say.
 ### Renderers — `app/components/features/records/`
 
 - **`RecordForm`** — values down as props, changes up as `update: [key, value]`; **the parent's
-  `useForm` object is never mutated**.
+  `useForm` object is never mutated**. A field in `readOnlyFieldIds` (from `GET /fields`) is shown
+  through `RecordFieldValue`, never a control; `RecordFormModal` builds its schema and payload from
+  the other fields only, and shows read-only ones only on an edit — a new record holds nothing.
 - **`RecordFieldValue`** — the seam that renders a value identically in table and dialog. **An empty
   array is blank** alongside `null`.
 - **`RecordDetail`** — wraps values by **not** declaring the table's `white-space: nowrap`.

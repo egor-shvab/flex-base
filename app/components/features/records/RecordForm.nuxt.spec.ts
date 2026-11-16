@@ -18,6 +18,7 @@ import {
   numberField,
   relationField,
   selectField,
+  record,
   textField,
 } from '~~/test/fixtures'
 
@@ -232,6 +233,41 @@ describe('RecordForm', () => {
       const wrapper = await form([textField('company')])
 
       expect(wrapper.find('[aria-invalid="true"]').exists()).toBe(false)
+    })
+  })
+
+  describe('a field the caller may only read', () => {
+    const company = textField('company')
+    const total = numberField('total')
+    const readOnly = new Set([total.id])
+    const stored = record({ data: { company: 'Acme', total: 1200 } })
+
+    function readOnlyForm(withRecord = true) {
+      return mountTracked(RecordForm, {
+        props: {
+          fields: [company, total],
+          values: { company: 'Acme' },
+          errors: {},
+          readOnlyFieldIds: readOnly,
+          ...(withRecord && { record: stored }),
+        },
+      })
+    }
+
+    it('shows its stored value in its place, labelled, with no control to change it', async () => {
+      const wrapper = await readOnlyForm()
+
+      expect(wrapper.findAllComponents(BaseInput)).toHaveLength(1)
+      expect(wrapper.text()).toMatch(/company.*total.*1,?200/s)
+      expect(wrapper.text()).toContain('Read only')
+    })
+
+    it('never emits a change for it', async () => {
+      const wrapper = await readOnlyForm()
+
+      await wrapper.getComponent(BaseInput).vm.$emit('update:modelValue', 'Globex')
+
+      expect(updates(wrapper)?.map(([key]) => key)).toEqual(['company'])
     })
   })
 })

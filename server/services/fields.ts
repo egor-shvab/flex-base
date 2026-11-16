@@ -146,6 +146,34 @@ async function insertField(tableId: string, input: TFieldInput): Promise<IField>
 }
 
 /** Given the version the caller read, the write lands only on that version (as `updateRecord`). */
+/**
+ * A required field a role adds records with but may not fill would refuse every record that role
+ * creates. A new field has no role rows yet, so only an update can meet one. A schema manager
+ * edits every field, so their role never blocks it.
+ */
+async function assertRequiredFillable(tableId: string, fieldId: string, fieldName: string) {
+  const blocked = await prisma.roleFieldAccess.findFirst({
+    where: {
+      fieldId,
+      role: {
+        NOT: { permissions: { has: 'TABLES_MANAGE' } },
+        OR: [
+          { tableAccess: { some: { tableId, canCreate: true } } },
+          { canCreate: true, tableAccess: { none: { tableId } } },
+        ],
+      },
+    },
+    select: { role: { select: { name: true } } },
+  })
+
+  if (blocked) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `Role "${blocked.role.name}" can add records but cannot fill "${fieldName}"`,
+    })
+  }
+}
+
 async function updateField(
   tableId: string,
   fieldId: string,
@@ -177,6 +205,8 @@ async function updateField(
       statusMessage: 'A multi-value field cannot be changed back to a single value',
     })
   }
+
+  if (input.required) await assertRequiredFillable(tableId, fieldId, input.name)
 
   try {
     const updated = await prisma.$transaction(async (tx) => {

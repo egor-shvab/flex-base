@@ -150,6 +150,7 @@
       v-if="isRecordModalOpen"
       :mode="editingRecord ? 'edit' : 'create'"
       :fields="fieldsStore.fields"
+      :read-only-field-ids="fieldsStore.readOnlyFieldIds"
       :record="editingRecord"
       :submit-handler="submitRecord"
       @saved="closeRecordModal"

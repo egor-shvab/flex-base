@@ -32,7 +32,7 @@ registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/fields', {
   method: 'GET',
   handler: () => {
     if (shouldFail) throw createError({ statusCode: 404, statusMessage: 'No such table' })
-    return { fields: listing }
+    return { fields: listing, readOnlyFieldIds: [TOTAL.id] }
   },
 })
 
@@ -84,6 +84,14 @@ describe('useFieldsStore', () => {
     await store.fetchFields(WS, 'tbl_1')
 
     expect(store.fields).toEqual([COMPANY, TOTAL])
+  })
+
+  it('holds which fields the caller may only read, as the list says', async () => {
+    const store = useFieldsStore()
+
+    await store.fetchFields(WS, 'tbl_1')
+
+    expect([...store.readOnlyFieldIds]).toEqual([TOTAL.id])
   })
 
   it('lets a failed fetch reject', async () => {

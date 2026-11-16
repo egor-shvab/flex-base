@@ -185,6 +185,53 @@ describe('updateField — the write guards', () => {
   })
 })
 
+describe('updateField — a required field every creating role can fill', () => {
+  const text = (required: boolean) => input({ type: 'TEXT', name: 'Company', required })
+
+  beforeEach(() => {
+    prismaMock.field.findFirst.mockResolvedValue(storedField({ type: 'TEXT', key: 'company' }))
+    prismaMock.field.update.mockResolvedValue(stored(textField('company')))
+  })
+
+  it('refuses with a 409 naming the role that adds records but cannot fill it', async () => {
+    prismaMock.roleFieldAccess.findFirst.mockResolvedValue({ role: { name: 'Clerk' } })
+
+    await expect(FieldService.updateField(TABLE_ID, FIELD_ID, text(true))).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: 'Role "Clerk" can add records but cannot fill "Company"',
+    })
+    expect(prismaMock.field.update).not.toHaveBeenCalled()
+  })
+
+  it('asks about roles that create here, by the table’s row or by their defaults, and not managers', async () => {
+    prismaMock.roleFieldAccess.findFirst.mockResolvedValue(null)
+
+    await FieldService.updateField(TABLE_ID, FIELD_ID, text(true))
+
+    expect(prismaMock.roleFieldAccess.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          fieldId: FIELD_ID,
+          role: {
+            NOT: { permissions: { has: 'TABLES_MANAGE' } },
+            OR: [
+              { tableAccess: { some: { tableId: TABLE_ID, canCreate: true } } },
+              { canCreate: true, tableAccess: { none: { tableId: TABLE_ID } } },
+            ],
+          },
+        },
+      }),
+    )
+    expect(prismaMock.field.update).toHaveBeenCalled()
+  })
+
+  it('asks nothing for a field left optional', async () => {
+    await FieldService.updateField(TABLE_ID, FIELD_ID, text(false))
+
+    expect(prismaMock.roleFieldAccess.findFirst).not.toHaveBeenCalled()
+  })
+})
+
 describe('updateField — widening', () => {
   it('rewrites the stored rows in the same transaction as the metadata', async () => {
     prismaMock.field.findFirst.mockResolvedValue(
