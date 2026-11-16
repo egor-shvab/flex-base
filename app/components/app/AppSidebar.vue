@@ -42,7 +42,9 @@
           :active="table.number === activeTableNumber"
         >
           {{ table.name }}
-          <template #trailing>{{ table._count.records }}</template>
+          <template v-if="table._count.records !== null" #trailing>
+            {{ table._count.records }}
+          </template>
         </BaseNavItem>
 
         <BaseNavItem

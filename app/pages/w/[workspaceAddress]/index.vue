@@ -7,8 +7,7 @@
         </BaseButton>
       </template>
       <template v-if="tablesStore.tables.length > 0">
-        {{ formatCount(tablesStore.tables.length, 'table') }} ·
-        {{ formatCount(totalRecords, 'record') }}
+        {{ tablesSummary }}
       </template>
     </BasePageHead>
 
@@ -38,7 +37,7 @@
           icon="material-symbols:table-outline-rounded"
           :meta="[formatCount(table._count.fields, 'field')]"
         >
-          <template #trailing>
+          <template v-if="table._count.records !== null" #trailing>
             <span class="table-panel__records">
               {{ formatCount(table._count.records, 'record') }}
             </span>
@@ -46,7 +45,7 @@
         </BaseListRow>
       </BaseList>
 
-      <template #footer>
+      <template v-if="totalRecords !== null" #footer>
         <span class="g-eyebrow">Total</span>
         <span class="table-panel__total-value">{{ formatCount(totalRecords, 'record') }}</span>
       </template>
@@ -70,6 +69,7 @@ import { useTablesStore } from '~/stores/tables'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
+import { toRecordTotal } from '~/utils/table-records'
 import { toTableAddress } from '#shared/utils/address'
 
 useSeoMeta({ title: 'Your tables' })
@@ -83,9 +83,14 @@ const breadcrumbs: IBreadcrumb[] = [{ label: 'Home' }]
 
 const panelTitleId = useId()
 
-const totalRecords = computed(() =>
-  tablesStore.tables.reduce((sum, table) => sum + table._count.records, 0),
-)
+const totalRecords = computed(() => toRecordTotal(tablesStore.tables))
+
+const tablesSummary = computed(() => {
+  const tables = formatCount(tablesStore.tables.length, 'table')
+  return totalRecords.value === null
+    ? tables
+    : `${tables} · ${formatCount(totalRecords.value, 'record')}`
+})
 
 const isCreateOpen = ref(false)
 

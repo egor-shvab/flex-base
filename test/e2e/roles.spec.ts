@@ -29,10 +29,11 @@ test('a role is created, changed and deleted', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Edit role Sales' }).click()
   await expect(dialog.getByLabel('Add records')).toBeChecked()
-  await dialog.getByLabel('Edit records').check()
+  await dialog.getByRole('button', { name: /^Records they can edit/ }).click()
+  await page.getByRole('option', { name: 'Only their own' }).click()
   await dialog.getByRole('button', { name: 'Save' }).click()
 
-  await expect(roleRow(page, 'Sales')).toContainText('Add records, Edit records')
+  await expect(roleRow(page, 'Sales')).toContainText('Add records, Edit own records')
 
   await page.getByRole('button', { name: 'Delete role Sales' }).click()
   await confirmDeletion(page)

@@ -3,7 +3,9 @@ import { Prisma } from '#server/generated/prisma/client'
 import { RecordService } from '#server/services/records'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IRecordQuery } from '#shared/types/record'
+import { buildRecordDefaults } from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { relationField, textField } from '~~/test/fixtures'
 
@@ -14,6 +16,7 @@ vi.mock('#server/db/prisma', async () => ({
 const TABLE_ID = 'tbl_deals'
 const RECORD_ID = 'rec_1'
 const ACTOR_ID = 'usr_actor'
+const ACTOR = { userId: ACTOR_ID, access: FULL_TABLE_ACCESS }
 const table = { id: TABLE_ID, number: 1, name: 'Deals' }
 const fields = [textField('company')]
 
@@ -21,6 +24,7 @@ function row(overrides: Partial<{ id: string; number: number; data: Prisma.JsonV
   return {
     id: RECORD_ID,
     number: 1,
+    createdById: ACTOR_ID,
     data: { company: 'Acme' },
     createdAt: new Date('2026-01-05T09:14:00.000Z'),
     updatedAt: new Date('2026-02-11T16:30:00.000Z'),
@@ -49,7 +53,7 @@ describe('RecordService.listRecords', () => {
   it('pages from the first row on page 1', async () => {
     stubPage([row()], 1)
 
-    await RecordService.listRecords(TABLE_ID, fields, query())
+    await RecordService.listRecords(TABLE_ID, fields, query(), ACTOR)
 
     const values = prismaMock.$queryRaw.mock.calls[0] ?? []
     expect(values).toContain(50)
@@ -59,7 +63,7 @@ describe('RecordService.listRecords', () => {
   it('offsets by whole pages, so page 3 skips the first two', async () => {
     stubPage([], 0)
 
-    await RecordService.listRecords(TABLE_ID, fields, query({ page: 3, pageSize: 20 }))
+    await RecordService.listRecords(TABLE_ID, fields, query({ page: 3, pageSize: 20 }), ACTOR)
 
     expect(prismaMock.$queryRaw.mock.calls[0]).toContain(40)
   })
@@ -67,7 +71,12 @@ describe('RecordService.listRecords', () => {
   it('reports the page it was asked for alongside the rows', async () => {
     stubPage([row()], 7)
 
-    const page = await RecordService.listRecords(TABLE_ID, fields, query({ page: 2, pageSize: 20 }))
+    const page = await RecordService.listRecords(
+      TABLE_ID,
+      fields,
+      query({ page: 2, pageSize: 20 }),
+      ACTOR,
+    )
 
     expect(page).toMatchObject({ total: 7, page: 2, pageSize: 20, totalCapped: false })
     expect(page.records).toHaveLength(1)
@@ -76,7 +85,7 @@ describe('RecordService.listRecords', () => {
   it('reports a count at the cap as exact', async () => {
     stubPage([row()], RECORD_COUNT_CAP)
 
-    const page = await RecordService.listRecords(TABLE_ID, fields, query())
+    const page = await RecordService.listRecords(TABLE_ID, fields, query(), ACTOR)
 
     expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: false })
   })
@@ -84,7 +93,7 @@ describe('RecordService.listRecords', () => {
   it('reports one past the cap as capped, and never leaks the extra row into the total', async () => {
     stubPage([row()], RECORD_COUNT_CAP + 1)
 
-    const page = await RecordService.listRecords(TABLE_ID, fields, query())
+    const page = await RecordService.listRecords(TABLE_ID, fields, query(), ACTOR)
 
     expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: true })
   })
@@ -92,7 +101,7 @@ describe('RecordService.listRecords', () => {
   it('bounds the count query itself, so the cap is effort rather than presentation', async () => {
     stubPage([], 0)
 
-    await RecordService.listRecords(TABLE_ID, fields, query())
+    await RecordService.listRecords(TABLE_ID, fields, query(), ACTOR)
 
     expect(prismaMock.$queryRaw.mock.calls[1]).toContain(RECORD_COUNT_CAP + 1)
   })
@@ -100,7 +109,9 @@ describe('RecordService.listRecords', () => {
   it('counts zero when the count query comes back empty', async () => {
     prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([])
 
-    await expect(RecordService.listRecords(TABLE_ID, fields, query())).resolves.toMatchObject({
+    await expect(
+      RecordService.listRecords(TABLE_ID, fields, query(), ACTOR),
+    ).resolves.toMatchObject({
       total: 0,
     })
   })
@@ -108,7 +119,7 @@ describe('RecordService.listRecords', () => {
   it('runs the rows and the count in one transaction, so both see the same table', async () => {
     stubPage([], 0)
 
-    await RecordService.listRecords(TABLE_ID, fields, query())
+    await RecordService.listRecords(TABLE_ID, fields, query(), ACTOR)
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2)
@@ -118,7 +129,7 @@ describe('RecordService.listRecords', () => {
     stubPage([row({ data: { owner: 'rec_9' } })], 1)
     prismaMock.$queryRaw.mockResolvedValueOnce([{ id: 'rec_9', number: 3, label: null }])
 
-    const page = await RecordService.listRecords(TABLE_ID, [relationField()], query())
+    const page = await RecordService.listRecords(TABLE_ID, [relationField()], query(), ACTOR)
 
     expect(page.linkedRecords).toEqual({ fld_owner: { rec_9: { number: 3, label: null } } })
   })
@@ -128,7 +139,7 @@ describe('RecordService.getRecordDetail', () => {
   it('scopes the lookup to the table the caller proved it owns', async () => {
     prismaMock.record.findUnique.mockResolvedValue(row())
 
-    await RecordService.getRecordDetail(table, fields, RECORD_ID)
+    await RecordService.getRecordDetail(table, fields, RECORD_ID, ACTOR)
 
     expect(prismaMock.record.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: RECORD_ID, tableId: TABLE_ID } }),
@@ -138,7 +149,7 @@ describe('RecordService.getRecordDetail', () => {
   it('resolves a numeric address through the table’s compound unique', async () => {
     prismaMock.record.findUnique.mockResolvedValue(row())
 
-    await RecordService.getRecordDetail(table, fields, '7')
+    await RecordService.getRecordDetail(table, fields, '7', ACTOR)
 
     expect(prismaMock.record.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { tableId_number: { tableId: TABLE_ID, number: 7 } } }),
@@ -148,7 +159,7 @@ describe('RecordService.getRecordDetail', () => {
   it('carries the table and its fields, so the dialog can render away from its own page', async () => {
     prismaMock.record.findUnique.mockResolvedValue(row())
 
-    const detail = await RecordService.getRecordDetail(table, fields, RECORD_ID)
+    const detail = await RecordService.getRecordDetail(table, fields, RECORD_ID, ACTOR)
 
     expect(detail.table).toEqual(table)
     expect(detail.fields).toEqual(fields)
@@ -162,7 +173,7 @@ describe('RecordService.getRecordDetail', () => {
       updatedBy: null,
     })
 
-    const detail = await RecordService.getRecordDetail(table, fields, RECORD_ID)
+    const detail = await RecordService.getRecordDetail(table, fields, RECORD_ID, ACTOR)
 
     expect(detail.record.createdBy).toEqual({ id: 'usr_ada', name: 'Ada' })
     expect(detail.record.updatedBy).toBeNull()
@@ -180,7 +191,9 @@ describe('RecordService.getRecordDetail', () => {
   it('404s for a record deleted since the link was rendered', async () => {
     prismaMock.record.findUnique.mockResolvedValue(null)
 
-    await expect(RecordService.getRecordDetail(table, fields, RECORD_ID)).rejects.toMatchObject({
+    await expect(
+      RecordService.getRecordDetail(table, fields, RECORD_ID, ACTOR),
+    ).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Record not found',
     })
@@ -245,7 +258,7 @@ describe('RecordService.updateRecord', () => {
   it('replaces the data wholesale, scoped to the table', async () => {
     prismaMock.record.update.mockResolvedValue(row())
 
-    await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, { company: 'Beta' }, ACTOR_ID)
+    await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, { company: 'Beta' }, ACTOR)
 
     expect(prismaMock.record.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -264,7 +277,7 @@ describe('RecordService.updateRecord', () => {
         [relationField()],
         RECORD_ID,
         { owner: 'rec_forged' },
-        ACTOR_ID,
+        ACTOR,
       ),
     ).rejects.toMatchObject({ statusCode: 400 })
 
@@ -279,7 +292,7 @@ describe('RecordService.updateRecord', () => {
     it('puts the version in the where, so the check and the write are one statement', async () => {
       prismaMock.record.update.mockResolvedValue(row())
 
-      await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID, READ)
+      await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR, READ)
 
       expect(prismaMock.record.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: RECORD_ID, tableId: TABLE_ID, updatedAt: READ } }),
@@ -291,7 +304,7 @@ describe('RecordService.updateRecord', () => {
       prismaMock.record.findUnique.mockResolvedValue({ id: RECORD_ID })
 
       await expect(
-        RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID, READ),
+        RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR, READ),
       ).rejects.toMatchObject({ statusCode: 412 })
     })
 
@@ -300,7 +313,7 @@ describe('RecordService.updateRecord', () => {
       prismaMock.record.findUnique.mockResolvedValue(null)
 
       await expect(
-        RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID, READ),
+        RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR, READ),
       ).rejects.toMatchObject({ statusCode: 404 })
     })
   })
@@ -311,7 +324,7 @@ describe('RecordService.updateRecord', () => {
     )
 
     await expect(
-      RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR_ID),
+      RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, ACTOR),
     ).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Record not found',
@@ -323,7 +336,7 @@ describe('a record address is a number or a cuid, on every write', () => {
   it('updates through the compound unique when given a number', async () => {
     prismaMock.record.update.mockResolvedValue(row())
 
-    await RecordService.updateRecord(TABLE_ID, fields, '7', { company: 'Beta' }, ACTOR_ID)
+    await RecordService.updateRecord(TABLE_ID, fields, '7', { company: 'Beta' }, ACTOR)
 
     expect(prismaMock.record.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { tableId_number: { tableId: TABLE_ID, number: 7 } } }),
@@ -333,7 +346,7 @@ describe('a record address is a number or a cuid, on every write', () => {
   it('deletes through it too', async () => {
     prismaMock.record.delete.mockResolvedValue(row())
 
-    await RecordService.deleteRecord(TABLE_ID, '7')
+    await RecordService.deleteRecord(TABLE_ID, '7', ACTOR)
 
     expect(prismaMock.record.delete).toHaveBeenCalledWith({
       where: { tableId_number: { tableId: TABLE_ID, number: 7 } },
@@ -345,7 +358,7 @@ describe('RecordService.deleteRecord', () => {
   it('scopes the delete to the table, so a record id alone is not enough', async () => {
     prismaMock.record.delete.mockResolvedValue(row())
 
-    await RecordService.deleteRecord(TABLE_ID, RECORD_ID)
+    await RecordService.deleteRecord(TABLE_ID, RECORD_ID, ACTOR)
 
     expect(prismaMock.record.delete).toHaveBeenCalledWith({
       where: { id: RECORD_ID, tableId: TABLE_ID },
@@ -355,7 +368,7 @@ describe('RecordService.deleteRecord', () => {
   it('lowers the table’s record count in the same transaction', async () => {
     prismaMock.record.delete.mockResolvedValue(row())
 
-    await RecordService.deleteRecord(TABLE_ID, RECORD_ID)
+    await RecordService.deleteRecord(TABLE_ID, RECORD_ID, ACTOR)
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
     expect(prismaMock.table.update).toHaveBeenCalledWith(
@@ -371,8 +384,107 @@ describe('RecordService.deleteRecord', () => {
       new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' }),
     )
 
-    await expect(RecordService.deleteRecord(TABLE_ID, RECORD_ID)).rejects.toMatchObject({
+    await expect(RecordService.deleteRecord(TABLE_ID, RECORD_ID, ACTOR)).rejects.toMatchObject({
       statusCode: 404,
+    })
+    expect(prismaMock.table.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('a role scoped to its own records', () => {
+  const OWN_ACTOR = {
+    userId: ACTOR_ID,
+    access: buildRecordDefaults({ readScope: 'OWN', updateScope: 'OWN', deleteScope: 'OWN' }),
+  }
+  const READ = new Date('2026-02-11T16:30:00.000Z')
+  const gone = () =>
+    new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: '7.9.0' })
+
+  it('lists and counts only the records the caller created', async () => {
+    stubPage([], 0)
+
+    await RecordService.listRecords(TABLE_ID, fields, query(), OWN_ACTOR)
+
+    for (const call of prismaMock.$queryRaw.mock.calls) {
+      const [strings, ...values] = call as [TemplateStringsArray, ...Prisma.Sql[]]
+      const statement = Prisma.sql(strings, ...values)
+      expect(statement.text).toContain('"createdById" =')
+      expect(statement.values).toContain(ACTOR_ID)
+    }
+  })
+
+  it('looks up one record only among the caller’s, so another’s is a 404', async () => {
+    prismaMock.record.findUnique.mockResolvedValue(null)
+
+    await expect(
+      RecordService.getRecordDetail(table, fields, RECORD_ID, OWN_ACTOR),
+    ).rejects.toMatchObject({ statusCode: 404 })
+    expect(prismaMock.record.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { createdById: ACTOR_ID, id: RECORD_ID, tableId: TABLE_ID },
+      }),
+    )
+  })
+
+  it('puts the author in the update’s where, beside the version', async () => {
+    prismaMock.record.update.mockResolvedValue(row())
+
+    await RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, OWN_ACTOR, READ)
+
+    expect(prismaMock.record.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { createdById: ACTOR_ID, updatedAt: READ, id: RECORD_ID, tableId: TABLE_ID },
+      }),
+    )
+  })
+
+  it('refuses an edit of a record it reads but did not create with 403, whatever the version', async () => {
+    const readAll = { ...OWN_ACTOR, access: { ...OWN_ACTOR.access, readScope: 'ALL' as const } }
+    prismaMock.record.update.mockRejectedValue(gone())
+    prismaMock.record.findUnique.mockResolvedValue({ createdById: 'usr_other' })
+
+    await expect(
+      RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, readAll, READ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      statusMessage: 'You can only edit your own records',
+    })
+  })
+
+  it('still answers 412 for its own record under a newer version', async () => {
+    prismaMock.record.update.mockRejectedValue(gone())
+    prismaMock.record.findUnique.mockResolvedValue({ createdById: ACTOR_ID })
+
+    await expect(
+      RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, OWN_ACTOR, READ),
+    ).rejects.toMatchObject({ statusCode: 412 })
+  })
+
+  it('answers 404 for a record out of its sight, looking only within what it reads', async () => {
+    prismaMock.record.update.mockRejectedValue(gone())
+    prismaMock.record.findUnique.mockResolvedValue(null)
+
+    await expect(
+      RecordService.updateRecord(TABLE_ID, fields, RECORD_ID, {}, OWN_ACTOR, READ),
+    ).rejects.toMatchObject({ statusCode: 404 })
+    expect(prismaMock.record.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { createdById: ACTOR_ID, id: RECORD_ID, tableId: TABLE_ID },
+      }),
+    )
+  })
+
+  it('deletes only its own record, and refuses another it reads with 403', async () => {
+    const readAll = { ...OWN_ACTOR, access: { ...OWN_ACTOR.access, readScope: 'ALL' as const } }
+    prismaMock.record.delete.mockRejectedValue(gone())
+    prismaMock.record.findUnique.mockResolvedValue({ createdById: 'usr_other' })
+
+    await expect(RecordService.deleteRecord(TABLE_ID, RECORD_ID, readAll)).rejects.toMatchObject({
+      statusCode: 403,
+      statusMessage: 'You can only delete your own records',
+    })
+    expect(prismaMock.record.delete).toHaveBeenCalledWith({
+      where: { createdById: ACTOR_ID, id: RECORD_ID, tableId: TABLE_ID },
     })
     expect(prismaMock.table.update).not.toHaveBeenCalled()
   })

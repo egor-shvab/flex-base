@@ -69,13 +69,13 @@
                 "
               />
               <BaseButton
-                v-if="editable"
+                v-if="canEdit(record)"
                 variant="icon"
                 prepend-icon="material-symbols:edit-outline-rounded"
                 label="Edit record"
                 @click="emit('edit', record)"
               />
-              <RecordRowMenu v-if="deletable" @delete="emit('delete', record)" />
+              <RecordRowMenu v-if="canDelete(record)" @delete="emit('delete', record)" />
             </div>
           </td>
         </tr>
@@ -100,10 +100,11 @@ const props = withDefaults(
     fields: IField[]
     records: IRecord[]
     sort?: IRecordSort | null
-    editable?: boolean
-    deletable?: boolean
+    /** Asked per row: under an `OWN` scope one record may be the caller's and the next not. */
+    canEdit?: (record: IRecord) => boolean
+    canDelete?: (record: IRecord) => boolean
   }>(),
-  { sort: null, editable: false, deletable: false },
+  { sort: null, canEdit: () => false, canDelete: () => false },
 )
 
 const detailLinkTo = useDetailLink()

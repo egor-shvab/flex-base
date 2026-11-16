@@ -560,6 +560,142 @@ describe('a role’s row for a table replaces its defaults there', () => {
   })
 })
 
+describe('a role scoped to its own records', () => {
+  const recordEvent = (
+    method: 'GET' | 'PATCH' | 'DELETE',
+    recordAddress: string,
+    extra: { body?: unknown; ifMatch?: string } = {},
+  ) => {
+    const event = testEvent({
+      user: world.mallory,
+      method,
+      body: extra.body,
+      params: { workspaceAddress: adaWorkspace(), tableAddress: world.tableId, recordAddress },
+    })
+    if (extra.ifMatch) event.node.req.headers['if-match'] = extra.ifMatch
+    return event
+  }
+  const tableEvent = (body?: unknown) =>
+    testEvent({
+      user: world.mallory,
+      method: body === undefined ? 'GET' : 'POST',
+      body,
+      params: { workspaceAddress: adaWorkspace(), tableAddress: world.tableId },
+    })
+
+  /** Mallory joins as an Editor narrowed to `access`; Ada's record is Ada's, and Mallory adds one. */
+  async function joinScoped(access: Partial<ITableAccess>) {
+    await prisma.workspaceRole.update({
+      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Editor' } },
+      data: buildRecordDefaults({ canCreate: true, ...access }),
+    })
+    await prisma.record.update({
+      where: { id: world.recordId },
+      data: { createdById: world.ada.id },
+    })
+    await addMember(world.ada.workspace.id, world.mallory.id, 'Editor')
+
+    const { record } = await recordsPost(tableEvent({ company: 'Mine' }))
+    return record
+  }
+
+  const own = { readScope: 'OWN', updateScope: 'OWN', deleteScope: 'OWN' } as const
+
+  it('lists, counts and opens only the records they created', async () => {
+    const mine = await joinScoped(own)
+
+    const page = await recordsGet(tableEvent())
+    expect(page.records.map((record) => record.id)).toEqual([mine.id])
+    expect(page.total).toBe(1)
+
+    await expect(recordGet(recordEvent('GET', world.recordId))).rejects.toMatchObject({
+      statusCode: 404,
+    })
+    await expect(recordGet(recordEvent('GET', mine.id))).resolves.toMatchObject({
+      record: { id: mine.id, createdById: world.mallory.id },
+    })
+  })
+
+  it('withholds the table’s record count, which would tell them how many others hold', async () => {
+    await joinScoped(own)
+    const people = await prisma.table.findFirstOrThrow({
+      where: { workspaceId: world.ada.workspace.id, name: 'People' },
+      select: { id: true },
+    })
+    const editor = await prisma.workspaceRole.findUniqueOrThrow({
+      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Editor' } },
+      select: { id: true },
+    })
+    await prisma.roleTableAccess.create({
+      data: {
+        workspaceId: world.ada.workspace.id,
+        roleId: editor.id,
+        tableId: people.id,
+        ...buildRecordDefaults(),
+      },
+    })
+
+    const { tables } = await tablesGet(
+      testEvent({ user: world.mallory, params: { workspaceAddress: adaWorkspace() } }),
+    )
+    expect(tables.find((table) => table.id === world.tableId)?._count.records).toBeNull()
+    expect(tables.find((table) => table.name === 'People')?._count.records).toBe(0)
+  })
+
+  it('refuses a record they read but did not create with 403, one they cannot read with 404', async () => {
+    const mine = await joinScoped({ updateScope: 'OWN', deleteScope: 'OWN' })
+    const body = { company: 'Beta' }
+
+    await expect(recordPatch(recordEvent('PATCH', world.recordId, { body }))).rejects.toMatchObject(
+      { statusCode: 403, statusMessage: 'You can only edit your own records' },
+    )
+    await expect(recordDelete(recordEvent('DELETE', world.recordId))).rejects.toMatchObject({
+      statusCode: 403,
+      statusMessage: 'You can only delete your own records',
+    })
+    await expect(recordPatch(recordEvent('PATCH', mine.id, { body }))).resolves.toMatchObject({
+      record: { data: body },
+    })
+
+    await prisma.workspaceRole.update({
+      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Editor' } },
+      data: { readScope: 'OWN' },
+    })
+    await expect(recordPatch(recordEvent('PATCH', world.recordId, { body }))).rejects.toMatchObject(
+      { statusCode: 404 },
+    )
+    await expect(recordDelete(recordEvent('DELETE', world.recordId))).rejects.toMatchObject({
+      statusCode: 404,
+    })
+
+    await expect(prisma.record.count({ where: { tableId: world.tableId } })).resolves.toBe(2)
+  })
+
+  it('checks the scope before the version: 403 for another’s record, 412 for a stale own one', async () => {
+    const mine = await joinScoped({ updateScope: 'OWN' })
+    const theirs = await prisma.record.findUniqueOrThrow({ where: { id: world.recordId } })
+    const body = { company: 'Beta' }
+
+    await expect(
+      recordPatch(
+        recordEvent('PATCH', theirs.id, { body, ifMatch: `"${theirs.updatedAt.toISOString()}"` }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      recordPatch(recordEvent('PATCH', mine.id, { body, ifMatch: '"2000-01-01T00:00:00.000Z"' })),
+    ).rejects.toMatchObject({ statusCode: 412 })
+  })
+
+  it('reaches no record without an author, which belongs to no one', async () => {
+    await joinScoped(own)
+    await prisma.record.update({ where: { id: world.recordId }, data: { createdById: null } })
+
+    await expect(recordGet(recordEvent('GET', world.recordId))).rejects.toMatchObject({
+      statusCode: 404,
+    })
+  })
+})
+
 function tableEndpoint(name: string): IEndpoint {
   const endpoint = scopedEndpoints().find((candidate) => candidate.name === name)
   if (!endpoint) throw new Error(`No endpoint named ${name}`)

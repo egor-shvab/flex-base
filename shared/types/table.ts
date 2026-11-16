@@ -9,6 +9,7 @@ export interface ITable {
 export interface ITableListItem extends ITable {
   _count: {
     fields: number
-    records: number
+    /** `null` where the caller reads only some of the records: the count would reveal the rest. */
+    records: number | null
   }
 }

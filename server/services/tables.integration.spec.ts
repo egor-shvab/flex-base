@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import { TableService } from '#server/services/tables'
 import { prisma } from '#server/db/prisma'
 import {
@@ -18,9 +19,11 @@ beforeEach(async () => {
 
 describe('table names are unique per workspace, in the database', () => {
   it('refuses a second table of the same name', async () => {
-    await TableService.createTable(workspaceId, 'Deals')
+    await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
 
-    await expect(TableService.createTable(workspaceId, 'Deals')).rejects.toMatchObject({
+    await expect(
+      TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A table with this name already exists',
     })
@@ -28,18 +31,22 @@ describe('table names are unique per workspace, in the database', () => {
 
   it('lets a different user take that name', async () => {
     const other = await createUser()
-    await TableService.createTable(workspaceId, 'Deals')
+    await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
 
-    await expect(TableService.createTable(other.workspace.id, 'Deals')).resolves.toMatchObject({
+    await expect(
+      TableService.createTable(other.workspace.id, 'Deals', FULL_TABLE_ACCESS),
+    ).resolves.toMatchObject({
       name: 'Deals',
     })
   })
 
   it('refuses a rename onto a name already taken', async () => {
-    await TableService.createTable(workspaceId, 'Deals')
-    const second = await TableService.createTable(workspaceId, 'Leads')
+    await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
+    const second = await TableService.createTable(workspaceId, 'Leads', FULL_TABLE_ACCESS)
 
-    await expect(TableService.renameTable(workspaceId, second.id, 'Deals')).rejects.toMatchObject({
+    await expect(
+      TableService.renameTable(workspaceId, second.id, 'Deals', FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 409,
     })
   })
@@ -48,7 +55,9 @@ describe('table names are unique per workspace, in the database', () => {
     const other = await createUser()
     const theirs = await createTable(other.workspace.id, 'Theirs')
 
-    await expect(TableService.renameTable(workspaceId, theirs.id, 'Mine')).rejects.toMatchObject({
+    await expect(
+      TableService.renameTable(workspaceId, theirs.id, 'Mine', FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 404,
     })
 
@@ -63,15 +72,15 @@ describe('table numbers', () => {
       .number
 
   it('starts at one', async () => {
-    const table = await TableService.createTable(workspaceId, 'Deals')
+    const table = await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
 
     await expect(numberOf(table.id)).resolves.toBe(1)
   })
 
   it('increments per table', async () => {
-    await TableService.createTable(workspaceId, 'Deals')
-    await TableService.createTable(workspaceId, 'People')
-    const third = await TableService.createTable(workspaceId, 'Companies')
+    await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
+    await TableService.createTable(workspaceId, 'People', FULL_TABLE_ACCESS)
+    const third = await TableService.createTable(workspaceId, 'Companies', FULL_TABLE_ACCESS)
 
     await expect(numberOf(third.id)).resolves.toBe(3)
   })
@@ -79,7 +88,7 @@ describe('table numbers', () => {
   it('gives every concurrent create a distinct number', async () => {
     await Promise.all(
       Array.from({ length: 20 }, (_, index) =>
-        TableService.createTable(workspaceId, `Co ${index}`),
+        TableService.createTable(workspaceId, `Co ${index}`, FULL_TABLE_ACCESS),
       ),
     )
 
@@ -91,11 +100,11 @@ describe('table numbers', () => {
   })
 
   it('never reuses the number of a deleted table', async () => {
-    const first = await TableService.createTable(workspaceId, 'Deals')
-    await TableService.createTable(workspaceId, 'People')
+    const first = await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
+    await TableService.createTable(workspaceId, 'People', FULL_TABLE_ACCESS)
 
     await TableService.deleteTable(workspaceId, first.id)
-    const next = await TableService.createTable(workspaceId, 'Companies')
+    const next = await TableService.createTable(workspaceId, 'Companies', FULL_TABLE_ACCESS)
 
     await expect(numberOf(next.id)).resolves.toBe(3)
   })
@@ -103,14 +112,14 @@ describe('table numbers', () => {
   it('counts per user rather than globally', async () => {
     const other = await createUser()
 
-    await TableService.createTable(workspaceId, 'Deals')
-    const elsewhere = await TableService.createTable(other.workspace.id, 'Deals')
+    await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
+    const elsewhere = await TableService.createTable(other.workspace.id, 'Deals', FULL_TABLE_ACCESS)
 
     await expect(numberOf(elsewhere.id)).resolves.toBe(1)
   })
 
   it('is unique per user in the database, not only by convention', async () => {
-    await TableService.createTable(workspaceId, 'Deals')
+    await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
 
     await expect(
       prisma.table.create({ data: { workspaceId, name: 'People', number: 1 } }),
@@ -118,12 +127,14 @@ describe('table numbers', () => {
   })
 
   it('burns no number when the create is refused', async () => {
-    await TableService.createTable(workspaceId, 'Deals')
-    await expect(TableService.createTable(workspaceId, 'Deals')).rejects.toMatchObject({
+    await TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS)
+    await expect(
+      TableService.createTable(workspaceId, 'Deals', FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 409,
     })
 
-    const next = await TableService.createTable(workspaceId, 'People')
+    const next = await TableService.createTable(workspaceId, 'People', FULL_TABLE_ACCESS)
 
     await expect(numberOf(next.id)).resolves.toBe(2)
   })

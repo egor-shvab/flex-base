@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { FULL_RECORD_ACTOR } from '~~/test/membership'
 import { buildRecordOrderBy, buildRecordWhere } from '#server/db/record-sql'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import { prisma } from '#server/db/prisma'
@@ -34,7 +35,12 @@ const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
 })
 
 async function matching(filters: TRecordFilterValues, overrides: Partial<IRecordQuery> = {}) {
-  const page = await RecordService.listRecords(tableId, fields, query({ filters, ...overrides }))
+  const page = await RecordService.listRecords(
+    tableId,
+    fields,
+    query({ filters, ...overrides }),
+    FULL_RECORD_ACTOR,
+  )
   return page.records.map((record) => record.data.company)
 }
 
@@ -161,6 +167,7 @@ describe('the WHERE clause selects the rows it claims to', () => {
       tableId,
       fields,
       query({ filters: { [RECORD_NUMBER_KEY]: '1' } }),
+      FULL_RECORD_ACTOR,
     )
 
     expect(page.records.map((record) => record.number)).toEqual([1])
@@ -194,6 +201,7 @@ describe('the WHERE clause selects the rows it claims to', () => {
       table.id,
       textOnly,
       query({ filters: { [CREATED_AT_KEY]: { from: '2026-01-05', to: '2026-01-05' } } }),
+      FULL_RECORD_ACTOR,
     )
 
     expect(page.records.map((record) => record.data.company)).toEqual(['Sameday'])
@@ -220,7 +228,12 @@ describe('free-text search', () => {
     const textOnly = await createFields(table.id, [{ key: 'company', type: 'TEXT' }])
     await createRecords(table.id, [{ company: 'Alpha' }, { company: 'Beta' }, { company: 'Gamma' }])
 
-    const page = await RecordService.listRecords(table.id, textOnly, query({ search: '2' }))
+    const page = await RecordService.listRecords(
+      table.id,
+      textOnly,
+      query({ search: '2' }),
+      FULL_RECORD_ACTOR,
+    )
 
     expect(page.records.map((record) => record.number)).toEqual([2])
   })
@@ -254,7 +267,12 @@ describe('free-text search', () => {
 
     const dealFields = [company, owner]
     const found = async (term: string) => {
-      const page = await RecordService.listRecords(deals.id, dealFields, query({ search: term }))
+      const page = await RecordService.listRecords(
+        deals.id,
+        dealFields,
+        query({ search: term }),
+        FULL_RECORD_ACTOR,
+      )
       return page.records.map((record) => record.data.company)
     }
 
@@ -330,7 +348,7 @@ describe('the record count is bounded', () => {
   `
 
   it('reports a table under the cap exactly', async () => {
-    const page = await RecordService.listRecords(tableId, fields, query())
+    const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
 
     expect(page).toMatchObject({ total: 3, totalCapped: false })
   })
@@ -338,7 +356,7 @@ describe('the record count is bounded', () => {
   it('reports a table sitting exactly on the cap as exact, not capped', async () => {
     await fill(RECORD_COUNT_CAP - 3)
 
-    const page = await RecordService.listRecords(tableId, fields, query())
+    const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
 
     expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: false })
   })
@@ -346,7 +364,7 @@ describe('the record count is bounded', () => {
   it('stops counting past the cap and says so', async () => {
     await fill(RECORD_COUNT_CAP)
 
-    const page = await RecordService.listRecords(tableId, fields, query())
+    const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
 
     expect(page).toMatchObject({ total: RECORD_COUNT_CAP, totalCapped: true })
     expect(page.records).toHaveLength(page.pageSize)
@@ -363,7 +381,12 @@ describe('free-text search is served by the trigram index', () => {
     `
     await prisma.$executeRaw`ANALYZE "Record"`
 
-    const where = buildRecordWhere(tableId, fields, {}, 'zzqqxx')
+    const where = buildRecordWhere(
+      { tableId: tableId, readScope: 'ALL', userId: 'usr_1' },
+      fields,
+      {},
+      'zzqqxx',
+    )
     const rows = await prisma.$queryRaw<Record<string, string>[]>`
       EXPLAIN SELECT id FROM "Record" ${where}
     `
@@ -380,6 +403,7 @@ describe('ORDER BY', () => {
       tableId,
       fields,
       query({ sort: { key, direction } }),
+      FULL_RECORD_ACTOR,
     )
     return page.records.map((record) => record.data.company)
   }
@@ -393,6 +417,7 @@ describe('ORDER BY', () => {
       tableId,
       fields,
       query({ sort: { key: RECORD_NUMBER_KEY, direction: 'asc' } }),
+      FULL_RECORD_ACTOR,
     )
 
     expect(page.records.map((record) => record.number)).toEqual([1, 2, 3])
@@ -444,6 +469,7 @@ describe('ORDER BY', () => {
         deals.id,
         dealFields,
         query({ sort: { key: 'owner', direction: 'asc' }, search }),
+        FULL_RECORD_ACTOR,
       )
       return page.records.map((record) => record.data.company)
     }
@@ -484,6 +510,7 @@ describe('ORDER BY', () => {
         deals.id,
         dealFields,
         query({ sort: { key: 'owner', direction: 'asc' } }),
+        FULL_RECORD_ACTOR,
       )
 
     it('keeps a row whose link resolves to nothing, and sorts it last', async () => {
@@ -508,7 +535,11 @@ describe('ORDER BY', () => {
     it('resolves the label by joining, not by a subquery per row', async () => {
       const { deals, dealFields } = await dealsLinkedTo(['ada'])
       const order = buildRecordOrderBy(dealFields, { key: 'owner', direction: 'asc' })
-      const where = buildRecordWhere(deals.id, dealFields, {})
+      const where = buildRecordWhere(
+        { tableId: deals.id, readScope: 'ALL', userId: 'usr_1' },
+        dealFields,
+        {},
+      )
 
       const rows = await prisma.$queryRaw<Record<string, string>[]>`
         EXPLAIN SELECT id FROM "Record" ${order.join} ${where} ORDER BY ${order.orderBy} LIMIT 50
@@ -523,14 +554,24 @@ describe('ORDER BY', () => {
 
 describe('paging and counting', () => {
   it('counts every matching row, not just the page', async () => {
-    const page = await RecordService.listRecords(tableId, fields, query({ pageSize: 2 }))
+    const page = await RecordService.listRecords(
+      tableId,
+      fields,
+      query({ pageSize: 2 }),
+      FULL_RECORD_ACTOR,
+    )
 
     expect(page.records).toHaveLength(2)
     expect(page.total).toBe(3)
   })
 
   it('offsets to the next page', async () => {
-    const page = await RecordService.listRecords(tableId, fields, query({ page: 2, pageSize: 2 }))
+    const page = await RecordService.listRecords(
+      tableId,
+      fields,
+      query({ page: 2, pageSize: 2 }),
+      FULL_RECORD_ACTOR,
+    )
 
     expect(page.records).toHaveLength(1)
     expect(page.total).toBe(3)
@@ -541,13 +582,19 @@ describe('paging and counting', () => {
       tableId,
       fields,
       query({ filters: { stage: ['Won'] } }),
+      FULL_RECORD_ACTOR,
     )
 
     expect(page.total).toBe(2)
   })
 
   it('comes back empty past the end rather than erroring', async () => {
-    const page = await RecordService.listRecords(tableId, fields, query({ page: 9 }))
+    const page = await RecordService.listRecords(
+      tableId,
+      fields,
+      query({ page: 9 }),
+      FULL_RECORD_ACTOR,
+    )
 
     expect(page.records).toEqual([])
     expect(page.total).toBe(3)
@@ -568,7 +615,11 @@ describe('the multi-value filter is GIN-indexable', () => {
     await prisma.$executeRaw`ANALYZE "Record"`
 
     try {
-      const where = buildRecordWhere(tableId, fields, { tags: ['renewal'] })
+      const where = buildRecordWhere(
+        { tableId: tableId, readScope: 'ALL', userId: 'usr_1' },
+        fields,
+        { tags: ['renewal'] },
+      )
       const rows = await prisma.$queryRaw<Record<string, string>[]>`
         EXPLAIN SELECT id FROM "Record" ${where}
       `
@@ -584,13 +635,13 @@ describe('the multi-value filter is GIN-indexable', () => {
 
 describe('table scoping', () => {
   it('never returns another table’s rows, even one owned by the same user', async () => {
-    const page = await RecordService.listRecords(tableId, fields, query())
+    const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
     expect(page.total).toBe(3)
 
     const other = await createTable((await createUser()).workspace.id)
     await createRecords(other.id, [{ company: 'Elsewhere' }])
 
-    const again = await RecordService.listRecords(tableId, fields, query())
+    const again = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
     expect(again.total).toBe(3)
     expect(again.records.map((record) => record.data.company)).not.toContain('Elsewhere')
   })

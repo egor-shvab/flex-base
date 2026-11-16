@@ -25,8 +25,8 @@ interface ITableProps {
   fields?: IField[]
   records?: IRecord[]
   sort?: IRecordSort | null
-  editable?: boolean
-  deletable?: boolean
+  canEdit?: (record: IRecord) => boolean
+  canDelete?: (record: IRecord) => boolean
 }
 
 function table(props: ITableProps = {}) {
@@ -36,8 +36,8 @@ function table(props: ITableProps = {}) {
       fields: props.fields ?? FIELDS,
       records: props.records ?? RECORDS,
       sort: props.sort ?? null,
-      editable: props.editable ?? true,
-      deletable: props.deletable ?? true,
+      canEdit: props.canEdit ?? (() => true),
+      canDelete: props.canDelete ?? (() => true),
     },
   })
 }
@@ -272,7 +272,7 @@ describe('RecordsTable', () => {
     })
 
     it('offers only what the caller may do, and always the view', async () => {
-      const wrapper = await table({ editable: false, deletable: false })
+      const wrapper = await table({ canEdit: () => false, canDelete: () => false })
 
       for (const row of rows(wrapper)) {
         expect(row.find('[aria-label="View record"]').exists()).toBe(true)
@@ -282,10 +282,21 @@ describe('RecordsTable', () => {
     })
 
     it('keeps the delete menu for a caller who may delete but not edit', async () => {
-      const wrapper = await table({ editable: false, deletable: true })
+      const wrapper = await table({ canEdit: () => false, canDelete: () => true })
 
       expect(rows(wrapper)[0]!.find('[aria-label="Edit record"]').exists()).toBe(false)
       expect(rows(wrapper)[0]!.find('[aria-label="More actions"]').exists()).toBe(true)
+    })
+
+    it('asks row by row, so only the records the caller may touch carry the controls', async () => {
+      const isFirst = (candidate: IRecord) => candidate.id === 'rec_1'
+      const wrapper = await table({ canEdit: isFirst, canDelete: isFirst })
+      const [first, second] = rows(wrapper)
+
+      expect(first!.find('[aria-label="Edit record"]').exists()).toBe(true)
+      expect(first!.find('[aria-label="More actions"]').exists()).toBe(true)
+      expect(second!.find('[aria-label="Edit record"]').exists()).toBe(false)
+      expect(second!.find('[aria-label="More actions"]').exists()).toBe(false)
     })
   })
 })

@@ -3,9 +3,11 @@ import { RecordService } from '#server/services/records'
 import { TableService } from '#server/services/tables'
 import { prisma } from '#server/db/prisma'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IField } from '#shared/types/field'
 import type { IRecordQuery } from '#shared/types/record'
 import { createFields, createRecord, createTable, createUser } from '~~/test/integration/seed'
+import { FULL_RECORD_ACTOR } from '~~/test/membership'
 
 let userId: string
 let workspaceId: string
@@ -62,7 +64,7 @@ describe('record numbers', () => {
     const first = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
     await RecordService.createRecord(tableId, fields, { company: 'Beta' }, userId)
 
-    await RecordService.deleteRecord(tableId, first.id)
+    await RecordService.deleteRecord(tableId, first.id, FULL_RECORD_ACTOR)
     const next = await RecordService.createRecord(tableId, fields, { company: 'Gamma' }, userId)
 
     expect(next.number).toBe(3)
@@ -94,14 +96,14 @@ describe('record numbers', () => {
 
 describe('the kept record count', () => {
   const countOf = async (id: string) =>
-    (await TableService.getTableListRow(workspaceId, id))._count.records
+    (await TableService.getTableListRow(workspaceId, id, FULL_TABLE_ACCESS))._count.records
 
   it('follows creates and deletes, matching the rows actually there', async () => {
     const created = []
     for (const company of ['Acme', 'Globex', 'Initech']) {
       created.push(await RecordService.createRecord(tableId, fields, { company }, userId))
     }
-    await RecordService.deleteRecord(tableId, created[1]?.id ?? '')
+    await RecordService.deleteRecord(tableId, created[1]?.id ?? '', FULL_RECORD_ACTOR)
 
     expect(await countOf(tableId)).toBe(2)
     await expect(prisma.record.count({ where: { tableId } })).resolves.toBe(2)
@@ -109,9 +111,11 @@ describe('the kept record count', () => {
 
   it('stays put when the delete finds nothing', async () => {
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
-    await RecordService.deleteRecord(tableId, record.id)
+    await RecordService.deleteRecord(tableId, record.id, FULL_RECORD_ACTOR)
 
-    await expect(RecordService.deleteRecord(tableId, record.id)).rejects.toMatchObject({
+    await expect(
+      RecordService.deleteRecord(tableId, record.id, FULL_RECORD_ACTOR),
+    ).rejects.toMatchObject({
       statusCode: 404,
     })
     expect(await countOf(tableId)).toBe(0)
@@ -134,7 +138,12 @@ describe('paging through ties', () => {
 
     const pageOf = async (page: number, sort = query().sort) =>
       (
-        await RecordService.listRecords(tableId, fields, query({ page, pageSize: 3, sort }))
+        await RecordService.listRecords(
+          tableId,
+          fields,
+          query({ page, pageSize: 3, sort }),
+          FULL_RECORD_ACTOR,
+        )
       ).records.map((record) => record.number)
 
     for (const sort of [
@@ -159,7 +168,7 @@ describe('paging through ties', () => {
 describe('writing a record', () => {
   it('round-trips the data through JSONB', async () => {
     const stored = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
-    const page = await RecordService.listRecords(tableId, fields, query())
+    const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
 
     expect(page.records[0]).toMatchObject({ id: stored.id, data: { company: 'Acme' } })
   })
@@ -167,8 +176,14 @@ describe('writing a record', () => {
   it('replaces the data wholesale rather than merging', async () => {
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
-    await RecordService.updateRecord(tableId, fields, record.id, { company: 'Beta' }, userId)
-    const page = await RecordService.listRecords(tableId, fields, query())
+    await RecordService.updateRecord(
+      tableId,
+      fields,
+      record.id,
+      { company: 'Beta' },
+      { userId, access: FULL_TABLE_ACCESS },
+    )
+    const page = await RecordService.listRecords(tableId, fields, query(), FULL_RECORD_ACTOR)
 
     expect(page.records[0]?.data).toEqual({ company: 'Beta' })
   })
@@ -182,7 +197,7 @@ describe('writing a record', () => {
       {
         company: 'Beta',
       },
-      userId,
+      { userId, access: FULL_TABLE_ACCESS },
     )
 
     expect(updated.createdAt).toBe(record.createdAt)
@@ -194,7 +209,13 @@ describe('writing a record', () => {
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
     await expect(
-      RecordService.updateRecord(other.id, fields, record.id, { company: 'Beta' }, userId),
+      RecordService.updateRecord(
+        other.id,
+        fields,
+        record.id,
+        { company: 'Beta' },
+        { userId, access: FULL_TABLE_ACCESS },
+      ),
     ).rejects.toMatchObject({ statusCode: 404 })
   })
 
@@ -202,7 +223,9 @@ describe('writing a record', () => {
     const other = await createTable((await createUser()).workspace.id)
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
-    await expect(RecordService.deleteRecord(other.id, record.id)).rejects.toMatchObject({
+    await expect(
+      RecordService.deleteRecord(other.id, record.id, FULL_RECORD_ACTOR),
+    ).rejects.toMatchObject({
       statusCode: 404,
     })
     await expect(prisma.record.findUnique({ where: { id: record.id } })).resolves.not.toBeNull()
@@ -211,7 +234,7 @@ describe('writing a record', () => {
   it('really removes the row on delete', async () => {
     const record = await RecordService.createRecord(tableId, fields, { company: 'Acme' }, userId)
 
-    await RecordService.deleteRecord(tableId, record.id)
+    await RecordService.deleteRecord(tableId, record.id, FULL_RECORD_ACTOR)
 
     await expect(prisma.record.findUnique({ where: { id: record.id } })).resolves.toBeNull()
   })
@@ -245,7 +268,12 @@ describe('filtering a relation by the number its URL carries', () => {
   })
 
   const listBy = (value: string) =>
-    RecordService.listRecords(tableId, fields, query({ filters: { owner: value } }))
+    RecordService.listRecords(
+      tableId,
+      fields,
+      query({ filters: { owner: value } }),
+      FULL_RECORD_ACTOR,
+    )
 
   it('returns the same rows as the id did', async () => {
     const byNumber = await listBy(String(ada.number))

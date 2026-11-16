@@ -268,8 +268,9 @@ consulted before either map.
 > `a >= x AND a <= y`; an unparenthesised OR group would bind to its last bound and silently widen
 > it.
 
-`buildRecordWhere` walks the table's **fields**, so a key the table does not own compares against
-nothing. Search adds an indexed **pre-filter** — `record_search_text(data, "number") ILIKE …` on
+`buildRecordWhere` opens with `"tableId"` and, for a caller reading only their own records,
+`"createdById"` (`IRecordReader`), so no filter or search can reach past either. It walks the
+table's **fields**, so a key the table does not own compares against nothing. Search adds an indexed **pre-filter** — `record_search_text(data, "number") ILIKE …` on
 `Record_search_trgm_idx` — in front of the exact OR group; the flatten must be a **superset** of
 what any type searches, and expression and index must stay byte-identical. `listRecords` composes
 one statement, searching or not. The count runs as `SELECT 1 … LIMIT RECORD_COUNT_CAP + 1` over the
@@ -298,7 +299,8 @@ from its table's records in the same transaction** — a freed key goes to the n
 name, whatever its type, which would inherit the old values or fail to cast them. It is refused
 (409) while a RELATION shows the field as its label (`RelationService.assertNotRelationTarget`).
 `Table.recordCounter` is never in `tableSelect`; `Table.recordCount` reaches the wire as
-`_count.records` (`decisions.md` → _The count is bounded, and Next does not read the page count_).
+`_count.records` (`decisions.md` → _The count is bounded, and Next does not read the page count_),
+`null` for a caller who reads only some of the table's records (`canCountRecords`).
 
 **One index covers `data` for every table:** `Record_search_trgm_idx`, a `gin_trgm_ops` GIN over
 `record_search_text(data, "number")`. It, the function and the `pg_trgm` extension are hand-written

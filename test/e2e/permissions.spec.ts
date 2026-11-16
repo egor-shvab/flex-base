@@ -95,6 +95,33 @@ test('a role narrowed mid-session hides its controls on the first refusal', asyn
   await page.context().close()
 })
 
+test('a role scoped to its own records offers edit and delete on those rows only', async ({
+  browser,
+  workspace,
+}) => {
+  await prisma.workspaceRole.update({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    data: { canCreate: true, updateScope: 'OWN', deleteScope: 'OWN' },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+  await page.goto(table.url)
+
+  await page.getByRole('button', { name: 'Add record' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Company').fill('Mine')
+  await dialog.getByRole('button', { name: 'Create record' }).click()
+  await expect(dialog).toHaveCount(0)
+
+  const row = (company: string) => page.getByRole('row').filter({ hasText: company })
+  await expect(row('Mine').getByRole('button', { name: 'Edit record' })).toBeVisible()
+  await expect(row('Mine').getByRole('button', { name: 'More actions' })).toBeVisible()
+  await expect(row('Acme').getByRole('link', { name: 'View record' })).toBeVisible()
+  await expect(row('Acme').getByRole('button', { name: 'Edit record' })).toHaveCount(0)
+  await expect(row('Acme').getByRole('button', { name: 'More actions' })).toHaveCount(0)
+
+  await page.context().close()
+})
+
 test('a table hidden from a role is not listed, and its address is a 404', async ({
   browser,
   workspace,

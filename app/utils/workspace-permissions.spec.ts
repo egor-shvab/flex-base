@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  applyRecordAction,
+  applyReadScope,
   buildAssignableRoleOptions,
+  buildScopeOptions,
   summarisePermissions,
   toGrantCount,
 } from '~/utils/workspace-permissions'
@@ -33,37 +34,86 @@ describe('summarisePermissions', () => {
       }),
     ).toBe('Rename the workspace, Manage tables, Delete records')
   })
+
+  it('names an own-records scope as such, and a narrowed read even without grants', () => {
+    expect(
+      summarisePermissions({
+        permissions: [],
+        recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'OWN' }),
+      }),
+    ).toBe('Add records, Edit own records')
+    expect(
+      summarisePermissions({
+        permissions: [],
+        recordDefaults: buildRecordDefaults({ readScope: 'OWN' }),
+      }),
+    ).toBe('Sees only own records')
+  })
+
+  it('does not call a role with every permission but own-records scopes every permission', () => {
+    expect(
+      summarisePermissions({
+        permissions: [...WORKSPACE_PERMISSIONS],
+        recordDefaults: { ...FULL_TABLE_ACCESS, deleteScope: 'OWN' },
+      }),
+    ).not.toBe('Every permission')
+  })
 })
 
 describe('toGrantCount', () => {
-  it('counts permissions and record actions alike', () => {
-    expect(
-      toGrantCount({
-        permissions: ['TABLES_MANAGE'],
-        recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
-      }),
-    ).toBe(3)
+  it('counts permissions and record actions, a wider scope as more', () => {
+    const editor = { permissions: [], recordDefaults: buildRecordDefaults({ updateScope: 'ALL' }) }
+    const ownEditor = {
+      permissions: [],
+      recordDefaults: buildRecordDefaults({ updateScope: 'OWN' }),
+    }
+    const manager = {
+      permissions: ['TABLES_MANAGE' as const],
+      recordDefaults: buildRecordDefaults({ updateScope: 'ALL' }),
+    }
+
+    expect(toGrantCount(ownEditor)).toBeLessThan(toGrantCount(editor))
+    expect(toGrantCount(editor)).toBeLessThan(toGrantCount(manager))
   })
 })
 
-describe('applyRecordAction', () => {
-  const readOnly: TRoleInput['recordDefaults'] = {
+describe('applyReadScope', () => {
+  const editor: TRoleInput['recordDefaults'] = {
     readScope: 'ALL',
-    canCreate: false,
-    updateScope: 'NONE',
-    deleteScope: 'NONE',
+    canCreate: true,
+    updateScope: 'ALL',
+    deleteScope: 'OWN',
   }
 
-  it('grants adding as a flag and the other actions on every record', () => {
-    expect(applyRecordAction(readOnly, 'create', true)).toEqual({ ...readOnly, canCreate: true })
-    expect(applyRecordAction(readOnly, 'update', true)).toEqual({ ...readOnly, updateScope: 'ALL' })
-    expect(applyRecordAction(readOnly, 'delete', true)).toEqual({ ...readOnly, deleteScope: 'ALL' })
+  it('narrows the actions to the new read, so none reaches records the role cannot see', () => {
+    expect(applyReadScope(editor, 'OWN')).toEqual({
+      readScope: 'OWN',
+      canCreate: true,
+      updateScope: 'OWN',
+      deleteScope: 'OWN',
+    })
   })
 
-  it('withdraws an action without touching the others', () => {
-    const editor = { ...readOnly, canCreate: true, updateScope: 'ALL' as const }
+  it('leaves the actions alone when the read widens', () => {
+    expect(applyReadScope({ ...editor, readScope: 'OWN', updateScope: 'OWN' }, 'ALL')).toEqual({
+      ...editor,
+      updateScope: 'OWN',
+    })
+  })
+})
 
-    expect(applyRecordAction(editor, 'update', false)).toEqual({ ...readOnly, canCreate: true })
+describe('buildScopeOptions', () => {
+  it('shows every scope, disabling those past the limit', () => {
+    expect(
+      buildScopeOptions(['NONE', 'OWN', 'ALL'], (scope) => scope !== 'ALL').map((option) => [
+        option.value,
+        option.disabled,
+      ]),
+    ).toEqual([
+      ['NONE', false],
+      ['OWN', false],
+      ['ALL', true],
+    ])
   })
 })
 

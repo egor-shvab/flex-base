@@ -302,6 +302,15 @@ could no longer be read off one row. `TABLES_MANAGE` sees every table, since a t
 but not open would be changed blind; their record actions still come from the role. A hidden table
 is a 404, as one outside the workspace.
 
+### A scoped write carries its scope in the `where`, and a miss is refused scope before version
+
+Under `OWN` the author joins the version in the write's `where` (`buildRecordScopeWhere`), and only
+a miss is explained, by reading the record within the caller's read scope: theirs to read but not
+to touch is a 403 whatever its version, theirs to touch is a 412, out of sight is the 404. A 412 to
+someone who may not write would invite a reload and a retry that can never land. Rejected: reading
+the author first and then writing — two statements where one suffices, and the read would answer
+for records the caller cannot see.
+
 ### A workspace address is random, never a number or a slug
 
 `publicId` is ten random characters, so a URL neither counts workspaces nor leaks a name. Unlike a

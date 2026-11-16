@@ -8,11 +8,14 @@ import type { IFieldCreatedResponse } from '#shared/types/api'
 
 export default defineTableHandler(
   'TABLES_MANAGE',
-  async ({ event, membership, table }): Promise<IFieldCreatedResponse> => {
+  async ({ event, membership, table, access }): Promise<IFieldCreatedResponse> => {
     const input = await readValidatedBody(event, fieldInputSchema.parse)
     await requireFieldTarget(membership, input)
     const field = await FieldService.createField(table.id, input)
 
-    return { field, table: await TableService.getTableListRow(membership.workspace.id, table.id) }
+    return {
+      field,
+      table: await TableService.getTableListRow(membership.workspace.id, table.id, access),
+    }
   },
 )

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { FULL_RECORD_ACTOR } from '~~/test/membership'
 import { RelationService } from '#server/services/relations'
 import { RecordService } from '#server/services/records'
 import { RELATION_OPTIONS_LIMIT } from '#shared/constants/record'
@@ -112,13 +113,18 @@ describe('reading only the label', () => {
   it('gives a filtered list the labels of the records its filter names', async () => {
     const ada = await createRecord(peopleId, { full_name: 'Ada' })
 
-    const page = await RecordService.listRecords(dealsId, [owner], {
-      page: 1,
-      pageSize: 50,
-      sort: { key: 'createdAt', direction: 'desc' },
-      filters: { owner: String(ada.number) },
-      search: '',
-    })
+    const page = await RecordService.listRecords(
+      dealsId,
+      [owner],
+      {
+        page: 1,
+        pageSize: 50,
+        sort: { key: 'createdAt', direction: 'desc' },
+        filters: { owner: String(ada.number) },
+        search: '',
+      },
+      FULL_RECORD_ACTOR,
+    )
 
     expect(page.records).toEqual([])
     expect(page.linkedRecords[owner.id]?.[ada.id]).toEqual({ number: ada.number, label: 'Ada' })

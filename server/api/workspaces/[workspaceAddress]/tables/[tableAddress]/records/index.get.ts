@@ -7,13 +7,13 @@ import { buildRecordQuerySchema } from '#shared/validation/record'
 
 export default defineFieldsHandler(
   'READ',
-  async ({ event, tableId, fields }): Promise<IRecordPage> => {
+  async ({ event, user, tableId, fields, access }): Promise<IRecordPage> => {
     const params = await getValidatedQuery(event, buildRecordQuerySchema(fields).parse)
     const query: IRecordQuery = {
       ...parseRecordQueryState(fields, params),
       pageSize: params.pageSize,
     }
 
-    return RecordService.listRecords(tableId, fields, query)
+    return RecordService.listRecords(tableId, fields, query, { userId: user.id, access })
   },
 )

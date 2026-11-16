@@ -5,6 +5,7 @@ import {
   buildRecordLabelSearch,
   buildRecordOrderBy,
   buildRecordWhere,
+  type IRecordReader,
 } from '#server/db/record-sql'
 import { FIELD_TYPES, MULTI_VALUE_BY_TYPE } from '#shared/field-types/registry'
 import { CREATED_AT_KEY, RECORD_NUMBER_KEY, UPDATED_AT_KEY } from '#shared/constants/filter'
@@ -24,29 +25,43 @@ function sqlText(fragment: Prisma.Sql): string {
 }
 
 const TABLE_ID = 'tbl_deals'
+const READ_ALL: IRecordReader = { tableId: TABLE_ID, readScope: 'ALL', userId: 'usr_1' }
 
 describe('buildRecordWhere — scoping', () => {
   it('always scopes to the table first, so ownership cannot be filtered away', () => {
-    const where = buildRecordWhere(TABLE_ID, [], {})
+    const where = buildRecordWhere(READ_ALL, [], {})
 
     expect(sqlText(where)).toBe('WHERE "tableId" = $1')
     expect(where.values).toEqual([TABLE_ID])
   })
 
+  it('narrows a read of the caller’s own records to their author id, right after the table', () => {
+    const where = buildRecordWhere({ ...READ_ALL, readScope: 'OWN' }, [], {})
+
+    expect(sqlText(where)).toBe('WHERE "tableId" = $1 AND "createdById" = $2')
+    expect(where.values).toEqual([TABLE_ID, 'usr_1'])
+  })
+
+  it('matches nothing for a read of none, should one ever get this far', () => {
+    expect(sqlText(buildRecordWhere({ ...READ_ALL, readScope: 'NONE' }, [], {}))).toBe(
+      'WHERE "tableId" = $1 AND FALSE',
+    )
+  })
+
   it('ANDs every filter onto that scope', () => {
-    const where = buildRecordWhere(TABLE_ID, [textField('company')], { company: 'acme' })
+    const where = buildRecordWhere(READ_ALL, [textField('company')], { company: 'acme' })
 
     expect(sqlText(where)).toBe('WHERE "tableId" = $1 AND data ->> $2::text ILIKE $3')
     expect(where.values).toEqual([TABLE_ID, 'company', '%acme%'])
   })
 
   it('ignores a filter key the table does not own', () => {
-    const where = buildRecordWhere(TABLE_ID, [textField('company')], { ghost: 'x' })
+    const where = buildRecordWhere(READ_ALL, [textField('company')], { ghost: 'x' })
     expect(sqlText(where)).toBe('WHERE "tableId" = $1')
   })
 
   it('binds keys and values as parameters rather than interpolating them', () => {
-    const where = buildRecordWhere(TABLE_ID, [textField('company')], { company: "'; DROP TABLE" })
+    const where = buildRecordWhere(READ_ALL, [textField('company')], { company: "'; DROP TABLE" })
 
     expect(sqlText(where)).not.toContain('DROP TABLE')
     expect(where.values).toContain("%'; DROP TABLE%")
@@ -55,7 +70,7 @@ describe('buildRecordWhere — scoping', () => {
 
 describe('buildRecordWhere — per type', () => {
   const whereFor = (field: Parameters<typeof buildRecordWhere>[1][number], value: unknown) =>
-    buildRecordWhere(TABLE_ID, [field], { [field.key]: value as never })
+    buildRecordWhere(READ_ALL, [field], { [field.key]: value as never })
 
   it('matches TEXT partially', () => {
     expect(sqlText(whereFor(textField(), 'acme'))).toContain('data ->> $2::text ILIKE $3')
@@ -127,7 +142,7 @@ describe('buildRecordWhere — per type', () => {
 
 describe('buildRecordWhere — multi-value', () => {
   it('asks whether the stored list overlaps the filtered one', () => {
-    const where = buildRecordWhere(TABLE_ID, [asMultiple(selectField())], {
+    const where = buildRecordWhere(READ_ALL, [asMultiple(selectField())], {
       stage: ['Won', 'Lost'],
     })
 
@@ -138,14 +153,14 @@ describe('buildRecordWhere — multi-value', () => {
   })
 
   it('projects to JSONB rather than to text, so a filter cannot match on `[` or `","`', () => {
-    const where = buildRecordWhere(TABLE_ID, [asMultiple(relationField())], { owner: ['rec_1'] })
+    const where = buildRecordWhere(READ_ALL, [asMultiple(relationField())], { owner: ['rec_1'] })
 
     expect(sqlText(where)).toContain('data -> $2::text')
     expect(sqlText(where)).not.toContain('data ->> $2::text')
   })
 
   it("is self-parenthesising, so it cannot bind to a sibling range's last bound", () => {
-    const where = buildRecordWhere(TABLE_ID, [numberField(), asMultiple(selectField())], {
+    const where = buildRecordWhere(READ_ALL, [numberField(), asMultiple(selectField())], {
       contract_value: { from: 1, to: 2 },
       stage: ['Won'],
     })
@@ -156,14 +171,14 @@ describe('buildRecordWhere — multi-value', () => {
 
 describe("buildRecordWhere — the record's own columns", () => {
   it('filters the number as text, so 4 finds #4, #14 and #42', () => {
-    const where = buildRecordWhere(TABLE_ID, [], { [RECORD_NUMBER_KEY]: '4' })
+    const where = buildRecordWhere(READ_ALL, [], { [RECORD_NUMBER_KEY]: '4' })
 
     expect(sqlText(where)).toBe('WHERE "tableId" = $1 AND "number"::text ILIKE $2')
     expect(where.values).toEqual([TABLE_ID, '%4%'])
   })
 
   it('filters a timestamp as a date, so an inclusive `to` covers that whole day', () => {
-    const where = buildRecordWhere(TABLE_ID, [], {
+    const where = buildRecordWhere(READ_ALL, [], {
       [CREATED_AT_KEY]: { from: '2026-01-01', to: '2026-01-01' },
     })
 
@@ -173,7 +188,7 @@ describe("buildRecordWhere — the record's own columns", () => {
   })
 
   it('takes precedence over the type registry, since these live outside `data`', () => {
-    const where = buildRecordWhere(TABLE_ID, [], {
+    const where = buildRecordWhere(READ_ALL, [], {
       [UPDATED_AT_KEY]: { from: '2026-01-01', to: null },
     })
     expect(sqlText(where)).toContain('"updatedAt"::date')
@@ -191,16 +206,16 @@ describe('buildRecordWhere — free-text search', () => {
   ]
 
   it('adds no group when nothing is being searched', () => {
-    expect(sqlText(buildRecordWhere(TABLE_ID, table, {}, ''))).toBe('WHERE "tableId" = $1')
+    expect(sqlText(buildRecordWhere(READ_ALL, table, {}, ''))).toBe('WHERE "tableId" = $1')
   })
 
   it('wraps every arm in one parenthesised OR group', () => {
-    const where = buildRecordWhere(TABLE_ID, table, {}, 'acme')
+    const where = buildRecordWhere(READ_ALL, table, {}, 'acme')
     expect(sqlText(where)).toMatch(/AND \(.+ OR .+\)$/)
   })
 
   it('leads with the expression the search index is built on, byte for byte', () => {
-    const where = buildRecordWhere(TABLE_ID, table, {}, 'acme')
+    const where = buildRecordWhere(READ_ALL, table, {}, 'acme')
 
     expect(sqlText(where)).toContain('record_search_text(data, "number") ILIKE $2')
     expect(sqlText(where)).toMatch(/record_search_text\(data, "number"\) ILIKE \$2 AND \(/)
@@ -208,7 +223,7 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   it('keeps that group parenthesised beside a bare two-bound range', () => {
-    const where = buildRecordWhere(TABLE_ID, table, { contract_value: { from: 1, to: 2 } }, 'acme')
+    const where = buildRecordWhere(READ_ALL, table, { contract_value: { from: 1, to: 2 } }, 'acme')
     const text = sqlText(where)
 
     expect(text).toContain('::numeric END >= $')
@@ -218,7 +233,7 @@ describe('buildRecordWhere — free-text search', () => {
 
   it('searches TEXT, DATE, SELECT and the record number', () => {
     const text = sqlText(
-      buildRecordWhere(TABLE_ID, [textField('company'), dateField()], {}, 'acme'),
+      buildRecordWhere(READ_ALL, [textField('company'), dateField()], {}, 'acme'),
     )
 
     expect(text).toContain('"number"::text ILIKE')
@@ -226,7 +241,7 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   it('leaves BOOLEAN, RELATION and the timestamps out of the search', () => {
-    const text = sqlText(buildRecordWhere(TABLE_ID, [booleanField(), relationField()], {}, 'acme'))
+    const text = sqlText(buildRecordWhere(READ_ALL, [booleanField(), relationField()], {}, 'acme'))
 
     expect(text).toBe(
       'WHERE "tableId" = $1 AND record_search_text(data, "number") ILIKE $2 AND ("number"::text ILIKE $3)',
@@ -234,7 +249,7 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   it('leaves a multi-value RELATION out too, which widening only strengthens', () => {
-    const text = sqlText(buildRecordWhere(TABLE_ID, [asMultiple(relationField())], {}, 'acme'))
+    const text = sqlText(buildRecordWhere(READ_ALL, [asMultiple(relationField())], {}, 'acme'))
 
     expect(text).toBe(
       'WHERE "tableId" = $1 AND record_search_text(data, "number") ILIKE $2 AND ("number"::text ILIKE $3)',
@@ -242,7 +257,7 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   it('searches a multi-value SELECT element-wise, guarded against a scalar row', () => {
-    const text = sqlText(buildRecordWhere(TABLE_ID, [asMultiple(selectField())], {}, 'acme'))
+    const text = sqlText(buildRecordWhere(READ_ALL, [asMultiple(selectField())], {}, 'acme'))
 
     expect(text).toContain("CASE WHEN jsonb_typeof(data -> $4::text) = 'array'")
     expect(text).toContain("ELSE '[]'::jsonb END")
@@ -251,12 +266,12 @@ describe('buildRecordWhere — free-text search', () => {
   })
 
   it('escapes the wildcards a user may legitimately type', () => {
-    const where = buildRecordWhere(TABLE_ID, [textField('company')], {}, '100%_x')
+    const where = buildRecordWhere(READ_ALL, [textField('company')], {}, '100%_x')
     expect(where.values).toContain('%100\\%\\_x%')
   })
 
   it('escapes a backslash too, so the escape character cannot be smuggled in', () => {
-    const where = buildRecordWhere(TABLE_ID, [textField('company')], {}, 'a\\b')
+    const where = buildRecordWhere(READ_ALL, [textField('company')], {}, 'a\\b')
     expect(where.values).toContain('%a\\\\b%')
   })
 })

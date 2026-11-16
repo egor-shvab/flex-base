@@ -7,10 +7,13 @@ import type { IRecordCreatedResponse } from '#shared/types/api'
 
 export default defineRecordWriteHandler(
   'create',
-  async ({ event, user, membership, tableId, fields }): Promise<IRecordCreatedResponse> => {
+  async ({ event, user, membership, tableId, fields, access }): Promise<IRecordCreatedResponse> => {
     const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
     const record = await RecordService.createRecord(tableId, fields, data, user.id)
 
-    return { record, table: await TableService.getTableListRow(membership.workspace.id, tableId) }
+    return {
+      record,
+      table: await TableService.getTableListRow(membership.workspace.id, tableId, access),
+    }
   },
 )

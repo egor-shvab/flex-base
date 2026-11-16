@@ -3,7 +3,10 @@ import { buildRecordDefaults } from '~~/test/membership'
 import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IWorkspaceActor } from '#shared/types/workspace'
 import {
+  canCountRecords,
+  canDeleteRecord,
   canReadRecords,
+  canUpdateRecord,
   isTableVisibilityBypassed,
   resolveTableAccess,
 } from '#shared/utils/table-access'
@@ -62,5 +65,34 @@ describe('canReadRecords', () => {
     ['ALL', true],
   ] as const)('reads a table scoped to %s: %s', (readScope, expected) => {
     expect(canReadRecords(buildRecordDefaults({ readScope }))).toBe(expected)
+  })
+})
+
+describe('canCountRecords', () => {
+  it('shows a table’s count only to a caller who reads all of it', () => {
+    expect(canCountRecords(buildRecordDefaults({ readScope: 'ALL' }))).toBe(true)
+    expect(canCountRecords(buildRecordDefaults({ readScope: 'OWN' }))).toBe(false)
+  })
+})
+
+describe('canUpdateRecord and canDeleteRecord', () => {
+  const mine = { createdById: 'usr_me' }
+  const theirs = { createdById: 'usr_other' }
+  const orphan = { createdById: null }
+
+  it.each([
+    ['NONE', [false, false, false]],
+    ['OWN', [true, false, false]],
+    ['ALL', [true, true, true]],
+  ] as const)('under %s reach mine, theirs and an orphan: %j', (scope, expected) => {
+    const update = buildRecordDefaults({ updateScope: scope })
+    const remove = buildRecordDefaults({ deleteScope: scope })
+
+    expect([mine, theirs, orphan].map((r) => canUpdateRecord(update, r, 'usr_me'))).toEqual(
+      expected,
+    )
+    expect([mine, theirs, orphan].map((r) => canDeleteRecord(remove, r, 'usr_me'))).toEqual(
+      expected,
+    )
   })
 })

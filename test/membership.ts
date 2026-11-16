@@ -69,3 +69,6 @@ export function buildMembership(
     },
   }
 }
+
+/** A caller who reaches every record of a table, for specs about something other than access. */
+export const FULL_RECORD_ACTOR = { userId: 'usr_1', access: FULL_TABLE_ACCESS }

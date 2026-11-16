@@ -172,27 +172,34 @@ resolveTableAccess({
 - Известное до этапа 4: метки связей из скрытой таблицы всё ещё видны в связанной; пикер связи
   предлагает её записи.
 
-## Этап 3 — Row-level (`OWN`)
+## Этап 3 — Row-level (`OWN`) ✅
 
-- [ ] `roleInputSchema` открывает `OWN` для всех трёх областей; в `RoleFormModal` чекбоксы изменения
-      и удаления становятся выбором «никакие / свои / все» (`applyRecordAction` уходит).
-
-- [ ] `buildRecordWhere` получает область чтения: `OWN` добавляет `"createdById" = ${userId}`.
-      Список, счётчик и поиск идут через неё. Запись без автора (`createdById = NULL`) не принадлежит
-      никому и для `OWN` не видна (в `limitations.md`).
-- [ ] `getRecordDetail`: при `OWN` `where` содержит `createdById` → чужая запись даёт 404.
-- [ ] `updateRecord`/`deleteRecord`: область действия в `where` (`createdById` при `OWN`). При промахе
-      — как сейчас с версией: запись есть в области чтения → 403 «You can only edit/delete your own
-      records», нет → 404; устаревшая версия по-прежнему 412. Сначала область, потом версия: чужая
-      запись с правильной версией — 403, а не 412.
-- [ ] Строки списка несут `createdById` (только id — авторство уже открыто участникам);
-      `shared/utils/table-access.ts`: `canUpdateRecord(access, record, userId)` и
-      `canDeleteRecord(…)` — одна функция для меню строки и сервера.
-- [ ] `Table.recordCount` при `readScope = OWN` раскрывает число чужих записей: в ответе таблицы
-      отдавать `null`, если область не `ALL` (настройки таблицы уже умеют `recordCount === null`).
-- [ ] Клиент: `RecordsTable`/`RecordRowMenu` — editable/deletable по строке, а не по таблице.
-- [ ] Тесты: `where` при каждой области (стаб); интеграционные тесты: `OWN` видит только свои,
-      403 и 404 различаются, гонка версии.
+- [x] `roleInputSchema`: `readScope` умолчаний — `OWN | ALL` (`NONE` — с редактором строк таблиц,
+      этап 6/7), `updateScope`/`deleteScope` — `NONE | OWN | ALL`, и действие не шире чтения
+      (`superRefine`, ошибка на ключе). В `RoleFormModal` — выборы «Records they see / can edit /
+      can delete» и галочка «Add records»; шире своей роли и шире чтения — `disabled`, сужение
+      чтения сужает действия (`applyReadScope`). `applyRecordAction` удалён; сводка роли называет
+      «Edit own records», «Sees only own records»; `toGrantCount` весит область.
+- [x] `server/db/records.ts`: `buildRecordScopeWhere(scope, userId)` (`OWN` → `createdById`,
+      `NONE` → ничего), `buildRecordAddressWhere(…, scope)` вкладывает её в уникальный `where`.
+      `record-sql.ts`: `buildRecordWhere(reader: IRecordReader, …)` — `"createdById" = …` сразу после
+      `"tableId"`; список, счётчик и поиск идут через неё.
+- [x] `RecordService` принимает `IRecordActor { userId, access }`: деталь — в области чтения (чужая —
+      404); update/delete — область действия в `where`, промах объясняется чтением в области чтения:
+      403 «You can only edit/delete your own records» → 412 → 404 (сначала область, потом версия).
+- [x] `IRecord.createdById` (в списке и ответах записей); `canUpdateRecord`/`canDeleteRecord`/
+      `canCountRecords` в `shared/utils/table-access.ts`.
+- [x] `_count.records` — `null`, если чтение не `ALL` (`toSharedTableListItem(row, access)`; все
+      пути строки списка передают доступ). Сайдбар, главная (итог через `toRecordTotal` —
+      `null`, если хоть один скрыт), настройки таблицы и удаление пространства это показывают.
+- [x] Клиент: `RecordsTable` принимает `canEdit`/`canDelete(record)` — кнопки по строке.
+- [x] Тесты: unit (`where` и SQL при каждой области, промахи 403/412/404, схема, хелперы, форма,
+      счётчики), интеграционные (`OWN` видит и считает только свои, 403 и 404 различаются, область
+      раньше версии, запись без автора не видна никому).
+- [x] `limitations.md`: номера записей ограничивают сверху число чужих; запись без автора ничья.
+      `decisions.md`: область в `where`, отказ — сначала область.
+- Известное до этапа 4: пикер связи и метки связей показывают записи целевой таблицы вне области
+  чтения (`OWN`), как и записи скрытой таблицы.
 
 ## Этап 4 — Скрытые поля
 

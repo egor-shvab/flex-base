@@ -1,13 +1,17 @@
 import type { ISelectOption } from '~/types/select'
-import { RECORD_ACTIONS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import {
+  FULL_TABLE_ACCESS,
+  RECORD_SCOPES,
+  WORKSPACE_PERMISSIONS,
+} from '#shared/constants/workspace'
 import type {
   IPermissionSet,
   IWorkspaceActor,
   IWorkspaceRole,
-  TRecordAction,
+  TRecordScope,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { canAssignRole, hasRecordAction } from '#shared/utils/permissions'
+import { canAssignRole, isScopeWithin, isTableAccessWithin } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 interface IPermissionText {
@@ -33,54 +37,106 @@ export const WORKSPACE_PERMISSION_TEXT: Record<TWorkspacePermission, IPermission
   },
 }
 
-export const RECORD_ACTION_TEXT: Record<TRecordAction, IPermissionText> = {
-  create: { label: 'Add records', description: 'Create records in every table' },
-  update: { label: 'Edit records', description: 'Change records in every table' },
-  delete: { label: 'Delete records', description: 'Remove records from every table' },
+export const CREATE_RECORDS_TEXT: IPermissionText = {
+  label: 'Add records',
+  description: 'Create records in every table',
+}
+
+export type TScopedRecordKey = 'readScope' | 'updateScope' | 'deleteScope'
+
+/** A scope's control in the role editor, and the role summary's words for each scope it grants. */
+export const RECORD_SCOPE_TEXT: Record<
+  TScopedRecordKey,
+  { label: string; summary: Partial<Record<TRecordScope, string>> }
+> = {
+  readScope: { label: 'Records they see', summary: { OWN: 'Sees only own records' } },
+  updateScope: {
+    label: 'Records they can edit',
+    summary: { OWN: 'Edit own records', ALL: 'Edit records' },
+  },
+  deleteScope: {
+    label: 'Records they can delete',
+    summary: { OWN: 'Delete own records', ALL: 'Delete records' },
+  },
+}
+
+const SCOPE_OPTION_LABELS: Record<TRecordScope, string> = {
+  NONE: 'None',
+  OWN: 'Only their own',
+  ALL: 'All records',
 }
 
 type TRecordDefaultsInput = TRoleInput['recordDefaults']
 
-/** The role form's record defaults with one action granted on every record, or on none. */
-export function applyRecordAction(
-  access: TRecordDefaultsInput,
-  action: TRecordAction,
-  isGranted: boolean,
-): TRecordDefaultsInput {
-  if (action === 'create') return { ...access, canCreate: isGranted }
+/**
+ * The options of one scope's control. A scope wider than `limit` is shown but disabled: the
+ * editor's own reach, and for an action the role's read, which no action may pass.
+ */
+export function buildScopeOptions(
+  scopes: readonly TRecordScope[],
+  limit: (scope: TRecordScope) => boolean,
+): ISelectOption<TRecordScope>[] {
+  return scopes.map((scope) => ({
+    value: scope,
+    label: SCOPE_OPTION_LABELS[scope],
+    disabled: !limit(scope),
+  }))
+}
 
-  const scope = isGranted ? 'ALL' : 'NONE'
-  return action === 'update' ? { ...access, updateScope: scope } : { ...access, deleteScope: scope }
+/** The role form's record defaults with a new read, its actions narrowed to stay within it. */
+export function applyReadScope(
+  access: TRecordDefaultsInput,
+  readScope: TRecordDefaultsInput['readScope'],
+): TRecordDefaultsInput {
+  const narrow = (scope: TRecordScope) => (isScopeWithin(scope, readScope) ? scope : readScope)
+
+  return {
+    ...access,
+    readScope,
+    updateScope: narrow(access.updateScope),
+    deleteScope: narrow(access.deleteScope),
+  }
 }
 
 function listGrantLabels(set: IPermissionSet): string[] {
+  const { recordDefaults } = set
+  const scopeLabels = (['readScope', 'updateScope', 'deleteScope'] as const).flatMap(
+    (key) => RECORD_SCOPE_TEXT[key].summary[recordDefaults[key]] ?? [],
+  )
+
   return [
     ...WORKSPACE_PERMISSIONS.filter((permission) => set.permissions.includes(permission)).map(
       (permission) => WORKSPACE_PERMISSION_TEXT[permission].label,
     ),
-    ...RECORD_ACTIONS.filter((action) => hasRecordAction(set.recordDefaults, action)).map(
-      (action) => RECORD_ACTION_TEXT[action].label,
-    ),
+    ...(recordDefaults.canCreate ? [CREATE_RECORDS_TEXT.label] : []),
+    ...scopeLabels,
   ]
 }
 
-/** What a role lets its members do, beyond reading — which every member may. */
+/** What a role lets its members do beyond reading every record, which is the default. */
 export function summarisePermissions(set: IPermissionSet): string {
-  const labels = listGrantLabels(set)
-
-  if (labels.length === 0) return 'Read only'
-  if (labels.length === WORKSPACE_PERMISSIONS.length + RECORD_ACTIONS.length) {
+  if (
+    set.permissions.length === WORKSPACE_PERMISSIONS.length &&
+    isTableAccessWithin(FULL_TABLE_ACCESS, set.recordDefaults)
+  ) {
     return 'Every permission'
   }
 
-  return labels.join(', ')
+  const labels = listGrantLabels(set)
+  return labels.length === 0 ? 'Read only' : labels.join(', ')
 }
 
-/** How much a role grants, for ranking roles from the narrowest. */
+/** How much a role grants, for ranking roles from the narrowest: a wider scope counts for more. */
 export function toGrantCount(set: IPermissionSet): number {
+  const { readScope, canCreate, updateScope, deleteScope } = set.recordDefaults
+
   return (
     set.permissions.length +
-    RECORD_ACTIONS.filter((action) => hasRecordAction(set.recordDefaults, action)).length
+    Number(canCreate) +
+    [readScope, updateScope, deleteScope].reduce(
+      (sum, scope) => sum + RECORD_SCOPES.indexOf(scope),
+      0,
+    )
   )
 }
 

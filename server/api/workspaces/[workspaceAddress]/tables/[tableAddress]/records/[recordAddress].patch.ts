@@ -8,7 +8,7 @@ import type { IRecordResponse } from '#shared/types/api'
 
 export default defineRecordWriteHandler(
   'update',
-  async ({ event, user, tableId, fields }): Promise<IRecordResponse> => {
+  async ({ event, user, tableId, fields, access }): Promise<IRecordResponse> => {
     const recordAddress = routeParam(event, 'recordAddress')
     const expectedUpdatedAt = readIfMatchVersion(event)
     const data = await readValidatedBody(event, buildRecordSchema(fields).parse)
@@ -17,7 +17,7 @@ export default defineRecordWriteHandler(
       fields,
       recordAddress,
       data,
-      user.id,
+      { userId: user.id, access },
       expectedUpdatedAt,
     )
     return { record }

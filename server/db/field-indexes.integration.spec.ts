@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { FULL_RECORD_ACTOR } from '~~/test/membership'
 import {
   dropFieldIndexes,
   listFieldIndexStats,
@@ -45,7 +46,11 @@ const query = (overrides: Partial<IRecordQuery> = {}): IRecordQuery => ({
 })
 
 async function planForFilter(fields: IField[], filters: TRecordFilterValues): Promise<string> {
-  const where = buildRecordWhere(tableId, fields, filters)
+  const where = buildRecordWhere(
+    { tableId: tableId, readScope: 'ALL', userId: 'usr_1' },
+    fields,
+    filters,
+  )
   const rows = await prisma.$queryRaw<Record<string, string>[]>`
     EXPLAIN SELECT id FROM "Record" ${where}
   `
@@ -61,7 +66,11 @@ async function planForSort(
   key: string,
   direction: TSortDirection = DEFAULT_SORT_DIRECTION,
 ): Promise<string> {
-  const where = buildRecordWhere(tableId, fields, {})
+  const where = buildRecordWhere(
+    { tableId: tableId, readScope: 'ALL', userId: 'usr_1' },
+    fields,
+    {},
+  )
   const order = buildRecordOrderBy(fields, { key, direction })
 
   return prisma.$transaction(async (tx) => {
@@ -247,6 +256,7 @@ describe('an index belongs to one table', () => {
       tableId,
       [price as IField],
       query({ filters: { price: { from: 0, to: null } } }),
+      FULL_RECORD_ACTOR,
     )
     expect(records).toEqual([])
   }, 60_000)
@@ -387,6 +397,7 @@ describe('the index lifecycle', () => {
       tableId,
       [value as IField],
       query({ filters: { contract_value: { from: 1, to: 5 } } }),
+      FULL_RECORD_ACTOR,
     )
 
     // Polled: usage reaches the shared statistics at most once a second and a session caches its

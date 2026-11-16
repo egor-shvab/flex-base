@@ -7,11 +7,14 @@ import { toHttpError } from '#server/utils/http-errors'
 import {
   buildReadableTablesWhere,
   buildTableAddressWhere,
+  buildRoleTableAccessSelect,
   tableListSelect,
   toSharedTableListItem,
+  toTableOverride,
 } from '#server/db/tables'
 import type { ITableListItem } from '#shared/types/table'
-import type { IWorkspaceMembership } from '#shared/types/workspace'
+import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
+import { resolveTableAccess } from '#shared/utils/table-access'
 
 const tableErrors = {
   conflict: 'A table with this name already exists',
@@ -23,26 +26,38 @@ async function listTables(membership: IWorkspaceMembership): Promise<ITableListI
   const tables = await prisma.table.findMany({
     where: { workspaceId: membership.workspace.id, ...buildReadableTablesWhere(membership) },
     orderBy: { createdAt: 'asc' },
-    select: tableListSelect,
+    select: { ...tableListSelect, ...buildRoleTableAccessSelect(membership.role.id) },
   })
 
-  return tables.map(toSharedTableListItem)
+  return tables.map((row) =>
+    toSharedTableListItem(row, resolveTableAccess(membership, toTableOverride(row.roleAccess))),
+  )
 }
 
-async function getTableListRow(workspaceId: string, tableId: string): Promise<ITableListItem> {
+/** `access` is the caller's to the table, which decides whether its count is theirs to see. */
+async function getTableListRow(
+  workspaceId: string,
+  tableId: string,
+  access: ITableAccess,
+): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
       await prisma.table.findUniqueOrThrow({
         where: { id: tableId, workspaceId },
         select: tableListSelect,
       }),
+      access,
     )
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }
 }
 
-async function createTable(workspaceId: string, name: string): Promise<ITableListItem> {
+async function createTable(
+  workspaceId: string,
+  name: string,
+  access: ITableAccess,
+): Promise<ITableListItem> {
   try {
     const table = await prisma.$transaction(async (tx) => {
       const { tableCounter } = await tx.workspace.update({
@@ -57,7 +72,7 @@ async function createTable(workspaceId: string, name: string): Promise<ITableLis
       })
     })
 
-    return toSharedTableListItem(table)
+    return toSharedTableListItem(table, access)
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }
@@ -67,6 +82,7 @@ async function renameTable(
   workspaceId: string,
   address: string,
   name: string,
+  access: ITableAccess,
 ): Promise<ITableListItem> {
   try {
     return toSharedTableListItem(
@@ -75,6 +91,7 @@ async function renameTable(
         data: { name },
         select: tableListSelect,
       }),
+      access,
     )
   } catch (error) {
     throw toHttpError(error, tableErrors)

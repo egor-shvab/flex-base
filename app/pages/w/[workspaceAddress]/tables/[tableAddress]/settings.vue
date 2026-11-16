@@ -154,9 +154,10 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 
 const createdAt = computed(() => (table.value ? formatTimestamp(table.value.createdAt) : ''))
 
-const recordCount = computed(() =>
-  cachedTableRow.value ? formatNumber(cachedTableRow.value._count.records) : null,
-)
+const recordCount = computed(() => {
+  const records = cachedTableRow.value?._count.records
+  return records === undefined || records === null ? null : formatNumber(records)
+})
 
 const fieldCount = computed(() => fieldsStore.fields.length)
 

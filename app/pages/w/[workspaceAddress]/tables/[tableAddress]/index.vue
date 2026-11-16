@@ -114,8 +114,8 @@
             :fields="fieldsStore.fields"
             :records="recordsStore.records"
             :sort="queryState.sort"
-            :editable="canDoRecordAction('update')"
-            :deletable="canDoRecordAction('delete')"
+            :can-edit="canEditRow"
+            :can-delete="canDeleteRow"
             @edit="openEditRecord"
             @delete="deleteTarget = $event"
             @sort="applySort"
@@ -193,6 +193,7 @@ import { useEntityFormModal } from '~/composables/useEntityFormModal'
 import { useRecordDetail } from '~/composables/useRecordDetail'
 import { useRecordListQuery } from '~/composables/useRecordListQuery'
 import { useTableLoader } from '~/composables/useTableLoader'
+import { useAuthStore } from '~/stores/auth'
 import { useFieldsStore } from '~/stores/fields'
 import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
@@ -200,11 +201,12 @@ import { parseTableAddress } from '#shared/utils/address'
 import { pagePath } from '~/utils/page-path'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IRecord, TRecordData } from '#shared/types/record'
-import type { TRecordAction } from '#shared/types/workspace'
 import { hasRecordAction } from '#shared/utils/permissions'
+import { canDeleteRecord, canUpdateRecord } from '#shared/utils/table-access'
 
 const route = useRoute()
 const loadTable = useTableLoader()
+const authStore = useAuthStore()
 const fieldsStore = useFieldsStore()
 const recordsStore = useRecordsStore()
 const relationsStore = useRelationsStore()
@@ -212,7 +214,6 @@ const workspaceAddress = route.params.workspaceAddress as string
 const tableAddress = route.params.tableAddress as string
 const { hasPermission } = useActiveWorkspace()
 
-const canCreateRecords = computed(() => canDoRecordAction('create'))
 const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
 
 const {
@@ -262,9 +263,21 @@ if (error.value) {
 const table = computed(() => data.value?.table)
 
 /** False until the table is loaded: a control appears once it is allowed, never before. */
-function canDoRecordAction(action: TRecordAction): boolean {
-  return data.value !== undefined && hasRecordAction(data.value.access, action)
+const canCreateRecords = computed(
+  () => data.value !== undefined && hasRecordAction(data.value.access, 'create'),
+)
+
+function buildRowCheck(check: typeof canUpdateRecord) {
+  return (record: IRecord): boolean => {
+    const userId = authStore.user?.id
+    return (
+      data.value !== undefined && userId !== undefined && check(data.value.access, record, userId)
+    )
+  }
 }
+
+const canEditRow = buildRowCheck(canUpdateRecord)
+const canDeleteRow = buildRowCheck(canDeleteRecord)
 
 const tableNumber = computed(() => table.value?.number ?? parseTableAddress(tableAddress))
 useSeoMeta({ title: () => table.value?.name ?? 'Records' })

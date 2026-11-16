@@ -1,5 +1,6 @@
 import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
-import type { ITableAccess, IWorkspaceActor } from '#shared/types/workspace'
+import type { IRecord } from '#shared/types/record'
+import type { ITableAccess, IWorkspaceActor, TRecordScope } from '#shared/types/workspace'
 import { hasPermission } from '#shared/utils/permissions'
 
 type TTableAccessHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions' | 'recordDefaults'>
@@ -29,4 +30,33 @@ export function resolveTableAccess(
 
 export function canReadRecords(access: ITableAccess): boolean {
   return access.readScope !== 'NONE'
+}
+
+/** A count over records the caller only partly reads would tell them how many others hold. */
+export function canCountRecords(access: ITableAccess): boolean {
+  return access.readScope === 'ALL'
+}
+
+/** A record with no author belongs to no one, so an `OWN` scope never reaches it. */
+function isRecordInScope(scope: TRecordScope, authorId: string | null, userId: string): boolean {
+  if (scope === 'OWN') return authorId !== null && authorId === userId
+  return scope === 'ALL'
+}
+
+type TRecordAuthor = Pick<IRecord, 'createdById'>
+
+export function canUpdateRecord(
+  access: ITableAccess,
+  record: TRecordAuthor,
+  userId: string,
+): boolean {
+  return isRecordInScope(access.updateScope, record.createdById, userId)
+}
+
+export function canDeleteRecord(
+  access: ITableAccess,
+  record: TRecordAuthor,
+  userId: string,
+): boolean {
+  return isRecordInScope(access.deleteScope, record.createdById, userId)
 }

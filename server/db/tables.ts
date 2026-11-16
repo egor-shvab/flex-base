@@ -2,7 +2,7 @@ import type { Prisma } from '#server/generated/prisma/client'
 import type { ITable, ITableListItem } from '#shared/types/table'
 import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
 import { parseTableAddress } from '#shared/utils/address'
-import { isTableVisibilityBypassed } from '#shared/utils/table-access'
+import { canCountRecords, isTableVisibilityBypassed } from '#shared/utils/table-access'
 
 export function buildTableAddressWhere(
   workspaceId: string,
@@ -75,9 +75,12 @@ export function toSharedTable(row: TTableRow): ITable {
   }
 }
 
-export function toSharedTableListItem(row: TTableListRow): ITableListItem {
+export function toSharedTableListItem(row: TTableListRow, access: ITableAccess): ITableListItem {
   return {
     ...toSharedTable(row),
-    _count: { fields: row._count.fields, records: row.recordCount },
+    _count: {
+      fields: row._count.fields,
+      records: canCountRecords(access) ? row.recordCount : null,
+    },
   }
 }

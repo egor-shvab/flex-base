@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { FULL_RECORD_ACTOR } from '~~/test/membership'
 import { FieldService } from '#server/services/fields'
 import { RecordService } from '#server/services/records'
 import { prisma } from '#server/db/prisma'
@@ -230,13 +231,18 @@ describe('deleting a field', () => {
     )
 
     expect(number.key).toBe('amount')
-    const page = await RecordService.listRecords(tableId, [number], {
-      page: 1,
-      pageSize: 50,
-      sort: { key: number.key, direction: 'asc' },
-      filters: { amount: { from: 0, to: null } },
-      search: '',
-    })
+    const page = await RecordService.listRecords(
+      tableId,
+      [number],
+      {
+        page: 1,
+        pageSize: 50,
+        sort: { key: number.key, direction: 'asc' },
+        filters: { amount: { from: 0, to: null } },
+        search: '',
+      },
+      FULL_RECORD_ACTOR,
+    )
     expect(page.records).toEqual([])
   })
 

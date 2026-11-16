@@ -56,16 +56,32 @@ describe('roleInputSchema', () => {
     expect(result.error?.issues[0]?.path).toEqual(['permissions'])
   })
 
-  it.each([
-    ['their own records to edit', { updateScope: 'OWN' }],
-    ['their own records to delete', { deleteScope: 'OWN' }],
-    ['a narrower read', { readScope: 'NONE' }],
-  ])('rejects %s until the server enforces it', (_, overrides) => {
+  it('accepts a role scoped to its own records', () => {
+    const recordDefaults = {
+      readScope: 'OWN',
+      canCreate: true,
+      updateScope: 'OWN',
+      deleteScope: 'OWN',
+    }
+
+    expect(roleInputSchema.safeParse(role({ recordDefaults })).success).toBe(true)
+  })
+
+  it('rejects a default read of none until a table’s own row can open one', () => {
     const result = roleInputSchema.safeParse(
-      role({ recordDefaults: { ...readOnly, ...overrides } }),
+      role({ recordDefaults: { ...readOnly, readScope: 'NONE' } }),
     )
 
     expect(result.success).toBe(false)
+  })
+
+  it.each(['updateScope', 'deleteScope'])('rejects a %s wider than the read', (key) => {
+    const result = roleInputSchema.safeParse(
+      role({ recordDefaults: { ...readOnly, readScope: 'OWN', [key]: 'ALL' } }),
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['recordDefaults', key])
   })
 
   it('requires the record defaults, rather than reading their absence as none', () => {

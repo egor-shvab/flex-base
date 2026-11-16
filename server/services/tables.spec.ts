@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import { Prisma } from '#server/generated/prisma/client'
 import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { TableService } from '#server/services/tables'
@@ -94,13 +95,25 @@ describe('TableService.listTables', () => {
       }),
     )
   })
+
+  it('hides the count of a table the role reads only its own records of', async () => {
+    const counted = { ...tableRow, recordCount: 12, _count: { fields: 3 } }
+    prismaMock.table.findMany.mockResolvedValue([
+      { ...counted, roleAccess: [] },
+      { ...counted, id: 'tbl_own', roleAccess: [buildRecordDefaults({ readScope: 'OWN' })] },
+    ])
+
+    const tables = await TableService.listTables(member)
+
+    expect(tables.map((table) => table._count.records)).toEqual([12, null])
+  })
 })
 
 describe('TableService.getTableListRow', () => {
   it('scopes the read by workspace, so an id alone cannot reach another workspace’s counts', async () => {
     prismaMock.table.findUniqueOrThrow.mockResolvedValue(tableRow)
 
-    await TableService.getTableListRow(WORKSPACE_ID, TABLE_ID)
+    await TableService.getTableListRow(WORKSPACE_ID, TABLE_ID, FULL_TABLE_ACCESS)
 
     expect(prismaMock.table.findUniqueOrThrow).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: TABLE_ID, workspaceId: WORKSPACE_ID } }),
@@ -114,15 +127,31 @@ describe('TableService.getTableListRow', () => {
       _count: { fields: 3 },
     })
 
-    await expect(TableService.getTableListRow(WORKSPACE_ID, TABLE_ID)).resolves.toMatchObject({
+    await expect(
+      TableService.getTableListRow(WORKSPACE_ID, TABLE_ID, FULL_TABLE_ACCESS),
+    ).resolves.toMatchObject({
       _count: { fields: 3, records: 12 },
     })
+  })
+
+  it('leaves the count out for a caller who reads only their own records', async () => {
+    prismaMock.table.findUniqueOrThrow.mockResolvedValue({ ...tableRow, recordCount: 12 })
+
+    await expect(
+      TableService.getTableListRow(
+        WORKSPACE_ID,
+        TABLE_ID,
+        buildRecordDefaults({ readScope: 'OWN' }),
+      ),
+    ).resolves.toMatchObject({ _count: { records: null } })
   })
 
   it('answers 404 when the row is not in the workspace', async () => {
     prismaMock.table.findUniqueOrThrow.mockRejectedValue(missing())
 
-    await expect(TableService.getTableListRow(WORKSPACE_ID, TABLE_ID)).rejects.toMatchObject({
+    await expect(
+      TableService.getTableListRow(WORKSPACE_ID, TABLE_ID, FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Table not found',
     })
@@ -137,7 +166,7 @@ describe('TableService.createTable', () => {
     allocates(7)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(WORKSPACE_ID, 'Deals')
+    await TableService.createTable(WORKSPACE_ID, 'Deals', FULL_TABLE_ACCESS)
 
     expect(prismaMock.table.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: { workspaceId: WORKSPACE_ID, name: 'Deals', number: 7 } }),
@@ -148,7 +177,7 @@ describe('TableService.createTable', () => {
     allocates(1)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(WORKSPACE_ID, 'Deals')
+    await TableService.createTable(WORKSPACE_ID, 'Deals', FULL_TABLE_ACCESS)
 
     expect(prismaMock.workspace.update).toHaveBeenCalledWith({
       where: { id: WORKSPACE_ID },
@@ -162,7 +191,9 @@ describe('TableService.createTable', () => {
     allocates(1)
     prismaMock.table.create.mockRejectedValue(conflict())
 
-    await expect(TableService.createTable(WORKSPACE_ID, 'Deals')).rejects.toMatchObject({
+    await expect(
+      TableService.createTable(WORKSPACE_ID, 'Deals', FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A table with this name already exists',
     })
@@ -173,7 +204,7 @@ describe('TableService.renameTable', () => {
   it('scopes the update by workspace, so an id alone cannot reach another workspace’s table', async () => {
     prismaMock.table.update.mockResolvedValue(tableRow)
 
-    await TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Renamed')
+    await TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Renamed', FULL_TABLE_ACCESS)
 
     expect(prismaMock.table.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -186,7 +217,7 @@ describe('TableService.renameTable', () => {
   it('scopes a numeric address on the workspace through the compound unique', async () => {
     prismaMock.table.update.mockResolvedValue(tableRow)
 
-    await TableService.renameTable(WORKSPACE_ID, '4', 'Renamed')
+    await TableService.renameTable(WORKSPACE_ID, '4', 'Renamed', FULL_TABLE_ACCESS)
 
     expect(prismaMock.table.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -198,7 +229,9 @@ describe('TableService.renameTable', () => {
   it('maps a name already taken onto a 409', async () => {
     prismaMock.table.update.mockRejectedValue(conflict())
 
-    await expect(TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
+    await expect(
+      TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Deals', FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 409,
     })
   })
@@ -206,7 +239,9 @@ describe('TableService.renameTable', () => {
   it('maps a table that is gone onto a 404', async () => {
     prismaMock.table.update.mockRejectedValue(missing())
 
-    await expect(TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Deals')).rejects.toMatchObject({
+    await expect(
+      TableService.renameTable(WORKSPACE_ID, TABLE_ID, 'Deals', FULL_TABLE_ACCESS),
+    ).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Table not found',
     })

@@ -12,6 +12,8 @@ export type TRecordData = Record<string, TRecordValue>
 export interface IRecord {
   id: string
   number: number
+  /** Whose record it is under an `OWN` scope; `null` once its author's account is gone. */
+  createdById: string | null
   data: TRecordData
   createdAt: string
   updatedAt: string

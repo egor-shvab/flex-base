@@ -9,6 +9,7 @@ import {
   UPDATED_AT_KEY,
 } from '#shared/constants/filter'
 import type { IRecordSort, TRecordFilterValues } from '#shared/types/filter'
+import type { TRecordScope } from '#shared/types/workspace'
 import { buildQueryColumns } from '#shared/utils/filter'
 
 const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql }> = {
@@ -68,13 +69,29 @@ function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null 
   return Prisma.sql`${buildSearchPrefilter(pattern)} AND (${Prisma.join(arms, ' OR ')})`
 }
 
+/** Whose records of a table a query reads: `buildRecordScopeWhere`'s rule, in SQL. */
+export interface IRecordReader {
+  tableId: string
+  readScope: TRecordScope
+  userId: string
+}
+
+function buildReadScopeCondition(reader: IRecordReader): Prisma.Sql | null {
+  if (reader.readScope === 'ALL') return null
+  if (reader.readScope === 'OWN') return Prisma.sql`"createdById" = ${reader.userId}`
+  return Prisma.sql`FALSE`
+}
+
 export function buildRecordWhere(
-  tableId: string,
+  reader: IRecordReader,
   fields: IField[],
   filters: TRecordFilterValues,
   search = '',
 ): Prisma.Sql {
-  const conditions = [Prisma.sql`"tableId" = ${tableId}`]
+  const conditions = [Prisma.sql`"tableId" = ${reader.tableId}`]
+
+  const scopeCondition = buildReadScopeCondition(reader)
+  if (scopeCondition) conditions.push(scopeCondition)
 
   for (const field of buildQueryColumns(fields)) {
     const value = filters[field.key]

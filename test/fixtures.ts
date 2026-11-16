@@ -87,6 +87,7 @@ export function record(overrides: Partial<IRecord> = {}): IRecord {
   return {
     id: 'rec_1',
     number: 1,
+    createdById: 'usr_1',
     data: {},
     createdAt: '2026-01-05T09:14:00.000Z',
     updatedAt: '2026-02-11T16:30:00.000Z',

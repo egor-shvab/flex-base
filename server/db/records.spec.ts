@@ -6,6 +6,7 @@ function row(overrides: Partial<{ id: string; number: number; data: Prisma.JsonV
   return {
     id: 'rec_1',
     number: 1,
+    createdById: 'usr_1',
     data: { company: 'Acme' },
     createdAt: new Date('2026-01-05T09:14:00.000Z'),
     updatedAt: new Date('2026-02-11T16:30:00.000Z'),

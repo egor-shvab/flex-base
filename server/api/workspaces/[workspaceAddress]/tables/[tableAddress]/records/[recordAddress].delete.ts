@@ -6,12 +6,15 @@ import type { IRecordDeletedResponse } from '#shared/types/api'
 
 export default defineTableHandler(
   'delete',
-  async ({ event, membership, table }): Promise<IRecordDeletedResponse> => {
-    await RecordService.deleteRecord(table.id, routeParam(event, 'recordAddress'))
+  async ({ event, user, membership, table, access }): Promise<IRecordDeletedResponse> => {
+    await RecordService.deleteRecord(table.id, routeParam(event, 'recordAddress'), {
+      userId: user.id,
+      access,
+    })
 
     return {
       ok: true,
-      table: await TableService.getTableListRow(membership.workspace.id, table.id),
+      table: await TableService.getTableListRow(membership.workspace.id, table.id, access),
     }
   },
 )

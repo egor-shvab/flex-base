@@ -33,8 +33,16 @@ or any multi-database feature ships._
 
 ### A URL discloses roughly how much a user has
 
-`/w/…/tables/12` and `#4821` reveal counts every member already sees; a shared screenshot reveals
-them outside the workspace too. _Reopen if a table or record is ever shared beyond its workspace._
+`/w/…/tables/12` and `#4821` reveal counts; a shared screenshot reveals them outside the workspace
+too. A member who reads only their own records is shown no table count, yet their records'
+numbers still bound how many others hold. _Reopen if a table or record is ever shared beyond its
+workspace, or if that bound must be hidden from a scoped member._
+
+### A record without an author belongs to no one
+
+`Record.createdById` is set null when its author's account goes, and an `OWN` scope then reaches
+the record for nobody; only a member reading all of the table sees it. _Reopen if accounts can be
+deleted in the app, or if records gain a transferable owner._
 
 ### Four lines of `architecture.md` §11 are approximated, not proven
 

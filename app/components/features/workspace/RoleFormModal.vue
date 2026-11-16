@@ -33,21 +33,32 @@
       <fieldset class="role-form__permissions" :aria-describedby="noteId">
         <legend class="role-form__legend">Records</legend>
         <p :id="noteId" class="g-note role-form__note">
-          Every member can read all tables and records. A role adds what they may change.
+          Applies in every table. A record is a member’s own if they created it. Choices beyond your
+          own role are unavailable.
         </p>
 
+        <BaseSelect
+          :id="readScopeId"
+          :model-value="form.recordDefaults.readScope"
+          :label="RECORD_SCOPE_TEXT.readScope.label"
+          :options="readScopeOptions"
+          @update:model-value="form.recordDefaults = applyReadScope(form.recordDefaults, $event)"
+        />
+
         <BaseCheckbox
-          v-for="action in RECORD_ACTIONS"
-          :key="action"
-          :model-value="hasRecordAction(form.recordDefaults, action)"
-          :label="RECORD_ACTION_TEXT[action].label"
-          :hint="
-            canGrantRecordAction(action) ? RECORD_ACTION_TEXT[action].description : UNGRANTABLE_HINT
-          "
-          :disabled="!canGrantRecordAction(action)"
-          @update:model-value="
-            form.recordDefaults = applyRecordAction(form.recordDefaults, action, $event)
-          "
+          v-model="form.recordDefaults.canCreate"
+          :label="CREATE_RECORDS_TEXT.label"
+          :hint="canGrantCreate ? CREATE_RECORDS_TEXT.description : UNGRANTABLE_HINT"
+          :disabled="!canGrantCreate"
+        />
+
+        <BaseSelect
+          v-for="key in ACTION_SCOPE_KEYS"
+          :id="`${actionScopeIdPrefix}-${key}`"
+          :key="key"
+          v-model="form.recordDefaults[key]"
+          :label="RECORD_SCOPE_TEXT[key].label"
+          :options="buildActionScopeOptions(key)"
         />
       </fieldset>
     </form>
@@ -64,21 +75,24 @@
 </template>
 
 <script setup lang="ts">
-import { useId } from 'vue'
+import { computed, useId } from 'vue'
 import { useForm } from '~/composables/useForm'
 import {
-  applyRecordAction,
-  RECORD_ACTION_TEXT,
+  applyReadScope,
+  buildScopeOptions,
+  CREATE_RECORDS_TEXT,
+  RECORD_SCOPE_TEXT,
   WORKSPACE_PERMISSION_TEXT,
+  type TScopedRecordKey,
 } from '~/utils/workspace-permissions'
-import { RECORD_ACTIONS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { RECORD_SCOPES, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IWorkspaceActor,
   IWorkspaceRole,
-  TRecordAction,
+  TRecordScope,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { hasPermission, hasRecordAction } from '#shared/utils/permissions'
+import { hasPermission, isScopeWithin } from '#shared/utils/permissions'
 import { roleInputSchema, type TRoleInput } from '#shared/validation/workspace'
 
 const props = withDefaults(
@@ -95,23 +109,24 @@ const emit = defineEmits<{ saved: []; close: [] }>()
 const formId = useId()
 const nameInputId = useId()
 const noteId = useId()
+const readScopeId = useId()
+const actionScopeIdPrefix = useId()
+
+const ACTION_SCOPE_KEYS = ['updateScope', 'deleteScope'] as const
 
 const UNGRANTABLE_HINT = 'You don’t have this permission, so you can’t grant it'
 
-/** A new role reads; an existing one opens with each action on every record or on none. */
+/**
+ * A new role reads every record. A default read of none is not offered yet, so an existing one —
+ * which nothing can set today — opens as the narrowest the editor offers.
+ */
 function toRecordDefaultsInput(role?: IWorkspaceRole): TRoleInput['recordDefaults'] {
-  const readOnly: TRoleInput['recordDefaults'] = {
-    readScope: 'ALL',
-    canCreate: false,
-    updateScope: 'NONE',
-    deleteScope: 'NONE',
-  }
-  if (!role) return readOnly
+  if (!role) return { readScope: 'ALL', canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' }
 
-  return RECORD_ACTIONS.reduce(
-    (access, action) =>
-      applyRecordAction(access, action, hasRecordAction(role.recordDefaults, action)),
-    readOnly,
+  const { readScope } = role.recordDefaults
+  return applyReadScope(
+    { ...role.recordDefaults, readScope: 'ALL' },
+    readScope === 'NONE' ? 'OWN' : readScope,
   )
 }
 
@@ -133,8 +148,21 @@ function canGrant(permission: TWorkspacePermission): boolean {
   return hasPermission(props.actor, permission)
 }
 
-function canGrantRecordAction(action: TRecordAction): boolean {
-  return props.actor.isOwner || hasRecordAction(props.actor.recordDefaults, action)
+const canGrantCreate = computed(() => props.actor.isOwner || props.actor.recordDefaults.canCreate)
+
+function canGrantScope(key: TScopedRecordKey, scope: TRecordScope): boolean {
+  return props.actor.isOwner || isScopeWithin(scope, props.actor.recordDefaults[key])
+}
+
+const readScopeOptions = computed(() =>
+  buildScopeOptions(['OWN', 'ALL'], (scope) => canGrantScope('readScope', scope)),
+)
+
+function buildActionScopeOptions(key: (typeof ACTION_SCOPE_KEYS)[number]) {
+  return buildScopeOptions(
+    RECORD_SCOPES,
+    (scope) => canGrantScope(key, scope) && isScopeWithin(scope, form.recordDefaults.readScope),
+  )
 }
 
 /** Kept in the editor's order, so an unchanged role sends what it was loaded with. */

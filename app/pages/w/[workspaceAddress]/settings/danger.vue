@@ -78,6 +78,7 @@ import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useTablesStore } from '~/stores/tables'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { formatCount } from '~/utils/format'
+import { toRecordTotal } from '~/utils/table-records'
 
 const workspacesStore = useWorkspacesStore()
 const tablesStore = useTablesStore()
@@ -95,8 +96,9 @@ const contentsSummary = computed(() => {
   }
   if (tablesStore.tables.length === 0) return 'It has no tables yet.'
 
-  const recordCount = tablesStore.tables.reduce((sum, table) => sum + table._count.records, 0)
+  const recordCount = toRecordTotal(tablesStore.tables)
   const tableCount = formatCount(tablesStore.tables.length, 'table')
+  if (recordCount === null) return `${tableCount} and all their records are removed.`
   return `${tableCount} and ${formatCount(recordCount, 'record')} are removed.`
 })
 
