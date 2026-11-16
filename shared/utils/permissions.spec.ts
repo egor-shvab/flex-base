@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildRecordDefaults } from '~~/test/membership'
-import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IManagedMember,
   IPermissionSet,
@@ -9,9 +9,6 @@ import type {
   TWorkspacePermission,
 } from '#shared/types/workspace'
 import {
-  canAssignRole,
-  canCreateRole,
-  canEditRole,
   canManageMember,
   hasPermission,
   hasRecordAction,
@@ -42,11 +39,6 @@ const role = (
   permissions: TWorkspacePermission[] = [],
   records: Partial<ITableAccess> = {},
 ): IPermissionSet => ({ permissions, recordDefaults: buildRecordDefaults(records) })
-
-const everything: IPermissionSet = {
-  permissions: WORKSPACE_PERMISSIONS,
-  recordDefaults: FULL_TABLE_ACCESS,
-}
 
 const member = (overrides: Partial<IManagedMember> = {}, assigned = role()): IManagedMember => ({
   id: 'mem_other',
@@ -134,80 +126,21 @@ describe('isTableAccessWithin', () => {
   })
 })
 
-describe('canAssignRole', () => {
-  it.each([
-    ['a subset of their own', role(['MEMBERS_MANAGE'], { canCreate: true }), true],
-    ['exactly their own', role([...manager.permissions], managerRecords), true],
-    ['nothing at all', role(), true],
-    ['one permission more', role(['TABLES_MANAGE']), false],
-    ['one record action more', role([], { deleteScope: 'ALL' }), false],
-  ])('lets a member assign a role holding %s: %s', (_, assigned, expected) => {
-    expect(canAssignRole(manager, assigned)).toBe(expected)
-  })
-
-  it('lets the owner assign any role', () => {
-    expect(canAssignRole(owner, everything)).toBe(true)
-  })
-})
-
-describe('canCreateRole', () => {
-  it('refuses a member a role that would grant what they lack', () => {
-    expect(canCreateRole(manager, role(['TABLES_MANAGE']))).toBe(false)
-    expect(canCreateRole(manager, role([], { deleteScope: 'ALL' }))).toBe(false)
-    expect(canCreateRole(manager, role(['ROLES_MANAGE'], { updateScope: 'ALL' }))).toBe(true)
-  })
-
-  it('lets the owner create any role', () => {
-    expect(canCreateRole(owner, everything)).toBe(true)
-  })
-})
-
-describe('canEditRole', () => {
-  it('lets a member rename or delete a role within their own reach', () => {
-    expect(canEditRole(manager, role([], { canCreate: true }))).toBe(true)
-  })
-
-  it('refuses a member a role that already exceeds them, even to narrow it', () => {
-    const exceeding = role([], { deleteScope: 'ALL' })
-    expect(canEditRole(manager, exceeding)).toBe(false)
-    expect(canEditRole(manager, exceeding, role())).toBe(false)
-  })
-
-  it('refuses a member widening a role past their own reach', () => {
-    expect(canEditRole(manager, role(), role(['TABLES_MANAGE']))).toBe(false)
-    expect(canEditRole(manager, role(), role([], { deleteScope: 'ALL' }))).toBe(false)
-  })
-
-  it('lets a member reshape a role within their own reach', () => {
-    const next = role([], { updateScope: 'ALL' })
-    expect(canEditRole(manager, role([], { canCreate: true }), next)).toBe(true)
-  })
-
-  it('lets the owner edit any role, to anything', () => {
-    expect(canEditRole(owner, everything, role())).toBe(true)
-    expect(canEditRole(owner, role(), everything)).toBe(true)
-  })
-})
-
 describe('canManageMember', () => {
   it('lets a member manage someone whose role is within their own', () => {
-    expect(canManageMember(manager, member({}, role([], { canCreate: true })))).toBe(true)
+    expect(canManageMember(manager, member(), true)).toBe(true)
   })
 
   it('refuses a member someone whose role exceeds their own', () => {
-    expect(canManageMember(manager, member({}, role([], { deleteScope: 'ALL' })))).toBe(false)
-  })
-
-  it('lets the owner manage any other member', () => {
-    expect(canManageMember(owner, member({}, everything))).toBe(true)
+    expect(canManageMember(manager, member(), false)).toBe(false)
   })
 
   it('refuses everyone their own membership, the owner included', () => {
-    expect(canManageMember(manager, member({ id: manager.memberId }))).toBe(false)
-    expect(canManageMember(owner, member({ id: owner.memberId, isOwner: true }))).toBe(false)
+    expect(canManageMember(manager, member({ id: manager.memberId }), true)).toBe(false)
+    expect(canManageMember(owner, member({ id: owner.memberId, isOwner: true }), true)).toBe(false)
   })
 
   it('refuses everyone the owner’s membership, whatever the owner’s role holds', () => {
-    expect(canManageMember(manager, member({ id: 'mem_owner', isOwner: true }))).toBe(false)
+    expect(canManageMember(manager, member({ id: 'mem_owner', isOwner: true }), true)).toBe(false)
   })
 })

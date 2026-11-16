@@ -11,27 +11,40 @@ export const workspaceInputSchema = z.object({
 
 const recordScopeSchema = z.enum(['NONE', 'OWN', 'ALL'])
 
-/**
- * A read of `NONE` opens with the editor that sets a table's own row: as a default alone it would
- * hide every table. An action never reaches past the read, or it would act on records unseen.
- */
-const tableAccessSchema = z
-  .object({
-    readScope: z.enum(['OWN', 'ALL']),
-    canCreate: z.boolean(),
-    updateScope: recordScopeSchema,
-    deleteScope: recordScopeSchema,
-  })
-  .superRefine((access, context) => {
-    for (const key of ['updateScope', 'deleteScope'] as const) {
-      if (isScopeWithin(access[key], access.readScope)) continue
-      context.addIssue({
-        code: 'custom',
-        path: [key],
-        message: 'A role can’t change records it can’t read',
-      })
-    }
-  })
+const tableAccessFields = {
+  readScope: recordScopeSchema,
+  canCreate: z.boolean(),
+  updateScope: recordScopeSchema,
+  deleteScope: recordScopeSchema,
+}
+
+/** No action reaches past the read: it would act on records the role cannot see. */
+function checkActionsWithinRead(
+  access: z.infer<z.ZodObject<typeof tableAccessFields>>,
+  context: z.RefinementCtx,
+) {
+  for (const key of ['updateScope', 'deleteScope'] as const) {
+    if (isScopeWithin(access[key], access.readScope)) continue
+    context.addIssue({
+      code: 'custom',
+      path: [key],
+      message: 'A role can’t change records it can’t read',
+    })
+  }
+  if (access.canCreate && access.readScope === 'NONE') {
+    context.addIssue({
+      code: 'custom',
+      path: ['canCreate'],
+      message: 'A role can’t add records to a table it can’t read',
+    })
+  }
+}
+
+export const tableAccessSchema = z.object(tableAccessFields).superRefine(checkActionsWithinRead)
+
+export const tableAccessOverrideSchema = z
+  .object({ tableId: idSchema, ...tableAccessFields })
+  .superRefine(checkActionsWithinRead)
 
 export const roleInputSchema = z.object({
   name: nameSchema.refine(

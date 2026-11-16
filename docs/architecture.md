@@ -384,6 +384,11 @@ Only what the name and the code do not say.
   "Page" → `page_2`, "Budget from" → `budget_from_2` beside a NUMBER `budget`. Server-only.
 - **`services/fields.ts`** — rejects type changes, retargeting and narrowing (400); widening runs
   `widenToList` in the metadata change's transaction.
+- **`services/roles.ts`** — every anti-escalation decision reads its ground in two queries
+  (the workspace's tables and fields, and the roles in question with their rows) and asks
+  `isAccessWithin`. A write resting on it repeats the role's **`updatedAt`** as read, which
+  replacing a role's access moves: a role changed under the check is a 409, a stale `If-Match` a 412. `PUT …/roles/:roleId/access` replaces the defaults and every row in one transaction, the
+  guarded role update first.
 - **`services/records.ts`** — an update **merges** the caller's writable fields over the stored
   `data` (`buildRecordMergeUpdate`), so every other key keeps its value
   (`decisions.md` → _A record update merges over the stored data_).
@@ -391,8 +396,8 @@ Only what the name and the code do not say.
   inviter, a new expiry); whether the address has an account is never read, so the answer cannot
   tell. Accepting **deletes the invitation before creating the membership** in one transaction: a
   second accept racing it waits on the row and finds it gone (404). **An invitation is only as good
-  as its sender's authority at accept time**: a sender who left, or can no longer `canAssignRole`
-  the role it grants, makes it 404 and it is dropped. The rate limit lives in the `POST` handler,
+  as its sender's authority at accept time**: a sender who left, or whose access no longer
+  holds the role it grants (`RoleService.getRoleReach`), makes it 404 and it is dropped. The rate limit lives in the `POST` handler,
   keyed on the inviter.
 - **`api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.get.ts`** — validates
   with

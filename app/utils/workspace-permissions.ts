@@ -6,12 +6,11 @@ import {
 } from '#shared/constants/workspace'
 import type {
   IPermissionSet,
-  IWorkspaceActor,
   IWorkspaceRole,
   TRecordScope,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { canAssignRole, isScopeWithin, isTableAccessWithin } from '#shared/utils/permissions'
+import { isScopeWithin, isTableAccessWithin } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 interface IPermissionText {
@@ -49,7 +48,10 @@ export const RECORD_SCOPE_TEXT: Record<
   TScopedRecordKey,
   { label: string; summary: Partial<Record<TRecordScope, string>> }
 > = {
-  readScope: { label: 'Records they see', summary: { OWN: 'Sees only own records' } },
+  readScope: {
+    label: 'Records they see',
+    summary: { NONE: 'Sees no records', OWN: 'Sees only own records' },
+  },
   updateScope: {
     label: 'Records they can edit',
     summary: { OWN: 'Edit own records', ALL: 'Edit records' },
@@ -83,7 +85,10 @@ export function buildScopeOptions(
   }))
 }
 
-/** The role form's record defaults with a new read, its actions narrowed to stay within it. */
+/**
+ * The role form's record defaults with a new read, its actions narrowed to stay within it: none
+ * reaches past the read, and no record is added where none can be read.
+ */
 export function applyReadScope(
   access: TRecordDefaultsInput,
   readScope: TRecordDefaultsInput['readScope'],
@@ -93,6 +98,7 @@ export function applyReadScope(
   return {
     ...access,
     readScope,
+    canCreate: access.canCreate && readScope !== 'NONE',
     updateScope: narrow(access.updateScope),
     deleteScope: narrow(access.deleteScope),
   }
@@ -140,12 +146,9 @@ export function toGrantCount(set: IPermissionSet): number {
   )
 }
 
-/** The roles `actor` may hand out, as the options of a role picker. */
-export function buildAssignableRoleOptions(
-  actor: IWorkspaceActor,
-  roles: readonly IWorkspaceRole[],
-): ISelectOption[] {
+/** The roles the caller may hand out — those within them — as the options of a role picker. */
+export function buildAssignableRoleOptions(roles: readonly IWorkspaceRole[]): ISelectOption[] {
   return roles
-    .filter((role) => canAssignRole(actor, role))
+    .filter((role) => role.isWithinCaller)
     .map((role) => ({ value: role.id, label: role.name }))
 }

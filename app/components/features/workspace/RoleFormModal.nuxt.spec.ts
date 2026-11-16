@@ -26,6 +26,7 @@ const clerk: IWorkspaceRole = {
   permissions: [],
   recordDefaults: buildRecordDefaults({ canCreate: true }),
   memberCount: 2,
+  isWithinCaller: true,
   updatedAt: '2026-02-11T16:30:00.000Z',
 }
 

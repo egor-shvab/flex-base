@@ -5,6 +5,8 @@ import { buildPublicId } from '#server/utils/public-id'
 import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IPermissionSet,
+  IRoleGrants,
+  IRoleOverrides,
   ITableAccess,
   IWorkspace,
   IWorkspaceMember,
@@ -43,7 +45,7 @@ export const workspaceSelect = {
   createdAt: true,
 } satisfies Prisma.WorkspaceSelect
 
-/** What a role grants, in the columns `toPermissionSet` reads and `buildPermissionSetWhere` guards. */
+/** What a role grants across the workspace, in the columns `toPermissionSet` reads. */
 export const permissionSetSelect = {
   permissions: true,
   readScope: true,
@@ -66,6 +68,24 @@ export const roleSelect = {
   _count: { select: { members: true } },
 } satisfies Prisma.WorkspaceRoleSelect
 
+const tableOverrideSelect = {
+  tableId: true,
+  readScope: true,
+  canCreate: true,
+  updateScope: true,
+  deleteScope: true,
+} satisfies Prisma.RoleTableAccessSelect
+
+/** Everything a role grants, with the version a guarded write repeats. */
+export const roleGrantsSelect = {
+  id: true,
+  name: true,
+  updatedAt: true,
+  ...permissionSetSelect,
+  tableAccess: { select: tableOverrideSelect },
+  fieldAccess: { select: { fieldId: true, access: true } },
+} satisfies Prisma.WorkspaceRoleSelect
+
 export const memberSelect = {
   id: true,
   userId: true,
@@ -80,6 +100,7 @@ export type TWorkspaceRow = Prisma.WorkspaceGetPayload<{ select: typeof workspac
 export type TMembershipRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof membershipSelect }>
 export type TRoleRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof roleSelect }>
 export type TMemberRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof memberSelect }>
+export type TRoleGrantsRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof roleGrantsSelect }>
 
 export function buildMembershipWhere(
   userId: string,
@@ -109,9 +130,15 @@ export function toPermissionSet(row: TPermissionSetRow): IPermissionSet {
   return { permissions: row.permissions, recordDefaults: toTableAccess(row) }
 }
 
-/** The role's grants as read, repeated in a guarded write so it lands only if they still hold. */
-export function buildPermissionSetWhere(set: IPermissionSet) {
-  return { permissions: { equals: [...set.permissions] }, ...set.recordDefaults }
+export function toRoleOverrides(row: TRoleGrantsRow): IRoleOverrides {
+  return {
+    tables: row.tableAccess.map((table) => ({ ...table })),
+    fields: row.fieldAccess.map((field) => ({ ...field })),
+  }
+}
+
+export function toRoleGrants(row: TRoleGrantsRow): IRoleGrants {
+  return { ...toPermissionSet(row), ...toRoleOverrides(row) }
 }
 
 export function toSharedWorkspace(row: TWorkspaceRow): IWorkspace {
@@ -136,12 +163,13 @@ export function toSharedMembership(row: TMembershipRow, userId: string): IWorksp
   }
 }
 
-export function toSharedRole(row: TRoleRow): IWorkspaceRole {
+export function toSharedRole(row: TRoleRow, isWithinCaller: boolean): IWorkspaceRole {
   return {
     id: row.id,
     name: row.name,
     ...toPermissionSet(row),
     memberCount: row._count.members,
+    isWithinCaller,
     updatedAt: row.updatedAt.toISOString(),
   }
 }

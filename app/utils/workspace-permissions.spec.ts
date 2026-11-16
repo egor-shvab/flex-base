@@ -118,55 +118,26 @@ describe('buildScopeOptions', () => {
 })
 
 describe('buildAssignableRoleOptions', () => {
-  const roles = [
-    {
-      id: 'rol_admin',
-      name: 'Admin',
-      permissions: [...WORKSPACE_PERMISSIONS],
-      recordDefaults: FULL_TABLE_ACCESS,
-      memberCount: 1,
-      updatedAt: '2026-02-11T16:30:00.000Z',
-    },
-    {
-      id: 'rol_editor',
-      name: 'Editor',
-      permissions: [],
-      recordDefaults: buildRecordDefaults({ canCreate: true }),
-      memberCount: 0,
-      updatedAt: '2026-02-11T16:30:00.000Z',
-    },
-    {
-      id: 'rol_viewer',
-      name: 'Viewer',
-      permissions: [],
-      recordDefaults: buildRecordDefaults(),
-      memberCount: 0,
-      updatedAt: '2026-02-11T16:30:00.000Z',
-    },
-  ]
+  const role = (id: string, name: string, isWithinCaller: boolean) => ({
+    id,
+    name,
+    permissions: [],
+    recordDefaults: buildRecordDefaults(),
+    memberCount: 0,
+    isWithinCaller,
+    updatedAt: '2026-02-11T16:30:00.000Z',
+  })
 
-  it('offers only the roles within the actor’s permissions, in their order', () => {
-    const actor = {
-      memberId: 'mem_1',
-      isOwner: false,
-      permissions: [],
-      recordDefaults: buildRecordDefaults({ canCreate: true }),
-    }
+  it('offers only the roles within the caller, in their order', () => {
+    const roles = [
+      role('rol_admin', 'Admin', false),
+      role('rol_editor', 'Editor', true),
+      role('rol_viewer', 'Viewer', true),
+    ]
 
-    expect(buildAssignableRoleOptions(actor, roles)).toEqual([
+    expect(buildAssignableRoleOptions(roles)).toEqual([
       { value: 'rol_editor', label: 'Editor' },
       { value: 'rol_viewer', label: 'Viewer' },
     ])
-  })
-
-  it('offers the owner every role', () => {
-    const owner = {
-      memberId: 'mem_1',
-      isOwner: true,
-      permissions: [],
-      recordDefaults: buildRecordDefaults(),
-    }
-
-    expect(buildAssignableRoleOptions(owner, roles)).toHaveLength(3)
   })
 })

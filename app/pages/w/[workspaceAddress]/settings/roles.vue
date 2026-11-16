@@ -85,7 +85,6 @@ import { useRolesStore } from '~/stores/roles'
 import { formatCount } from '~/utils/format'
 import { summarisePermissions } from '~/utils/workspace-permissions'
 import type { IWorkspaceRole } from '#shared/types/workspace'
-import { canEditRole } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 const rolesStore = useRolesStore()
@@ -104,7 +103,7 @@ async function retryRoles() {
 const canManageRoles = computed(() => hasPermission('ROLES_MANAGE'))
 
 function canChangeRole(role: IWorkspaceRole): boolean {
-  return canManageRoles.value && canEditRole(membership.value!, role)
+  return canManageRoles.value && role.isWithinCaller
 }
 
 const {

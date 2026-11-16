@@ -145,7 +145,9 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   address in one scoped query; every later `where` takes its `workspaceId` from that result (or a
   `tableId` proved through it), never from a body or an address — never fetch then check.
 - **Role rules live in `shared/`**: a non-owner may only assign, edit or act on a role whose
-  permissions are a subset of their own; one function decides it for server and client alike.
+  access lies within their own — permissions, defaults, and every table and field
+  (`isAccessWithin`). The server decides it; the client reads its answer per role
+  (`isWithinCaller`), never recomputes it.
 - **Status codes:** a resource outside the caller's workspaces, or a table their role may not read,
   is **404, never 403**; a member lacking the permission or record action is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use
   conflicts and a guarded write whose checked row changed meanwhile; 412 for a write whose `If-Match` version is stale (records, fields, roles);

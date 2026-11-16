@@ -21,6 +21,8 @@ import rolesGet from '#server/api/workspaces/[workspaceAddress]/roles/index.get'
 import rolesPost from '#server/api/workspaces/[workspaceAddress]/roles/index.post'
 import rolePatch from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].patch'
 import roleDelete from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].delete'
+import roleAccessGet from '#server/api/workspaces/[workspaceAddress]/roles/[roleId]/access.get'
+import roleAccessPut from '#server/api/workspaces/[workspaceAddress]/roles/[roleId]/access.put'
 import tableGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].get'
 import tablePatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].patch'
 import tableDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].delete'
@@ -216,6 +218,20 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       params: workspaceParams,
       body: buildRoleInput('Clerk'),
       method: 'POST',
+    },
+    {
+      name: 'GET /roles/:id/access',
+      handler: roleAccessGet,
+      access: 'ROLES_MANAGE',
+      params: roleParams,
+    },
+    {
+      name: 'PUT /roles/:id/access',
+      handler: roleAccessPut,
+      access: 'ROLES_MANAGE',
+      params: roleParams,
+      body: { recordDefaults: buildRecordDefaults(), tables: [], fields: [] },
+      method: 'PUT',
     },
     {
       name: 'PATCH /roles/:id',

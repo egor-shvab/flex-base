@@ -1,12 +1,6 @@
 import { createError } from 'h3'
 import { prisma } from '#server/db/prisma'
-import {
-  buildPermissionSetWhere,
-  memberSelect,
-  toPermissionSet,
-  toSharedMember,
-  type TMemberRow,
-} from '#server/db/workspaces'
+import { memberSelect, toSharedMember, type TMemberRow } from '#server/db/workspaces'
 import { RoleService } from '#server/services/roles'
 import { isMissingRow } from '#server/db/prisma-errors'
 import { buildChangedMeanwhileError, toHttpError } from '#server/utils/http-errors'
@@ -37,31 +31,37 @@ async function getMember(workspaceId: string, memberId: string): Promise<TMember
   return row
 }
 
-/** The owner, the actor themself, or a member whose role reaches past the actor's permissions. */
+interface IManagedMemberRow {
+  row: TMemberRow
+  roleUpdatedAt: Date
+}
+
+/** The owner, the actor themself, or a member whose role reaches past the actor's access. */
 async function getManagedMember(
   actor: IWorkspaceMembership,
   memberId: string,
-): Promise<TMemberRow> {
+): Promise<IManagedMemberRow> {
   const row = await getMember(actor.workspace.id, memberId)
+  const reach = await RoleService.getRoleReach(actor, row.role.id)
 
-  if (!canManageMember(actor, toSharedMember(row))) {
+  if (!canManageMember(actor, toSharedMember(row), reach.isWithinActor)) {
     throw createError({ statusCode: 403, statusMessage: "You can't change or remove this member" })
   }
 
-  return row
+  return { row, roleUpdatedAt: reach.updatedAt }
 }
 
 /**
- * The decision rests on the member's role as read, so the write repeats it: the same role with the
- * same permissions, or nothing is written. Without it, a member raised past the actor's reach in
+ * The decision rests on the member's role as read, so the write repeats it: the same role at the
+ * same version, or nothing is written. Without it, a member raised past the actor's reach in
  * between could still be changed or removed by them.
  */
-function buildManagedMemberWhere(actor: IWorkspaceMembership, row: TMemberRow) {
+function buildManagedMemberWhere(actor: IWorkspaceMembership, managed: IManagedMemberRow) {
   return {
-    id: row.id,
+    id: managed.row.id,
     workspaceId: actor.workspace.id,
-    roleId: row.role.id,
-    role: buildPermissionSetWhere(toPermissionSet(row.role)),
+    roleId: managed.row.role.id,
+    role: { updatedAt: managed.roleUpdatedAt },
   }
 }
 
@@ -85,13 +85,13 @@ async function changeMemberRole(
   memberId: string,
   roleId: string,
 ): Promise<IWorkspaceMember> {
-  const row = await getManagedMember(actor, memberId)
+  const managed = await getManagedMember(actor, memberId)
   await RoleService.requireAssignableRole(actor, roleId)
 
   try {
     return toSharedMember(
       await prisma.workspaceMember.update({
-        where: buildManagedMemberWhere(actor, row),
+        where: buildManagedMemberWhere(actor, managed),
         data: { roleId },
         select: memberSelect,
       }),
@@ -102,11 +102,11 @@ async function changeMemberRole(
 }
 
 async function removeMember(actor: IWorkspaceMembership, memberId: string): Promise<void> {
-  const row = await getManagedMember(actor, memberId)
+  const managed = await getManagedMember(actor, memberId)
 
   try {
     await prisma.workspaceMember.delete({
-      where: buildManagedMemberWhere(actor, row),
+      where: buildManagedMemberWhere(actor, managed),
       select: { id: true },
     })
   } catch (error) {

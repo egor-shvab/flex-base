@@ -16,6 +16,7 @@ const buildRole = (id: string, name: string, memberCount = 0): IWorkspaceRole =>
   permissions: [],
   recordDefaults: buildRecordDefaults(),
   memberCount,
+  isWithinCaller: true,
   updatedAt: '2026-02-11T16:30:00.000Z',
 })
 

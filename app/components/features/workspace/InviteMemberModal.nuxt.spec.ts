@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import InviteMemberModal from '~/components/features/workspace/InviteMemberModal.vue'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { IWorkspaceActor, IWorkspaceRole } from '#shared/types/workspace'
+import type { IWorkspaceRole } from '#shared/types/workspace'
 import { mountTracked, unmountAll } from '~~/test/mount'
 import { buildRecordDefaults } from '~~/test/membership'
 
@@ -17,6 +17,7 @@ const ROLES: IWorkspaceRole[] = [
       deleteScope: 'ALL',
     }),
     memberCount: 1,
+    isWithinCaller: false,
     updatedAt: '2026-02-11T16:30:00.000Z',
   },
   {
@@ -25,6 +26,7 @@ const ROLES: IWorkspaceRole[] = [
     permissions: [],
     recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
     memberCount: 0,
+    isWithinCaller: true,
     updatedAt: '2026-02-11T16:30:00.000Z',
   },
   {
@@ -33,16 +35,10 @@ const ROLES: IWorkspaceRole[] = [
     permissions: [],
     recordDefaults: buildRecordDefaults(),
     memberCount: 0,
+    isWithinCaller: true,
     updatedAt: '2026-02-11T16:30:00.000Z',
   },
 ]
-
-const inviter: IWorkspaceActor = {
-  memberId: 'mem_1',
-  isOwner: false,
-  permissions: ['MEMBERS_INVITE'],
-  recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
-}
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')!
 const roleValue = () => dialog().querySelector('.base-select__value')?.textContent?.trim()
@@ -50,7 +46,7 @@ const roleValue = () => dialog().querySelector('.base-select__value')?.textConte
 async function mountModal() {
   const submitHandler = vi.fn().mockResolvedValue(undefined)
   const wrapper = await mountTracked(InviteMemberModal, {
-    props: { actor: inviter, roles: ROLES, submitHandler },
+    props: { roles: ROLES, submitHandler },
     attachTo: document.body,
   })
   return { wrapper, submitHandler }

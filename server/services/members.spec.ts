@@ -14,6 +14,10 @@ vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 
+/** The role comparison has its own spec; here only what the member service does with it. */
+const roleService = vi.hoisted(() => ({ getRoleReach: vi.fn(), requireAssignableRole: vi.fn() }))
+vi.mock('#server/services/roles', () => ({ RoleService: roleService }))
+
 const MEMBER_ID = 'mem_target'
 const ROLE_ID = 'rol_clerk'
 
@@ -23,6 +27,7 @@ const manager = buildMembership(['MEMBERS_MANAGE'], {
 
 const CREATE = { canCreate: true } as const
 const UPDATE = { updateScope: 'ALL' } as const
+const ROLE_READ_AT = new Date('2026-02-11T16:30:00.000Z')
 const owner = buildMembership([], { isOwner: true })
 
 function memberRow(
@@ -49,15 +54,20 @@ const knownError = (code: string) =>
 
 const memberWhere = { id: MEMBER_ID, workspaceId: WORKSPACE_ID }
 
-/** The member's role as the check read it, repeated in the write. */
-const guardedMemberWhere = (records: Partial<ITableAccess>) => ({
+/** The member's role at the version the check read, repeated in the write. */
+const guardedMemberWhere = {
   ...memberWhere,
   roleId: 'rol_current',
-  role: { permissions: { equals: [] }, ...buildRecordDefaults(records) },
-})
+  role: { updatedAt: ROLE_READ_AT },
+}
 
 beforeEach(() => {
   resetPrismaMock()
+  roleService.getRoleReach.mockReset().mockResolvedValue({
+    isWithinActor: true,
+    updatedAt: ROLE_READ_AT,
+  })
+  roleService.requireAssignableRole.mockReset().mockResolvedValue(undefined)
 })
 
 describe('MemberService.listMembers', () => {
@@ -95,11 +105,10 @@ describe('MemberService.listMembers', () => {
 describe('MemberService.changeMemberRole', () => {
   beforeEach(() => {
     prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(CREATE))
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], UPDATE))
     prismaMock.workspaceMember.update.mockResolvedValue(memberRow(UPDATE))
   })
 
-  it('reassigns a member of the proved workspace to a role within the actor’s permissions', async () => {
+  it('reassigns a member of the proved workspace to a role within the actor’s reach', async () => {
     await expect(
       MemberService.changeMemberRole(manager, MEMBER_ID, ROLE_ID),
     ).resolves.toMatchObject({ id: MEMBER_ID })
@@ -107,16 +116,10 @@ describe('MemberService.changeMemberRole', () => {
     expect(prismaMock.workspaceMember.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: memberWhere }),
     )
-    expect(prismaMock.workspaceRole.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { workspaceId_id: { workspaceId: WORKSPACE_ID, id: ROLE_ID } },
-      }),
-    )
+    expect(roleService.getRoleReach).toHaveBeenCalledWith(manager, 'rol_current')
+    expect(roleService.requireAssignableRole).toHaveBeenCalledWith(manager, ROLE_ID)
     expect(prismaMock.workspaceMember.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: guardedMemberWhere(CREATE),
-        data: { roleId: ROLE_ID },
-      }),
+      expect.objectContaining({ where: guardedMemberWhere, data: { roleId: ROLE_ID } }),
     )
   })
 
@@ -131,29 +134,28 @@ describe('MemberService.changeMemberRole', () => {
   })
 
   it.each([
-    ['the owner', memberRow({}, { userId: 'usr_owner' }), owner],
-    ['the actor themself', memberRow({}, { id: 'mem_actor' }), manager],
-    [
-      'a member whose role reaches past the actor',
-      memberRow({}, { permissions: ['TABLES_MANAGE'] }),
-      manager,
-    ],
-    ['a member who may delete what the actor cannot', memberRow({ deleteScope: 'ALL' }), manager],
-  ])('refuses to touch %s before reading the role', async (_case, row, actor) => {
-    prismaMock.workspaceMember.findFirst.mockResolvedValue(row)
+    ['the owner', memberRow({}, { userId: 'usr_owner' }), owner, true],
+    ['the actor themself', memberRow({}, { id: 'mem_actor' }), manager, true],
+    ['a member whose role reaches past the actor', memberRow({}), manager, false],
+  ])(
+    'refuses to touch %s before the new role is asked about',
+    async (_case, row, actor, isWithin) => {
+      prismaMock.workspaceMember.findFirst.mockResolvedValue(row)
+      roleService.getRoleReach.mockResolvedValue({
+        isWithinActor: isWithin,
+        updatedAt: ROLE_READ_AT,
+      })
 
-    await expect(MemberService.changeMemberRole(actor, row.id, ROLE_ID)).rejects.toMatchObject({
-      statusCode: 403,
-    })
-    expect(prismaMock.workspaceRole.findUnique).not.toHaveBeenCalled()
-    expect(prismaMock.workspaceMember.update).not.toHaveBeenCalled()
-  })
+      await expect(MemberService.changeMemberRole(actor, row.id, ROLE_ID)).rejects.toMatchObject({
+        statusCode: 403,
+      })
+      expect(roleService.requireAssignableRole).not.toHaveBeenCalled()
+      expect(prismaMock.workspaceMember.update).not.toHaveBeenCalled()
+    },
+  )
 
-  it.each([
-    ['a permission', setRow(['MEMBERS_INVITE'])],
-    ['a record action', setRow([], { deleteScope: 'ALL' })],
-  ])('refuses a role granting %s the actor lacks', async (_, row) => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(row)
+  it('refuses a new role beyond the actor, writing nothing', async () => {
+    roleService.requireAssignableRole.mockRejectedValue({ statusCode: 403 })
 
     await expect(MemberService.changeMemberRole(manager, MEMBER_ID, ROLE_ID)).rejects.toMatchObject(
       { statusCode: 403 },
@@ -186,14 +188,14 @@ describe('MemberService.changeMemberRole', () => {
 })
 
 describe('MemberService.removeMember', () => {
-  it('removes a member the actor may manage, within the proved workspace', async () => {
+  it('removes a member the actor may manage, at their role’s version as read', async () => {
     prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(CREATE))
     prismaMock.workspaceMember.delete.mockResolvedValue({ id: MEMBER_ID })
 
     await MemberService.removeMember(manager, MEMBER_ID)
 
     expect(prismaMock.workspaceMember.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: guardedMemberWhere(CREATE) }),
+      expect.objectContaining({ where: guardedMemberWhere }),
     )
   })
 

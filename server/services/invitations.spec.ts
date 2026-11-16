@@ -14,6 +14,10 @@ vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
 }))
 
+/** The role comparison has its own spec; here only what the invitation service does with it. */
+const roleService = vi.hoisted(() => ({ getRoleReach: vi.fn(), requireAssignableRole: vi.fn() }))
+vi.mock('#server/services/roles', () => ({ RoleService: roleService }))
+
 const NOW = new Date('2026-03-01T12:00:00.000Z')
 const IN_A_WEEK = new Date('2026-03-08T12:00:00.000Z')
 const INVITATION_ID = 'inv_1'
@@ -52,6 +56,11 @@ const incomingWhere = { email: 'grace@example.com', expiresAt: { gt: NOW }, id: 
 
 beforeEach(() => {
   resetPrismaMock()
+  roleService.getRoleReach.mockReset().mockResolvedValue({
+    isWithinActor: true,
+    updatedAt: NOW,
+  })
+  roleService.requireAssignableRole.mockReset().mockResolvedValue(undefined)
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
 })
@@ -88,7 +97,6 @@ describe('InvitationService.createInvitation', () => {
   const input = { email: 'grace@example.com', roleId: ROLE_ID }
 
   beforeEach(() => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], CREATE))
     prismaMock.workspaceMember.findFirst.mockResolvedValue(null)
     prismaMock.workspaceInvitation.count.mockResolvedValue(0)
     prismaMock.workspaceInvitation.upsert.mockResolvedValue(invitationRow())
@@ -110,7 +118,7 @@ describe('InvitationService.createInvitation', () => {
   })
 
   it('refuses a role granting more than the inviter holds, before anything else', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow(['TABLES_MANAGE']))
+    roleService.requireAssignableRole.mockRejectedValue({ statusCode: 403 })
 
     await expect(
       InvitationService.createInvitation(inviter, 'usr_ada', input),
@@ -208,9 +216,7 @@ describe('InvitationService.acceptInvitation', () => {
       workspaceId: WORKSPACE_ID,
       roleId: ROLE_ID,
       invitedById: 'usr_ada',
-      role: setRow([], CREATE),
     })
-    // The inviter, Ada, owns the workspace: she may grant any role
     prismaMock.workspaceMember.findFirst.mockResolvedValue({ ...membershipRow, id: 'mem_ada' })
     prismaMock.workspaceInvitation.delete.mockResolvedValue({ id: INVITATION_ID })
     prismaMock.workspaceMember.create.mockResolvedValue(membershipRow)
@@ -222,6 +228,10 @@ describe('InvitationService.acceptInvitation', () => {
 
       expect(prismaMock.workspaceMember.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({ where: { workspaceId: WORKSPACE_ID, userId: 'usr_ada' } }),
+      )
+      expect(roleService.getRoleReach).toHaveBeenCalledWith(
+        expect.objectContaining({ memberId: 'mem_ada' }),
+        ROLE_ID,
       )
     })
 
@@ -242,12 +252,7 @@ describe('InvitationService.acceptInvitation', () => {
     })
 
     it('refuses once the inviter can no longer grant the role', async () => {
-      prismaMock.workspaceMember.findFirst.mockResolvedValue({
-        ...membershipRow,
-        id: 'mem_bob',
-        role: { id: 'rol_viewer', name: 'Viewer', ...setRow() },
-        workspace: { ...membershipRow.workspace, ownerId: 'usr_someone_else' },
-      })
+      roleService.getRoleReach.mockResolvedValue({ isWithinActor: false, updatedAt: NOW })
       prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
 
       await expect(
@@ -263,7 +268,6 @@ describe('InvitationService.acceptInvitation', () => {
         workspaceId: WORKSPACE_ID,
         roleId: ROLE_ID,
         invitedById: null,
-        role: setRow(),
       })
       prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
 

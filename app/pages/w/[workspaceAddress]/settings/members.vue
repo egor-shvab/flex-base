@@ -108,8 +108,7 @@
     </template>
 
     <LazyInviteMemberModal
-      v-if="isInviteOpen && membership"
-      :actor="membership"
+      v-if="isInviteOpen"
       :roles="rolesStore.roles"
       :submit-handler="sendInvitation"
       @saved="isInviteOpen = false"
@@ -189,17 +188,18 @@ async function retryMembers() {
   await refresh()
 }
 
+/** A role the roles list does not hold is not known to be within the caller, so it is not. */
 function canManage(member: IWorkspaceMember): boolean {
+  const role = rolesStore.roles.find((candidate) => candidate.id === member.role.id)
+
   return (
     hasPermission('MEMBERS_MANAGE') &&
     membership.value !== undefined &&
-    canManageMember(membership.value, member)
+    canManageMember(membership.value, member, role?.isWithinCaller === true)
   )
 }
 
-const roleOptions = computed(() =>
-  membership.value ? buildAssignableRoleOptions(membership.value, rolesStore.roles) : [],
-)
+const roleOptions = computed(() => buildAssignableRoleOptions(rolesStore.roles))
 
 const changingMemberId = ref<string | null>(null)
 const { error: roleChangeError, run: runRoleChange } = useServerAction()

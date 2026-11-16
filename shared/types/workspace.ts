@@ -4,6 +4,7 @@ import type {
   WORKSPACE_PERMISSIONS,
 } from '#shared/constants/workspace'
 import type { IUserRef } from '#shared/types/auth'
+import type { TFieldType } from '#shared/types/field'
 
 export type TWorkspacePermission = (typeof WORKSPACE_PERMISSIONS)[number]
 
@@ -29,6 +30,41 @@ export interface ITableAccess {
 export interface IPermissionSet {
   permissions: readonly TWorkspacePermission[]
   recordDefaults: ITableAccess
+}
+
+/** A role's own record access for one table, replacing its defaults there whole. */
+export interface ITableAccessOverride extends ITableAccess {
+  tableId: string
+}
+
+/** A role's row narrowing one field. */
+export interface IFieldAccessOverride {
+  fieldId: string
+  access: TFieldAccessOverride
+}
+
+/** What a role sets apart from its defaults, table by table and field by field. */
+export interface IRoleOverrides {
+  tables: ITableAccessOverride[]
+  fields: IFieldAccessOverride[]
+}
+
+/** Everything a role grants; anti-escalation compares two of these over a workspace's tables. */
+export interface IRoleGrants extends IPermissionSet, IRoleOverrides {}
+
+/** A field as a role's access is set on it. */
+export interface IAccessField {
+  id: string
+  name: string
+  type: TFieldType
+  required: boolean
+}
+
+/** A workspace's tables and their fields: what an access comparison walks, and an editor lists. */
+export interface IAccessTable {
+  id: string
+  name: string
+  fields: IAccessField[]
 }
 
 export interface IWorkspace {
@@ -60,6 +96,12 @@ export interface IWorkspaceMembership extends IWorkspaceActor {
 
 export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
   memberCount: number
+  /**
+   * Whether the role grants nothing beyond the caller, on any table or field: what assigning it,
+   * editing or deleting it, or managing a member who holds it requires. Always false for a caller
+   * who can do none of those.
+   */
+  isWithinCaller: boolean
   /** The version an edit sends as `If-Match`. */
   updatedAt: string
 }

@@ -38,6 +38,13 @@ too. A member who reads only their own records is shown no table count, yet thei
 numbers still bound how many others hold. _Reopen if a table or record is ever shared beyond its
 workspace, or if that bound must be hidden from a scoped member._
 
+### Marking a field required and narrowing a role's access can cross
+
+Each side checks the other (`FieldService.updateField`, `RoleService.updateRoleAccess`), but in
+separate transactions with nothing locked between them, so two admins doing both at once can land
+a required field a creating role cannot fill. _Reopen if role access is edited often enough for
+it to happen: lock the table's row in both writes._
+
 ### A link to a table read only in part shows record numbers, not labels
 
 Where a role reads only its own records of a link's target, every link in the source table shows

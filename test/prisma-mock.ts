@@ -8,6 +8,7 @@ interface IModelMock {
   findFirstOrThrow: Mock
   count: Mock
   create: Mock
+  createMany: Mock
   upsert: Mock
   update: Mock
   updateMany: Mock
@@ -24,6 +25,7 @@ function modelMock(): IModelMock {
     findFirstOrThrow: vi.fn(),
     count: vi.fn(),
     create: vi.fn(),
+    createMany: vi.fn(),
     upsert: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
@@ -41,6 +43,7 @@ export const prismaMock = {
   workspaceMember: modelMock(),
   workspaceRole: modelMock(),
   workspaceInvitation: modelMock(),
+  roleTableAccess: modelMock(),
   roleFieldAccess: modelMock(),
   $queryRaw: vi.fn(),
   $executeRaw: vi.fn(),
@@ -68,6 +71,7 @@ export function resetPrismaMock(): void {
     prismaMock.workspaceMember,
     prismaMock.workspaceRole,
     prismaMock.workspaceInvitation,
+    prismaMock.roleTableAccess,
     prismaMock.roleFieldAccess,
   ]
 

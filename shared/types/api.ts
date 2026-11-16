@@ -3,6 +3,8 @@ import type { IField } from '#shared/types/field'
 import type { IRecord, IRecordOption } from '#shared/types/record'
 import type { ITable, ITableListItem } from '#shared/types/table'
 import type {
+  IAccessTable,
+  IRoleOverrides,
   ITableAccess,
   IIncomingInvitation,
   IWorkspace,
@@ -96,6 +98,13 @@ export interface IRolesResponse {
 
 export interface IRoleResponse {
   role: IWorkspaceRole
+}
+
+/** A role's whole record access, with the workspace's tables and fields to set it on. */
+export interface IRoleAccessResponse {
+  role: IWorkspaceRole
+  overrides: IRoleOverrides
+  tables: IAccessTable[]
 }
 
 export interface IMembersResponse {

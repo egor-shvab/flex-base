@@ -259,33 +259,40 @@ resolveTableAccess({
   сторон могут разминуться в гонке, поэтому сохранение доступа роли и пометку `required` стоит
   сериализовать (блокировка строки таблицы в обеих транзакциях).
 
-## Этап 6 — API доступа роли и анти-эскалация
+## Этап 6 — API доступа роли и анти-эскалация ✅
 
-- [ ] `roleInputSchema`: `readScope` умолчаний расширяется до `NONE | ALL` (с этапа 3 — и `OWN`).
-
-- [ ] `shared/validation/role-access.ts`: `roleAccessSchema` = `recordDefaults` + `tables: [{ tableId,
-...ITableAccess }]` + `fields: [{ fieldId, access }]`; дубликаты запрещены.
-- [ ] `GET /roles/:roleId/access` (`ROLES_MANAGE`) → умолчания, override'ы и для редактора таблицы
-      пространства с полями (id, имя, тип, required). `PUT /roles/:roleId/access` (`ROLES_MANAGE`,
-      If-Match по `role.updatedAt`) — заменяет все override'ы атомарно в транзакции
-      (`deleteMany` + `createMany`) и двигает `updatedAt` роли.
-- [ ] Проверки в `RoleService.updateRoleAccess`:
-  - каждый `tableId`/`fieldId` принадлежит пространству (один запрос с `workspaceId`), иначе 404;
-  - поле относится к таблице без `readScope = NONE` — override у поля невидимой таблицы бессмыслен,
-    его отбрасываем или отклоняем (400);
-  - правило required + create (решение 4) → 409 с именами роли, таблицы и поля;
-  - анти-эскалация.
-- [ ] Анти-эскалация в `shared/utils/permissions.ts`: `isAccessWithin(next, actor, tables)` сравнивает
-      **эффективный** доступ по каждой таблице и каждому полю (`isScopeWithin`, порядок полей).
-      `canEditRole`, `canAssignRole`, `canManageMember`, `canCreateRole` переходят на него.
-      Эффективный доступ актёра собирается из его роли тем же `resolveTableAccess`. Защищённая запись
-      (`buildGuardedRoleWhere`) охраняет и `updatedAt`, а не только `permissions`.
-- [ ] Клиенту для выбора роли (приглашение, смена роли) нужен ответ «можно ли назначить»: `GET /roles`
-      отдаёт доступ каждой роли держателям `ROLES_MANAGE`/`MEMBERS_MANAGE`/`MEMBERS_INVITE`
-      (ограничено капом ролей и таблиц), остальным — без него. Решение одно — общая функция.
-- [ ] Тесты: unit на `isAccessWithin` (таблица шире, поле шире, OWN против ALL, невидимая таблица у
-      актёра); service со стабом (каждый отказ, форма транзакции); интеграционный тест атомарной
-      замены и каскадов (удаление таблицы, поля, роли).
+- [x] `roleInputSchema`: умолчания принимают `readScope = NONE | OWN | ALL`; действие не шире
+      чтения, `canCreate` при чтении `NONE` запрещён. `RoleFormModal` предлагает и «None» (чтение
+      «None» гасит и добавление).
+- [x] `shared/validation/role-access.ts`: `roleAccessSchema` = `recordDefaults` + `tables` (каждая
+      строка по тем же правилам) + `fields` (`HIDDEN`/`READ`); повторы запрещены.
+- [x] `GET /roles/:roleId/access` → `{ role, overrides, tables }` (таблицы пространства с полями: id,
+      имя, тип, required). `PUT /roles/:roleId/access` (`If-Match`) заменяет умолчания и все строки
+      в одной транзакции: сначала защищённый `update` роли, потом `deleteMany` + `createMany`.
+- [x] Проверки `RoleService.updateRoleAccess`: таблица/поле чужого пространства → 404; строка поля
+      на таблице, которую роль не видит → 400; анти-эскалация (текущая и новая) → 403; обязательное
+      поле, которое создающая роль не заполнит → 409 (и при `updateRole` — та же проверка);
+      устаревший `If-Match` → 412 сразу.
+- [x] `shared/utils/role-access.ts`: `isAccessWithin(subject, holder, tables)` — права, умолчания и
+      **эффективный** доступ к каждой таблице и полю (`resolveTableAccess`/`resolveFieldAccess`);
+      поля нечитаемой таблицы не сравниваются. `canAssignRole`/`canCreateRole`/`canEditRole` удалены,
+      `canManageMember` принимает готовый ответ. `RoleService` читает «основу» двумя запросами
+      (`loadAccessGround`) и отдаёт `getRoleReach` участникам и приглашениям.
+- [x] Защищённые записи роли и участника повторяют `updatedAt` роли, а не набор прав.
+- [x] Клиент: отступление — вместо доступа ролей `GET /roles` отдаёт каждой роли `isWithinCaller`
+      (считается только для `ROLES_MANAGE`/`MEMBERS_MANAGE`/`MEMBERS_INVITE`). Выбор роли в
+      приглашении и смене роли, кнопки ролей и участников читают его.
+- [x] Тесты: unit (`isAccessWithin` — права, умолчания, таблица, поле, невидимая таблица,
+      менеджер таблиц; схемы; `RoleService` со стабом — каждый отказ, форма транзакции; участники и
+      приглашения через стаб `RoleService`), интеграционные (атомарная замена и версия, 412,
+      каскады таблицы, поля и роли, анти-эскалация по скрытому полю; новые маршруты — в общей
+      проверке 404/403).
+- [x] Документы: `CLAUDE.md` §5, `architecture.md` (§10 роли, приглашения), `decisions.md`
+      (эффективное сравнение; обязательное поле — с обеих сторон), `limitations.md` (гонка
+      required ↔ доступ роли — вместо блокировки).
+- Этапу 7: API (`fetchRoleAccess`/`saveRoleAccess` в `app/api/` и сторе), страница редактора.
+  Для «не предлагать недоступное» редактору нужен доступ самого актёра: он держит `ROLES_MANAGE`,
+  так что читает свою роль тем же `GET /roles/:id/access`.
 
 ## Этап 7 — Редактор доступа роли (UI)
 

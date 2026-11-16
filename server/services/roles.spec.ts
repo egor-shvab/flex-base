@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
 import { MAX_WORKSPACE_ROLES, RoleService } from '#server/services/roles'
-import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { ITableAccess, TWorkspacePermission } from '#shared/types/workspace'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
+import type {
+  IFieldAccessOverride,
+  ITableAccess,
+  ITableAccessOverride,
+  TWorkspacePermission,
+} from '#shared/types/workspace'
+import type { TRoleAccessInput } from '#shared/validation/role-access'
 import {
   buildMembership,
   buildPermissionSetRow as setRow,
@@ -17,18 +23,48 @@ vi.mock('#server/db/prisma', async () => ({
 }))
 
 const ROLE_ID = 'rol_1'
+const ACTOR_ROLE_ID = 'rol_actor'
 
+const managerDefaults = { canCreate: true, updateScope: 'ALL' } as const
 const manager = buildMembership(['ROLES_MANAGE'], {
-  recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
+  recordDefaults: buildRecordDefaults(managerDefaults),
 })
+const reader = buildMembership([])
 const owner = buildMembership([], { isOwner: true })
 
 const READ_AT = new Date('2026-02-11T16:30:00.000Z')
 
-const CREATE = { canCreate: true } as const
-const UPDATE = { updateScope: 'ALL' } as const
-const DELETE = { deleteScope: 'ALL' } as const
+const DEALS = {
+  id: 'tbl_deals',
+  name: 'Deals',
+  fields: [
+    { id: 'fld_company', name: 'Company', type: 'TEXT', required: true },
+    { id: 'fld_salary', name: 'Salary', type: 'NUMBER', required: false },
+  ],
+}
 
+interface IGrantsRowOptions {
+  id?: string
+  name?: string
+  tables?: ITableAccessOverride[]
+  fields?: IFieldAccessOverride[]
+}
+
+/** A role as `roleGrantsSelect` reads it. */
+const grantsRow = (
+  permissions: TWorkspacePermission[],
+  records: Partial<ITableAccess> = {},
+  { id = ROLE_ID, name = 'Clerk', tables = [], fields = [] }: IGrantsRowOptions = {},
+) => ({
+  id,
+  name,
+  updatedAt: READ_AT,
+  ...setRow(permissions, records),
+  tableAccess: tables,
+  fieldAccess: fields,
+})
+
+/** A role as `roleSelect` reads it. */
 const roleRow = (
   permissions: TWorkspacePermission[],
   records: Partial<ITableAccess> = {},
@@ -41,6 +77,26 @@ const roleRow = (
   _count: { members: memberCount },
 })
 
+const actorRow = (tables: ITableAccessOverride[] = [], fields: IFieldAccessOverride[] = []) =>
+  grantsRow(['ROLES_MANAGE'], managerDefaults, {
+    id: ACTOR_ROLE_ID,
+    name: 'Manager',
+    tables,
+    fields,
+  })
+
+/**
+ * The ground every decision reads: the tables, and the roles asked for. `roleSelect` reads (the
+ * list, a write's answer) share `findMany`, told apart by whether they select the role's rows.
+ */
+function stubGround(roles: ReturnType<typeof grantsRow>[], listed = [roleRow([])]) {
+  prismaMock.table.findMany.mockResolvedValue([DEALS])
+  prismaMock.workspaceRole.findMany.mockImplementation(
+    async (args: { select: { tableAccess?: unknown } }) =>
+      args.select.tableAccess === undefined ? listed : roles,
+  )
+}
+
 const knownError = (code: string) =>
   new Prisma.PrismaClientKnownRequestError(code, { code, clientVersion: '7.9.0' })
 
@@ -52,17 +108,10 @@ beforeEach(() => {
 
 describe('RoleService.listRoles', () => {
   it('reads this workspace’s roles in a stable order, with how many members hold each', async () => {
-    prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow([], CREATE, 3)])
+    prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow([], { canCreate: true }, 3)])
 
-    await expect(RoleService.listRoles(WORKSPACE_ID)).resolves.toEqual([
-      {
-        id: ROLE_ID,
-        name: 'Clerk',
-        permissions: [],
-        recordDefaults: buildRecordDefaults(CREATE),
-        memberCount: 3,
-        updatedAt: READ_AT.toISOString(),
-      },
+    await expect(RoleService.listRoles(reader)).resolves.toEqual([
+      expect.objectContaining({ id: ROLE_ID, name: 'Clerk', memberCount: 3 }),
     ])
     expect(prismaMock.workspaceRole.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -71,67 +120,107 @@ describe('RoleService.listRoles', () => {
       }),
     )
   })
+
+  it('compares nothing for a caller who cannot act on roles, and calls none within them', async () => {
+    prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow([])])
+
+    const [role] = await RoleService.listRoles(reader)
+
+    expect(role?.isWithinCaller).toBe(false)
+    expect(prismaMock.table.findMany).not.toHaveBeenCalled()
+  })
+
+  it('tells a manager which roles are within them, table and field included', async () => {
+    const within = { ...roleRow([]), id: 'rol_within' }
+    const beyond = { ...roleRow([]), id: 'rol_beyond' }
+    stubGround(
+      [
+        actorRow([], [{ fieldId: 'fld_salary', access: 'HIDDEN' }]),
+        grantsRow(
+          [],
+          {},
+          { id: 'rol_within', fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
+        ),
+        grantsRow([], {}, { id: 'rol_beyond' }),
+      ],
+      [within, beyond],
+    )
+
+    const roles = await RoleService.listRoles(manager)
+
+    expect(roles.map((role) => [role.id, role.isWithinCaller])).toEqual([
+      ['rol_within', true],
+      ['rol_beyond', false],
+    ])
+  })
 })
 
 describe('RoleService.createRole', () => {
-  beforeEach(() => {
-    prismaMock.workspaceRole.count.mockResolvedValue(3)
-    prismaMock.workspaceRole.create.mockResolvedValue(roleRow([], CREATE))
-  })
-
   it('creates a role within the actor’s own reach, in the proved workspace', async () => {
-    await expect(
-      RoleService.createRole(manager, input('Clerk', [], CREATE)),
-    ).resolves.toMatchObject({ id: ROLE_ID, memberCount: 0 })
+    stubGround([actorRow()])
+    prismaMock.workspaceRole.count.mockResolvedValue(3)
+    prismaMock.workspaceRole.create.mockResolvedValue(roleRow([], { canCreate: true }))
+
+    const role = await RoleService.createRole(manager, input('Clerk', [], { canCreate: true }))
 
     expect(prismaMock.workspaceRole.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: {
+        data: expect.objectContaining({
           workspaceId: WORKSPACE_ID,
           name: 'Clerk',
-          permissions: [],
-          ...buildRecordDefaults(CREATE),
-        },
+          canCreate: true,
+        }),
       }),
     )
+    expect(role.isWithinCaller).toBe(true)
   })
 
   it.each([
-    ['a permission', input('Boss', ['TABLES_MANAGE'])],
-    ['a record action', input('Boss', [], DELETE)],
-  ])('refuses %s the actor lacks before anything is read or written', async (_, role) => {
-    await expect(RoleService.createRole(manager, role)).rejects.toMatchObject({ statusCode: 403 })
+    ['a permission the actor lacks', input('Clerk', ['TABLES_MANAGE'])],
+    ['a record action the actor lacks', input('Clerk', [], { deleteScope: 'ALL' })],
+  ])('refuses %s with a 403, writing nothing', async (_, roleInput) => {
+    stubGround([actorRow()])
 
-    expect(prismaMock.workspaceRole.count).not.toHaveBeenCalled()
+    await expect(RoleService.createRole(manager, roleInput)).rejects.toMatchObject({
+      statusCode: 403,
+    })
     expect(prismaMock.workspaceRole.create).not.toHaveBeenCalled()
   })
 
-  it('lets the owner grant everything', async () => {
-    await RoleService.createRole(
-      owner,
-      input('All', [...WORKSPACE_PERMISSIONS], { ...CREATE, ...UPDATE, ...DELETE }),
-    )
+  it('refuses a role whose defaults reach a table the actor reads only in part', async () => {
+    stubGround([actorRow([{ tableId: DEALS.id, ...buildRecordDefaults({ readScope: 'OWN' }) }])])
 
-    expect(prismaMock.workspaceRole.create).toHaveBeenCalledTimes(1)
+    await expect(RoleService.createRole(manager, input('Clerk'))).rejects.toMatchObject({
+      statusCode: 403,
+    })
+  })
+
+  it('lets the owner grant everything', async () => {
+    stubGround([])
+    prismaMock.workspaceRole.count.mockResolvedValue(0)
+    prismaMock.workspaceRole.create.mockResolvedValue(roleRow([]))
+
+    await expect(
+      RoleService.createRole(owner, input('Admin', ['TABLES_MANAGE'], FULL_TABLE_ACCESS)),
+    ).resolves.toBeDefined()
   })
 
   it('refuses a role over the cap with a 409, writing nothing', async () => {
+    stubGround([actorRow()])
     prismaMock.workspaceRole.count.mockResolvedValue(MAX_WORKSPACE_ROLES)
 
-    await expect(RoleService.createRole(owner, input('One more'))).rejects.toMatchObject({
+    await expect(RoleService.createRole(manager, input('Clerk'))).rejects.toMatchObject({
       statusCode: 409,
-      statusMessage: `A workspace can have at most ${MAX_WORKSPACE_ROLES} roles`,
-    })
-    expect(prismaMock.workspaceRole.count).toHaveBeenCalledWith({
-      where: { workspaceId: WORKSPACE_ID },
     })
     expect(prismaMock.workspaceRole.create).not.toHaveBeenCalled()
   })
 
   it('reports a taken name as a 409', async () => {
+    stubGround([actorRow()])
+    prismaMock.workspaceRole.count.mockResolvedValue(0)
     prismaMock.workspaceRole.create.mockRejectedValue(knownError('P2002'))
 
-    await expect(RoleService.createRole(owner, input('Editor'))).rejects.toMatchObject({
+    await expect(RoleService.createRole(manager, input('Clerk'))).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A role with this name already exists',
     })
@@ -139,37 +228,27 @@ describe('RoleService.createRole', () => {
 })
 
 describe('RoleService.updateRole', () => {
-  it('reads the role inside the proved workspace, then writes it there', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], CREATE))
-    prismaMock.workspaceRole.update.mockResolvedValue(roleRow([], UPDATE, 2))
+  it('writes the role only at the version the decision read', async () => {
+    stubGround([actorRow(), grantsRow([])])
+    prismaMock.workspaceRole.update.mockResolvedValue(roleRow([]))
 
-    await expect(
-      RoleService.updateRole(manager, ROLE_ID, input('Clerk', [], UPDATE)),
-    ).resolves.toMatchObject({ recordDefaults: buildRecordDefaults(UPDATE), memberCount: 2 })
+    await RoleService.updateRole(manager, ROLE_ID, input('Clerk'))
 
-    expect(prismaMock.workspaceRole.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: roleWhere }),
-    )
     expect(prismaMock.workspaceRole.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { ...roleWhere, permissions: { equals: [] }, ...buildRecordDefaults(CREATE) },
-        data: { name: 'Clerk', permissions: [], ...buildRecordDefaults(UPDATE) },
-      }),
+      expect.objectContaining({ where: { ...roleWhere, updatedAt: READ_AT } }),
     )
   })
 
   it('is a 404 for a role outside the workspace', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(null)
+    stubGround([actorRow()])
 
     await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
       statusCode: 404,
-      statusMessage: 'Role not found',
     })
-    expect(prismaMock.workspaceRole.update).not.toHaveBeenCalled()
   })
 
   it('refuses to change a role that already grants more than the actor holds', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], DELETE))
+    stubGround([actorRow(), grantsRow([], { deleteScope: 'ALL' })])
 
     await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
       statusCode: 403,
@@ -177,55 +256,54 @@ describe('RoleService.updateRole', () => {
     expect(prismaMock.workspaceRole.update).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['a permission', input('Clerk', ['MEMBERS_MANAGE'])],
-    ['a record action', input('Clerk', [], DELETE)],
-  ])('refuses to raise a role above the actor by %s', async (_, next) => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow())
+  it('answers 412 at once for a version that is not the one read', async () => {
+    stubGround([actorRow(), grantsRow([])])
 
-    await expect(RoleService.updateRole(manager, ROLE_ID, next)).rejects.toMatchObject({
-      statusCode: 403,
-    })
+    await expect(
+      RoleService.updateRole(manager, ROLE_ID, input('Clerk'), new Date('2026-01-01')),
+    ).rejects.toMatchObject({ statusCode: 412 })
     expect(prismaMock.workspaceRole.update).not.toHaveBeenCalled()
   })
 
-  it('reports a role deleted since it was read as missing', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValueOnce(setRow()).mockResolvedValueOnce(null)
+  it('refuses with a 409 when the role changed under the check', async () => {
+    stubGround([actorRow(), grantsRow([])])
     prismaMock.workspaceRole.update.mockRejectedValue(knownError('P2025'))
-
-    await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
-      statusCode: 404,
-    })
-  })
-
-  it('refuses with a 409 when the role’s grants changed under the check', async () => {
-    prismaMock.workspaceRole.findUnique
-      .mockResolvedValueOnce(setRow())
-      .mockResolvedValueOnce({ id: ROLE_ID })
-    prismaMock.workspaceRole.update.mockRejectedValue(knownError('P2025'))
+    prismaMock.workspaceRole.findUnique.mockResolvedValue({ id: ROLE_ID })
 
     await expect(RoleService.updateRole(manager, ROLE_ID, input('Clerk'))).rejects.toMatchObject({
       statusCode: 409,
     })
   })
+
+  it('refuses defaults that would add records without filling a required field', async () => {
+    stubGround([
+      actorRow(),
+      grantsRow([], {}, { fields: [{ fieldId: 'fld_company', access: 'READ' }] }),
+    ])
+
+    await expect(
+      RoleService.updateRole(manager, ROLE_ID, input('Clerk', [], { canCreate: true })),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: 'Role "Clerk" can add records to "Deals" but cannot fill "Company"',
+    })
+  })
 })
 
 describe('RoleService.deleteRole', () => {
-  it('deletes by the compound key, so another workspace’s role cannot match', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow())
+  it('deletes by the compound key at the version read', async () => {
+    stubGround([actorRow(), grantsRow([])])
     prismaMock.workspaceRole.delete.mockResolvedValue({ id: ROLE_ID })
 
     await RoleService.deleteRole(manager, ROLE_ID)
 
     expect(prismaMock.workspaceRole.delete).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { ...roleWhere, permissions: { equals: [] }, ...buildRecordDefaults() },
-      }),
+      expect.objectContaining({ where: { ...roleWhere, updatedAt: READ_AT } }),
     )
   })
 
   it('refuses a role above the actor before deleting', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow(['ROLES_MANAGE', 'TABLES_MANAGE']))
+    stubGround([actorRow(), grantsRow(['TABLES_MANAGE'])])
 
     await expect(RoleService.deleteRole(manager, ROLE_ID)).rejects.toMatchObject({
       statusCode: 403,
@@ -234,47 +312,127 @@ describe('RoleService.deleteRole', () => {
   })
 
   it('turns a role still held by a member into a 409, without counting first', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow())
+    stubGround([actorRow(), grantsRow([])])
     prismaMock.workspaceRole.delete.mockRejectedValue(knownError('P2003'))
 
     await expect(RoleService.deleteRole(manager, ROLE_ID)).rejects.toMatchObject({
       statusCode: 409,
-      statusMessage: 'Reassign the members of this role and revoke its invitations first',
     })
-    expect(prismaMock.workspaceMember.findMany).not.toHaveBeenCalled()
-    expect(prismaMock.workspaceRole.count).not.toHaveBeenCalled()
+    expect(prismaMock.workspaceMember.count).not.toHaveBeenCalled()
   })
 })
 
 describe('RoleService.requireAssignableRole', () => {
-  it('passes a role within the actor’s reach, found by the compound key', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(setRow([], CREATE))
+  it('passes a role within the actor’s reach', async () => {
+    stubGround([actorRow(), grantsRow([], { canCreate: true })])
 
     await expect(RoleService.requireAssignableRole(manager, ROLE_ID)).resolves.toBeUndefined()
-    expect(prismaMock.workspaceRole.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: roleWhere }),
+    expect(prismaMock.workspaceRole.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId: WORKSPACE_ID, id: { in: [ACTOR_ROLE_ID, ROLE_ID] } },
+      }),
     )
   })
 
-  it.each([
-    ['a permission', setRow(['TABLES_MANAGE'])],
-    ['a record action', setRow([], DELETE)],
-  ])('refuses a role granting %s the actor lacks, but not to the owner', async (_, row) => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(row)
+  it('refuses one that sees a field hidden from the actor', async () => {
+    stubGround([actorRow([], [{ fieldId: 'fld_salary', access: 'HIDDEN' }]), grantsRow([])])
 
     await expect(RoleService.requireAssignableRole(manager, ROLE_ID)).rejects.toMatchObject({
       statusCode: 403,
-      statusMessage: 'You can only assign roles within your own permissions',
     })
-    await expect(RoleService.requireAssignableRole(owner, ROLE_ID)).resolves.toBeUndefined()
   })
 
   it('answers a role of another workspace as missing', async () => {
-    prismaMock.workspaceRole.findUnique.mockResolvedValue(null)
+    stubGround([actorRow()])
 
-    await expect(RoleService.requireAssignableRole(owner, ROLE_ID)).rejects.toMatchObject({
+    await expect(RoleService.requireAssignableRole(manager, ROLE_ID)).rejects.toMatchObject({
       statusCode: 404,
-      statusMessage: 'Role not found',
     })
+  })
+})
+
+describe('RoleService.updateRoleAccess', () => {
+  const access = (overrides: Partial<TRoleAccessInput> = {}): TRoleAccessInput => ({
+    recordDefaults: buildRecordDefaults(),
+    tables: [],
+    fields: [],
+    ...overrides,
+  })
+
+  beforeEach(() => {
+    stubGround([actorRow(), grantsRow([])])
+    prismaMock.workspaceRole.update.mockResolvedValue(roleRow([]))
+  })
+
+  it('replaces the role’s rows in one transaction, the guarded role write first', async () => {
+    const tables = [{ tableId: DEALS.id, ...buildRecordDefaults({ readScope: 'OWN' }) }]
+    const fields = [{ fieldId: 'fld_salary', access: 'HIDDEN' as const }]
+
+    await RoleService.updateRoleAccess(manager, ROLE_ID, access({ tables, fields }))
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+    expect(prismaMock.workspaceRole.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ...roleWhere, updatedAt: READ_AT } }),
+    )
+    expect(prismaMock.roleTableAccess.deleteMany).toHaveBeenCalledWith({
+      where: { roleId: ROLE_ID },
+    })
+    expect(prismaMock.roleFieldAccess.deleteMany).toHaveBeenCalledWith({
+      where: { roleId: ROLE_ID },
+    })
+    expect(prismaMock.roleTableAccess.createMany).toHaveBeenCalledWith({
+      data: [{ workspaceId: WORKSPACE_ID, roleId: ROLE_ID, ...tables[0] }],
+    })
+    expect(prismaMock.roleFieldAccess.createMany).toHaveBeenCalledWith({
+      data: [{ workspaceId: WORKSPACE_ID, roleId: ROLE_ID, ...fields[0] }],
+    })
+  })
+
+  it.each([
+    ['a table', access({ tables: [{ tableId: 'tbl_elsewhere', ...buildRecordDefaults() }] })],
+    ['a field', access({ fields: [{ fieldId: 'fld_elsewhere', access: 'HIDDEN' }] })],
+  ])('answers %s of another workspace with a 404, writing nothing', async (_, next) => {
+    await expect(RoleService.updateRoleAccess(manager, ROLE_ID, next)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('refuses a field row on a table the role does not see', async () => {
+    const next = access({
+      tables: [{ tableId: DEALS.id, ...buildRecordDefaults({ readScope: 'NONE' }) }],
+      fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }],
+    })
+
+    await expect(RoleService.updateRoleAccess(manager, ROLE_ID, next)).rejects.toMatchObject({
+      statusCode: 400,
+    })
+  })
+
+  it('refuses access wider than the actor’s, on one table', async () => {
+    const next = access({ tables: [{ tableId: DEALS.id, ...FULL_TABLE_ACCESS }] })
+
+    await expect(RoleService.updateRoleAccess(manager, ROLE_ID, next)).rejects.toMatchObject({
+      statusCode: 403,
+    })
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('refuses hiding a required field from a role that adds records', async () => {
+    const next = access({
+      recordDefaults: buildRecordDefaults({ canCreate: true }),
+      fields: [{ fieldId: 'fld_company', access: 'HIDDEN' }],
+    })
+
+    await expect(RoleService.updateRoleAccess(manager, ROLE_ID, next)).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: 'Role "Clerk" can add records to "Deals" but cannot fill "Company"',
+    })
+  })
+
+  it('answers 412 for a version that is not the one read', async () => {
+    await expect(
+      RoleService.updateRoleAccess(manager, ROLE_ID, access(), new Date('2026-01-01')),
+    ).rejects.toMatchObject({ statusCode: 412 })
   })
 })

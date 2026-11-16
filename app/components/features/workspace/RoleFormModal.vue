@@ -116,18 +116,11 @@ const ACTION_SCOPE_KEYS = ['updateScope', 'deleteScope'] as const
 
 const UNGRANTABLE_HINT = 'You don’t have this permission, so you can’t grant it'
 
-/**
- * A new role reads every record. A default read of none is not offered yet, so an existing one —
- * which nothing can set today — opens as the narrowest the editor offers.
- */
+/** A new role reads every record and changes none. */
 function toRecordDefaultsInput(role?: IWorkspaceRole): TRoleInput['recordDefaults'] {
   if (!role) return { readScope: 'ALL', canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' }
 
-  const { readScope } = role.recordDefaults
-  return applyReadScope(
-    { ...role.recordDefaults, readScope: 'ALL' },
-    readScope === 'NONE' ? 'OWN' : readScope,
-  )
+  return { ...role.recordDefaults }
 }
 
 const { form, errors, serverError, isSubmitting, submit } = useForm({
@@ -148,14 +141,19 @@ function canGrant(permission: TWorkspacePermission): boolean {
   return hasPermission(props.actor, permission)
 }
 
-const canGrantCreate = computed(() => props.actor.isOwner || props.actor.recordDefaults.canCreate)
+/** Adding records to a table the role cannot read is refused, so a read of none locks it off. */
+const canGrantCreate = computed(
+  () =>
+    form.recordDefaults.readScope !== 'NONE' &&
+    (props.actor.isOwner || props.actor.recordDefaults.canCreate),
+)
 
 function canGrantScope(key: TScopedRecordKey, scope: TRecordScope): boolean {
   return props.actor.isOwner || isScopeWithin(scope, props.actor.recordDefaults[key])
 }
 
 const readScopeOptions = computed(() =>
-  buildScopeOptions(['OWN', 'ALL'], (scope) => canGrantScope('readScope', scope)),
+  buildScopeOptions(RECORD_SCOPES, (scope) => canGrantScope('readScope', scope)),
 )
 
 function buildActionScopeOptions(key: (typeof ACTION_SCOPE_KEYS)[number]) {

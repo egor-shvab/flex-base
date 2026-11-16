@@ -1,7 +1,6 @@
 import { RECORD_SCOPES } from '#shared/constants/workspace'
 import type {
   IManagedMember,
-  IPermissionSet,
   ITableAccess,
   IWorkspaceActor,
   TRecordAction,
@@ -48,38 +47,17 @@ export function isTableAccessWithin(access: ITableAccess, of: ITableAccess): boo
   )
 }
 
-function isWithinActor(actor: TPermissionHolder, set: IPermissionSet): boolean {
-  return (
-    actor.isOwner ||
-    (isPermissionSubset(set.permissions, actor.permissions) &&
-      isTableAccessWithin(set.recordDefaults, actor.recordDefaults))
-  )
-}
-
-/** To a member or in an invitation: never a role granting more than the actor holds. */
-export function canAssignRole(actor: TPermissionHolder, role: IPermissionSet): boolean {
-  return isWithinActor(actor, role)
-}
-
-export function canCreateRole(actor: TPermissionHolder, set: IPermissionSet): boolean {
-  return isWithinActor(actor, set)
-}
-
-/** Without `next` this answers renaming or deleting the role. */
-export function canEditRole(
-  actor: TPermissionHolder,
-  role: IPermissionSet,
-  next?: IPermissionSet,
-): boolean {
-  return isWithinActor(actor, role) && (next === undefined || isWithinActor(actor, next))
-}
-
 /**
  * Changing a member's role or removing them. Nobody acts on the owner's membership or on their
- * own — leaving is its own action.
+ * own — leaving is its own action — nor on one whose role grants more than they hold
+ * (`isAccessWithin`, which the caller decides with the workspace's tables to hand).
  */
-export function canManageMember(actor: IWorkspaceActor, member: IManagedMember): boolean {
+export function canManageMember(
+  actor: Pick<IWorkspaceActor, 'memberId'>,
+  member: IManagedMember,
+  isRoleWithinActor: boolean,
+): boolean {
   if (member.isOwner || member.id === actor.memberId) return false
 
-  return isWithinActor(actor, member.role)
+  return isRoleWithinActor
 }

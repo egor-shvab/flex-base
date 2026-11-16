@@ -9,23 +9,16 @@ import {
 } from '#server/db/invitations'
 import { prisma } from '#server/db/prisma'
 import { isMissingRow, isUniqueViolation } from '#server/db/prisma-errors'
-import {
-  membershipSelect,
-  permissionSetSelect,
-  toPermissionSet,
-  toSharedMembership,
-} from '#server/db/workspaces'
+import { membershipSelect, toSharedMembership } from '#server/db/workspaces'
 import { RoleService } from '#server/services/roles'
 import { toHttpError } from '#server/utils/http-errors'
 import { INVITATION_TTL_DAYS } from '#shared/constants/workspace'
 import type { IAuthUser } from '#shared/types/auth'
 import type {
   IIncomingInvitation,
-  IPermissionSet,
   IWorkspaceInvitation,
   IWorkspaceMembership,
 } from '#shared/types/workspace'
-import { canAssignRole } from '#shared/utils/permissions'
 import type { TInvitationInput } from '#shared/validation/workspace'
 
 export const MAX_PENDING_INVITATIONS = 50
@@ -128,7 +121,7 @@ async function listIncomingInvitations(user: IAuthUser): Promise<IIncomingInvita
 async function canInviterStillGrant(
   workspaceId: string,
   invitedById: string | null,
-  role: IPermissionSet,
+  roleId: string,
 ): Promise<boolean> {
   if (invitedById === null) return false
 
@@ -136,8 +129,10 @@ async function canInviterStillGrant(
     where: { workspaceId, userId: invitedById },
     select: membershipSelect,
   })
+  if (inviter === null) return false
 
-  return inviter !== null && canAssignRole(toSharedMembership(inviter, invitedById), role)
+  const reach = await RoleService.getRoleReach(toSharedMembership(inviter, invitedById), roleId)
+  return reach.isWithinActor
 }
 
 async function acceptInvitation(
@@ -151,15 +146,13 @@ async function acceptInvitation(
       workspaceId: true,
       roleId: true,
       invitedById: true,
-      role: { select: permissionSetSelect },
     },
   })
   if (!invitation) throw buildNoLongerValidError()
 
   const { workspaceId, roleId } = invitation
 
-  const role = toPermissionSet(invitation.role)
-  if (!(await canInviterStillGrant(workspaceId, invitation.invitedById, role))) {
+  if (!(await canInviterStillGrant(workspaceId, invitation.invitedById, roleId))) {
     await prisma.workspaceInvitation.deleteMany({ where: { id: invitationId } })
     throw buildNoLongerValidError()
   }

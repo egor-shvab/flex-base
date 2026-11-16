@@ -1,6 +1,7 @@
 import type { Prisma } from '#server/generated/prisma/client'
+import { FIELD_ORDER } from '#server/db/fields'
 import type { ITable, ITableListItem } from '#shared/types/table'
-import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
+import type { IAccessTable, ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
 import { parseTableAddress } from '#shared/utils/address'
 import { canCountRecords, isTableVisibilityBypassed } from '#shared/utils/table-access'
 
@@ -60,6 +61,23 @@ export function buildReadableTablesWhere(membership: IWorkspaceMembership): Pris
   return membership.recordDefaults.readScope === 'NONE'
     ? { roleAccess: { some: { roleId, readScope: { not: 'NONE' } } } }
     : { roleAccess: { none: { roleId, readScope: 'NONE' } } }
+}
+
+/** A workspace's tables and fields as a role's access is compared and set over them. */
+export const accessTableSelect = {
+  id: true,
+  name: true,
+  fields: { orderBy: FIELD_ORDER, select: { id: true, name: true, type: true, required: true } },
+} satisfies Prisma.TableSelect
+
+export const ACCESS_TABLE_ORDER = {
+  createdAt: 'asc',
+} satisfies Prisma.TableOrderByWithRelationInput
+
+export function toAccessTable(
+  row: Prisma.TableGetPayload<{ select: typeof accessTableSelect }>,
+): IAccessTable {
+  return { id: row.id, name: row.name, fields: row.fields.map((field) => ({ ...field })) }
 }
 
 export type TTableRow = Prisma.TableGetPayload<{ select: typeof tableSelect }>

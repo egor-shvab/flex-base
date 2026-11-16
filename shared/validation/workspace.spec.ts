@@ -67,12 +67,19 @@ describe('roleInputSchema', () => {
     expect(roleInputSchema.safeParse(role({ recordDefaults })).success).toBe(true)
   })
 
-  it('rejects a default read of none until a table’s own row can open one', () => {
+  it('accepts a default read of none, which a table’s own row can open', () => {
+    const recordDefaults = { ...readOnly, readScope: 'NONE' }
+
+    expect(roleInputSchema.safeParse(role({ recordDefaults })).success).toBe(true)
+  })
+
+  it('refuses adding records with a read of none', () => {
     const result = roleInputSchema.safeParse(
-      role({ recordDefaults: { ...readOnly, readScope: 'NONE' } }),
+      role({ recordDefaults: { ...readOnly, readScope: 'NONE', canCreate: true } }),
     )
 
     expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['recordDefaults', 'canCreate'])
   })
 
   it.each(['updateScope', 'deleteScope'])('rejects a %s wider than the read', (key) => {

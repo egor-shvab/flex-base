@@ -302,12 +302,23 @@ could no longer be read off one row. `TABLES_MANAGE` sees every table, since a t
 but not open would be changed blind; their record actions still come from the role. A hidden table
 is a 404, as one outside the workspace.
 
+### A role is compared on its effective access, table by table and field by field
+
+`isAccessWithin` resolves both roles on every table and field of the workspace, as a member holding
+each would meet them, besides comparing permissions and defaults (which every future table takes).
+Comparing the rows themselves fails both ways: a row can narrow as well as widen, and a role
+without a row on a table still reaches it through its defaults. The client cannot see other roles'
+rows, so it reads the answer, `IWorkspaceRole.isWithinCaller`, computed only for callers who can
+act on roles or their holders. Rejected: shipping every role's rows to the client — a matrix the
+member pages do not need, and a second place the rule would run.
+
 ### A required field must be fillable by every role that adds records to its table
 
 Marking a field required is a 409 while a role that creates records there (by the table's row or
 its defaults) holds the field hidden or read-only: every record that role adds would be refused,
-or saved without the value. A new field has no role rows yet, so only an update is checked; a
-schema manager writes every field and never blocks it. Rejected: letting the create through with
+or saved without the value. Saving a role's defaults or access checks the same from the other
+side. A new field has no role rows yet, so only an update is checked; a schema manager writes
+every field and never blocks it. Rejected: letting the create through with
 the field empty — `required` would stop meaning anything for that role.
 
 ### A record update merges over the stored data

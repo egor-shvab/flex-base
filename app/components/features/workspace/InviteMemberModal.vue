@@ -42,12 +42,10 @@ import { computed, useId } from 'vue'
 import { useForm } from '~/composables/useForm'
 import { buildAssignableRoleOptions, toGrantCount } from '~/utils/workspace-permissions'
 import { INVITATION_TTL_DAYS } from '#shared/constants/workspace'
-import type { IWorkspaceActor, IWorkspaceRole } from '#shared/types/workspace'
-import { canAssignRole } from '#shared/utils/permissions'
+import type { IWorkspaceRole } from '#shared/types/workspace'
 import { invitationInputSchema, type TInvitationInput } from '#shared/validation/workspace'
 
 const props = defineProps<{
-  actor: IWorkspaceActor
   roles: IWorkspaceRole[]
   submitHandler: (input: TInvitationInput) => Promise<void>
 }>()
@@ -58,11 +56,11 @@ const formId = useId()
 const emailInputId = useId()
 const roleSelectId = useId()
 
-const roleOptions = computed(() => buildAssignableRoleOptions(props.actor, props.roles))
+const roleOptions = computed(() => buildAssignableRoleOptions(props.roles))
 
 /** The narrowest role on offer: granting more is a choice, never a default. */
 function findNarrowestRoleId(): string {
-  const assignable = props.roles.filter((role) => canAssignRole(props.actor, role))
+  const assignable = props.roles.filter((role) => role.isWithinCaller)
   const narrowest = assignable.reduce<IWorkspaceRole | undefined>(
     (best, role) => (!best || toGrantCount(role) < toGrantCount(best) ? role : best),
     undefined,
