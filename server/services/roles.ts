@@ -13,6 +13,7 @@ import {
   type TRoleRow,
 } from '#server/db/workspaces'
 import { isForeignKeyViolation, isMissingRow } from '#server/db/prisma-errors'
+import { buildTableNotFoundError } from '#server/utils/table-access'
 import {
   buildChangedMeanwhileError,
   buildStaleWriteError,
@@ -218,7 +219,7 @@ async function setTableAccess(
     ...input.roles.map((change) => change.roleId),
   ])
   const table = ground.tables.find((candidate) => candidate.id === tableId)
-  if (!table) throw createError({ statusCode: 404, statusMessage: 'Table not found' })
+  if (!table) throw buildTableNotFoundError()
   const fieldIds = table.fields.map((field) => field.id)
 
   const writes = input.roles.map(({ roleId, updatedAt, ...access }) => {
@@ -425,12 +426,15 @@ function buildGuardedRoleWhere(workspaceId: string, role: TRoleGrantsRow) {
 }
 
 async function getRole(actor: IWorkspaceMembership, roleId: string): Promise<IRoleDetailResponse> {
-  const ground = await loadAccessGround(actor.workspace.id, [actor.role.id, roleId])
+  const [ground, role] = await Promise.all([
+    loadAccessGround(actor.workspace.id, [actor.role.id, roleId]),
+    prisma.workspaceRole.findUnique({
+      where: buildRoleWhere(actor.workspace.id, roleId),
+      select: roleSelect,
+    }),
+  ])
   const grantsRow = requireGroundRole(ground, roleId)
-  const role = await prisma.workspaceRole.findUniqueOrThrow({
-    where: buildRoleWhere(actor.workspace.id, roleId),
-    select: roleSelect,
-  })
+  if (!role) throw buildRoleNotFoundError()
 
   return {
     role: toSharedRole(role, isWithinActor(ground, actor, toRoleGrants(grantsRow))),
@@ -455,7 +459,7 @@ function assertOverridesInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
 
   for (const row of next.tables) {
     if (!tableById.has(row.tableId)) {
-      throw createError({ statusCode: 404, statusMessage: 'Table not found' })
+      throw buildTableNotFoundError()
     }
   }
 

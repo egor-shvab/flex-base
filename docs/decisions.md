@@ -306,7 +306,10 @@ closed to the members sharing their role and to the owner themself after a trans
 owner able to open them. Rejected: role-wide defaults every table without a row
 follows — a second place to look for what a role may do, and a new table silently open to every
 role. `TABLES_MANAGE` sees every table, since a table one may change but not open would be changed
-blind; their record actions still come from the role. A hidden table is a 404, as one outside the
+blind; their record actions still come from the role. Seeing means every record and every field too,
+whatever the role's rows say, so the permission's description says so where it is granted.
+Rejected for now: splitting schema visibility from record reads — worth it only once a role must
+change fields without reading the records. A hidden table is a 404, as one outside the
 workspace.
 
 ### A role is edited and saved whole, on one page
@@ -315,6 +318,14 @@ Its name, permissions and every table and field row are one form and one write
 (`roleInputSchema`, `RoleService.updateRole`), so what a role grants is decided in one place and
 checked against the actor once. Rejected: a dialog for the role and a page for its access — two
 places to look, and two writes that could land half.
+
+### Managers with equal roles are equal
+
+"Within" is "no wider", not "narrower", so two managers holding different roles of equal reach can
+each narrow the other's role, and with `MEMBERS_MANAGE` remove each other; only the role one holds
+is locked to them. Rejected: requiring strictly narrower — nobody but the owner could then hand out
+their own role, which every invitation from a manager relies on. Trust between peers is the owner's
+to arrange.
 
 ### Only the owner changes the role they hold
 

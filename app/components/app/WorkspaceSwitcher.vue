@@ -13,7 +13,7 @@
           <BaseAvatar :initials="activeInitials" />
           <BaseIdentity
             :name="activeMembership?.workspace.name ?? 'Choose a workspace'"
-            :caption="activeMembership ? formatRole(activeMembership) : undefined"
+            :caption="activeMembership ? formatMemberRole(activeMembership) : undefined"
           />
           <BaseCount v-if="invitationCount > 0">
             <span aria-hidden="true">{{ invitationCount }}</span>
@@ -34,7 +34,7 @@
         :checked="membership.workspace.publicId === workspaceAddress"
       >
         <BaseAvatar :initials="toInitials(membership.workspace.name)" />
-        <BaseIdentity :name="membership.workspace.name" :caption="formatRole(membership)" />
+        <BaseIdentity :name="membership.workspace.name" :caption="formatMemberRole(membership)" />
         <Icon
           v-if="membership.workspace.publicId === workspaceAddress"
           name="material-symbols:check-rounded"
@@ -86,8 +86,7 @@ import { useWorkspacesStore } from '~/stores/workspaces'
 import { formatCount } from '~/utils/format'
 import { toInitials } from '~/utils/initials'
 import { pagePath } from '~/utils/page-path'
-import { RESERVED_ROLE_NAME } from '#shared/constants/workspace'
-import type { IWorkspaceMembership } from '#shared/types/workspace'
+import { formatMemberRole } from '~/utils/workspace-permissions'
 
 const workspacesStore = useWorkspacesStore()
 const invitationsStore = useInvitationsStore()
@@ -103,10 +102,6 @@ const invitationSummary = computed(
 const activeInitials = computed(() =>
   activeMembership.value ? toInitials(activeMembership.value.workspace.name) : '',
 )
-
-function formatRole(membership: IWorkspaceMembership): string {
-  return membership.isOwner ? RESERVED_ROLE_NAME : membership.role.name
-}
 
 /** Lands on the current workspace, as a radio group does, or on the first item. */
 const activeIndex = computed(() =>

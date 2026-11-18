@@ -510,7 +510,7 @@ describe('the schema a role editor is shown', () => {
       actorRow(dealsRow(managerDeals), salaryHidden),
       grantsRow([], {}, { fields: salaryHidden }),
     ])
-    prismaMock.workspaceRole.findUniqueOrThrow.mockResolvedValue(roleRow([]))
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(roleRow([]))
 
     const detail = await RoleService.getRole(manager, ROLE_ID)
 

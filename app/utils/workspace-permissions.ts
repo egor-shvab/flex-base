@@ -1,8 +1,9 @@
 import type { ISelectOption } from '~/types/select'
 import { formatCount } from '~/utils/format'
 import { isRoleVisibilityBypassed } from '~/utils/role-form'
-import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { RESERVED_ROLE_NAME, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
+  IRoleRef,
   ITableAccess,
   IWorkspaceRole,
   TRecordScope,
@@ -29,7 +30,8 @@ export const WORKSPACE_PERMISSION_TEXT: Record<TWorkspacePermission, IPermission
   ROLES_MANAGE: { label: 'Manage roles', description: 'Create, change and delete roles' },
   TABLES_MANAGE: {
     label: 'Manage tables',
-    description: 'Create, rename and delete tables, and change their fields',
+    description:
+      'Create, rename and delete tables, and change their fields. Sees every table, field and record, whatever the role’s table access',
   },
 }
 
@@ -81,6 +83,11 @@ export function applyReadScope(access: ITableAccess, readScope: TRecordScope): I
     updateScope: narrow(access.updateScope),
     deleteScope: narrow(access.deleteScope),
   }
+}
+
+/** A member's role as shown beside them: the owner is named as such, whatever role they hold. */
+export function formatMemberRole(member: { isOwner: boolean; role: IRoleRef }): string {
+  return member.isOwner ? RESERVED_ROLE_NAME : member.role.name
 }
 
 /**

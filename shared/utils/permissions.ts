@@ -16,7 +16,8 @@ import type {
  * `ROLES_MANAGE`, …) is checked before it.
  */
 
-type TPermissionHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions'>
+/** Whoever's permissions are asked about: the owner holds every one, whatever their role says. */
+export type TPermissionHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions'>
 
 export function hasPermission(actor: TPermissionHolder, permission: TWorkspacePermission): boolean {
   return actor.isOwner || actor.permissions.includes(permission)

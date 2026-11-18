@@ -1,4 +1,5 @@
 import type {
+  FIELD_ACCESS_OVERRIDES,
   RECORD_ACTIONS,
   RECORD_SCOPES,
   WORKSPACE_PERMISSIONS,
@@ -14,9 +15,9 @@ export type TRecordScope = (typeof RECORD_SCOPES)[number]
 export type TRecordAction = (typeof RECORD_ACTIONS)[number]
 
 /** What a role may do with one field: `EDIT` is never stored, it is the absence of a row. */
-export type TFieldAccess = 'HIDDEN' | 'READ' | 'EDIT'
+export type TFieldAccess = TFieldAccessOverride | 'EDIT'
 
-export type TFieldAccessOverride = Exclude<TFieldAccess, 'EDIT'>
+export type TFieldAccessOverride = (typeof FIELD_ACCESS_OVERRIDES)[number]
 
 /** What a member may do with the records of one table. */
 export interface ITableAccess {
@@ -110,11 +111,10 @@ export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
   updatedAt: string
 }
 
-/** A membership someone may try to change or end, with the permissions its role grants. */
+/** A membership someone may try to change or end. */
 export interface IManagedMember {
   id: string
   isOwner: boolean
-  role: IPermissionSet
 }
 
 /** A workspace's member as its other members see them — the email included, for them alone. */

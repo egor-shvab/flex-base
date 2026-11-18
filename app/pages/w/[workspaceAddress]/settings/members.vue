@@ -45,7 +45,7 @@
                 @update:model-value="changeMemberRole(member, $event)"
               />
               <span v-else class="settings-members__role settings-members__role--text">
-                {{ member.isOwner ? RESERVED_ROLE_NAME : member.role.name }}
+                {{ formatMemberRole(member) }}
               </span>
 
               <BaseButton
@@ -154,8 +154,7 @@ import { useMembersStore } from '~/stores/members'
 import { useRolesStore } from '~/stores/roles'
 import { formatTimestampDay } from '~/utils/format'
 import { toInitials } from '~/utils/initials'
-import { buildAssignableRoleOptions } from '~/utils/workspace-permissions'
-import { RESERVED_ROLE_NAME } from '#shared/constants/workspace'
+import { buildAssignableRoleOptions, formatMemberRole } from '~/utils/workspace-permissions'
 import type { IWorkspaceInvitation, IWorkspaceMember } from '#shared/types/workspace'
 import { canManageMember } from '#shared/utils/permissions'
 import type { TInvitationInput } from '#shared/validation/workspace'

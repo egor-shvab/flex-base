@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildTableAccess } from '~~/test/membership'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type {
-  IManagedMember,
-  IPermissionSet,
-  IWorkspaceActor,
-  TWorkspacePermission,
-} from '#shared/types/workspace'
+import type { IManagedMember, IWorkspaceActor, TWorkspacePermission } from '#shared/types/workspace'
 import {
   canEditRole,
   canManageMember,
@@ -34,12 +29,9 @@ const manager: IWorkspaceActor = {
   permissions: ['MEMBERS_MANAGE', 'ROLES_MANAGE'],
 }
 
-const role = (permissions: TWorkspacePermission[] = []): IPermissionSet => ({ permissions })
-
-const member = (overrides: Partial<IManagedMember> = {}, assigned = role()): IManagedMember => ({
+const member = (overrides: Partial<IManagedMember> = {}): IManagedMember => ({
   id: 'mem_other',
   isOwner: false,
-  role: assigned,
   ...overrides,
 })
 

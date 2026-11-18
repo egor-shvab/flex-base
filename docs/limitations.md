@@ -51,6 +51,20 @@ separate transactions with nothing locked between them, so two admins doing both
 a required field a creating role cannot fill. _Reopen if role access is edited often enough for
 it to happen: lock the table's row in both writes._
 
+### A role write is weighed against the writer's role as read, not as written
+
+Every role, member, invitation and table-access write guards the version of the role it changes,
+never the writer's own: narrowed by the owner in the instant between check and write, a manager's
+save still lands within what they held a moment before. _Reopen if a role write ever outlives a
+request — a queue, a batch: repeat the writer's role version in the transaction too._
+
+### Every decision about a role reads the whole schema
+
+`loadAccessGround` reads every table with its fields for each role list a manager sees, each role
+change, assignment, invitation and accept; `listRoles` then compares every role over all of it.
+Instant at tens of tables, a large read and roles × fields comparisons at hundreds. _Reopen when a
+workspace passes ~100 tables: read only the tables the compared roles hold rows for._
+
 ### A link to a table read only in part shows record numbers, not labels
 
 Where a role reads only its own records of a link's target, every link in the source table shows

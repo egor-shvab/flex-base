@@ -2,20 +2,17 @@ import { FULL_TABLE_ACCESS, NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IRecord } from '#shared/types/record'
 import type {
   ITableAccess,
-  IWorkspaceActor,
   TFieldAccess,
   TFieldAccessOverride,
   TRecordScope,
 } from '#shared/types/workspace'
-import { hasPermission } from '#shared/utils/permissions'
-
-type TTableAccessHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions'>
+import { hasPermission, type TPermissionHolder } from '#shared/utils/permissions'
 
 /**
  * Whoever changes the schema sees every table: a table they could edit but not open would be
  * changed blind. Their record actions still come from their role.
  */
-export function isTableVisibilityBypassed(actor: TTableAccessHolder): boolean {
+export function isTableVisibilityBypassed(actor: TPermissionHolder): boolean {
   return hasPermission(actor, 'TABLES_MANAGE')
 }
 
@@ -24,7 +21,7 @@ export function isTableVisibilityBypassed(actor: TTableAccessHolder): boolean {
  * role's row for the table grants — nothing without one.
  */
 export function resolveTableAccess(
-  actor: TTableAccessHolder,
+  actor: TPermissionHolder,
   tableOverride: ITableAccess | null,
 ): ITableAccess {
   if (actor.isOwner) return FULL_TABLE_ACCESS
@@ -40,7 +37,7 @@ export function resolveTableAccess(
  * else edits it wherever they may write records at all.
  */
 export function resolveFieldAccess(
-  actor: TTableAccessHolder,
+  actor: TPermissionHolder,
   tableAccess: ITableAccess,
   fieldOverride: TFieldAccessOverride | null,
 ): TFieldAccess {

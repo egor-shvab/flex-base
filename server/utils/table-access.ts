@@ -38,7 +38,8 @@ import {
 } from '#shared/utils/table-access'
 import type { TFieldInput } from '#shared/validation/field'
 
-function tableNotFound() {
+/** Also for a table the caller may not read: the same 404 as one that does not exist. */
+export function buildTableNotFoundError() {
   return createError({ statusCode: 404, statusMessage: 'Table not found' })
 }
 
@@ -73,7 +74,7 @@ function requireReadableAccess(
 ): ITableAccess {
   const access = resolveTableAccess(membership, toTableOverride(overrides))
 
-  if (!canReadRecords(access)) throw tableNotFound()
+  if (!canReadRecords(access)) throw buildTableNotFoundError()
 
   return access
 }
@@ -96,7 +97,7 @@ export async function requireWorkspaceTable(
     select: { ...tableSelect, ...buildRoleTableAccessSelect(membership.role.id) },
   })
 
-  if (!row) throw tableNotFound()
+  if (!row) throw buildTableNotFoundError()
 
   return {
     table: toSharedTable(row),
@@ -232,7 +233,7 @@ async function requireTableWithFieldScope(membership: IWorkspaceMembership, addr
     },
   })
 
-  if (!row) throw tableNotFound()
+  if (!row) throw buildTableNotFoundError()
 
   const access = requireReadableAccess(membership, row.roleAccess)
   return { row, access, ...(await resolveFieldScope(membership, access, row.fields)) }
@@ -269,7 +270,7 @@ export async function requireFieldTarget(
 
   // A cuid only: an all-digit target would resolve as a table number and then be stored
   // verbatim in `options.targetTableId`, where every reader expects an id
-  if (parseTableAddress(input.targetTableId) !== 0) throw tableNotFound()
+  if (parseTableAddress(input.targetTableId) !== 0) throw buildTableNotFoundError()
 
   const { fields } = await requireWorkspaceTableFields(membership, input.targetTableId)
 

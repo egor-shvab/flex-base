@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { RESERVED_ROLE_NAME, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import {
+  FIELD_ACCESS_OVERRIDES,
+  RECORD_SCOPES,
+  RESERVED_ROLE_NAME,
+  WORKSPACE_PERMISSIONS,
+} from '#shared/constants/workspace'
 import { isScopeWithin } from '#shared/utils/permissions'
 import { nameSchema } from '#shared/validation/name'
 
@@ -9,7 +14,7 @@ export const workspaceInputSchema = z.object({
   name: nameSchema,
 })
 
-const recordScopeSchema = z.enum(['NONE', 'OWN', 'ALL'])
+const recordScopeSchema = z.enum(RECORD_SCOPES)
 
 const tableAccessFields = {
   readScope: recordScopeSchema,
@@ -66,7 +71,7 @@ export const roleInputSchema = z.object({
     .array(tableAccessOverrideSchema)
     .refine((rows) => hasNoRepeat(rows.map((row) => row.tableId)), 'A table is listed twice'),
   fields: z
-    .array(z.object({ fieldId: idSchema, access: z.enum(['HIDDEN', 'READ']) }))
+    .array(z.object({ fieldId: idSchema, access: z.enum(FIELD_ACCESS_OVERRIDES) }))
     .refine((rows) => hasNoRepeat(rows.map((row) => row.fieldId)), 'A field is listed twice'),
 })
 

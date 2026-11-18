@@ -12,8 +12,11 @@ export const WORKSPACE_PERMISSIONS = [
 /** Narrowest first: the order comparisons use. Mirrors the Prisma `RecordScope` enum. */
 export const RECORD_SCOPES = ['NONE', 'OWN', 'ALL'] as const
 
+/** What a role's row for a field may hold. Mirrors the Prisma `FieldAccess` enum. */
+export const FIELD_ACCESS_OVERRIDES = ['HIDDEN', 'READ'] as const
+
 /** Narrowest first, as `RECORD_SCOPES`. `EDIT` is never stored: it is the absence of a row. */
-export const FIELD_ACCESS_LEVELS: readonly TFieldAccess[] = ['HIDDEN', 'READ', 'EDIT']
+export const FIELD_ACCESS_LEVELS: readonly TFieldAccess[] = [...FIELD_ACCESS_OVERRIDES, 'EDIT']
 
 /** What a member may do to a record beyond reading it, in the order a role editor lists them. */
 export const RECORD_ACTIONS = ['create', 'update', 'delete'] as const
