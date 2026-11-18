@@ -19,6 +19,7 @@ import type {
   IWorkspaceInvitation,
   IWorkspaceMembership,
 } from '#shared/types/workspace'
+import { hasPermission } from '#shared/utils/permissions'
 import type { TInvitationInput } from '#shared/validation/workspace'
 
 export const MAX_PENDING_INVITATIONS = 50
@@ -111,12 +112,9 @@ async function listIncomingInvitations(user: IAuthUser): Promise<IIncomingInvita
 }
 
 /**
- * The invitation is deleted before the membership is created: a second accept racing this one
- * waits on the row, then finds it gone. Someone already a member just loses the invitation.
- */
-/**
  * An invitation is only as good as its sender's authority now, not when it was sent: removed from
- * the workspace, or narrowed below the role it grants, and it no longer admits anyone.
+ * the workspace, no longer allowed to invite, or narrowed below the role it grants, and it no
+ * longer admits anyone.
  */
 async function canInviterStillGrant(
   workspaceId: string,
@@ -131,10 +129,17 @@ async function canInviterStillGrant(
   })
   if (inviter === null) return false
 
-  const reach = await RoleService.getRoleReach(toSharedMembership(inviter, invitedById), roleId)
+  const membership = toSharedMembership(inviter, invitedById)
+  if (!hasPermission(membership, 'MEMBERS_INVITE')) return false
+
+  const reach = await RoleService.getRoleReach(membership, roleId)
   return reach.isWithinActor
 }
 
+/**
+ * The invitation is deleted before the membership is created: a second accept racing this one
+ * waits on the row, then finds it gone. Someone already a member just loses the invitation.
+ */
 async function acceptInvitation(
   user: IAuthUser,
   invitationId: string,

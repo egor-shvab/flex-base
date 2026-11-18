@@ -81,6 +81,22 @@ describe('an invitation outliving its sender’s authority', () => {
     )
   })
 
+  it('admits no one once the sender may no longer invite, whatever they still reach', async () => {
+    const { invitation } = await invitedByRecruiter()
+    await prisma.workspaceRole.update({
+      where: { workspaceId_name: { workspaceId: ada.workspace.id, name: 'Recruiter' } },
+      data: { permissions: [] },
+    })
+
+    await expect(InvitationService.acceptInvitation(grace, invitation.id)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'This invitation is no longer valid',
+    })
+    await expect(prisma.workspaceInvitation.count({ where: { id: invitation.id } })).resolves.toBe(
+      0,
+    )
+  })
+
   it('admits no one once the sender has left the workspace', async () => {
     const { bob, invitation } = await invitedByRecruiter()
     await prisma.workspaceMember.deleteMany({

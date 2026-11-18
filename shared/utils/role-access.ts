@@ -14,11 +14,19 @@ export interface IAccessHolder extends IRoleGrants {
   isOwner: boolean
 }
 
-function findTableOverride(grants: IRoleGrants, tableId: string): ITableAccess | null {
+/** A role's row for one table, if it has one. */
+export function findTableOverride(
+  grants: Pick<IRoleGrants, 'tables'>,
+  tableId: string,
+): ITableAccess | null {
   return grants.tables.find((row) => row.tableId === tableId) ?? null
 }
 
-function findFieldOverride(grants: IRoleGrants, fieldId: string): TFieldAccessOverride | null {
+/** A role's row for one field, if it narrows it. */
+export function findFieldOverride(
+  grants: Pick<IRoleGrants, 'fields'>,
+  fieldId: string,
+): TFieldAccessOverride | null {
   return grants.fields.find((row) => row.fieldId === fieldId)?.access ?? null
 }
 

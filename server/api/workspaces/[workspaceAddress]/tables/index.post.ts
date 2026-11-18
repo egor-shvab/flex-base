@@ -8,11 +8,7 @@ export default defineWorkspaceHandler(
   'TABLES_MANAGE',
   async ({ event, membership }): Promise<ITableListItemResponse> => {
     const { name } = await readValidatedBody(event, tableInputSchema.parse)
-    const table = await TableService.createTable(
-      membership.workspace.id,
-      name,
-      membership.isOwner ? null : membership.role.id,
-    )
+    const table = await TableService.createTable(membership.workspace.id, name, membership.role.id)
     return { table }
   },
 )

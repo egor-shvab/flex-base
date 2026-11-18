@@ -272,4 +272,44 @@ describe('a role’s access to tables and fields', () => {
       statusCode: 403,
     })
   })
+
+  it('shows a manager only the schema they see, and keeps a hidden field hidden on save', async () => {
+    const { tableId, fieldId } = await seedDeals()
+    const secret = await prisma.table.create({
+      data: { workspaceId: ada.workspace.id, name: 'Salaries', number: 2 },
+      select: { id: true },
+    })
+    await RoleService.createRole(owner, {
+      ...buildRoleInput('Manager', ['ROLES_MANAGE'], [{ tableId, ...FULL_TABLE_ACCESS }]),
+      fields: [{ fieldId, access: 'HIDDEN' }],
+    })
+    const clerk = await RoleService.createRole(owner, {
+      ...buildRoleInput('Clerk', [], [{ tableId, ...buildTableAccess() }]),
+      fields: [{ fieldId, access: 'HIDDEN' }],
+    })
+    const bob = await createUser('bob@example.com')
+    await addMember(ada.workspace.id, bob.id, 'Manager')
+    const { memberships } = await WorkspaceService.listMemberships(bob.id)
+    const manager = memberships.find((membership) => membership.workspace.id === ada.workspace.id)!
+
+    const visible = [{ id: tableId, name: 'Deals', fields: [] }]
+    await expect(RoleService.listAccessTables(manager)).resolves.toEqual(visible)
+    const detail = await RoleService.getRole(manager, clerk.role.id)
+    expect(detail.tables).toEqual(visible)
+    expect(detail.tables.some((table) => table.id === secret.id)).toBe(false)
+
+    const saved = await RoleService.updateRole(
+      manager,
+      clerk.role.id,
+      { ...buildRoleInput('Clerk', [], detail.overrides.tables), fields: detail.overrides.fields },
+      new Date(detail.role.updatedAt),
+    )
+    expect(saved.tables).toEqual(visible)
+    await expect(
+      prisma.roleFieldAccess.findMany({
+        where: { roleId: clerk.role.id },
+        select: { fieldId: true, access: true },
+      }),
+    ).resolves.toEqual([{ fieldId, access: 'HIDDEN' }])
+  })
 })

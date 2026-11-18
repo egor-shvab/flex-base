@@ -148,7 +148,7 @@ describe('TableService.createTable', () => {
     allocates(7)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(WORKSPACE_ID, 'Deals', null)
+    await TableService.createTable(WORKSPACE_ID, 'Deals', 'rol_admin')
 
     expect(prismaMock.table.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: { workspaceId: WORKSPACE_ID, name: 'Deals', number: 7 } }),
@@ -159,7 +159,7 @@ describe('TableService.createTable', () => {
     allocates(1)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(WORKSPACE_ID, 'Deals', null)
+    await TableService.createTable(WORKSPACE_ID, 'Deals', 'rol_admin')
 
     expect(prismaMock.workspace.update).toHaveBeenCalledWith({
       where: { id: WORKSPACE_ID },
@@ -169,7 +169,7 @@ describe('TableService.createTable', () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
   })
 
-  it('gives the creator’s role everything in the table, and the owner no row', async () => {
+  it('gives the creator’s role everything in the table', async () => {
     allocates(1)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
@@ -183,18 +183,15 @@ describe('TableService.createTable', () => {
         ...FULL_TABLE_ACCESS,
       },
     })
-
-    prismaMock.roleTableAccess.create.mockClear()
-    await TableService.createTable(WORKSPACE_ID, 'Leads', null)
-
-    expect(prismaMock.roleTableAccess.create).not.toHaveBeenCalled()
   })
 
   it('maps a duplicate name onto a 409', async () => {
     allocates(1)
     prismaMock.table.create.mockRejectedValue(conflict())
 
-    await expect(TableService.createTable(WORKSPACE_ID, 'Deals', null)).rejects.toMatchObject({
+    await expect(
+      TableService.createTable(WORKSPACE_ID, 'Deals', 'rol_admin'),
+    ).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A table with this name already exists',
     })

@@ -248,6 +248,28 @@ describe('InvitationService.acceptInvitation', () => {
       expect(prismaMock.workspaceMember.create).not.toHaveBeenCalled()
     })
 
+    it('refuses, without weighing the role, once the inviter may no longer invite', async () => {
+      prismaMock.workspaceMember.findFirst.mockResolvedValue({
+        ...membershipRow,
+        id: 'mem_bob',
+        role: { id: 'rol_recruiter', name: 'Recruiter', ...setRow([]) },
+      })
+      prismaMock.workspaceInvitation.findFirst.mockResolvedValue({
+        workspaceId: WORKSPACE_ID,
+        roleId: ROLE_ID,
+        invitedById: 'usr_bob',
+      })
+      prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
+
+      await expect(
+        InvitationService.acceptInvitation(invitee, INVITATION_ID),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+      })
+      expect(roleService.getRoleReach).not.toHaveBeenCalled()
+      expect(prismaMock.workspaceMember.create).not.toHaveBeenCalled()
+    })
+
     it('refuses once the inviter can no longer grant the role', async () => {
       roleService.getRoleReach.mockResolvedValue({ isWithinActor: false, updatedAt: NOW })
       prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })

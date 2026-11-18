@@ -55,13 +55,14 @@ async function getTableListRow(
 }
 
 /**
- * A new table is closed to every role but the creator's, which gets everything there: the owner
- * needs no row (`creatorRoleId` null), anyone else could not fill the table they made without it.
+ * A new table is closed to every role but the creator's, which gets everything there — the owner's
+ * too: it binds them after a transfer, and the members sharing it would otherwise see a table they
+ * cannot fill, with no one but the owner able to open it to them.
  */
 async function createTable(
   workspaceId: string,
   name: string,
-  creatorRoleId: string | null,
+  creatorRoleId: string,
 ): Promise<ITableListItem> {
   try {
     const table = await prisma.$transaction(async (tx) => {
@@ -75,11 +76,9 @@ async function createTable(
         data: { workspaceId, name, number: tableCounter },
         select: tableListSelect,
       })
-      if (creatorRoleId) {
-        await tx.roleTableAccess.create({
-          data: { workspaceId, roleId: creatorRoleId, tableId: created.id, ...FULL_TABLE_ACCESS },
-        })
-      }
+      await tx.roleTableAccess.create({
+        data: { workspaceId, roleId: creatorRoleId, tableId: created.id, ...FULL_TABLE_ACCESS },
+      })
       return created
     })
 

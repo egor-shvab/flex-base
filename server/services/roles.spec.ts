@@ -478,16 +478,45 @@ describe('RoleService.updateRole — the rows a role sets apart', () => {
   })
 })
 
-describe('RoleService.listAccessTables', () => {
-  it('reads the proved workspace’s tables with their fields', async () => {
-    prismaMock.table.findMany.mockResolvedValue([DEALS])
+describe('the schema a role editor is shown', () => {
+  const salaryHidden = [{ fieldId: 'fld_salary', access: 'HIDDEN' as const }]
+  const withoutSalary = { ...DEALS, fields: DEALS.fields.filter((f) => f.id !== 'fld_salary') }
 
-    await expect(RoleService.listAccessTables(manager)).resolves.toEqual([
-      expect.objectContaining({ id: DEALS.id, name: 'Deals' }),
-    ])
+  it('reads the proved workspace’s tables with their fields', async () => {
+    stubGround([actorRow()])
+
+    await expect(RoleService.listAccessTables(manager)).resolves.toEqual([DEALS])
     expect(prismaMock.table.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { workspaceId: WORKSPACE_ID } }),
     )
+  })
+
+  it('leaves out a table the caller does not read, and a field hidden from them', async () => {
+    stubGround([actorRow(dealsRow(managerDeals), salaryHidden)])
+    await expect(RoleService.listAccessTables(manager)).resolves.toEqual([withoutSalary])
+
+    stubGround([actorRow([])])
+    await expect(RoleService.listAccessTables(manager)).resolves.toEqual([])
+  })
+
+  it('shows the owner everything, whatever their role reaches', async () => {
+    stubGround([grantsRow([], {}, { id: owner.role.id, tables: [] })])
+
+    await expect(RoleService.listAccessTables(owner)).resolves.toEqual([DEALS])
+  })
+
+  it('hands a role out with only the visible schema, but with every row it holds', async () => {
+    stubGround([
+      actorRow(dealsRow(managerDeals), salaryHidden),
+      grantsRow([], {}, { fields: salaryHidden }),
+    ])
+    prismaMock.workspaceRole.findUniqueOrThrow.mockResolvedValue(roleRow([]))
+
+    const detail = await RoleService.getRole(manager, ROLE_ID)
+
+    expect(detail.tables).toEqual([withoutSalary])
+    expect(detail.overrides).toEqual({ tables: dealsRow(), fields: salaryHidden })
+    expect(detail.role.isWithinCaller).toBe(true)
   })
 })
 

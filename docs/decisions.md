@@ -298,8 +298,10 @@ an array cannot say, so they are the role's own columns (`readScope`, `canCreate
 `RoleTableAccess` holds all four columns; without a row the role may do nothing with the table
 (`resolveTableAccess`, and `buildReadableTablesWhere` deciding the same in SQL for the list), so a
 new table stays closed until a role editor opens it. The one exception is the creator's role,
-given everything in the table it made (`TableService.createTable`) — otherwise a non-owner who
-manages tables could not fill their own. Rejected: role-wide defaults every table without a row
+given everything in the table it made (`TableService.createTable`), the owner's included —
+otherwise a non-owner who manages tables could not fill their own, and the owner's tables would be
+closed to the members sharing their role and to the owner themself after a transfer, with only the
+owner able to open them. Rejected: role-wide defaults every table without a row
 follows — a second place to look for what a role may do, and a new table silently open to every
 role. `TABLES_MANAGE` sees every table, since a table one may change but not open would be changed
 blind; their record actions still come from the role. A hidden table is a 404, as one outside the
@@ -343,8 +345,11 @@ each would meet them, besides comparing permissions. Comparing the rows themselv
 row grants depends on who holds it (`TABLES_MANAGE` reads every table, a field follows its table's
 actions). The client cannot see other roles'
 rows, so it reads the answer, `IWorkspaceRole.isWithinCaller`, computed only for callers who can
-act on roles or their holders. Rejected: shipping every role's rows to the client — a matrix the
-member pages do not need, and a second place the rule would run.
+act on roles or their holders. A role editor is shown only the tables and fields its user sees
+(`toVisibleTables`), the comparison still running over all of them; the role's rows go out whole,
+being ids only, since a role within its editor may hold hidden a field hidden from the editor too,
+and a save must send that row back. Rejected: shipping every role's rows to the client — a matrix
+the member pages do not need, and a second place the rule would run.
 
 ### A required field must be fillable by every role that adds records to its table
 

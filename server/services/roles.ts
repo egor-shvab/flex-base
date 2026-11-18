@@ -28,7 +28,7 @@ import type {
   TWorkspacePermission,
 } from '#shared/types/workspace'
 import { hasPermission, isHeldRoleLocked, isTableAccessWithin } from '#shared/utils/permissions'
-import { isAccessWithin } from '#shared/utils/role-access'
+import { findFieldOverride, findTableOverride, isAccessWithin } from '#shared/utils/role-access'
 import { canReadRecords, resolveFieldAccess, resolveTableAccess } from '#shared/utils/table-access'
 import type { TRoleInput, TTableAccessInput } from '#shared/validation/workspace'
 
@@ -113,6 +113,32 @@ function isWithinActor(
   if (!actorRole) return false
 
   return isAccessWithin(subject, { isOwner: false, ...toRoleGrants(actorRole) }, ground.tables)
+}
+
+/**
+ * The ground's tables as the actor sees them: those they read, with the fields not hidden from them.
+ * A role editor is shown no more of the schema than its user meets elsewhere — the comparison still
+ * runs over all of it. A role's rows go out whole: they hold only ids, and a role within the actor
+ * may keep a field hidden that is hidden from the actor too, which a save must send back.
+ */
+function toVisibleTables(ground: IAccessGround, actor: IWorkspaceMembership): IAccessTable[] {
+  if (actor.isOwner) return ground.tables
+
+  const actorRole = ground.rolesById.get(actor.role.id)
+  if (!actorRole) return []
+
+  const holder = { isOwner: false, ...toRoleGrants(actorRole) }
+
+  return ground.tables.flatMap((table) => {
+    const access = resolveTableAccess(holder, findTableOverride(holder, table.id))
+    if (!canReadRecords(access)) return []
+
+    const fields = table.fields.filter(
+      (field) =>
+        resolveFieldAccess(holder, access, findFieldOverride(holder, field.id)) !== 'HIDDEN',
+    )
+    return [{ ...table, fields }]
+  })
 }
 
 function listRoleRows(workspaceId: string) {
@@ -288,13 +314,12 @@ function assertRequiredFieldsFillable(name: string, grants: IRoleGrants, tables:
   const holder = { ...grants, isOwner: false }
 
   for (const table of tables) {
-    const override = grants.tables.find((row) => row.tableId === table.id) ?? null
-    const access = resolveTableAccess(holder, override)
+    const access = resolveTableAccess(holder, findTableOverride(grants, table.id))
     if (!access.canCreate) continue
 
     for (const field of table.fields) {
       if (!field.required) continue
-      const fieldOverride = grants.fields.find((row) => row.fieldId === field.id)?.access ?? null
+      const fieldOverride = findFieldOverride(grants, field.id)
       if (resolveFieldAccess(holder, access, fieldOverride) === 'EDIT') continue
 
       throw createError({
@@ -365,7 +390,7 @@ async function createRole(
       return role
     })
 
-    return toRoleDetail(created, input, ground.tables)
+    return toRoleDetail(created, input, toVisibleTables(ground, actor))
   } catch (error) {
     throw toHttpError(error, roleErrors)
   }
@@ -408,17 +433,12 @@ async function getRole(actor: IWorkspaceMembership, roleId: string): Promise<IRo
   return {
     role: toSharedRole(role, isWithinActor(ground, actor, toRoleGrants(grantsRow))),
     overrides: toRoleOverrides(grantsRow),
-    tables: ground.tables,
+    tables: toVisibleTables(ground, actor),
   }
 }
 
 async function listAccessTables(actor: IWorkspaceMembership): Promise<IAccessTable[]> {
-  const tables = await prisma.table.findMany({
-    where: { workspaceId: actor.workspace.id },
-    orderBy: ACCESS_TABLE_ORDER,
-    select: accessTableSelect,
-  })
-  return tables.map(toAccessTable)
+  return toVisibleTables(await loadAccessGround(actor.workspace.id, [actor.role.id]), actor)
 }
 
 /**
@@ -442,8 +462,7 @@ function assertOverridesInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
     const table = tableByFieldId.get(row.fieldId)
     if (!table) throw createError({ statusCode: 404, statusMessage: 'Field not found' })
 
-    const override = next.tables.find((candidate) => candidate.tableId === table.id) ?? null
-    if (!canReadRecords(resolveTableAccess(holder, override))) {
+    if (!canReadRecords(resolveTableAccess(holder, findTableOverride(next, table.id)))) {
       throw createError({
         statusCode: 400,
         statusMessage: `A field of "${table.name}" cannot be set: the role does not see the table`,
@@ -480,7 +499,7 @@ async function updateRole(
       return updated
     })
 
-    return toRoleDetail(saved, input, ground.tables)
+    return toRoleDetail(saved, input, toVisibleTables(ground, actor))
   } catch (error) {
     throw await toRoleWriteError(error, workspaceId, roleId)
   }
