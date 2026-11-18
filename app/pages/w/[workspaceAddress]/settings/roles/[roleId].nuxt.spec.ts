@@ -54,11 +54,13 @@ registerEndpoint(`/api/workspaces/${WS}/roles/rol_actor`, {
   },
 })
 
-async function mountPage(isOwner = false) {
+/** `heldRoleId` is the caller's own role: the one this page shows, or another. */
+async function mountPage(isOwner = false, heldRoleId = 'rol_actor') {
   const workspaces = useWorkspacesStore()
   workspaces.memberships = [
     {
       ...buildMembership(['ROLES_MANAGE'], { isOwner }),
+      role: { id: heldRoleId, name: 'Clerk' },
       workspace: { ...buildMembership([]).workspace, publicId: WS },
     },
   ]
@@ -105,6 +107,20 @@ describe('the role page', () => {
 
     expect(wrapper.text()).toContain('grants more than yours')
     expect(wrapper.find('form').exists()).toBe(false)
+  })
+
+  it('offers no form for the role the caller holds, which only the owner changes', async () => {
+    const wrapper = await mountPage(false, ROLE_ID)
+
+    expect(wrapper.text()).toContain('only the workspace owner can change it')
+    expect(wrapper.find('form').exists()).toBe(false)
+  })
+
+  it('lets the owner change the role they hold, saying when it binds them', async () => {
+    const wrapper = await mountPage(true, ROLE_ID)
+
+    expect(wrapper.text()).toContain('it applies to you once you hand the workspace over')
+    expect(wrapper.find('form').exists()).toBe(true)
   })
 
   it('offers deleting a role nobody holds, and explains why one held cannot be', async () => {

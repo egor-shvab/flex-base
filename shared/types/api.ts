@@ -108,6 +108,17 @@ export interface IAccessTablesResponse {
   tables: IAccessTable[]
 }
 
+/** A role as one table's access lists it: what it may do with that table's records. */
+export interface ITableRoleAccess {
+  role: IWorkspaceRole
+  access: ITableAccess
+}
+
+/** Every role of the workspace, with its access to one table. */
+export interface ITableAccessResponse {
+  roles: ITableRoleAccess[]
+}
+
 export interface IMembersResponse {
   members: IWorkspaceMember[]
 }

@@ -1,15 +1,17 @@
 import { defineStore } from 'pinia'
 import { useRolesApi } from '~/api/roles'
+import { useTablesApi } from '~/api/tables'
 import { useWorkspaceCollection } from '~/composables/useWorkspaceCollection'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { isStaleWrite } from '~/utils/api-error'
-import type { IRoleDetailResponse } from '#shared/types/api'
+import type { IRoleDetailResponse, ITableRoleAccess } from '#shared/types/api'
 import type { IAccessTable, IWorkspaceRole } from '#shared/types/workspace'
-import type { TRoleInput } from '#shared/validation/workspace'
+import type { TRoleInput, TTableAccessInput } from '#shared/validation/workspace'
 
 /** The roles of one workspace at a time: the one last loaded. */
 export const useRolesStore = defineStore('roles', () => {
   const api = useRolesApi()
+  const tablesApi = useTablesApi()
   const workspacesStore = useWorkspacesStore()
 
   const {
@@ -68,6 +70,25 @@ export const useRolesStore = defineStore('roles', () => {
     }
   }
 
+  /** Held by the table page that edits it: every role with its access to that one table. */
+  async function fetchTableAccess(
+    workspaceAddress: string,
+    tableAddress: string,
+  ): Promise<ITableRoleAccess[]> {
+    return (await tablesApi.access(workspaceAddress, tableAddress)).roles
+  }
+
+  /** The roles come back at their new versions, which the list takes too. */
+  async function setTableAccess(
+    workspaceAddress: string,
+    tableAddress: string,
+    input: TTableAccessInput,
+  ): Promise<ITableRoleAccess[]> {
+    const { roles: saved } = await tablesApi.setAccess(workspaceAddress, tableAddress, input)
+    for (const { role } of saved) applyItem(workspaceAddress, role)
+    return saved
+  }
+
   async function deleteRole(workspaceAddress: string, roleId: string) {
     await api.remove(workspaceAddress, roleId)
     removeItem(workspaceAddress, roleId)
@@ -79,6 +100,8 @@ export const useRolesStore = defineStore('roles', () => {
     fetchRoles,
     fetchRole,
     fetchAccessTables,
+    fetchTableAccess,
+    setTableAccess,
     createRole,
     updateRole,
     deleteRole,

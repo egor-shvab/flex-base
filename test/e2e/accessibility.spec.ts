@@ -67,6 +67,9 @@ test.describe('the app screens', () => {
     'table settings': async (page) => {
       await page.goto(settingsUrl)
       await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: /^Viewer sees records in Deals/ }),
+      ).toBeVisible()
     },
     'records list': async (page) => {
       await page.goto(url)

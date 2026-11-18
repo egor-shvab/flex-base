@@ -3,15 +3,12 @@
     <span class="record-access-controls__label" aria-hidden="true">
       {{ RECORD_ACCESS_TEXT.readScope.label }}
     </span>
-    <span v-if="isReadBypassed" class="record-access-controls__fixed">
-      <span class="g-visually-hidden">{{ phraseFor('readScope') }}:</span> All
-    </span>
     <BaseSelect
-      v-else
       :id="`${idPrefix}-readScope`"
-      :model-value="modelValue.readScope"
-      :aria-label="phraseFor('readScope')"
+      :model-value="readScope"
+      :aria-label="controlName('readScope')"
       :options="readScopeOptions"
+      :disabled="disabled || isReadBypassed"
       @update:model-value="emit('update:modelValue', applyReadScope(modelValue, $event))"
     />
   </div>
@@ -23,11 +20,10 @@
     <BaseSelect
       :id="`${idPrefix}-canCreate`"
       :model-value="modelValue.canCreate ? 'YES' : 'NO'"
-      :aria-label="phraseFor('canCreate')"
+      :aria-label="controlName('canCreate')"
       :options="createOptions"
-      @update:model-value="
-        emit('update:modelValue', { ...modelValue, canCreate: $event === 'YES' })
-      "
+      :disabled="disabled"
+      @update:model-value="applyAction({ canCreate: $event === 'YES' })"
     />
   </div>
 
@@ -38,9 +34,10 @@
     <BaseSelect
       :id="`${idPrefix}-${key}`"
       :model-value="modelValue[key]"
-      :aria-label="phraseFor(key)"
+      :aria-label="controlName(key)"
       :options="buildActionScopeOptions(key)"
-      @update:model-value="emit('update:modelValue', { ...modelValue, [key]: $event })"
+      :disabled="disabled"
+      @update:model-value="applyAction({ [key]: $event })"
     />
   </div>
 </template>
@@ -59,19 +56,22 @@ import type { ITableAccess, TRecordScope } from '#shared/types/workspace'
 import { isScopeWithin } from '#shared/utils/permissions'
 
 /**
- * What a role may do with one table's records, as four cells of the grid row it sits in. A choice beyond `limit`, the editor's own access there, is shown but disabled, as is
- * an action past the role's read.
+ * What a role may do with one table's records, as four cells of the `RecordAccessRow` it sits in.
+ * A choice beyond `limit`, the editor's own access there, is shown but disabled, as is an action
+ * past the role's read.
  */
 const props = withDefaults(
   defineProps<{
     modelValue: ITableAccess
     limit: ITableAccess
-    /** The table the controls are named after. */
-    subject: string
-    /** A role that manages tables reads every table, whatever its read says. */
+    /** Each control's accessible name, which holds its column's word. */
+    controlName: (key: keyof ITableAccess) => string
+    /** Shown but not changeable: a role beyond the editor, or their own. */
+    disabled?: boolean
+    /** A role that manages tables reads every table: its read shows "All", locked. */
     isReadBypassed?: boolean
   }>(),
-  { isReadBypassed: false },
+  { isReadBypassed: false, disabled: false },
 )
 
 const emit = defineEmits<{ 'update:modelValue': [access: ITableAccess] }>()
@@ -80,8 +80,14 @@ const idPrefix = useId()
 
 const ACTION_SCOPE_KEYS = ['updateScope', 'deleteScope'] as const
 
-function phraseFor(key: keyof ITableAccess): string {
-  return `${RECORD_ACCESS_TEXT[key].phrase} ${props.subject}`
+/**
+ * The read the actions are bounded by: "All" for a role that manages tables, whatever is stored —
+ * otherwise a role with no row could be given no action at all. An action saves that read with it.
+ */
+const readScope = computed(() => (props.isReadBypassed ? 'ALL' : props.modelValue.readScope))
+
+function applyAction(change: Partial<ITableAccess>) {
+  emit('update:modelValue', { ...props.modelValue, readScope: readScope.value, ...change })
 }
 
 function canGrantScope(key: TScopedRecordKey, scope: TRecordScope): boolean {
@@ -98,14 +104,14 @@ const createOptions = computed((): ISelectOption<'YES' | 'NO'>[] => [
   {
     value: 'YES',
     label: 'Yes',
-    disabled: props.modelValue.readScope === 'NONE' || !props.limit.canCreate,
+    disabled: readScope.value === 'NONE' || !props.limit.canCreate,
   },
 ])
 
 function buildActionScopeOptions(key: (typeof ACTION_SCOPE_KEYS)[number]) {
   return buildScopeOptions(
     RECORD_SCOPES,
-    (scope) => canGrantScope(key, scope) && isScopeWithin(scope, props.modelValue.readScope),
+    (scope) => canGrantScope(key, scope) && isScopeWithin(scope, readScope.value),
   )
 }
 </script>
@@ -125,15 +131,6 @@ function buildActionScopeOptions(key: (typeof ACTION_SCOPE_KEYS)[number]) {
     @include below-access-grid {
       display: block;
     }
-  }
-
-  &__fixed {
-    display: flex;
-    align-items: center;
-    height: var(--control-height);
-    padding: 0 rem(12);
-    font-size: var(--font-size-md);
-    color: var(--color-text-secondary);
   }
 }
 </style>

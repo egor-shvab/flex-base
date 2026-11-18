@@ -15,7 +15,7 @@ test('lists the default roles with what each may do', async ({ page, seedTable }
   await page.reload()
 
   await expect(roleRow(page, 'Admin')).toContainText('Every permission, Records in 1 table')
-  await expect(roleRow(page, 'Admin')).toContainText('your role')
+  await expect(roleRow(page, 'Admin')).toContainText('yours after a transfer')
   await expect(roleRow(page, 'Viewer')).toContainText('Records in 1 table')
 })
 
@@ -123,4 +123,29 @@ test('a role’s table and field access is set and saved from the keyboard', asy
   })
   expect(viewer.tableAccess).toEqual([{ tableId: deals.id, readScope: 'OWN' }])
   expect(viewer.fieldAccess).toEqual([{ access: 'HIDDEN' }])
+})
+
+test('a table’s access is set for its roles from the keyboard, on the table’s settings', async ({
+  page,
+  seedTable,
+}) => {
+  const deals = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }], [])
+  await page.goto(deals.settingsUrl)
+
+  const sees = page.getByRole('button', { name: /^Viewer sees records in Deals/ })
+  await sees.focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('option', { name: 'None' })).toBeVisible()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Enter')
+  await expect(sees).toHaveAccessibleName('Viewer sees records in Deals None')
+  await expect(page.getByText('Unsaved changes')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Save access' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status').filter({ hasText: 'Access saved.' })).toBeVisible()
+
+  await expect(
+    prisma.roleTableAccess.count({ where: { tableId: deals.id, role: { name: 'Viewer' } } }),
+  ).resolves.toBe(0)
 })

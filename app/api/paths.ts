@@ -42,6 +42,8 @@ export const apiPath = {
   tables: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/tables`,
   table: tablePath,
 
+  tableAccess: (workspaceAddress: string, tableAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/access`,
   fields: (workspaceAddress: string, tableAddress: string) =>
     `${tablePath(workspaceAddress, tableAddress)}/fields`,
   field: (workspaceAddress: string, tableAddress: string, fieldId: string) =>

@@ -4,7 +4,7 @@ import { useWorkspacesApi } from '~/api/workspaces'
 import { useAuthStore } from '~/stores/auth'
 import type { TLoadStatus } from '~/types/load-status'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
-import type { TWorkspaceInput } from '#shared/validation/workspace'
+import type { TTransferOwnershipInput, TWorkspaceInput } from '#shared/validation/workspace'
 
 /** The signed-in user's memberships: what the switcher lists and `/` chooses from. */
 export const useWorkspacesStore = defineStore('workspaces', () => {
@@ -94,8 +94,8 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   }
 
   /** The caller stays a member, no longer the owner: their membership is read back. */
-  async function transferOwnership(workspaceAddress: string, memberId: string) {
-    await api.transfer(workspaceAddress, { memberId })
+  async function transferOwnership(workspaceAddress: string, input: TTransferOwnershipInput) {
+    await api.transfer(workspaceAddress, input)
     await fetchMembership(workspaceAddress)
   }
 

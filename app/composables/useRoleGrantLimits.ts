@@ -6,9 +6,9 @@ import type { IRoleOverrides } from '#shared/types/workspace'
 const NO_OVERRIDES: IRoleOverrides = { tables: [], fields: [] }
 
 /**
- * For the role pages, `settings/roles/new` and `settings/roles/[roleId]`: how far the caller may
- * grant is their own effective access — their role's rows read too, which the owner's role does not
- * narrow, so for the owner nothing more is read.
+ * For the pages that grant access — `settings/roles/new`, `settings/roles/[roleId]` and a table's
+ * settings: how far the caller may grant is their own effective access — their role's rows read
+ * too, which the owner's role does not narrow, so for the owner nothing more is read.
  */
 export function useRoleGrantLimits() {
   const rolesStore = useRolesStore()

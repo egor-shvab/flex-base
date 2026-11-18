@@ -93,6 +93,19 @@ registerEndpoint(`/api/workspaces/${WS}/roles/rol_mine`, {
   }),
 })
 
+registerEndpoint(`/api/workspaces/${WS}/tables/7/access`, {
+  method: 'PUT',
+  handler: async (event) => {
+    const { roles } = await readBody(event)
+    return {
+      roles: roles.map(({ roleId }: { roleId: string }) => ({
+        role: { ...buildRole(roleId, 'Viewer'), readableTableCount: 2 },
+        access: { readScope: 'ALL', canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' },
+      })),
+    }
+  },
+})
+
 registerEndpoint(`/api/workspaces/${WS}/roles/rol_2`, {
   method: 'DELETE',
   handler: () => ({ ok: true }),
@@ -141,6 +154,23 @@ describe('useRolesStore', () => {
 
     await store.deleteRole(WS, 'rol_2')
     expect(store.roles.map((role) => role.name)).toEqual(['Manager', 'Clerk'])
+  })
+
+  it('takes back the roles a table’s access save changed, at their new versions', async () => {
+    const store = useRolesStore()
+    await store.fetchRoles(WS)
+
+    await store.setTableAccess(WS, '7', {
+      roles: [
+        {
+          roleId: 'rol_2',
+          updatedAt: '2026-02-11T16:30:00.000Z',
+          ...buildTableAccess(),
+        },
+      ],
+    })
+
+    expect(store.roles.find((role) => role.id === 'rol_2')?.readableTableCount).toBe(2)
   })
 
   it('leaves a list it no longer holds alone', async () => {

@@ -237,6 +237,34 @@ test('a read-only field shows its value in the form, with nothing to change it',
   await page.context().close()
 })
 
+test('a member who manages roles cannot open the one they hold, here or on a table', async ({
+  browser,
+  workspace,
+}) => {
+  await prisma.workspaceRole.update({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    data: { permissions: ['ROLES_MANAGE'] },
+  })
+  const editor = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    select: { id: true },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(`${workspace.url}/settings/roles`)
+  await expect(page.getByRole('link', { name: /^Viewer/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Editor/ })).toHaveCount(0)
+
+  await page.goto(`${workspace.url}/settings/roles/${editor.id}`)
+  await expect(page.getByText('only the workspace owner can change it')).toBeVisible()
+
+  await page.goto(table.settingsUrl)
+  await expect(page.getByRole('button', { name: /^Editor sees records in Deals/ })).toBeDisabled()
+  await expect(page.getByRole('button', { name: /^Viewer sees records in Deals/ })).toBeEnabled()
+
+  await page.context().close()
+})
+
 test('a table hidden from a role is not listed, and its address is a 404', async ({
   browser,
   workspace,

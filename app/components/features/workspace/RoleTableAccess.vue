@@ -1,7 +1,7 @@
 <template>
   <li class="role-table-access">
-    <div class="role-table-access__row">
-      <div class="role-table-access__name">
+    <RecordAccessRow>
+      <template #name>
         <button
           v-if="canOpen"
           type="button"
@@ -32,18 +32,18 @@
         </span>
 
         <span class="role-table-access__summary">{{ summary }}</span>
-      </div>
+      </template>
 
       <RecordAccessControls
         :model-value="access"
         :limit="limits.tableAccess(table.id)"
-        :subject="table.name"
+        :control-name="(key) => `${RECORD_ACCESS_TEXT[key].phrase} ${table.name}`"
         :is-read-bypassed="isBypassed"
         @update:model-value="
           emit('update:tables', applyTableOverride(role.tables, table.id, $event))
         "
       />
-    </div>
+    </RecordAccessRow>
 
     <div v-if="canOpen && isOpen" :id="panelId" class="role-table-access__panel">
       <p v-if="table.fields.length === 0" class="g-note">This table has no fields yet.</p>
@@ -92,6 +92,7 @@ import {
   summariseFieldAccess,
   type IAccessLimits,
 } from '~/utils/role-form'
+import { RECORD_ACCESS_TEXT } from '~/utils/workspace-permissions'
 import { FIELD_ACCESS_LEVELS } from '#shared/constants/workspace'
 import type {
   IAccessField,
@@ -159,24 +160,6 @@ function buildFieldOptions(field: IAccessField): ISelectOption<TFieldAccess>[] {
 <style lang="scss" scoped>
 .role-table-access {
   border-top: 1px solid var(--color-border-subtle);
-
-  &__row {
-    display: grid;
-    grid-template-columns: var(--role-access-columns);
-    gap: rem(8);
-    align-items: center;
-    padding: rem(10) rem(16);
-  }
-
-  &__name {
-    @include stack(2);
-
-    min-width: 0;
-
-    @include below-access-grid {
-      grid-column: 1 / -1;
-    }
-  }
 
   &__toggle {
     display: inline-flex;

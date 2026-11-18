@@ -311,9 +311,10 @@ describe('RoleEditor', () => {
     await mountEditor({ role: clerk(['TABLES_MANAGE']) })
 
     expect(document.body.textContent).toContain('sees every table and every field')
-    expect(select('Sees records in Deals')).toBeNull()
+    expect(selectValue('Sees records in Deals')).toBe('All')
+    expect(select('Sees records in Deals')).toHaveProperty('disabled', true)
     expect(button('Deals')).toBeUndefined()
-    expect(select('Edits records in Deals')).not.toBeNull()
+    expect(select('Edits records in Deals')).toHaveProperty('disabled', false)
   })
 
   it('tracks unsaved changes: discarded back, or saved', async () => {

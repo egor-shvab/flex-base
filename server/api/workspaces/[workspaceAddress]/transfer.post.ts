@@ -7,8 +7,8 @@ import type { IOkResponse } from '#shared/types/api'
 export default defineWorkspaceHandler(
   'OWNER',
   async ({ event, membership }): Promise<IOkResponse> => {
-    const { memberId } = await readValidatedBody(event, transferOwnershipSchema.parse)
-    await WorkspaceService.transferOwnership(membership, memberId)
+    const input = await readValidatedBody(event, transferOwnershipSchema.parse)
+    await WorkspaceService.transferOwnership(membership, input)
     return { ok: true }
   },
 )

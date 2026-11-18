@@ -110,8 +110,17 @@ test('the owner hands a workspace over, then leaves it', async ({ browser, page 
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('New owner').click()
   await page.getByRole('option', { name: 'Member · Editor' }).click()
+  await dialog.getByLabel('Your role after the transfer').click()
+  await page.getByRole('option', { name: 'Viewer' }).click()
   await dialog.getByRole('button', { name: 'Transfer ownership' }).click()
   await expect(dialog).toHaveCount(0)
+
+  await expect(
+    prisma.workspaceMember.findFirstOrThrow({
+      where: { workspaceId: workspace.id, userId: owner.id },
+      select: { role: { select: { name: true } } },
+    }),
+  ).resolves.toEqual({ role: { name: 'Viewer' } })
 
   await expect(page.getByRole('button', { name: 'Delete workspace' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Leave workspace' }).click()

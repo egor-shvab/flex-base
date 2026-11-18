@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { prisma } from '#server/db/prisma'
 import { MAX_WORKSPACE_ROLES, RoleService } from '#server/services/roles'
 import { WorkspaceService } from '#server/services/workspaces'
-import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
+import { FULL_TABLE_ACCESS, NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
 import { addMember, createUser, type TSeededUser } from '~~/test/integration/seed'
 import type { TRoleInput } from '#shared/validation/workspace'
@@ -219,6 +219,32 @@ describe('a role’s access to tables and fields', () => {
     expect(await rowsOf(clerk.id)).toEqual({ tables: 1, fields: 1 })
     await RoleService.deleteRole(owner, clerk.id)
     expect(await rowsOf(clerk.id)).toEqual({ tables: 0, fields: 0 })
+  })
+
+  it('sets one table for several roles from the table’s side, closing it with no row', async () => {
+    const { tableId, fieldId } = await seedDeals()
+    const viewerId = await findRoleId(ada.workspace.id, 'Viewer')
+    const editorId = await findRoleId(ada.workspace.id, 'Editor')
+    await RoleService.updateRole(
+      owner,
+      viewerId,
+      access(tableId, { fields: [{ fieldId, access: 'READ' }] }),
+    )
+    const versionOf = async (id: string) => (await RoleService.getRole(owner, id)).role.updatedAt
+
+    const roles = await RoleService.setTableAccess(owner, tableId, {
+      roles: [
+        { roleId: viewerId, updatedAt: await versionOf(viewerId), ...NO_TABLE_ACCESS },
+        { roleId: editorId, updatedAt: await versionOf(editorId), ...FULL_TABLE_ACCESS },
+      ],
+    })
+
+    expect(await rowsOf(viewerId)).toEqual({ tables: 0, fields: 0 })
+    expect(await rowsOf(editorId)).toEqual({ tables: 1, fields: 0 })
+    expect(roles.find((entry) => entry.role.id === editorId)).toMatchObject({
+      access: FULL_TABLE_ACCESS,
+      role: { readableTableCount: 1 },
+    })
   })
 
   it('keeps a manager from handing out a role that sees a field hidden from them', async () => {

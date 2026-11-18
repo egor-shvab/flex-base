@@ -18,7 +18,8 @@ import {
   buildStaleWriteError,
   toHttpError,
 } from '#server/utils/http-errors'
-import type { IRoleDetailResponse } from '#shared/types/api'
+import { NO_TABLE_ACCESS } from '#shared/constants/workspace'
+import type { IRoleDetailResponse, ITableRoleAccess } from '#shared/types/api'
 import type {
   IAccessTable,
   IRoleGrants,
@@ -26,10 +27,10 @@ import type {
   IWorkspaceRole,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { hasPermission } from '#shared/utils/permissions'
+import { hasPermission, isHeldRoleLocked, isTableAccessWithin } from '#shared/utils/permissions'
 import { isAccessWithin } from '#shared/utils/role-access'
 import { canReadRecords, resolveFieldAccess, resolveTableAccess } from '#shared/utils/table-access'
-import type { TRoleInput } from '#shared/validation/workspace'
+import type { TRoleInput, TTableAccessInput } from '#shared/validation/workspace'
 
 export const MAX_WORKSPACE_ROLES = 20
 
@@ -50,6 +51,16 @@ function buildEscalationError() {
     statusCode: 403,
     statusMessage: 'You can only manage roles within your own permissions',
   })
+}
+
+/** The rule `isHeldRoleLocked` states, as the refusal every role write gives. */
+function assertNotHeldRole(actor: IWorkspaceMembership, roleId: string) {
+  if (isHeldRoleLocked(actor, roleId)) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Only the workspace owner can change the role you hold',
+    })
+  }
 }
 
 function buildRoleNotFoundError() {
@@ -104,32 +115,142 @@ function isWithinActor(
   return isAccessWithin(subject, { isOwner: false, ...toRoleGrants(actorRole) }, ground.tables)
 }
 
+function listRoleRows(workspaceId: string) {
+  // The default roles share one `createdAt`: the name keeps their order stable
+  return prisma.workspaceRole.findMany({
+    where: { workspaceId },
+    orderBy: [{ createdAt: 'asc' }, { name: 'asc' }],
+    select: roleSelect,
+  })
+}
+
+/** Each role and its grants, with the ground they are compared over. */
+async function loadRolesWithGround(actor: IWorkspaceMembership) {
+  const rows = await listRoleRows(actor.workspace.id)
+  const ground = await loadAccessGround(actor.workspace.id, [
+    actor.role.id,
+    ...rows.map((row) => row.id),
+  ])
+
+  return rows.map((row) => {
+    const grants = ground.rolesById.get(row.id)
+    return {
+      grants,
+      role: toSharedRole(
+        row,
+        grants !== undefined && isWithinActor(ground, actor, toRoleGrants(grants)),
+      ),
+    }
+  })
+}
+
 /**
  * Each role with whether it is within the caller. Only a caller who can act on roles or their
  * holders needs the comparison; for anyone else it is false, and nothing more is read.
  */
 async function listRoles(actor: IWorkspaceMembership): Promise<IWorkspaceRole[]> {
-  const workspaceId = actor.workspace.id
-  // The default roles share one `createdAt`: the name keeps their order stable
-  const rows = await prisma.workspaceRole.findMany({
-    where: { workspaceId },
-    orderBy: [{ createdAt: 'asc' }, { name: 'asc' }],
-    select: roleSelect,
-  })
-
   if (!ROLE_REACH_PERMISSIONS.some((permission) => hasPermission(actor, permission))) {
+    const rows = await listRoleRows(actor.workspace.id)
     return rows.map((row) => toSharedRole(row, false))
   }
 
-  const ground = await loadAccessGround(workspaceId, [actor.role.id, ...rows.map((row) => row.id)])
+  return (await loadRolesWithGround(actor)).map(({ role }) => role)
+}
 
-  return rows.map((row) => {
-    const grants = ground.rolesById.get(row.id)
-    return toSharedRole(
-      row,
-      grants !== undefined && isWithinActor(ground, actor, toRoleGrants(grants)),
-    )
+/** Every role with what it may do with one table's records: its row there, or nothing. */
+async function listTableAccess(
+  actor: IWorkspaceMembership,
+  tableId: string,
+): Promise<ITableRoleAccess[]> {
+  return (await loadRolesWithGround(actor)).map(({ role, grants }) => {
+    const row = grants?.tableAccess.find((candidate) => candidate.tableId === tableId)
+    if (!row) return { role, access: NO_TABLE_ACCESS }
+
+    const { tableId: _tableId, ...access } = row
+    return { role, access }
   })
+}
+
+/**
+ * Sets one table's access for several roles at once, each checked as a whole-role save would be:
+ * not the actor's own, at the version read, within the actor before and after, its required fields
+ * fillable. A role closed to the table loses its field rows there, which would narrow nothing. The
+ * write guards every role's version in one statement, so a role changed meanwhile is a 409.
+ */
+async function setTableAccess(
+  actor: IWorkspaceMembership,
+  tableId: string,
+  input: TTableAccessInput,
+): Promise<ITableRoleAccess[]> {
+  const workspaceId = actor.workspace.id
+  for (const change of input.roles) assertNotHeldRole(actor, change.roleId)
+
+  const ground = await loadAccessGround(workspaceId, [
+    actor.role.id,
+    ...input.roles.map((change) => change.roleId),
+  ])
+  const table = ground.tables.find((candidate) => candidate.id === tableId)
+  if (!table) throw createError({ statusCode: 404, statusMessage: 'Table not found' })
+  const fieldIds = table.fields.map((field) => field.id)
+
+  const writes = input.roles.map(({ roleId, updatedAt, ...access }) => {
+    const role = requireGroundRole(ground, roleId)
+    if (new Date(updatedAt).getTime() !== role.updatedAt.getTime()) {
+      throw buildStaleWriteError('role')
+    }
+    const current = toRoleGrants(role)
+    if (!isWithinActor(ground, actor, current)) throw buildEscalationError()
+
+    const isOpen = !isTableAccessWithin(access, NO_TABLE_ACCESS)
+    const isRead = canReadRecords(
+      resolveTableAccess({ isOwner: false, permissions: current.permissions }, access),
+    )
+    const next: IRoleGrants = {
+      ...current,
+      tables: [
+        ...current.tables.filter((row) => row.tableId !== tableId),
+        ...(isOpen ? [{ tableId, ...access }] : []),
+      ],
+      fields: isRead
+        ? current.fields
+        : current.fields.filter((row) => !fieldIds.includes(row.fieldId)),
+    }
+    if (!isWithinActor(ground, actor, next)) throw buildEscalationError()
+    assertRequiredFieldsFillable(role.name, next, ground.tables)
+
+    return { role, access, isOpen, isRead }
+  })
+  const roleIds = writes.map((write) => write.role.id)
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.workspaceRole.updateMany({
+        where: {
+          workspaceId,
+          OR: writes.map(({ role }) => ({ id: role.id, updatedAt: role.updatedAt })),
+        },
+        data: { updatedAt: new Date() },
+      })
+      if (count !== writes.length) throw buildChangedMeanwhileError('role')
+
+      await tx.roleTableAccess.deleteMany({ where: { tableId, roleId: { in: roleIds } } })
+      await tx.roleTableAccess.createMany({
+        data: writes
+          .filter((write) => write.isOpen)
+          .map(({ role, access }) => ({ workspaceId, roleId: role.id, tableId, ...access })),
+      })
+      await tx.roleFieldAccess.deleteMany({
+        where: {
+          roleId: { in: writes.filter((write) => !write.isRead).map((write) => write.role.id) },
+          fieldId: { in: fieldIds },
+        },
+      })
+    })
+  } catch (error) {
+    throw toHttpError(error, roleErrors)
+  }
+
+  return listTableAccess(actor, tableId)
 }
 
 /**
@@ -260,6 +381,7 @@ async function loadEditableRole(
   roleId: string,
   expectedUpdatedAt?: Date,
 ) {
+  assertNotHeldRole(actor, roleId)
   const ground = await loadAccessGround(actor.workspace.id, [actor.role.id, roleId])
   const role = requireGroundRole(ground, roleId)
 
@@ -331,7 +453,7 @@ function assertOverridesInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
 }
 
 /**
- * Replaces the whole role — name, permissions, defaults and every row it sets apart — in one
+ * Replaces the whole role — name, permissions and every row it sets apart — in one
  * transaction: the role's own row first, guarded by the version read, so a miss leaves the old
  * rows untouched.
  */
@@ -423,6 +545,8 @@ async function deleteRole(actor: IWorkspaceMembership, roleId: string): Promise<
 
 export const RoleService = {
   listRoles,
+  listTableAccess,
+  setTableAccess,
   getRoleReach,
   requireAssignableRole,
   getRole,

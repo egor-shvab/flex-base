@@ -393,7 +393,9 @@ Only what the name and the code do not say.
   (the workspace's tables and fields, and the roles in question with their rows) and asks
   `isAccessWithin`. A write resting on it repeats the role's **`updatedAt`** as read, which
   replacing a role's access moves: a role changed under the check is a 409, a stale `If-Match` a 412. `POST …/roles` and `PUT …/roles/:roleId` write the whole role — name, permissions
-  and every row — in one transaction, the guarded role update first.
+  and every row — in one transaction, the guarded role update first. `PUT …/tables/:t/access`
+  sets one table's row for several roles (`RoleService.setTableAccess`), each checked as a
+  whole-role save, every version guarded in one `updateMany`.
 - **`services/records.ts`** — an update **merges** the caller's writable fields over the stored
   `data` (`buildRecordMergeUpdate`), so every other key keeps its value
   (`decisions.md` → _A record update merges over the stored data_).
@@ -539,7 +541,9 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
   address is a 404; a hidden field is absent from the table, the filter drawer, the record dialog
   and the form, and a save by that role keeps its value; a read-only field is a value in the form;
   under `OWN` only the role's own rows carry edit and delete; a role's table and field access is
-  set and saved from the keyboard.
+  set and saved from the keyboard, and a table's access for its roles from its settings; a member
+  who manages roles cannot open the one they hold; a transfer leaves the old owner the role they
+  chose.
 - **Multi-value:** the option appears for SELECT and RELATION only and locks once saved; widening
   keeps values, narrowing is a 400; one line in the table (values that fit, in full), wrapped in the
   dialog, cleared reads `Not set`; required/duplicate/over-cap validation; sorts by first value;

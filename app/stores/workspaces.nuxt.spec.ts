@@ -195,7 +195,7 @@ describe('useWorkspacesStore', () => {
     const store = useWorkspacesStore()
     await store.fetchWorkspaces()
 
-    await store.transferOwnership(WS, 'mem_grace')
+    await store.transferOwnership(WS, { memberId: 'mem_grace', roleId: 'rol_admin' })
 
     expect(calls).toContain('POST transfer')
     expect(store.findMembership(WS)?.isOwner).toBe(false)

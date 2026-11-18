@@ -65,6 +65,21 @@ export const roleInputSchema = z.object({
     .refine((rows) => hasNoRepeat(rows.map((row) => row.fieldId)), 'A field is listed twice'),
 })
 
+/**
+ * One table's access for the roles changed on it. Each role carries the version it was read at:
+ * one `If-Match` header cannot hold several.
+ */
+export const tableAccessInputSchema = z.object({
+  roles: z
+    .array(
+      z
+        .object({ roleId: idSchema, updatedAt: z.iso.datetime(), ...tableAccessFields })
+        .superRefine(checkActionsWithinRead),
+    )
+    .min(1, 'Change at least one role')
+    .refine((rows) => hasNoRepeat(rows.map((row) => row.roleId)), 'A role is listed twice'),
+})
+
 export const memberRoleInputSchema = z.object({
   roleId: idSchema,
 })
@@ -74,8 +89,10 @@ export const invitationInputSchema = z.object({
   roleId: idSchema,
 })
 
+/** `roleId` is the role the owner keeps as a member once the workspace is handed over. */
 export const transferOwnershipSchema = z.object({
   memberId: idSchema,
+  roleId: idSchema,
 })
 
 export type TWorkspaceInput = z.infer<typeof workspaceInputSchema>
@@ -83,3 +100,4 @@ export type TRoleInput = z.infer<typeof roleInputSchema>
 export type TMemberRoleInput = z.infer<typeof memberRoleInputSchema>
 export type TInvitationInput = z.infer<typeof invitationInputSchema>
 export type TTransferOwnershipInput = z.infer<typeof transferOwnershipSchema>
+export type TTableAccessInput = z.infer<typeof tableAccessInputSchema>

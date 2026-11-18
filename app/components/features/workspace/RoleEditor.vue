@@ -64,31 +64,20 @@
 
     <slot />
 
-    <div class="role-editor__actions">
-      <template v-if="!role">
+    <BaseSaveBar
+      class="role-editor__actions"
+      :dirty="isDirty"
+      :saved="hasSaved"
+      :busy="isSubmitting"
+      submit-label="Save role"
+      saved-message="Role saved."
+      @discard="discard"
+    >
+      <template v-if="!role" #default>
         <BaseButton variant="secondary" :to="cancelTo" :busy="isSubmitting">Cancel</BaseButton>
         <BaseButton type="submit" :loading="isSubmitting">Create role</BaseButton>
       </template>
-      <template v-else-if="isDirty">
-        <span class="role-editor__state">
-          <span class="role-editor__dot" aria-hidden="true" />
-          Unsaved changes
-        </span>
-        <BaseButton variant="secondary" :busy="isSubmitting" @click="discard">Discard</BaseButton>
-        <BaseButton type="submit" :loading="isSubmitting">Save role</BaseButton>
-      </template>
-      <p v-else class="role-editor__state role-editor__state--quiet" role="status">
-        <template v-if="hasSaved">
-          <Icon
-            name="material-symbols:check-circle-outline-rounded"
-            class="role-editor__saved-icon"
-            aria-hidden="true"
-          />
-          Role saved.
-        </template>
-        <template v-else>No unsaved changes</template>
-      </p>
-    </div>
+    </BaseSaveBar>
   </form>
 </template>
 
@@ -248,46 +237,16 @@ function setPermissionGranted(permission: TWorkspacePermission, isGranted: boole
   }
 
   &__actions {
-    @include cluster(10);
-
     // Sticky stops at the scroll area's padding, not its edge: the bar reaches past the padding
     // and fills it, so nothing shows below it
     position: sticky;
     bottom: calc(-1 * var(--main-padding-bottom, 0px));
     z-index: 1;
-    justify-content: flex-end;
     margin-top: rem(-8);
     margin-bottom: calc(-1 * var(--main-padding-bottom, 0px));
     padding: rem(12) 0 calc(#{rem(12)} + var(--main-padding-bottom, 0px));
     border-top: 1px solid var(--color-border);
     background: var(--color-canvas);
-  }
-
-  &__state {
-    display: inline-flex;
-    flex: 1;
-    align-items: center;
-    gap: rem(8);
-    min-height: var(--control-height);
-    margin: 0;
-    font-size: var(--font-size-md);
-    color: var(--color-text);
-
-    &--quiet {
-      color: var(--color-text-secondary);
-    }
-  }
-
-  &__dot {
-    width: rem(8);
-    height: rem(8);
-    border-radius: 50%;
-    background: var(--color-text-secondary);
-  }
-
-  &__saved-icon {
-    font-size: rem(18);
-    color: var(--color-accent);
   }
 }
 </style>

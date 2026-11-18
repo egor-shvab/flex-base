@@ -157,6 +157,7 @@ describe('WorkspaceService.deleteWorkspace', () => {
 
 describe('WorkspaceService.transferOwnership', () => {
   const owner = buildMembership([], { isOwner: true, memberId: 'mem_owner' })
+  const toGrace = { memberId: 'mem_grace', roleId: 'rol_viewer' }
 
   beforeEach(() => {
     prismaMock.workspaceMember.findFirst.mockResolvedValue({
@@ -168,10 +169,12 @@ describe('WorkspaceService.transferOwnership', () => {
       workspace: { ownerId: USER_ID },
     })
     prismaMock.workspace.update.mockResolvedValue({ id: WORKSPACE_ID })
+    prismaMock.workspaceRole.findUnique.mockResolvedValue({ id: 'rol_viewer' })
+    prismaMock.workspaceMember.update.mockResolvedValue({ id: 'mem_owner' })
   })
 
   it('hands the workspace to a member, only while they still are one', async () => {
-    await WorkspaceService.transferOwnership(owner, 'mem_grace')
+    await WorkspaceService.transferOwnership(owner, toGrace)
 
     expect(prismaMock.workspaceMember.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'mem_grace', workspaceId: WORKSPACE_ID } }),
@@ -184,8 +187,37 @@ describe('WorkspaceService.transferOwnership', () => {
     )
   })
 
+  it('moves the old owner to the role they chose, in the same transaction', async () => {
+    await WorkspaceService.transferOwnership(owner, toGrace)
+
+    expect(prismaMock.workspaceRole.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId_id: { workspaceId: WORKSPACE_ID, id: 'rol_viewer' } },
+      }),
+    )
+    expect(prismaMock.workspaceMember.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'mem_owner', workspaceId: WORKSPACE_ID },
+        data: { roleId: 'rol_viewer' },
+      }),
+    )
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers a role of another workspace as missing, handing nothing over', async () => {
+    prismaMock.workspaceRole.findUnique.mockResolvedValue(null)
+
+    await expect(WorkspaceService.transferOwnership(owner, toGrace)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Role not found',
+    })
+    expect(prismaMock.workspace.update).not.toHaveBeenCalled()
+  })
+
   it('refuses to hand it to the owner themself', async () => {
-    await expect(WorkspaceService.transferOwnership(owner, 'mem_owner')).rejects.toMatchObject({
+    await expect(
+      WorkspaceService.transferOwnership(owner, { ...toGrace, memberId: 'mem_owner' }),
+    ).rejects.toMatchObject({
       statusCode: 409,
     })
     expect(prismaMock.workspace.update).not.toHaveBeenCalled()
@@ -193,13 +225,13 @@ describe('WorkspaceService.transferOwnership', () => {
 
   it('answers a member of another workspace, or one removed since the read, as missing', async () => {
     prismaMock.workspaceMember.findFirst.mockResolvedValueOnce(null)
-    await expect(WorkspaceService.transferOwnership(owner, 'mem_grace')).rejects.toMatchObject({
+    await expect(WorkspaceService.transferOwnership(owner, toGrace)).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Member not found',
     })
 
     prismaMock.workspace.update.mockRejectedValue(knownError('P2025'))
-    await expect(WorkspaceService.transferOwnership(owner, 'mem_grace')).rejects.toMatchObject({
+    await expect(WorkspaceService.transferOwnership(owner, toGrace)).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Member not found',
     })

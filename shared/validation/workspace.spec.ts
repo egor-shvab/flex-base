@@ -3,6 +3,7 @@ import {
   invitationInputSchema,
   memberRoleInputSchema,
   roleInputSchema,
+  tableAccessInputSchema,
   transferOwnershipSchema,
   workspaceInputSchema,
 } from '#shared/validation/workspace'
@@ -159,13 +160,41 @@ describe('invitationInputSchema', () => {
 })
 
 describe('the id-only inputs', () => {
-  it('take a role for a member and a member for a transfer', () => {
+  it('take a role for a member, and a member and the role the owner keeps for a transfer', () => {
     expect(memberRoleInputSchema.parse({ roleId: 'rol_1' })).toEqual({ roleId: 'rol_1' })
-    expect(transferOwnershipSchema.parse({ memberId: 'mem_1' })).toEqual({ memberId: 'mem_1' })
+    expect(transferOwnershipSchema.parse({ memberId: 'mem_1', roleId: 'rol_1' })).toEqual({
+      memberId: 'mem_1',
+      roleId: 'rol_1',
+    })
   })
 
-  it('refuse a blank id', () => {
+  it('refuse a blank id, and a transfer that names no role to keep', () => {
     expect(memberRoleInputSchema.safeParse({ roleId: '' }).success).toBe(false)
-    expect(transferOwnershipSchema.safeParse({}).success).toBe(false)
+    expect(transferOwnershipSchema.safeParse({ memberId: 'mem_1' }).success).toBe(false)
+  })
+})
+
+describe('tableAccessInputSchema', () => {
+  const row = (overrides: Record<string, unknown> = {}) => ({
+    roleId: 'rol_viewer',
+    updatedAt: '2026-02-11T16:30:00.000Z',
+    readScope: 'ALL',
+    canCreate: false,
+    updateScope: 'NONE',
+    deleteScope: 'NONE',
+    ...overrides,
+  })
+
+  it('accepts the roles changed, each with the version it was read at', () => {
+    expect(tableAccessInputSchema.parse({ roles: [row()] })).toEqual({ roles: [row()] })
+  })
+
+  it.each([
+    ['no role at all', []],
+    ['a role listed twice', [row(), row()]],
+    ['a role without its version', [row({ updatedAt: undefined })]],
+    ['an action past the read', [row({ readScope: 'OWN', updateScope: 'ALL' })]],
+  ])('refuses %s', (_, roles) => {
+    expect(tableAccessInputSchema.safeParse({ roles }).success).toBe(false)
   })
 })

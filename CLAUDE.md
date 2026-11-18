@@ -146,8 +146,8 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   `tableId` proved through it), never from a body or an address — never fetch then check.
 - **Role rules live in `shared/`**: a non-owner may only assign, edit or act on a role whose
   access lies within their own — permissions, and every table and field
-  (`isAccessWithin`). The server decides it; the client reads its answer per role
-  (`isWithinCaller`), never recomputes it.
+  (`isAccessWithin`) — and never on the role they hold (`isHeldRoleLocked`). The server decides
+  it; the client reads its answer per role (`isWithinCaller`), never recomputes it.
 - **Status codes:** a resource outside the caller's workspaces, or a table their role may not read,
   is **404, never 403**; a member lacking the permission or record action, or acting on a record
   they read but did not create under an `OWN` scope, is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use

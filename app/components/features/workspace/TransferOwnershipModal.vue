@@ -4,7 +4,7 @@
       <BaseErrorBanner :message="serverError" />
 
       <BaseErrorBanner v-if="status === 'failed'">
-        Couldn't load the members.
+        Couldn't load the members and roles.
         <BaseButton variant="link" @click="loadCandidates">Try again</BaseButton>
       </BaseErrorBanner>
 
@@ -25,8 +25,15 @@
         />
         <p class="g-note">
           They get every permission and become the only one who can delete the workspace or hand it
-          on. You stay a member as {{ ownRoleName }}.
+          on. You stay a member, under the role you choose.
         </p>
+        <BaseSelect
+          :id="roleSelectId"
+          v-model="form.roleId"
+          label="Your role after the transfer"
+          :options="roleOptions"
+          :error="errors.roleId"
+        />
       </template>
     </form>
 
@@ -51,29 +58,36 @@
 import { computed, onMounted, ref, useId } from 'vue'
 import { useForm } from '~/composables/useForm'
 import { useMembersStore } from '~/stores/members'
+import { useRolesStore } from '~/stores/roles'
 import type { TLoadStatus } from '~/types/load-status'
 import type { ISelectOption } from '~/types/select'
-import { transferOwnershipSchema } from '#shared/validation/workspace'
+import { transferOwnershipSchema, type TTransferOwnershipInput } from '#shared/validation/workspace'
 
 const props = defineProps<{
   workspaceAddress: string
-  ownRoleName: string
-  submitHandler: (memberId: string) => Promise<void>
+  /** The role the owner holds now, kept unless they choose another. */
+  ownRoleId: string
+  submitHandler: (input: TTransferOwnershipInput) => Promise<void>
 }>()
 
 const emit = defineEmits<{ saved: []; close: [] }>()
 
 const membersStore = useMembersStore()
+const rolesStore = useRolesStore()
 
 const formId = useId()
 const memberSelectId = useId()
+const roleSelectId = useId()
 
 const status = ref<TLoadStatus>('idle')
 
 async function loadCandidates() {
   status.value = 'loading'
   try {
-    await membersStore.fetchMembers(props.workspaceAddress)
+    await Promise.all([
+      membersStore.fetchMembers(props.workspaceAddress),
+      rolesStore.fetchRoles(props.workspaceAddress),
+    ])
     status.value = 'ready'
   } catch {
     status.value = 'failed'
@@ -90,11 +104,15 @@ const candidateOptions = computed<ISelectOption[]>(() =>
     : [],
 )
 
+const roleOptions = computed<ISelectOption[]>(() =>
+  rolesStore.roles.map((role) => ({ value: role.id, label: role.name })),
+)
+
 const { form, errors, serverError, isSubmitting, submit } = useForm({
   schema: transferOwnershipSchema,
-  initial: { memberId: '' },
-  onSubmit: async ({ memberId }) => {
-    await props.submitHandler(memberId)
+  initial: { memberId: '', roleId: props.ownRoleId },
+  onSubmit: async (input) => {
+    await props.submitHandler(input)
     emit('saved')
   },
 })

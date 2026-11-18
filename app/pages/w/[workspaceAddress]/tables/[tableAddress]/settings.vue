@@ -43,6 +43,38 @@
       </BaseCard>
     </section>
 
+    <section v-if="canManageRoles" class="table-page__section">
+      <BaseSectionHead title="Access" />
+      <p class="g-note">
+        What each role may do with this table’s records. A new table is closed to every role but its
+        creator’s until it’s given access here; a role’s fields are set on its own page.
+      </p>
+
+      <BaseErrorBanner v-if="accessStatus === 'error'">
+        Couldn't load the roles’ access.
+        <BaseButton variant="link" @click="reloadAccess">Try again</BaseButton>
+      </BaseErrorBanner>
+      <p
+        v-else-if="!accessData || !accessLimits || !membership || !table"
+        class="g-note"
+        role="status"
+      >
+        Loading access…
+      </p>
+      <TableRoleAccess
+        v-else
+        :key="accessLoadCount"
+        :workspace-address="workspaceAddress"
+        :table-id="table.id"
+        :table-name="table.name"
+        :roles="accessData.roles"
+        :actor="membership"
+        :limits="accessLimits"
+        :submit-handler="saveAccess"
+        @reload="reloadAccess"
+      />
+    </section>
+
     <section class="table-page__section">
       <BaseSectionHead title="Fields" :count="fieldCount > 0 ? fieldCount : undefined" />
 
@@ -108,8 +140,10 @@ import { useAccessResync } from '~/composables/useAccessResync'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useEntityFormModal } from '~/composables/useEntityFormModal'
+import { useRoleGrantLimits } from '~/composables/useRoleGrantLimits'
 import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
+import { useRolesStore } from '~/stores/roles'
 import { useTablesStore } from '~/stores/tables'
 import type { IFieldConfigSummaryContext } from '~/field-types/types'
 import { formatNumber, formatTimestamp } from '~/utils/format'
@@ -117,6 +151,7 @@ import { pagePath } from '~/utils/page-path'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
+import type { TTableAccessInput } from '#shared/validation/workspace'
 import { toTableAddress } from '#shared/utils/address'
 
 const route = useRoute()
@@ -125,10 +160,15 @@ const fieldsStore = useFieldsStore()
 const tablesStore = useTablesStore()
 const workspaceAddress = route.params.workspaceAddress as string
 const tableAddress = route.params.tableAddress as string
-const { hasPermission } = useActiveWorkspace()
+const rolesStore = useRolesStore()
+const { hasPermission, membership } = useActiveWorkspace()
+const { fetchOwnOverrides, buildLimits } = useRoleGrantLimits()
 
 /** Without it the page still lists the fields, read only. */
 const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
+
+/** Only who may change roles sees the section: it changes them. */
+const canManageRoles = computed(() => hasPermission('ROLES_MANAGE'))
 
 const { throwPageError } = useAccessResync()
 
@@ -138,6 +178,37 @@ const { data, error } = await useAsyncData(`table-${workspaceAddress}-${tableAdd
 
 if (error.value) {
   throwPageError(error.value)
+}
+
+const {
+  data: accessData,
+  status: accessStatus,
+  refresh: refreshAccess,
+} = await useAsyncData(`table-access-${workspaceAddress}-${tableAddress}`, async () => {
+  if (!canManageRoles.value) return null
+  const [roles, ownOverrides] = await Promise.all([
+    rolesStore.fetchTableAccess(workspaceAddress, tableAddress),
+    fetchOwnOverrides(),
+  ])
+  return { roles, ownOverrides }
+})
+
+const accessLimits = computed(() =>
+  accessData.value ? buildLimits(accessData.value.ownOverrides) : undefined,
+)
+
+/** The section keeps its own state across a save, which it matches; a reload starts it afresh. */
+const accessLoadCount = ref(0)
+
+async function reloadAccess() {
+  await refreshAccess()
+  accessLoadCount.value += 1
+}
+
+async function saveAccess(input: TTableAccessInput) {
+  const roles = await rolesStore.setTableAccess(workspaceAddress, tableAddress, input)
+  if (accessData.value) accessData.value = { ...accessData.value, roles }
+  return roles
 }
 
 const cachedTableRow = computed(() => tablesStore.findTable(tableAddress))

@@ -3,6 +3,7 @@ import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { prisma } from '#server/db/prisma'
 import { isMissingRow } from '#server/db/prisma-errors'
 import {
+  buildRoleWhere,
   createWorkspaceWithDefaults,
   membershipSelect,
   retryOnPublicIdCollision,
@@ -16,6 +17,7 @@ import { toHttpError } from '#server/utils/http-errors'
 import { buildWorkspaceNotFoundError } from '#server/utils/workspace-access'
 import type { IWorkspacesResponse } from '#shared/types/api'
 import type { IWorkspace, IWorkspaceMembership } from '#shared/types/workspace'
+import type { TTransferOwnershipInput } from '#shared/validation/workspace'
 
 async function listMemberships(userId: string): Promise<IWorkspacesResponse> {
   const user = await prisma.user.findUniqueOrThrow({
@@ -78,22 +80,41 @@ async function deleteWorkspace(workspaceId: string): Promise<void> {
 }
 
 /**
- * The caller has already proved ownership. They stay a member under the role they held, which is
- * why the owner always has one. The guard in the `where` refuses a member removed since the read.
+ * The caller has already proved ownership. They stay a member under the role they choose — which
+ * binds them only from now on, so the owner always has one. The guard in the `where` refuses a
+ * member removed since the read; both writes land together.
  */
-async function transferOwnership(actor: IWorkspaceMembership, memberId: string): Promise<void> {
+async function transferOwnership(
+  actor: IWorkspaceMembership,
+  { memberId, roleId }: TTransferOwnershipInput,
+): Promise<void> {
   if (memberId === actor.memberId) {
     throw createError({ statusCode: 409, statusMessage: 'You already own this workspace' })
   }
 
-  const target = await MemberService.getMember(actor.workspace.id, memberId)
+  const workspaceId = actor.workspace.id
+  const [target, role] = await Promise.all([
+    MemberService.getMember(workspaceId, memberId),
+    prisma.workspaceRole.findUnique({
+      where: buildRoleWhere(workspaceId, roleId),
+      select: { id: true },
+    }),
+  ])
+  if (!role) throw createError({ statusCode: 404, statusMessage: 'Role not found' })
 
   try {
-    await prisma.workspace.update({
-      where: { id: actor.workspace.id, members: { some: { id: memberId } } },
-      data: { ownerId: target.userId },
-      select: { id: true },
-    })
+    await prisma.$transaction([
+      prisma.workspace.update({
+        where: { id: workspaceId, members: { some: { id: memberId } } },
+        data: { ownerId: target.userId },
+        select: { id: true },
+      }),
+      prisma.workspaceMember.update({
+        where: { id: actor.memberId, workspaceId },
+        data: { roleId: role.id },
+        select: { id: true },
+      }),
+    ])
   } catch (error) {
     throw toHttpError(error, { notFound: 'Member not found' })
   }

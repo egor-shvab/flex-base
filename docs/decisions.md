@@ -312,6 +312,22 @@ Its name, permissions and every table and field row are one form and one write
 checked against the actor once. Rejected: a dialog for the role and a page for its access — two
 places to look, and two writes that could land half.
 
+### Only the owner changes the role they hold
+
+A member who manages roles can neither edit nor delete their own (`isHeldRoleLocked`, 403), from
+the role's page or a table's: narrowing it could take away what they need to undo the change —
+role management, or a table. The owner's role binds them only after a transfer, so they may; the
+transfer asks which role they keep. Rejected: refusing only the removal of `ROLES_MANAGE` — closing
+one's own tables locks one out as surely.
+
+### A table's access is set from either side, on the same rows
+
+A table's settings list every role with its row there; saving checks each role as its own page
+would (`isAccessWithin` before and after, required fields fillable) and writes them in one
+transaction. Several roles cannot share one `If-Match`, so each role's version travels in the body
+and one `updateMany` guards them all — fewer rows than asked is a 409. Rejected: per-field access
+there too — a role's fields stay on its page, where the table they belong to is already open.
+
 ### A link is seen through the caller's access to its target
 
 A RELATION whose target table the role may not read is hidden like any hidden field; one whose

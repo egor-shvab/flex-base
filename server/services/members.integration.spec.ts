@@ -90,7 +90,10 @@ describe('the members of a workspace', () => {
 
 describe('handing a workspace over', () => {
   it('makes the member its owner and keeps the old owner a member under their role', async () => {
-    await WorkspaceService.transferOwnership(owner, graceMemberId)
+    await WorkspaceService.transferOwnership(owner, {
+      memberId: graceMemberId,
+      roleId: await findRoleId('Admin'),
+    })
 
     await expect(requireMembership(grace.id, ada.workspace.publicId)).resolves.toMatchObject({
       isOwner: true,
@@ -101,8 +104,23 @@ describe('handing a workspace over', () => {
     })
   })
 
+  it('keeps the old owner a member under the role they chose instead', async () => {
+    await WorkspaceService.transferOwnership(owner, {
+      memberId: graceMemberId,
+      roleId: await findRoleId('Viewer'),
+    })
+
+    await expect(requireMembership(ada.id, ada.workspace.publicId)).resolves.toMatchObject({
+      isOwner: false,
+      role: { name: 'Viewer' },
+    })
+  })
+
   it('lets the old owner leave, and keeps the new one from it', async () => {
-    await WorkspaceService.transferOwnership(owner, graceMemberId)
+    await WorkspaceService.transferOwnership(owner, {
+      memberId: graceMemberId,
+      roleId: await findRoleId('Admin'),
+    })
 
     await WorkspaceService.leaveWorkspace(await requireMembership(ada.id, ada.workspace.publicId))
     await expect(
@@ -125,7 +143,12 @@ describe('handing a workspace over', () => {
       })
     ).id
 
-    await expect(WorkspaceService.transferOwnership(owner, malloryMemberId)).rejects.toMatchObject({
+    await expect(
+      WorkspaceService.transferOwnership(owner, {
+        memberId: malloryMemberId,
+        roleId: await findRoleId('Admin'),
+      }),
+    ).rejects.toMatchObject({
       statusCode: 404,
     })
     await expect(

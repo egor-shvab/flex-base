@@ -37,7 +37,7 @@
     <LazyTransferOwnershipModal
       v-if="isTransferOpen && membership"
       :workspace-address="workspaceAddress"
-      :own-role-name="membership.role.name"
+      :own-role-id="membership.role.id"
       :submit-handler="transferOwnership"
       @saved="isTransferOpen = false"
       @close="isTransferOpen = false"
@@ -79,6 +79,7 @@ import { useTablesStore } from '~/stores/tables'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { formatCount } from '~/utils/format'
 import { toRecordTotal } from '~/utils/table-records'
+import type { TTransferOwnershipInput } from '#shared/validation/workspace'
 
 const workspacesStore = useWorkspacesStore()
 const tablesStore = useTablesStore()
@@ -114,8 +115,8 @@ const {
 
 const isTransferOpen = ref(false)
 
-async function transferOwnership(memberId: string) {
-  await workspacesStore.transferOwnership(workspaceAddress.value, memberId)
+async function transferOwnership(input: TTransferOwnershipInput) {
+  await workspacesStore.transferOwnership(workspaceAddress.value, input)
 }
 
 const {

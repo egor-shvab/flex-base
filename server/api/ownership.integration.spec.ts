@@ -24,6 +24,8 @@ import roleGet from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].ge
 import rolePut from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].put'
 import roleDelete from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].delete'
 import tableGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].get'
+import tableAccessGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/access.get'
+import tableAccessPut from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/access.put'
 import tablePatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].patch'
 import tableDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].delete'
 import fieldsGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/index.get'
@@ -40,6 +42,7 @@ import tablesGet from '#server/api/workspaces/[workspaceAddress]/tables/index.ge
 import tablesPost from '#server/api/workspaces/[workspaceAddress]/tables/index.post'
 import { prisma } from '#server/db/prisma'
 import type { TTableRouteAccess } from '#server/utils/handler'
+import { NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { ITableAccess } from '#shared/types/workspace'
 import { testEvent } from '~~/test/integration/event'
 import { buildTableAccess, buildRoleInput } from '~~/test/membership'
@@ -171,7 +174,7 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       handler: workspaceTransferPost,
       access: 'OWNER',
       params: workspaceParams,
-      body: { memberId: adaMemberId },
+      body: { memberId: adaMemberId, roleId: viewerRoleId },
       method: 'POST',
     },
     { name: 'GET /members', handler: membersGet, access: 'READ', params: workspaceParams },
@@ -257,6 +260,22 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       method: 'POST',
     },
     { name: 'GET /tables/:id', handler: tableGet, access: 'READ', params: tableParams },
+    {
+      name: 'GET /tables/:id/access',
+      handler: tableAccessGet,
+      access: 'ROLES_MANAGE',
+      params: tableParams,
+    },
+    {
+      name: 'PUT /tables/:id/access',
+      handler: tableAccessPut,
+      access: 'ROLES_MANAGE',
+      params: tableParams,
+      body: {
+        roles: [{ roleId: viewerRoleId, updatedAt: new Date(0).toISOString(), ...NO_TABLE_ACCESS }],
+      },
+      method: 'PUT',
+    },
     {
       name: 'PATCH /tables/:id',
       handler: tablePatch,
@@ -500,7 +519,10 @@ describe('a role’s row for a table decides its access there', () => {
 
   const tableRoutes = () =>
     scopedEndpoints().filter(
-      (endpoint) => 'tableAddress' in endpoint.params && endpoint.access !== 'TABLES_MANAGE',
+      (endpoint) =>
+        'tableAddress' in endpoint.params &&
+        endpoint.access !== 'TABLES_MANAGE' &&
+        endpoint.access !== 'ROLES_MANAGE',
     )
 
   it('hides the table: unlisted, and every route under it a 404 as if it did not exist', async () => {
@@ -991,6 +1013,82 @@ describe('a member who manages roles stays within their own permissions', () => 
     await expect(
       prisma.workspaceRole.findUniqueOrThrow({ where: { id: adminId } }),
     ).resolves.toMatchObject({ permissions: expect.arrayContaining(['TABLES_MANAGE']) })
+  })
+
+  it('cannot change or delete the role they hold, which would lock them out', async () => {
+    const managerId = (
+      await prisma.workspaceRole.findUniqueOrThrow({
+        where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Manager' } },
+        select: { id: true },
+      })
+    ).id
+
+    await expect(
+      rolePut(roleEvent('PUT', buildRoleInput('Manager'), managerId)),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      statusMessage: 'Only the workspace owner can change the role you hold',
+    })
+    await expect(roleDelete(roleEvent('DELETE', undefined, managerId))).rejects.toMatchObject({
+      statusCode: 403,
+    })
+  })
+
+  describe('from the table’s side', () => {
+    const accessEvent = (roles: unknown[]) =>
+      testEvent({
+        user: world.mallory,
+        method: 'PUT',
+        body: { roles },
+        params: { workspaceAddress: adaWorkspace(), tableAddress: world.tableId },
+      })
+
+    const viewerChange = async (access: Partial<ITableAccess>) => {
+      const { updatedAt } = await prisma.workspaceRole.findUniqueOrThrow({
+        where: { id: world.viewerRoleId },
+        select: { updatedAt: true },
+      })
+      return {
+        roleId: world.viewerRoleId,
+        updatedAt: updatedAt.toISOString(),
+        ...buildTableAccess(access),
+      }
+    }
+
+    it('opens a table to a role within what they hold, and reads it back', async () => {
+      const { roles } = await tableAccessPut(accessEvent([await viewerChange({ canCreate: true })]))
+
+      expect(roles.find((entry) => entry.role.id === world.viewerRoleId)?.access).toEqual(
+        buildTableAccess({ canCreate: true }),
+      )
+    })
+
+    it('cannot raise a role above themselves there either', async () => {
+      await expect(
+        tableAccessPut(accessEvent([await viewerChange({ deleteScope: 'ALL' })])),
+      ).rejects.toMatchObject({ statusCode: 403 })
+    })
+
+    it('cannot change the role they hold there', async () => {
+      const manager = await prisma.workspaceRole.findUniqueOrThrow({
+        where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Manager' } },
+        select: { id: true, updatedAt: true },
+      })
+
+      await expect(
+        tableAccessPut(
+          accessEvent([
+            { roleId: manager.id, updatedAt: manager.updatedAt.toISOString(), ...NO_TABLE_ACCESS },
+          ]),
+        ),
+      ).rejects.toMatchObject({ statusCode: 403 })
+    })
+
+    it('refuses a version someone has since replaced', async () => {
+      const stale = { ...(await viewerChange({})), updatedAt: new Date(0).toISOString() }
+
+      await expect(tableAccessPut(accessEvent([stale]))).rejects.toMatchObject({ statusCode: 412 })
+    })
   })
 })
 

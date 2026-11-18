@@ -20,47 +20,57 @@
     </BaseErrorBanner>
 
     <template v-else-if="data && limits && membership">
-      <BaseErrorBanner v-if="!data.detail.role.isWithinCaller">
+      <BaseErrorBanner v-if="isHeldRoleLocked(membership, roleId)">
+        This is your role, so only the workspace owner can change it.
+      </BaseErrorBanner>
+
+      <BaseErrorBanner v-else-if="!data.detail.role.isWithinCaller">
         This role grants more than yours, so you can’t change it.
       </BaseErrorBanner>
 
-      <RoleEditor
-        v-else
-        :key="loadCount"
-        :actor="membership"
-        :role="data.detail.role"
-        :overrides="data.detail.overrides"
-        :tables="data.detail.tables"
-        :limits="limits"
-        :cancel-to="pagePath.workspaceSettings(workspaceAddress, 'roles')"
-        :submit-handler="saveRole"
-        @reload="reload"
-      >
-        <BaseCard tone="danger">
-          <BaseActionRow title="Delete role" tone="danger">
-            <template v-if="data.detail.role.memberCount > 0">
-              {{ formatCount(data.detail.role.memberCount, 'member') }}
-              {{ data.detail.role.memberCount === 1 ? 'has' : 'have' }} this role. Give them another
-              role on the
-              <NuxtLink
-                class="g-text-link"
-                :to="pagePath.workspaceSettings(workspaceAddress, 'members')"
-              >
-                Members
-              </NuxtLink>
-              page, then it can be deleted.
-            </template>
-            <template v-else>
-              Delete this role for good. Invitations that offer it must be revoked first.
-            </template>
-            <template v-if="data.detail.role.memberCount === 0" #action>
-              <BaseButton variant="danger" @click="deleteTarget = data.detail.role">
-                Delete role
-              </BaseButton>
-            </template>
-          </BaseActionRow>
-        </BaseCard>
-      </RoleEditor>
+      <template v-else>
+        <p v-if="membership.isOwner && membership.role.id === roleId" class="g-note">
+          This is your role. As the owner you may do everything regardless; it applies to you once
+          you hand the workspace over.
+        </p>
+
+        <RoleEditor
+          :key="loadCount"
+          :actor="membership"
+          :role="data.detail.role"
+          :overrides="data.detail.overrides"
+          :tables="data.detail.tables"
+          :limits="limits"
+          :cancel-to="pagePath.workspaceSettings(workspaceAddress, 'roles')"
+          :submit-handler="saveRole"
+          @reload="reload"
+        >
+          <BaseCard tone="danger">
+            <BaseActionRow title="Delete role" tone="danger">
+              <template v-if="data.detail.role.memberCount > 0">
+                {{ formatCount(data.detail.role.memberCount, 'member') }}
+                {{ data.detail.role.memberCount === 1 ? 'has' : 'have' }} this role. Give them
+                another role on the
+                <NuxtLink
+                  class="g-text-link"
+                  :to="pagePath.workspaceSettings(workspaceAddress, 'members')"
+                >
+                  Members
+                </NuxtLink>
+                page, then it can be deleted.
+              </template>
+              <template v-else>
+                Delete this role for good. Invitations that offer it must be revoked first.
+              </template>
+              <template v-if="data.detail.role.memberCount === 0" #action>
+                <BaseButton variant="danger" @click="deleteTarget = data.detail.role">
+                  Delete role
+                </BaseButton>
+              </template>
+            </BaseActionRow>
+          </BaseCard>
+        </RoleEditor>
+      </template>
     </template>
 
     <LazyConfirmModal
@@ -88,6 +98,7 @@ import { getApiErrorMessage } from '~/utils/api-error'
 import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
 import type { IWorkspaceRole } from '#shared/types/workspace'
+import { isHeldRoleLocked } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 const route = useRoute()

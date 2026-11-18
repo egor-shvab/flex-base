@@ -3,6 +3,7 @@ import type {
   IManagedMember,
   ITableAccess,
   IWorkspaceActor,
+  IWorkspaceMembership,
   TRecordAction,
   TRecordScope,
   TWorkspacePermission,
@@ -60,4 +61,15 @@ export function canManageMember(
   if (member.isOwner || member.id === actor.memberId) return false
 
   return isRoleWithinActor
+}
+
+/**
+ * Only the owner changes the role they hold: anyone else could narrow it below what they need to
+ * undo the change — their own role management, or a table they would no longer see.
+ */
+export function isHeldRoleLocked(
+  actor: Pick<IWorkspaceMembership, 'isOwner' | 'role'>,
+  roleId: string,
+): boolean {
+  return !actor.isOwner && actor.role.id === roleId
 }
