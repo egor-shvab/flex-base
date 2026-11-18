@@ -63,16 +63,25 @@ To start from something to look at rather than an empty account, seed the demo w
 npm run db:seed
 ```
 
-It signs in as `test@test.com` / `testtest`, the workspace owner, and adds `editor@test.com` /
-`testtest` as a member with the Editor role, narrowed to show each kind of limit: Invoices is
-hidden from it, so is the Annual budget field of Clients, and in Tasks it changes only the records
-it created — sign in as them to see what a role hides. It creates
-eight tables — clients, people, projects,
-tasks, invoices and three smaller ones — holding around 445 records between them, covering every
-field type, both single- and multi-value fields, and the empty, single-row and multi-page list
-states, in a workspace at a fixed address the seed prints. Re-running it replaces those two accounts
-and their workspaces and touches nothing else on the database; it is also available as
-`npx prisma db seed`.
+It creates a team of eight in one workspace, at a fixed address the seed prints. Every account's
+password is **`demo1234`**; sign in as different people to see what each role shows and hides.
+
+| Email               | Name           | Role                   | What to look at                                                       |
+| ------------------- | -------------- | ---------------------- | --------------------------------------------------------------------- |
+| `anna_1@demo.com`   | Anna Petrova   | Admin, workspace owner | everything; her role binds her only after a transfer                  |
+| `boris_2@demo.com`  | Boris Ivanov   | Admin                  | every permission, but cannot delete or hand over the workspace        |
+| `clara_3@demo.com`  | Clara Novak    | Project manager        | clients, projects and tasks; invites people                           |
+| `dmitry_4@demo.com` | Dmitry Sokolov | Project manager        | the same role as Clara; cannot delete the clients Clara added         |
+| `elena_5@demo.com`  | Elena Moroz    | Accountant             | invoices and equipment; Tasks and Ideas are hidden                    |
+| `felix_6@demo.com`  | Felix Weber    | Consultant             | edits and deletes only his own tasks; budgets and Invoices are hidden |
+| `grace_7@demo.com`  | Grace Lin      | Consultant             | the same role as Felix: sees his tasks but cannot change them         |
+| `hugo_8@demo.com`   | Hugo Martin    | Intern                 | read only; budgets and people's email and phone are hidden            |
+
+Each also owns a personal workspace, as registration leaves it. The workspace holds eight tables —
+clients, people, projects, tasks, invoices and three smaller ones — with around 445 records between
+them, covering every field type, both single- and multi-value fields, and the empty, single-row
+and multi-page list states. Re-running it replaces those accounts and their workspaces and touches
+nothing else on the database; it is also available as `npx prisma db seed`.
 
 ## Commands
 

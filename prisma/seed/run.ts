@@ -4,45 +4,28 @@ import { prisma } from '#server/db/prisma'
 import { reconcileFieldIndexes } from '#server/db/field-indexes'
 import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithDefaults } from '#server/db/workspaces'
 import { hashPassword } from '#server/utils/auth'
-import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
-import type { ITableAccess } from '#shared/types/workspace'
+import type { IField } from '#shared/types/field'
 import { compileDataset } from '~~/prisma/seed/compile'
+import {
+  DEMO_AUTHORS,
+  DEMO_MEMBERS,
+  DEMO_PASSWORD,
+  DEMO_ROLES,
+  DEMO_WORKSPACE_NAME,
+  RETIRED_SEED_EMAILS,
+} from '~~/prisma/seed/demo-team'
 import { idFor } from '~~/prisma/seed/ids'
 import { SEED_TABLES } from '~~/prisma/seed/dataset'
-import type { ICompiledTable } from '~~/prisma/seed/compile'
+import type { ICompiledRecord, ICompiledTable } from '~~/prisma/seed/compile'
 
 /**
- * The only destructive statement deletes one user row, never a `TRUNCATE`: this runs against the
- * development database. The display counters are set by hand, having no database default.
+ * The only destructive statements delete the demo accounts' rows, never a `TRUNCATE`: this runs
+ * against the development database. The display counters are set by hand, having no database
+ * default.
  */
 
-const DEMO_EMAIL = 'test@test.com'
-const DEMO_PASSWORD = 'testtest'
-const DEMO_NAME = 'Demo User'
-const DEMO_WORKSPACE_NAME = 'Demo workspace'
-const DEMO_WORKSPACE_ADDRESS = idFor(`workspace:${DEMO_EMAIL}`).slice(1, 11)
-
-// A member, not an owner, so what a role hides can be seen by signing in as them
-const EDITOR_EMAIL = 'editor@test.com'
-const EDITOR_NAME = 'Demo Editor'
-const EDITOR_ROLE_NAME = 'Editor'
-
-/**
- * What the Editor is narrowed to, so signing in as them shows each kind of limit: a table they do
- * not see, a field hidden from them, and a table where they change only the records they made.
- */
-const EDITOR_LIMITS = {
-  hiddenTable: 'Invoices',
-  hiddenField: { table: 'Clients', field: 'Annual budget' },
-  ownRecordsTable: 'Tasks',
-}
-
-/** What each default role may do in every seeded table, before the Editor's limits. */
-const SEED_ROLE_ACCESS: Record<string, ITableAccess> = {
-  Admin: FULL_TABLE_ACCESS,
-  [EDITOR_ROLE_NAME]: FULL_TABLE_ACCESS,
-  Viewer: { readScope: 'ALL', canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' },
-}
+const OWNER = DEMO_MEMBERS[0]!
+const DEMO_WORKSPACE_ADDRESS = idFor(`workspace:${OWNER.email}`).slice(1, 11)
 
 function requireSeedTable(tables: ICompiledTable[], name: string): ICompiledTable {
   const table = tables.find((candidate) => candidate.name === name)
@@ -50,50 +33,54 @@ function requireSeedTable(tables: ICompiledTable[], name: string): ICompiledTabl
   return table
 }
 
-/** A table is closed to a role without a row, so every role is given its seeded tables here. */
-async function grantSeedAccess(workspaceId: string, tables: ICompiledTable[]): Promise<void> {
-  const roles = await prisma.workspaceRole.findMany({
-    where: { workspaceId },
-    select: { id: true, name: true },
+function requireSeedField(table: ICompiledTable, name: string): IField {
+  const field = table.fields.find((candidate) => candidate.name === name)
+  if (!field) throw new Error(`The seed has no field named ${name} in ${table.name}`)
+  return field
+}
+
+/** A table is closed to a role without a row, so every role is given its tables here. */
+async function grantDemoAccess(
+  workspaceId: string,
+  tables: ICompiledTable[],
+  roleIdByName: ReadonlyMap<string, string>,
+): Promise<void> {
+  const roleIdFor = (name: string) => {
+    const roleId = roleIdByName.get(name)
+    if (!roleId) throw new Error(`The workspace has no role named ${name}`)
+    return roleId
+  }
+
+  await prisma.roleTableAccess.createMany({
+    data: DEMO_ROLES.flatMap((role) =>
+      Object.entries(role.tables).map(([tableName, access]) => ({
+        workspaceId,
+        roleId: roleIdFor(role.name),
+        tableId: requireSeedTable(tables, tableName).id,
+        ...access,
+      })),
+    ),
   })
-  const editorRole = roles.find((role) => role.name === EDITOR_ROLE_NAME)
-  if (!editorRole) throw new Error(`The workspace has no role named ${EDITOR_ROLE_NAME}`)
-
-  const clients = requireSeedTable(tables, EDITOR_LIMITS.hiddenField.table)
-  const hiddenField = clients.fields.find((field) => field.name === EDITOR_LIMITS.hiddenField.field)
-  if (!hiddenField)
-    throw new Error(`The seed has no field named ${EDITOR_LIMITS.hiddenField.field}`)
-  const hiddenTableId = requireSeedTable(tables, EDITOR_LIMITS.hiddenTable).id
-  const ownRecordsTableId = requireSeedTable(tables, EDITOR_LIMITS.ownRecordsTable).id
-
-  const rows = roles.flatMap((role) => {
-    const access = SEED_ROLE_ACCESS[role.name]
-    if (!access) return []
-
-    return tables.flatMap((table) => {
-      if (role.id !== editorRole.id)
-        return [{ workspaceId, roleId: role.id, tableId: table.id, ...access }]
-      if (table.id === hiddenTableId) return []
-      if (table.id === ownRecordsTableId) {
-        return [
-          {
-            workspaceId,
-            roleId: role.id,
-            tableId: table.id,
-            ...access,
-            updateScope: 'OWN' as const,
-            deleteScope: 'OWN' as const,
-          },
-        ]
-      }
-      return [{ workspaceId, roleId: role.id, tableId: table.id, ...access }]
-    })
+  await prisma.roleFieldAccess.createMany({
+    data: DEMO_ROLES.flatMap((role) =>
+      role.fields.map((row) => ({
+        workspaceId,
+        roleId: roleIdFor(role.name),
+        fieldId: requireSeedField(requireSeedTable(tables, row.table), row.field).id,
+        access: row.access,
+      })),
+    ),
   })
+}
 
-  await prisma.roleTableAccess.createMany({ data: rows })
-  await prisma.roleFieldAccess.create({
-    data: { workspaceId, roleId: editorRole.id, fieldId: hiddenField.id, access: 'HIDDEN' },
-  })
+/** A record's author: the member `DEMO_AUTHORS` names for it, or else the owner. */
+function buildAuthorFor(ownerId: string) {
+  return (table: ICompiledTable, record: ICompiledRecord): string => {
+    const author = DEMO_AUTHORS.find(
+      (entry) => entry.table === table.name && record.number % entry.every === entry.offset,
+    )
+    return author ? idFor(`user:${author.email}`) : ownerId
+  }
 }
 
 function assertSeedableEnvironment(): void {
@@ -108,7 +95,7 @@ function assertSeedableEnvironment(): void {
 
 async function writeTable(
   workspaceId: string,
-  userId: string,
+  authorFor: (table: ICompiledTable, record: ICompiledRecord) => string,
   table: ICompiledTable,
 ): Promise<void> {
   await prisma.table.create({
@@ -146,8 +133,8 @@ async function writeTable(
       data: record.data as Prisma.InputJsonObject,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
-      createdById: userId,
-      updatedById: userId,
+      createdById: authorFor(table, record),
+      updatedById: authorFor(table, record),
     })),
   })
 }
@@ -157,21 +144,27 @@ async function seed(): Promise<void> {
 
   const tables = compileDataset(SEED_TABLES)
 
-  const demoEmails = [DEMO_EMAIL, EDITOR_EMAIL]
+  const seededEmails = [...DEMO_MEMBERS.map((member) => member.email), ...RETIRED_SEED_EMAILS]
 
   // The owners' workspaces first: `Workspace.ownerId` restricts deleting the user
-  await prisma.workspace.deleteMany({ where: { owner: { email: { in: demoEmails } } } })
-  await prisma.user.deleteMany({ where: { email: { in: demoEmails } } })
+  await prisma.workspace.deleteMany({ where: { owner: { email: { in: seededEmails } } } })
+  await prisma.user.deleteMany({ where: { email: { in: seededEmails } } })
 
   const passwordHash = await hashPassword(DEMO_PASSWORD)
+  const ownerId = idFor(`user:${OWNER.email}`)
 
-  const { user, workspace } = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: { id: idFor(`user:${DEMO_EMAIL}`), email: DEMO_EMAIL, name: DEMO_NAME, passwordHash },
-      select: { id: true },
+  const { workspaceId, roleIdByName } = await prisma.$transaction(async (tx) => {
+    await tx.user.createMany({
+      data: DEMO_MEMBERS.map((member) => ({
+        id: idFor(`user:${member.email}`),
+        email: member.email,
+        name: member.name,
+        passwordHash,
+      })),
     })
+
     const created = await createWorkspaceWithDefaults(tx, {
-      ownerId: user.id,
+      ownerId,
       name: DEMO_WORKSPACE_NAME,
     })
     // A fixed address, so a bookmark survives a reseed; hex is within the address alphabet
@@ -180,46 +173,76 @@ async function seed(): Promise<void> {
       data: { publicId: DEMO_WORKSPACE_ADDRESS, tableCounter: tables.length },
       select: { id: true },
     })
-    await tx.user.update({ where: { id: user.id }, data: { lastWorkspaceId: workspace.id } })
+
+    // The default roles but Admin give way to the demo's
+    const demoRoleNames = DEMO_ROLES.map((role) => role.name)
+    await tx.workspaceRole.deleteMany({
+      where: { workspaceId: workspace.id, name: { notIn: demoRoleNames } },
+    })
+    const existing = await tx.workspaceRole.findMany({
+      where: { workspaceId: workspace.id },
+      select: { name: true },
+    })
+    await tx.workspaceRole.createMany({
+      data: DEMO_ROLES.filter((role) => !existing.some((row) => row.name === role.name)).map(
+        (role) => ({
+          workspaceId: workspace.id,
+          name: role.name,
+          permissions: [...role.permissions],
+        }),
+      ),
+    })
+    const roles = await tx.workspaceRole.findMany({
+      where: { workspaceId: workspace.id },
+      select: { id: true, name: true },
+    })
+    const roleIdByName = new Map(roles.map((role) => [role.name, role.id]))
+
+    await tx.workspaceMember.createMany({
+      data: DEMO_MEMBERS.slice(1).map((member) => ({
+        workspaceId: workspace.id,
+        userId: idFor(`user:${member.email}`),
+        roleId: roleIdByName.get(member.roleName)!,
+      })),
+    })
+    // The owner joined under Admin when the workspace was made
+    if (OWNER.roleName !== 'Admin') {
+      await tx.workspaceMember.update({
+        where: { workspaceId_userId: { workspaceId: workspace.id, userId: ownerId } },
+        data: { roleId: roleIdByName.get(OWNER.roleName)! },
+      })
+    }
 
     // Every account owns a personal workspace, as registration leaves it
-    const editor = await tx.user.create({
-      data: {
-        id: idFor(`user:${EDITOR_EMAIL}`),
-        email: EDITOR_EMAIL,
-        name: EDITOR_NAME,
-        passwordHash,
-        lastWorkspaceId: workspace.id,
-      },
-      select: { id: true },
-    })
-    await createWorkspaceWithDefaults(tx, { ownerId: editor.id, name: PERSONAL_WORKSPACE_NAME })
-    await tx.workspaceMember.create({
-      data: {
-        workspace: { connect: { id: workspace.id } },
-        user: { connect: { id: editor.id } },
-        role: {
-          connect: { workspaceId_name: { workspaceId: workspace.id, name: EDITOR_ROLE_NAME } },
-        },
-      },
-      select: { id: true },
+    for (const member of DEMO_MEMBERS.slice(1)) {
+      await createWorkspaceWithDefaults(tx, {
+        ownerId: idFor(`user:${member.email}`),
+        name: PERSONAL_WORKSPACE_NAME,
+      })
+    }
+    await tx.user.updateMany({
+      where: { id: { in: DEMO_MEMBERS.map((member) => idFor(`user:${member.email}`)) } },
+      data: { lastWorkspaceId: workspace.id },
     })
 
-    return { user, workspace }
+    return { workspaceId: workspace.id, roleIdByName }
   })
 
-  for (const table of tables) await writeTable(workspace.id, user.id, table)
-  await grantSeedAccess(workspace.id, tables)
+  const authorFor = buildAuthorFor(ownerId)
+  for (const table of tables) await writeTable(workspaceId, authorFor, table)
+  await grantDemoAccess(workspaceId, tables, roleIdByName)
 
   // `CONCURRENTLY` is refused inside a transaction, and nothing else indexes a directly inserted
   // field
   const indexes = await reconcileFieldIndexes()
 
   const report = [
-    `Seeded ${DEMO_EMAIL} (password: ${DEMO_PASSWORD}) in /w/${DEMO_WORKSPACE_ADDRESS}`,
-    `  and ${EDITOR_EMAIL} (same password) as its ${EDITOR_ROLE_NAME}: ${EDITOR_LIMITS.hiddenTable} ` +
-      `hidden, ${EDITOR_LIMITS.hiddenField.table} › ${EDITOR_LIMITS.hiddenField.field} hidden, ` +
-      `only own records changed in ${EDITOR_LIMITS.ownRecordsTable}`,
+    `Seeded ${DEMO_WORKSPACE_NAME} at /w/${DEMO_WORKSPACE_ADDRESS}; every account's password is ${DEMO_PASSWORD}`,
+    ...DEMO_MEMBERS.map(
+      (member, index) =>
+        `  ${member.email.padEnd(20)} ${member.name.padEnd(16)} ${member.roleName}` +
+        (index === 0 ? ', owner' : ''),
+    ),
     ...tables.map(
       (table) =>
         `  ${table.name.padEnd(18)} ${String(table.records.length).padStart(4)} records, ` +
