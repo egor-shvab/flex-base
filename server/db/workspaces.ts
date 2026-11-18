@@ -6,7 +6,7 @@ import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IPermissionSet,
   IRoleGrants,
-  IRoleOverrides,
+  IRoleRows,
   IWorkspace,
   IWorkspaceMember,
   IWorkspaceMembership,
@@ -59,7 +59,7 @@ export const roleSelect = {
   },
 } satisfies Prisma.WorkspaceRoleSelect
 
-const tableOverrideSelect = {
+const tableAccessRowSelect = {
   tableId: true,
   readScope: true,
   canCreate: true,
@@ -73,7 +73,7 @@ export const roleGrantsSelect = {
   name: true,
   updatedAt: true,
   ...permissionSetSelect,
-  tableAccess: { select: tableOverrideSelect },
+  tableAccess: { select: tableAccessRowSelect },
   fieldAccess: { select: { fieldId: true, access: true } },
 } satisfies Prisma.WorkspaceRoleSelect
 
@@ -123,7 +123,7 @@ export function toPermissionSet(row: TPermissionSetRow): IPermissionSet {
   return { permissions: row.permissions }
 }
 
-export function toRoleOverrides(row: TRoleGrantsRow): IRoleOverrides {
+export function toRoleRows(row: TRoleGrantsRow): IRoleRows {
   return {
     tables: row.tableAccess.map((table) => ({ ...table })),
     fields: row.fieldAccess.map((field) => ({ ...field })),
@@ -131,7 +131,7 @@ export function toRoleOverrides(row: TRoleGrantsRow): IRoleOverrides {
 }
 
 export function toRoleGrants(row: TRoleGrantsRow): IRoleGrants {
-  return { ...toPermissionSet(row), ...toRoleOverrides(row) }
+  return { ...toPermissionSet(row), ...toRoleRows(row) }
 }
 
 export function toSharedWorkspace(row: TWorkspaceRow): IWorkspace {

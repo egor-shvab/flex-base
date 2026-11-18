@@ -10,7 +10,7 @@ import {
   buildRoleTableAccessSelect,
   tableListSelect,
   toSharedTableListItem,
-  toTableOverride,
+  toTableAccess,
 } from '#server/db/tables'
 import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { ITableListItem } from '#shared/types/table'
@@ -31,7 +31,7 @@ async function listTables(membership: IWorkspaceMembership): Promise<ITableListI
   })
 
   return tables.map((row) =>
-    toSharedTableListItem(row, resolveTableAccess(membership, toTableOverride(row.roleAccess))),
+    toSharedTableListItem(row, resolveTableAccess(membership, toTableAccess(row.roleAccess))),
   )
 }
 

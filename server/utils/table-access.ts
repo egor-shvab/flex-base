@@ -13,7 +13,7 @@ import {
   buildTableAddressWhere,
   tableSelect,
   toSharedTable,
-  toTableOverride,
+  toTableAccess,
 } from '#server/db/tables'
 import type { IField } from '#shared/types/field'
 import type { ITable } from '#shared/types/table'
@@ -70,9 +70,9 @@ export interface IWorkspaceTableFields extends ITableScope, IFieldScope {
 /** A table the caller's role may not read is the same 404 as one that does not exist. */
 function requireReadableAccess(
   membership: IWorkspaceMembership,
-  overrides: readonly ITableAccess[],
+  rows: readonly ITableAccess[],
 ): ITableAccess {
-  const access = resolveTableAccess(membership, toTableOverride(overrides))
+  const access = resolveTableAccess(membership, toTableAccess(rows))
 
   if (!canReadRecords(access)) throw buildTableNotFoundError()
 
@@ -147,7 +147,7 @@ async function listRelationTargetViews(
   const views = new Map<string, IRelationTargetView>()
 
   for (const target of targets) {
-    const access = resolveTableAccess(membership, toTableOverride(target.roleAccess))
+    const access = resolveTableAccess(membership, toTableAccess(target.roleAccess))
     const hiddenKeys = new Set(
       target.fields
         .filter(

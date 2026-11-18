@@ -89,7 +89,7 @@ import { WORKSPACE_PERMISSION_TEXT } from '~/utils/workspace-permissions'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IAccessTable,
-  IRoleOverrides,
+  IRoleRows,
   IWorkspaceActor,
   IWorkspaceRole,
   TWorkspacePermission,
@@ -105,14 +105,15 @@ const props = withDefaults(
   defineProps<{
     actor: IWorkspaceActor
     role?: IWorkspaceRole
-    overrides?: IRoleOverrides
+    /** The role's rows, as `IRoleDetailResponse.overrides` carries them. */
+    rows?: IRoleRows
     tables: IAccessTable[]
     limits: IAccessLimits
     /** Where Cancel leads while creating. */
     cancelTo: string
     submitHandler: (input: TRoleInput) => Promise<void>
   }>(),
-  { role: undefined, overrides: () => ({ tables: [], fields: [] }) },
+  { role: undefined, rows: () => ({ tables: [], fields: [] }) },
 )
 
 const emit = defineEmits<{ reload: [] }>()
@@ -129,8 +130,8 @@ function toInitialRole(): TRoleInput {
   return {
     name: props.role?.name ?? '',
     permissions: [...(props.role?.permissions ?? [])],
-    tables: props.overrides.tables.map((row) => ({ ...row })),
-    fields: props.overrides.fields.map((row) => ({ ...row })),
+    tables: props.rows.tables.map((row) => ({ ...row })),
+    fields: props.rows.fields.map((row) => ({ ...row })),
   }
 }
 

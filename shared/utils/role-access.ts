@@ -26,7 +26,7 @@ export function toRoleHolder<TRole extends IPermissionSet>(
 }
 
 /** A role's row for one table, without its key; `null` where the table is closed to the role. */
-export function findTableOverride(
+export function findTableAccess(
   grants: Pick<IRoleGrants, 'tables'>,
   tableId: string,
 ): ITableAccess | null {
@@ -66,8 +66,8 @@ export function isAccessWithin(
   const subjectHolder = toRoleHolder(subject)
 
   return tables.every((table) => {
-    const subjectAccess = resolveTableAccess(subjectHolder, findTableOverride(subject, table.id))
-    const holderAccess = resolveTableAccess(holder, findTableOverride(holder, table.id))
+    const subjectAccess = resolveTableAccess(subjectHolder, findTableAccess(subject, table.id))
+    const holderAccess = resolveTableAccess(holder, findTableAccess(holder, table.id))
 
     if (!isTableAccessWithin(subjectAccess, holderAccess)) return false
     if (!canReadRecords(subjectAccess)) return true

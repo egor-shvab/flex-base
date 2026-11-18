@@ -32,7 +32,7 @@ let membershipRequests = 0
 let savedRole: { body: unknown; ifMatch: string | undefined } | null = null
 
 const ACCESS_TABLES = [{ id: 'tbl_deals', name: 'Deals', fields: [] }]
-const NO_OVERRIDES = { tables: [], fields: [] }
+const NO_ROWS = { tables: [], fields: [] }
 
 registerEndpoint(`/api/workspaces/${WS}/roles/tables`, {
   method: 'GET',
@@ -56,7 +56,7 @@ registerEndpoint(`/api/workspaces/${WS}/roles/rol_2`, {
     savedRole = { body: await readBody(event), ifMatch: headers.get('if-match') ?? undefined }
     return {
       role: { ...buildRole('rol_2', 'Reader'), updatedAt: '2026-03-01T10:00:00.000Z' },
-      overrides: NO_OVERRIDES,
+      overrides: NO_ROWS,
       tables: ACCESS_TABLES,
     }
   },
@@ -78,7 +78,7 @@ registerEndpoint(`/api/workspaces/${WS}/roles`, {
     const { name, permissions } = await readBody(event)
     return {
       role: { ...buildRole('rol_new', ''), name, permissions },
-      overrides: NO_OVERRIDES,
+      overrides: NO_ROWS,
       tables: ACCESS_TABLES,
     }
   },
@@ -88,7 +88,7 @@ registerEndpoint(`/api/workspaces/${WS}/roles/rol_mine`, {
   method: 'PUT',
   handler: () => ({
     role: buildRole('rol_mine', 'Lead', 1),
-    overrides: NO_OVERRIDES,
+    overrides: NO_ROWS,
     tables: ACCESS_TABLES,
   }),
 })

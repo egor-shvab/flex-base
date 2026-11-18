@@ -45,7 +45,7 @@ export function buildRoleTableAccessSelect(roleId: string) {
   } satisfies Prisma.TableSelect
 }
 
-export function toTableOverride(rows: readonly ITableAccess[]): ITableAccess | null {
+export function toTableAccess(rows: readonly ITableAccess[]): ITableAccess | null {
   return rows[0] ?? null
 }
 

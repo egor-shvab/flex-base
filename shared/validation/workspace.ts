@@ -46,7 +46,7 @@ function checkActionsWithinRead(
 }
 
 /** A role's row for a table always reads there: a table closed to the role has no row. */
-export const tableAccessOverrideSchema = z
+export const tableAccessRowSchema = z
   .object({ tableId: idSchema, ...tableAccessFields })
   .superRefine(checkActionsWithinRead)
   .refine((row) => row.readScope !== 'NONE', {
@@ -68,7 +68,7 @@ export const roleInputSchema = z.object({
     .array(z.enum(WORKSPACE_PERMISSIONS))
     .refine(hasNoRepeat, 'A permission is listed twice'),
   tables: z
-    .array(tableAccessOverrideSchema)
+    .array(tableAccessRowSchema)
     .refine((rows) => hasNoRepeat(rows.map((row) => row.tableId)), 'A table is listed twice'),
   fields: z
     .array(z.object({ fieldId: idSchema, access: z.enum(FIELD_ACCESS_OVERRIDES) }))

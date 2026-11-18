@@ -4,7 +4,7 @@ import type { IRecord, IRecordOption } from '#shared/types/record'
 import type { ITable, ITableListItem } from '#shared/types/table'
 import type {
   IAccessTable,
-  IRoleOverrides,
+  IRoleRows,
   ITableAccess,
   IIncomingInvitation,
   IWorkspace,
@@ -96,10 +96,11 @@ export interface IRolesResponse {
   roles: IWorkspaceRole[]
 }
 
-/** A whole role: what it sets apart, with the workspace's tables and fields to set it on. */
+/** A whole role: its rows, with the workspace's tables and fields to set them on. */
 export interface IRoleDetailResponse {
   role: IWorkspaceRole
-  overrides: IRoleOverrides
+  /** The role's rows; the key is the wire's name for them, a closed vocabulary. */
+  overrides: IRoleRows
   tables: IAccessTable[]
 }
 

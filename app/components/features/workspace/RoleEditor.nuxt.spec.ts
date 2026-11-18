@@ -5,7 +5,7 @@ import { buildAccessLimits, type IAccessLimits } from '~/utils/role-form'
 import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IAccessTable,
-  IRoleOverrides,
+  IRoleRows,
   IWorkspaceActor,
   IWorkspaceRole,
   TWorkspacePermission,
@@ -28,16 +28,16 @@ const owner = buildMembership([...WORKSPACE_PERMISSIONS], { isOwner: true })
 const manager = buildMembership(['ROLES_MANAGE'])
 
 /** The manager's own role: adds to Deals, and edits only what they created there. */
-const managerLimits = (fields: IRoleOverrides['fields'] = []) =>
+const managerLimits = (fields: IRoleRows['fields'] = []) =>
   buildAccessLimits(manager, {
     tables: [{ tableId: DEALS.id, ...buildTableAccess({ canCreate: true, updateScope: 'OWN' }) }],
     fields,
   })
 
-const NO_OVERRIDES: IRoleOverrides = { tables: [], fields: [] }
+const NO_ROWS: IRoleRows = { tables: [], fields: [] }
 
 /** The clerk reads Deals and adds to it. */
-const CLERK_OVERRIDES: IRoleOverrides = {
+const CLERK_ROWS: IRoleRows = {
   tables: [{ tableId: DEALS.id, ...buildTableAccess({ canCreate: true }) }],
   fields: [],
 }
@@ -55,7 +55,7 @@ const clerk = (permissions: TWorkspacePermission[] = []): IWorkspaceRole => ({
 interface IEditorOptions {
   actor?: IWorkspaceActor
   role?: IWorkspaceRole | null
-  overrides?: IRoleOverrides
+  rows?: IRoleRows
   limits?: IAccessLimits
   submitHandler?: Mock<(input: TRoleInput) => Promise<void>>
 }
@@ -68,9 +68,9 @@ async function mountEditor(options: IEditorOptions = {}) {
     props: {
       actor,
       role: options.role === null ? undefined : (options.role ?? clerk()),
-      overrides: options.overrides ?? CLERK_OVERRIDES,
+      rows: options.rows ?? CLERK_ROWS,
       tables: [DEALS],
-      limits: options.limits ?? buildAccessLimits(actor, NO_OVERRIDES),
+      limits: options.limits ?? buildAccessLimits(actor, NO_ROWS),
       cancelTo: '/w/k3f9x2m8qa/settings/roles',
       submitHandler,
     },
@@ -161,7 +161,7 @@ describe('RoleEditor', () => {
 
   it('disables an action past the role’s read, and narrows the actions with it', async () => {
     const { submitHandler } = await mountEditor({
-      overrides: {
+      rows: {
         tables: [{ tableId: DEALS.id, ...FULL_TABLE_ACCESS, deleteScope: 'OWN' }],
         fields: [],
       },
@@ -190,7 +190,7 @@ describe('RoleEditor', () => {
 
   it('sends the whole role: name, permissions in the editor’s order, and its rows', async () => {
     const { submitHandler } = await mountEditor({
-      overrides: { ...CLERK_OVERRIDES, fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
+      rows: { ...CLERK_ROWS, fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
     })
 
     await pick('Deletes records in Deals', 'Only own')
@@ -226,7 +226,7 @@ describe('RoleEditor', () => {
   })
 
   it('creates with a Cancel back to the list, and nothing to discard', async () => {
-    await mountEditor({ role: null, overrides: NO_OVERRIDES })
+    await mountEditor({ role: null, rows: NO_ROWS })
 
     expect(button('Create role')).toBeDefined()
     expect(document.querySelector('a[href="/w/k3f9x2m8qa/settings/roles"]')?.textContent).toContain(
@@ -237,7 +237,7 @@ describe('RoleEditor', () => {
 
   it('lists each table closed, its fields opened by its name', async () => {
     await mountEditor({
-      overrides: { ...CLERK_OVERRIDES, fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
+      rows: { ...CLERK_ROWS, fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
     })
 
     expect(document.body.textContent).toContain('2 fields · 1 hidden')
@@ -252,7 +252,7 @@ describe('RoleEditor', () => {
   })
 
   it('starts a new role closed to every table, and opens one by what it sees there', async () => {
-    const { submitHandler } = await mountEditor({ role: null, overrides: NO_OVERRIDES })
+    const { submitHandler } = await mountEditor({ role: null, rows: NO_ROWS })
     const name = document.querySelector<HTMLInputElement>('input[type="text"]')!
     name.value = 'Reader'
     name.dispatchEvent(new Event('input'))
@@ -292,7 +292,7 @@ describe('RoleEditor', () => {
 
   it('closes a table set to see nothing, dropping its row and its fields’ rows', async () => {
     const { submitHandler } = await mountEditor({
-      overrides: { ...CLERK_OVERRIDES, fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
+      rows: { ...CLERK_ROWS, fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }] },
     })
 
     await pick('Sees records in Deals', 'None')

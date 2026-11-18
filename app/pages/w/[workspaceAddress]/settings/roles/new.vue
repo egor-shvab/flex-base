@@ -39,7 +39,7 @@ import type { TRoleInput } from '#shared/validation/workspace'
 
 const rolesStore = useRolesStore()
 const { workspaceAddress, membership } = useActiveWorkspace()
-const { fetchOwnOverrides, buildLimits } = useRoleGrantLimits()
+const { fetchOwnRows, buildLimits } = useRoleGrantLimits()
 
 const titleId = useId()
 useSeoMeta({ title: 'New role' })
@@ -49,17 +49,17 @@ const rolesPath = computed(() => pagePath.workspaceSettings(workspaceAddress.val
 const { data, status, error, refresh } = await useAsyncData(
   `new-role-${workspaceAddress.value}`,
   async () => {
-    const [tables, ownOverrides] = await Promise.all([
+    const [tables, ownRows] = await Promise.all([
       rolesStore.fetchAccessTables(workspaceAddress.value),
-      fetchOwnOverrides(),
+      fetchOwnRows(),
     ])
-    return { tables, ownOverrides }
+    return { tables, ownRows }
   },
 )
 
 const loadError = computed(() => getApiErrorMessage(error.value))
 
-const limits = computed(() => (data.value ? buildLimits(data.value.ownOverrides) : undefined))
+const limits = computed(() => (data.value ? buildLimits(data.value.ownRows) : undefined))
 
 async function retryLoad() {
   await refresh()

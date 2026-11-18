@@ -39,9 +39,7 @@
         :limit="limits.tableAccess(table.id)"
         :control-name="(key) => `${RECORD_ACCESS_TEXT[key].phrase} ${table.name}`"
         :is-read-bypassed="isBypassed"
-        @update:model-value="
-          emit('update:tables', applyTableOverride(role.tables, table.id, $event))
-        "
+        @update:model-value="emit('update:tables', applyTableAccess(role.tables, table.id, $event))"
       />
     </RecordAccessRow>
 
@@ -85,7 +83,7 @@ import { FIELD_TYPE_ICONS } from '~/field-types/registry'
 import type { ISelectOption } from '~/types/select'
 import {
   applyFieldAccess,
-  applyTableOverride,
+  applyTableAccess,
   findFieldAccess,
   isRoleVisibilityBypassed,
   resolveSubjectTableAccess,
@@ -94,12 +92,7 @@ import {
 } from '~/utils/role-form'
 import { RECORD_ACCESS_TEXT } from '~/utils/workspace-permissions'
 import { FIELD_ACCESS_LEVELS } from '#shared/constants/workspace'
-import type {
-  IAccessField,
-  IAccessTable,
-  IRoleOverrides,
-  TFieldAccess,
-} from '#shared/types/workspace'
+import type { IAccessField, IAccessTable, IRoleRows, TFieldAccess } from '#shared/types/workspace'
 import { canReadRecords } from '#shared/utils/table-access'
 import type { TRoleInput } from '#shared/validation/workspace'
 
@@ -114,8 +107,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:tables': [rows: IRoleOverrides['tables']]
-  'update:fields': [rows: IRoleOverrides['fields']]
+  'update:tables': [rows: IRoleRows['tables']]
+  'update:fields': [rows: IRoleRows['fields']]
 }>()
 
 const panelId = useId()

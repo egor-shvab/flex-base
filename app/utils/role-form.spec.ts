@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyFieldAccess,
-  applyTableOverride,
+  applyTableAccess,
   buildAccessLimits,
   findFieldAccess,
   isRoleVisibilityBypassed,
@@ -33,14 +33,14 @@ const ownOnly = buildTableAccess({ readScope: 'OWN' })
 
 describe('a table’s row', () => {
   it('is set and replaced, and dropped once it grants nothing', () => {
-    const set = applyTableOverride([], DEALS.id, ownOnly)
+    const set = applyTableAccess([], DEALS.id, ownOnly)
     expect(set).toEqual([{ tableId: DEALS.id, ...ownOnly }])
 
-    const replaced = applyTableOverride(set, DEALS.id, FULL_TABLE_ACCESS)
+    const replaced = applyTableAccess(set, DEALS.id, FULL_TABLE_ACCESS)
     expect(replaced).toEqual([{ tableId: DEALS.id, ...FULL_TABLE_ACCESS }])
 
-    expect(applyTableOverride(replaced, DEALS.id, NO_TABLE_ACCESS)).toEqual([])
-    expect(applyTableOverride(replaced, DEALS.id, buildTableAccess({ readScope: 'NONE' }))).toEqual(
+    expect(applyTableAccess(replaced, DEALS.id, NO_TABLE_ACCESS)).toEqual([])
+    expect(applyTableAccess(replaced, DEALS.id, buildTableAccess({ readScope: 'NONE' }))).toEqual(
       [],
     )
   })
@@ -49,7 +49,7 @@ describe('a table’s row', () => {
     expect(resolveSubjectTableAccess(role(), DEALS.id).canCreate).toBe(true)
     expect(resolveSubjectTableAccess(role(), 'tbl_other')).toEqual(NO_TABLE_ACCESS)
 
-    const narrowed = role({ tables: applyTableOverride([], DEALS.id, ownOnly) })
+    const narrowed = role({ tables: applyTableAccess([], DEALS.id, ownOnly) })
     expect(resolveSubjectTableAccess(narrowed, DEALS.id)).toEqual(ownOnly)
   })
 })

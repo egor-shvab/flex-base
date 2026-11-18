@@ -1,12 +1,12 @@
 import type {
   IAccessTable,
   IPermissionSet,
-  IRoleOverrides,
+  IRoleRows,
   ITableAccess,
   IWorkspaceActor,
   TFieldAccess,
 } from '#shared/types/workspace'
-import { findFieldOverride, findTableOverride, toRoleHolder } from '#shared/utils/role-access'
+import { findFieldOverride, findTableAccess, toRoleHolder } from '#shared/utils/role-access'
 import {
   canReadRecords,
   isTableVisibilityBypassed,
@@ -18,32 +18,32 @@ import type { TRoleInput } from '#shared/validation/workspace'
 type TRoleGrantsInput = Pick<TRoleInput, 'permissions' | 'tables'>
 
 /** Access that reads nothing is no row: a table without one is closed to the role. */
-export function applyTableOverride(
-  rows: IRoleOverrides['tables'],
+export function applyTableAccess(
+  rows: IRoleRows['tables'],
   tableId: string,
   access: ITableAccess,
-): IRoleOverrides['tables'] {
+): IRoleRows['tables'] {
   const others = rows.filter((row) => row.tableId !== tableId)
   return canReadRecords(access) ? [...others, { tableId, ...access }] : others
 }
 
 /** `EDIT` is no row: the field follows what the role may do with the table's records. */
-export function findFieldAccess(rows: IRoleOverrides['fields'], fieldId: string): TFieldAccess {
+export function findFieldAccess(rows: IRoleRows['fields'], fieldId: string): TFieldAccess {
   return findFieldOverride({ fields: rows }, fieldId) ?? 'EDIT'
 }
 
 export function applyFieldAccess(
-  rows: IRoleOverrides['fields'],
+  rows: IRoleRows['fields'],
   fieldId: string,
   access: TFieldAccess,
-): IRoleOverrides['fields'] {
+): IRoleRows['fields'] {
   const others = rows.filter((row) => row.fieldId !== fieldId)
   return access === 'EDIT' ? others : [...others, { fieldId, access }]
 }
 
 /** What the role does with one table's records: its row there, or nothing. */
 export function resolveSubjectTableAccess(role: TRoleGrantsInput, tableId: string): ITableAccess {
-  return resolveTableAccess(toRoleHolder(role), findTableOverride(role, tableId))
+  return resolveTableAccess(toRoleHolder(role), findTableAccess(role, tableId))
 }
 
 /** A role that manages tables sees every table and field: only its record actions narrow. */
@@ -66,7 +66,7 @@ export function toRolePayload(role: TRoleInput, tables: readonly IAccessTable[])
 }
 
 /** A table's fields line: how many, and how many the role has narrowed. */
-export function summariseFieldAccess(table: IAccessTable, rows: IRoleOverrides['fields']): string {
+export function summariseFieldAccess(table: IAccessTable, rows: IRoleRows['fields']): string {
   const fieldIds = new Set(table.fields.map((field) => field.id))
   const narrowed = rows.filter((row) => fieldIds.has(row.fieldId))
   const hiddenCount = narrowed.filter((row) => row.access === 'HIDDEN').length
@@ -86,18 +86,15 @@ export interface IAccessLimits {
   fieldAccess: (tableId: string, fieldId: string) => TFieldAccess
 }
 
-/** `overrides` are the actor's own role's rows; the owner has none that count. */
-export function buildAccessLimits(
-  actor: IWorkspaceActor,
-  overrides: IRoleOverrides,
-): IAccessLimits {
-  const holder = { ...actor, ...overrides }
+/** `rows` are the actor's own role's; the owner has none that count. */
+export function buildAccessLimits(actor: IWorkspaceActor, rows: IRoleRows): IAccessLimits {
+  const holder = { ...actor, ...rows }
   const tableAccess = (tableId: string) =>
-    resolveTableAccess(holder, findTableOverride(overrides, tableId))
+    resolveTableAccess(holder, findTableAccess(rows, tableId))
 
   return {
     tableAccess,
     fieldAccess: (tableId, fieldId) =>
-      resolveFieldAccess(holder, tableAccess(tableId), findFieldOverride(overrides, fieldId)),
+      resolveFieldAccess(holder, tableAccess(tableId), findFieldOverride(rows, fieldId)),
   }
 }

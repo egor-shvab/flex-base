@@ -7,7 +7,7 @@ import {
   roleGrantsSelect,
   roleSelect,
   toRoleGrants,
-  toRoleOverrides,
+  toRoleRows,
   toSharedRole,
   type TRoleGrantsRow,
   type TRoleRow,
@@ -31,7 +31,7 @@ import type {
 import { hasPermission, isHeldRoleLocked } from '#shared/utils/permissions'
 import {
   findFieldOverride,
-  findTableOverride,
+  findTableAccess,
   isAccessWithin,
   toRoleHolder,
 } from '#shared/utils/role-access'
@@ -136,7 +136,7 @@ function toVisibleTables(ground: IAccessGround, actor: IWorkspaceMembership): IA
   const holder = toRoleHolder(toRoleGrants(actorRole))
 
   return ground.tables.flatMap((table) => {
-    const access = resolveTableAccess(holder, findTableOverride(holder, table.id))
+    const access = resolveTableAccess(holder, findTableAccess(holder, table.id))
     if (!canReadRecords(access)) return []
 
     const fields = table.fields.filter(
@@ -196,7 +196,7 @@ async function listTableAccess(
 ): Promise<ITableRoleAccess[]> {
   return (await loadRolesWithGround(actor)).map(({ role, grants }) => ({
     role,
-    access: (grants && findTableOverride(toRoleGrants(grants), tableId)) ?? NO_TABLE_ACCESS,
+    access: (grants && findTableAccess(toRoleGrants(grants), tableId)) ?? NO_TABLE_ACCESS,
   }))
 }
 
@@ -317,7 +317,7 @@ function assertRequiredFieldsFillable(name: string, grants: IRoleGrants, tables:
   const holder = toRoleHolder(grants)
 
   for (const table of tables) {
-    const access = resolveTableAccess(holder, findTableOverride(grants, table.id))
+    const access = resolveTableAccess(holder, findTableAccess(grants, table.id))
     if (!access.canCreate) continue
 
     for (const field of table.fields) {
@@ -342,12 +342,12 @@ function assertRoleWritable(
   actor: IWorkspaceMembership,
   input: TRoleInput,
 ): void {
-  assertOverridesInWorkspace(input, ground.tables)
+  assertRowsInWorkspace(input, ground.tables)
   if (!isWithinActor(ground, actor, input)) throw buildEscalationError()
   assertRequiredFieldsFillable(input.name, input, ground.tables)
 }
 
-async function createRoleOverrides(
+async function createRoleRows(
   tx: Prisma.TransactionClient,
   workspaceId: string,
   roleId: string,
@@ -389,7 +389,7 @@ async function createRole(
         data: { workspaceId, ...toRoleData(input) },
         select: roleSelect,
       })
-      await createRoleOverrides(tx, workspaceId, role.id, input)
+      await createRoleRows(tx, workspaceId, role.id, input)
       return role
     })
 
@@ -438,7 +438,7 @@ async function getRole(actor: IWorkspaceMembership, roleId: string): Promise<IRo
 
   return {
     role: toSharedRole(role, isWithinActor(ground, actor, toRoleGrants(grantsRow))),
-    overrides: toRoleOverrides(grantsRow),
+    overrides: toRoleRows(grantsRow),
     tables: toVisibleTables(ground, actor),
   }
 }
@@ -451,7 +451,7 @@ async function listAccessTables(actor: IWorkspaceMembership): Promise<IAccessTab
  * Every table and field must be the workspace's (404 otherwise), and a field's row must sit on a
  * table the role reads — on one it cannot, the row would narrow nothing (400).
  */
-function assertOverridesInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
+function assertRowsInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
   const tableById = new Map(tables.map((table) => [table.id, table]))
   const tableByFieldId = new Map(
     tables.flatMap((table) => table.fields.map((field) => [field.id, table] as const)),
@@ -468,7 +468,7 @@ function assertOverridesInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
     const table = tableByFieldId.get(row.fieldId)
     if (!table) throw createError({ statusCode: 404, statusMessage: 'Field not found' })
 
-    if (!canReadRecords(resolveTableAccess(holder, findTableOverride(next, table.id)))) {
+    if (!canReadRecords(resolveTableAccess(holder, findTableAccess(next, table.id)))) {
       throw createError({
         statusCode: 400,
         statusMessage: `A field of "${table.name}" cannot be set: the role does not see the table`,
@@ -501,7 +501,7 @@ async function updateRole(
       })
       await tx.roleTableAccess.deleteMany({ where: { roleId } })
       await tx.roleFieldAccess.deleteMany({ where: { roleId } })
-      await createRoleOverrides(tx, workspaceId, roleId, input)
+      await createRoleRows(tx, workspaceId, roleId, input)
       return updated
     })
 

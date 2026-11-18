@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import type { IAccessLimits } from '~/utils/role-form'
-import type { IAccessTable, IRoleOverrides } from '#shared/types/workspace'
+import type { IAccessTable, IRoleRows } from '#shared/types/workspace'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 /** What a role may do with records, table by table, and with each table's fields. */
@@ -30,8 +30,8 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:tables': [rows: IRoleOverrides['tables']]
-  'update:fields': [rows: IRoleOverrides['fields']]
+  'update:tables': [rows: IRoleRows['tables']]
+  'update:fields': [rows: IRoleRows['fields']]
 }>()
 </script>
 

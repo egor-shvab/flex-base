@@ -162,7 +162,7 @@ const workspaceAddress = route.params.workspaceAddress as string
 const tableAddress = route.params.tableAddress as string
 const rolesStore = useRolesStore()
 const { hasPermission, membership } = useActiveWorkspace()
-const { fetchOwnOverrides, buildLimits } = useRoleGrantLimits()
+const { fetchOwnRows, buildLimits } = useRoleGrantLimits()
 
 /** Without it the page still lists the fields, read only. */
 const canManageTables = computed(() => hasPermission('TABLES_MANAGE'))
@@ -186,15 +186,15 @@ const {
   refresh: refreshAccess,
 } = await useAsyncData(`table-access-${workspaceAddress}-${tableAddress}`, async () => {
   if (!canManageRoles.value) return null
-  const [roles, ownOverrides] = await Promise.all([
+  const [roles, ownRows] = await Promise.all([
     rolesStore.fetchTableAccess(workspaceAddress, tableAddress),
-    fetchOwnOverrides(),
+    fetchOwnRows(),
   ])
-  return { roles, ownOverrides }
+  return { roles, ownRows }
 })
 
 const accessLimits = computed(() =>
-  accessData.value ? buildLimits(accessData.value.ownOverrides) : undefined,
+  accessData.value ? buildLimits(accessData.value.ownRows) : undefined,
 )
 
 /** The section keeps its own state across a save, which it matches; a reload starts it afresh. */

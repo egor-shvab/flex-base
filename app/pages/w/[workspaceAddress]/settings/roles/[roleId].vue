@@ -37,7 +37,7 @@
           :key="loadCount"
           :actor="membership"
           :role="data.detail.role"
-          :overrides="data.detail.overrides"
+          :rows="data.detail.overrides"
           :tables="data.detail.tables"
           :limits="limits"
           :cancel-to="pagePath.workspaceSettings(workspaceAddress, 'roles')"
@@ -103,7 +103,7 @@ import type { TRoleInput } from '#shared/validation/workspace'
 const route = useRoute()
 const rolesStore = useRolesStore()
 const { workspaceAddress, membership } = useActiveWorkspace()
-const { fetchOwnOverrides, buildLimits } = useRoleGrantLimits()
+const { fetchOwnRows, buildLimits } = useRoleGrantLimits()
 
 const roleId = route.params.roleId as string
 const titleId = useId()
@@ -111,11 +111,11 @@ const titleId = useId()
 const { data, status, error, refresh } = await useAsyncData(
   `role-${workspaceAddress.value}-${roleId}`,
   async () => {
-    const [detail, ownOverrides] = await Promise.all([
+    const [detail, ownRows] = await Promise.all([
       rolesStore.fetchRole(workspaceAddress.value, roleId),
-      fetchOwnOverrides(),
+      fetchOwnRows(),
     ])
-    return { detail, ownOverrides }
+    return { detail, ownRows }
   },
 )
 
@@ -124,7 +124,7 @@ useSeoMeta({ title })
 
 const loadError = computed(() => getApiErrorMessage(error.value))
 
-const limits = computed(() => (data.value ? buildLimits(data.value.ownOverrides) : undefined))
+const limits = computed(() => (data.value ? buildLimits(data.value.ownRows) : undefined))
 
 /** The form keeps its own state across a save, which it matches; a reload starts it afresh. */
 const loadCount = ref(0)

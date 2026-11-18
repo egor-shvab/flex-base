@@ -5,7 +5,7 @@ import { FULL_TABLE_ACCESS, NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type {
   IFieldAccessOverride,
   ITableAccess,
-  ITableAccessOverride,
+  ITableAccessRow,
   TWorkspacePermission,
 } from '#shared/types/workspace'
 import type { TRoleInput } from '#shared/validation/workspace'
@@ -42,7 +42,7 @@ const DEALS = {
 }
 
 /** A role's row for Deals: reading every record unless `records` says more. */
-const dealsRow = (records: Partial<ITableAccess> = {}): ITableAccessOverride[] => [
+const dealsRow = (records: Partial<ITableAccess> = {}): ITableAccessRow[] => [
   { tableId: DEALS.id, ...buildTableAccess(records) },
 ]
 
@@ -56,7 +56,7 @@ const input = (
 interface IGrantsRowOptions {
   id?: string
   name?: string
-  tables?: ITableAccessOverride[]
+  tables?: ITableAccessRow[]
   fields?: IFieldAccessOverride[]
 }
 
@@ -84,7 +84,7 @@ const roleRow = (permissions: TWorkspacePermission[], memberCount = 0) => ({
 })
 
 const actorRow = (
-  tables: ITableAccessOverride[] = dealsRow(managerDeals),
+  tables: ITableAccessRow[] = dealsRow(managerDeals),
   fields: IFieldAccessOverride[] = [],
 ) =>
   grantsRow(['ROLES_MANAGE'], managerDeals, {

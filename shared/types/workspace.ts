@@ -33,7 +33,7 @@ export interface IPermissionSet {
 }
 
 /** A role's record access for one table; a table without one is closed to the role. */
-export interface ITableAccessOverride extends ITableAccess {
+export interface ITableAccessRow extends ITableAccess {
   tableId: string
 }
 
@@ -44,13 +44,13 @@ export interface IFieldAccessOverride {
 }
 
 /** What a role grants table by table and field by field. */
-export interface IRoleOverrides {
-  tables: ITableAccessOverride[]
+export interface IRoleRows {
+  tables: ITableAccessRow[]
   fields: IFieldAccessOverride[]
 }
 
 /** Everything a role grants; anti-escalation compares two of these over a workspace's tables. */
-export interface IRoleGrants extends IPermissionSet, IRoleOverrides {}
+export interface IRoleGrants extends IPermissionSet, IRoleRows {}
 
 /** A field as a role's access is set on it. */
 export interface IAccessField {

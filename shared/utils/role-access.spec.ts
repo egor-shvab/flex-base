@@ -8,7 +8,7 @@ import type {
 } from '#shared/types/workspace'
 import {
   findFieldOverride,
-  findTableOverride,
+  findTableAccess,
   isAccessWithin,
   toRoleHolder,
   type IAccessHolder,
@@ -150,8 +150,8 @@ describe('a role’s rows', () => {
   )
 
   it('are found by table and by field, the table’s without its key, null where there is none', () => {
-    expect(findTableOverride(role, 'tbl_deals')).toEqual(buildTableAccess({ readScope: 'OWN' }))
-    expect(findTableOverride(role, 'tbl_other')).toBeNull()
+    expect(findTableAccess(role, 'tbl_deals')).toEqual(buildTableAccess({ readScope: 'OWN' }))
+    expect(findTableAccess(role, 'tbl_other')).toBeNull()
     expect(findFieldOverride(role, 'fld_salary')).toBe('HIDDEN')
     expect(findFieldOverride(role, 'fld_company')).toBeNull()
   })

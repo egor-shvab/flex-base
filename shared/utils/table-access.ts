@@ -22,11 +22,11 @@ export function isTableVisibilityBypassed(actor: TPermissionHolder): boolean {
  */
 export function resolveTableAccess(
   actor: TPermissionHolder,
-  tableOverride: ITableAccess | null,
+  tableRow: ITableAccess | null,
 ): ITableAccess {
   if (actor.isOwner) return FULL_TABLE_ACCESS
 
-  const access = tableOverride ?? NO_TABLE_ACCESS
+  const access = tableRow ?? NO_TABLE_ACCESS
 
   return isTableVisibilityBypassed(actor) ? { ...access, readScope: 'ALL' } : access
 }
