@@ -611,6 +611,16 @@ describe('RoleService.setTableAccess', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
   })
 
+  it('refuses a role beyond the actor with a 403 before weighing its version', async () => {
+    stubGround([actorRow(), grantsRow(['TABLES_MANAGE'])])
+
+    await expect(
+      RoleService.setTableAccess(manager, DEALS.id, {
+        roles: [{ ...change({}), updatedAt: '2026-01-01T00:00:00.000Z' }],
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
   it('refuses adding records where the role cannot fill a required field', async () => {
     stubGround([
       actorRow(),

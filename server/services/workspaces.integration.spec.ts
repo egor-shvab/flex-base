@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { WorkspaceService } from '#server/services/workspaces'
 import { prisma } from '#server/db/prisma'
+import { requireMembership } from '#server/utils/workspace-access'
 import {
   addMember,
   createField,
@@ -15,6 +16,8 @@ let ada: TSeededUser
 beforeEach(async () => {
   ada = await createUser('ada@example.com')
 })
+
+const ownerOf = (user: TSeededUser) => requireMembership(user.id, user.workspace.publicId)
 
 describe('creating a workspace', () => {
   it('makes the caller its owner, under the default roles', async () => {
@@ -50,7 +53,7 @@ describe('deleting a workspace', () => {
     const field = await createField(table.id, { key: 'company', type: 'TEXT' })
     await createRecord(table.id, { company: 'Acme' })
 
-    await WorkspaceService.deleteWorkspace(ada.workspace.id)
+    await WorkspaceService.deleteWorkspace(await ownerOf(ada))
 
     const where = { workspaceId: ada.workspace.id }
     await expect(prisma.workspace.count({ where: { id: ada.workspace.id } })).resolves.toBe(0)
@@ -66,7 +69,7 @@ describe('deleting a workspace', () => {
     await addMember(ada.workspace.id, bob.id, 'Viewer')
     const kept = await createTable(bob.workspace.id, 'Kept')
 
-    await WorkspaceService.deleteWorkspace(ada.workspace.id)
+    await WorkspaceService.deleteWorkspace(await ownerOf(ada))
 
     await expect(prisma.user.count({ where: { id: { in: [ada.id, bob.id] } } })).resolves.toBe(2)
     await expect(prisma.table.count({ where: { id: kept.id } })).resolves.toBe(1)
@@ -81,7 +84,7 @@ describe('deleting a workspace', () => {
     await WorkspaceService.setLastWorkspace(ada.id, ada.workspace.id)
     await WorkspaceService.setLastWorkspace(bob.id, ada.workspace.id)
 
-    await WorkspaceService.deleteWorkspace(ada.workspace.id)
+    await WorkspaceService.deleteWorkspace(await ownerOf(ada))
 
     const rows = await prisma.user.findMany({
       where: { id: { in: [ada.id, bob.id] } },
@@ -91,9 +94,10 @@ describe('deleting a workspace', () => {
   })
 
   it('reports one already gone as a missing workspace', async () => {
-    await WorkspaceService.deleteWorkspace(ada.workspace.id)
+    const owner = await ownerOf(ada)
+    await WorkspaceService.deleteWorkspace(owner)
 
-    await expect(WorkspaceService.deleteWorkspace(ada.workspace.id)).rejects.toMatchObject({
+    await expect(WorkspaceService.deleteWorkspace(owner)).rejects.toMatchObject({
       statusCode: 404,
       data: { missing: 'workspace' },
     })

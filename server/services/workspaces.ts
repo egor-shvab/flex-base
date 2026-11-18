@@ -3,6 +3,7 @@ import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { prisma } from '#server/db/prisma'
 import { isMissingRow } from '#server/db/prisma-errors'
 import {
+  buildOwnedWorkspaceWhere,
   buildRoleWhere,
   createWorkspaceWithDefaults,
   membershipSelect,
@@ -13,7 +14,7 @@ import {
 } from '#server/db/workspaces'
 import { MemberService } from '#server/services/members'
 import { recordBackgroundFailure } from '#server/utils/error-log-file'
-import { toHttpError } from '#server/utils/http-errors'
+import { buildChangedMeanwhileError } from '#server/utils/http-errors'
 import { buildWorkspaceNotFoundError } from '#server/utils/workspace-access'
 import type { IWorkspacesResponse } from '#shared/types/api'
 import type { IWorkspace, IWorkspaceMembership } from '#shared/types/workspace'
@@ -64,25 +65,55 @@ async function renameWorkspace(workspaceId: string, name: string): Promise<IWork
 }
 
 /**
- * The caller has already proved ownership. Tables, fields, records, roles and memberships go with
- * it by cascade, and every `User.lastWorkspaceId` pointing at it is nulled.
+ * Why an owner's guarded write found nothing: the workspace is gone (404), it has another owner
+ * since the check (409), or else whatever `ifStillOwned` names. Any other failure passes through.
  */
-async function deleteWorkspace(workspaceId: string): Promise<void> {
+async function toOwnerWriteError(
+  error: unknown,
+  actor: IWorkspaceMembership,
+  ifStillOwned: Error,
+): Promise<unknown> {
+  if (!isMissingRow(error)) return error
+
+  const workspaceId = actor.workspace.id
+  const [owned, exists] = await Promise.all([
+    prisma.workspace.findFirst({
+      where: buildOwnedWorkspaceWhere(workspaceId, actor.memberId),
+      select: { id: true },
+    }),
+    prisma.workspace.findUnique({ where: { id: workspaceId }, select: { id: true } }),
+  ])
+
+  if (!exists) return buildWorkspaceNotFoundError()
+  if (!owned) return buildChangedMeanwhileError('workspace')
+  return ifStillOwned
+}
+
+/**
+ * The caller proved ownership, and the delete repeats it. Tables, fields, records, roles and
+ * memberships go with it by cascade, and every `User.lastWorkspaceId` pointing at it is nulled.
+ */
+async function deleteWorkspace(actor: IWorkspaceMembership): Promise<void> {
+  const workspaceId = actor.workspace.id
   const indexedFieldIds = await listIndexedFieldIds({ table: { workspaceId } })
 
   try {
-    await prisma.workspace.delete({ where: { id: workspaceId }, select: { id: true } })
+    await prisma.workspace.delete({
+      where: buildOwnedWorkspaceWhere(workspaceId, actor.memberId),
+      select: { id: true },
+    })
   } catch (error) {
-    throw toWorkspaceWriteError(error)
+    throw await toOwnerWriteError(error, actor, buildWorkspaceNotFoundError())
   }
 
   void dropFieldIndexes(indexedFieldIds).catch(recordBackgroundFailure)
 }
 
 /**
- * The caller has already proved ownership. They stay a member under the role they choose — which
- * binds them only from now on, so the owner always has one. The guard in the `where` refuses a
- * member removed since the read; both writes land together.
+ * The caller proved ownership, and the write repeats it. They stay a member under the role they
+ * choose — which binds them only from now on, so the owner always has one. The guard in the `where`
+ * refuses a member removed since the read, and a second transfer racing the first; both writes land
+ * together.
  */
 async function transferOwnership(
   actor: IWorkspaceMembership,
@@ -105,7 +136,10 @@ async function transferOwnership(
   try {
     await prisma.$transaction([
       prisma.workspace.update({
-        where: { id: workspaceId, members: { some: { id: memberId } } },
+        where: {
+          ...buildOwnedWorkspaceWhere(workspaceId, actor.memberId),
+          members: { some: { id: memberId } },
+        },
         data: { ownerId: target.userId },
         select: { id: true },
       }),
@@ -116,7 +150,11 @@ async function transferOwnership(
       }),
     ])
   } catch (error) {
-    throw toHttpError(error, { notFound: 'Member not found' })
+    throw await toOwnerWriteError(
+      error,
+      actor,
+      createError({ statusCode: 404, statusMessage: 'Member not found' }),
+    )
   }
 }
 

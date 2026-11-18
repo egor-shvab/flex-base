@@ -134,6 +134,27 @@ describe('handing a workspace over', () => {
     expect(workspace).toEqual({ ownerId: grace.id, members: [{ userId: grace.id }] })
   })
 
+  it('refuses a second transfer checked before the first landed, and a delete as well', async () => {
+    const bob = await createUser('bob@example.com')
+    const bobMemberId = (await addMember(ada.workspace.id, bob.id, 'Editor')).id
+    const roleId = await findRoleId('Admin')
+
+    await WorkspaceService.transferOwnership(owner, { memberId: graceMemberId, roleId })
+
+    await expect(
+      WorkspaceService.transferOwnership(owner, { memberId: bobMemberId, roleId }),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    await expect(WorkspaceService.deleteWorkspace(owner)).rejects.toMatchObject({
+      statusCode: 409,
+    })
+    await expect(
+      prisma.workspace.findUniqueOrThrow({
+        where: { id: ada.workspace.id },
+        select: { ownerId: true },
+      }),
+    ).resolves.toEqual({ ownerId: grace.id })
+  })
+
   it('refuses a member of another workspace', async () => {
     const mallory = await createUser('mallory@example.com')
     const malloryMemberId = (

@@ -221,11 +221,12 @@ async function setTableAccess(
 
   const writes = input.roles.map(({ roleId, updatedAt, ...access }) => {
     const role = requireGroundRole(ground, roleId)
+    const current = toRoleGrants(role)
+    // Scope before version, as `loadEditableRole`: a 412 would invite a retry that cannot land
+    if (!isWithinActor(ground, actor, current)) throw buildEscalationError()
     if (new Date(updatedAt).getTime() !== role.updatedAt.getTime()) {
       throw buildStaleWriteError('role')
     }
-    const current = toRoleGrants(role)
-    if (!isWithinActor(ground, actor, current)) throw buildEscalationError()
 
     const isOpen = !isTableAccessWithin(access, NO_TABLE_ACCESS)
     const isRead = canReadRecords(

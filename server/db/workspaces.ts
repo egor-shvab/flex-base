@@ -100,6 +100,17 @@ export function buildMembershipWhere(
   return { userId, workspace: { publicId: workspaceAddress } }
 }
 
+/**
+ * The workspace only while `ownerMemberId` is still its owner's membership: an owner's write repeats
+ * it, so one checked before a transfer landed in between finds nothing.
+ */
+export function buildOwnedWorkspaceWhere(
+  workspaceId: string,
+  ownerMemberId: string,
+): Prisma.WorkspaceWhereUniqueInput {
+  return { id: workspaceId, owner: { memberships: { some: { id: ownerMemberId } } } }
+}
+
 /** By the compound key, so a role id from another workspace matches nothing. */
 export function buildRoleWhere(
   workspaceId: string,

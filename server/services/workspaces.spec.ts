@@ -103,6 +103,12 @@ describe('WorkspaceService.renameWorkspace', () => {
 })
 
 describe('WorkspaceService.deleteWorkspace', () => {
+  const owner = buildMembership([], { isOwner: true, memberId: 'mem_owner' })
+  const ownedWhere = {
+    id: WORKSPACE_ID,
+    owner: { memberships: { some: { id: 'mem_owner' } } },
+  }
+
   beforeEach(() => {
     vi.mocked(listIndexedFieldIds).mockReset().mockResolvedValue([])
     vi.mocked(dropFieldIndexes).mockReset().mockResolvedValue()
@@ -112,7 +118,7 @@ describe('WorkspaceService.deleteWorkspace', () => {
     prismaMock.workspace.delete.mockResolvedValue({ id: WORKSPACE_ID })
     vi.mocked(listIndexedFieldIds).mockResolvedValue(['fld_1'])
 
-    await WorkspaceService.deleteWorkspace(WORKSPACE_ID)
+    await WorkspaceService.deleteWorkspace(owner)
 
     expect(listIndexedFieldIds).toHaveBeenCalledWith({ table: { workspaceId: WORKSPACE_ID } })
     expect(dropFieldIndexes).toHaveBeenCalledWith(['fld_1'])
@@ -122,26 +128,41 @@ describe('WorkspaceService.deleteWorkspace', () => {
     prismaMock.workspace.delete.mockRejectedValue(knownError('P2025'))
     vi.mocked(listIndexedFieldIds).mockResolvedValue(['fld_1'])
 
-    await expect(WorkspaceService.deleteWorkspace(WORKSPACE_ID)).rejects.toThrow()
+    await expect(WorkspaceService.deleteWorkspace(owner)).rejects.toThrow()
 
     expect(dropFieldIndexes).not.toHaveBeenCalled()
   })
 
-  it('deletes by the proved id alone, leaving the rest to the cascade', async () => {
+  it('deletes while the caller still owns it, leaving the rest to the cascade', async () => {
     prismaMock.workspace.delete.mockResolvedValue({ id: WORKSPACE_ID })
 
-    await WorkspaceService.deleteWorkspace(WORKSPACE_ID)
+    await WorkspaceService.deleteWorkspace(owner)
 
     expect(prismaMock.workspace.delete).toHaveBeenCalledTimes(1)
     expect(prismaMock.workspace.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: WORKSPACE_ID } }),
+      expect.objectContaining({ where: ownedWhere }),
+    )
+  })
+
+  it('refuses with a 409 once the workspace has been handed over since the check', async () => {
+    prismaMock.workspace.delete.mockRejectedValue(knownError('P2025'))
+    prismaMock.workspace.findFirst.mockResolvedValue(null)
+    prismaMock.workspace.findUnique.mockResolvedValue({ id: WORKSPACE_ID })
+
+    await expect(WorkspaceService.deleteWorkspace(owner)).rejects.toMatchObject({
+      statusCode: 409,
+    })
+    expect(prismaMock.workspace.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: ownedWhere }),
     )
   })
 
   it('reports a workspace already gone as missing', async () => {
     prismaMock.workspace.delete.mockRejectedValue(knownError('P2025'))
+    prismaMock.workspace.findFirst.mockResolvedValue(null)
+    prismaMock.workspace.findUnique.mockResolvedValue(null)
 
-    await expect(WorkspaceService.deleteWorkspace(WORKSPACE_ID)).rejects.toMatchObject({
+    await expect(WorkspaceService.deleteWorkspace(owner)).rejects.toMatchObject({
       statusCode: 404,
       data: { missing: 'workspace' },
     })
@@ -151,7 +172,7 @@ describe('WorkspaceService.deleteWorkspace', () => {
     const failure = new Error('connection lost')
     prismaMock.workspace.delete.mockRejectedValue(failure)
 
-    await expect(WorkspaceService.deleteWorkspace(WORKSPACE_ID)).rejects.toBe(failure)
+    await expect(WorkspaceService.deleteWorkspace(owner)).rejects.toBe(failure)
   })
 })
 
@@ -181,7 +202,11 @@ describe('WorkspaceService.transferOwnership', () => {
     )
     expect(prismaMock.workspace.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: WORKSPACE_ID, members: { some: { id: 'mem_grace' } } },
+        where: {
+          id: WORKSPACE_ID,
+          owner: { memberships: { some: { id: 'mem_owner' } } },
+          members: { some: { id: 'mem_grace' } },
+        },
         data: { ownerId: 'usr_grace' },
       }),
     )
@@ -231,9 +256,21 @@ describe('WorkspaceService.transferOwnership', () => {
     })
 
     prismaMock.workspace.update.mockRejectedValue(knownError('P2025'))
+    prismaMock.workspace.findFirst.mockResolvedValue({ id: WORKSPACE_ID })
+    prismaMock.workspace.findUnique.mockResolvedValue({ id: WORKSPACE_ID })
     await expect(WorkspaceService.transferOwnership(owner, toGrace)).rejects.toMatchObject({
       statusCode: 404,
       statusMessage: 'Member not found',
+    })
+  })
+
+  it('refuses with a 409 a transfer racing another one that landed first', async () => {
+    prismaMock.workspace.update.mockRejectedValue(knownError('P2025'))
+    prismaMock.workspace.findFirst.mockResolvedValue(null)
+    prismaMock.workspace.findUnique.mockResolvedValue({ id: WORKSPACE_ID })
+
+    await expect(WorkspaceService.transferOwnership(owner, toGrace)).rejects.toMatchObject({
+      statusCode: 409,
     })
   })
 })

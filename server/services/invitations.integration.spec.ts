@@ -216,7 +216,7 @@ describe('an invitation', () => {
   it('goes with its workspace', async () => {
     await invite()
 
-    await WorkspaceService.deleteWorkspace(ada.workspace.id)
+    await WorkspaceService.deleteWorkspace(owner)
 
     await expect(prisma.workspaceInvitation.count()).resolves.toBe(0)
   })
