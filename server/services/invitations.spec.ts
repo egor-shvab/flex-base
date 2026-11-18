@@ -5,7 +5,6 @@ import type { IAuthUser } from '#shared/types/auth'
 import {
   buildMembership,
   buildPermissionSetRow as setRow,
-  buildRecordDefaults,
   MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID,
 } from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
@@ -23,9 +22,7 @@ const IN_A_WEEK = new Date('2026-03-08T12:00:00.000Z')
 const INVITATION_ID = 'inv_1'
 const ROLE_ID = 'rol_clerk'
 
-const CREATE = { canCreate: true } as const
-
-const inviter = buildMembership(['MEMBERS_INVITE'], { recordDefaults: buildRecordDefaults(CREATE) })
+const inviter = buildMembership(['MEMBERS_INVITE'])
 const invitee: IAuthUser = { id: 'usr_grace', email: 'Grace@Example.com', name: 'Grace' }
 
 const invitationRow = (expiresAt = IN_A_WEEK) => ({
@@ -38,7 +35,7 @@ const invitationRow = (expiresAt = IN_A_WEEK) => ({
 
 const membershipRow = {
   id: 'mem_grace',
-  role: { id: ROLE_ID, name: 'Clerk', ...setRow([], CREATE) },
+  role: { id: ROLE_ID, name: 'Clerk', ...setRow([]) },
   workspace: {
     id: WORKSPACE_ID,
     publicId: 'k3f9x2m8qa',
@@ -285,7 +282,6 @@ describe('InvitationService.acceptInvitation', () => {
         memberId: 'mem_grace',
         isOwner: false,
         permissions: [],
-        recordDefaults: buildRecordDefaults(CREATE),
       },
     )
 

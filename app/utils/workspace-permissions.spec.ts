@@ -6,79 +6,70 @@ import {
   summarisePermissions,
   toGrantCount,
 } from '~/utils/workspace-permissions'
-import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { TRoleInput } from '#shared/validation/workspace'
-import { buildRecordDefaults } from '~~/test/membership'
+import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type { ITableAccess, IWorkspaceRole } from '#shared/types/workspace'
+
+const role = (
+  overrides: Partial<IWorkspaceRole> & Pick<IWorkspaceRole, 'id' | 'name'>,
+): IWorkspaceRole => ({
+  permissions: [],
+  memberCount: 0,
+  readableTableCount: 0,
+  isWithinCaller: true,
+  updatedAt: '2026-02-11T16:30:00.000Z',
+  ...overrides,
+})
 
 describe('summarisePermissions', () => {
-  it('calls a role without grants read only, since every member may read', () => {
-    expect(summarisePermissions({ permissions: [], recordDefaults: buildRecordDefaults() })).toBe(
-      'Read only',
-    )
+  it('says a role that reaches no table reaches none', () => {
+    expect(summarisePermissions(role({ id: 'rol_1', name: 'New' }))).toBe('No tables')
   })
 
-  it('says every permission rather than listing all of them', () => {
+  it('says every permission rather than listing all of them, then counts the tables', () => {
     expect(
-      summarisePermissions({
-        permissions: [...WORKSPACE_PERMISSIONS].reverse(),
-        recordDefaults: FULL_TABLE_ACCESS,
-      }),
-    ).toBe('Every permission')
+      summarisePermissions(
+        role({
+          id: 'rol_1',
+          name: 'Admin',
+          permissions: [...WORKSPACE_PERMISSIONS].reverse(),
+          readableTableCount: 3,
+        }),
+      ),
+    ).toBe('Every permission, Records in 3 tables')
   })
 
   it('lists the rest in the editor’s order, whatever order they arrive in', () => {
     expect(
-      summarisePermissions({
-        permissions: ['TABLES_MANAGE', 'WORKSPACE_UPDATE'],
-        recordDefaults: buildRecordDefaults({ deleteScope: 'ALL' }),
-      }),
-    ).toBe('Rename the workspace, Manage tables, Delete records')
-  })
-
-  it('names an own-records scope as such, and a narrowed read even without grants', () => {
-    expect(
-      summarisePermissions({
-        permissions: [],
-        recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'OWN' }),
-      }),
-    ).toBe('Add records, Edit own records')
-    expect(
-      summarisePermissions({
-        permissions: [],
-        recordDefaults: buildRecordDefaults({ readScope: 'OWN' }),
-      }),
-    ).toBe('Sees only own records')
-  })
-
-  it('does not call a role with every permission but own-records scopes every permission', () => {
-    expect(
-      summarisePermissions({
-        permissions: [...WORKSPACE_PERMISSIONS],
-        recordDefaults: { ...FULL_TABLE_ACCESS, deleteScope: 'OWN' },
-      }),
-    ).not.toBe('Every permission')
+      summarisePermissions(
+        role({
+          id: 'rol_1',
+          name: 'Clerk',
+          permissions: ['TABLES_MANAGE', 'WORKSPACE_UPDATE'],
+          readableTableCount: 1,
+        }),
+      ),
+    ).toBe('Rename the workspace, Manage tables, Records in 1 table')
   })
 })
 
 describe('toGrantCount', () => {
-  it('counts permissions and record actions, a wider scope as more', () => {
-    const editor = { permissions: [], recordDefaults: buildRecordDefaults({ updateScope: 'ALL' }) }
-    const ownEditor = {
-      permissions: [],
-      recordDefaults: buildRecordDefaults({ updateScope: 'OWN' }),
-    }
-    const manager = {
-      permissions: ['TABLES_MANAGE' as const],
-      recordDefaults: buildRecordDefaults({ updateScope: 'ALL' }),
-    }
+  it('counts permissions and the tables a role reaches', () => {
+    const viewer = role({ id: 'rol_1', name: 'Viewer', readableTableCount: 1 })
+    const editor = role({ id: 'rol_2', name: 'Editor', readableTableCount: 3 })
+    const manager = role({
+      id: 'rol_3',
+      name: 'Manager',
+      permissions: ['TABLES_MANAGE'],
+      readableTableCount: 3,
+    })
 
-    expect(toGrantCount(ownEditor)).toBeLessThan(toGrantCount(editor))
+    expect(toGrantCount(viewer)).toBeLessThan(toGrantCount(editor))
     expect(toGrantCount(editor)).toBeLessThan(toGrantCount(manager))
   })
 })
 
 describe('applyReadScope', () => {
-  const editor: TRoleInput['recordDefaults'] = {
+  const editor: ITableAccess = {
     readScope: 'ALL',
     canCreate: true,
     updateScope: 'ALL',
@@ -118,21 +109,11 @@ describe('buildScopeOptions', () => {
 })
 
 describe('buildAssignableRoleOptions', () => {
-  const role = (id: string, name: string, isWithinCaller: boolean) => ({
-    id,
-    name,
-    permissions: [],
-    recordDefaults: buildRecordDefaults(),
-    memberCount: 0,
-    isWithinCaller,
-    updatedAt: '2026-02-11T16:30:00.000Z',
-  })
-
   it('offers only the roles within the caller, in their order', () => {
     const roles = [
-      role('rol_admin', 'Admin', false),
-      role('rol_editor', 'Editor', true),
-      role('rol_viewer', 'Viewer', true),
+      role({ id: 'rol_admin', name: 'Admin', isWithinCaller: false }),
+      role({ id: 'rol_editor', name: 'Editor' }),
+      role({ id: 'rol_viewer', name: 'Viewer' }),
     ]
 
     expect(buildAssignableRoleOptions(roles)).toEqual([

@@ -12,6 +12,7 @@ import {
   toSharedTableListItem,
   toTableOverride,
 } from '#server/db/tables'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { ITableListItem } from '#shared/types/table'
 import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
 import { resolveTableAccess } from '#shared/utils/table-access'
@@ -53,10 +54,14 @@ async function getTableListRow(
   }
 }
 
+/**
+ * A new table is closed to every role but the creator's, which gets everything there: the owner
+ * needs no row (`creatorRoleId` null), anyone else could not fill the table they made without it.
+ */
 async function createTable(
   workspaceId: string,
   name: string,
-  access: ITableAccess,
+  creatorRoleId: string | null,
 ): Promise<ITableListItem> {
   try {
     const table = await prisma.$transaction(async (tx) => {
@@ -66,13 +71,19 @@ async function createTable(
         select: { tableCounter: true },
       })
 
-      return tx.table.create({
+      const created = await tx.table.create({
         data: { workspaceId, name, number: tableCounter },
         select: tableListSelect,
       })
+      if (creatorRoleId) {
+        await tx.roleTableAccess.create({
+          data: { workspaceId, roleId: creatorRoleId, tableId: created.id, ...FULL_TABLE_ACCESS },
+        })
+      }
+      return created
     })
 
-    return toSharedTableListItem(table, access)
+    return toSharedTableListItem(table, FULL_TABLE_ACCESS)
   } catch (error) {
     throw toHttpError(error, tableErrors)
   }

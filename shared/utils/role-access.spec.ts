@@ -7,7 +7,7 @@ import type {
   TWorkspacePermission,
 } from '#shared/types/workspace'
 import { isAccessWithin, type IAccessHolder } from '#shared/utils/role-access'
-import { buildRecordDefaults } from '~~/test/membership'
+import { buildTableAccess } from '~~/test/membership'
 
 const deals: IAccessTable = {
   id: 'tbl_deals',
@@ -19,19 +19,19 @@ const deals: IAccessTable = {
 }
 const tables = [deals]
 
+/** `deals` is the role's row for Deals: reading every record unless it says more. */
 const grants = (
   permissions: TWorkspacePermission[] = [],
-  defaults: Partial<ITableAccess> = {},
+  deals: Partial<ITableAccess> = {},
   overrides: Partial<Pick<IRoleGrants, 'tables' | 'fields'>> = {},
 ): IRoleGrants => ({
   permissions,
-  recordDefaults: buildRecordDefaults(defaults),
-  tables: [],
+  tables: [{ tableId: 'tbl_deals', ...buildTableAccess(deals) }],
   fields: [],
   ...overrides,
 })
 
-/** A manager who may handle members and roles, and add and edit records — but not delete them. */
+/** A manager who may handle members and roles, and add and edit Deals — but not delete them. */
 const managerDefaults = { canCreate: true, updateScope: 'ALL' } as const
 const manager: IAccessHolder = {
   isOwner: false,
@@ -42,7 +42,7 @@ const owner: IAccessHolder = { isOwner: true, ...grants() }
 
 const everything = grants([...WORKSPACE_PERMISSIONS], FULL_TABLE_ACCESS)
 
-describe('isAccessWithin — permissions and defaults', () => {
+describe('isAccessWithin — permissions and records', () => {
   it.each([
     ['a subset of their own', grants(['MEMBERS_MANAGE'], { canCreate: true }), true],
     ['exactly their own', grants(['MEMBERS_MANAGE', 'ROLES_MANAGE'], managerDefaults), true],
@@ -57,8 +57,11 @@ describe('isAccessWithin — permissions and defaults', () => {
     expect(isAccessWithin(everything, owner, tables)).toBe(true)
   })
 
-  it('compares the defaults even with no table yet, since every future table takes them', () => {
-    expect(isAccessWithin(grants([], { deleteScope: 'ALL' }), manager, [])).toBe(false)
+  it('grants nothing on a table without a row, so the holder needs one to grant it', () => {
+    const closedHolder: IAccessHolder = { ...manager, tables: [] }
+
+    expect(isAccessWithin(grants(), closedHolder, tables)).toBe(false)
+    expect(isAccessWithin(grants([], {}, { tables: [] }), closedHolder, tables)).toBe(true)
   })
 })
 
@@ -66,7 +69,7 @@ describe('isAccessWithin — table by table', () => {
   it('refuses a role reading all of a table the holder reads only their own of', () => {
     const holder: IAccessHolder = {
       ...manager,
-      tables: [{ tableId: deals.id, ...buildRecordDefaults({ readScope: 'OWN' }) }],
+      tables: [{ tableId: deals.id, ...buildTableAccess({ readScope: 'OWN' }) }],
     }
 
     expect(isAccessWithin(grants(), holder, tables)).toBe(false)
@@ -80,7 +83,7 @@ describe('isAccessWithin — table by table', () => {
   })
 
   it('lets a role see a table hidden from the holder only if the holder manages tables', () => {
-    const hidden = [{ tableId: deals.id, ...buildRecordDefaults({ readScope: 'NONE' }) }]
+    const hidden = [{ tableId: deals.id, ...buildTableAccess({ readScope: 'NONE' }) }]
     const holder: IAccessHolder = { ...manager, tables: hidden }
 
     expect(isAccessWithin(grants(), holder, tables)).toBe(false)
@@ -114,7 +117,7 @@ describe('isAccessWithin — field by field', () => {
       [],
       {},
       {
-        tables: [{ tableId: deals.id, ...buildRecordDefaults({ readScope: 'NONE' }) }],
+        tables: [{ tableId: deals.id, ...buildTableAccess({ readScope: 'NONE' }) }],
       },
     )
 

@@ -83,11 +83,6 @@ model WorkspaceRole {
   workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   name        String
   permissions WorkspacePermission[]
-  // What the role may do with the records of a table it has no `RoleTableAccess` row for
-  readScope   RecordScope           @default(ALL)
-  canCreate   Boolean               @default(false)
-  updateScope RecordScope           @default(NONE)
-  deleteScope RecordScope           @default(NONE)
   createdAt   DateTime              @default(now())
   // The version an edit form sends back as `If-Match`
   updatedAt   DateTime              @default(now()) @updatedAt
@@ -208,7 +203,8 @@ model Record {
 }
 
 /**
- * A table set apart from the role's defaults: the row replaces them whole, never flag by flag.
+ * What a role may do with one table's records. Without a row the role may do nothing there, so a
+ * new table stays closed to every role until it is given access.
  */
 model RoleTableAccess {
   workspaceId String

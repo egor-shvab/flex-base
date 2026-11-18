@@ -11,7 +11,7 @@ import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import { fieldInputSchema, type TFieldInput } from '#shared/validation/field'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { asMultiple, relationField, selectField, textField } from '~~/test/fixtures'
-import { buildMembership, buildRecordDefaults, MEMBERSHIP_WORKSPACE_ID } from '~~/test/membership'
+import { buildMembership, buildTableAccess, MEMBERSHIP_WORKSPACE_ID } from '~~/test/membership'
 
 vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
@@ -20,11 +20,11 @@ vi.mock('#server/db/prisma', async () => ({
 const WORKSPACE_ID = MEMBERSHIP_WORKSPACE_ID
 const TABLE_ID = 'tbl_deals'
 
-const editorDefaults = buildRecordDefaults({ canCreate: true, updateScope: 'ALL' })
-const member = buildMembership([], { recordDefaults: editorDefaults })
+const editorAccess = buildTableAccess({ canCreate: true, updateScope: 'ALL' })
+const member = buildMembership([])
 
 const table = {
-  roleAccess: [],
+  roleAccess: [editorAccess],
   id: TABLE_ID,
   number: 4,
   name: 'Deals',
@@ -63,7 +63,11 @@ describe('the workspace is scoped in the query', () => {
   })
 
   it('does the same when fetching the table’s fields', async () => {
-    prismaMock.table.findUnique.mockResolvedValue({ roleAccess: [], id: TABLE_ID, fields: [] })
+    prismaMock.table.findUnique.mockResolvedValue({
+      roleAccess: [editorAccess],
+      id: TABLE_ID,
+      fields: [],
+    })
 
     await requireWorkspaceTableFields(member, TABLE_ID)
 
@@ -83,7 +87,11 @@ describe('the workspace is scoped in the query', () => {
   })
 
   it('reads the fields in stored order, creation breaking a tie, which every caller depends on', async () => {
-    prismaMock.table.findUnique.mockResolvedValue({ roleAccess: [], id: TABLE_ID, fields: [] })
+    prismaMock.table.findUnique.mockResolvedValue({
+      roleAccess: [editorAccess],
+      id: TABLE_ID,
+      fields: [],
+    })
 
     await requireWorkspaceTableFields(member, TABLE_ID)
 
@@ -191,13 +199,13 @@ describe('what the helpers return', () => {
         createdAt: '2026-01-05T09:14:00.000Z',
         updatedAt: '2026-02-11T16:30:00.000Z',
       },
-      access: editorDefaults,
+      access: editorAccess,
     })
   })
 
   it('narrows each field’s JSON options on the way out', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
-      roleAccess: [],
+      roleAccess: [editorAccess],
       id: TABLE_ID,
       fields: [stored({ ...textField('company'), options: null })],
     })
@@ -209,7 +217,11 @@ describe('what the helpers return', () => {
   })
 
   it('answers with the table’s id, not with the address it was asked for', async () => {
-    prismaMock.table.findUnique.mockResolvedValue({ roleAccess: [], id: TABLE_ID, fields: [] })
+    prismaMock.table.findUnique.mockResolvedValue({
+      roleAccess: [editorAccess],
+      id: TABLE_ID,
+      fields: [],
+    })
 
     await expect(requireWorkspaceTableFields(member, '4')).resolves.toMatchObject({
       tableId: TABLE_ID,
@@ -238,7 +250,7 @@ describe('requireFieldTarget', () => {
 
   it('accepts a label field the target table really has', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
-      roleAccess: [],
+      roleAccess: [editorAccess],
       id: 'tbl_people',
       fields: [stored(textField('full_name'))],
     })
@@ -259,7 +271,7 @@ describe('requireFieldTarget', () => {
 
   it('scopes the target table by workspace too, so a relation cannot reach across workspaces', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
-      roleAccess: [],
+      roleAccess: [editorAccess],
       id: 'tbl_people',
       fields: [stored(textField('full_name'))],
     })
@@ -273,7 +285,7 @@ describe('requireFieldTarget', () => {
 
   it('rejects a label field the target table does not have', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
-      roleAccess: [],
+      roleAccess: [editorAccess],
       id: 'tbl_people',
       fields: [stored(textField('company'))],
     })
@@ -286,10 +298,10 @@ describe('requireFieldTarget', () => {
 
   it('refuses another relation as the label, which would show a cuid', async () => {
     prismaMock.table.findMany.mockResolvedValue([
-      { id: relationField().options?.targetTableId, roleAccess: [], fields: [] },
+      { id: relationField().options?.targetTableId, roleAccess: [editorAccess], fields: [] },
     ])
     prismaMock.table.findUnique.mockResolvedValue({
-      roleAccess: [],
+      roleAccess: [editorAccess],
       id: 'tbl_people',
       fields: [stored({ ...relationField(), key: 'full_name' })],
     })
@@ -302,7 +314,7 @@ describe('requireFieldTarget', () => {
 
   it('refuses a multi-value label field too', async () => {
     prismaMock.table.findUnique.mockResolvedValue({
-      roleAccess: [],
+      roleAccess: [editorAccess],
       id: 'tbl_people',
       fields: [stored({ ...asMultiple(selectField()), key: 'full_name' })],
     })
@@ -322,7 +334,7 @@ describe('requireFieldTarget', () => {
 })
 
 describe('the caller’s access to the table', () => {
-  const hidden = buildRecordDefaults({ readScope: 'NONE' })
+  const hidden = buildTableAccess({ readScope: 'NONE' })
 
   it('reads the caller’s role’s row for the table in the same query', async () => {
     prismaMock.table.findUnique.mockResolvedValue({ ...table, fields: [] })
@@ -339,11 +351,11 @@ describe('the caller’s access to the table', () => {
   })
 
   it('falls back to the role’s defaults without a row, and takes the row when there is one', async () => {
-    const narrower = buildRecordDefaults({ deleteScope: 'ALL' })
+    const narrower = buildTableAccess({ deleteScope: 'ALL' })
 
     prismaMock.table.findUnique.mockResolvedValueOnce(table)
     await expect(requireWorkspaceTable(member, TABLE_ID)).resolves.toMatchObject({
-      access: editorDefaults,
+      access: editorAccess,
     })
 
     prismaMock.table.findUnique.mockResolvedValueOnce({ ...table, roleAccess: [narrower] })
@@ -367,16 +379,15 @@ describe('the caller’s access to the table', () => {
     }
   })
 
-  it('hides a table from a role whose default is to see none', async () => {
-    const blind = buildMembership([], { recordDefaults: hidden })
-    prismaMock.table.findUnique.mockResolvedValue(table)
+  it('hides a table the role has no row for', async () => {
+    prismaMock.table.findUnique.mockResolvedValue({ ...table, roleAccess: [] })
 
-    await expect(requireWorkspaceTable(blind, TABLE_ID)).rejects.toMatchObject({ statusCode: 404 })
+    await expect(requireWorkspaceTable(member, TABLE_ID)).rejects.toMatchObject({ statusCode: 404 })
   })
 
   it('opens a hidden table to the owner and to a schema manager', async () => {
     const owner = buildMembership([], { isOwner: true })
-    const manager = buildMembership(['TABLES_MANAGE'], { recordDefaults: hidden })
+    const manager = buildMembership(['TABLES_MANAGE'])
     prismaMock.table.findUnique.mockResolvedValue({ ...table, roleAccess: [hidden] })
 
     await expect(requireWorkspaceTable(owner, TABLE_ID)).resolves.toMatchObject({
@@ -390,12 +401,12 @@ describe('the caller’s access to the table', () => {
 
 describe('assertRecordAction', () => {
   it('passes an action the table’s access allows', () => {
-    expect(() => assertRecordAction(editorDefaults, 'create')).not.toThrow()
-    expect(() => assertRecordAction(editorDefaults, 'update')).not.toThrow()
+    expect(() => assertRecordAction(editorAccess, 'create')).not.toThrow()
+    expect(() => assertRecordAction(editorAccess, 'update')).not.toThrow()
   })
 
   it('403s one it does not, naming it', () => {
-    expect(() => assertRecordAction(editorDefaults, 'delete')).toThrow(
+    expect(() => assertRecordAction(editorAccess, 'delete')).toThrow(
       expect.objectContaining({
         statusCode: 403,
         statusMessage: "You don't have permission to delete records in this table",
@@ -421,10 +432,14 @@ describe('a table’s fields as the caller sees them', () => {
   const salary = { ...stored(textField('salary')), id: 'fld_salary' }
   const owner = stored(relationField())
   const withFields = (...fields: object[]) =>
-    prismaMock.table.findUnique.mockResolvedValue({ roleAccess: [], id: TABLE_ID, fields })
+    prismaMock.table.findUnique.mockResolvedValue({
+      roleAccess: [editorAccess],
+      id: TABLE_ID,
+      fields,
+    })
   const people = (overrides: object = {}) => ({
     id: 'tbl_people',
-    roleAccess: [],
+    roleAccess: [editorAccess],
     fields: [{ key: 'full_name', roleAccess: [] }],
     ...overrides,
   })
@@ -469,7 +484,7 @@ describe('a table’s fields as the caller sees them', () => {
   it('hides a link to a table the role may not read', async () => {
     withFields(company, owner)
     prismaMock.table.findMany.mockResolvedValue([
-      people({ roleAccess: [buildRecordDefaults({ readScope: 'NONE' })] }),
+      people({ roleAccess: [buildTableAccess({ readScope: 'NONE' })] }),
     ])
 
     expect(keysOf((await requireWorkspaceTableFields(member, TABLE_ID)).fields)).toEqual([
@@ -494,7 +509,7 @@ describe('a table’s fields as the caller sees them', () => {
     ],
     [
       'the role reads only its own records there',
-      people({ roleAccess: [buildRecordDefaults({ readScope: 'OWN' })] }),
+      people({ roleAccess: [buildTableAccess({ readScope: 'OWN' })] }),
     ],
   ])('drops a link’s label where %s', async (_, target) => {
     withFields(owner)

@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { prisma } from '#server/db/prisma'
 import { MAX_WORKSPACE_ROLES, RoleService } from '#server/services/roles'
 import { WorkspaceService } from '#server/services/workspaces'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
 import { addMember, createUser, type TSeededUser } from '~~/test/integration/seed'
-import type { TRoleAccessInput } from '#shared/validation/role-access'
-import { buildRecordDefaults, buildRoleInput } from '~~/test/membership'
+import type { TRoleInput } from '#shared/validation/workspace'
+import { buildTableAccess, buildRoleInput } from '~~/test/membership'
 
 let ada: TSeededUser
 let owner: IWorkspaceMembership
@@ -25,14 +26,13 @@ const findRoleId = async (workspaceId: string, name: string) =>
   ).id
 
 describe('the roles of a workspace', () => {
-  it('creates the defaults with their record access', async () => {
+  it('creates the defaults reaching no table, the workspace having none yet', async () => {
     const roles = await RoleService.listRoles(owner)
-    const full = { readScope: 'ALL', canCreate: true, updateScope: 'ALL', deleteScope: 'ALL' }
 
-    expect(roles.map((role) => [role.name, role.recordDefaults])).toEqual([
-      ['Admin', full],
-      ['Editor', full],
-      ['Viewer', buildRecordDefaults()],
+    expect(roles.map((role) => [role.name, role.readableTableCount])).toEqual([
+      ['Admin', 0],
+      ['Editor', 0],
+      ['Viewer', 0],
     ])
   })
 
@@ -88,30 +88,22 @@ describe('deleting a role', () => {
 
 describe('creating and changing a role', () => {
   it('stores it, and refuses a second role of the same name', async () => {
-    const role = await RoleService.createRole(
-      owner,
-      buildRoleInput('Clerk', ['TABLES_MANAGE'], { canCreate: true, deleteScope: 'ALL' }),
-    )
+    const { role } = await RoleService.createRole(owner, buildRoleInput('Clerk', ['TABLES_MANAGE']))
 
-    expect(role).toMatchObject({
-      name: 'Clerk',
-      permissions: ['TABLES_MANAGE'],
-      recordDefaults: buildRecordDefaults({ canCreate: true, deleteScope: 'ALL' }),
-      memberCount: 0,
-    })
+    expect(role).toMatchObject({ name: 'Clerk', permissions: ['TABLES_MANAGE'], memberCount: 0 })
     await expect(
       RoleService.updateRole(owner, role.id, buildRoleInput('Editor')),
     ).rejects.toMatchObject({ statusCode: 409 })
   })
 
   it('refuses a save made on a version someone has since replaced, keeping theirs', async () => {
-    const role = await RoleService.createRole(owner, buildRoleInput('Clerk'))
+    const { role } = await RoleService.createRole(owner, buildRoleInput('Clerk'))
     const opened = new Date(role.updatedAt)
 
     await RoleService.updateRole(
       owner,
       role.id,
-      buildRoleInput('Clerk', [], { canCreate: true }),
+      buildRoleInput('Clerk', ['WORKSPACE_UPDATE']),
       opened,
     )
     await expect(
@@ -119,10 +111,7 @@ describe('creating and changing a role', () => {
     ).rejects.toMatchObject({ statusCode: 412 })
 
     const [stored] = (await RoleService.listRoles(owner)).filter((r) => r.id === role.id)
-    expect(stored).toMatchObject({
-      name: 'Clerk',
-      recordDefaults: buildRecordDefaults({ canCreate: true }),
-    })
+    expect(stored).toMatchObject({ name: 'Clerk', permissions: ['WORKSPACE_UPDATE'] })
   })
 
   it('stops at the cap', async () => {
@@ -153,10 +142,9 @@ describe('a role’s access to tables and fields', () => {
     return { tableId: table.id, fieldId: field.id }
   }
 
-  const access = (overrides: Partial<TRoleAccessInput> = {}): TRoleAccessInput => ({
-    recordDefaults: buildRecordDefaults(),
-    tables: [],
-    fields: [],
+  /** The seeded Viewer reading Deals, as the editor sends it back with its rows. */
+  const access = (tableId: string, overrides: Partial<TRoleInput> = {}): TRoleInput => ({
+    ...buildRoleInput('Viewer', [], [{ tableId, ...buildTableAccess() }]),
     ...overrides,
   })
 
@@ -168,53 +156,54 @@ describe('a role’s access to tables and fields', () => {
   it('replaces every row at once, and moves the role’s version', async () => {
     const { tableId, fieldId } = await seedDeals()
     const viewerId = await findRoleId(ada.workspace.id, 'Viewer')
-    const before = await RoleService.getRoleAccess(owner, viewerId)
+    const before = await RoleService.getRole(owner, viewerId)
 
-    await RoleService.updateRoleAccess(
+    await RoleService.updateRole(
       owner,
       viewerId,
-      access({
-        tables: [{ tableId, ...buildRecordDefaults({ readScope: 'OWN' }) }],
+      access(tableId, {
+        tables: [{ tableId, ...buildTableAccess({ readScope: 'OWN' }) }],
         fields: [{ fieldId, access: 'HIDDEN' }],
       }),
     )
-    const saved = await RoleService.updateRoleAccess(
+    const saved = await RoleService.updateRole(
       owner,
       viewerId,
-      access({ fields: [{ fieldId, access: 'READ' }] }),
+      access(tableId, { fields: [{ fieldId, access: 'READ' }] }),
     )
 
-    expect(saved.overrides).toEqual({ tables: [], fields: [{ fieldId, access: 'READ' }] })
-    expect(await rowsOf(viewerId)).toEqual({ tables: 0, fields: 1 })
+    expect(saved.overrides).toEqual({
+      tables: [{ tableId, ...buildTableAccess() }],
+      fields: [{ fieldId, access: 'READ' }],
+    })
+    expect(saved.role.readableTableCount).toBe(1)
+    expect(await rowsOf(viewerId)).toEqual({ tables: 1, fields: 1 })
     expect(saved.role.updatedAt).not.toBe(before.role.updatedAt)
     expect(saved.tables.map((table) => table.name)).toEqual(['Deals'])
   })
 
   it('refuses a stale version, keeping the rows it had', async () => {
-    const { fieldId } = await seedDeals()
+    const { tableId, fieldId } = await seedDeals()
     const viewerId = await findRoleId(ada.workspace.id, 'Viewer')
-    const opened = new Date((await RoleService.getRoleAccess(owner, viewerId)).role.updatedAt)
+    const opened = new Date((await RoleService.getRole(owner, viewerId)).role.updatedAt)
 
-    await RoleService.updateRoleAccess(
+    await RoleService.updateRole(
       owner,
       viewerId,
-      access({ fields: [{ fieldId, access: 'HIDDEN' }] }),
+      access(tableId, { fields: [{ fieldId, access: 'HIDDEN' }] }),
       opened,
     )
     await expect(
-      RoleService.updateRoleAccess(owner, viewerId, access(), opened),
+      RoleService.updateRole(owner, viewerId, access(tableId), opened),
     ).rejects.toMatchObject({ statusCode: 412 })
-    expect(await rowsOf(viewerId)).toEqual({ tables: 0, fields: 1 })
+    expect(await rowsOf(viewerId)).toEqual({ tables: 1, fields: 1 })
   })
 
   it('drops the rows with their table, their field or their role', async () => {
     const { tableId, fieldId } = await seedDeals()
     const viewerId = await findRoleId(ada.workspace.id, 'Viewer')
-    const next = access({
-      tables: [{ tableId, ...buildRecordDefaults() }],
-      fields: [{ fieldId, access: 'HIDDEN' }],
-    })
-    await RoleService.updateRoleAccess(owner, viewerId, next)
+    const next = access(tableId, { fields: [{ fieldId, access: 'HIDDEN' }] })
+    await RoleService.updateRole(owner, viewerId, next)
 
     await prisma.field.delete({ where: { id: fieldId } })
     expect(await rowsOf(viewerId)).toEqual({ tables: 1, fields: 0 })
@@ -222,40 +211,30 @@ describe('a role’s access to tables and fields', () => {
     await prisma.table.delete({ where: { id: tableId } })
     expect(await rowsOf(viewerId)).toEqual({ tables: 0, fields: 0 })
 
-    const clerk = await RoleService.createRole(owner, buildRoleInput('Clerk'))
     const second = await seedDeals()
-    await RoleService.updateRoleAccess(
-      owner,
-      clerk.id,
-      access({ fields: [{ fieldId: second.fieldId, access: 'READ' }] }),
-    )
+    const { role: clerk } = await RoleService.createRole(owner, {
+      ...buildRoleInput('Clerk', [], [{ tableId: second.tableId, ...buildTableAccess() }]),
+      fields: [{ fieldId: second.fieldId, access: 'READ' }],
+    })
+    expect(await rowsOf(clerk.id)).toEqual({ tables: 1, fields: 1 })
     await RoleService.deleteRole(owner, clerk.id)
     expect(await rowsOf(clerk.id)).toEqual({ tables: 0, fields: 0 })
   })
 
   it('keeps a manager from handing out a role that sees a field hidden from them', async () => {
-    const { fieldId } = await seedDeals()
+    const { tableId, fieldId } = await seedDeals()
     const editorId = await findRoleId(ada.workspace.id, 'Editor')
-    const managerRole = await RoleService.createRole(
-      owner,
-      buildRoleInput('Manager', ['MEMBERS_MANAGE', 'ROLES_MANAGE'], {
-        canCreate: true,
-        updateScope: 'ALL',
-        deleteScope: 'ALL',
-      }),
-    )
-    await RoleService.updateRoleAccess(
-      owner,
-      managerRole.id,
-      access({
-        recordDefaults: buildRecordDefaults({
-          canCreate: true,
-          updateScope: 'ALL',
-          deleteScope: 'ALL',
-        }),
-        fields: [{ fieldId, access: 'HIDDEN' }],
-      }),
-    )
+    await prisma.roleTableAccess.create({
+      data: { workspaceId: ada.workspace.id, roleId: editorId, tableId, ...FULL_TABLE_ACCESS },
+    })
+    await RoleService.createRole(owner, {
+      ...buildRoleInput(
+        'Manager',
+        ['MEMBERS_MANAGE', 'ROLES_MANAGE'],
+        [{ tableId, ...FULL_TABLE_ACCESS }],
+      ),
+      fields: [{ fieldId, access: 'HIDDEN' }],
+    })
     const bob = await createUser('bob@example.com')
     await addMember(ada.workspace.id, bob.id, 'Manager')
     const { memberships } = await WorkspaceService.listMemberships(bob.id)

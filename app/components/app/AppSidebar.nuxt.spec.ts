@@ -7,7 +7,6 @@ import AppSidebar from '~/components/app/AppSidebar.vue'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import type { IWorkspaceMembership, TWorkspacePermission } from '#shared/types/workspace'
 import { mountTracked, unmountAll } from '~~/test/mount'
-import { buildRecordDefaults } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 
@@ -24,11 +23,6 @@ function joinAs(permissions: TWorkspacePermission[]) {
     memberId: 'mem_1',
     isOwner: false,
     permissions,
-    recordDefaults: buildRecordDefaults({
-      canCreate: true,
-      updateScope: 'ALL',
-      deleteScope: 'ALL',
-    }),
     role: { id: 'rol_1', name: 'Clerk' },
     workspace: { id: 'wsp_1', publicId: WS, name: 'Acme', createdAt: '2026-01-01T00:00:00Z' },
   }

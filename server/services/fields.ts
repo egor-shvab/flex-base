@@ -157,10 +157,7 @@ async function assertRequiredFillable(tableId: string, fieldId: string, fieldNam
       fieldId,
       role: {
         NOT: { permissions: { has: 'TABLES_MANAGE' } },
-        OR: [
-          { tableAccess: { some: { tableId, canCreate: true } } },
-          { canCreate: true, tableAccess: { none: { tableId } } },
-        ],
+        tableAccess: { some: { tableId, canCreate: true } },
       },
     },
     select: { role: { select: { name: true } } },

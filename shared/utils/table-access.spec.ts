@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildRecordDefaults } from '~~/test/membership'
-import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
+import { buildTableAccess } from '~~/test/membership'
+import { FULL_TABLE_ACCESS, NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IWorkspaceActor } from '#shared/types/workspace'
 import {
   canCountRecords,
@@ -12,26 +12,23 @@ import {
   resolveTableAccess,
 } from '#shared/utils/table-access'
 
-const editorDefaults = buildRecordDefaults({ canCreate: true, updateScope: 'ALL' })
-
 const actor = (overrides: Partial<IWorkspaceActor> = {}): IWorkspaceActor => ({
   memberId: 'mem_1',
   isOwner: false,
   permissions: [],
-  recordDefaults: editorDefaults,
   ...overrides,
 })
 
-const hidden = buildRecordDefaults({ readScope: 'NONE' })
+const hidden = buildTableAccess({ readScope: 'NONE' })
 
 describe('resolveTableAccess', () => {
-  it('falls back to the role’s defaults for a table it has no row for', () => {
-    expect(resolveTableAccess(actor(), null)).toEqual(editorDefaults)
+  it('grants nothing on a table the role has no row for', () => {
+    expect(resolveTableAccess(actor(), null)).toEqual(NO_TABLE_ACCESS)
   })
 
-  it('lets the table’s row replace the defaults whole, narrower or wider', () => {
-    const narrower = buildRecordDefaults({ readScope: 'OWN' })
-    const wider = buildRecordDefaults({ canCreate: true, updateScope: 'ALL', deleteScope: 'ALL' })
+  it('takes the table’s row whole, narrow or wide', () => {
+    const narrower = buildTableAccess({ readScope: 'OWN' })
+    const wider = buildTableAccess({ canCreate: true, updateScope: 'ALL', deleteScope: 'ALL' })
 
     expect(resolveTableAccess(actor(), narrower)).toEqual(narrower)
     expect(resolveTableAccess(actor(), wider)).toEqual(wider)
@@ -45,9 +42,7 @@ describe('resolveTableAccess', () => {
     const manager = actor({ permissions: ['TABLES_MANAGE'] })
 
     expect(resolveTableAccess(manager, hidden)).toEqual({ ...hidden, readScope: 'ALL' })
-    expect(
-      resolveTableAccess(actor({ permissions: ['TABLES_MANAGE'], recordDefaults: hidden }), null),
-    ).toEqual({ ...hidden, readScope: 'ALL' })
+    expect(resolveTableAccess(manager, null)).toEqual({ ...NO_TABLE_ACCESS, readScope: 'ALL' })
   })
 })
 
@@ -65,14 +60,14 @@ describe('canReadRecords', () => {
     ['OWN', true],
     ['ALL', true],
   ] as const)('reads a table scoped to %s: %s', (readScope, expected) => {
-    expect(canReadRecords(buildRecordDefaults({ readScope }))).toBe(expected)
+    expect(canReadRecords(buildTableAccess({ readScope }))).toBe(expected)
   })
 })
 
 describe('canCountRecords', () => {
   it('shows a table’s count only to a caller who reads all of it', () => {
-    expect(canCountRecords(buildRecordDefaults({ readScope: 'ALL' }))).toBe(true)
-    expect(canCountRecords(buildRecordDefaults({ readScope: 'OWN' }))).toBe(false)
+    expect(canCountRecords(buildTableAccess({ readScope: 'ALL' }))).toBe(true)
+    expect(canCountRecords(buildTableAccess({ readScope: 'OWN' }))).toBe(false)
   })
 })
 
@@ -86,8 +81,8 @@ describe('canUpdateRecord and canDeleteRecord', () => {
     ['OWN', [true, false, false]],
     ['ALL', [true, true, true]],
   ] as const)('under %s reach mine, theirs and an orphan: %j', (scope, expected) => {
-    const update = buildRecordDefaults({ updateScope: scope })
-    const remove = buildRecordDefaults({ deleteScope: scope })
+    const update = buildTableAccess({ updateScope: scope })
+    const remove = buildTableAccess({ deleteScope: scope })
 
     expect([mine, theirs, orphan].map((r) => canUpdateRecord(update, r, 'usr_me'))).toEqual(
       expected,
@@ -99,12 +94,12 @@ describe('canUpdateRecord and canDeleteRecord', () => {
 })
 
 describe('resolveFieldAccess', () => {
-  const readOnly = buildRecordDefaults()
-  const writer = buildRecordDefaults({ updateScope: 'OWN' })
+  const readOnly = buildTableAccess()
+  const writer = buildTableAccess({ updateScope: 'OWN' })
 
   it('follows the table: edit where the role writes records, read where it does not', () => {
     expect(resolveFieldAccess(actor(), writer, null)).toBe('EDIT')
-    expect(resolveFieldAccess(actor(), buildRecordDefaults({ canCreate: true }), null)).toBe('EDIT')
+    expect(resolveFieldAccess(actor(), buildTableAccess({ canCreate: true }), null)).toBe('EDIT')
     expect(resolveFieldAccess(actor(), readOnly, null)).toBe('READ')
   })
 

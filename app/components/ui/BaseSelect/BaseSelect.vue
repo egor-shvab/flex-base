@@ -3,7 +3,10 @@
     :id="id"
     v-slot="{ labelId, describedBy }"
     class="base-select"
-    :class="{ 'base-select--open': isOpen, 'base-select--disabled': disabled }"
+    :class="{
+      'base-select--open': isOpen,
+      'base-select--disabled': disabled,
+    }"
     :label="label"
     :label-for="id"
     :error="error"
@@ -596,6 +599,10 @@ $caret-gutter: rem(36);
 $clearable-gutter: rem(64);
 
 .base-select {
+  // Holds the visually hidden status line: without it the span is placed against the page and,
+  // far down a scrolling area, makes the page itself scroll
+  position: relative;
+
   &__control {
     position: relative;
   }

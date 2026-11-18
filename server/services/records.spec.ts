@@ -4,7 +4,7 @@ import { RecordService } from '#server/services/records'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_COUNT_CAP } from '#shared/constants/record'
 import type { IRecordQuery } from '#shared/types/record'
-import { buildRecordActor, buildRecordDefaults } from '~~/test/membership'
+import { buildRecordActor, buildTableAccess } from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 import { relationField, textField } from '~~/test/fixtures'
 
@@ -415,7 +415,7 @@ describe('RecordService.deleteRecord', () => {
 describe('a role scoped to its own records', () => {
   const OWN_ACTOR = buildRecordActor(
     ACTOR_ID,
-    buildRecordDefaults({ readScope: 'OWN', updateScope: 'OWN', deleteScope: 'OWN' }),
+    buildTableAccess({ readScope: 'OWN', updateScope: 'OWN', deleteScope: 'OWN' }),
   )
   const READ = new Date('2026-02-11T16:30:00.000Z')
   const gone = () =>

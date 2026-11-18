@@ -4,7 +4,6 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
-import { buildRecordDefaults } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 
@@ -17,7 +16,6 @@ function buildMembership(overrides: Partial<IWorkspaceMembership> = {}): IWorksp
     memberId: 'mem_1',
     isOwner: false,
     permissions: ['MEMBERS_INVITE'],
-    recordDefaults: buildRecordDefaults({ canCreate: true }),
     role: { id: 'rol_1', name: 'Clerk' },
     workspace: { id: 'wsp_1', publicId: WS, name: 'Acme', createdAt: '2026-01-01T00:00:00.000Z' },
     ...overrides,

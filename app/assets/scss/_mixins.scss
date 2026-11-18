@@ -16,6 +16,20 @@ $breakpoint-compact: 40em;
   }
 }
 
+// A container's width, not the window's: the role editor's table grid narrows with the settings
+// navigation beside it, so a window wide enough for the grid can still leave it too little room.
+$breakpoint-access-grid: 40em;
+
+@mixin access-grid-container {
+  container: access-grid / inline-size;
+}
+
+@mixin below-access-grid {
+  @container access-grid (max-width: #{$breakpoint-access-grid}) {
+    @content;
+  }
+}
+
 @mixin focus-ring($offset: var(--focus-ring-offset)) {
   &:focus {
     outline: none;

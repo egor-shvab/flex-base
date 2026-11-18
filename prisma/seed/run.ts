@@ -4,6 +4,8 @@ import { prisma } from '#server/db/prisma'
 import { reconcileFieldIndexes } from '#server/db/field-indexes'
 import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithDefaults } from '#server/db/workspaces'
 import { hashPassword } from '#server/utils/auth'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
+import type { ITableAccess } from '#shared/types/workspace'
 import { compileDataset } from '~~/prisma/seed/compile'
 import { idFor } from '~~/prisma/seed/ids'
 import { SEED_TABLES } from '~~/prisma/seed/dataset'
@@ -35,46 +37,62 @@ const EDITOR_LIMITS = {
   ownRecordsTable: 'Tasks',
 }
 
+/** What each default role may do in every seeded table, before the Editor's limits. */
+const SEED_ROLE_ACCESS: Record<string, ITableAccess> = {
+  Admin: FULL_TABLE_ACCESS,
+  [EDITOR_ROLE_NAME]: FULL_TABLE_ACCESS,
+  Viewer: { readScope: 'ALL', canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' },
+}
+
 function requireSeedTable(tables: ICompiledTable[], name: string): ICompiledTable {
   const table = tables.find((candidate) => candidate.name === name)
   if (!table) throw new Error(`The seed has no table named ${name}`)
   return table
 }
 
-async function narrowEditorRole(workspaceId: string, tables: ICompiledTable[]): Promise<void> {
-  const role = await prisma.workspaceRole.findUniqueOrThrow({
-    where: { workspaceId_name: { workspaceId, name: EDITOR_ROLE_NAME } },
-    select: { id: true },
+/** A table is closed to a role without a row, so every role is given its seeded tables here. */
+async function grantSeedAccess(workspaceId: string, tables: ICompiledTable[]): Promise<void> {
+  const roles = await prisma.workspaceRole.findMany({
+    where: { workspaceId },
+    select: { id: true, name: true },
   })
+  const editorRole = roles.find((role) => role.name === EDITOR_ROLE_NAME)
+  if (!editorRole) throw new Error(`The workspace has no role named ${EDITOR_ROLE_NAME}`)
+
   const clients = requireSeedTable(tables, EDITOR_LIMITS.hiddenField.table)
   const hiddenField = clients.fields.find((field) => field.name === EDITOR_LIMITS.hiddenField.field)
   if (!hiddenField)
     throw new Error(`The seed has no field named ${EDITOR_LIMITS.hiddenField.field}`)
+  const hiddenTableId = requireSeedTable(tables, EDITOR_LIMITS.hiddenTable).id
+  const ownRecordsTableId = requireSeedTable(tables, EDITOR_LIMITS.ownRecordsTable).id
 
-  await prisma.roleTableAccess.createMany({
-    data: [
-      {
-        workspaceId,
-        roleId: role.id,
-        tableId: requireSeedTable(tables, EDITOR_LIMITS.hiddenTable).id,
-        readScope: 'NONE',
-        canCreate: false,
-        updateScope: 'NONE',
-        deleteScope: 'NONE',
-      },
-      {
-        workspaceId,
-        roleId: role.id,
-        tableId: requireSeedTable(tables, EDITOR_LIMITS.ownRecordsTable).id,
-        readScope: 'ALL',
-        canCreate: true,
-        updateScope: 'OWN',
-        deleteScope: 'OWN',
-      },
-    ],
+  const rows = roles.flatMap((role) => {
+    const access = SEED_ROLE_ACCESS[role.name]
+    if (!access) return []
+
+    return tables.flatMap((table) => {
+      if (role.id !== editorRole.id)
+        return [{ workspaceId, roleId: role.id, tableId: table.id, ...access }]
+      if (table.id === hiddenTableId) return []
+      if (table.id === ownRecordsTableId) {
+        return [
+          {
+            workspaceId,
+            roleId: role.id,
+            tableId: table.id,
+            ...access,
+            updateScope: 'OWN' as const,
+            deleteScope: 'OWN' as const,
+          },
+        ]
+      }
+      return [{ workspaceId, roleId: role.id, tableId: table.id, ...access }]
+    })
   })
+
+  await prisma.roleTableAccess.createMany({ data: rows })
   await prisma.roleFieldAccess.create({
-    data: { workspaceId, roleId: role.id, fieldId: hiddenField.id, access: 'HIDDEN' },
+    data: { workspaceId, roleId: editorRole.id, fieldId: hiddenField.id, access: 'HIDDEN' },
   })
 }
 
@@ -191,7 +209,7 @@ async function seed(): Promise<void> {
   })
 
   for (const table of tables) await writeTable(workspace.id, user.id, table)
-  await narrowEditorRole(workspace.id, tables)
+  await grantSeedAccess(workspace.id, tables)
 
   // `CONCURRENTLY` is refused inside a transaction, and nothing else indexes a directly inserted
   // field

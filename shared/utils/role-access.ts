@@ -27,8 +27,8 @@ function isFieldAccessWithin(access: TFieldAccess, of: TFieldAccess): boolean {
 }
 
 /**
- * Whether `subject` grants nothing beyond `holder` — its permissions, its defaults (which every
- * future table takes), and its effective access to each table and each field of `tables`, as
+ * Whether `subject` grants nothing beyond `holder` — its permissions, and its effective access to
+ * each table and each field of `tables`, as
  * `resolveTableAccess` and `resolveFieldAccess` decide them for anyone holding it. A field of a
  * table the subject cannot read grants nothing, so it is not compared.
  */
@@ -39,7 +39,6 @@ export function isAccessWithin(
 ): boolean {
   if (holder.isOwner) return true
   if (!isPermissionSubset(subject.permissions, holder.permissions)) return false
-  if (!isTableAccessWithin(subject.recordDefaults, holder.recordDefaults)) return false
 
   const subjectHolder = { ...subject, isOwner: false }
 

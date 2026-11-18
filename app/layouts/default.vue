@@ -110,11 +110,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     display: none;
   }
 
+  // `--main-padding-bottom` is read by a bar that sticks to the bottom edge (`RoleEditor`)
   &__main {
+    --main-padding-bottom: #{rem(32)};
+
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
-    padding: rem(18) rem(24) rem(32);
+    padding: rem(18) rem(24) var(--main-padding-bottom);
   }
 
   @include below-shell {
@@ -130,7 +133,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     }
 
     &__main {
-      padding: 0 rem(12) rem(24);
+      --main-padding-bottom: #{rem(24)};
+
+      padding: 0 rem(12) var(--main-padding-bottom);
     }
 
     // `visibility: hidden` too: translated alone, the panel stays focusable off-screen

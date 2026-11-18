@@ -78,7 +78,7 @@ async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
   for (const role of DEFAULT_WORKSPACE_ROLES) {
     await prisma.workspaceRole.update({
       where: { workspaceId_name: { workspaceId: workspace.id, name: role.name } },
-      data: { permissions: [...role.permissions], ...role.recordDefaults },
+      data: { permissions: [...role.permissions] },
     })
   }
   await prisma.user.update({ where: owner, data: { lastWorkspaceId: workspace.id } })

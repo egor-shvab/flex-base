@@ -93,20 +93,21 @@ test.describe('the app screens', () => {
     },
     'workspace roles': async (page) => {
       await page.goto(`${workspaceUrl}/settings/roles`)
-      await expect(page.getByRole('button', { name: 'Edit role Viewer' })).toBeVisible()
+      await expect(page.getByRole('link', { name: /^Viewer/ })).toBeVisible()
     },
-    'a role’s table and field access': async (page) => {
+    'a role with a table opened and changed': async (page) => {
       await page.goto(`${workspaceUrl}/settings/roles`)
-      await page.getByRole('link', { name: 'Table and field access of Viewer' }).click()
-      await page.getByRole('button', { name: 'Set access for Deals' }).click()
-      await expect(page.getByRole('button', { name: 'Close for Deals' })).toBeVisible()
-      await page.getByLabel('Own setting for this table').check()
-      await expect(page.getByRole('button', { name: /^Records they can edit/ })).toHaveCount(2)
+      await page.getByRole('link', { name: /^Viewer/ }).click()
+      await page.getByRole('button', { name: 'Deals', exact: true }).click()
+      await expect(page.getByRole('button', { name: /^Company in Deals/ })).toBeVisible()
+      await page.getByRole('button', { name: /^Deletes records in Deals/ }).click()
+      await page.getByRole('option', { name: 'All' }).click()
+      await expect(page.getByText('Unsaved changes')).toBeVisible()
     },
-    'the role form': async (page) => {
+    'a new role': async (page) => {
       await page.goto(`${workspaceUrl}/settings/roles`)
-      await page.getByRole('button', { name: 'New role' }).click()
-      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.getByRole('link', { name: 'New role' }).click()
+      await expect(page.getByRole('heading', { name: 'New role' })).toBeVisible()
     },
     'workspace members': async (page) => {
       await seedMembersOf(workspaceId)

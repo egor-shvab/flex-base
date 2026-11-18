@@ -2,12 +2,11 @@ import type { Prisma } from '#server/generated/prisma/client'
 import { isUniqueViolationOn } from '#server/db/prisma-errors'
 import { userRefSelect } from '#server/db/users'
 import { buildPublicId } from '#server/utils/public-id'
-import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IPermissionSet,
   IRoleGrants,
   IRoleOverrides,
-  ITableAccess,
   IWorkspace,
   IWorkspaceMember,
   IWorkspaceMembership,
@@ -20,20 +19,14 @@ interface IDefaultRole extends IPermissionSet {
   name: string
 }
 
-/** The first is the owner's: they keep it after handing the workspace over. */
+/**
+ * The first is the owner's: they keep it after handing the workspace over. A new workspace has no
+ * tables, so no role reaches any records yet.
+ */
 export const DEFAULT_WORKSPACE_ROLES = [
-  { name: 'Admin', permissions: WORKSPACE_PERMISSIONS, recordDefaults: FULL_TABLE_ACCESS },
-  { name: 'Editor', permissions: [], recordDefaults: FULL_TABLE_ACCESS },
-  {
-    name: 'Viewer',
-    permissions: [],
-    recordDefaults: {
-      readScope: 'ALL',
-      canCreate: false,
-      updateScope: 'NONE',
-      deleteScope: 'NONE',
-    },
-  },
+  { name: 'Admin', permissions: WORKSPACE_PERMISSIONS },
+  { name: 'Editor', permissions: [] },
+  { name: 'Viewer', permissions: [] },
 ] as const satisfies readonly IDefaultRole[]
 
 const PUBLIC_ID_ATTEMPTS = 3
@@ -48,10 +41,6 @@ export const workspaceSelect = {
 /** What a role grants across the workspace, in the columns `toPermissionSet` reads. */
 export const permissionSetSelect = {
   permissions: true,
-  readScope: true,
-  canCreate: true,
-  updateScope: true,
-  deleteScope: true,
 } satisfies Prisma.WorkspaceRoleSelect
 
 export const membershipSelect = {
@@ -65,7 +54,9 @@ export const roleSelect = {
   name: true,
   ...permissionSetSelect,
   updatedAt: true,
-  _count: { select: { members: true } },
+  _count: {
+    select: { members: true, tableAccess: { where: { readScope: { not: 'NONE' } } } },
+  },
 } satisfies Prisma.WorkspaceRoleSelect
 
 const tableOverrideSelect = {
@@ -117,17 +108,8 @@ export function buildRoleWhere(
   return { workspaceId_id: { workspaceId, id: roleId } }
 }
 
-function toTableAccess(row: TPermissionSetRow): ITableAccess {
-  return {
-    readScope: row.readScope,
-    canCreate: row.canCreate,
-    updateScope: row.updateScope,
-    deleteScope: row.deleteScope,
-  }
-}
-
 export function toPermissionSet(row: TPermissionSetRow): IPermissionSet {
-  return { permissions: row.permissions, recordDefaults: toTableAccess(row) }
+  return { permissions: row.permissions }
 }
 
 export function toRoleOverrides(row: TRoleGrantsRow): IRoleOverrides {
@@ -157,7 +139,6 @@ export function toSharedMembership(row: TMembershipRow, userId: string): IWorksp
     memberId: row.id,
     isOwner,
     permissions: isOwner ? [...WORKSPACE_PERMISSIONS] : row.role.permissions,
-    recordDefaults: isOwner ? FULL_TABLE_ACCESS : toTableAccess(row.role),
     workspace: toSharedWorkspace(row.workspace),
     role: { id: row.role.id, name: row.role.name },
   }
@@ -169,6 +150,7 @@ export function toSharedRole(row: TRoleRow, isWithinCaller: boolean): IWorkspace
     name: row.name,
     ...toPermissionSet(row),
     memberCount: row._count.members,
+    readableTableCount: row._count.tableAccess,
     isWithinCaller,
     updatedAt: row.updatedAt.toISOString(),
   }
@@ -202,7 +184,6 @@ export async function createWorkspaceWithDefaults(
         create: DEFAULT_WORKSPACE_ROLES.map((role) => ({
           name: role.name,
           permissions: [...role.permissions],
-          ...role.recordDefaults,
         })),
       },
     },

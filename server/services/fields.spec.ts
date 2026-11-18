@@ -203,7 +203,7 @@ describe('updateField — a required field every creating role can fill', () => 
     expect(prismaMock.field.update).not.toHaveBeenCalled()
   })
 
-  it('asks about roles that create here, by the table’s row or by their defaults, and not managers', async () => {
+  it('asks about roles whose row for the table lets them create, and not managers', async () => {
     prismaMock.roleFieldAccess.findFirst.mockResolvedValue(null)
 
     await FieldService.updateField(TABLE_ID, FIELD_ID, text(true))
@@ -214,10 +214,7 @@ describe('updateField — a required field every creating role can fill', () => 
           fieldId: FIELD_ID,
           role: {
             NOT: { permissions: { has: 'TABLES_MANAGE' } },
-            OR: [
-              { tableAccess: { some: { tableId: TABLE_ID, canCreate: true } } },
-              { canCreate: true, tableAccess: { none: { tableId: TABLE_ID } } },
-            ],
+            tableAccess: { some: { tableId: TABLE_ID, canCreate: true } },
           },
         },
       }),

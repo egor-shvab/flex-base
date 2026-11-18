@@ -1,4 +1,4 @@
-import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
+import { FULL_TABLE_ACCESS, NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IRecord } from '#shared/types/record'
 import type {
   ITableAccess,
@@ -9,7 +9,7 @@ import type {
 } from '#shared/types/workspace'
 import { hasPermission } from '#shared/utils/permissions'
 
-type TTableAccessHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions' | 'recordDefaults'>
+type TTableAccessHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions'>
 
 /**
  * Whoever changes the schema sees every table: a table they could edit but not open would be
@@ -20,8 +20,8 @@ export function isTableVisibilityBypassed(actor: TTableAccessHolder): boolean {
 }
 
 /**
- * What the caller may do with one table's records: the owner everything, anyone else the role's
- * row for the table — which replaces the role's defaults whole — or else those defaults.
+ * What the caller may do with one table's records: the owner everything, anyone else what the
+ * role's row for the table grants — nothing without one.
  */
 export function resolveTableAccess(
   actor: TTableAccessHolder,
@@ -29,7 +29,7 @@ export function resolveTableAccess(
 ): ITableAccess {
   if (actor.isOwner) return FULL_TABLE_ACCESS
 
-  const access = tableOverride ?? actor.recordDefaults
+  const access = tableOverride ?? NO_TABLE_ACCESS
 
   return isTableVisibilityBypassed(actor) ? { ...access, readScope: 'ALL' } : access
 }

@@ -4,18 +4,13 @@ import InviteMemberModal from '~/components/features/workspace/InviteMemberModal
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type { IWorkspaceRole } from '#shared/types/workspace'
 import { mountTracked, unmountAll } from '~~/test/mount'
-import { buildRecordDefaults } from '~~/test/membership'
 
 const ROLES: IWorkspaceRole[] = [
   {
     id: 'rol_admin',
     name: 'Admin',
     permissions: [...WORKSPACE_PERMISSIONS],
-    recordDefaults: buildRecordDefaults({
-      canCreate: true,
-      updateScope: 'ALL',
-      deleteScope: 'ALL',
-    }),
+    readableTableCount: 8,
     memberCount: 1,
     isWithinCaller: false,
     updatedAt: '2026-02-11T16:30:00.000Z',
@@ -24,7 +19,7 @@ const ROLES: IWorkspaceRole[] = [
     id: 'rol_editor',
     name: 'Editor',
     permissions: [],
-    recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
+    readableTableCount: 4,
     memberCount: 0,
     isWithinCaller: true,
     updatedAt: '2026-02-11T16:30:00.000Z',
@@ -33,7 +28,7 @@ const ROLES: IWorkspaceRole[] = [
     id: 'rol_viewer',
     name: 'Viewer',
     permissions: [],
-    recordDefaults: buildRecordDefaults(),
+    readableTableCount: 2,
     memberCount: 0,
     isWithinCaller: true,
     updatedAt: '2026-02-11T16:30:00.000Z',

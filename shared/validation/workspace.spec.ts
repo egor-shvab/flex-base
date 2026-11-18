@@ -25,21 +25,32 @@ describe('roleInputSchema', () => {
   const role = (overrides: Record<string, unknown>) => ({
     name: 'Editor',
     permissions: [],
-    recordDefaults: readOnly,
+    tables: [],
+    fields: [],
     ...overrides,
   })
+  const dealsRow = (access: Record<string, unknown>) => ({
+    tableId: 'tbl_deals',
+    ...readOnly,
+    ...access,
+  })
 
-  it('accepts a name, a set of known permissions and record defaults', () => {
-    const recordDefaults = { ...readOnly, canCreate: true, updateScope: 'ALL' }
+  it('accepts a name, a set of known permissions and its rows, dropping anything else', () => {
+    const tables = [dealsRow({ canCreate: true, updateScope: 'ALL' })]
 
     expect(
       roleInputSchema.parse(
-        role({ name: ' Editor ', permissions: ['TABLES_MANAGE'], recordDefaults }),
+        role({
+          name: ' Editor ',
+          permissions: ['TABLES_MANAGE'],
+          tables,
+          recordDefaults: readOnly,
+        }),
       ),
-    ).toEqual({ name: 'Editor', permissions: ['TABLES_MANAGE'], recordDefaults })
+    ).toEqual({ name: 'Editor', permissions: ['TABLES_MANAGE'], tables, fields: [] })
   })
 
-  it('accepts a role with no permissions at all', () => {
+  it('accepts a role with no permissions and no table at all', () => {
     expect(roleInputSchema.safeParse(role({ name: 'Viewer' })).success).toBe(true)
   })
 
@@ -56,43 +67,30 @@ describe('roleInputSchema', () => {
     expect(result.error?.issues[0]?.path).toEqual(['permissions'])
   })
 
-  it('accepts a role scoped to its own records', () => {
-    const recordDefaults = {
-      readScope: 'OWN',
-      canCreate: true,
-      updateScope: 'OWN',
-      deleteScope: 'OWN',
-    }
+  it('accepts a table row scoped to its own records', () => {
+    const tables = [
+      dealsRow({ readScope: 'OWN', canCreate: true, updateScope: 'OWN', deleteScope: 'OWN' }),
+    ]
 
-    expect(roleInputSchema.safeParse(role({ recordDefaults })).success).toBe(true)
-  })
-
-  it('accepts a default read of none, which a table’s own row can open', () => {
-    const recordDefaults = { ...readOnly, readScope: 'NONE' }
-
-    expect(roleInputSchema.safeParse(role({ recordDefaults })).success).toBe(true)
+    expect(roleInputSchema.safeParse(role({ tables })).success).toBe(true)
   })
 
   it('refuses adding records with a read of none', () => {
     const result = roleInputSchema.safeParse(
-      role({ recordDefaults: { ...readOnly, readScope: 'NONE', canCreate: true } }),
+      role({ tables: [dealsRow({ readScope: 'NONE', canCreate: true })] }),
     )
 
     expect(result.success).toBe(false)
-    expect(result.error?.issues[0]?.path).toEqual(['recordDefaults', 'canCreate'])
+    expect(result.error?.issues[0]?.path).toEqual(['tables', 0, 'canCreate'])
   })
 
   it.each(['updateScope', 'deleteScope'])('rejects a %s wider than the read', (key) => {
     const result = roleInputSchema.safeParse(
-      role({ recordDefaults: { ...readOnly, readScope: 'OWN', [key]: 'ALL' } }),
+      role({ tables: [dealsRow({ readScope: 'OWN', [key]: 'ALL' })] }),
     )
 
     expect(result.success).toBe(false)
-    expect(result.error?.issues[0]?.path).toEqual(['recordDefaults', key])
-  })
-
-  it('requires the record defaults, rather than reading their absence as none', () => {
-    expect(roleInputSchema.safeParse(role({ recordDefaults: undefined })).success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['tables', 0, key])
   })
 
   it.each(['Owner', 'owner', '  OWNER  '])('reserves %j for the workspace owner', (name) => {
@@ -106,8 +104,38 @@ describe('roleInputSchema', () => {
     expect(roleInputSchema.safeParse(role({ name: 'Owners’ assistant' })).success).toBe(true)
   })
 
-  it('requires the permissions, rather than reading their absence as none', () => {
-    expect(roleInputSchema.safeParse(role({ permissions: undefined })).success).toBe(false)
+  it.each(['permissions', 'tables'])(
+    'requires the %s, rather than reading their absence as none',
+    (key) => {
+      expect(roleInputSchema.safeParse(role({ [key]: undefined })).success).toBe(false)
+    },
+  )
+
+  it('accepts table and field rows', () => {
+    const input = role({
+      tables: [dealsRow({ readScope: 'OWN' })],
+      fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }],
+    })
+
+    expect(roleInputSchema.parse(input)).toEqual(input)
+  })
+
+  it('refuses a table listed twice', () => {
+    const row = dealsRow({})
+
+    expect(roleInputSchema.safeParse(role({ tables: [row, row] })).success).toBe(false)
+  })
+
+  it('refuses a field listed twice', () => {
+    const row = { fieldId: 'fld_salary', access: 'READ' }
+
+    expect(roleInputSchema.safeParse(role({ fields: [row, row] })).success).toBe(false)
+  })
+
+  it('refuses EDIT as a field row, which is the absence of one', () => {
+    const fields = [{ fieldId: 'fld_salary', access: 'EDIT' }]
+
+    expect(roleInputSchema.safeParse(role({ fields })).success).toBe(false)
   })
 })
 

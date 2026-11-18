@@ -163,7 +163,7 @@ one. Each names the permission it needs as its first argument — a required val
 it cannot be forgotten and adds no branch. A record route names a record action instead
 (`create`/`update`/`delete`): the table's access grants it, so it is checked after the lookup, which
 already answered a table the role may not read with the missing table's 404 — rejected: checking
-the role's defaults before the lookup, which a table's own row can widen or narrow. One factory per `require*` helper — rejected: one
+the action before the lookup, which only the table's own row can answer. One factory per `require*` helper — rejected: one
 factory with an options bag (the branch comes back, as a flag). Each is **generic in its return
 type**; flattening to `unknown` would silently widen every response type.
 
@@ -293,14 +293,24 @@ Prisma enum. Record actions are not in it: each takes a scope (`NONE`/`OWN`/`ALL
 an array cannot say, so they are the role's own columns (`readScope`, `canCreate`, `updateScope`,
 `deleteScope`), compared in that order by the anti-escalation rules.
 
-### A table's access row replaces the role's defaults whole
+### A role reaches a table only through its row there
 
-`RoleTableAccess` holds all four columns, and a row present wins outright; without one the role's
-defaults apply (`resolveTableAccess`, and `buildReadableTablesWhere` deciding the same in SQL for
-the list). Rejected: nullable columns merged over the defaults flag by flag — a table's access
-could no longer be read off one row. `TABLES_MANAGE` sees every table, since a table one may change
-but not open would be changed blind; their record actions still come from the role. A hidden table
-is a 404, as one outside the workspace.
+`RoleTableAccess` holds all four columns; without a row the role may do nothing with the table
+(`resolveTableAccess`, and `buildReadableTablesWhere` deciding the same in SQL for the list), so a
+new table stays closed until a role editor opens it. The one exception is the creator's role,
+given everything in the table it made (`TableService.createTable`) — otherwise a non-owner who
+manages tables could not fill their own. Rejected: role-wide defaults every table without a row
+follows — a second place to look for what a role may do, and a new table silently open to every
+role. `TABLES_MANAGE` sees every table, since a table one may change but not open would be changed
+blind; their record actions still come from the role. A hidden table is a 404, as one outside the
+workspace.
+
+### A role is edited and saved whole, on one page
+
+Its name, permissions and every table and field row are one form and one write
+(`roleInputSchema`, `RoleService.updateRole`), so what a role grants is decided in one place and
+checked against the actor once. Rejected: a dialog for the role and a page for its access — two
+places to look, and two writes that could land half.
 
 ### A link is seen through the caller's access to its target
 
@@ -313,19 +323,18 @@ column would announce a table the role cannot open, and its filter would probe i
 ### A role is compared on its effective access, table by table and field by field
 
 `isAccessWithin` resolves both roles on every table and field of the workspace, as a member holding
-each would meet them, besides comparing permissions and defaults (which every future table takes).
-Comparing the rows themselves fails both ways: a row can narrow as well as widen, and a role
-without a row on a table still reaches it through its defaults. The client cannot see other roles'
+each would meet them, besides comparing permissions. Comparing the rows themselves fails: what a
+row grants depends on who holds it (`TABLES_MANAGE` reads every table, a field follows its table's
+actions). The client cannot see other roles'
 rows, so it reads the answer, `IWorkspaceRole.isWithinCaller`, computed only for callers who can
 act on roles or their holders. Rejected: shipping every role's rows to the client — a matrix the
 member pages do not need, and a second place the rule would run.
 
 ### A required field must be fillable by every role that adds records to its table
 
-Marking a field required is a 409 while a role that creates records there (by the table's row or
-its defaults) holds the field hidden or read-only: every record that role adds would be refused,
-or saved without the value. Saving a role's defaults or access checks the same from the other
-side. A new field has no role rows yet, so only an update is checked; a schema manager writes
+Marking a field required is a 409 while a role that creates records there (by its row for the
+table) holds the field hidden or read-only: every record that role adds would be refused, or saved
+without the value. Saving a role checks the same from the other side. A new field has no role rows yet, so only an update is checked; a schema manager writes
 every field and never blocks it. Rejected: letting the create through with
 the field empty — `required` would stop meaning anything for that role.
 

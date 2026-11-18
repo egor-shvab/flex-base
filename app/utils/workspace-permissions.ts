@@ -1,17 +1,13 @@
 import type { ISelectOption } from '~/types/select'
-import {
-  FULL_TABLE_ACCESS,
-  RECORD_SCOPES,
-  WORKSPACE_PERMISSIONS,
-} from '#shared/constants/workspace'
+import { formatCount } from '~/utils/format'
+import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
-  IPermissionSet,
+  ITableAccess,
   IWorkspaceRole,
   TRecordScope,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { isScopeWithin, isTableAccessWithin } from '#shared/utils/permissions'
-import type { TRoleInput } from '#shared/validation/workspace'
+import { isScopeWithin } from '#shared/utils/permissions'
 
 interface IPermissionText {
   label: string
@@ -36,39 +32,24 @@ export const WORKSPACE_PERMISSION_TEXT: Record<TWorkspacePermission, IPermission
   },
 }
 
-export const CREATE_RECORDS_TEXT: IPermissionText = {
-  label: 'Add records',
-  description: 'Create records in every table',
-}
-
 export type TScopedRecordKey = 'readScope' | 'updateScope' | 'deleteScope'
 
-/** A scope's control in the role editor, and the role summary's words for each scope it grants. */
-export const RECORD_SCOPE_TEXT: Record<
-  TScopedRecordKey,
-  { label: string; summary: Partial<Record<TRecordScope, string>> }
-> = {
-  readScope: {
-    label: 'Records they see',
-    summary: { NONE: 'Sees no records', OWN: 'Sees only own records' },
-  },
-  updateScope: {
-    label: 'Records they can edit',
-    summary: { OWN: 'Edit own records', ALL: 'Edit records' },
-  },
-  deleteScope: {
-    label: 'Records they can delete',
-    summary: { OWN: 'Delete own records', ALL: 'Delete records' },
-  },
+/**
+ * The role editor's four record columns: the column's word, and the phrase that names one of its
+ * controls — which holds the word, so a control's name contains its visible label.
+ */
+export const RECORD_ACCESS_TEXT: Record<keyof ITableAccess, { label: string; phrase: string }> = {
+  readScope: { label: 'Sees', phrase: 'Sees records in' },
+  canCreate: { label: 'Adds', phrase: 'Adds records to' },
+  updateScope: { label: 'Edits', phrase: 'Edits records in' },
+  deleteScope: { label: 'Deletes', phrase: 'Deletes records in' },
 }
 
 const SCOPE_OPTION_LABELS: Record<TRecordScope, string> = {
   NONE: 'None',
-  OWN: 'Only their own',
-  ALL: 'All records',
+  OWN: 'Only own',
+  ALL: 'All',
 }
-
-type TRecordDefaultsInput = TRoleInput['recordDefaults']
 
 /**
  * The options of one scope's control. A scope wider than `limit` is shown but disabled: the
@@ -86,13 +67,10 @@ export function buildScopeOptions(
 }
 
 /**
- * The role form's record defaults with a new read, its actions narrowed to stay within it: none
- * reaches past the read, and no record is added where none can be read.
+ * A table's access with a new read, its actions narrowed to stay within it: none reaches past the
+ * read, and no record is added where none can be read.
  */
-export function applyReadScope(
-  access: TRecordDefaultsInput,
-  readScope: TRecordDefaultsInput['readScope'],
-): TRecordDefaultsInput {
+export function applyReadScope(access: ITableAccess, readScope: TRecordScope): ITableAccess {
   const narrow = (scope: TRecordScope) => (isScopeWithin(scope, readScope) ? scope : readScope)
 
   return {
@@ -104,46 +82,25 @@ export function applyReadScope(
   }
 }
 
-function listGrantLabels(set: IPermissionSet): string[] {
-  const { recordDefaults } = set
-  const scopeLabels = (['readScope', 'updateScope', 'deleteScope'] as const).flatMap(
-    (key) => RECORD_SCOPE_TEXT[key].summary[recordDefaults[key]] ?? [],
-  )
+/** What a role lets its members do: its workspace permissions, then how many tables it reaches. */
+export function summarisePermissions(role: IWorkspaceRole): string {
+  const tables =
+    role.readableTableCount === 0
+      ? 'No tables'
+      : `Records in ${formatCount(role.readableTableCount, 'table')}`
+  const labels =
+    role.permissions.length === WORKSPACE_PERMISSIONS.length
+      ? ['Every permission']
+      : WORKSPACE_PERMISSIONS.filter((permission) => role.permissions.includes(permission)).map(
+          (permission) => WORKSPACE_PERMISSION_TEXT[permission].label,
+        )
 
-  return [
-    ...WORKSPACE_PERMISSIONS.filter((permission) => set.permissions.includes(permission)).map(
-      (permission) => WORKSPACE_PERMISSION_TEXT[permission].label,
-    ),
-    ...(recordDefaults.canCreate ? [CREATE_RECORDS_TEXT.label] : []),
-    ...scopeLabels,
-  ]
+  return [...labels, tables].join(', ')
 }
 
-/** What a role lets its members do beyond reading every record, which is the default. */
-export function summarisePermissions(set: IPermissionSet): string {
-  if (
-    set.permissions.length === WORKSPACE_PERMISSIONS.length &&
-    isTableAccessWithin(FULL_TABLE_ACCESS, set.recordDefaults)
-  ) {
-    return 'Every permission'
-  }
-
-  const labels = listGrantLabels(set)
-  return labels.length === 0 ? 'Read only' : labels.join(', ')
-}
-
-/** How much a role grants, for ranking roles from the narrowest: a wider scope counts for more. */
-export function toGrantCount(set: IPermissionSet): number {
-  const { readScope, canCreate, updateScope, deleteScope } = set.recordDefaults
-
-  return (
-    set.permissions.length +
-    Number(canCreate) +
-    [readScope, updateScope, deleteScope].reduce(
-      (sum, scope) => sum + RECORD_SCOPES.indexOf(scope),
-      0,
-    )
-  )
+/** How much a role grants, for ranking roles from the narrowest. */
+export function toGrantCount(role: IWorkspaceRole): number {
+  return role.permissions.length + role.readableTableCount
 }
 
 /** The roles the caller may hand out — those within them — as the options of a role picker. */

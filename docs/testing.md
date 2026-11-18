@@ -39,7 +39,9 @@ What the suite exists to cover is `architecture.md` §11.
   into a general Nitro stub.
 - Rows are seeded through Prisma (`test/integration/seed.ts`), never through the services under
   test. `createUser` leaves a user as registration does — owner of a personal workspace with the
-  default roles — and `addMember` joins another under a role by name.
+  default roles — and `addMember` joins another under a role by name. `createTable` opens the table
+  to the default roles (Admin and Editor whole, Viewer reading), so a spec about something else
+  need not; `setTableAccess` replaces one role's row.
 - **A new model joins the `TRUNCATE`** in both `test/integration/setup.ts` and the e2e
   `global-setup.ts`.
 

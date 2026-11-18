@@ -40,12 +40,15 @@ function checkActionsWithinRead(
   }
 }
 
-export const tableAccessSchema = z.object(tableAccessFields).superRefine(checkActionsWithinRead)
-
 export const tableAccessOverrideSchema = z
   .object({ tableId: idSchema, ...tableAccessFields })
   .superRefine(checkActionsWithinRead)
 
+function hasNoRepeat(values: readonly string[]): boolean {
+  return new Set(values).size === values.length
+}
+
+/** A whole role, replacing what it held: its permissions and every table and field it reaches. */
 export const roleInputSchema = z.object({
   name: nameSchema.refine(
     (name) => name.toLowerCase() !== RESERVED_ROLE_NAME.toLowerCase(),
@@ -53,11 +56,13 @@ export const roleInputSchema = z.object({
   ),
   permissions: z
     .array(z.enum(WORKSPACE_PERMISSIONS))
-    .refine(
-      (permissions) => new Set(permissions).size === permissions.length,
-      'A permission is listed twice',
-    ),
-  recordDefaults: tableAccessSchema,
+    .refine(hasNoRepeat, 'A permission is listed twice'),
+  tables: z
+    .array(tableAccessOverrideSchema)
+    .refine((rows) => hasNoRepeat(rows.map((row) => row.tableId)), 'A table is listed twice'),
+  fields: z
+    .array(z.object({ fieldId: idSchema, access: z.enum(['HIDDEN', 'READ']) }))
+    .refine((rows) => hasNoRepeat(rows.map((row) => row.fieldId)), 'A field is listed twice'),
 })
 
 export const memberRoleInputSchema = z.object({

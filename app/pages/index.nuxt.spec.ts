@@ -9,7 +9,6 @@ import type { IWorkspacesResponse } from '#shared/types/api'
 import WorkspaceEntry from '~/pages/index.vue'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { mountTracked, unmountAll } from '~~/test/mount'
-import { buildRecordDefaults } from '~~/test/membership'
 
 const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)
@@ -20,7 +19,6 @@ const membershipOf = (publicId: string): IWorkspacesResponse['memberships'][numb
   memberId: `mem_${publicId}`,
   isOwner: true,
   permissions: [],
-  recordDefaults: buildRecordDefaults(),
   role: { id: 'rol_1', name: 'Admin' },
   workspace: { id: `wsp_${publicId}`, publicId, name: 'Personal workspace', createdAt: '' },
 })

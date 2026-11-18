@@ -4,8 +4,15 @@ import { InvitationService } from '#server/services/invitations'
 import { RoleService } from '#server/services/roles'
 import { WorkspaceService } from '#server/services/workspaces'
 import { requireMembership } from '#server/utils/workspace-access'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
-import { addMember, createUser, type TSeededUser } from '~~/test/integration/seed'
+import {
+  addMember,
+  createTable,
+  createUser,
+  setTableAccess,
+  type TSeededUser,
+} from '~~/test/integration/seed'
 
 let ada: TSeededUser
 let owner: IWorkspaceMembership
@@ -34,11 +41,11 @@ describe('an invitation outliving its sender’s authority', () => {
         workspaceId: ada.workspace.id,
         name: 'Recruiter',
         permissions: ['MEMBERS_INVITE'],
-        canCreate: true,
-        updateScope: 'ALL',
-        deleteScope: 'ALL',
       },
     })
+    // A table the Editor reaches whole and the Viewer only reads, so the two roles differ
+    const deals = await createTable(ada.workspace.id, 'Deals')
+    await setTableAccess(ada.workspace.id, 'Recruiter', deals.id, FULL_TABLE_ACCESS)
     const bob = await createUser('bob@example.com')
     await addMember(ada.workspace.id, bob.id, 'Recruiter')
     const recruiter = await requireMembership(bob.id, ada.workspace.publicId)

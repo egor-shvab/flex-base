@@ -9,7 +9,7 @@ import type { ITable } from '#shared/types/table'
 import { useTableLoader } from '~/composables/useTableLoader'
 import { useFieldsStore } from '~/stores/fields'
 import { textField } from '~~/test/fixtures'
-import { buildRecordDefaults } from '~~/test/membership'
+import { buildTableAccess } from '~~/test/membership'
 import { mountTracked, unmountAll } from '~~/test/mount'
 
 const WS = 'k3f9x2m8qa'
@@ -22,7 +22,7 @@ const TABLE: ITable = {
   updatedAt: '2026-01-05T09:14:00.000Z',
 }
 
-const ACCESS = buildRecordDefaults({ canCreate: true })
+const ACCESS = buildTableAccess({ canCreate: true })
 
 const requests: string[] = []
 let shouldTableFail = false

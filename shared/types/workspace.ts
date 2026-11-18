@@ -26,13 +26,12 @@ export interface ITableAccess {
   deleteScope: TRecordScope
 }
 
-/** What a role grants: workspace permissions, and record access for every table. */
+/** What a role grants across the workspace; record access is granted table by table. */
 export interface IPermissionSet {
   permissions: readonly TWorkspacePermission[]
-  recordDefaults: ITableAccess
 }
 
-/** A role's own record access for one table, replacing its defaults there whole. */
+/** A role's record access for one table; a table without one is closed to the role. */
 export interface ITableAccessOverride extends ITableAccess {
   tableId: string
 }
@@ -43,7 +42,7 @@ export interface IFieldAccessOverride {
   access: TFieldAccessOverride
 }
 
-/** What a role sets apart from its defaults, table by table and field by field. */
+/** What a role grants table by table and field by field. */
 export interface IRoleOverrides {
   tables: ITableAccessOverride[]
   fields: IFieldAccessOverride[]
@@ -86,8 +85,8 @@ export interface IRoleRef {
 }
 
 /**
- * The caller's place in one workspace. `permissions` and `recordDefaults` are what they may do —
- * everything for the owner, whatever `role` grants.
+ * The caller's place in one workspace. `permissions` are what they may do — everything for the
+ * owner, whatever `role` grants.
  */
 export interface IWorkspaceMembership extends IWorkspaceActor {
   workspace: IWorkspace
@@ -96,6 +95,8 @@ export interface IWorkspaceMembership extends IWorkspaceActor {
 
 export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
   memberCount: number
+  /** The tables whose records the role sees, at least its own. */
+  readableTableCount: number
   /**
    * Whether the role grants nothing beyond the caller, on any table or field: what assigning it,
    * editing or deleting it, or managing a member who holds it requires. Always false for a caller

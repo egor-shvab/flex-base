@@ -1,4 +1,5 @@
 import { createError } from 'h3'
+import type { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { ACCESS_TABLE_ORDER, accessTableSelect, toAccessTable } from '#server/db/tables'
 import {
@@ -9,6 +10,7 @@ import {
   toRoleOverrides,
   toSharedRole,
   type TRoleGrantsRow,
+  type TRoleRow,
 } from '#server/db/workspaces'
 import { isForeignKeyViolation, isMissingRow } from '#server/db/prisma-errors'
 import {
@@ -16,7 +18,7 @@ import {
   buildStaleWriteError,
   toHttpError,
 } from '#server/utils/http-errors'
-import type { IRoleAccessResponse } from '#shared/types/api'
+import type { IRoleDetailResponse } from '#shared/types/api'
 import type {
   IAccessTable,
   IRoleGrants,
@@ -27,7 +29,6 @@ import type {
 import { hasPermission } from '#shared/utils/permissions'
 import { isAccessWithin } from '#shared/utils/role-access'
 import { canReadRecords, resolveFieldAccess, resolveTableAccess } from '#shared/utils/table-access'
-import type { TRoleAccessInput } from '#shared/validation/role-access'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 export const MAX_WORKSPACE_ROLES = 20
@@ -184,15 +185,45 @@ function assertRequiredFieldsFillable(name: string, grants: IRoleGrants, tables:
 }
 
 /**
- * The cap is counted, not locked: two creates racing past the count can land one role over it.
- * It bounds the list a page renders, which one extra role does not break.
+ * Every check a role's whole input passes before it is written: its tables and fields are the
+ * workspace's, it grants nothing beyond the actor, and its required fields stay fillable.
  */
-async function createRole(actor: IWorkspaceMembership, input: TRoleInput): Promise<IWorkspaceRole> {
+function assertRoleWritable(
+  ground: IAccessGround,
+  actor: IWorkspaceMembership,
+  input: TRoleInput,
+): void {
+  assertOverridesInWorkspace(input, ground.tables)
+  if (!isWithinActor(ground, actor, input)) throw buildEscalationError()
+  assertRequiredFieldsFillable(input.name, input, ground.tables)
+}
+
+async function createRoleOverrides(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  roleId: string,
+  input: TRoleInput,
+): Promise<void> {
+  await tx.roleTableAccess.createMany({
+    data: input.tables.map((row) => ({ workspaceId, roleId, ...row })),
+  })
+  await tx.roleFieldAccess.createMany({
+    data: input.fields.map((row) => ({ workspaceId, roleId, ...row })),
+  })
+}
+
+/**
+ * The role and every row it sets apart, in one transaction. The cap is counted, not locked: two
+ * creates racing past the count can land one role over it. It bounds the list a page renders,
+ * which one extra role does not break.
+ */
+async function createRole(
+  actor: IWorkspaceMembership,
+  input: TRoleInput,
+): Promise<IRoleDetailResponse> {
   const workspaceId = actor.workspace.id
   const ground = await loadAccessGround(workspaceId, [actor.role.id])
-  if (!isWithinActor(ground, actor, { ...input, tables: [], fields: [] })) {
-    throw buildEscalationError()
-  }
+  assertRoleWritable(ground, actor, input)
 
   const roleCount = await prisma.workspaceRole.count({ where: { workspaceId } })
 
@@ -204,13 +235,16 @@ async function createRole(actor: IWorkspaceMembership, input: TRoleInput): Promi
   }
 
   try {
-    return toSharedRole(
-      await prisma.workspaceRole.create({
+    const created = await prisma.$transaction(async (tx) => {
+      const role = await tx.workspaceRole.create({
         data: { workspaceId, ...toRoleData(input) },
         select: roleSelect,
-      }),
-      true,
-    )
+      })
+      await createRoleOverrides(tx, workspaceId, role.id, input)
+      return role
+    })
+
+    return toRoleDetail(created, input, ground.tables)
   } catch (error) {
     throw toHttpError(error, roleErrors)
   }
@@ -241,36 +275,7 @@ function buildGuardedRoleWhere(workspaceId: string, role: TRoleGrantsRow) {
   return { ...buildRoleWhere(workspaceId, role.id), updatedAt: role.updatedAt }
 }
 
-async function updateRole(
-  actor: IWorkspaceMembership,
-  roleId: string,
-  input: TRoleInput,
-  expectedUpdatedAt?: Date,
-): Promise<IWorkspaceRole> {
-  const { ground, role } = await loadEditableRole(actor, roleId, expectedUpdatedAt)
-  const next: IRoleGrants = { ...input, ...toRoleOverrides(role) }
-
-  if (!isWithinActor(ground, actor, next)) throw buildEscalationError()
-  assertRequiredFieldsFillable(input.name, next, ground.tables)
-
-  try {
-    return toSharedRole(
-      await prisma.workspaceRole.update({
-        where: buildGuardedRoleWhere(actor.workspace.id, role),
-        data: toRoleData(input),
-        select: roleSelect,
-      }),
-      true,
-    )
-  } catch (error) {
-    throw await toRoleWriteError(error, actor.workspace.id, roleId)
-  }
-}
-
-async function getRoleAccess(
-  actor: IWorkspaceMembership,
-  roleId: string,
-): Promise<IRoleAccessResponse> {
+async function getRole(actor: IWorkspaceMembership, roleId: string): Promise<IRoleDetailResponse> {
   const ground = await loadAccessGround(actor.workspace.id, [actor.role.id, roleId])
   const grantsRow = requireGroundRole(ground, roleId)
   const role = await prisma.workspaceRole.findUniqueOrThrow({
@@ -283,6 +288,15 @@ async function getRoleAccess(
     overrides: toRoleOverrides(grantsRow),
     tables: ground.tables,
   }
+}
+
+async function listAccessTables(actor: IWorkspaceMembership): Promise<IAccessTable[]> {
+  const tables = await prisma.table.findMany({
+    where: { workspaceId: actor.workspace.id },
+    orderBy: ACCESS_TABLE_ORDER,
+    select: accessTableSelect,
+  })
+  return tables.map(toAccessTable)
 }
 
 /**
@@ -317,53 +331,60 @@ function assertOverridesInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
 }
 
 /**
- * Replaces the role's defaults and every row it sets apart, in one transaction: the role's own row
- * first, guarded by the version read, so a miss leaves the old rows untouched.
+ * Replaces the whole role — name, permissions, defaults and every row it sets apart — in one
+ * transaction: the role's own row first, guarded by the version read, so a miss leaves the old
+ * rows untouched.
  */
-async function updateRoleAccess(
+async function updateRole(
   actor: IWorkspaceMembership,
   roleId: string,
-  input: TRoleAccessInput,
+  input: TRoleInput,
   expectedUpdatedAt?: Date,
-): Promise<IRoleAccessResponse> {
+): Promise<IRoleDetailResponse> {
   const workspaceId = actor.workspace.id
   const { ground, role } = await loadEditableRole(actor, roleId, expectedUpdatedAt)
-  const next: IRoleGrants = { permissions: role.permissions, ...input }
-
-  assertOverridesInWorkspace(next, ground.tables)
-  if (!isWithinActor(ground, actor, next)) throw buildEscalationError()
-  assertRequiredFieldsFillable(role.name, next, ground.tables)
+  assertRoleWritable(ground, actor, input)
 
   try {
     const saved = await prisma.$transaction(async (tx) => {
       const updated = await tx.workspaceRole.update({
         where: buildGuardedRoleWhere(workspaceId, role),
-        data: input.recordDefaults,
+        data: toRoleData(input),
         select: roleSelect,
       })
       await tx.roleTableAccess.deleteMany({ where: { roleId } })
       await tx.roleFieldAccess.deleteMany({ where: { roleId } })
-      await tx.roleTableAccess.createMany({
-        data: input.tables.map((row) => ({ workspaceId, roleId, ...row })),
-      })
-      await tx.roleFieldAccess.createMany({
-        data: input.fields.map((row) => ({ workspaceId, roleId, ...row })),
-      })
+      await createRoleOverrides(tx, workspaceId, roleId, input)
       return updated
     })
 
-    return {
-      role: toSharedRole(saved, true),
-      overrides: { tables: input.tables, fields: input.fields },
-      tables: ground.tables,
-    }
+    return toRoleDetail(saved, input, ground.tables)
   } catch (error) {
     throw await toRoleWriteError(error, workspaceId, roleId)
   }
 }
 
+/**
+ * A role just written is within its writer: the write was refused otherwise. Its tables are
+ * counted from the input, since the row was read before its table rows were replaced.
+ */
+function toRoleDetail(
+  row: TRoleRow,
+  input: TRoleInput,
+  tables: IAccessTable[],
+): IRoleDetailResponse {
+  return {
+    role: {
+      ...toSharedRole(row, true),
+      readableTableCount: input.tables.filter((table) => canReadRecords(table)).length,
+    },
+    overrides: { tables: input.tables, fields: input.fields },
+    tables,
+  }
+}
+
 function toRoleData(input: TRoleInput) {
-  return { name: input.name, permissions: input.permissions, ...input.recordDefaults }
+  return { name: input.name, permissions: input.permissions }
 }
 
 /** A miss on a role still there changed under the check (409); one gone is the usual 404. */
@@ -404,9 +425,9 @@ export const RoleService = {
   listRoles,
   getRoleReach,
   requireAssignableRole,
+  getRole,
+  listAccessTables,
   createRole,
   updateRole,
-  getRoleAccess,
-  updateRoleAccess,
   deleteRole,
 }

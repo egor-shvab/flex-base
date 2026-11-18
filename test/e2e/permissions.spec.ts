@@ -1,6 +1,7 @@
 import type { Browser, Page } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
 import { expect, signInNewUser, test, type ISeededTable } from '~~/test/e2e/setup/fixtures'
+import { setTableAccess } from '~~/test/integration/seed'
 
 /** A second account, joined to the e2e user's workspace under one of its roles. */
 async function signInAsMember(browser: Browser, workspaceId: string, roleName: string) {
@@ -65,8 +66,9 @@ test('a Viewer reads everything and is offered no change at all', async ({
   }
 
   await page.goto(`${workspace.url}/settings/roles`)
-  await expect(page.getByRole('button', { name: 'New role' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /^Edit role/ })).toHaveCount(0)
+  await expect(page.getByRole('listitem').filter({ hasText: 'Editor' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'New role' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /^Editor/ })).toHaveCount(0)
 
   await page.context().close()
 })
@@ -81,9 +83,11 @@ test('a role narrowed mid-session hides its controls on the first refusal', asyn
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
 
-  await prisma.workspaceRole.update({
-    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
-    data: { canCreate: false, updateScope: 'NONE', deleteScope: 'NONE' },
+  await setTableAccess(workspace.id, 'Editor', table.id, {
+    readScope: 'ALL',
+    canCreate: false,
+    updateScope: 'NONE',
+    deleteScope: 'NONE',
   })
 
   await dialog.getByLabel('Company').fill('Acme Ltd')
@@ -99,9 +103,11 @@ test('a role scoped to its own records offers edit and delete on those rows only
   browser,
   workspace,
 }) => {
-  await prisma.workspaceRole.update({
-    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
-    data: { canCreate: true, updateScope: 'OWN', deleteScope: 'OWN' },
+  await setTableAccess(workspace.id, 'Editor', table.id, {
+    readScope: 'ALL',
+    canCreate: true,
+    updateScope: 'OWN',
+    deleteScope: 'OWN',
   })
   const page = await signInAsMember(browser, workspace.id, 'Editor')
   await page.goto(table.url)
@@ -235,20 +241,8 @@ test('a table hidden from a role is not listed, and its address is a 404', async
   browser,
   workspace,
 }) => {
-  const role = await prisma.workspaceRole.findUniqueOrThrow({
-    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
-    select: { id: true },
-  })
-  await prisma.roleTableAccess.create({
-    data: {
-      workspaceId: workspace.id,
-      roleId: role.id,
-      tableId: table.id,
-      readScope: 'NONE',
-      canCreate: false,
-      updateScope: 'NONE',
-      deleteScope: 'NONE',
-    },
+  await prisma.roleTableAccess.deleteMany({
+    where: { tableId: table.id, role: { name: 'Editor' } },
   })
   const page = await signInAsMember(browser, workspace.id, 'Editor')
 

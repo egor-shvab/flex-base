@@ -1,7 +1,7 @@
 <template>
-  <section class="role-access" :aria-labelledby="titleId">
+  <section class="role-page" :aria-labelledby="titleId">
     <BaseButton
-      class="role-access__back"
+      class="role-page__back"
       variant="link"
       prepend-icon="material-symbols:arrow-back-rounded"
       :to="pagePath.workspaceSettings(workspaceAddress, 'roles')"
@@ -10,10 +10,8 @@
     </BaseButton>
 
     <BaseSectionHead :title="title" :title-id="titleId" />
-
-    <p class="g-note">
-      What members with this role may do with each table’s records and fields. The workspace owner
-      may do everything, whatever their role.
+    <p v-if="data" class="g-note role-page__members">
+      {{ formatCount(data.detail.role.memberCount, 'member') }}
     </p>
 
     <BaseErrorBanner v-if="status === 'error'">
@@ -21,109 +19,140 @@
       <BaseButton variant="link" @click="reload">Try again</BaseButton>
     </BaseErrorBanner>
 
-    <template v-else-if="data && limits">
-      <p v-if="savedNotice" class="g-note role-access__saved" role="status">{{ savedNotice }}</p>
-
-      <BaseErrorBanner v-if="!data.roleAccess.role.isWithinCaller">
-        This role grants more than yours, so you can’t change its access.
+    <template v-else-if="data && limits && membership">
+      <BaseErrorBanner v-if="!data.detail.role.isWithinCaller">
+        This role grants more than yours, so you can’t change it.
       </BaseErrorBanner>
 
-      <RoleAccessForm
+      <RoleEditor
         v-else
         :key="loadCount"
-        :role="data.roleAccess.role"
-        :overrides="data.roleAccess.overrides"
-        :tables="data.roleAccess.tables"
+        :actor="membership"
+        :role="data.detail.role"
+        :overrides="data.detail.overrides"
+        :tables="data.detail.tables"
         :limits="limits"
-        :submit-handler="saveAccess"
+        :cancel-to="pagePath.workspaceSettings(workspaceAddress, 'roles')"
+        :submit-handler="saveRole"
         @reload="reload"
-      />
+      >
+        <BaseCard tone="danger">
+          <BaseActionRow title="Delete role" tone="danger">
+            <template v-if="data.detail.role.memberCount > 0">
+              {{ formatCount(data.detail.role.memberCount, 'member') }}
+              {{ data.detail.role.memberCount === 1 ? 'has' : 'have' }} this role. Give them another
+              role on the
+              <NuxtLink
+                class="g-text-link"
+                :to="pagePath.workspaceSettings(workspaceAddress, 'members')"
+              >
+                Members
+              </NuxtLink>
+              page, then it can be deleted.
+            </template>
+            <template v-else>
+              Delete this role for good. Invitations that offer it must be revoked first.
+            </template>
+            <template v-if="data.detail.role.memberCount === 0" #action>
+              <BaseButton variant="danger" @click="deleteTarget = data.detail.role">
+                Delete role
+              </BaseButton>
+            </template>
+          </BaseActionRow>
+        </BaseCard>
+      </RoleEditor>
     </template>
+
+    <LazyConfirmModal
+      v-if="deleteTarget"
+      title="Delete role"
+      danger
+      v-bind="deleteDialog"
+      @confirm="confirmDelete"
+      @close="cancelDelete"
+    >
+      Delete the role <strong>{{ deleteTarget.name }}</strong
+      >? This cannot be undone.
+    </LazyConfirmModal>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, useId } from 'vue'
-import { useAsyncData, useRoute, useSeoMeta } from '#imports'
+import { navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
+import { useRoleGrantLimits } from '~/composables/useRoleGrantLimits'
 import { useRolesStore } from '~/stores/roles'
 import { getApiErrorMessage } from '~/utils/api-error'
+import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
-import { buildAccessLimits } from '~/utils/role-access-form'
-import type { IRoleOverrides } from '#shared/types/workspace'
-import type { TRoleAccessInput } from '#shared/validation/role-access'
+import type { IWorkspaceRole } from '#shared/types/workspace'
+import type { TRoleInput } from '#shared/validation/workspace'
 
 const route = useRoute()
 const rolesStore = useRolesStore()
 const { workspaceAddress, membership } = useActiveWorkspace()
+const { fetchOwnOverrides, buildLimits } = useRoleGrantLimits()
 
 const roleId = route.params.roleId as string
 const titleId = useId()
 
-const NO_OVERRIDES: IRoleOverrides = { tables: [], fields: [] }
-
-/**
- * The role, and the caller's own role's rows: how far they may grant is their effective access,
- * which the owner's role does not narrow.
- */
 const { data, status, error, refresh } = await useAsyncData(
-  `role-access-${workspaceAddress.value}-${roleId}`,
+  `role-${workspaceAddress.value}-${roleId}`,
   async () => {
-    const actor = membership.value
-    const [roleAccess, ownAccess] = await Promise.all([
-      rolesStore.fetchRoleAccess(workspaceAddress.value, roleId),
-      actor && !actor.isOwner
-        ? rolesStore.fetchRoleAccess(workspaceAddress.value, actor.role.id)
-        : undefined,
+    const [detail, ownOverrides] = await Promise.all([
+      rolesStore.fetchRole(workspaceAddress.value, roleId),
+      fetchOwnOverrides(),
     ])
-    return { roleAccess, ownOverrides: ownAccess?.overrides ?? NO_OVERRIDES }
+    return { detail, ownOverrides }
   },
 )
 
-const title = computed(() =>
-  data.value ? `Access of ${data.value.roleAccess.role.name}` : 'Role access',
-)
+const title = computed(() => data.value?.detail.role.name ?? 'Role')
 useSeoMeta({ title })
 
 const loadError = computed(() => getApiErrorMessage(error.value))
 
-const limits = computed(() =>
-  data.value && membership.value
-    ? buildAccessLimits(membership.value, data.value.ownOverrides)
-    : undefined,
-)
-
-const savedNotice = ref('')
+const limits = computed(() => (data.value ? buildLimits(data.value.ownOverrides) : undefined))
 
 /** The form keeps its own state across a save, which it matches; a reload starts it afresh. */
 const loadCount = ref(0)
 
 async function reload() {
-  savedNotice.value = ''
   await refresh()
   loadCount.value += 1
 }
 
-async function saveAccess(input: TRoleAccessInput) {
+async function saveRole(input: TRoleInput) {
   if (!data.value) return
-  savedNotice.value = ''
 
-  const roleAccess = await rolesStore.saveRoleAccess(
-    workspaceAddress.value,
-    data.value.roleAccess.role,
-    input,
-  )
-  data.value = { ...data.value, roleAccess }
-  savedNotice.value = 'Access saved.'
+  const detail = await rolesStore.updateRole(workspaceAddress.value, data.value.detail.role, input)
+  data.value = { ...data.value, detail }
 }
+
+const {
+  target: deleteTarget,
+  dialogProps: deleteDialog,
+  confirm: confirmDelete,
+  cancel: cancelDelete,
+} = useDeleteConfirm(async (role: IWorkspaceRole) => {
+  await rolesStore.deleteRole(workspaceAddress.value, role.id)
+  await navigateTo(pagePath.workspaceSettings(workspaceAddress.value, 'roles'))
+})
 </script>
 
 <style lang="scss" scoped>
-.role-access {
+.role-page {
   @include stack(16);
 
   &__back {
     align-self: flex-start;
+  }
+
+  &__members {
+    margin-top: rem(-10);
+    font-family: var(--font-mono);
   }
 }
 </style>

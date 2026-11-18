@@ -4,7 +4,7 @@ import { Prisma } from '#server/generated/prisma/client'
 import { dropFieldIndexes, listIndexedFieldIds } from '#server/db/field-indexes'
 import { TableService } from '#server/services/tables'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
-import { buildMembership, buildRecordDefaults } from '~~/test/membership'
+import { buildMembership, buildTableAccess } from '~~/test/membership'
 
 vi.mock('#server/db/prisma', async () => ({
   prisma: (await import('~~/test/prisma-mock')).prismaMock,
@@ -40,7 +40,7 @@ describe('TableService.listTables', () => {
   const member = buildMembership([])
   const whereOf = () => prismaMock.table.findMany.mock.calls[0]?.[0]?.where
 
-  it('reads only the workspace’s tables the role may open, oldest first', async () => {
+  it('reads only the workspace’s tables the role’s rows open, oldest first', async () => {
     prismaMock.table.findMany.mockResolvedValue([])
 
     await TableService.listTables(member)
@@ -49,25 +49,11 @@ describe('TableService.listTables', () => {
       expect.objectContaining({
         where: {
           workspaceId: WORKSPACE_ID,
-          roleAccess: { none: { roleId: member.role.id, readScope: 'NONE' } },
+          roleAccess: { some: { roleId: member.role.id, readScope: { not: 'NONE' } } },
         },
         orderBy: { createdAt: 'asc' },
       }),
     )
-  })
-
-  it('lists only the tables opened to a role that sees none by default', async () => {
-    prismaMock.table.findMany.mockResolvedValue([])
-    const blind = buildMembership([], {
-      recordDefaults: buildRecordDefaults({ readScope: 'NONE' }),
-    })
-
-    await TableService.listTables(blind)
-
-    expect(whereOf()).toEqual({
-      workspaceId: WORKSPACE_ID,
-      roleAccess: { some: { roleId: blind.role.id, readScope: { not: 'NONE' } } },
-    })
   })
 
   it.each([
@@ -99,8 +85,8 @@ describe('TableService.listTables', () => {
   it('hides the count of a table the role reads only its own records of', async () => {
     const counted = { ...tableRow, recordCount: 12, _count: { fields: 3 } }
     prismaMock.table.findMany.mockResolvedValue([
-      { ...counted, roleAccess: [] },
-      { ...counted, id: 'tbl_own', roleAccess: [buildRecordDefaults({ readScope: 'OWN' })] },
+      { ...counted, roleAccess: [buildTableAccess()] },
+      { ...counted, id: 'tbl_own', roleAccess: [buildTableAccess({ readScope: 'OWN' })] },
     ])
 
     const tables = await TableService.listTables(member)
@@ -138,11 +124,7 @@ describe('TableService.getTableListRow', () => {
     prismaMock.table.findUniqueOrThrow.mockResolvedValue({ ...tableRow, recordCount: 12 })
 
     await expect(
-      TableService.getTableListRow(
-        WORKSPACE_ID,
-        TABLE_ID,
-        buildRecordDefaults({ readScope: 'OWN' }),
-      ),
+      TableService.getTableListRow(WORKSPACE_ID, TABLE_ID, buildTableAccess({ readScope: 'OWN' })),
     ).resolves.toMatchObject({ _count: { records: null } })
   })
 
@@ -166,7 +148,7 @@ describe('TableService.createTable', () => {
     allocates(7)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(WORKSPACE_ID, 'Deals', FULL_TABLE_ACCESS)
+    await TableService.createTable(WORKSPACE_ID, 'Deals', null)
 
     expect(prismaMock.table.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: { workspaceId: WORKSPACE_ID, name: 'Deals', number: 7 } }),
@@ -177,7 +159,7 @@ describe('TableService.createTable', () => {
     allocates(1)
     prismaMock.table.create.mockResolvedValue(tableRow)
 
-    await TableService.createTable(WORKSPACE_ID, 'Deals', FULL_TABLE_ACCESS)
+    await TableService.createTable(WORKSPACE_ID, 'Deals', null)
 
     expect(prismaMock.workspace.update).toHaveBeenCalledWith({
       where: { id: WORKSPACE_ID },
@@ -187,13 +169,32 @@ describe('TableService.createTable', () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
   })
 
+  it('gives the creator’s role everything in the table, and the owner no row', async () => {
+    allocates(1)
+    prismaMock.table.create.mockResolvedValue(tableRow)
+
+    await TableService.createTable(WORKSPACE_ID, 'Deals', 'rol_admin')
+
+    expect(prismaMock.roleTableAccess.create).toHaveBeenCalledWith({
+      data: {
+        workspaceId: WORKSPACE_ID,
+        roleId: 'rol_admin',
+        tableId: tableRow.id,
+        ...FULL_TABLE_ACCESS,
+      },
+    })
+
+    prismaMock.roleTableAccess.create.mockClear()
+    await TableService.createTable(WORKSPACE_ID, 'Leads', null)
+
+    expect(prismaMock.roleTableAccess.create).not.toHaveBeenCalled()
+  })
+
   it('maps a duplicate name onto a 409', async () => {
     allocates(1)
     prismaMock.table.create.mockRejectedValue(conflict())
 
-    await expect(
-      TableService.createTable(WORKSPACE_ID, 'Deals', FULL_TABLE_ACCESS),
-    ).rejects.toMatchObject({
+    await expect(TableService.createTable(WORKSPACE_ID, 'Deals', null)).rejects.toMatchObject({
       statusCode: 409,
       statusMessage: 'A table with this name already exists',
     })

@@ -43,7 +43,7 @@ useSeoMeta({ title: 'Workspace settings' })
 const { workspaceAddress } = useActiveWorkspace()
 const route = useRoute()
 
-/** A section's own pages count too: a role's access sits under Roles. */
+/** A section's own pages count too: a role's page sits under Roles. */
 function isSectionActive(section: TWorkspaceSettingsSection): boolean {
   return route.path.startsWith(`${pagePath.workspaceSettings(workspaceAddress.value, section)}/`)
 }

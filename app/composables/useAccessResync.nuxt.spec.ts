@@ -5,7 +5,6 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useAccessResync } from '~/composables/useAccessResync'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
-import { buildRecordDefaults } from '~~/test/membership'
 
 const WS = 'k3f9x2m8qa'
 const OTHER_WS = 'p7q2w9e4rt'
@@ -27,7 +26,6 @@ function buildMembership(publicId: string, permissions: IWorkspaceMembership['pe
     memberId: `mem_${publicId}`,
     isOwner: false,
     permissions,
-    recordDefaults: buildRecordDefaults(),
     role: { id: 'rol_1', name: 'Clerk' },
     workspace: { id: `wsp_${publicId}`, publicId, name: 'Acme', createdAt: '2026-01-01T00:00:00Z' },
   } satisfies IWorkspaceMembership

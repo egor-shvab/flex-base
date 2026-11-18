@@ -96,14 +96,15 @@ export interface IRolesResponse {
   roles: IWorkspaceRole[]
 }
 
-export interface IRoleResponse {
-  role: IWorkspaceRole
-}
-
-/** A role's whole record access, with the workspace's tables and fields to set it on. */
-export interface IRoleAccessResponse {
+/** A whole role: what it sets apart, with the workspace's tables and fields to set it on. */
+export interface IRoleDetailResponse {
   role: IWorkspaceRole
   overrides: IRoleOverrides
+  tables: IAccessTable[]
+}
+
+/** The tables and fields a new role's access is set on. */
+export interface IAccessTablesResponse {
   tables: IAccessTable[]
 }
 

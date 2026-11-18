@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { assertAccess, requireMembership } from '#server/utils/workspace-access'
-import { FULL_TABLE_ACCESS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
-import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
-import { buildPermissionSetRow, buildRecordDefaults } from '~~/test/membership'
+import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import type { IWorkspaceMembership } from '#shared/types/workspace'
+import { buildPermissionSetRow } from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
 
 vi.mock('#server/db/prisma', async () => ({
@@ -12,12 +12,10 @@ vi.mock('#server/db/prisma', async () => ({
 const USER_ID = 'usr_ada'
 const ADDRESS = 'k3f9x2m8qa'
 
-const CREATE = { canCreate: true } as const
-
-function memberRow(ownerId = 'usr_owner', records: Partial<ITableAccess> = CREATE) {
+function memberRow(ownerId = 'usr_owner') {
   return {
     id: 'mem_1',
-    role: { id: 'rol_1', name: 'Editor', ...buildPermissionSetRow(['TABLES_MANAGE'], records) },
+    role: { id: 'rol_1', name: 'Editor', ...buildPermissionSetRow(['TABLES_MANAGE']) },
     workspace: {
       id: 'wsp_1',
       publicId: ADDRESS,
@@ -33,7 +31,6 @@ function membership(overrides: Partial<IWorkspaceMembership> = {}): IWorkspaceMe
     memberId: 'mem_1',
     isOwner: false,
     permissions: ['TABLES_MANAGE'],
-    recordDefaults: buildRecordDefaults(CREATE),
     workspace: { id: 'wsp_1', publicId: ADDRESS, name: 'Acme', createdAt: '' },
     role: { id: 'rol_1', name: 'Editor' },
     ...overrides,
@@ -83,20 +80,18 @@ describe('requireMembership', () => {
       memberId: 'mem_1',
       isOwner: false,
       permissions: ['TABLES_MANAGE'],
-      recordDefaults: buildRecordDefaults(CREATE),
       role: { id: 'rol_1', name: 'Editor' },
       workspace: { id: 'wsp_1', publicId: ADDRESS, createdAt: '2026-01-05T09:14:00.000Z' },
     })
   })
 
   it('gives the owner everything, whatever their role grants', async () => {
-    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(USER_ID, {}))
+    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(USER_ID))
 
     const result = await requireMembership(USER_ID, ADDRESS)
 
     expect(result.isOwner).toBe(true)
     expect(result.permissions).toEqual([...WORKSPACE_PERMISSIONS])
-    expect(result.recordDefaults).toEqual(FULL_TABLE_ACCESS)
   })
 })
 

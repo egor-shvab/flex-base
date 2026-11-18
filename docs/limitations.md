@@ -14,6 +14,12 @@ Nothing is open.
 
 ## Accepted
 
+### Leaving the role page drops its unsaved changes without asking
+
+The editor says "Unsaved changes" and offers Discard, but a link or the browser's back button
+leaves at once. _Reopen if a role is edited in long sittings, or a lost edit is reported: guard
+the route while the form differs from what was saved._
+
 ### The record opens in a modal side sheet, where the reference draws a non-modal panel
 
 `BaseModal`'s `drawer`: scrim, `inert`, focus return, Escape owned by the dialog. Non-modal would
@@ -40,7 +46,7 @@ workspace, or if that bound must be hidden from a scoped member._
 
 ### Marking a field required and narrowing a role's access can cross
 
-Each side checks the other (`FieldService.updateField`, `RoleService.updateRoleAccess`), but in
+Each side checks the other (`FieldService.updateField`, `RoleService.updateRole`), but in
 separate transactions with nothing locked between them, so two admins doing both at once can land
 a required field a creating role cannot fill. _Reopen if role access is edited often enough for
 it to happen: lock the table's row in both writes._

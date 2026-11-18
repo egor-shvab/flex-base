@@ -10,57 +10,71 @@ test.beforeEach(async ({ page, workspace }) => {
   await expect(page.getByRole('heading', { name: 'Roles' })).toBeVisible()
 })
 
-test('lists the default roles with what each may do', async ({ page }) => {
-  await expect(roleRow(page, 'Admin')).toContainText('Every permission')
+test('lists the default roles with what each may do', async ({ page, seedTable }) => {
+  await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }], [])
+  await page.reload()
+
+  await expect(roleRow(page, 'Admin')).toContainText('Every permission, Records in 1 table')
   await expect(roleRow(page, 'Admin')).toContainText('your role')
-  await expect(roleRow(page, 'Editor')).toContainText('Add records, Edit records, Delete records')
-  await expect(roleRow(page, 'Viewer')).toContainText('Read only')
+  await expect(roleRow(page, 'Viewer')).toContainText('Records in 1 table')
 })
 
-test('a role is created, changed and deleted', async ({ page }) => {
-  await page.getByRole('button', { name: 'New role' }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Role name').fill('Sales')
-  await dialog.getByLabel('Add records').check()
-  await dialog.getByRole('button', { name: 'Create role' }).click()
+test('a role is created closed to every table, opened to one, and deleted', async ({
+  page,
+  seedTable,
+  workspace,
+}) => {
+  const deals = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }], [])
+  await page.getByRole('link', { name: 'New role' }).click()
+  await page.getByLabel('Role name').fill('Sales')
+  await expect(page.getByRole('button', { name: /^Sees records in Deals/ })).toHaveAccessibleName(
+    'Sees records in Deals None',
+  )
+  await page.getByRole('button', { name: 'Create role' }).click()
 
-  await expect(dialog).toHaveCount(0)
   await expect(roleRow(page, 'Sales')).toContainText('0 members')
-  await expect(roleRow(page, 'Sales')).toContainText('Add records')
+  await expect(roleRow(page, 'Sales')).toContainText('No tables')
 
-  await page.getByRole('button', { name: 'Edit role Sales' }).click()
-  await expect(dialog.getByLabel('Add records')).toBeChecked()
-  await dialog.getByRole('button', { name: /^Records they can edit/ }).click()
-  await page.getByRole('option', { name: 'Only their own' }).click()
-  await dialog.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('link', { name: /^Sales/ }).click()
+  await expect(page.getByLabel('Role name')).toHaveValue('Sales')
+  await page.getByRole('button', { name: /^Sees records in Deals/ }).click()
+  await page.getByRole('option', { name: 'All' }).click()
+  await page.getByRole('button', { name: /^Edits records in Deals/ }).click()
+  await page.getByRole('option', { name: 'Only own' }).click()
+  await expect(page.getByText('Unsaved changes')).toBeVisible()
+  await page.getByRole('button', { name: 'Save role' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Role saved.' })).toBeVisible()
 
-  await expect(roleRow(page, 'Sales')).toContainText('Add records, Edit own records')
+  const sales = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Sales' } },
+    select: { tableAccess: { select: { tableId: true, readScope: true, updateScope: true } } },
+  })
+  expect(sales.tableAccess).toEqual([{ tableId: deals.id, readScope: 'ALL', updateScope: 'OWN' }])
 
-  await page.getByRole('button', { name: 'Delete role Sales' }).click()
+  await page.getByRole('link', { name: 'All roles' }).click()
+  await expect(roleRow(page, 'Sales')).toContainText('Records in 1 table')
+
+  await page.getByRole('link', { name: /^Sales/ }).click()
+  await page.getByRole('button', { name: 'Delete role' }).click()
   await confirmDeletion(page)
 
+  await expect(page.getByRole('heading', { name: 'Roles' })).toBeVisible()
   await expect(roleRow(page, 'Sales')).toHaveCount(0)
 })
 
-test('a role someone holds cannot be deleted', async ({ page }) => {
-  await page.getByRole('button', { name: 'Delete role Admin' }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByRole('button', { name: 'Delete' }).click()
+test('a role someone holds offers no delete, and says what to do instead', async ({ page }) => {
+  await page.getByRole('link', { name: /^Admin/ }).click()
 
-  await expect(dialog).toContainText(
-    'Reassign the members of this role and revoke its invitations first',
-  )
-  await dialog.getByRole('button', { name: 'Cancel' }).click()
-  await expect(roleRow(page, 'Admin')).toBeVisible()
+  await expect(page.getByText('1 member has this role')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete role' })).toHaveCount(0)
 })
 
-test('a taken name is refused in the form', async ({ page }) => {
-  await page.getByRole('button', { name: 'New role' }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Role name').fill('Editor')
-  await dialog.getByRole('button', { name: 'Create role' }).click()
+test('a taken name is refused on save', async ({ page }) => {
+  await page.getByRole('link', { name: 'New role' }).click()
+  await page.getByLabel('Role name').fill('Editor')
+  await page.getByRole('button', { name: 'Create role' }).click()
 
-  await expect(dialog).toContainText('A role with this name already exists')
+  await expect(page.getByRole('alert')).toContainText('A role with this name already exists')
 })
 
 test('a role’s table and field access is set and saved from the keyboard', async ({
@@ -70,41 +84,43 @@ test('a role’s table and field access is set and saved from the keyboard', asy
 }) => {
   const deals = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }], [])
   await page.goto(`${workspace.url}/settings/roles`)
-  await page.getByRole('link', { name: 'Table and field access of Viewer' }).click()
-  await expect(page.getByRole('heading', { name: 'Access of Viewer' })).toBeVisible()
+  await page.getByRole('link', { name: /^Viewer/ }).click()
+  await expect(page.getByRole('heading', { name: 'Viewer' })).toBeVisible()
 
-  const expand = page.getByRole('button', { name: 'Set access for Deals' })
-  await expand.focus()
+  const open = page.getByRole('button', { name: 'Deals', exact: true })
+  await open.focus()
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('button', { name: 'Close for Deals' })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  )
+  await expect(open).toHaveAttribute('aria-expanded', 'true')
 
-  await page.keyboard.press('Tab')
-  await expect(page.getByLabel('Own setting for this table')).toBeFocused()
-  await page.keyboard.press('Space')
-  await expect(page.getByLabel('Own setting for this table')).toBeChecked()
-
-  const company = page.getByRole('button', { name: /^Company access/ })
+  const company = page.getByRole('button', { name: /^Company in Deals/ })
   await company.focus()
-  await page.keyboard.press('Enter')
+  await page.keyboard.press('Space')
   await expect(page.getByRole('option', { name: 'Hidden' })).toBeVisible()
   await page.keyboard.press('Home')
   await page.keyboard.press('Enter')
-  await expect(company).toHaveAccessibleName('Company access Hidden')
+  await expect(company).toHaveAccessibleName('Company in Deals Hidden')
 
-  await page.getByRole('button', { name: 'Save access' }).focus()
+  const sees = page.getByRole('button', { name: /^Sees records in Deals/ })
+  await sees.focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('option', { name: 'Only own' })).toBeVisible()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowUp')
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('status').filter({ hasText: 'Access saved.' })).toBeVisible()
+  await expect(sees).toHaveAccessibleName('Sees records in Deals Only own')
+  await expect(page.getByText('Unsaved changes')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Save role' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status').filter({ hasText: 'Role saved.' })).toBeVisible()
 
   const viewer = await prisma.workspaceRole.findUniqueOrThrow({
     where: { workspaceId_name: { workspaceId: workspace.id, name: 'Viewer' } },
     select: {
-      tableAccess: { select: { tableId: true } },
+      tableAccess: { select: { tableId: true, readScope: true } },
       fieldAccess: { select: { access: true } },
     },
   })
-  expect(viewer.tableAccess).toEqual([{ tableId: deals.id }])
+  expect(viewer.tableAccess).toEqual([{ tableId: deals.id, readScope: 'OWN' }])
   expect(viewer.fieldAccess).toEqual([{ access: 'HIDDEN' }])
 })

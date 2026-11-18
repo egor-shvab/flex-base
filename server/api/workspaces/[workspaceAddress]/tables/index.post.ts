@@ -3,7 +3,6 @@ import { defineWorkspaceHandler } from '#server/utils/handler'
 import { TableService } from '#server/services/tables'
 import { tableInputSchema } from '#shared/validation/table'
 import type { ITableListItemResponse } from '#shared/types/api'
-import { resolveTableAccess } from '#shared/utils/table-access'
 
 export default defineWorkspaceHandler(
   'TABLES_MANAGE',
@@ -12,7 +11,7 @@ export default defineWorkspaceHandler(
     const table = await TableService.createTable(
       membership.workspace.id,
       name,
-      resolveTableAccess(membership, null),
+      membership.isOwner ? null : membership.role.id,
     )
     return { table }
   },

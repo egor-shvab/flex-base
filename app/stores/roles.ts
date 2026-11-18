@@ -3,9 +3,8 @@ import { useRolesApi } from '~/api/roles'
 import { useWorkspaceCollection } from '~/composables/useWorkspaceCollection'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { isStaleWrite } from '~/utils/api-error'
-import type { IRoleAccessResponse } from '#shared/types/api'
-import type { IWorkspaceRole } from '#shared/types/workspace'
-import type { TRoleAccessInput } from '#shared/validation/role-access'
+import type { IRoleDetailResponse } from '#shared/types/api'
+import type { IAccessTable, IWorkspaceRole } from '#shared/types/workspace'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 /** The roles of one workspace at a time: the one last loaded. */
@@ -25,26 +24,41 @@ export const useRolesStore = defineStore('roles', () => {
     return fetchItems(workspaceAddress, async () => (await api.list(workspaceAddress)).roles)
   }
 
-  async function createRole(workspaceAddress: string, input: TRoleInput) {
-    const { role } = await api.create(workspaceAddress, input)
-    applyItem(workspaceAddress, role)
+  /** Held by the page that edits it, not here: only that page reads a role's rows. */
+  async function fetchRole(workspaceAddress: string, roleId: string): Promise<IRoleDetailResponse> {
+    return api.get(workspaceAddress, roleId)
+  }
+
+  /** What a new role's access is set on, for a page that holds no role yet. */
+  async function fetchAccessTables(workspaceAddress: string): Promise<IAccessTable[]> {
+    return (await api.tables(workspaceAddress)).tables
+  }
+
+  async function createRole(
+    workspaceAddress: string,
+    input: TRoleInput,
+  ): Promise<IRoleDetailResponse> {
+    const response = await api.create(workspaceAddress, input)
+    applyItem(workspaceAddress, response.role)
+    return response
   }
 
   async function updateRole(
     workspaceAddress: string,
     edited: Pick<IWorkspaceRole, 'id' | 'updatedAt'>,
     input: TRoleInput,
-  ) {
-    let role: IWorkspaceRole
+  ): Promise<IRoleDetailResponse> {
+    let response: IRoleDetailResponse
     try {
-      ;({ role } = await api.update(workspaceAddress, edited.id, input, edited.updatedAt))
+      response = await api.update(workspaceAddress, edited.id, input, edited.updatedAt)
     } catch (error) {
-      // Refreshed, so reopening the role shows the version that won
+      // Refreshed, so the list shows the version that won
       if (isStaleWrite(error)) void fetchRoles(workspaceAddress).catch(() => {})
       throw error
     }
-    applyItem(workspaceAddress, role)
+    applyItem(workspaceAddress, response.role)
     await refreshOwnRole(workspaceAddress, edited.id)
+    return response
   }
 
   /** The caller's own role: what they may do, and its name in the switcher, changed with it. */
@@ -52,25 +66,6 @@ export const useRolesStore = defineStore('roles', () => {
     if (workspacesStore.findMembership(workspaceAddress)?.role.id === roleId) {
       await workspacesStore.fetchMembership(workspaceAddress)
     }
-  }
-
-  /** Held by the page that edits it, not here: only that page reads a role's rows. */
-  async function fetchRoleAccess(
-    workspaceAddress: string,
-    roleId: string,
-  ): Promise<IRoleAccessResponse> {
-    return api.access(workspaceAddress, roleId)
-  }
-
-  async function saveRoleAccess(
-    workspaceAddress: string,
-    edited: Pick<IWorkspaceRole, 'id' | 'updatedAt'>,
-    input: TRoleAccessInput,
-  ): Promise<IRoleAccessResponse> {
-    const response = await api.updateAccess(workspaceAddress, edited.id, input, edited.updatedAt)
-    applyItem(workspaceAddress, response.role)
-    await refreshOwnRole(workspaceAddress, edited.id)
-    return response
   }
 
   async function deleteRole(workspaceAddress: string, roleId: string) {
@@ -82,10 +77,10 @@ export const useRolesStore = defineStore('roles', () => {
     roles,
     loadedWorkspaceAddress,
     fetchRoles,
+    fetchRole,
+    fetchAccessTables,
     createRole,
     updateRole,
     deleteRole,
-    fetchRoleAccess,
-    saveRoleAccess,
   }
 })

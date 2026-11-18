@@ -26,6 +26,14 @@ export const FULL_TABLE_ACCESS: ITableAccess = {
   deleteScope: 'ALL',
 }
 
+/** A role's on a table it has no row for. */
+export const NO_TABLE_ACCESS: ITableAccess = {
+  readScope: 'NONE',
+  canCreate: false,
+  updateScope: 'NONE',
+  deleteScope: 'NONE',
+}
+
 export const WORKSPACE_ADDRESS_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789'
 
 export const WORKSPACE_ADDRESS_LENGTH = 10

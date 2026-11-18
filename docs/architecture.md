@@ -294,10 +294,10 @@ is not (a bulk insert shares one timestamp) — and every B-tree that serves an 
 `prisma/schema.prisma`; the `datasource` has no inline `url` (Prisma 7 reads it via
 `prisma.config.ts`). **A table belongs to one workspace (`Table.workspaceId`)** — fields and
 records reach it through their table, and every relation cascades. Access is membership
-(`WorkspaceMember`) plus the member's role: its `permissions`, its record defaults (`readScope`,
-`canCreate`, `updateScope`, `deleteScope`), and the rows it sets apart — `RoleTableAccess` for a
-table (replacing the defaults there whole) and `RoleFieldAccess` for a field (`HIDDEN` or `READ`;
-`EDIT` is no row). Both rows cascade with their role, table and field. `resolveTableAccess` and
+(`WorkspaceMember`) plus the member's role: its `permissions`, and its rows — `RoleTableAccess`
+for a table (`readScope`, `canCreate`, `updateScope`, `deleteScope`; without a row the role may do
+nothing there, so a new table is closed to every role but its creator's) and `RoleFieldAccess` for
+a field (`HIDDEN` or `READ`; `EDIT` is no row). Both rows cascade with their role, table and field. `resolveTableAccess` and
 `resolveFieldAccess` (`shared/utils/table-access.ts`) turn them into what one member meets; the
 table lookup applies them on every table route. The role's key carries the workspace
 (`(workspaceId, roleId)`), so a member cannot hold another workspace's role; the owner
@@ -392,8 +392,8 @@ Only what the name and the code do not say.
 - **`services/roles.ts`** — every anti-escalation decision reads its ground in two queries
   (the workspace's tables and fields, and the roles in question with their rows) and asks
   `isAccessWithin`. A write resting on it repeats the role's **`updatedAt`** as read, which
-  replacing a role's access moves: a role changed under the check is a 409, a stale `If-Match` a 412. `PUT …/roles/:roleId/access` replaces the defaults and every row in one transaction, the
-  guarded role update first.
+  replacing a role's access moves: a role changed under the check is a 409, a stale `If-Match` a 412. `POST …/roles` and `PUT …/roles/:roleId` write the whole role — name, permissions
+  and every row — in one transaction, the guarded role update first.
 - **`services/records.ts`** — an update **merges** the caller's writable fields over the stored
   `data` (`buildRecordMergeUpdate`), so every other key keeps its value
   (`decisions.md` → _A record update merges over the stored data_).
@@ -564,7 +564,7 @@ _(unit)_ logic a component spec pins. Four clauses are approximated rather than 
   headers; an error keeps Nitro's stricter `DENY`; an oversized body is a 413.
 - **Accessibility:** no serious/critical axe violation on dashboard, table settings, records, record
   form, filter drawer, the workspace switcher, every workspace settings section and its dialogs, a
-  role's table and field access with a table opened,
+  role with a table opened and changed, a new role,
   incoming invitations, and at 375px; nothing below 24×24, with the chip remove asserted at exactly 24.
 - **Mobile shell (375×812):** sidebar `visibility: hidden` until opened; `aria-expanded` tracks;
   full-height panel; scrim, navigation and Escape dismiss it, but a dialog opened from it takes the

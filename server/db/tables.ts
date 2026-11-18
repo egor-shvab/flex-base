@@ -51,16 +51,14 @@ export function toTableOverride(rows: readonly ITableAccess[]): ITableAccess | n
 
 /**
  * The tables the caller's role may open, decided in the query as `resolveTableAccess` decides one
- * table: a row of the role's for the table wins, the role's default read applies otherwise.
+ * table: those its row lets it read, none without one.
  */
 export function buildReadableTablesWhere(membership: IWorkspaceMembership): Prisma.TableWhereInput {
   if (isTableVisibilityBypassed(membership)) return {}
 
   const roleId = membership.role.id
 
-  return membership.recordDefaults.readScope === 'NONE'
-    ? { roleAccess: { some: { roleId, readScope: { not: 'NONE' } } } }
-    : { roleAccess: { none: { roleId, readScope: 'NONE' } } }
+  return { roleAccess: { some: { roleId, readScope: { not: 'NONE' } } } }
 }
 
 /** A workspace's tables and fields as a role's access is compared and set over them. */

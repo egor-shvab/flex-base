@@ -19,10 +19,10 @@ import incomingInvitationAccept from '#server/api/invitations/[invitationId]/acc
 import incomingInvitationDecline from '#server/api/invitations/[invitationId]/index.delete'
 import rolesGet from '#server/api/workspaces/[workspaceAddress]/roles/index.get'
 import rolesPost from '#server/api/workspaces/[workspaceAddress]/roles/index.post'
-import rolePatch from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].patch'
+import roleTablesGet from '#server/api/workspaces/[workspaceAddress]/roles/tables.get'
+import roleGet from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].get'
+import rolePut from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].put'
 import roleDelete from '#server/api/workspaces/[workspaceAddress]/roles/[roleId].delete'
-import roleAccessGet from '#server/api/workspaces/[workspaceAddress]/roles/[roleId]/access.get'
-import roleAccessPut from '#server/api/workspaces/[workspaceAddress]/roles/[roleId]/access.put'
 import tableGet from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].get'
 import tablePatch from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].patch'
 import tableDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress].delete'
@@ -42,7 +42,7 @@ import { prisma } from '#server/db/prisma'
 import type { TTableRouteAccess } from '#server/utils/handler'
 import type { ITableAccess } from '#shared/types/workspace'
 import { testEvent } from '~~/test/integration/event'
-import { buildRecordDefaults, buildRoleInput } from '~~/test/membership'
+import { buildTableAccess, buildRoleInput } from '~~/test/membership'
 import {
   addMember,
   createField,
@@ -50,6 +50,7 @@ import {
   createTable,
   createUser,
   type TSeededUser,
+  setTableAccess as setRoleTableAccess,
 } from '~~/test/integration/seed'
 
 type THandler = (event: H3Event) => unknown
@@ -220,26 +221,24 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       method: 'POST',
     },
     {
-      name: 'GET /roles/:id/access',
-      handler: roleAccessGet,
+      name: 'GET /roles/tables',
+      handler: roleTablesGet,
+      access: 'ROLES_MANAGE',
+      params: workspaceParams,
+    },
+    {
+      name: 'GET /roles/:id',
+      handler: roleGet,
       access: 'ROLES_MANAGE',
       params: roleParams,
     },
     {
-      name: 'PUT /roles/:id/access',
-      handler: roleAccessPut,
-      access: 'ROLES_MANAGE',
-      params: roleParams,
-      body: { recordDefaults: buildRecordDefaults(), tables: [], fields: [] },
-      method: 'PUT',
-    },
-    {
-      name: 'PATCH /roles/:id',
-      handler: rolePatch,
+      name: 'PUT /roles/:id',
+      handler: rolePut,
       access: 'ROLES_MANAGE',
       params: roleParams,
       body: buildRoleInput('Viewer'),
-      method: 'PATCH',
+      method: 'PUT',
     },
     {
       name: 'DELETE /roles/:id',
@@ -495,21 +494,9 @@ describe('a member is held to the permissions of their role', () => {
   })
 })
 
-describe('a role’s row for a table replaces its defaults there', () => {
-  const setTableAccess = async (roleName: string, access: Partial<ITableAccess>) => {
-    const role = await prisma.workspaceRole.findUniqueOrThrow({
-      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: roleName } },
-      select: { id: true },
-    })
-    await prisma.roleTableAccess.create({
-      data: {
-        workspaceId: world.ada.workspace.id,
-        roleId: role.id,
-        tableId: world.tableId,
-        ...buildRecordDefaults(access),
-      },
-    })
-  }
+describe('a role’s row for a table decides its access there', () => {
+  const setTableAccess = (roleName: string, access: Partial<ITableAccess>) =>
+    setRoleTableAccess(world.ada.workspace.id, roleName, world.tableId, buildTableAccess(access))
 
   const tableRoutes = () =>
     scopedEndpoints().filter(
@@ -600,14 +587,12 @@ describe('a field hidden from a role', () => {
   }
 
   async function setPeopleAccess(access: Partial<ITableAccess>) {
-    await prisma.roleTableAccess.create({
-      data: {
-        workspaceId: world.ada.workspace.id,
-        roleId: (await editorRole()).id,
-        tableId: (await peopleTable()).id,
-        ...buildRecordDefaults(access),
-      },
-    })
+    await setRoleTableAccess(
+      world.ada.workspace.id,
+      'Editor',
+      (await peopleTable()).id,
+      buildTableAccess(access),
+    )
   }
 
   const tableParams = () => ({ workspaceAddress: adaWorkspace(), tableAddress: world.tableId })
@@ -689,14 +674,12 @@ describe('a field hidden from a role', () => {
 
     it('is allowed once that role adds no records to this table', async () => {
       await setFieldAccess(world.fieldId, 'HIDDEN')
-      await prisma.roleTableAccess.create({
-        data: {
-          workspaceId: world.ada.workspace.id,
-          roleId: (await editorRole()).id,
-          tableId: world.tableId,
-          ...buildRecordDefaults({ updateScope: 'ALL' }),
-        },
-      })
+      await setRoleTableAccess(
+        world.ada.workspace.id,
+        'Editor',
+        world.tableId,
+        buildTableAccess({ updateScope: 'ALL' }),
+      )
 
       await expect(markRequired()).resolves.toMatchObject({ field: { required: true } })
     })
@@ -818,10 +801,12 @@ describe('a role scoped to its own records', () => {
 
   /** Mallory joins as an Editor narrowed to `access`; Ada's record is Ada's, and Mallory adds one. */
   async function joinScoped(access: Partial<ITableAccess>) {
-    await prisma.workspaceRole.update({
-      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Editor' } },
-      data: buildRecordDefaults({ canCreate: true, ...access }),
-    })
+    await setRoleTableAccess(
+      world.ada.workspace.id,
+      'Editor',
+      world.tableId,
+      buildTableAccess({ canCreate: true, ...access }),
+    )
     await prisma.record.update({
       where: { id: world.recordId },
       data: { createdById: world.ada.id },
@@ -855,18 +840,7 @@ describe('a role scoped to its own records', () => {
       where: { workspaceId: world.ada.workspace.id, name: 'People' },
       select: { id: true },
     })
-    const editor = await prisma.workspaceRole.findUniqueOrThrow({
-      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Editor' } },
-      select: { id: true },
-    })
-    await prisma.roleTableAccess.create({
-      data: {
-        workspaceId: world.ada.workspace.id,
-        roleId: editor.id,
-        tableId: people.id,
-        ...buildRecordDefaults(),
-      },
-    })
+    await setRoleTableAccess(world.ada.workspace.id, 'Editor', people.id, buildTableAccess())
 
     const { tables } = await tablesGet(
       testEvent({ user: world.mallory, params: { workspaceAddress: adaWorkspace() } }),
@@ -890,8 +864,8 @@ describe('a role scoped to its own records', () => {
       record: { data: body },
     })
 
-    await prisma.workspaceRole.update({
-      where: { workspaceId_name: { workspaceId: world.ada.workspace.id, name: 'Editor' } },
+    await prisma.roleTableAccess.updateMany({
+      where: { tableId: world.tableId, role: { name: 'Editor' } },
       data: { readScope: 'OWN' },
     })
     await expect(recordPatch(recordEvent('PATCH', world.recordId, { body }))).rejects.toMatchObject(
@@ -935,6 +909,22 @@ function tableEndpoint(name: string): IEndpoint {
   return endpoint
 }
 
+/** Opens Deals and People to a role, by name, as `access` says. */
+async function grantWorldTables(roleName: string, access: Partial<ITableAccess>) {
+  const tables = await prisma.table.findMany({
+    where: { workspaceId: world.ada.workspace.id },
+    select: { id: true },
+  })
+  for (const table of tables) {
+    await setRoleTableAccess(world.ada.workspace.id, roleName, table.id, buildTableAccess(access))
+  }
+}
+
+/** A role form's row for Deals: reading every record unless `access` says more. */
+const dealsRow = (access: Partial<ITableAccess>) => [
+  { tableId: world.tableId, ...buildTableAccess(access) },
+]
+
 describe('a member who manages roles stays within their own permissions', () => {
   beforeEach(async () => {
     await prisma.workspaceRole.create({
@@ -942,13 +932,13 @@ describe('a member who manages roles stays within their own permissions', () => 
         workspaceId: world.ada.workspace.id,
         name: 'Manager',
         permissions: ['ROLES_MANAGE'],
-        canCreate: true,
       },
     })
+    await grantWorldTables('Manager', { canCreate: true })
     await addMember(world.ada.workspace.id, world.mallory.id, 'Manager')
   })
 
-  const roleEvent = (method: 'POST' | 'PATCH' | 'DELETE', body?: unknown, roleId?: string) =>
+  const roleEvent = (method: 'POST' | 'PUT' | 'DELETE', body?: unknown, roleId?: string) =>
     testEvent({
       user: world.mallory,
       method,
@@ -966,23 +956,25 @@ describe('a member who manages roles stays within their own permissions', () => 
 
   it('creates a role from what they hold', async () => {
     await expect(
-      rolesPost(roleEvent('POST', buildRoleInput('Clerk', [], { canCreate: true }))),
+      rolesPost(roleEvent('POST', buildRoleInput('Clerk', [], dealsRow({ canCreate: true })))),
     ).resolves.toMatchObject({ role: { name: 'Clerk' } })
   })
 
   it.each([
-    ['a permission', buildRoleInput('Boss', ['TABLES_MANAGE'])],
-    ['a record action', buildRoleInput('Boss', [], { deleteScope: 'ALL' })],
-  ])('cannot create a role granting %s they lack', async (_, body) => {
-    await expect(rolesPost(roleEvent('POST', body))).rejects.toMatchObject({ statusCode: 403 })
+    ['a permission', () => buildRoleInput('Boss', ['TABLES_MANAGE'])],
+    ['a record action', () => buildRoleInput('Boss', [], dealsRow({ deleteScope: 'ALL' }))],
+  ])('cannot create a role granting %s they lack', async (_, buildBody) => {
+    await expect(rolesPost(roleEvent('POST', buildBody()))).rejects.toMatchObject({
+      statusCode: 403,
+    })
     await expect(prisma.workspaceRole.findFirst({ where: { name: 'Boss' } })).resolves.toBeNull()
   })
 
   it.each([
-    ['a permission', buildRoleInput('Viewer', ['MEMBERS_MANAGE'])],
-    ['a record action', buildRoleInput('Viewer', [], { updateScope: 'ALL' })],
-  ])('cannot raise a role they could edit above themselves by %s', async (_, body) => {
-    await expect(rolePatch(roleEvent('PATCH', body, world.viewerRoleId))).rejects.toMatchObject({
+    ['a permission', () => buildRoleInput('Viewer', ['MEMBERS_MANAGE'])],
+    ['a record action', () => buildRoleInput('Viewer', [], dealsRow({ updateScope: 'ALL' }))],
+  ])('cannot raise a role they could edit above themselves by %s', async (_, buildBody) => {
+    await expect(rolePut(roleEvent('PUT', buildBody(), world.viewerRoleId))).rejects.toMatchObject({
       statusCode: 403,
     })
   })
@@ -990,9 +982,9 @@ describe('a member who manages roles stays within their own permissions', () => 
   it('cannot change or delete a role above them', async () => {
     const adminId = await adminRoleId()
 
-    await expect(
-      rolePatch(roleEvent('PATCH', buildRoleInput('Admin'), adminId)),
-    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(rolePut(roleEvent('PUT', buildRoleInput('Admin'), adminId))).rejects.toMatchObject(
+      { statusCode: 403 },
+    )
     await expect(roleDelete(roleEvent('DELETE', undefined, adminId))).rejects.toMatchObject({
       statusCode: 403,
     })
@@ -1009,9 +1001,9 @@ describe('a member who manages members stays within their own permissions', () =
         workspaceId: world.ada.workspace.id,
         name: 'Manager',
         permissions: ['MEMBERS_INVITE', 'MEMBERS_MANAGE'],
-        canCreate: true,
       },
     })
+    await grantWorldTables('Manager', { canCreate: true })
     await addMember(world.ada.workspace.id, world.mallory.id, 'Manager')
   })
 
@@ -1117,7 +1109,6 @@ describe('the workspaces a user sees', () => {
       isOwner: false,
       role: { name: 'Editor' },
       permissions: [],
-      recordDefaults: { readScope: 'ALL', canCreate: true, updateScope: 'ALL', deleteScope: 'ALL' },
     })
   })
 

@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
 import { MemberService } from '#server/services/members'
-import type { ITableAccess } from '#shared/types/workspace'
 import {
   buildMembership,
   buildPermissionSetRow as setRow,
-  buildRecordDefaults,
   MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID,
 } from '~~/test/membership'
 import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
@@ -21,30 +19,23 @@ vi.mock('#server/services/roles', () => ({ RoleService: roleService }))
 const MEMBER_ID = 'mem_target'
 const ROLE_ID = 'rol_clerk'
 
-const manager = buildMembership(['MEMBERS_MANAGE'], {
-  recordDefaults: buildRecordDefaults({ canCreate: true, updateScope: 'ALL' }),
-})
+const manager = buildMembership(['MEMBERS_MANAGE'])
 
-const CREATE = { canCreate: true } as const
-const UPDATE = { updateScope: 'ALL' } as const
 const ROLE_READ_AT = new Date('2026-02-11T16:30:00.000Z')
 const owner = buildMembership([], { isOwner: true })
 
-function memberRow(
-  records: Partial<ITableAccess>,
-  {
-    id = MEMBER_ID,
-    userId = 'usr_target',
-    ownerId = 'usr_owner',
-    permissions = setRow().permissions,
-  } = {},
-) {
+function memberRow({
+  id = MEMBER_ID,
+  userId = 'usr_target',
+  ownerId = 'usr_owner',
+  permissions = setRow().permissions,
+} = {}) {
   return {
     id,
     userId,
     createdAt: new Date('2026-02-01T10:00:00.000Z'),
     user: { id: userId, name: 'Grace', email: 'grace@example.com' },
-    role: { id: 'rol_current', name: 'Current', ...setRow(permissions, records) },
+    role: { id: 'rol_current', name: 'Current', ...setRow(permissions) },
     workspace: { ownerId },
   }
 }
@@ -73,8 +64,8 @@ beforeEach(() => {
 describe('MemberService.listMembers', () => {
   it('lists the workspace’s members oldest first, telling the owner by the workspace row', async () => {
     prismaMock.workspaceMember.findMany.mockResolvedValue([
-      memberRow({}, { id: 'mem_owner', userId: 'usr_owner' }),
-      memberRow(CREATE),
+      memberRow({ id: 'mem_owner', userId: 'usr_owner' }),
+      memberRow(),
     ])
 
     const members = await MemberService.listMembers(WORKSPACE_ID)
@@ -89,7 +80,6 @@ describe('MemberService.listMembers', () => {
         id: 'rol_current',
         name: 'Current',
         permissions: [],
-        recordDefaults: buildRecordDefaults(CREATE),
       },
       joinedAt: '2026-02-01T10:00:00.000Z',
     })
@@ -104,8 +94,8 @@ describe('MemberService.listMembers', () => {
 
 describe('MemberService.changeMemberRole', () => {
   beforeEach(() => {
-    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(CREATE))
-    prismaMock.workspaceMember.update.mockResolvedValue(memberRow(UPDATE))
+    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow())
+    prismaMock.workspaceMember.update.mockResolvedValue(memberRow())
   })
 
   it('reassigns a member of the proved workspace to a role within the actor’s reach', async () => {
@@ -134,9 +124,9 @@ describe('MemberService.changeMemberRole', () => {
   })
 
   it.each([
-    ['the owner', memberRow({}, { userId: 'usr_owner' }), owner, true],
-    ['the actor themself', memberRow({}, { id: 'mem_actor' }), manager, true],
-    ['a member whose role reaches past the actor', memberRow({}), manager, false],
+    ['the owner', memberRow({ userId: 'usr_owner' }), owner, true],
+    ['the actor themself', memberRow({ id: 'mem_actor' }), manager, true],
+    ['a member whose role reaches past the actor', memberRow(), manager, false],
   ])(
     'refuses to touch %s before the new role is asked about',
     async (_case, row, actor, isWithin) => {
@@ -165,7 +155,7 @@ describe('MemberService.changeMemberRole', () => {
 
   it('reports a member removed since the check as missing', async () => {
     prismaMock.workspaceMember.findFirst
-      .mockResolvedValueOnce(memberRow(CREATE))
+      .mockResolvedValueOnce(memberRow())
       .mockResolvedValueOnce(null)
     prismaMock.workspaceMember.update.mockRejectedValue(knownError('P2025'))
 
@@ -176,7 +166,7 @@ describe('MemberService.changeMemberRole', () => {
 
   it('refuses with a 409 when the member’s role changed between the check and the write', async () => {
     prismaMock.workspaceMember.findFirst
-      .mockResolvedValueOnce(memberRow(CREATE))
+      .mockResolvedValueOnce(memberRow())
       .mockResolvedValueOnce({ id: MEMBER_ID })
     prismaMock.workspaceMember.update.mockRejectedValue(knownError('P2025'))
 
@@ -189,7 +179,7 @@ describe('MemberService.changeMemberRole', () => {
 
 describe('MemberService.removeMember', () => {
   it('removes a member the actor may manage, at their role’s version as read', async () => {
-    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow(CREATE))
+    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow())
     prismaMock.workspaceMember.delete.mockResolvedValue({ id: MEMBER_ID })
 
     await MemberService.removeMember(manager, MEMBER_ID)
@@ -200,7 +190,7 @@ describe('MemberService.removeMember', () => {
   })
 
   it('never removes the owner', async () => {
-    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow({}, { userId: 'usr_owner' }))
+    prismaMock.workspaceMember.findFirst.mockResolvedValue(memberRow({ userId: 'usr_owner' }))
 
     await expect(MemberService.removeMember(owner, MEMBER_ID)).rejects.toMatchObject({
       statusCode: 403,

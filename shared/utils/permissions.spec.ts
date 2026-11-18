@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildRecordDefaults } from '~~/test/membership'
+import { buildTableAccess } from '~~/test/membership'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IManagedMember,
   IPermissionSet,
-  ITableAccess,
   IWorkspaceActor,
   TWorkspacePermission,
 } from '#shared/types/workspace'
@@ -23,22 +22,17 @@ const owner: IWorkspaceActor = {
   memberId: 'mem_owner',
   isOwner: true,
   permissions: [],
-  recordDefaults: buildRecordDefaults(),
 }
 
 /** A manager who may handle members and roles, and add and edit records — but not delete them. */
-const managerRecords = buildRecordDefaults({ canCreate: true, updateScope: 'ALL' })
+const managerRecords = buildTableAccess({ canCreate: true, updateScope: 'ALL' })
 const manager: IWorkspaceActor = {
   memberId: 'mem_manager',
   isOwner: false,
   permissions: ['MEMBERS_MANAGE', 'ROLES_MANAGE'],
-  recordDefaults: managerRecords,
 }
 
-const role = (
-  permissions: TWorkspacePermission[] = [],
-  records: Partial<ITableAccess> = {},
-): IPermissionSet => ({ permissions, recordDefaults: buildRecordDefaults(records) })
+const role = (permissions: TWorkspacePermission[] = []): IPermissionSet => ({ permissions })
 
 const member = (overrides: Partial<IManagedMember> = {}, assigned = role()): IManagedMember => ({
   id: 'mem_other',
@@ -76,8 +70,8 @@ describe('isPermissionSubset', () => {
 
 describe('hasRecordAction', () => {
   it('reads adding off its flag', () => {
-    expect(hasRecordAction(buildRecordDefaults({ canCreate: true }), 'create')).toBe(true)
-    expect(hasRecordAction(buildRecordDefaults(), 'create')).toBe(false)
+    expect(hasRecordAction(buildTableAccess({ canCreate: true }), 'create')).toBe(true)
+    expect(hasRecordAction(buildTableAccess(), 'create')).toBe(false)
   })
 
   it.each([
@@ -85,7 +79,7 @@ describe('hasRecordAction', () => {
     ['OWN', true],
     ['ALL', true],
   ] as const)('holds an edit or delete scoped to %s: %s', (scope, expected) => {
-    const access = buildRecordDefaults({ updateScope: scope, deleteScope: scope })
+    const access = buildTableAccess({ updateScope: scope, deleteScope: scope })
 
     expect(hasRecordAction(access, 'update')).toBe(expected)
     expect(hasRecordAction(access, 'delete')).toBe(expected)
@@ -111,9 +105,7 @@ describe('isTableAccessWithin', () => {
   })
 
   it('holds for narrower access', () => {
-    expect(isTableAccessWithin(buildRecordDefaults({ readScope: 'OWN' }), managerRecords)).toBe(
-      true,
-    )
+    expect(isTableAccessWithin(buildTableAccess({ readScope: 'OWN' }), managerRecords)).toBe(true)
   })
 
   it.each([
@@ -122,7 +114,7 @@ describe('isTableAccessWithin', () => {
     ['editing', { updateScope: 'OWN' }, {}],
     ['deleting', { deleteScope: 'ALL' }, { deleteScope: 'OWN' }],
   ] as const)('fails on wider %s', (_, access, of) => {
-    expect(isTableAccessWithin(buildRecordDefaults(access), buildRecordDefaults(of))).toBe(false)
+    expect(isTableAccessWithin(buildTableAccess(access), buildTableAccess(of))).toBe(false)
   })
 })
 

@@ -145,7 +145,7 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   address in one scoped query; every later `where` takes its `workspaceId` from that result (or a
   `tableId` proved through it), never from a body or an address — never fetch then check.
 - **Role rules live in `shared/`**: a non-owner may only assign, edit or act on a role whose
-  access lies within their own — permissions, defaults, and every table and field
+  access lies within their own — permissions, and every table and field
   (`isAccessWithin`). The server decides it; the client reads its answer per role
   (`isWithinCaller`), never recomputes it.
 - **Status codes:** a resource outside the caller's workspaces, or a table their role may not read,
@@ -350,8 +350,10 @@ replaces the keyboard walk.
   one-off, never an unread value. Every `rem()` inside `_variables.scss` is interpolated:
   `--radius-md: #{rem(8)}`.
 - **Breakpoints live in `_mixins.scss`, in `em`**: `$breakpoint-shell` (56.25em, the off-canvas
-  sidebar, `below-shell`) and `$breakpoint-compact` (40em, one-step breadcrumb and bottom sheets,
-  `below-compact`). Add one only for a real layout need, named for that layout.
+  sidebar, `below-shell`), `$breakpoint-compact` (40em, one-step breadcrumb and bottom sheets,
+  `below-compact`) and `$breakpoint-access-grid` (40em of its card, a container query: the role
+  editor's table grid, `below-access-grid`). Add one only for a real layout need, named for that
+  layout.
 - **Icons:** `@nuxt/icon` with Material Symbols outline-rounded names — **never text glyphs** (`×`,
   `+`, `✓`, `→`) as icons; icon buttons use `BaseButton`'s `icon` variant.
 
