@@ -30,12 +30,25 @@ describe('summarisePermissions', () => {
       summarisePermissions(
         role({
           id: 'rol_1',
-          name: 'Admin',
-          permissions: [...WORKSPACE_PERMISSIONS].reverse(),
+          name: 'Lead',
+          permissions: [...WORKSPACE_PERMISSIONS].filter((p) => p !== 'TABLES_MANAGE'),
           readableTableCount: 3,
         }),
       ),
-    ).toBe('Every permission, Records in 3 tables')
+    ).toBe(
+      'Rename the workspace, Invite members, Manage members, Manage roles, Records in 3 tables',
+    )
+    expect(
+      summarisePermissions(
+        role({ id: 'rol_2', name: 'Admin', permissions: [...WORKSPACE_PERMISSIONS].reverse() }),
+      ),
+    ).toBe('Every permission, Records in every table')
+  })
+
+  it('says a role that manages tables reads every table, whatever rows it holds', () => {
+    expect(
+      summarisePermissions(role({ id: 'rol_1', name: 'Builder', permissions: ['TABLES_MANAGE'] })),
+    ).toBe('Manage tables, Records in every table')
   })
 
   it('lists the rest in the editor’s order, whatever order they arrive in', () => {
@@ -48,7 +61,7 @@ describe('summarisePermissions', () => {
           readableTableCount: 1,
         }),
       ),
-    ).toBe('Rename the workspace, Manage tables, Records in 1 table')
+    ).toBe('Rename the workspace, Manage tables, Records in every table')
   })
 })
 
@@ -65,6 +78,18 @@ describe('toGrantCount', () => {
 
     expect(toGrantCount(viewer)).toBeLessThan(toGrantCount(editor))
     expect(toGrantCount(editor)).toBeLessThan(toGrantCount(manager))
+  })
+
+  it('ranks a role that manages tables above any count of tables, even with no rows', () => {
+    const builder = role({ id: 'rol_1', name: 'Builder', permissions: ['TABLES_MANAGE'] })
+    const wide = role({
+      id: 'rol_2',
+      name: 'Wide',
+      permissions: ['MEMBERS_INVITE', 'MEMBERS_MANAGE'],
+      readableTableCount: 40,
+    })
+
+    expect(toGrantCount(wide)).toBeLessThan(toGrantCount(builder))
   })
 })
 

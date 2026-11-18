@@ -408,6 +408,13 @@ email, which keeps its index usable. Creating one never reads `User` beyond the 
 members, so the form answers alike for a stranger and an account holder. Registration itself does
 not normalise (`limitations.md`).
 
+### An invitation is acted on only by someone who could have sent it
+
+Revoking one, or renewing it under another role, takes what sending does — its role within the
+caller — and the revoke repeats the role's version as a member's change does. Otherwise a member
+who may invite could undo, or downgrade, an invitation to a role beyond them. Listing them stays
+open to every inviter: it hands out nothing.
+
 ---
 
 ## The metadata layer

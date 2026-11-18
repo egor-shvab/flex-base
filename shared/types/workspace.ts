@@ -95,7 +95,10 @@ export interface IWorkspaceMembership extends IWorkspaceActor {
 
 export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
   memberCount: number
-  /** The tables whose records the role sees, at least its own. */
+  /**
+   * The tables the role has a row for, each of which it reads. A role that manages tables reads
+   * every table whatever this says.
+   */
   readableTableCount: number
   /**
    * Whether the role grants nothing beyond the caller, on any table or field: what assigning it, or

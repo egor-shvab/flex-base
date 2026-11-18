@@ -209,7 +209,7 @@ describe('an invitation', () => {
       statusCode: 409,
     })
 
-    await InvitationService.revokeInvitation(ada.workspace.id, invitation.id)
+    await InvitationService.revokeInvitation(owner, invitation.id)
     await expect(RoleService.deleteRole(owner, editorRoleId)).resolves.toBeUndefined()
   })
 
@@ -221,11 +221,50 @@ describe('an invitation', () => {
     await expect(prisma.workspaceInvitation.count()).resolves.toBe(0)
   })
 
+  it('is revoked or renewed under another role only by someone who could have sent it', async () => {
+    const roleIdOf = async (name: string) =>
+      (
+        await prisma.workspaceRole.findUniqueOrThrow({
+          where: { workspaceId_name: { workspaceId: ada.workspace.id, name } },
+          select: { id: true },
+        })
+      ).id
+    const invitation = await InvitationService.createInvitation(owner, ada.id, {
+      email: 'grace@example.com',
+      roleId: await roleIdOf('Admin'),
+    })
+    await prisma.workspaceRole.create({
+      data: { workspaceId: ada.workspace.id, name: 'Recruiter', permissions: ['MEMBERS_INVITE'] },
+    })
+    const bob = await createUser('bob@example.com')
+    await addMember(ada.workspace.id, bob.id, 'Recruiter')
+    const recruiter = await requireMembership(bob.id, ada.workspace.publicId)
+
+    await expect(
+      InvitationService.revokeInvitation(recruiter, invitation.id),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      InvitationService.createInvitation(recruiter, bob.id, {
+        email: 'grace@example.com',
+        roleId: await roleIdOf('Viewer'),
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      prisma.workspaceInvitation.findUniqueOrThrow({
+        where: { id: invitation.id },
+        select: { role: { select: { name: true } } },
+      }),
+    ).resolves.toEqual({ role: { name: 'Admin' } })
+  })
+
   it('can only be revoked from its own workspace', async () => {
     const invitation = await invite()
 
     await expect(
-      InvitationService.revokeInvitation(grace.workspace.id, invitation.id),
+      InvitationService.revokeInvitation(
+        await requireMembership(grace.id, grace.workspace.publicId),
+        invitation.id,
+      ),
     ).rejects.toMatchObject({ statusCode: 404 })
     await expect(prisma.workspaceInvitation.count()).resolves.toBe(1)
   })

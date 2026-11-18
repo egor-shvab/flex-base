@@ -82,9 +82,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
-import { useForm } from '~/composables/useForm'
-import { isStaleWrite } from '~/utils/api-error'
+import { computed, useId } from 'vue'
+import { useSavedForm } from '~/composables/useSavedForm'
 import { isRoleVisibilityBypassed, toRolePayload, type IAccessLimits } from '~/utils/role-form'
 import { WORKSPACE_PERMISSION_TEXT } from '~/utils/workspace-permissions'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
@@ -144,44 +143,21 @@ function toComparable(role: TRoleInput): string {
   })
 }
 
-/** A save refused for an older version: what fixes it is loading the one that won. */
-const isStale = ref(false)
-const hasSaved = ref(false)
-const savedRole = ref(toInitialRole())
-
-const { form, errors, serverError, isSubmitting, submit } = useForm({
-  schema: roleInputSchema,
-  initial: toInitialRole(),
-  onSubmit: async (input) => {
-    isStale.value = false
-    const payload = toRolePayload(input, props.tables)
-    try {
+const { form, errors, serverError, isSubmitting, submit, isDirty, hasSaved, isStale, discard } =
+  useSavedForm({
+    schema: roleInputSchema,
+    initial: toInitialRole(),
+    save: async (input) => {
+      const payload = toRolePayload(input, props.tables)
       await props.submitHandler(payload)
-    } catch (error) {
-      isStale.value = isStaleWrite(error)
-      throw error
-    }
-    setForm(payload)
-    savedRole.value = payload
-    hasSaved.value = true
-  },
-})
-
-const isDirty = computed(() => toComparable(form) !== toComparable(savedRole.value))
+      return payload
+    },
+    isSame: (a, b) => toComparable(a) === toComparable(b),
+  })
 
 const formError = computed(() => errors.permissions ?? errors.tables ?? errors.fields ?? '')
 
 const isBypassed = computed(() => isRoleVisibilityBypassed(form))
-
-function setForm(role: TRoleInput) {
-  const copy: TRoleInput = JSON.parse(JSON.stringify(role))
-  Object.assign(form, copy)
-}
-
-function discard() {
-  setForm(savedRole.value)
-  hasSaved.value = false
-}
 
 /** Shown, not hidden, when out of reach: the role still reads whole. */
 function canGrant(permission: TWorkspacePermission): boolean {

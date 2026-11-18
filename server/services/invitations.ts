@@ -11,7 +11,7 @@ import { prisma } from '#server/db/prisma'
 import { isMissingRow, isUniqueViolation } from '#server/db/prisma-errors'
 import { membershipSelect, toSharedMembership } from '#server/db/workspaces'
 import { RoleService } from '#server/services/roles'
-import { toHttpError } from '#server/utils/http-errors'
+import { buildChangedMeanwhileError } from '#server/utils/http-errors'
 import { INVITATION_TTL_DAYS } from '#shared/constants/workspace'
 import type { IAuthUser } from '#shared/types/auth'
 import type {
@@ -25,6 +25,28 @@ import type { TInvitationInput } from '#shared/validation/workspace'
 export const MAX_PENDING_INVITATIONS = 50
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * An invitation is acted on — renewed under another role, or revoked — only by someone who could
+ * have sent it: its role within them. Returns the role's version that answer holds for.
+ */
+async function requireInvitationRoleInReach(
+  actor: IWorkspaceMembership,
+  roleId: string,
+): Promise<Date> {
+  const reach = await RoleService.getRoleReach(actor, roleId)
+  if (!reach.isWithinActor) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You can only act on invitations to roles within your own permissions',
+    })
+  }
+  return reach.updatedAt
+}
+
+function buildInvitationNotFoundError() {
+  return createError({ statusCode: 404, statusMessage: 'Invitation not found' })
+}
 
 function buildNoLongerValidError() {
   return createError({ statusCode: 404, statusMessage: 'This invitation is no longer valid' })
@@ -64,6 +86,14 @@ async function createInvitation(
     throw createError({ statusCode: 409, statusMessage: 'This person is already a member' })
   }
 
+  const existing = await prisma.workspaceInvitation.findUnique({
+    where: { workspaceId_email: { workspaceId, email } },
+    select: { roleId: true },
+  })
+  if (existing && existing.roleId !== input.roleId) {
+    await requireInvitationRoleInReach(actor, existing.roleId)
+  }
+
   const now = new Date()
   const pendingCount = await prisma.workspaceInvitation.count({
     where: { workspaceId, email: { not: email }, expiresAt: { gt: now } },
@@ -90,14 +120,27 @@ async function createInvitation(
   return toSharedInvitation(row, now)
 }
 
-async function revokeInvitation(workspaceId: string, invitationId: string): Promise<void> {
+/**
+ * The delete repeats the role and the version the decision read, as a member's change does: an
+ * invitation moved to a wider role meanwhile is a 409, not revoked by someone who could not send it.
+ */
+async function revokeInvitation(actor: IWorkspaceMembership, invitationId: string): Promise<void> {
+  const workspaceId = actor.workspace.id
+  const where = { id: invitationId, workspaceId }
+  const invitation = await prisma.workspaceInvitation.findFirst({ where, select: { roleId: true } })
+  if (!invitation) throw buildInvitationNotFoundError()
+
+  const roleUpdatedAt = await requireInvitationRoleInReach(actor, invitation.roleId)
+
   try {
     await prisma.workspaceInvitation.delete({
-      where: { id: invitationId, workspaceId },
+      where: { ...where, roleId: invitation.roleId, role: { updatedAt: roleUpdatedAt } },
       select: { id: true },
     })
   } catch (error) {
-    throw toHttpError(error, { notFound: 'Invitation not found' })
+    if (!isMissingRow(error)) throw error
+    const current = await prisma.workspaceInvitation.findFirst({ where, select: { id: true } })
+    throw current ? buildChangedMeanwhileError('invitation') : buildInvitationNotFoundError()
   }
 }
 

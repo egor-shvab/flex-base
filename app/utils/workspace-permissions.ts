@@ -1,5 +1,6 @@
 import type { ISelectOption } from '~/types/select'
 import { formatCount } from '~/utils/format'
+import { isRoleVisibilityBypassed } from '~/utils/role-form'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   ITableAccess,
@@ -82,10 +83,14 @@ export function applyReadScope(access: ITableAccess, readScope: TRecordScope): I
   }
 }
 
-/** What a role lets its members do: its workspace permissions, then how many tables it reaches. */
+/**
+ * What a role lets its members do: its workspace permissions, then the tables it reads — every one
+ * for a role that manages tables, whatever rows it holds.
+ */
 export function summarisePermissions(role: IWorkspaceRole): string {
-  const tables =
-    role.readableTableCount === 0
+  const tables = isRoleVisibilityBypassed(role)
+    ? 'Records in every table'
+    : role.readableTableCount === 0
       ? 'No tables'
       : `Records in ${formatCount(role.readableTableCount, 'table')}`
   const labels =
@@ -98,9 +103,10 @@ export function summarisePermissions(role: IWorkspaceRole): string {
   return [...labels, tables].join(', ')
 }
 
-/** How much a role grants, for ranking roles from the narrowest. */
+/** How much a role grants, for ranking roles from the narrowest: every table outranks any count. */
 export function toGrantCount(role: IWorkspaceRole): number {
-  return role.permissions.length + role.readableTableCount
+  const tableCount = isRoleVisibilityBypassed(role) ? Infinity : role.readableTableCount
+  return role.permissions.length + tableCount
 }
 
 /** The roles the caller may hand out — those within them — as the options of a role picker. */

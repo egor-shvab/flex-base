@@ -14,7 +14,7 @@ test('lists the default roles with what each may do', async ({ page, seedTable }
   await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }], [])
   await page.reload()
 
-  await expect(roleRow(page, 'Admin')).toContainText('Every permission, Records in 1 table')
+  await expect(roleRow(page, 'Admin')).toContainText('Every permission, Records in every table')
   await expect(roleRow(page, 'Admin')).toContainText('yours after a transfer')
   await expect(roleRow(page, 'Viewer')).toContainText('Records in 1 table')
 })

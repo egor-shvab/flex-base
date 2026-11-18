@@ -6,10 +6,7 @@ import type { IOkResponse } from '#shared/types/api'
 export default defineWorkspaceHandler(
   'MEMBERS_INVITE',
   async ({ event, membership }): Promise<IOkResponse> => {
-    await InvitationService.revokeInvitation(
-      membership.workspace.id,
-      routeParam(event, 'invitationId'),
-    )
+    await InvitationService.revokeInvitation(membership, routeParam(event, 'invitationId'))
     return { ok: true }
   },
 )

@@ -141,6 +141,26 @@ describe('InvitationService.createInvitation', () => {
     expect(prismaMock.workspaceInvitation.upsert).not.toHaveBeenCalled()
   })
 
+  it('renews an invitation sent under a role beyond the inviter only if they could have sent it', async () => {
+    prismaMock.workspaceInvitation.findUnique.mockResolvedValue({ roleId: 'rol_admin' })
+    roleService.getRoleReach.mockResolvedValue({ isWithinActor: false, updatedAt: NOW })
+
+    await expect(
+      InvitationService.createInvitation(inviter, 'usr_ada', input),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    expect(roleService.getRoleReach).toHaveBeenCalledWith(inviter, 'rol_admin')
+    expect(prismaMock.workspaceInvitation.upsert).not.toHaveBeenCalled()
+  })
+
+  it('renews one under the same role without weighing it again', async () => {
+    prismaMock.workspaceInvitation.findUnique.mockResolvedValue({ roleId: ROLE_ID })
+
+    await InvitationService.createInvitation(inviter, 'usr_ada', input)
+
+    expect(roleService.getRoleReach).not.toHaveBeenCalled()
+    expect(prismaMock.workspaceInvitation.upsert).toHaveBeenCalled()
+  })
+
   it('caps the pending invitations, not counting the one being renewed or the expired', async () => {
     prismaMock.workspaceInvitation.count.mockResolvedValue(MAX_PENDING_INVITATIONS)
 
@@ -159,22 +179,50 @@ describe('InvitationService.createInvitation', () => {
 })
 
 describe('InvitationService.revokeInvitation', () => {
-  it('deletes only an invitation of the proved workspace', async () => {
+  const where = { id: INVITATION_ID, workspaceId: WORKSPACE_ID }
+
+  beforeEach(() => {
+    prismaMock.workspaceInvitation.findFirst.mockResolvedValue({ roleId: ROLE_ID })
     prismaMock.workspaceInvitation.delete.mockResolvedValue({ id: INVITATION_ID })
+  })
 
-    await InvitationService.revokeInvitation(WORKSPACE_ID, INVITATION_ID)
+  it('deletes an invitation of the proved workspace, repeating the role and version weighed', async () => {
+    await InvitationService.revokeInvitation(inviter, INVITATION_ID)
 
+    expect(prismaMock.workspaceInvitation.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    )
+    expect(roleService.getRoleReach).toHaveBeenCalledWith(inviter, ROLE_ID)
     expect(prismaMock.workspaceInvitation.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: INVITATION_ID, workspaceId: WORKSPACE_ID } }),
+      expect.objectContaining({ where: { ...where, roleId: ROLE_ID, role: { updatedAt: NOW } } }),
     )
   })
 
-  it('answers one already gone as missing', async () => {
+  it('refuses an invitation to a role beyond the caller, revoking nothing', async () => {
+    roleService.getRoleReach.mockResolvedValue({ isWithinActor: false, updatedAt: NOW })
+
+    await expect(InvitationService.revokeInvitation(inviter, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 403,
+    })
+    expect(prismaMock.workspaceInvitation.delete).not.toHaveBeenCalled()
+  })
+
+  it('answers one of another workspace, or already gone, as missing', async () => {
+    prismaMock.workspaceInvitation.findFirst.mockResolvedValue(null)
+
+    await expect(InvitationService.revokeInvitation(inviter, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Invitation not found',
+    })
+    expect(prismaMock.workspaceInvitation.delete).not.toHaveBeenCalled()
+  })
+
+  it('is a 409 when the invitation or its role changed between the check and the delete', async () => {
     prismaMock.workspaceInvitation.delete.mockRejectedValue(knownError('P2025'))
 
-    await expect(
-      InvitationService.revokeInvitation(WORKSPACE_ID, INVITATION_ID),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Invitation not found' })
+    await expect(InvitationService.revokeInvitation(inviter, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 409,
+    })
   })
 })
 

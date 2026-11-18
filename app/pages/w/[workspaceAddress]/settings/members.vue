@@ -92,7 +92,7 @@
                 `${invitation.isExpired ? 'Expired' : 'Expires'} ${formatTimestampDay(invitation.expiresAt)}`,
               ]"
             >
-              <template #trailing>
+              <template v-if="canRevoke(invitation)" #trailing>
                 <BaseButton
                   variant="icon"
                   tone="danger"
@@ -189,14 +189,21 @@ async function retryMembers() {
 }
 
 /** A role the roles list does not hold is not known to be within the caller, so it is not. */
-function canManage(member: IWorkspaceMember): boolean {
-  const role = rolesStore.roles.find((candidate) => candidate.id === member.role.id)
+function isRoleWithinCaller(roleId: string): boolean {
+  return rolesStore.roles.find((candidate) => candidate.id === roleId)?.isWithinCaller === true
+}
 
+function canManage(member: IWorkspaceMember): boolean {
   return (
     hasPermission('MEMBERS_MANAGE') &&
     membership.value !== undefined &&
-    canManageMember(membership.value, member, role?.isWithinCaller === true)
+    canManageMember(membership.value, member, isRoleWithinCaller(member.role.id))
   )
+}
+
+/** Revoking takes what sending does: the invitation's role within the caller. */
+function canRevoke(invitation: IWorkspaceInvitation): boolean {
+  return isRoleWithinCaller(invitation.role.id)
 }
 
 const roleOptions = computed(() => buildAssignableRoleOptions(rolesStore.roles))

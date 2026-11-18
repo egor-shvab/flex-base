@@ -49,9 +49,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useForm } from '~/composables/useForm'
-import { isStaleWrite } from '~/utils/api-error'
+import { computed } from 'vue'
+import { useSavedForm } from '~/composables/useSavedForm'
 import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
 import { isRoleVisibilityBypassed, type IAccessLimits } from '~/utils/role-form'
@@ -89,44 +88,33 @@ function toDrafts(roles: ITableRoleAccess[]): TDraft[] {
 
 const limit = computed(() => props.limits.tableAccess(props.tableId))
 
-const isStale = ref(false)
-const hasSaved = ref(false)
-const savedDrafts = ref(toDrafts(props.roles))
+/** The drafts that differ from what is saved: only these are sent, each at its version. */
+function listChangedDrafts(drafts: readonly TDraft[], saved: readonly TDraft[]): TDraft[] {
+  return drafts.filter((draft) => {
+    const savedDraft = saved.find((candidate) => candidate.roleId === draft.roleId)
+    return !savedDraft || !isSameTableAccess(draft, savedDraft)
+  })
+}
 
-const { form, serverError, isSubmitting, submit } = useForm({
+const {
+  form,
+  serverError,
+  isSubmitting,
+  submit,
+  savedValues,
+  isDirty,
+  hasSaved,
+  isStale,
+  discard,
+} = useSavedForm({
   schema: tableAccessInputSchema,
   initial: { roles: toDrafts(props.roles) },
-  onSubmit: async () => {
-    isStale.value = false
-    try {
-      const saved = await props.submitHandler({ roles: changedDrafts.value })
-      setDrafts(toDrafts(saved))
-    } catch (error) {
-      isStale.value = isStaleWrite(error)
-      throw error
-    }
-    hasSaved.value = true
+  save: async () => {
+    const changed = listChangedDrafts(form.roles, savedValues.value.roles)
+    return { roles: toDrafts(await props.submitHandler({ roles: changed })) }
   },
+  isSame: (a, b) => listChangedDrafts(a.roles, b.roles).length === 0,
 })
-
-const changedDrafts = computed(() =>
-  form.roles.filter((draft) => {
-    const saved = savedDrafts.value.find((candidate) => candidate.roleId === draft.roleId)
-    return !saved || !isSameTableAccess(draft, saved)
-  }),
-)
-
-const isDirty = computed(() => changedDrafts.value.length > 0)
-
-function setDrafts(drafts: TDraft[]) {
-  savedDrafts.value = drafts
-  form.roles = drafts.map((draft) => ({ ...draft }))
-}
-
-function discard() {
-  form.roles = savedDrafts.value.map((draft) => ({ ...draft }))
-  hasSaved.value = false
-}
 
 function findDraft(roleId: string): ITableAccess {
   const {
