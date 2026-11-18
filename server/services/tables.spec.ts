@@ -49,7 +49,7 @@ describe('TableService.listTables', () => {
       expect.objectContaining({
         where: {
           workspaceId: WORKSPACE_ID,
-          roleAccess: { some: { roleId: member.role.id, readScope: { not: 'NONE' } } },
+          roleAccess: { some: { roleId: member.role.id } },
         },
         orderBy: { createdAt: 'asc' },
       }),

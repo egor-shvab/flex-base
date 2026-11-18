@@ -98,9 +98,9 @@ export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
   /** The tables whose records the role sees, at least its own. */
   readableTableCount: number
   /**
-   * Whether the role grants nothing beyond the caller, on any table or field: what assigning it,
-   * editing or deleting it, or managing a member who holds it requires. Always false for a caller
-   * who can do none of those.
+   * Whether the role grants nothing beyond the caller, on any table or field: what assigning it, or
+   * managing a member who holds it, requires — and editing or deleting it, with the rest of
+   * `canEditRole`. Always false for a caller who can do none of those.
    */
   isWithinCaller: boolean
   /** The version an edit sends as `If-Match`. */

@@ -40,9 +40,14 @@ function checkActionsWithinRead(
   }
 }
 
+/** A role's row for a table always reads there: a table closed to the role has no row. */
 export const tableAccessOverrideSchema = z
   .object({ tableId: idSchema, ...tableAccessFields })
   .superRefine(checkActionsWithinRead)
+  .refine((row) => row.readScope !== 'NONE', {
+    path: ['readScope'],
+    message: 'Leave the table out to close it to the role',
+  })
 
 function hasNoRepeat(values: readonly string[]): boolean {
   return new Set(values).size === values.length

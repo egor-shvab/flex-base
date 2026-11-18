@@ -58,7 +58,7 @@ export function buildReadableTablesWhere(membership: IWorkspaceMembership): Pris
 
   const roleId = membership.role.id
 
-  return { roleAccess: { some: { roleId, readScope: { not: 'NONE' } } } }
+  return { roleAccess: { some: { roleId } } }
 }
 
 /** A workspace's tables and fields as a role's access is compared and set over them. */

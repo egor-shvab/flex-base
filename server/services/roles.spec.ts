@@ -133,7 +133,7 @@ describe('RoleService.listRoles', () => {
         orderBy: [{ createdAt: 'asc' }, { name: 'asc' }],
         select: expect.objectContaining({
           _count: {
-            select: { members: true, tableAccess: { where: { readScope: { not: 'NONE' } } } },
+            select: { members: true, tableAccess: true },
           },
         }),
       }),

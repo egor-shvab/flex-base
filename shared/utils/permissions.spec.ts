@@ -8,10 +8,12 @@ import type {
   TWorkspacePermission,
 } from '#shared/types/workspace'
 import {
+  canEditRole,
   canManageMember,
   hasPermission,
   hasRecordAction,
   isPermissionSubset,
+  isSameTableAccess,
   isScopeWithin,
   isTableAccessWithin,
 } from '#shared/utils/permissions'
@@ -134,5 +136,38 @@ describe('canManageMember', () => {
 
   it('refuses everyone the owner’s membership, whatever the owner’s role holds', () => {
     expect(canManageMember(manager, member({ id: 'mem_owner', isOwner: true }), true)).toBe(false)
+  })
+})
+
+describe('isSameTableAccess', () => {
+  it('is true only when all four columns match', () => {
+    expect(isSameTableAccess(managerRecords, { ...managerRecords })).toBe(true)
+    expect(isSameTableAccess(managerRecords, { ...managerRecords, deleteScope: 'OWN' })).toBe(false)
+    expect(isSameTableAccess(managerRecords, { ...managerRecords, canCreate: false })).toBe(false)
+  })
+})
+
+describe('canEditRole', () => {
+  const holding = (roleId: string, permissions: TWorkspacePermission[], isOwner = false) => ({
+    isOwner,
+    permissions,
+    role: { id: roleId, name: 'Manager' },
+  })
+  const editable = { id: 'rol_other', isWithinCaller: true }
+
+  it('lets a role manager edit a role within them that they do not hold', () => {
+    expect(canEditRole(holding('rol_mine', ['ROLES_MANAGE']), editable)).toBe(true)
+  })
+
+  it.each([
+    ['without role management', holding('rol_mine', []), editable],
+    ['beyond them', holding('rol_mine', ['ROLES_MANAGE']), { ...editable, isWithinCaller: false }],
+    ['they hold', holding('rol_other', ['ROLES_MANAGE']), editable],
+  ])('refuses a role %s', (_, actor, subject) => {
+    expect(canEditRole(actor, subject)).toBe(false)
+  })
+
+  it('lets the owner edit the role they hold', () => {
+    expect(canEditRole(holding('rol_other', [], true), editable)).toBe(true)
   })
 })

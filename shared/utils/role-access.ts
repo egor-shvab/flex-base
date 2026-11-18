@@ -1,6 +1,7 @@
 import { FIELD_ACCESS_LEVELS } from '#shared/constants/workspace'
 import type {
   IAccessTable,
+  IPermissionSet,
   IRoleGrants,
   ITableAccess,
   TFieldAccess,
@@ -14,12 +15,26 @@ export interface IAccessHolder extends IRoleGrants {
   isOwner: boolean
 }
 
-/** A role's row for one table, if it has one. */
+/**
+ * A role as a member holding it meets it — never as the owner, whom no role binds. What
+ * `resolveTableAccess`, `resolveFieldAccess` and `isAccessWithin` take for a role on its own.
+ */
+export function toRoleHolder<TRole extends IPermissionSet>(
+  role: TRole,
+): TRole & { isOwner: false } {
+  return { ...role, isOwner: false }
+}
+
+/** A role's row for one table, without its key; `null` where the table is closed to the role. */
 export function findTableOverride(
   grants: Pick<IRoleGrants, 'tables'>,
   tableId: string,
 ): ITableAccess | null {
-  return grants.tables.find((row) => row.tableId === tableId) ?? null
+  const row = grants.tables.find((candidate) => candidate.tableId === tableId)
+  if (!row) return null
+
+  const { tableId: _tableId, ...access } = row
+  return access
 }
 
 /** A role's row for one field, if it narrows it. */
@@ -48,7 +63,7 @@ export function isAccessWithin(
   if (holder.isOwner) return true
   if (!isPermissionSubset(subject.permissions, holder.permissions)) return false
 
-  const subjectHolder = { ...subject, isOwner: false }
+  const subjectHolder = toRoleHolder(subject)
 
   return tables.every((table) => {
     const subjectAccess = resolveTableAccess(subjectHolder, findTableOverride(subject, table.id))

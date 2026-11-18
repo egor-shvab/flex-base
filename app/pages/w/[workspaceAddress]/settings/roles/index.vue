@@ -58,7 +58,7 @@ import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
 import { summarisePermissions } from '~/utils/workspace-permissions'
 import type { IWorkspaceRole } from '#shared/types/workspace'
-import { isHeldRoleLocked } from '#shared/utils/permissions'
+import { canEditRole } from '#shared/utils/permissions'
 
 const rolesStore = useRolesStore()
 const { workspaceAddress, membership, hasPermission } = useActiveWorkspace()
@@ -77,11 +77,7 @@ const canManageRoles = computed(() => hasPermission('ROLES_MANAGE'))
 
 /** A role beyond the caller, or the one they hold, opens nothing: its page would only say so. */
 function canChangeRole(role: IWorkspaceRole): boolean {
-  return (
-    canManageRoles.value &&
-    role.isWithinCaller &&
-    !(membership.value && isHeldRoleLocked(membership.value, role.id))
-  )
+  return membership.value !== undefined && canEditRole(membership.value, role)
 }
 
 /** The owner's role binds them only once they hand the workspace over. */

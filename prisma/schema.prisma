@@ -204,7 +204,8 @@ model Record {
 
 /**
  * What a role may do with one table's records. Without a row the role may do nothing there, so a
- * new table stays closed to every role until it is given access.
+ * new table stays closed to every role until it is given access. A row always reads: `readScope` is
+ * never `NONE` (a check constraint, written in the migration).
  */
 model RoleTableAccess {
   workspaceId String

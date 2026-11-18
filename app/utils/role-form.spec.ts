@@ -4,7 +4,6 @@ import {
   applyTableOverride,
   buildAccessLimits,
   findFieldAccess,
-  findTableOverride,
   isRoleVisibilityBypassed,
   resolveSubjectTableAccess,
   summariseFieldAccess,
@@ -35,12 +34,15 @@ const ownOnly = buildTableAccess({ readScope: 'OWN' })
 describe('a table’s row', () => {
   it('is set and replaced, and dropped once it grants nothing', () => {
     const set = applyTableOverride([], DEALS.id, ownOnly)
-    expect(findTableOverride(set, DEALS.id)).toEqual(ownOnly)
+    expect(set).toEqual([{ tableId: DEALS.id, ...ownOnly }])
 
     const replaced = applyTableOverride(set, DEALS.id, FULL_TABLE_ACCESS)
     expect(replaced).toEqual([{ tableId: DEALS.id, ...FULL_TABLE_ACCESS }])
 
     expect(applyTableOverride(replaced, DEALS.id, NO_TABLE_ACCESS)).toEqual([])
+    expect(applyTableOverride(replaced, DEALS.id, buildTableAccess({ readScope: 'NONE' }))).toEqual(
+      [],
+    )
   })
 
   it('decides the role’s access to the table, nothing without one', () => {

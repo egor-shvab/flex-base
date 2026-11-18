@@ -5,6 +5,7 @@ import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 import type { ITableAccess } from '#shared/types/workspace'
+import { canReadRecords } from '#shared/utils/table-access'
 import { buildTableAccess } from '~~/test/membership'
 
 let sequence = 0
@@ -80,7 +81,10 @@ export async function createTable(workspaceId: string, name = unique('Table')) {
   return table
 }
 
-/** Sets what a role, by name, may do with one table's records, replacing any row it had. */
+/**
+ * Sets what a role, by name, may do with one table's records, replacing any row it had; access that
+ * reads nothing is no row, as the app writes it.
+ */
 export async function setTableAccess(
   workspaceId: string,
   roleName: string,
@@ -91,6 +95,10 @@ export async function setTableAccess(
     where: { workspaceId_name: { workspaceId, name: roleName } },
     select: { id: true },
   })
+  if (!canReadRecords(access)) {
+    await prisma.roleTableAccess.deleteMany({ where: { roleId, tableId } })
+    return
+  }
   await prisma.roleTableAccess.upsert({
     where: { roleId_tableId: { roleId, tableId } },
     create: { workspaceId, roleId, tableId, ...access },

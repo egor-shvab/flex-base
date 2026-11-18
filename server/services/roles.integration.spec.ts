@@ -247,6 +247,22 @@ describe('a role’s access to tables and fields', () => {
     })
   })
 
+  it('keeps a row that reads nothing out of the database: such a table has no row', async () => {
+    const { tableId } = await seedDeals()
+    const viewerId = await findRoleId(ada.workspace.id, 'Viewer')
+
+    await expect(
+      prisma.roleTableAccess.create({
+        data: {
+          workspaceId: ada.workspace.id,
+          roleId: viewerId,
+          tableId,
+          ...NO_TABLE_ACCESS,
+        },
+      }),
+    ).rejects.toThrow()
+  })
+
   it('keeps a manager from handing out a role that sees a field hidden from them', async () => {
     const { tableId, fieldId } = await seedDeals()
     const editorId = await findRoleId(ada.workspace.id, 'Editor')

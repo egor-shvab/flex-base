@@ -4,6 +4,7 @@ import type {
   ITableAccess,
   IWorkspaceActor,
   IWorkspaceMembership,
+  IWorkspaceRole,
   TRecordAction,
   TRecordScope,
   TWorkspacePermission,
@@ -48,6 +49,15 @@ export function isTableAccessWithin(access: ITableAccess, of: ITableAccess): boo
   )
 }
 
+export function isSameTableAccess(a: ITableAccess, b: ITableAccess): boolean {
+  return (
+    a.readScope === b.readScope &&
+    a.canCreate === b.canCreate &&
+    a.updateScope === b.updateScope &&
+    a.deleteScope === b.deleteScope
+  )
+}
+
 /**
  * Changing a member's role or removing them. Nobody acts on the owner's membership or on their
  * own — leaving is its own action — nor on one whose role grants more than they hold
@@ -72,4 +82,17 @@ export function isHeldRoleLocked(
   roleId: string,
 ): boolean {
   return !actor.isOwner && actor.role.id === roleId
+}
+
+/**
+ * Editing or deleting a role, from its page or a table's: the caller manages roles, the role is
+ * within them (the server's answer, `isWithinCaller`), and it is not the one they hold.
+ */
+export function canEditRole(
+  actor: Pick<IWorkspaceMembership, 'isOwner' | 'permissions' | 'role'>,
+  role: Pick<IWorkspaceRole, 'id' | 'isWithinCaller'>,
+): boolean {
+  return (
+    hasPermission(actor, 'ROLES_MANAGE') && role.isWithinCaller && !isHeldRoleLocked(actor, role.id)
+  )
 }

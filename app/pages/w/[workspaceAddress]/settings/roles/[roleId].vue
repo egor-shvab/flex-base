@@ -20,12 +20,11 @@
     </BaseErrorBanner>
 
     <template v-else-if="data && limits && membership">
-      <BaseErrorBanner v-if="isHeldRoleLocked(membership, roleId)">
-        This is your role, so only the workspace owner can change it.
-      </BaseErrorBanner>
-
-      <BaseErrorBanner v-else-if="!data.detail.role.isWithinCaller">
-        This role grants more than yours, so you can’t change it.
+      <BaseErrorBanner v-if="!canEditRole(membership, data.detail.role)">
+        <template v-if="isHeldRoleLocked(membership, roleId)">
+          This is your role, so only the workspace owner can change it.
+        </template>
+        <template v-else>This role grants more than yours, so you can’t change it.</template>
       </BaseErrorBanner>
 
       <template v-else>
@@ -98,7 +97,7 @@ import { getApiErrorMessage } from '~/utils/api-error'
 import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
 import type { IWorkspaceRole } from '#shared/types/workspace'
-import { isHeldRoleLocked } from '#shared/utils/permissions'
+import { canEditRole, isHeldRoleLocked } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 const route = useRoute()

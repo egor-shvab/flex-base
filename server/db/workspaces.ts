@@ -55,7 +55,7 @@ export const roleSelect = {
   ...permissionSetSelect,
   updatedAt: true,
   _count: {
-    select: { members: true, tableAccess: { where: { readScope: { not: 'NONE' } } } },
+    select: { members: true, tableAccess: true },
   },
 } satisfies Prisma.WorkspaceRoleSelect
 

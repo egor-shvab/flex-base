@@ -85,6 +85,13 @@ describe('roleInputSchema', () => {
     expect(result.error?.issues[0]?.path).toEqual(['tables', 0, 'canCreate'])
   })
 
+  it('refuses a table row that reads nothing: a table closed to the role has no row', () => {
+    const result = roleInputSchema.safeParse(role({ tables: [dealsRow({ readScope: 'NONE' })] }))
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['tables', 0, 'readScope'])
+  })
+
   it.each(['updateScope', 'deleteScope'])('rejects a %s wider than the read', (key) => {
     const result = roleInputSchema.safeParse(
       role({ tables: [dealsRow({ readScope: 'OWN', [key]: 'ALL' })] }),
@@ -187,6 +194,12 @@ describe('tableAccessInputSchema', () => {
 
   it('accepts the roles changed, each with the version it was read at', () => {
     expect(tableAccessInputSchema.parse({ roles: [row()] })).toEqual({ roles: [row()] })
+  })
+
+  it('accepts a read of none, which closes the table to the role', () => {
+    expect(tableAccessInputSchema.safeParse({ roles: [row({ readScope: 'NONE' })] }).success).toBe(
+      true,
+    )
   })
 
   it.each([

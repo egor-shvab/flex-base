@@ -54,12 +54,11 @@ import { useForm } from '~/composables/useForm'
 import { isStaleWrite } from '~/utils/api-error'
 import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
-import type { IAccessLimits } from '~/utils/role-form'
+import { isRoleVisibilityBypassed, type IAccessLimits } from '~/utils/role-form'
 import { RECORD_ACCESS_TEXT } from '~/utils/workspace-permissions'
 import type { ITableRoleAccess } from '#shared/types/api'
 import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
-import { isHeldRoleLocked, isTableAccessWithin } from '#shared/utils/permissions'
-import { isTableVisibilityBypassed } from '#shared/utils/table-access'
+import { canEditRole, isHeldRoleLocked, isSameTableAccess } from '#shared/utils/permissions'
 import { tableAccessInputSchema, type TTableAccessInput } from '#shared/validation/workspace'
 
 /**
@@ -113,15 +112,11 @@ const { form, serverError, isSubmitting, submit } = useForm({
 const changedDrafts = computed(() =>
   form.roles.filter((draft) => {
     const saved = savedDrafts.value.find((candidate) => candidate.roleId === draft.roleId)
-    return !saved || !isSameAccess(draft, saved)
+    return !saved || !isSameTableAccess(draft, saved)
   }),
 )
 
 const isDirty = computed(() => changedDrafts.value.length > 0)
-
-function isSameAccess(a: ITableAccess, b: ITableAccess): boolean {
-  return isTableAccessWithin(a, b) && isTableAccessWithin(b, a)
-}
 
 function setDrafts(drafts: TDraft[]) {
   savedDrafts.value = drafts
@@ -149,11 +144,11 @@ function setDraft(roleId: string, access: ITableAccess) {
 }
 
 function isLocked({ role }: ITableRoleAccess): boolean {
-  return !role.isWithinCaller || isHeldRoleLocked(props.actor, role.id)
+  return !canEditRole(props.actor, role)
 }
 
 function isRoleBypassed({ role }: ITableRoleAccess): boolean {
-  return isTableVisibilityBypassed({ isOwner: false, permissions: role.permissions })
+  return isRoleVisibilityBypassed(role)
 }
 
 function noteFor(entry: ITableRoleAccess): string {

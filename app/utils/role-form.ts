@@ -1,12 +1,12 @@
-import { NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type {
   IAccessTable,
+  IPermissionSet,
   IRoleOverrides,
   ITableAccess,
   IWorkspaceActor,
   TFieldAccess,
 } from '#shared/types/workspace'
-import { isTableAccessWithin } from '#shared/utils/permissions'
+import { findFieldOverride, findTableOverride, toRoleHolder } from '#shared/utils/role-access'
 import {
   canReadRecords,
   isTableVisibilityBypassed,
@@ -17,35 +17,19 @@ import type { TRoleInput } from '#shared/validation/workspace'
 
 type TRoleGrantsInput = Pick<TRoleInput, 'permissions' | 'tables'>
 
-/** The role being edited, as `resolveTableAccess` reads a holder: never the owner. */
-function toSubjectHolder(role: TRoleGrantsInput) {
-  return { isOwner: false, permissions: role.permissions }
-}
-
-export function findTableOverride(
-  rows: IRoleOverrides['tables'],
-  tableId: string,
-): ITableAccess | null {
-  const row = rows.find((candidate) => candidate.tableId === tableId)
-  if (!row) return null
-
-  const { tableId: _tableId, ...access } = row
-  return access
-}
-
-/** Access that grants nothing is no row: a table without one is closed to the role. */
+/** Access that reads nothing is no row: a table without one is closed to the role. */
 export function applyTableOverride(
   rows: IRoleOverrides['tables'],
   tableId: string,
   access: ITableAccess,
 ): IRoleOverrides['tables'] {
   const others = rows.filter((row) => row.tableId !== tableId)
-  return isTableAccessWithin(access, NO_TABLE_ACCESS) ? others : [...others, { tableId, ...access }]
+  return canReadRecords(access) ? [...others, { tableId, ...access }] : others
 }
 
 /** `EDIT` is no row: the field follows what the role may do with the table's records. */
 export function findFieldAccess(rows: IRoleOverrides['fields'], fieldId: string): TFieldAccess {
-  return rows.find((row) => row.fieldId === fieldId)?.access ?? 'EDIT'
+  return findFieldOverride({ fields: rows }, fieldId) ?? 'EDIT'
 }
 
 export function applyFieldAccess(
@@ -59,12 +43,12 @@ export function applyFieldAccess(
 
 /** What the role does with one table's records: its row there, or nothing. */
 export function resolveSubjectTableAccess(role: TRoleGrantsInput, tableId: string): ITableAccess {
-  return resolveTableAccess(toSubjectHolder(role), findTableOverride(role.tables, tableId))
+  return resolveTableAccess(toRoleHolder(role), findTableOverride(role, tableId))
 }
 
 /** A role that manages tables sees every table and field: only its record actions narrow. */
-export function isRoleVisibilityBypassed(role: TRoleGrantsInput): boolean {
-  return isTableVisibilityBypassed(toSubjectHolder(role))
+export function isRoleVisibilityBypassed(role: IPermissionSet): boolean {
+  return isTableVisibilityBypassed(toRoleHolder(role))
 }
 
 /**
@@ -109,15 +93,11 @@ export function buildAccessLimits(
 ): IAccessLimits {
   const holder = { ...actor, ...overrides }
   const tableAccess = (tableId: string) =>
-    resolveTableAccess(holder, findTableOverride(overrides.tables, tableId))
+    resolveTableAccess(holder, findTableOverride(overrides, tableId))
 
   return {
     tableAccess,
     fieldAccess: (tableId, fieldId) =>
-      resolveFieldAccess(
-        holder,
-        tableAccess(tableId),
-        overrides.fields.find((row) => row.fieldId === fieldId)?.access ?? null,
-      ),
+      resolveFieldAccess(holder, tableAccess(tableId), findFieldOverride(overrides, fieldId)),
   }
 }

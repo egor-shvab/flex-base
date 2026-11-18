@@ -6,7 +6,13 @@ import type {
   ITableAccess,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { isAccessWithin, type IAccessHolder } from '#shared/utils/role-access'
+import {
+  findFieldOverride,
+  findTableOverride,
+  isAccessWithin,
+  toRoleHolder,
+  type IAccessHolder,
+} from '#shared/utils/role-access'
 import { buildTableAccess } from '~~/test/membership'
 
 const deals: IAccessTable = {
@@ -131,5 +137,26 @@ describe('isAccessWithin — field by field', () => {
     }
 
     expect(isAccessWithin(grants([], managerDefaults), schemaManager, tables)).toBe(true)
+  })
+})
+
+describe('a role’s rows', () => {
+  const role = grants(
+    [],
+    { readScope: 'OWN' },
+    {
+      fields: [{ fieldId: 'fld_salary', access: 'HIDDEN' }],
+    },
+  )
+
+  it('are found by table and by field, the table’s without its key, null where there is none', () => {
+    expect(findTableOverride(role, 'tbl_deals')).toEqual(buildTableAccess({ readScope: 'OWN' }))
+    expect(findTableOverride(role, 'tbl_other')).toBeNull()
+    expect(findFieldOverride(role, 'fld_salary')).toBe('HIDDEN')
+    expect(findFieldOverride(role, 'fld_company')).toBeNull()
+  })
+
+  it('are held as by a member, never as by the owner', () => {
+    expect(toRoleHolder(role)).toEqual({ ...role, isOwner: false })
   })
 })

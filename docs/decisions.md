@@ -297,7 +297,9 @@ an array cannot say, so they are the role's own columns (`readScope`, `canCreate
 
 `RoleTableAccess` holds all four columns; without a row the role may do nothing with the table
 (`resolveTableAccess`, and `buildReadableTablesWhere` deciding the same in SQL for the list), so a
-new table stays closed until a role editor opens it. The one exception is the creator's role,
+new table stays closed until a role editor opens it. A row always reads — `readScope <> 'NONE'` is a
+check constraint, the role schema refuses such a row, and closing a table deletes it — so "closed"
+has one form and no reader filters for it. The one exception is the creator's role,
 given everything in the table it made (`TableService.createTable`), the owner's included —
 otherwise a non-owner who manages tables could not fill their own, and the owner's tables would be
 closed to the members sharing their role and to the owner themself after a transfer, with only the

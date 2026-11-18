@@ -27,8 +27,13 @@ import type {
   IWorkspaceRole,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { hasPermission, isHeldRoleLocked, isTableAccessWithin } from '#shared/utils/permissions'
-import { findFieldOverride, findTableOverride, isAccessWithin } from '#shared/utils/role-access'
+import { hasPermission, isHeldRoleLocked } from '#shared/utils/permissions'
+import {
+  findFieldOverride,
+  findTableOverride,
+  isAccessWithin,
+  toRoleHolder,
+} from '#shared/utils/role-access'
 import { canReadRecords, resolveFieldAccess, resolveTableAccess } from '#shared/utils/table-access'
 import type { TRoleInput, TTableAccessInput } from '#shared/validation/workspace'
 
@@ -112,7 +117,7 @@ function isWithinActor(
   const actorRole = ground.rolesById.get(actor.role.id)
   if (!actorRole) return false
 
-  return isAccessWithin(subject, { isOwner: false, ...toRoleGrants(actorRole) }, ground.tables)
+  return isAccessWithin(subject, toRoleHolder(toRoleGrants(actorRole)), ground.tables)
 }
 
 /**
@@ -127,7 +132,7 @@ function toVisibleTables(ground: IAccessGround, actor: IWorkspaceMembership): IA
   const actorRole = ground.rolesById.get(actor.role.id)
   if (!actorRole) return []
 
-  const holder = { isOwner: false, ...toRoleGrants(actorRole) }
+  const holder = toRoleHolder(toRoleGrants(actorRole))
 
   return ground.tables.flatMap((table) => {
     const access = resolveTableAccess(holder, findTableOverride(holder, table.id))
@@ -188,13 +193,10 @@ async function listTableAccess(
   actor: IWorkspaceMembership,
   tableId: string,
 ): Promise<ITableRoleAccess[]> {
-  return (await loadRolesWithGround(actor)).map(({ role, grants }) => {
-    const row = grants?.tableAccess.find((candidate) => candidate.tableId === tableId)
-    if (!row) return { role, access: NO_TABLE_ACCESS }
-
-    const { tableId: _tableId, ...access } = row
-    return { role, access }
-  })
+  return (await loadRolesWithGround(actor)).map(({ role, grants }) => ({
+    role,
+    access: (grants && findTableOverride(toRoleGrants(grants), tableId)) ?? NO_TABLE_ACCESS,
+  }))
 }
 
 /**
@@ -228,10 +230,9 @@ async function setTableAccess(
       throw buildStaleWriteError('role')
     }
 
-    const isOpen = !isTableAccessWithin(access, NO_TABLE_ACCESS)
-    const isRead = canReadRecords(
-      resolveTableAccess({ isOwner: false, permissions: current.permissions }, access),
-    )
+    // Access that reads nothing is no row; a role that manages tables reads whatever its row says
+    const isOpen = canReadRecords(access)
+    const isRead = canReadRecords(resolveTableAccess(toRoleHolder(current), access))
     const next: IRoleGrants = {
       ...current,
       tables: [
@@ -312,7 +313,7 @@ async function requireAssignableRole(actor: IWorkspaceMembership, roleId: string
  * required field of it hidden or read-only. A schema manager writes every field.
  */
 function assertRequiredFieldsFillable(name: string, grants: IRoleGrants, tables: IAccessTable[]) {
-  const holder = { ...grants, isOwner: false }
+  const holder = toRoleHolder(grants)
 
   for (const table of tables) {
     const access = resolveTableAccess(holder, findTableOverride(grants, table.id))
@@ -458,7 +459,7 @@ function assertOverridesInWorkspace(next: IRoleGrants, tables: IAccessTable[]) {
     }
   }
 
-  const holder = { ...next, isOwner: false }
+  const holder = toRoleHolder(next)
   for (const row of next.fields) {
     const table = tableByFieldId.get(row.fieldId)
     if (!table) throw createError({ statusCode: 404, statusMessage: 'Field not found' })
@@ -518,7 +519,7 @@ function toRoleDetail(
   return {
     role: {
       ...toSharedRole(row, true),
-      readableTableCount: input.tables.filter((table) => canReadRecords(table)).length,
+      readableTableCount: input.tables.length,
     },
     overrides: { tables: input.tables, fields: input.fields },
     tables,
