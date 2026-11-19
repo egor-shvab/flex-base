@@ -58,6 +58,15 @@ never the writer's own: narrowed by the owner in the instant between check and w
 save still lands within what they held a moment before. _Reopen if a role write ever outlives a
 request — a queue, a batch: repeat the writer's role version in the transaction too._
 
+### A role that manages tables keeps rows that take effect only once it stops
+
+While a role holds `TABLES_MANAGE` it reads every table and edits every field, so its table rows'
+read and its field rows change nothing; they are kept, and come back into force the moment the
+permission is removed — a hidden field hidden again, a table without a row closed. The role editor
+shows the new state as soon as the box is unticked, before saving (`decisions.md` → _A role reaches
+a table only through its row there_). _Reopen if schema visibility is ever split from record reads,
+which removes the case._
+
 ### Every decision about a role reads the whole schema
 
 `loadAccessGround` reads every table with its fields for each role list a manager sees, each role
