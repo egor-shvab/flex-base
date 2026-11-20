@@ -20,6 +20,7 @@
     "coverage:collect": "npm run coverage:unit && npm run coverage:integration && vitest run --merge-reports --coverage",
     "coverage:unit": "vitest run --coverage --coverage.reporter=none --reporter=default --reporter=blob --outputFile.blob=.vitest-reports/unit.json",
     "coverage:integration": "vitest run --config vitest.integration.config.ts --coverage --coverage.reporter=none --reporter=default --reporter=blob --outputFile.blob=.vitest-reports/integration.json",
+    "verify": "node scripts/verify.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

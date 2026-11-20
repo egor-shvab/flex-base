@@ -77,7 +77,15 @@ In order:
 7. a knowingly left limitation is recorded in `docs/limitations.md`;
 8. docs updated **only where a rule, contract or limitation changed** (§12).
 
-A change to Markdown only needs steps 1 and 8.
+A change to Markdown only needs steps 1 and 8. `npm run verify` runs steps 1, 2 and 4 with
+typecheck, printing only what fails.
+
+**Two agents take part without being asked** (`.claude/agents/`):
+
+- once a code change is written, before it is called done, the **`reviewer`** checks it against
+  these rules — not for Markdown-only changes, one-line fixes or work in progress;
+- the **`verifier`** runs the slow suites (integration, e2e) in the background while other work goes
+  on; the fast steps stay a direct `npm run verify`.
 
 **Change nothing unless the user explicitly asks for that change.** A question, a "should we…?" or
 a request for options gets an answer and a proposal, never an edit.

@@ -90,27 +90,28 @@ nothing else on the database; it is also available as `npx prisma db seed`.
 
 ## Commands
 
-| Command                    | Does                                                                          |
-| -------------------------- | ----------------------------------------------------------------------------- |
-| `npm run dev`              | Dev server (no type checking — kept fast)                                     |
-| `npm run typecheck`        | `vue-tsc` over the app, then `tsc` over the e2e specs — the inner-loop gate   |
-| `npm run build`            | Production build; runs `vue-tsc`, so a type error fails it                    |
-| `npm run preview`          | Preview a production build                                                    |
-| `npm run test`             | The `unit` + `nuxt` projects — no database, no browser                        |
-| `npm run test:unit`        | The `unit` project alone — the fast inner loop                                |
-| `npm run test:nuxt`        | The `nuxt` project alone                                                      |
-| `npm run test:integration` | The integration suite; starts PostgreSQL first                                |
-| `npm run test:e2e`         | Playwright over the production build; installs Chromium and starts PostgreSQL |
-| `npm run test:e2e:ui`      | The same, in Playwright's UI mode                                             |
-| `npm run test:watch`       | Vitest in watch mode                                                          |
-| `npm run test:coverage`    | The merged coverage report; needs a database                                  |
-| `npm run coverage:collect` | The same, without starting PostgreSQL first — what CI runs                    |
-| `npm run lint`             | ESLint                                                                        |
-| `npm run format`           | Format everything with Prettier                                               |
-| `npm run format:check`     | Check formatting without writing                                              |
-| `npm run db:up`            | Start PostgreSQL via Docker Compose                                           |
-| `npm run db:studio`        | Browse the database in Prisma Studio                                          |
-| `npm run db:seed`          | Fill a demo account with a realistic workspace — see below                    |
+| Command                    | Does                                                                                                                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`              | Dev server (no type checking — kept fast)                                                                                                                         |
+| `npm run typecheck`        | `vue-tsc` over the app, then `tsc` over the e2e specs — the inner-loop gate                                                                                       |
+| `npm run build`            | Production build; runs `vue-tsc`, so a type error fails it                                                                                                        |
+| `npm run preview`          | Preview a production build                                                                                                                                        |
+| `npm run test`             | The `unit` + `nuxt` projects — no database, no browser                                                                                                            |
+| `npm run test:unit`        | The `unit` project alone — the fast inner loop                                                                                                                    |
+| `npm run test:nuxt`        | The `nuxt` project alone                                                                                                                                          |
+| `npm run test:integration` | The integration suite; starts PostgreSQL first                                                                                                                    |
+| `npm run test:e2e`         | Playwright over the production build; installs Chromium and starts PostgreSQL                                                                                     |
+| `npm run test:e2e:ui`      | The same, in Playwright's UI mode                                                                                                                                 |
+| `npm run test:watch`       | Vitest in watch mode                                                                                                                                              |
+| `npm run test:coverage`    | The merged coverage report; needs a database                                                                                                                      |
+| `npm run coverage:collect` | The same, without starting PostgreSQL first — what CI runs                                                                                                        |
+| `npm run verify`           | Format, lint, typecheck, unit + nuxt in one run, printing only what fails; `-- --check` formats nothing, `-- --build` / `--integration` / `--e2e` add those steps |
+| `npm run lint`             | ESLint                                                                                                                                                            |
+| `npm run format`           | Format everything with Prettier                                                                                                                                   |
+| `npm run format:check`     | Check formatting without writing                                                                                                                                  |
+| `npm run db:up`            | Start PostgreSQL via Docker Compose                                                                                                                               |
+| `npm run db:studio`        | Browse the database in Prisma Studio                                                                                                                              |
+| `npm run db:seed`          | Fill a demo account with a realistic workspace — see below                                                                                                        |
 
 Database changes go through Prisma:
 
