@@ -1,16 +1,14 @@
 <template>
   <div ref="shell" class="app-layout" :class="{ 'app-layout--nav-open': isNavOpen }">
     <header class="app-layout__header">
-      <button
-        type="button"
-        class="app-layout__toggle"
+      <BaseButton
+        variant="secondary"
+        prepend-icon="material-symbols:menu-rounded"
+        label="Show tables"
         :aria-expanded="isNavOpen"
         aria-controls="app-sidebar"
-        aria-label="Show tables"
         @click="isNavOpen = !isNavOpen"
-      >
-        <Icon name="material-symbols:menu-rounded" aria-hidden="true" />
-      </button>
+      />
 
       <AppMark />
     </header>
@@ -28,17 +26,37 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useAsyncData, useRoute } from '#imports'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useInvitationsStore } from '~/stores/invitations'
 import { useTablesStore } from '~/stores/tables'
+import { useWorkspacesStore } from '~/stores/workspaces'
 
 const tablesStore = useTablesStore()
+const workspacesStore = useWorkspacesStore()
+const invitationsStore = useInvitationsStore()
 const route = useRoute()
+const { workspaceAddress } = useActiveWorkspace()
 
-// Its own key: `useAsyncData` does not dedupe a layout against a page. Returns a value, since
-// `undefined` makes Nuxt warn (NUXT_E3006) and re-run the handler on the client
-await useAsyncData('app-tables', async () => {
-  await tablesStore.ensureTables()
-  return true
-})
+// Their own keys: `useAsyncData` does not dedupe a layout against a page. The tables' is keyed on
+// the workspace, so switching refetches. Each returns a value, since `undefined` makes Nuxt warn
+// (NUXT_E3006) and re-run the handler on the client
+await Promise.all([
+  useAsyncData('app-workspaces', async () => {
+    await workspacesStore.ensureWorkspaces()
+    return true
+  }),
+  useAsyncData('app-invitations', async () => {
+    await invitationsStore.ensureIncoming()
+    return true
+  }),
+  useAsyncData(
+    () => `app-tables-${workspaceAddress.value}`,
+    async () => {
+      if (workspaceAddress.value !== '') await tablesStore.ensureTables(workspaceAddress.value)
+      return true
+    },
+  ),
+])
 
 const isNavOpen = ref(false)
 
@@ -60,7 +78,10 @@ function onKeydown(event: KeyboardEvent) {
   isNavOpen.value = false
 }
 
-onMounted(() => document.addEventListener('keydown', onKeydown))
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown)
+})
+
 onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 </script>
 
@@ -78,29 +99,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     display: none;
   }
 
-  &__toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: var(--control-height);
-    height: var(--control-height);
-    padding: 0;
-    border: 1px solid var(--color-border-control);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    font-size: rem(20);
-    color: var(--color-text);
-    cursor: pointer;
-
-    @include focus-ring;
-
-    &:hover {
-      border-color: var(--color-border-control-hover);
-      background: var(--color-surface-raised);
-    }
-  }
-
   &__sidebar {
     min-height: 0;
     overflow: hidden;
@@ -112,11 +110,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     display: none;
   }
 
+  // `--main-padding-bottom` is read by a bar that sticks to the bottom edge (`RoleEditor`)
   &__main {
+    --main-padding-bottom: #{rem(32)};
+
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
-    padding: rem(18) rem(24) rem(32);
+    padding: rem(18) rem(24) var(--main-padding-bottom);
   }
 
   @include below-shell {
@@ -132,7 +133,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
     }
 
     &__main {
-      padding: 0 rem(12) rem(24);
+      --main-padding-bottom: #{rem(24)};
+
+      padding: 0 rem(12) var(--main-padding-bottom);
     }
 
     // `visibility: hidden` too: translated alone, the panel stays focusable off-screen

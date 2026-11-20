@@ -58,6 +58,95 @@
         <BasePagination v-bind="specimen.props" />
       </UiTestSpecimen>
     </UiTestSection>
+
+    <UiTestSection title="Navigation item" component="BaseNavItem">
+      <template #description>
+        A row of a vertical navigation. The current page is marked by the link itself;
+        <code>active</code> covers a section spanning several routes. Without <code>to</code> it is
+        a button beside the links.
+      </template>
+      <UiTestSpecimen label="every state">
+        <nav class="nav-demo" aria-label="Demo navigation">
+          <BaseNavItem to="/ui-test/navigation" icon="material-symbols:home-outline-rounded">
+            Current page
+          </BaseNavItem>
+          <BaseNavItem to="/ui-test" icon="material-symbols:table-outline-rounded" active>
+            Active section
+          </BaseNavItem>
+          <BaseNavItem to="/ui-test" icon="material-symbols:table-outline-rounded">
+            With a count
+            <template #trailing>212</template>
+          </BaseNavItem>
+          <BaseNavItem to="/ui-test" icon="material-symbols:table-outline-rounded">
+            A table whose name is far too long for the column
+          </BaseNavItem>
+          <BaseNavItem to="/ui-test" icon="material-symbols:warning-outline-rounded" tone="danger">
+            Danger zone
+          </BaseNavItem>
+          <BaseNavItem
+            icon="material-symbols:add-rounded"
+            tone="accent"
+            @click="navActionCount += 1"
+          >
+            Add a table
+          </BaseNavItem>
+        </nav>
+        <template #readout>Add a table pressed {{ navActionCount }}×</template>
+      </UiTestSpecimen>
+    </UiTestSection>
+
+    <UiTestSection title="Menu" component="BaseMenu">
+      <template #description>
+        A <code>role="menu"</code> popover: arrows move, Home and End jump, Escape and Tab close it
+        and return focus. Choosing an item closes it unless the item is <code>keep-open</code>.
+      </template>
+      <UiTestSpecimen label="radio items · separator · tones" wide>
+        <div>
+          <BaseMenu label="Demo menu" :initial-item-index="checkedIndex">
+            <template #trigger="{ triggerAttrs, setTriggerRef, toggle }">
+              <BaseButton
+                :ref="setTriggerRef"
+                v-bind="triggerAttrs"
+                variant="secondary"
+                append-icon="material-symbols:expand-more-rounded"
+                @click="toggle"
+              >
+                Open the menu
+              </BaseButton>
+            </template>
+
+            <BaseMenuItem
+              v-for="(view, index) in MENU_VIEWS"
+              :key="view"
+              :checked="index === checkedIndex"
+              @click="choose(`view: ${view}`, index)"
+            >
+              {{ view }}
+            </BaseMenuItem>
+            <BaseMenuSeparator />
+            <BaseMenuItem icon="material-symbols:edit-outline-rounded" @click="choose('rename')">
+              Rename
+            </BaseMenuItem>
+            <BaseMenuItem
+              icon="material-symbols:refresh-rounded"
+              tone="accent"
+              keep-open
+              @click="choose('retry (menu stays open)')"
+            >
+              Try again
+            </BaseMenuItem>
+            <BaseMenuItem
+              icon="material-symbols:delete-outline-rounded"
+              tone="danger"
+              @click="choose('delete')"
+            >
+              Delete
+            </BaseMenuItem>
+          </BaseMenu>
+        </div>
+        <template #readout>last choice: {{ lastChoice }}</template>
+      </UiTestSpecimen>
+    </UiTestSection>
   </UiTestPage>
 </template>
 
@@ -66,6 +155,17 @@ import { ref } from 'vue'
 import { useSeoMeta } from '#imports'
 
 useSeoMeta({ title: 'Navigation · Component showcase' })
+
+const navActionCount = ref(0)
+
+const MENU_VIEWS = ['Grid', 'List']
+const checkedIndex = ref(0)
+const lastChoice = ref('none')
+
+function choose(choice: string, viewIndex?: number) {
+  lastChoice.value = choice
+  if (viewIndex !== undefined) checkedIndex.value = viewIndex
+}
 
 const interactivePage = ref(1)
 
@@ -129,3 +229,12 @@ const PAGER_SPECIMENS: IPagerSpecimen[] = [
   },
 ]
 </script>
+
+<style lang="scss" scoped>
+.nav-demo {
+  display: flex;
+  flex-direction: column;
+  gap: rem(2);
+  max-width: rem(240);
+}
+</style>

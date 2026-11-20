@@ -11,7 +11,11 @@ import {
 } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
 import process from 'node:process'
-import { formatErrorLogLine, type IErrorLogEntry } from '#server/utils/error-log'
+import {
+  buildErrorLogEntry,
+  formatErrorLogLine,
+  type IErrorLogEntry,
+} from '#server/utils/error-log'
 
 const LOG_PATH = resolve(process.cwd(), 'logs', 'server-errors.log')
 export const MAX_LOG_BYTES = 5 * 1024 * 1024
@@ -88,12 +92,35 @@ export function appendErrorLogLine(line: string): void {
     if (handle === null) return
     writeSync(handle, line)
     writtenBytes += bytes
-  } catch {
+  } catch (error) {
     isDisabled = true
     closeLog()
+    reportLogDisabled(error)
+  }
+}
+
+/**
+ * The one line the sink writes anywhere else, once: otherwise a log that cannot be written goes
+ * quiet and every later 5xx is lost unseen. Only the path and the error code — never an entry,
+ * whose redaction is this file's contract.
+ */
+function reportLogDisabled(error: unknown): void {
+  const code = (error as NodeJS.ErrnoException | null)?.code ?? 'unknown error'
+  try {
+    process.stderr.write(
+      `[flexbase] Server error log disabled: cannot write ${LOG_PATH} (${code}). Server errors are no longer recorded until restart.\n`,
+    )
+  } catch {
+    // Nowhere left to say it
   }
 }
 
 export function recordErrorEntry(entry: IErrorLogEntry): void {
   appendErrorLogLine(formatErrorLogLine(entry))
+}
+
+/** For work fired off the request path, such as index DDL. */
+export function recordBackgroundFailure(error: unknown): void {
+  // Not rethrown: off the request path an uncaught throw would take the process down
+  recordErrorEntry(buildErrorLogEntry(error, null, new Date()))
 }

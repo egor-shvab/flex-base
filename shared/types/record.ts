@@ -1,3 +1,4 @@
+import type { IUserRef } from '#shared/types/auth'
 import type { IField } from '#shared/types/field'
 import type { IRecordSort, TRecordFilterValues, TSortDirection } from '#shared/types/filter'
 import type { ITable } from '#shared/types/table'
@@ -11,9 +12,17 @@ export type TRecordData = Record<string, TRecordValue>
 export interface IRecord {
   id: string
   number: number
+  /** Whose record it is under an `OWN` scope; `null` once its author's account is gone. */
+  createdById: string | null
   data: TRecordData
   createdAt: string
   updatedAt: string
+}
+
+/** Who wrote a record. Only the one-record read carries it; a list does not join the users. */
+export interface IRecordWithAuthors extends IRecord {
+  createdBy: IUserRef | null
+  updatedBy: IUserRef | null
 }
 
 export interface IRecordPage {
@@ -42,7 +51,7 @@ export interface IOpenRecord {
 export interface IRecordDetail {
   table: Pick<ITable, 'id' | 'number' | 'name'>
   fields: IField[]
-  record: IRecord
+  record: IRecordWithAuthors
   linkedRecords: Record<string, Record<string, ILinkedRecord>>
 }
 

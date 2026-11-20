@@ -1,0 +1,113 @@
+import { z } from 'zod'
+import {
+  FIELD_ACCESS_OVERRIDES,
+  RECORD_SCOPES,
+  RESERVED_ROLE_NAME,
+  WORKSPACE_PERMISSIONS,
+} from '#shared/constants/workspace'
+import { isScopeWithin } from '#shared/utils/permissions'
+import { nameSchema } from '#shared/validation/name'
+
+const idSchema = z.string().trim().min(1, 'Required')
+
+export const workspaceInputSchema = z.object({
+  name: nameSchema,
+})
+
+const recordScopeSchema = z.enum(RECORD_SCOPES)
+
+const tableAccessFields = {
+  readScope: recordScopeSchema,
+  canCreate: z.boolean(),
+  updateScope: recordScopeSchema,
+  deleteScope: recordScopeSchema,
+}
+
+/** No action reaches past the read: it would act on records the role cannot see. */
+function checkActionsWithinRead(
+  access: z.infer<z.ZodObject<typeof tableAccessFields>>,
+  context: z.RefinementCtx,
+) {
+  for (const key of ['updateScope', 'deleteScope'] as const) {
+    if (isScopeWithin(access[key], access.readScope)) continue
+    context.addIssue({
+      code: 'custom',
+      path: [key],
+      message: 'A role can’t change records it can’t read',
+    })
+  }
+  if (access.canCreate && access.readScope === 'NONE') {
+    context.addIssue({
+      code: 'custom',
+      path: ['canCreate'],
+      message: 'A role can’t add records to a table it can’t read',
+    })
+  }
+}
+
+/** A role's row for a table always reads there: a table closed to the role has no row. */
+export const tableAccessRowSchema = z
+  .object({ tableId: idSchema, ...tableAccessFields })
+  .superRefine(checkActionsWithinRead)
+  .refine((row) => row.readScope !== 'NONE', {
+    path: ['readScope'],
+    message: 'Leave the table out to close it to the role',
+  })
+
+function hasNoRepeat(values: readonly string[]): boolean {
+  return new Set(values).size === values.length
+}
+
+/** A whole role, replacing what it held: its permissions and every table and field it reaches. */
+export const roleInputSchema = z.object({
+  name: nameSchema.refine(
+    (name) => name.toLowerCase() !== RESERVED_ROLE_NAME.toLowerCase(),
+    `“${RESERVED_ROLE_NAME}” is reserved for the workspace owner`,
+  ),
+  permissions: z
+    .array(z.enum(WORKSPACE_PERMISSIONS))
+    .refine(hasNoRepeat, 'A permission is listed twice'),
+  tables: z
+    .array(tableAccessRowSchema)
+    .refine((rows) => hasNoRepeat(rows.map((row) => row.tableId)), 'A table is listed twice'),
+  fields: z
+    .array(z.object({ fieldId: idSchema, access: z.enum(FIELD_ACCESS_OVERRIDES) }))
+    .refine((rows) => hasNoRepeat(rows.map((row) => row.fieldId)), 'A field is listed twice'),
+})
+
+/**
+ * One table's access for the roles changed on it. Each role carries the version it was read at:
+ * one `If-Match` header cannot hold several.
+ */
+export const tableAccessInputSchema = z.object({
+  roles: z
+    .array(
+      z
+        .object({ roleId: idSchema, updatedAt: z.iso.datetime(), ...tableAccessFields })
+        .superRefine(checkActionsWithinRead),
+    )
+    .min(1, 'Change at least one role')
+    .refine((rows) => hasNoRepeat(rows.map((row) => row.roleId)), 'A role is listed twice'),
+})
+
+export const memberRoleInputSchema = z.object({
+  roleId: idSchema,
+})
+
+export const invitationInputSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email address')),
+  roleId: idSchema,
+})
+
+/** `roleId` is the role the owner keeps as a member once the workspace is handed over. */
+export const transferOwnershipSchema = z.object({
+  memberId: idSchema,
+  roleId: idSchema,
+})
+
+export type TWorkspaceInput = z.infer<typeof workspaceInputSchema>
+export type TRoleInput = z.infer<typeof roleInputSchema>
+export type TMemberRoleInput = z.infer<typeof memberRoleInputSchema>
+export type TInvitationInput = z.infer<typeof invitationInputSchema>
+export type TTransferOwnershipInput = z.infer<typeof transferOwnershipSchema>
+export type TTableAccessInput = z.infer<typeof tableAccessInputSchema>

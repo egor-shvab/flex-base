@@ -12,7 +12,7 @@ import type { IAuthUser } from '#shared/types/auth'
 
 const NOW = new Date('2026-08-16T09:12:04.113Z')
 
-const USER: IAuthUser = { id: 'usr_1', email: 'owner@example.com' }
+const USER: IAuthUser = { id: 'usr_1', email: 'owner@example.com', name: 'Owner' }
 
 function eventSource(path: string, user: IAuthUser | null = USER, method = 'GET') {
   return { method, path, context: { user } }

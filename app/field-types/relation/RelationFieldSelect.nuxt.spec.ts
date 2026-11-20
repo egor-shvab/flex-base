@@ -16,7 +16,7 @@ const SEED = [
   { id: 'rec_grace', number: 2, label: 'Grace Hopper' },
 ]
 
-registerEndpoint('/api/tables/tbl_people/fields/fld_owner/options', () => ({
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_people/fields/fld_owner/options', () => ({
   options: [{ id: 'rec_margaret', number: 3, label: 'Margaret Hamilton' }],
 }))
 
@@ -57,7 +57,8 @@ describe('RelationFieldSelect', () => {
         SEED.map((option) => [option.id, { number: option.number, label: option.label }]),
       ),
     }
-    relations.tableAddressByField = { [FIELD_ID]: 'tbl_people' }
+    relations.optionStatusByField = { [FIELD_ID]: 'ready' }
+    relations.setOptionSource('k3f9x2m8qa', 'tbl_people')
 
     document.body.innerHTML = ''
   })
@@ -188,6 +189,31 @@ describe('RelationFieldSelect', () => {
       await open(wrapper)
 
       expect(optionLabels().filter((label) => label === '#1 Ada Lovelace')).toHaveLength(1)
+    })
+  })
+
+  describe('loading its options', () => {
+    it('loads them when it first mounts, not before', async () => {
+      const relations = useRelationsStore()
+      relations.clearState()
+      expect(relations.findOptionStatus(FIELD_ID)).toBe('idle')
+
+      await mountControl()
+
+      await expect.poll(() => relations.findOptionStatus(FIELD_ID)).toBe('ready')
+      expect(relations.optionsFor(FIELD_ID).map((option) => option.id)).toEqual(['rec_margaret'])
+    })
+
+    it('says it is loading rather than that there is nothing to link to', async () => {
+      const relations = useRelationsStore()
+      relations.clearState()
+      relations.optionStatusByField = { [FIELD_ID]: 'loading' }
+
+      const wrapper = await mountControl()
+      await open(wrapper)
+
+      expect(panel()?.textContent).toContain('Loading records…')
+      expect(panel()?.textContent).not.toContain('No records to link to')
     })
   })
 

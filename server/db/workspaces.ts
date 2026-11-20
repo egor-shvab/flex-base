@@ -1,0 +1,232 @@
+import type { Prisma } from '#server/generated/prisma/client'
+import { isUniqueViolationOn } from '#server/db/prisma-errors'
+import { userRefSelect } from '#server/db/users'
+import { buildPublicId } from '#server/utils/public-id'
+import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { hasPermission } from '#shared/utils/permissions'
+import type {
+  IPermissionSet,
+  IRoleGrants,
+  IRoleRows,
+  IWorkspace,
+  IWorkspaceMember,
+  IWorkspaceMembership,
+  IWorkspaceMembershipView,
+  IWorkspaceRole,
+} from '#shared/types/workspace'
+
+export const PERSONAL_WORKSPACE_NAME = 'Personal workspace'
+
+/**
+ * A new workspace's only role, the owner's: it binds them once they hand the workspace over. Any
+ * other role is the owner's to make. A new workspace has no tables, so it reaches no records yet.
+ */
+export const OWNER_STARTING_ROLE = {
+  name: 'Admin',
+  permissions: WORKSPACE_PERMISSIONS,
+} as const satisfies IPermissionSet & { name: string }
+
+const PUBLIC_ID_ATTEMPTS = 3
+
+export const workspaceSelect = {
+  id: true,
+  publicId: true,
+  name: true,
+  createdAt: true,
+} satisfies Prisma.WorkspaceSelect
+
+/** What a role grants across the workspace, in the columns `toPermissionSet` reads. */
+export const permissionSetSelect = {
+  permissions: true,
+} satisfies Prisma.WorkspaceRoleSelect
+
+export const membershipSelect = {
+  id: true,
+  role: { select: { id: true, name: true, ...permissionSetSelect } },
+  workspace: { select: { ...workspaceSelect, ownerId: true } },
+} satisfies Prisma.WorkspaceMemberSelect
+
+export const roleSelect = {
+  id: true,
+  name: true,
+  ...permissionSetSelect,
+  updatedAt: true,
+  _count: {
+    select: { members: true, tableAccess: true },
+  },
+} satisfies Prisma.WorkspaceRoleSelect
+
+const tableAccessRowSelect = {
+  tableId: true,
+  readScope: true,
+  canCreate: true,
+  updateScope: true,
+  deleteScope: true,
+} satisfies Prisma.RoleTableAccessSelect
+
+/** Everything a role grants, with the version a guarded write repeats. */
+export const roleGrantsSelect = {
+  id: true,
+  name: true,
+  updatedAt: true,
+  ...permissionSetSelect,
+  tableAccess: { select: tableAccessRowSelect },
+  fieldAccess: { select: { fieldId: true, access: true } },
+} satisfies Prisma.WorkspaceRoleSelect
+
+export const memberSelect = {
+  id: true,
+  userId: true,
+  createdAt: true,
+  user: { select: { ...userRefSelect, email: true } },
+  role: { select: { id: true, name: true, ...permissionSetSelect } },
+  workspace: { select: { ownerId: true } },
+} satisfies Prisma.WorkspaceMemberSelect
+
+type TPermissionSetRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof permissionSetSelect }>
+export type TWorkspaceRow = Prisma.WorkspaceGetPayload<{ select: typeof workspaceSelect }>
+export type TMembershipRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof membershipSelect }>
+export type TRoleRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof roleSelect }>
+export type TMemberRow = Prisma.WorkspaceMemberGetPayload<{ select: typeof memberSelect }>
+export type TRoleGrantsRow = Prisma.WorkspaceRoleGetPayload<{ select: typeof roleGrantsSelect }>
+
+export function buildMembershipWhere(
+  userId: string,
+  workspaceAddress: string,
+): Prisma.WorkspaceMemberWhereInput {
+  return { userId, workspace: { publicId: workspaceAddress } }
+}
+
+/**
+ * The workspace only while `ownerMemberId` is still its owner's membership: an owner's write repeats
+ * it, so one checked before a transfer landed in between finds nothing.
+ */
+export function buildOwnedWorkspaceWhere(
+  workspaceId: string,
+  ownerMemberId: string,
+): Prisma.WorkspaceWhereUniqueInput {
+  return { id: workspaceId, owner: { memberships: { some: { id: ownerMemberId } } } }
+}
+
+/** By the compound key, so a role id from another workspace matches nothing. */
+export function buildRoleWhere(
+  workspaceId: string,
+  roleId: string,
+): Prisma.WorkspaceRoleWhereUniqueInput {
+  return { workspaceId_id: { workspaceId, id: roleId } }
+}
+
+export function toPermissionSet(row: TPermissionSetRow): IPermissionSet {
+  return { permissions: row.permissions }
+}
+
+export function toRoleRows(row: TRoleGrantsRow): IRoleRows {
+  return {
+    tables: row.tableAccess.map((table) => ({ ...table })),
+    fields: row.fieldAccess.map((field) => ({ ...field })),
+  }
+}
+
+export function toRoleGrants(row: TRoleGrantsRow): IRoleGrants {
+  return { ...toPermissionSet(row), ...toRoleRows(row) }
+}
+
+export function toSharedWorkspace(row: TWorkspaceRow): IWorkspace {
+  return {
+    id: row.id,
+    publicId: row.publicId,
+    name: row.name,
+    createdAt: row.createdAt.toISOString(),
+  }
+}
+
+export function toSharedMembership(row: TMembershipRow, userId: string): IWorkspaceMembership {
+  const isOwner = row.workspace.ownerId === userId
+
+  return {
+    memberId: row.id,
+    isOwner,
+    permissions: isOwner ? [...WORKSPACE_PERMISSIONS] : row.role.permissions,
+    workspace: toSharedWorkspace(row.workspace),
+    role: { id: row.role.id, name: row.role.name },
+  }
+}
+
+/** The membership as the caller is sent it: their role only if they may see roles. */
+export function toMembershipView(membership: IWorkspaceMembership): IWorkspaceMembershipView {
+  return hasPermission(membership, 'ROLES_VIEW') ? membership : { ...membership, role: null }
+}
+
+export function toSharedRole(row: TRoleRow, isWithinCaller: boolean): IWorkspaceRole {
+  return {
+    id: row.id,
+    name: row.name,
+    ...toPermissionSet(row),
+    memberCount: row._count.members,
+    readableTableCount: row._count.tableAccess,
+    isWithinCaller,
+    updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
+export function toSharedMember(row: TMemberRow): IWorkspaceMember {
+  return {
+    id: row.id,
+    isOwner: row.workspace.ownerId === row.userId,
+    user: { id: row.user.id, name: row.user.name },
+    email: row.user.email,
+    role: { id: row.role.id, name: row.role.name, ...toPermissionSet(row.role) },
+    joinedAt: row.createdAt.toISOString(),
+  }
+}
+
+/**
+ * The workspace, its starting role and the owner's membership under it — every new workspace,
+ * personal or not, starts here. Runs inside the caller's transaction; returns the owner's membership.
+ */
+export async function createWorkspaceWithOwner(
+  tx: Prisma.TransactionClient,
+  { ownerId, name }: { ownerId: string; name: string },
+): Promise<TMembershipRow> {
+  const workspace = await tx.workspace.create({
+    data: {
+      publicId: buildPublicId(),
+      name,
+      ownerId,
+      roles: {
+        create: {
+          name: OWNER_STARTING_ROLE.name,
+          permissions: [...OWNER_STARTING_ROLE.permissions],
+        },
+      },
+    },
+    select: { id: true },
+  })
+
+  return tx.workspaceMember.create({
+    data: {
+      workspace: { connect: { id: workspace.id } },
+      user: { connect: { id: ownerId } },
+      role: {
+        connect: {
+          workspaceId_name: { workspaceId: workspace.id, name: OWNER_STARTING_ROLE.name },
+        },
+      },
+    },
+    select: membershipSelect,
+  })
+}
+
+/**
+ * A colliding public id aborts the whole transaction — PostgreSQL refuses every later statement in
+ * it — so the retry reruns the transaction, never just the insert.
+ */
+export async function retryOnPublicIdCollision<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await run()
+    } catch (error) {
+      if (attempt === PUBLIC_ID_ATTEMPTS || !isUniqueViolationOn(error, 'publicId')) throw error
+    }
+  }
+}

@@ -7,7 +7,7 @@ import type { IAuthUser } from '#shared/types/auth'
 import authGlobal from '~/middleware/auth.global'
 import { useAuthStore } from '~/stores/auth'
 
-const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com' }
+const ADA: IAuthUser = { id: 'usr_1', email: 'ada@example.com', name: 'Ada' }
 
 const navigateTo = vi.hoisted(() => vi.fn())
 mockNuxtImport('navigateTo', () => navigateTo)

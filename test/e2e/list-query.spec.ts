@@ -76,7 +76,7 @@ test.describe('when the list cannot be loaded', () => {
     await page.goto(table.url)
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
 
-    await page.route('**/api/tables/*/records?*', (route) => route.abort())
+    await page.route('**/api/workspaces/*/tables/*/records?*', (route) => route.abort())
     await page.getByRole('button', { name: /^Company/ }).click()
 
     const banner = page.getByRole('alert')
@@ -88,11 +88,11 @@ test.describe('when the list cannot be loaded', () => {
     await page.goto(`${table.url}?stage=Won`)
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
 
-    await page.route('**/api/tables/*/records?*', (route) => route.abort())
+    await page.route('**/api/workspaces/*/tables/*/records?*', (route) => route.abort())
     await page.getByRole('button', { name: /^Company/ }).click()
     await expect(page.getByRole('alert')).toBeVisible()
 
-    await page.unroute('**/api/tables/*/records?*')
+    await page.unroute('**/api/workspaces/*/tables/*/records?*')
     await page.getByRole('link', { name: /start again with all records/i }).click()
 
     await expect(page).toHaveURL(table.url)
@@ -116,7 +116,7 @@ test.describe('while another table loads', () => {
     await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
 
     // Held after the SSR load; no `?` in the glob, since the default view sends no query string
-    await page.route('**/api/tables/*/records*', async (route) => {
+    await page.route('**/api/workspaces/*/tables/*/records*', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1000))
       await route.continue()
     })
@@ -130,7 +130,7 @@ test.describe('while another table loads', () => {
     await expect(page.getByRole('main').getByRole('status')).toContainText('Loading records')
     await expect(page.getByText('No records yet')).toHaveCount(0)
 
-    await page.unroute('**/api/tables/*/records*')
+    await page.unroute('**/api/workspaces/*/tables/*/records*')
     await expect(page).toHaveURL(leads.url)
     await expectCompanies(page, ['Zeta'])
   })

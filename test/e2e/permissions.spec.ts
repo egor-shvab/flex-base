@@ -1,0 +1,339 @@
+import type { Browser, Page } from '@playwright/test'
+import { prisma } from '#server/db/prisma'
+import { expect, signInNewUser, test, type ISeededTable } from '~~/test/e2e/setup/fixtures'
+import { setTableAccess } from '~~/test/integration/seed'
+
+/** A second account, joined to the e2e user's workspace under one of its roles. */
+async function signInAsMember(browser: Browser, workspaceId: string, roleName: string) {
+  const { page, email } = await signInNewUser(browser)
+
+  await prisma.workspaceMember.create({
+    data: {
+      workspace: { connect: { id: workspaceId } },
+      user: { connect: { email } },
+      role: { connect: { workspaceId_name: { workspaceId, name: roleName } } },
+    },
+  })
+
+  return page
+}
+
+const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Your tables' })
+
+let table: ISeededTable
+
+test.beforeEach(async ({ seedTable }) => {
+  table = await seedTable(
+    'Deals',
+    [{ key: 'company', type: 'TEXT', name: 'Company' }],
+    [{ company: 'Acme' }],
+  )
+})
+
+test('an Editor works with records but sees no control over the schema', async ({
+  browser,
+  workspace,
+}) => {
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(table.url)
+  await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add record' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Edit record' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'More actions' })).toBeVisible()
+  await expect(sidebar(page).getByRole('button', { name: 'Add a table' })).toHaveCount(0)
+
+  await page.goto(table.settingsUrl)
+  await expect(page.getByText('Company', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add field' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Edit field Company' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Delete table' })).toHaveCount(0)
+
+  await page.context().close()
+})
+
+test('a Viewer reads everything and is offered no change at all', async ({
+  browser,
+  workspace,
+}) => {
+  const page = await signInAsMember(browser, workspace.id, 'Viewer')
+
+  await page.goto(table.url)
+  await expect(page.getByRole('cell', { name: 'Acme' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'View record' })).toBeVisible()
+  for (const name of ['Add record', 'Edit record', 'More actions']) {
+    await expect(page.getByRole('button', { name })).toHaveCount(0)
+  }
+
+  await page.goto(`${workspace.url}/settings/roles`)
+  await expect(page.getByRole('heading', { name: 'We couldn’t find that' })).toBeVisible()
+
+  await page.context().close()
+})
+
+test('a role narrowed mid-session hides its controls on the first refusal', async ({
+  browser,
+  workspace,
+}) => {
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+  await page.goto(table.url)
+  await page.getByRole('button', { name: 'Edit record' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  await setTableAccess(workspace.id, 'Editor', table.id, {
+    readScope: 'ALL',
+    canCreate: false,
+    updateScope: 'NONE',
+    deleteScope: 'NONE',
+  })
+
+  await dialog.getByLabel('Company').fill('Acme Ltd')
+  await dialog.getByRole('button', { name: 'Save' }).click()
+
+  await expect(dialog).toContainText("You don't have permission to edit records")
+  await expect(page.getByRole('button', { name: 'Add record' })).toHaveCount(0)
+
+  await page.context().close()
+})
+
+test('a role scoped to its own records offers edit and delete on those rows only', async ({
+  browser,
+  workspace,
+}) => {
+  await setTableAccess(workspace.id, 'Editor', table.id, {
+    readScope: 'ALL',
+    canCreate: true,
+    updateScope: 'OWN',
+    deleteScope: 'OWN',
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+  await page.goto(table.url)
+
+  await page.getByRole('button', { name: 'Add record' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Company').fill('Mine')
+  await dialog.getByRole('button', { name: 'Create record' }).click()
+  await expect(dialog).toHaveCount(0)
+
+  const row = (company: string) => page.getByRole('row').filter({ hasText: company })
+  await expect(row('Mine').getByRole('button', { name: 'Edit record' })).toBeVisible()
+  await expect(row('Mine').getByRole('button', { name: 'More actions' })).toBeVisible()
+  await expect(row('Acme').getByRole('link', { name: 'View record' })).toBeVisible()
+  await expect(row('Acme').getByRole('button', { name: 'Edit record' })).toHaveCount(0)
+  await expect(row('Acme').getByRole('button', { name: 'More actions' })).toHaveCount(0)
+
+  await page.context().close()
+})
+
+test('a field hidden from a role is nowhere on its page, and its save keeps the value', async ({
+  browser,
+  seedTable,
+  workspace,
+}) => {
+  const people = await seedTable(
+    'People',
+    [
+      { key: 'full_name', type: 'TEXT', name: 'Full name' },
+      { key: 'salary', type: 'NUMBER', name: 'Salary' },
+    ],
+    [{ full_name: 'Ada', salary: 90000 }],
+  )
+  const salary = await prisma.field.findFirstOrThrow({
+    where: { tableId: people.id, key: 'salary' },
+    select: { id: true },
+  })
+  const role = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    select: { id: true },
+  })
+  await prisma.roleFieldAccess.create({
+    data: { workspaceId: workspace.id, roleId: role.id, fieldId: salary.id, access: 'HIDDEN' },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(people.url)
+  await expect(page.getByRole('cell', { name: 'Ada' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: /Salary/ })).toHaveCount(0)
+  await expect(page.getByText(/90,?000/)).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Filters' }).click()
+  const filters = page.getByRole('dialog')
+  await expect(filters).toBeVisible()
+  await expect(filters.getByText('Salary')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(filters).toHaveCount(0)
+
+  await page.getByRole('link', { name: 'View record' }).click()
+  const detail = page.getByRole('dialog')
+  await expect(detail.getByText('Ada', { exact: true })).toBeVisible()
+  await expect(detail.getByText('Salary')).toHaveCount(0)
+  await expect(detail.getByText(/90,?000/)).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(detail).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Edit record' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByLabel('Salary')).toHaveCount(0)
+  await dialog.getByLabel('Full name').fill('Ada Lovelace')
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('cell', { name: 'Ada Lovelace' })).toBeVisible()
+
+  const stored = await prisma.record.findFirstOrThrow({
+    where: { tableId: people.id },
+    select: { data: true },
+  })
+  expect(stored.data).toEqual({ full_name: 'Ada Lovelace', salary: 90000 })
+
+  await page.context().close()
+})
+
+test('a read-only field shows its value in the form, with nothing to change it', async ({
+  browser,
+  seedTable,
+  workspace,
+}) => {
+  const people = await seedTable(
+    'People',
+    [
+      { key: 'full_name', type: 'TEXT', name: 'Full name' },
+      { key: 'salary', type: 'NUMBER', name: 'Salary' },
+    ],
+    [{ full_name: 'Ada', salary: 90000 }],
+  )
+  const salary = await prisma.field.findFirstOrThrow({
+    where: { tableId: people.id, key: 'salary' },
+    select: { id: true },
+  })
+  const role = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    select: { id: true },
+  })
+  await prisma.roleFieldAccess.create({
+    data: { workspaceId: workspace.id, roleId: role.id, fieldId: salary.id, access: 'READ' },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(people.url)
+  await expect(page.getByRole('columnheader', { name: /Salary/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Edit record' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('Salary', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('Read only')).toBeVisible()
+  await expect(dialog.getByRole('textbox', { name: 'Salary' })).toHaveCount(0)
+  await dialog.getByLabel('Full name').fill('Ada Lovelace')
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('cell', { name: 'Ada Lovelace' })).toBeVisible()
+
+  const stored = await prisma.record.findFirstOrThrow({
+    where: { tableId: people.id },
+    select: { data: true },
+  })
+  expect(stored.data).toEqual({ full_name: 'Ada Lovelace', salary: 90000 })
+
+  await page.context().close()
+})
+
+test('a member who manages roles cannot open the one they hold, here or on a table', async ({
+  browser,
+  workspace,
+}) => {
+  await prisma.workspaceRole.update({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    data: { permissions: ['ROLES_MANAGE'] },
+  })
+  const editor = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Editor' } },
+    select: { id: true },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(`${workspace.url}/settings/roles`)
+  await expect(page.getByRole('link', { name: /^Viewer/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Editor/ })).toHaveCount(0)
+
+  await page.goto(`${workspace.url}/settings/roles/${editor.id}`)
+  await expect(page.getByText('only the workspace owner can change it')).toBeVisible()
+
+  await page.goto(table.settingsUrl)
+  await expect(page.getByRole('button', { name: /^Editor sees records in Deals/ })).toBeDisabled()
+  await expect(page.getByRole('button', { name: /^Viewer sees records in Deals/ })).toBeEnabled()
+
+  await page.context().close()
+})
+
+test('a member who may not see roles meets no role anywhere, their own and the owner included', async ({
+  browser,
+  workspace,
+}) => {
+  const editorPage = await signInAsMember(browser, workspace.id, 'Editor')
+  await editorPage.context().close()
+  const page = await signInAsMember(browser, workspace.id, 'Viewer')
+  const settings = page.getByRole('navigation', { name: 'Settings sections' })
+
+  await page.goto(`${workspace.url}/settings/members`)
+  await expect(page.getByRole('heading', { name: 'Members' })).toBeVisible()
+  await expect(settings.getByRole('link', { name: 'Members' })).toBeVisible()
+  await expect(settings.getByRole('link', { name: 'Roles' })).toHaveCount(0)
+  const members = page.getByLabel('Members')
+  for (const name of ['Owner', 'Viewer', 'Editor']) {
+    await expect(members.getByText(name, { exact: true })).toHaveCount(0)
+  }
+  await expect(page.getByRole('button', { name: /Personal workspace Viewer/ })).toHaveCount(0)
+
+  await page.goto(`${workspace.url}/settings/roles`)
+  await expect(page.getByRole('heading', { name: 'We couldn’t find that' })).toBeVisible()
+  await page.goto(`${workspace.url}/settings/members`)
+
+  await prisma.workspaceRole.update({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Viewer' } },
+    data: { permissions: ['ROLES_VIEW'] },
+  })
+  await page.reload()
+  await expect(settings.getByRole('link', { name: 'Roles' })).toBeVisible()
+  await expect(members.getByText('Editor', { exact: true })).toBeVisible()
+  await expect(members.getByText('Owner', { exact: true })).toBeVisible()
+
+  await page.context().close()
+})
+
+test('a table hidden from a role is not listed, and its address is a 404', async ({
+  browser,
+  workspace,
+}) => {
+  await prisma.roleTableAccess.deleteMany({
+    where: { tableId: table.id, role: { name: 'Editor' } },
+  })
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+
+  await page.goto(workspace.url)
+  await expect(sidebar(page).getByRole('link', { name: 'Deals' })).toHaveCount(0)
+
+  await page.goto(table.url)
+  await expect(page.getByText('We couldn’t find that table.')).toBeVisible()
+
+  await page.context().close()
+})
+
+test('a member removed mid-session lands on the workspace’s 404, and home no longer offers it', async ({
+  browser,
+  workspace,
+}) => {
+  const page = await signInAsMember(browser, workspace.id, 'Editor')
+  await page.goto(table.url)
+  await page.getByRole('button', { name: 'More actions' }).click()
+  await page.getByRole('menuitem', { name: 'Delete record' }).click()
+
+  await prisma.workspaceMember.deleteMany({
+    where: { workspaceId: workspace.id, user: { name: 'Member' } },
+  })
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
+
+  await expect(page.getByText('We couldn’t find that workspace.')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Back to home' }).click()
+  await expect(page).not.toHaveURL(new RegExp(workspace.publicId))
+
+  await page.context().close()
+})

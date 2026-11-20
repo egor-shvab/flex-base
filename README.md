@@ -6,8 +6,8 @@ interfaces generated from that configuration.
 
 The architecture is **metadata-driven**: forms, tables, validation and API contracts are all derived
 from field definitions stored in the database — there are no hardcoded business entities. Every
-resource belongs to a single authenticated user, and ownership is enforced on the server for every
-request.
+resource belongs to a workspace; membership and the member's role are checked on the server for
+every request.
 
 **Stack:** Nuxt 4 · Vue 3 · TypeScript · Nitro · Prisma 7 · PostgreSQL · Pinia · zod · SCSS
 
@@ -36,10 +36,10 @@ Copy the environment template and fill it in:
 cp .env.example .env
 ```
 
-| Variable       | Purpose                                                                 |
-| -------------- | ----------------------------------------------------------------------- |
-| `DATABASE_URL` | PostgreSQL connection string — matches the `docker-compose.yml` service |
-| `JWT_SECRET`   | Secret for signing auth tokens; use a long random string                |
+| Variable          | Purpose                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `DATABASE_URL`    | PostgreSQL connection string — matches the `docker-compose.yml` service             |
+| `NUXT_JWT_SECRET` | Auth-token signing secret, ≥ 32 random characters; read at start-up, never built in |
 
 Start PostgreSQL and apply the migrations:
 
@@ -63,35 +63,55 @@ To start from something to look at rather than an empty account, seed the demo w
 npm run db:seed
 ```
 
-It signs in as `test@test.com` / `testtest` and creates eight tables — clients, people, projects,
-tasks, invoices and three smaller ones — holding around 445 records between them, covering every
-field type, both single- and multi-value fields, and the empty, single-row and multi-page list
-states. Re-running it replaces that one account and touches nothing else on the database; it is
-also available as `npx prisma db seed`.
+It creates a team of eight in one workspace, at a fixed address the seed prints. Every account's
+password is **`demo1234`**; sign in as different people to see what each role shows and hides.
+
+| Email               | Name           | Role                   | What to look at                                                       |
+| ------------------- | -------------- | ---------------------- | --------------------------------------------------------------------- |
+| `anna_1@demo.com`   | Anna Petrova   | Admin, workspace owner | everything; her role binds her only after a transfer                  |
+| `boris_2@demo.com`  | Boris Ivanov   | Admin                  | every permission, but cannot delete or hand over the workspace        |
+| `clara_3@demo.com`  | Clara Novak    | Project manager        | clients, projects and tasks; invites people                           |
+| `dmitry_4@demo.com` | Dmitry Sokolov | Project manager        | the same role as Clara; cannot delete the clients Clara added         |
+| `elena_5@demo.com`  | Elena Moroz    | Accountant             | invoices and equipment; Tasks and Ideas are hidden; sees the roles    |
+| `felix_6@demo.com`  | Felix Weber    | Consultant             | edits and deletes only his own tasks; budgets and Invoices are hidden |
+| `grace_7@demo.com`  | Grace Lin      | Consultant             | the same role as Felix: sees his tasks but cannot change them         |
+| `hugo_8@demo.com`   | Hugo Martin    | Intern                 | read only; budgets and people's email and phone are hidden            |
+
+Consultants and the Intern may not see roles, so for them roles do not exist: no Roles tab (its
+address is a 404), no role beside anyone on the Members page — their own and the owner's mark
+included — and none under the workspace's name in the switcher. The Accountant is given «See roles»; the Project managers have it through
+inviting people.
+
+Each also owns a personal workspace, as registration leaves it. The workspace holds eight tables —
+clients, people, projects, tasks, invoices and three smaller ones — with around 445 records between
+them, covering every field type, both single- and multi-value fields, and the empty, single-row
+and multi-page list states. Re-running it replaces those accounts and their workspaces and touches
+nothing else on the database; it is also available as `npx prisma db seed`.
 
 ## Commands
 
-| Command                    | Does                                                                          |
-| -------------------------- | ----------------------------------------------------------------------------- |
-| `npm run dev`              | Dev server (no type checking — kept fast)                                     |
-| `npm run typecheck`        | `vue-tsc` over the app, then `tsc` over the e2e specs — the inner-loop gate   |
-| `npm run build`            | Production build; runs `vue-tsc`, so a type error fails it                    |
-| `npm run preview`          | Preview a production build                                                    |
-| `npm run test`             | The `unit` + `nuxt` projects — no database, no browser                        |
-| `npm run test:unit`        | The `unit` project alone — the fast inner loop                                |
-| `npm run test:nuxt`        | The `nuxt` project alone                                                      |
-| `npm run test:integration` | The integration suite; starts PostgreSQL first                                |
-| `npm run test:e2e`         | Playwright over the production build; installs Chromium and starts PostgreSQL |
-| `npm run test:e2e:ui`      | The same, in Playwright's UI mode                                             |
-| `npm run test:watch`       | Vitest in watch mode                                                          |
-| `npm run test:coverage`    | The merged coverage report; needs a database                                  |
-| `npm run coverage:collect` | The same, without starting PostgreSQL first — what CI runs                    |
-| `npm run lint`             | ESLint                                                                        |
-| `npm run format`           | Format everything with Prettier                                               |
-| `npm run format:check`     | Check formatting without writing                                              |
-| `npm run db:up`            | Start PostgreSQL via Docker Compose                                           |
-| `npm run db:studio`        | Browse the database in Prisma Studio                                          |
-| `npm run db:seed`          | Fill a demo account with a realistic workspace — see below                    |
+| Command                    | Does                                                                                                                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`              | Dev server (no type checking — kept fast)                                                                                                                         |
+| `npm run typecheck`        | `vue-tsc` over the app, then `tsc` over the e2e specs — the inner-loop gate                                                                                       |
+| `npm run build`            | Production build; runs `vue-tsc`, so a type error fails it                                                                                                        |
+| `npm run preview`          | Preview a production build                                                                                                                                        |
+| `npm run test`             | The `unit` + `nuxt` projects — no database, no browser                                                                                                            |
+| `npm run test:unit`        | The `unit` project alone — the fast inner loop                                                                                                                    |
+| `npm run test:nuxt`        | The `nuxt` project alone                                                                                                                                          |
+| `npm run test:integration` | The integration suite; starts PostgreSQL first                                                                                                                    |
+| `npm run test:e2e`         | Playwright over the production build; installs Chromium and starts PostgreSQL                                                                                     |
+| `npm run test:e2e:ui`      | The same, in Playwright's UI mode                                                                                                                                 |
+| `npm run test:watch`       | Vitest in watch mode                                                                                                                                              |
+| `npm run test:coverage`    | The merged coverage report; needs a database                                                                                                                      |
+| `npm run coverage:collect` | The same, without starting PostgreSQL first — what CI runs                                                                                                        |
+| `npm run verify`           | Format, lint, typecheck, unit + nuxt in one run, printing only what fails; `-- --check` formats nothing, `-- --build` / `--integration` / `--e2e` add those steps |
+| `npm run lint`             | ESLint                                                                                                                                                            |
+| `npm run format`           | Format everything with Prettier                                                                                                                                   |
+| `npm run format:check`     | Check formatting without writing                                                                                                                                  |
+| `npm run db:up`            | Start PostgreSQL via Docker Compose                                                                                                                               |
+| `npm run db:studio`        | Browse the database in Prisma Studio                                                                                                                              |
+| `npm run db:seed`          | Fill a demo account with a realistic workspace — see below                                                                                                        |
 
 Database changes go through Prisma:
 

@@ -1,4 +1,4 @@
-import { useApi } from '~/api/client'
+import { buildIfMatchHeaders, useApi } from '~/api/client'
 import { apiPath } from '~/api/paths'
 import type {
   IRecordCreatedResponse,
@@ -17,19 +17,38 @@ export function useRecordsApi() {
   const api = useApi()
 
   return {
-    list: (tableAddress: string, query: IRecordQueryState) =>
-      api<IRecordPage>(apiPath.records(tableAddress), { query: toRecordQueryParams(query) }),
-    detail: (tableAddress: string, recordAddress: string) =>
-      api<IRecordDetail>(apiPath.record(tableAddress, recordAddress)),
-    create: (tableAddress: string, data: TRecordData) =>
-      api<IRecordCreatedResponse>(apiPath.records(tableAddress), { method: 'POST', body: data }),
-    update: (tableAddress: string, recordAddress: string, data: TRecordData) =>
-      api<IRecordResponse>(apiPath.record(tableAddress, recordAddress), {
-        method: 'PATCH',
+    list: (
+      workspaceAddress: string,
+      tableAddress: string,
+      query: IRecordQueryState,
+      signal?: AbortSignal,
+    ) =>
+      api<IRecordPage>(apiPath.records(workspaceAddress, tableAddress), {
+        query: toRecordQueryParams(query),
+        signal,
+      }),
+    detail: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
+      api<IRecordDetail>(apiPath.record(workspaceAddress, tableAddress, recordAddress)),
+    create: (workspaceAddress: string, tableAddress: string, data: TRecordData) =>
+      api<IRecordCreatedResponse>(apiPath.records(workspaceAddress, tableAddress), {
+        method: 'POST',
         body: data,
       }),
-    remove: (tableAddress: string, recordAddress: string) =>
-      api<IRecordDeletedResponse>(apiPath.record(tableAddress, recordAddress), {
+    /** `readUpdatedAt` is the version the form was opened on; a newer one on the server is a 412. */
+    update: (
+      workspaceAddress: string,
+      tableAddress: string,
+      recordAddress: string,
+      data: TRecordData,
+      readUpdatedAt: string,
+    ) =>
+      api<IRecordResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {
+        method: 'PATCH',
+        body: data,
+        headers: buildIfMatchHeaders(readUpdatedAt),
+      }),
+    remove: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
+      api<IRecordDeletedResponse>(apiPath.record(workspaceAddress, tableAddress, recordAddress), {
         method: 'DELETE',
       }),
   }

@@ -11,11 +11,11 @@ const E2E_DATABASE_URL = assertDisposableDatabase(
   process.env.E2E_DATABASE_URL ?? 'postgresql://flexbase:flexbase@localhost:5432/flexbase_e2e',
 )
 
-const JWT_SECRET = 'e2e-not-a-real-secret'
+const NUXT_JWT_SECRET = 'e2e-not-a-real-secret-0123456789abcdef'
 
 // After the guard, so the seed helpers' Prisma singleton connects to the disposable database
 process.env.DATABASE_URL = E2E_DATABASE_URL
-process.env.JWT_SECRET = JWT_SECRET
+process.env.NUXT_JWT_SECRET = NUXT_JWT_SECRET
 
 /**
  * The server is the built output through `scripts/serve-output.mjs`, never `npm run preview`,
@@ -53,7 +53,7 @@ export default defineConfig({
     stderr: 'pipe',
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
-      JWT_SECRET,
+      NUXT_JWT_SECRET,
       PORT,
       NITRO_PORT: PORT,
     },

@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { planErrorLogRotation } from '#server/utils/error-log-file'
 
@@ -16,7 +17,9 @@ vi.mock('node:fs', () => ({
   }),
   rmSync: vi.fn(),
   writeSync: vi.fn(() => {
-    if (fsState.failOnWrite) throw new Error('EACCES: permission denied')
+    if (fsState.failOnWrite) {
+      throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' })
+    }
     return 0
   }),
 }))
@@ -27,6 +30,8 @@ async function loadSink() {
   const sink = await import('#server/utils/error-log-file')
   return { fs, sink }
 }
+
+const stderrWrite = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
 
 beforeEach(() => {
   // `resetModules` leaves the mock registry alone, so the `vi.fn()`s would accumulate calls
@@ -183,6 +188,37 @@ describe('appendErrorLogLine — a sink that cannot write', () => {
     sink.appendErrorLogLine('{"a":2}\n')
 
     expect(fs.writeSync).toHaveBeenCalledTimes(1)
+  })
+
+  it('says so once on stderr, naming the path and the error code', async () => {
+    const { sink } = await loadSink()
+    fsState.failOnWrite = true
+
+    sink.appendErrorLogLine('{"a":1}\n')
+    sink.appendErrorLogLine('{"a":2}\n')
+
+    expect(stderrWrite).toHaveBeenCalledTimes(1)
+    const [message] = stderrWrite.mock.calls[0] ?? []
+    expect(String(message)).toMatch(
+      /error log disabled: cannot write .*server-errors\.log \(EACCES\)/,
+    )
+  })
+
+  it('never puts the entry it failed to write on stderr — the redaction contract holds', async () => {
+    const { sink } = await loadSink()
+    fsState.failOnWrite = true
+
+    sink.appendErrorLogLine('{"secret":"do-not-echo"}\n')
+
+    expect(String(stderrWrite.mock.calls[0]?.[0])).not.toContain('do-not-echo')
+  })
+
+  it('stays silent while it can write', async () => {
+    const { sink } = await loadSink()
+
+    sink.appendErrorLogLine('{"a":1}\n')
+
+    expect(stderrWrite).not.toHaveBeenCalled()
   })
 
   it('releases the descriptor on the way out', async () => {

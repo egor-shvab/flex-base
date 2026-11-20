@@ -8,6 +8,8 @@ import { useFieldsStore } from '~/stores/fields'
 import { useTablesStore } from '~/stores/tables'
 import { numberField, textField } from '~~/test/fixtures'
 
+const WS = 'k3f9x2m8qa'
+
 const COMPANY = textField('company', { name: 'Company' })
 const TOTAL = numberField('total', { name: 'Total' })
 
@@ -26,37 +28,37 @@ function buildTableRow(counts: { fields: number; records: number }) {
   }
 }
 
-registerEndpoint('/api/tables/tbl_1/fields', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/fields', {
   method: 'GET',
   handler: () => {
     if (shouldFail) throw createError({ statusCode: 404, statusMessage: 'No such table' })
-    return { fields: listing }
+    return { fields: listing, readOnlyFieldIds: [TOTAL.id] }
   },
 })
 
-registerEndpoint('/api/tables/tbl_1/fields', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/fields', {
   method: 'POST',
   handler: () => ({ field: created, table: buildTableRow({ fields: 3, records: 7 }) }),
 })
 
-registerEndpoint('/api/tables/tbl_1/fields/fld_company', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/fields/fld_company', {
   method: 'PATCH',
   handler: () => ({ field: updated }),
 })
 
-registerEndpoint('/api/tables/tbl_1/fields/fld_company', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/fields/fld_company', {
   method: 'DELETE',
   handler: () => ({ ok: true, table: buildTableRow({ fields: 1, records: 7 }) }),
 })
 
-registerEndpoint('/api/tables', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables', {
   method: 'GET',
   handler: () => ({ tables: [buildTableRow({ fields: 2, records: 7 })] }),
 })
 
 async function loadedTables() {
   const tables = useTablesStore()
-  await tables.fetchTables()
+  await tables.fetchTables(WS)
 
   return tables
 }
@@ -79,23 +81,31 @@ describe('useFieldsStore', () => {
   it('replaces the list on fetch', async () => {
     const store = useFieldsStore()
 
-    await store.fetchFields('tbl_1')
+    await store.fetchFields(WS, 'tbl_1')
 
     expect(store.fields).toEqual([COMPANY, TOTAL])
+  })
+
+  it('holds which fields the caller may only read, as the list says', async () => {
+    const store = useFieldsStore()
+
+    await store.fetchFields(WS, 'tbl_1')
+
+    expect([...store.readOnlyFieldIds]).toEqual([TOTAL.id])
   })
 
   it('lets a failed fetch reject', async () => {
     shouldFail = true
     const store = useFieldsStore()
 
-    await expect(store.fetchFields('tbl_1')).rejects.toThrow()
+    await expect(store.fetchFields(WS, 'tbl_1')).rejects.toThrow()
   })
 
   it('appends a created field', async () => {
     const store = useFieldsStore()
-    await store.fetchFields('tbl_1')
+    await store.fetchFields(WS, 'tbl_1')
 
-    await store.createField('tbl_1', INPUT)
+    await store.createField(WS, 'tbl_1', INPUT)
 
     expect(store.fields).toHaveLength(3)
     expect(store.fields.at(-1)).toEqual(created)
@@ -103,18 +113,23 @@ describe('useFieldsStore', () => {
 
   it('swaps an updated field in place and leaves its neighbours alone', async () => {
     const store = useFieldsStore()
-    await store.fetchFields('tbl_1')
+    await store.fetchFields(WS, 'tbl_1')
 
-    await store.updateField('tbl_1', 'fld_company', INPUT)
+    await store.updateField(
+      WS,
+      'tbl_1',
+      { id: 'fld_company', updatedAt: '2026-02-11T16:30:00.000Z' },
+      INPUT,
+    )
 
     expect(store.fields).toEqual([updated, TOTAL])
   })
 
   it('removes only the deleted field', async () => {
     const store = useFieldsStore()
-    await store.fetchFields('tbl_1')
+    await store.fetchFields(WS, 'tbl_1')
 
-    await store.deleteField('tbl_1', 'fld_company')
+    await store.deleteField(WS, 'tbl_1', 'fld_company')
 
     expect(store.fields).toEqual([TOTAL])
   })
@@ -124,7 +139,7 @@ describe('useFieldsStore', () => {
       const tables = await loadedTables()
       const store = useFieldsStore()
 
-      await store.createField('tbl_1', INPUT)
+      await store.createField(WS, 'tbl_1', INPUT)
 
       expect(tables.tables[0]?._count).toEqual({ fields: 3, records: 7 })
     })
@@ -133,7 +148,7 @@ describe('useFieldsStore', () => {
       const tables = await loadedTables()
       const store = useFieldsStore()
 
-      await store.deleteField('tbl_1', 'fld_company')
+      await store.deleteField(WS, 'tbl_1', 'fld_company')
 
       expect(tables.tables[0]?._count).toEqual({ fields: 1, records: 7 })
     })
@@ -142,7 +157,12 @@ describe('useFieldsStore', () => {
       const tables = await loadedTables()
       const store = useFieldsStore()
 
-      await store.updateField('tbl_1', 'fld_company', INPUT)
+      await store.updateField(
+        WS,
+        'tbl_1',
+        { id: 'fld_company', updatedAt: '2026-02-11T16:30:00.000Z' },
+        INPUT,
+      )
 
       expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 7 })
     })
@@ -151,20 +171,25 @@ describe('useFieldsStore', () => {
   it.each([
     [
       'createField',
-      (store: ReturnType<typeof useFieldsStore>) => store.createField('tbl_1', INPUT),
+      (store: ReturnType<typeof useFieldsStore>) => store.createField(WS, 'tbl_1', INPUT),
     ],
     [
       'updateField',
       (store: ReturnType<typeof useFieldsStore>) =>
-        store.updateField('tbl_1', 'fld_company', INPUT),
+        store.updateField(
+          WS,
+          'tbl_1',
+          { id: 'fld_company', updatedAt: '2026-02-11T16:30:00.000Z' },
+          INPUT,
+        ),
     ],
     [
       'deleteField',
-      (store: ReturnType<typeof useFieldsStore>) => store.deleteField('tbl_1', 'fld_company'),
+      (store: ReturnType<typeof useFieldsStore>) => store.deleteField(WS, 'tbl_1', 'fld_company'),
     ],
   ])('replaces the array rather than mutating it in %s', async (_name, act) => {
     const store = useFieldsStore()
-    await store.fetchFields('tbl_1')
+    await store.fetchFields(WS, 'tbl_1')
     const before = store.fields
 
     await act(store)

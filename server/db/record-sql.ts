@@ -9,6 +9,9 @@ import {
   UPDATED_AT_KEY,
 } from '#shared/constants/filter'
 import type { IRecordSort, TRecordFilterValues } from '#shared/types/filter'
+import type { TRecordScope } from '#shared/types/workspace'
+import type { TRecordData } from '#shared/types/record'
+import { parseAddressNumber } from '#shared/utils/address'
 import { buildQueryColumns } from '#shared/utils/filter'
 
 const RECORD_COLUMN_SQL: Record<string, { expr: Prisma.Sql; sortExpr: Prisma.Sql }> = {
@@ -68,13 +71,29 @@ function buildRecordSearch(fields: IField[], search: string): Prisma.Sql | null 
   return Prisma.sql`${buildSearchPrefilter(pattern)} AND (${Prisma.join(arms, ' OR ')})`
 }
 
+/** Whose records of a table a query reads: `buildRecordScopeWhere`'s rule, in SQL. */
+export interface IRecordReader {
+  tableId: string
+  readScope: TRecordScope
+  userId: string
+}
+
+function buildScopeCondition(scope: TRecordScope, userId: string): Prisma.Sql | null {
+  if (scope === 'ALL') return null
+  if (scope === 'OWN') return Prisma.sql`"createdById" = ${userId}`
+  return Prisma.sql`FALSE`
+}
+
 export function buildRecordWhere(
-  tableId: string,
+  reader: IRecordReader,
   fields: IField[],
   filters: TRecordFilterValues,
   search = '',
 ): Prisma.Sql {
-  const conditions = [Prisma.sql`"tableId" = ${tableId}`]
+  const conditions = [Prisma.sql`"tableId" = ${reader.tableId}`]
+
+  const scopeCondition = buildScopeCondition(reader.readScope, reader.userId)
+  if (scopeCondition) conditions.push(scopeCondition)
 
   for (const field of buildQueryColumns(fields)) {
     const value = filters[field.key]
@@ -97,6 +116,12 @@ export interface IRecordOrder {
 
 const SORT_JOIN_ALIAS = 'sort_target'
 
+/**
+ * Every ordering ends on `"number"`, unique within a table: rows tied on the sort value and on
+ * `"createdAt"` would otherwise come back in any order, and OFFSET paging would repeat or skip them.
+ */
+const TIE_BREAK = Prisma.sql`"createdAt" DESC, "number" DESC`
+
 export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecordOrder {
   const direction = sort.direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`
   const field =
@@ -105,7 +130,10 @@ export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecord
       : buildQueryColumns(fields).find((f) => f.key === sort.key)
 
   if (!field) {
-    return { orderBy: Prisma.sql`"createdAt" ${direction}`, join: Prisma.empty }
+    return {
+      orderBy: Prisma.sql`"createdAt" ${direction}, "number" ${direction}`,
+      join: Prisma.empty,
+    }
   }
 
   const joined = RECORD_COLUMN_SQL[field.key]
@@ -113,15 +141,15 @@ export function buildRecordOrderBy(fields: IField[], sort: IRecordSort): IRecord
     : (sqlFor(field).sortJoin?.(field, SORT_JOIN_ALIAS) ?? null)
 
   return {
-    orderBy: Prisma.sql`${joined?.expr ?? toSortExpr(field)} ${direction} NULLS LAST, "createdAt" DESC`,
+    orderBy: Prisma.sql`${joined?.expr ?? toSortExpr(field)} ${direction} NULLS LAST, ${TIE_BREAK}`,
     join: joined?.join ?? Prisma.empty,
   }
 }
 
 export function buildRecordLabelOrderBy(labelFieldKey?: string): Prisma.Sql {
-  if (labelFieldKey === undefined) return Prisma.sql`"createdAt" DESC`
+  if (labelFieldKey === undefined) return TIE_BREAK
 
-  return Prisma.sql`${jsonText(labelFieldKey)} ASC NULLS LAST, "createdAt" DESC`
+  return Prisma.sql`${jsonText(labelFieldKey)} ASC NULLS LAST, ${TIE_BREAK}`
 }
 
 export function buildRecordLabelSearch(
@@ -138,4 +166,48 @@ export function buildRecordLabelSearch(
   }
 
   return Prisma.sql`(${Prisma.join(arms, ' OR ')})`
+}
+
+export interface IRecordMerge {
+  tableId: string
+  address: string
+  patch: TRecordData
+  userId: string
+  updateScope: TRecordScope
+  expectedUpdatedAt?: Date
+  now: Date
+}
+
+/** Prisma sends a `Date` as `timestamptz`; the column has no zone, and holds UTC. */
+function toTimestamp(date: Date): Prisma.Sql {
+  return Prisma.sql`${date.toISOString()}::timestamp(3)`
+}
+
+/**
+ * Merges `patch` over the stored data, so a key the caller may not write keeps its value, and
+ * returns the row — or none when the record, the caller's update scope or the version missed.
+ * `"updatedAt"` is set here: only the Prisma client fills `@updatedAt`. The returned value is the
+ * column's own, rounded to milliseconds, so it is the version a later `If-Match` must send.
+ */
+export function buildRecordMergeUpdate(merge: IRecordMerge): Prisma.Sql {
+  const number = parseAddressNumber(merge.address)
+  const conditions = [
+    Prisma.sql`"tableId" = ${merge.tableId}`,
+    number === 0 ? Prisma.sql`id = ${merge.address}` : Prisma.sql`"number" = ${number}`,
+  ]
+
+  const scopeCondition = buildScopeCondition(merge.updateScope, merge.userId)
+  if (scopeCondition) conditions.push(scopeCondition)
+  if (merge.expectedUpdatedAt) {
+    conditions.push(Prisma.sql`"updatedAt" = ${toTimestamp(merge.expectedUpdatedAt)}`)
+  }
+
+  return Prisma.sql`
+    UPDATE "Record"
+    SET data = COALESCE(data, '{}'::jsonb) || ${JSON.stringify(merge.patch)}::jsonb,
+        "updatedAt" = ${toTimestamp(merge.now)},
+        "updatedById" = ${merge.userId}
+    WHERE ${Prisma.join(conditions, ' AND ')}
+    RETURNING id, "number", "createdById", data, "createdAt", "updatedAt"
+  `
 }

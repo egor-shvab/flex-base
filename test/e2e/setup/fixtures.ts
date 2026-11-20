@@ -1,16 +1,27 @@
 import { test as base, expect } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Browser, Page } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
+import { RIG_ROLES } from '~~/test/rig-roles'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 import { createField, createFields, createRecords, createTable } from '~~/test/integration/seed'
 import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 
+/** Where `/` lands the e2e user: their personal workspace's home. */
+export const WORKSPACE_HOME = /\/w\/[a-z0-9]{10}$/
+
+export interface ISeededWorkspace {
+  id: string
+  publicId: string
+  url: string
+}
+
 export interface ISeededTable {
   id: string
-  /** Never assume 1: the truncate spares `User`, so `tableCounter` climbs across the run. */
+  /** Never assume 1: the truncate spares the workspace, so `tableCounter` climbs across the run. */
   number: number
   name: string
+  workspaceAddress: string
   fields: IField[]
   url: string
   settingsUrl: string
@@ -25,30 +36,67 @@ interface IFieldSeed {
 }
 
 interface IFixtures {
-  userId: string
+  workspace: ISeededWorkspace
   seedTable: (name: string, fields: IFieldSeed[], rows?: TRecordData[]) => Promise<ISeededTable>
   consoleErrors: string[]
 }
 
-/** By identity: `findFirst` promises no order, and the sign-up case registers a second user. */
-async function currentUserId(): Promise<string> {
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { email: E2E_USER.email },
-    select: { id: true },
+/**
+ * By identity: the sign-up case registers a second user. The oldest is the personal one; any a
+ * case created is removed, as is any member, invitation or role it added, and any workspace the
+ * user joined or handed over; the rig's roles (`RIG_ROLES`) are made or get their grants back, with no row for any table,
+ * and `/` is pointed back at it.
+ */
+async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
+  const owner = { email: E2E_USER.email }
+  const workspace = await prisma.workspace.findFirstOrThrow({
+    where: { owner },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, publicId: true },
   })
-  return user.id
+
+  await prisma.workspace.deleteMany({ where: { owner, id: { not: workspace.id } } })
+  await prisma.workspaceMember.deleteMany({
+    where: {
+      OR: [
+        { workspaceId: workspace.id, user: { isNot: owner } },
+        { user: owner, workspace: { owner: { isNot: owner } } },
+      ],
+    },
+  })
+  await prisma.workspaceInvitation.deleteMany({
+    where: { OR: [{ workspaceId: workspace.id }, { email: E2E_USER.email.toLowerCase() }] },
+  })
+  await prisma.workspaceRole.deleteMany({
+    where: {
+      workspaceId: workspace.id,
+      name: { notIn: RIG_ROLES.map((role) => role.name) },
+    },
+  })
+  await prisma.roleTableAccess.deleteMany({ where: { workspaceId: workspace.id } })
+  await prisma.roleFieldAccess.deleteMany({ where: { workspaceId: workspace.id } })
+  for (const role of RIG_ROLES) {
+    await prisma.workspaceRole.upsert({
+      where: { workspaceId_name: { workspaceId: workspace.id, name: role.name } },
+      create: { workspaceId: workspace.id, name: role.name, permissions: [...role.permissions] },
+      update: { permissions: [...role.permissions] },
+    })
+  }
+  await prisma.user.update({ where: owner, data: { lastWorkspaceId: workspace.id } })
+
+  return { ...workspace, url: `/w/${workspace.publicId}` }
 }
 
 export const test = base.extend<IFixtures>({
   // eslint-disable-next-line no-empty-pattern
-  userId: async ({}, use) => {
+  workspace: async ({}, use) => {
     await prisma.$executeRawUnsafe('TRUNCATE "Table", "Field", "Record" CASCADE')
-    await use(await currentUserId())
+    await use(await resetToPersonalWorkspace())
   },
 
-  seedTable: async ({ userId }, use) => {
+  seedTable: async ({ workspace }, use) => {
     await use(async (name, fields, rows = []) => {
-      const table = await createTable(userId, name)
+      const table = await createTable(workspace.id, name)
       const created = await createFields(
         table.id,
         fields.map((field, index) => ({ ...field, order: index })),
@@ -59,9 +107,10 @@ export const test = base.extend<IFixtures>({
         id: table.id,
         number: table.number,
         name: table.name,
+        workspaceAddress: workspace.publicId,
         fields: created,
-        url: `/tables/${table.number}`,
-        settingsUrl: `/tables/${table.number}/settings`,
+        url: `${workspace.url}/tables/${table.number}`,
+        settingsUrl: `${workspace.url}/tables/${table.number}/settings`,
       }
     })
   },
@@ -77,6 +126,26 @@ export const test = base.extend<IFixtures>({
     await use(errors)
   },
 })
+
+let userSequence = 0
+
+/**
+ * Another person, registered through the API as they would be, signed in in a context of their
+ * own. They start with nothing but their personal workspace.
+ */
+export async function signInNewUser(browser: Browser): Promise<{ page: Page; email: string }> {
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+  const page = await context.newPage()
+  userSequence += 1
+  const email = `member-${test.info().workerIndex}-${userSequence}-${Date.now()}@example.com`
+
+  const registered = await page.request.post('/api/auth/register', {
+    data: { name: 'Member', email, password: 'correct-horse-battery' },
+  })
+  expect(registered.ok()).toBe(true)
+
+  return { page, email }
+}
 
 /**
  * Scoped to the dialog: `ConfirmModal` is lazy, so an unscoped `.last()` can resolve before it

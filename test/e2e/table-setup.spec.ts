@@ -1,4 +1,4 @@
-import { confirmDeletion, expect, test } from '~~/test/e2e/setup/fixtures'
+import { WORKSPACE_HOME, confirmDeletion, expect, test } from '~~/test/e2e/setup/fixtures'
 
 async function addField(page: import('@playwright/test').Page, name: string, type: string) {
   await page.getByRole('button', { name: 'Add field' }).first().click()
@@ -7,10 +7,8 @@ async function addField(page: import('@playwright/test').Page, name: string, typ
   await page.getByRole('option', { name: type, exact: true }).click()
 }
 
-test('a table, its fields and its first record, start to finish', async ({ page, userId }) => {
-  expect(userId).toBeTruthy()
-
-  await page.goto('/')
+test('a table, its fields and its first record, start to finish', async ({ page, workspace }) => {
+  await page.goto(workspace.url)
   await page.getByRole('button', { name: 'Add table' }).first().click()
   await page.getByLabel('Table name').fill('Deals')
   await page.getByRole('button', { name: 'Create table' }).click()
@@ -19,7 +17,7 @@ test('a table, its fields and its first record, start to finish', async ({ page,
   await expect(main.getByRole('link', { name: /Deals/ })).toBeVisible()
 
   await main.getByRole('link', { name: /Deals/ }).click()
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible()
 
   await addField(page, 'Company', 'Text')
@@ -66,7 +64,7 @@ test.describe('allow multiple values', () => {
     ])
 
     await page.goto(table.settingsUrl)
-    await page.getByRole('button', { name: 'Edit' }).first().click()
+    await page.getByRole('button', { name: 'Edit field Stage' }).click()
 
     await expect(page.getByLabel('Allow multiple values')).toBeDisabled()
     await expect(page.getByText(/cannot be changed back to a single value/i)).toBeVisible()
@@ -83,7 +81,7 @@ test.describe('allow multiple values', () => {
     ])
 
     await page.goto(table.settingsUrl)
-    await page.getByRole('button', { name: 'Edit' }).first().click()
+    await page.getByRole('button', { name: 'Edit field Stage' }).click()
 
     await expect(page.getByLabel('Allow multiple values')).toBeEnabled()
   })
@@ -93,7 +91,7 @@ test('the type of an existing field cannot be changed', async ({ page, seedTable
   const table = await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }])
 
   await page.goto(table.settingsUrl)
-  await page.getByRole('button', { name: 'Edit' }).first().click()
+  await page.getByRole('button', { name: 'Edit field Company' }).click()
 
   await expect(page.getByLabel('Type')).toBeDisabled()
 })
@@ -160,7 +158,7 @@ test.describe('the table itself', () => {
     await page.getByRole('button', { name: 'Delete table' }).click()
     await confirmDeletion(page)
 
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL(WORKSPACE_HOME)
     await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
   })
 

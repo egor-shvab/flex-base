@@ -1,20 +1,60 @@
+/**
+ * Every dynamic segment is encoded: an address comes from the page's own URL, already decoded, and a
+ * crafted `%2F..%2F` in it would otherwise steer the request to another endpoint.
+ */
+const segment = encodeURIComponent
+
+const workspacePath = (workspaceAddress: string) => `/api/workspaces/${segment(workspaceAddress)}`
+
+const tablePath = (workspaceAddress: string, tableAddress: string) =>
+  `${workspacePath(workspaceAddress)}/tables/${segment(tableAddress)}`
+
 export const apiPath = {
   me: '/api/auth/me',
   login: '/api/auth/login',
   register: '/api/auth/register',
   logout: '/api/auth/logout',
 
-  tables: '/api/tables',
-  table: (tableAddress: string) => `/api/tables/${tableAddress}`,
+  workspaces: '/api/workspaces',
+  workspace: workspacePath,
+  workspaceVisit: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/visit`,
+  workspaceTransfer: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/transfer`,
+  workspaceLeave: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/leave`,
 
-  fields: (tableAddress: string) => `/api/tables/${tableAddress}/fields`,
-  field: (tableAddress: string, fieldId: string) => `/api/tables/${tableAddress}/fields/${fieldId}`,
-  fieldOptions: (tableAddress: string, fieldId: string) =>
-    `/api/tables/${tableAddress}/fields/${fieldId}/options`,
+  members: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/members`,
+  member: (workspaceAddress: string, memberId: string) =>
+    `${workspacePath(workspaceAddress)}/members/${segment(memberId)}`,
+
+  invitations: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/invitations`,
+  invitation: (workspaceAddress: string, invitationId: string) =>
+    `${workspacePath(workspaceAddress)}/invitations/${segment(invitationId)}`,
+
+  incomingInvitations: '/api/invitations',
+  incomingInvitation: (invitationId: string) => `/api/invitations/${segment(invitationId)}`,
+  incomingInvitationAccept: (invitationId: string) =>
+    `/api/invitations/${segment(invitationId)}/accept`,
+
+  roles: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/roles`,
+  role: (workspaceAddress: string, roleId: string) =>
+    `${workspacePath(workspaceAddress)}/roles/${segment(roleId)}`,
+  roleTables: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/roles/tables`,
+
+  tables: (workspaceAddress: string) => `${workspacePath(workspaceAddress)}/tables`,
+  table: tablePath,
+
+  tableAccess: (workspaceAddress: string, tableAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/access`,
+  fields: (workspaceAddress: string, tableAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/fields`,
+  field: (workspaceAddress: string, tableAddress: string, fieldId: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/fields/${segment(fieldId)}`,
+  fieldOptions: (workspaceAddress: string, tableAddress: string, fieldId: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/fields/${segment(fieldId)}/options`,
 
   clientErrors: '/api/client-errors',
 
-  records: (tableAddress: string) => `/api/tables/${tableAddress}/records`,
-  record: (tableAddress: string, recordAddress: string) =>
-    `/api/tables/${tableAddress}/records/${recordAddress}`,
+  records: (workspaceAddress: string, tableAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/records`,
+  record: (workspaceAddress: string, tableAddress: string, recordAddress: string) =>
+    `${tablePath(workspaceAddress, tableAddress)}/records/${segment(recordAddress)}`,
 } as const

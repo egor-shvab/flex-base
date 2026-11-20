@@ -16,50 +16,166 @@ enum FieldType {
   RELATION
 }
 
+enum WorkspacePermission {
+  WORKSPACE_UPDATE
+  MEMBERS_INVITE
+  MEMBERS_MANAGE
+  ROLES_VIEW
+  ROLES_MANAGE
+  TABLES_MANAGE
+}
+
+enum RecordScope {
+  NONE
+  OWN
+  ALL
+}
+
+enum FieldAccess {
+  HIDDEN
+  READ
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
+  name         String
   passwordHash String
   createdAt    DateTime @default(now())
 
+  // In every token; raising it signs out every session the user holds
+  sessionVersion Int @default(0)
+
+  lastWorkspaceId String?
+  lastWorkspace   Workspace? @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
+
+  ownedWorkspaces Workspace[]           @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  sentInvitations WorkspaceInvitation[]
+  createdRecords  Record[]              @relation("RecordCreatedBy")
+  updatedRecords  Record[]              @relation("RecordUpdatedBy")
+}
+
+model Workspace {
+  id       String @id @default(cuid())
+  // The address in every URL: random, so it neither counts workspaces nor leaks a name
+  publicId String @unique
+  name     String
+  ownerId  String
+  owner    User   @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
   tableCounter Int @default(0)
 
-  tables Table[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      WorkspaceMember[]
+  roles        WorkspaceRole[]
+  invitations  WorkspaceInvitation[]
+  tables       Table[]
+  lastVisitors User[]                @relation("LastWorkspace")
+
+  @@index([ownerId])
+}
+
+model WorkspaceRole {
+  id          String                @id @default(cuid())
+  workspaceId String
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  permissions WorkspacePermission[]
+  createdAt   DateTime              @default(now())
+  // The version an edit form sends back as `If-Match`
+  updatedAt   DateTime              @default(now()) @updatedAt
+
+  members     WorkspaceMember[]
+  invitations WorkspaceInvitation[]
+  tableAccess RoleTableAccess[]
+  fieldAccess RoleFieldAccess[]
+
+  @@unique([workspaceId, name])
+  // The target of `WorkspaceMember`'s role key, which carries the workspace too
+  @@unique([workspaceId, id])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Keyed with the workspace, so a member can only hold a role of their own workspace. NoAction,
+  // not Restrict: deleting a workspace cascades to roles and members in one statement, and
+  // RESTRICT would fire mid-statement if a role went before the member using it
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: NoAction)
+  createdAt   DateTime      @default(now())
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model WorkspaceInvitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // Lowercased: matched against `User.email` by equality, which keeps the index usable
+  email       String
+  // NoAction for the reason `WorkspaceMember.role` gives
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: NoAction)
+  invitedById String?
+  invitedBy   User?         @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  createdAt   DateTime      @default(now())
+
+  @@unique([workspaceId, email])
+  @@index([email])
+  @@index([roleId])
 }
 
 model Table {
-  id     String @id @default(cuid())
-  name   String
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  name        String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   number Int
 
   recordCounter Int @default(0)
+  recordCount   Int @default(0)
 
-  fields    Field[]
-  records   Record[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  fields     Field[]
+  records    Record[]
+  roleAccess RoleTableAccess[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
-  @@unique([userId, name])
-  @@unique([userId, number])
+  @@unique([workspaceId, name])
+  @@unique([workspaceId, number])
+  // The target of `RoleTableAccess`'s table key, which carries the workspace too
+  @@unique([workspaceId, id])
 }
 
 model Field {
-  id        String    @id @default(cuid())
-  tableId   String
-  table     Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  name      String
-  key       String // machine key, immutable after creation
-  type      FieldType
-  required  Boolean   @default(false)
-  options   Json?
-  order     Int       @default(0)
+  id       String    @id @default(cuid())
+  tableId  String
+  table    Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  name     String
+  key      String // machine key, immutable after creation
+  type     FieldType
+  required Boolean   @default(false)
+  options  Json?
+  order    Int       @default(0)
 
-  indexed   Boolean   @default(false)
+  indexed Boolean @default(false)
 
-  createdAt DateTime  @default(now())
+  roleAccess RoleFieldAccess[]
+
+  createdAt DateTime @default(now())
+  // The version an edit form sends back as `If-Match`
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([tableId, key])
 }
@@ -75,7 +191,49 @@ model Record {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  createdById String?
+  createdBy   User?   @relation("RecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?   @relation("RecordUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   // The (tableId, createdAt) index stays: the default newest-first order cannot use this one
   @@unique([tableId, number])
-  @@index([tableId, createdAt])
+  @@index([tableId, createdAt, number])
+  // A role that may read or change only its own records filters on it
+  @@index([tableId, createdById])
+}
+
+/**
+ * What a role may do with one table's records. Without a row the role may do nothing there, so a
+ * new table stays closed to every role until it is given access. A row always reads: `readScope` is
+ * never `NONE` (a check constraint, written in the migration).
+ */
+model RoleTableAccess {
+  workspaceId String
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: Cascade)
+  tableId     String
+  table       Table         @relation(fields: [workspaceId, tableId], references: [workspaceId, id], onDelete: Cascade)
+  readScope   RecordScope
+  canCreate   Boolean
+  updateScope RecordScope
+  deleteScope RecordScope
+
+  @@id([roleId, tableId])
+  @@index([tableId])
+}
+
+/**
+ * A field narrowed for a role; without a row it follows the table. `Field` has no workspace column.
+ */
+model RoleFieldAccess {
+  workspaceId String
+  roleId      String
+  role        WorkspaceRole @relation(fields: [workspaceId, roleId], references: [workspaceId, id], onDelete: Cascade)
+  fieldId     String
+  field       Field         @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  access      FieldAccess
+
+  @@id([roleId, fieldId])
+  @@index([fieldId])
 }

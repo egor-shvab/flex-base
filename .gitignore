@@ -29,11 +29,13 @@ logs
 *.log
 
 # Claude Code — local state (throwaway worktrees under .claude/worktrees, personal settings).
-# Ignored by default so nothing the tool drops here has to be noticed; the two shared configs
-# are checked in and stay so. A new file here needs a matching negation to be committable.
+# Ignored by default so nothing the tool drops here has to be noticed; the shared configs, hooks
+# and agents are checked in and stay so. A new file here needs a matching negation to be committable.
 .claude/*
 !.claude/launch.json
 !.claude/settings.json
+!.claude/hooks/
+!.claude/agents/
 
 # Misc
 .DS_Store

@@ -18,6 +18,10 @@ dynamic_).
   **sibling**.
 - **Assert the table through `expect.poll`**, never a bare read — rows refetch after the URL moves;
   wait on something the navigation must produce, not text already on screen.
+- **The `workspace` fixture resets, it does not recreate**: the e2e user's session is stored once,
+  so their personal workspace survives the run. Each case gets it back as it was — tables truncated,
+  and every workspace, member, invitation and role a case added removed, the rig's roles
+  (`test/rig-roles.ts`) made or their permissions restored. A second person comes from `signInNewUser`, in a context of their own.
 - The npm scripts start the database and install the browser — a stopped container makes Playwright
   report **zero tests run**.
 
@@ -34,7 +38,12 @@ What the suite exists to cover is `architecture.md` §11.
 - **One shim, `test/integration/nitro-runtime.ts`**, providing `useRuntimeConfig` — never grow it
   into a general Nitro stub.
 - Rows are seeded through Prisma (`test/integration/seed.ts`), never through the services under
-  test.
+  test. `createUser` leaves a user as registration does — owner of a personal workspace under its
+  starting role — plus the rig's Editor and Viewer (`createRigRoles`), since the app makes neither;
+  `addMember` joins another under a role by name. `createTable` opens the table to the rig's roles
+  (Admin and Editor whole, Viewer reading), so a spec about something else need not; `setTableAccess` replaces one role's row.
+- **A new model joins the `TRUNCATE`** in both `test/integration/setup.ts` and the e2e
+  `global-setup.ts`.
 
 ## Coverage and deliberate overlap
 

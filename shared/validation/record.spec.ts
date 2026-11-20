@@ -93,6 +93,13 @@ describe('buildRecordSchema — per type', () => {
     expect(parseOne(dateField(), '31/01/2026').success).toBe(false)
   })
 
+  it('rejects a date that has the right shape but is no day', () => {
+    expect(parseOne(dateField(), '2026-02-31').success).toBe(false)
+    expect(parseOne(dateField(), '2026-13-01').success).toBe(false)
+    expect(parseOne(dateField(), '2025-02-29').success).toBe(false)
+    expect(parseOne(dateField(), '2024-02-29').success).toBe(true)
+  })
+
   it('accepts only a choice the SELECT offers', () => {
     expect(parseOne(selectField(['Won', 'Lost']), 'Won').success).toBe(true)
     expect(parseOne(selectField(['Won', 'Lost']), 'Renamed').success).toBe(false)

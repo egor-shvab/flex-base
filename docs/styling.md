@@ -22,21 +22,36 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
 
 - **`truncate`** works only on a **bounded** box — a `max-width`, or `min-width: 0` on a flex item.
   Without the bound it is silently inert.
-- **`stack` / `cluster`** declare no `flex-wrap`. A heading group inside `page-title-row` needs its
-  own `min-width: 0` (`decisions.md` → _The header group needs `min-width: 0`, same as the panes_).
-- **`surface-card`** is geometry and colour only; a card that lifts on hover or wears a ring
-  declares that itself.
-- **`popover-panel`** is the one floating surface (select list, colour grid, row menu).
+- **`stack` / `cluster`** declare no `flex-wrap`. A heading group inside a `cluster` needs its own
+  `min-width: 0` (`decisions.md` → _The header group needs `min-width: 0`, same as the panes_).
+- **`BaseCard`** is every card: border, radius and surface, with `#header` / `#footer` slots that
+  own the chrome. Geometry and colour only; a card that lifts on hover or wears a ring declares
+  that itself. A list goes inside it, never as its `tag` — a header in a `<ul>` is invalid.
+- **`BaseListRow`** (in `BaseList`) is an entity row — fields, members, roles, a dashboard table —
+  and **`BaseDetailRow`** (in `BaseDetailList`) a term/value row; a block styles only what it puts
+  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip;
+  `variant="wrap"` wraps a value that must stay whole (a record's field), and a `flush` list drops
+  the side padding outside a card. A page opens with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
+  its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with
+  a description (Danger zone) is **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard`
+  turns the edges red.
+- **`popover-panel`** is the one floating surface (select list, colour grid, `BaseMenu`). A
+  `role="menu"` is **`BaseMenu`** with **`BaseMenuItem`**s: choosing an item closes it and returns
+  focus, unless the item is `keep-open`; `checked` (even `false`) makes it a `menuitemradio`.
 - **`form-control`** is the whole text-field chrome, with its focus half in **`control-focus`** for
   a bordered non-text control (`BaseCheckbox`). Its `:focus` recolours the border (programmatic
   focus included), while the halo is `:focus-visible` only.
-- **`field-error`** is the danger line's type, shared by `BaseFieldMessage` and a failed-load
-  alert; a field's hint and error share **one** line there, the error replacing the hint.
+- **`BaseFieldMessage`** is the line under a field — hint and error share **one** line, the error
+  replacing the hint. Without an `id` it is a standalone line (a failed load's alert, its retry in
+  `#action`). **A failed load** is a `BaseErrorBanner` for a whole page, that line inside a block,
+  and a `keep-open` item inside a menu.
+- **`BaseNavItem`** is a vertical-navigation row (the sidebar, settings sections); `NuxtLink`'s
+  `aria-current` marks the page, `active` a section spanning several routes. A person or a
+  workspace is **`BaseAvatar`** + **`BaseIdentity`** — round for a person, square for a workspace.
 - **A link that fills a card:** the **card** wears the ring via `:has(:focus-visible)`, and the link
   suppresses both halves of its own.
-- **`centred-viewport` / `centred-column` / `centred-card`** build the two surfaces outside the
-  shell (auth, `error.vue`). The segment mixin reads `aria-current` as well as `aria-checked`, so
-  `AuthModeSwitch` can be a segmented track over **two links**.
+- **`BaseCenteredPanel`** is the surface outside the shell (the auth layout, `error.vue`); below
+  `$breakpoint-compact` its card dissolves into the page.
 
 ## `BaseButton` variants
 
@@ -60,10 +75,17 @@ beside it are unequal on purpose_).
   chip remove): a 16px glyph + `rem(3)` padding + 1px border on each side is exactly 24, the
   boundary `test/e2e/setup/a11y.ts` measures — **neither number moves alone**.
 - **Disabled is never opacity:** filled variants become a grey plate, every variant takes
-  `--color-text-disabled`, and `link` loses its underline. `loading` (filled variants only) keeps
-  its label so the row does not move. `selected` is inert outside `ghost` and sets no ARIA.
-- **`to` makes the root a `<NuxtLink>`** with an unchanged look; **`disabled` and `loading` win over
-  `to`** (`decisions.md` → _`BaseButton` renders the element its role implies_).
+  `--color-text-disabled`, and `link` loses its underline. `selected` is inert outside `ghost` and
+  sets no ARIA.
+- **`loading`** (filled variants only) makes the button inert at once but keeps its idle look; the
+  spinner waits `INDICATOR_DELAY_MS` and then stays at least `INDICATOR_MIN_DURATION_MS`
+  (`useDelayedFlag`), so a fast request shows none. It takes the leading icon's box, or sits over
+  the label's transparent glyphs — the width never changes. **`busy`** is the same wait without a
+  spinner, for a button blocked by another's request (Cancel, Discard): inert at once, disabled-looking
+  only after the delay. `disabled` wins over both. Any other indicator that blinks on a fast load uses
+  the same composable.
+- **`to` makes the root a `<NuxtLink>`** with an unchanged look; **`disabled`, `loading` and `busy` win
+  over `to`** (`decisions.md` → _`BaseButton` renders the element its role implies_).
 
 ## Atoms — traps only
 
@@ -78,7 +100,8 @@ beside it are unequal on purpose_).
 - **`BaseSelect`** — read `isMultiple`, never `props.multiple` (`decisions.md` → _`multiple` is
   tied to the model's type, and is read through `isMultiple`_).
 - **`BaseSegmented`** — always one value, so no empty state and no `disabled`. The chosen plate's
-  `--color-border-control-hover` edge is what makes the state 3:1.
+  `--color-border-control-hover` edge is what makes the state 3:1. Given `links` instead of
+  `options` it is a `<nav>`, the current page (`aria-current`) taking the chosen plate.
 - **`BaseCheckbox`** — the check is drawn as an **icon** (`forced-colors` drops fills but keeps
   `currentColor`). The label is the 36px target.
 - **`BaseBadge`** — `chip` is a user value (never uppercased), `label` a mono uppercase meta marker

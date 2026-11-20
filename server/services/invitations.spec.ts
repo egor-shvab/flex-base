@@ -1,0 +1,449 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Prisma } from '#server/generated/prisma/client'
+import { InvitationService, MAX_PENDING_INVITATIONS } from '#server/services/invitations'
+import type { IAuthUser } from '#shared/types/auth'
+import {
+  buildMembership,
+  buildPermissionSetRow as setRow,
+  MEMBERSHIP_WORKSPACE_ID as WORKSPACE_ID,
+} from '~~/test/membership'
+import { prismaMock, resetPrismaMock } from '~~/test/prisma-mock'
+
+vi.mock('#server/db/prisma', async () => ({
+  prisma: (await import('~~/test/prisma-mock')).prismaMock,
+}))
+
+/** The role comparison has its own spec; here only what the invitation service does with it. */
+const roleService = vi.hoisted(() => ({ getRoleReach: vi.fn(), requireAssignableRole: vi.fn() }))
+vi.mock('#server/services/roles', () => ({ RoleService: roleService }))
+
+const NOW = new Date('2026-03-01T12:00:00.000Z')
+const IN_A_WEEK = new Date('2026-03-08T12:00:00.000Z')
+const INVITATION_ID = 'inv_1'
+const ROLE_ID = 'rol_clerk'
+
+const inviter = buildMembership(['MEMBERS_INVITE'])
+const invitee: IAuthUser = { id: 'usr_grace', email: 'Grace@Example.com', name: 'Grace' }
+
+const invitationRow = (expiresAt = IN_A_WEEK) => ({
+  id: INVITATION_ID,
+  email: 'grace@example.com',
+  expiresAt,
+  role: { id: ROLE_ID, name: 'Clerk' },
+  invitedBy: { id: 'usr_ada', name: 'Ada' },
+})
+
+const membershipRow = {
+  id: 'mem_grace',
+  role: { id: ROLE_ID, name: 'Clerk', ...setRow([]) },
+  workspace: {
+    id: WORKSPACE_ID,
+    publicId: 'k3f9x2m8qa',
+    name: 'Acme',
+    createdAt: new Date('2026-01-05T09:14:00.000Z'),
+    ownerId: 'usr_ada',
+  },
+}
+
+const knownError = (code: string) =>
+  new Prisma.PrismaClientKnownRequestError(code, { code, clientVersion: '7.9.0' })
+
+/** What the invitee may still accept: theirs by the lowercased email, and not expired. */
+const incomingWhere = { email: 'grace@example.com', expiresAt: { gt: NOW }, id: INVITATION_ID }
+
+beforeEach(() => {
+  resetPrismaMock()
+  roleService.getRoleReach.mockReset().mockResolvedValue({
+    isWithinActor: true,
+    updatedAt: NOW,
+  })
+  roleService.requireAssignableRole.mockReset().mockResolvedValue(undefined)
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(NOW)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+describe('InvitationService.listInvitations', () => {
+  it('lists every invitation of the workspace, oldest first, marking the expired', async () => {
+    prismaMock.workspaceInvitation.findMany.mockResolvedValue([invitationRow(), invitationRow(NOW)])
+
+    const invitations = await InvitationService.listInvitations(WORKSPACE_ID)
+
+    expect(invitations.map((invitation) => invitation.isExpired)).toEqual([false, true])
+    expect(invitations[0]).toEqual({
+      id: INVITATION_ID,
+      email: 'grace@example.com',
+      role: { id: ROLE_ID, name: 'Clerk' },
+      invitedBy: { id: 'usr_ada', name: 'Ada' },
+      expiresAt: IN_A_WEEK.toISOString(),
+      isExpired: false,
+    })
+    expect(prismaMock.workspaceInvitation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId: WORKSPACE_ID },
+        orderBy: { createdAt: 'asc' },
+      }),
+    )
+  })
+})
+
+describe('InvitationService.createInvitation', () => {
+  const input = { email: 'grace@example.com', roleId: ROLE_ID }
+
+  beforeEach(() => {
+    prismaMock.workspaceMember.findFirst.mockResolvedValue(null)
+    prismaMock.workspaceInvitation.count.mockResolvedValue(0)
+    prismaMock.workspaceInvitation.upsert.mockResolvedValue(invitationRow())
+  })
+
+  it('invites the address for a week, or renews the invitation it already has', async () => {
+    await expect(
+      InvitationService.createInvitation(inviter, 'usr_ada', input),
+    ).resolves.toMatchObject({ id: INVITATION_ID, isExpired: false })
+
+    const renewal = { roleId: ROLE_ID, invitedById: 'usr_ada', expiresAt: IN_A_WEEK }
+    expect(prismaMock.workspaceInvitation.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { workspaceId_email: { workspaceId: WORKSPACE_ID, email: 'grace@example.com' } },
+        create: { workspaceId: WORKSPACE_ID, email: 'grace@example.com', ...renewal },
+        update: renewal,
+      }),
+    )
+  })
+
+  it('refuses a role granting more than the inviter holds, before anything else', async () => {
+    roleService.requireAssignableRole.mockRejectedValue({ statusCode: 403 })
+
+    await expect(
+      InvitationService.createInvitation(inviter, 'usr_ada', input),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    expect(prismaMock.workspaceMember.findFirst).not.toHaveBeenCalled()
+    expect(prismaMock.workspaceInvitation.upsert).not.toHaveBeenCalled()
+  })
+
+  it('refuses someone already in the workspace, whatever the case of their email', async () => {
+    prismaMock.workspaceMember.findFirst.mockResolvedValue({ id: 'mem_grace' })
+
+    await expect(
+      InvitationService.createInvitation(inviter, 'usr_ada', input),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'This person is already a member' })
+    expect(prismaMock.workspaceMember.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          workspaceId: WORKSPACE_ID,
+          user: { email: { equals: 'grace@example.com', mode: 'insensitive' } },
+        },
+      }),
+    )
+    expect(prismaMock.workspaceInvitation.upsert).not.toHaveBeenCalled()
+  })
+
+  it('renews an invitation sent under a role beyond the inviter only if they could have sent it', async () => {
+    prismaMock.workspaceInvitation.findUnique.mockResolvedValue({ roleId: 'rol_admin' })
+    roleService.getRoleReach.mockResolvedValue({ isWithinActor: false, updatedAt: NOW })
+
+    await expect(
+      InvitationService.createInvitation(inviter, 'usr_ada', input),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    expect(roleService.getRoleReach).toHaveBeenCalledWith(inviter, 'rol_admin')
+    expect(prismaMock.workspaceInvitation.upsert).not.toHaveBeenCalled()
+  })
+
+  it('renews one under the same role without weighing it again', async () => {
+    prismaMock.workspaceInvitation.findUnique.mockResolvedValue({ roleId: ROLE_ID })
+
+    await InvitationService.createInvitation(inviter, 'usr_ada', input)
+
+    expect(roleService.getRoleReach).not.toHaveBeenCalled()
+    expect(prismaMock.workspaceInvitation.upsert).toHaveBeenCalled()
+  })
+
+  it('caps the pending invitations, not counting the one being renewed or the expired', async () => {
+    prismaMock.workspaceInvitation.count.mockResolvedValue(MAX_PENDING_INVITATIONS)
+
+    await expect(
+      InvitationService.createInvitation(inviter, 'usr_ada', input),
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(prismaMock.workspaceInvitation.count).toHaveBeenCalledWith({
+      where: {
+        workspaceId: WORKSPACE_ID,
+        email: { not: 'grace@example.com' },
+        expiresAt: { gt: NOW },
+      },
+    })
+    expect(prismaMock.workspaceInvitation.upsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('InvitationService.revokeInvitation', () => {
+  const where = { id: INVITATION_ID, workspaceId: WORKSPACE_ID }
+
+  beforeEach(() => {
+    prismaMock.workspaceInvitation.findFirst.mockResolvedValue({ roleId: ROLE_ID })
+    prismaMock.workspaceInvitation.delete.mockResolvedValue({ id: INVITATION_ID })
+  })
+
+  it('deletes an invitation of the proved workspace, repeating the role and version weighed', async () => {
+    await InvitationService.revokeInvitation(inviter, INVITATION_ID)
+
+    expect(prismaMock.workspaceInvitation.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    )
+    expect(roleService.getRoleReach).toHaveBeenCalledWith(inviter, ROLE_ID)
+    expect(prismaMock.workspaceInvitation.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ...where, roleId: ROLE_ID, role: { updatedAt: NOW } } }),
+    )
+  })
+
+  it('refuses an invitation to a role beyond the caller, revoking nothing', async () => {
+    roleService.getRoleReach.mockResolvedValue({ isWithinActor: false, updatedAt: NOW })
+
+    await expect(InvitationService.revokeInvitation(inviter, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 403,
+    })
+    expect(prismaMock.workspaceInvitation.delete).not.toHaveBeenCalled()
+  })
+
+  it('answers one of another workspace, or already gone, as missing', async () => {
+    prismaMock.workspaceInvitation.findFirst.mockResolvedValue(null)
+
+    await expect(InvitationService.revokeInvitation(inviter, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Invitation not found',
+    })
+    expect(prismaMock.workspaceInvitation.delete).not.toHaveBeenCalled()
+  })
+
+  it('is a 409 when the invitation or its role changed between the check and the delete', async () => {
+    prismaMock.workspaceInvitation.delete.mockRejectedValue(knownError('P2025'))
+
+    await expect(InvitationService.revokeInvitation(inviter, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 409,
+    })
+  })
+})
+
+describe('InvitationService.listIncomingInvitations', () => {
+  it('finds the open invitations by the caller’s email, lowercased to match', async () => {
+    prismaMock.workspaceInvitation.findMany.mockResolvedValue([
+      {
+        id: INVITATION_ID,
+        expiresAt: IN_A_WEEK,
+        workspace: { name: 'Acme' },
+        role: { name: 'Clerk', permissions: ['ROLES_VIEW'] },
+        invitedBy: null,
+      },
+    ])
+
+    await expect(InvitationService.listIncomingInvitations(invitee)).resolves.toEqual([
+      {
+        id: INVITATION_ID,
+        workspace: { name: 'Acme' },
+        role: { name: 'Clerk' },
+        invitedBy: null,
+        expiresAt: IN_A_WEEK.toISOString(),
+      },
+    ])
+    expect(prismaMock.workspaceInvitation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { email: 'grace@example.com', expiresAt: { gt: NOW } },
+      }),
+    )
+  })
+
+  it('leaves out the role’s name where the role would not let its member see roles', async () => {
+    prismaMock.workspaceInvitation.findMany.mockResolvedValue([
+      {
+        id: INVITATION_ID,
+        expiresAt: IN_A_WEEK,
+        workspace: { name: 'Acme' },
+        role: { name: 'Clerk', permissions: [] },
+        invitedBy: null,
+      },
+      {
+        id: 'inv_2',
+        expiresAt: IN_A_WEEK,
+        workspace: { name: 'Beta' },
+        role: { name: 'Recruiter', permissions: ['MEMBERS_INVITE'] },
+        invitedBy: null,
+      },
+    ])
+
+    const invitations = await InvitationService.listIncomingInvitations(invitee)
+
+    expect(invitations.map((invitation) => invitation.role)).toEqual([null, { name: 'Recruiter' }])
+  })
+})
+
+describe('InvitationService.acceptInvitation', () => {
+  beforeEach(() => {
+    prismaMock.workspaceInvitation.findFirst.mockResolvedValue({
+      workspaceId: WORKSPACE_ID,
+      roleId: ROLE_ID,
+      invitedById: 'usr_ada',
+    })
+    prismaMock.workspaceMember.findFirst.mockResolvedValue({ ...membershipRow, id: 'mem_ada' })
+    prismaMock.workspaceInvitation.delete.mockResolvedValue({ id: INVITATION_ID })
+    prismaMock.workspaceMember.create.mockResolvedValue(membershipRow)
+  })
+
+  describe('rechecking the inviter', () => {
+    it('asks after the inviter in this workspace', async () => {
+      await InvitationService.acceptInvitation(invitee, INVITATION_ID)
+
+      expect(prismaMock.workspaceMember.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { workspaceId: WORKSPACE_ID, userId: 'usr_ada' } }),
+      )
+      expect(roleService.getRoleReach).toHaveBeenCalledWith(
+        expect.objectContaining({ memberId: 'mem_ada' }),
+        ROLE_ID,
+      )
+    })
+
+    it('refuses, and drops the invitation, once the inviter has left the workspace', async () => {
+      prismaMock.workspaceMember.findFirst.mockResolvedValue(null)
+      prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
+
+      await expect(
+        InvitationService.acceptInvitation(invitee, INVITATION_ID),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        statusMessage: 'This invitation is no longer valid',
+      })
+      expect(prismaMock.workspaceInvitation.deleteMany).toHaveBeenCalledWith({
+        where: { id: INVITATION_ID },
+      })
+      expect(prismaMock.workspaceMember.create).not.toHaveBeenCalled()
+    })
+
+    it('refuses, without weighing the role, once the inviter may no longer invite', async () => {
+      prismaMock.workspaceMember.findFirst.mockResolvedValue({
+        ...membershipRow,
+        id: 'mem_bob',
+        role: { id: 'rol_recruiter', name: 'Recruiter', ...setRow([]) },
+      })
+      prismaMock.workspaceInvitation.findFirst.mockResolvedValue({
+        workspaceId: WORKSPACE_ID,
+        roleId: ROLE_ID,
+        invitedById: 'usr_bob',
+      })
+      prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
+
+      await expect(
+        InvitationService.acceptInvitation(invitee, INVITATION_ID),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+      })
+      expect(roleService.getRoleReach).not.toHaveBeenCalled()
+      expect(prismaMock.workspaceMember.create).not.toHaveBeenCalled()
+    })
+
+    it('refuses once the inviter can no longer grant the role', async () => {
+      roleService.getRoleReach.mockResolvedValue({ isWithinActor: false, updatedAt: NOW })
+      prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
+
+      await expect(
+        InvitationService.acceptInvitation(invitee, INVITATION_ID),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+      })
+      expect(prismaMock.workspaceMember.create).not.toHaveBeenCalled()
+    })
+
+    it('refuses an invitation whose sender no longer exists', async () => {
+      prismaMock.workspaceInvitation.findFirst.mockResolvedValue({
+        workspaceId: WORKSPACE_ID,
+        roleId: ROLE_ID,
+        invitedById: null,
+      })
+      prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
+
+      await expect(
+        InvitationService.acceptInvitation(invitee, INVITATION_ID),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+      })
+    })
+  })
+
+  it('turns the invitation into a membership under its role, in one transaction', async () => {
+    await expect(InvitationService.acceptInvitation(invitee, INVITATION_ID)).resolves.toMatchObject(
+      {
+        memberId: 'mem_grace',
+        isOwner: false,
+        permissions: [],
+      },
+    )
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+    expect(prismaMock.workspaceInvitation.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ where: incomingWhere }),
+    )
+    expect(prismaMock.workspaceMember.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { workspaceId: WORKSPACE_ID, userId: 'usr_grace', roleId: ROLE_ID },
+      }),
+    )
+  })
+
+  it('refuses an invitation addressed elsewhere or expired, without writing', async () => {
+    prismaMock.workspaceInvitation.findFirst.mockResolvedValue(null)
+
+    await expect(InvitationService.acceptInvitation(invitee, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'This invitation is no longer valid',
+    })
+    expect(prismaMock.workspaceInvitation.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: incomingWhere }),
+    )
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('answers an accept that lost the race with the same 404', async () => {
+    prismaMock.workspaceInvitation.delete.mockRejectedValue(knownError('P2025'))
+
+    await expect(InvitationService.acceptInvitation(invitee, INVITATION_ID)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+    expect(prismaMock.workspaceMember.create).not.toHaveBeenCalled()
+  })
+
+  it('drops the invitation of someone already a member and returns their membership', async () => {
+    prismaMock.workspaceMember.create.mockRejectedValue(knownError('P2002'))
+    prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
+    prismaMock.workspaceMember.findFirstOrThrow.mockResolvedValue(membershipRow)
+
+    await expect(InvitationService.acceptInvitation(invitee, INVITATION_ID)).resolves.toMatchObject(
+      {
+        memberId: 'mem_grace',
+      },
+    )
+    expect(prismaMock.workspaceInvitation.deleteMany).toHaveBeenCalledWith({
+      where: { id: INVITATION_ID },
+    })
+    expect(prismaMock.workspaceMember.findFirstOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { workspaceId: WORKSPACE_ID, userId: 'usr_grace' } }),
+    )
+  })
+})
+
+describe('InvitationService.declineInvitation', () => {
+  it('deletes only an invitation still open to the caller', async () => {
+    prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 1 })
+
+    await InvitationService.declineInvitation(invitee, INVITATION_ID)
+
+    expect(prismaMock.workspaceInvitation.deleteMany).toHaveBeenCalledWith({ where: incomingWhere })
+  })
+
+  it('answers one that is gone as no longer valid', async () => {
+    prismaMock.workspaceInvitation.deleteMany.mockResolvedValue({ count: 0 })
+
+    await expect(InvitationService.declineInvitation(invitee, INVITATION_ID)).rejects.toMatchObject(
+      { statusCode: 404, statusMessage: 'This invitation is no longer valid' },
+    )
+  })
+})

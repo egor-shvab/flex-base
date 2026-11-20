@@ -1,6 +1,6 @@
 import { markRaw } from 'vue'
-import BaseCheckbox from '~/components/common/BaseCheckbox.vue'
-import BaseSegmented from '~/components/common/BaseSegmented.vue'
+import BaseCheckbox from '~/components/ui/BaseCheckbox.vue'
+import BaseSegmented from '~/components/ui/BaseSegmented.vue'
 import { BOOLEAN_LABELS } from '#shared/field-types/boolean'
 import BooleanFieldCell from '~/field-types/boolean/BooleanFieldCell.vue'
 import type { IAppFieldType } from '~/field-types/types'

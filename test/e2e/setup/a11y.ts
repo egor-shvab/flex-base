@@ -15,7 +15,7 @@ export async function axeViolations(page: Page): Promise<string[]> {
 }
 
 /**
- * Three exclusions, each a real SC 2.5.8 exception: `.text-link` (Inline), an `<input>` whose
+ * Three exclusions, each a real SC 2.5.8 exception: `.g-text-link` (Inline), an `<input>` whose
  * wrapping `<label>` is the target, and anything not rendered. The filter chip's remove button is
  * deliberately not excluded: it sits exactly on the floor.
  */
@@ -33,7 +33,7 @@ const UNDERSIZED = `(() => {
   ].join(', ')
 
   return [...document.querySelectorAll(selector)]
-    .filter((element) => !element.closest('.text-link'))
+    .filter((element) => !element.closest('.g-text-link'))
     .map((element) => {
       const label = element.tagName === 'INPUT' ? element.closest('label') : null
       const target = label ?? element

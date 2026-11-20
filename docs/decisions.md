@@ -148,26 +148,31 @@ indexing rules manage.
 
 Fetch-then-check is TOCTOU and one forgotten branch from a leak; scoping in the query makes "not
 yours" and "not there" one path, which is what makes 404-never-403 free (a 403 would confirm the row
-exists). Ownership lives only on `Table.userId` — a denormalized `userId` on `Field`/`Record` could
-not be kept honest. The helpers live in `server/utils/ownership.ts` and read `db/`, never
-`services/`.
+exists). Membership is resolved in one query from the caller's id and the workspace address, and
+every later `where` takes its `workspaceId` from that result, never from a body or a path. A table
+belongs only to `Table.workspaceId` — a denormalized `workspaceId` on `Field`/`Record` could not be
+kept honest. The helpers live in `server/utils/workspace-access.ts` and `server/utils/table-access.ts`
+and read `db/`, never `services/`.
 
 ### Ownership is obtained, not remembered
 
-The factories in `server/utils/handler.ts` produce the route context **from** the ownership check,
-so no table or field can be reached without it; lint refuses `#server/utils/auth` under
-`server/api/tables/*/**`. One factory per `require*` helper — rejected: one factory with an options
-bag (the branch comes back, as a flag). Each is **generic in its return type**; flattening to
-`unknown` would silently widen every response type. `[tableAddress].patch`/`.delete` use none: their
-services take a `userId` and scope on it in their own `where`, so the signature already requires
-ownership.
+The factories in `server/utils/handler.ts` produce the route context **from** the membership
+check, so no workspace, table or field can be reached without it; lint refuses
+`#server/utils/auth` under `server/api/workspaces/*/**`, so **every** route inside a workspace uses
+one. Each names the permission it needs as its first argument — a required value, not a flag, so
+it cannot be forgotten and adds no branch. A record route names a record action instead
+(`create`/`update`/`delete`): the table's access grants it, so it is checked after the lookup, which
+already answered a table the role may not read with the missing table's 404 — rejected: checking
+the action before the lookup, which only the table's own row can answer. One factory per `require*` helper — rejected: one
+factory with an options bag (the branch comes back, as a flag). Each is **generic in its return
+type**; flattening to `unknown` would silently widen every response type.
 
 ### A service is one plain object, not loose exports and not a class
 
 The call site names the layer (`FieldService.createField`). Full method names stay — the object
 qualifies, it does not abbreviate. Members are module-scope functions listed in the object, so **no
 member depends on `this`** (a destructured method would throw). The literal is the public surface
-(`widenToList`, `assertNotRelationTarget` are absent). No annotation, no `satisfies`, no
+(`widenToList`, `clearFieldValues` are absent). No annotation, no `satisfies`, no
 `Object.freeze`.
 
 ### The four count-moving writes repeat their counts call, and that is the end state
@@ -180,7 +185,8 @@ calling `TableService` couples fields and records to a count for nothing.
 
 `findUnique`-then-`create` races: both requests see nothing and the loser becomes an unmapped 500.
 The `create` is the check, and `P2002` becomes the 409. A duplicate pays a bcrypt hash first, which
-also removes a timing tell.
+also removes a timing tell. Login closes the same tell: an unknown email is compared against
+`UNMATCHED_PASSWORD_HASH`, so it costs what a wrong password costs.
 
 ### The persistence layer does not speak HTTP
 
@@ -201,8 +207,8 @@ forms cannot collide. **Do not "clean it up":** ids are in API responses regardl
 id form hides nothing and breaks every copied link.
 
 **The enumeration risk is accepted on one condition:** with numbers, a `where` that loses its
-`userId` becomes a `1..n` sweep of every tenant. What makes that acceptable is that ownership cannot
-be forgotten — **the handler factories are load-bearing for security.** Fields get no number; if one
+`workspaceId` becomes a `1..n` sweep of every workspace. What makes that acceptable is that the
+membership check cannot be forgotten — **the handler factories are load-bearing for security.** Fields get no number; if one
 ever needs a public name it is `key`. Rejected: renumbering stored relation values (rewrites every
 JSONB row and rebuilds indexes for a value nobody reads); a central id-mapping service.
 
@@ -243,8 +249,8 @@ and SSR, so a handler logging for itself would only duplicate it.
   with `source`; the user id comes **from the cookie**, never the body; the path is cut at the first
   `?`; the report is a closed schema. Both sources write through `recordErrorEntry`.
 - **The endpoint is unauthenticated on purpose** (an error on the login page is worth having), so it
-  carries its own guards: the **`content-length` check runs before the body is read and refuses a
-  missing length** (or chunked encoding is an uncapped path into memory); the **rate limit keys on
+  carries its own guards: a **missing length is refused** (a report always has a body) and the
+  **16 KB cap runs before the body is read**, tighter than the global 1 MiB; the **rate limit keys on
   the socket address, not `x-forwarded-for`** (a spoofable header would make it opt-out; behind a
   proxy it fails too strict, which is the right direction).
 - **The client plugin's `.catch(() => {})` is the loop breaker** — an unhandled rejection from the
@@ -254,6 +260,187 @@ and SSR, so a handler logging for itself would only duplicate it.
   (Windows refuses to rename an open file); generations rotate highest-first.
 - Rejected: an `IErrorSink` interface — one destination; swapping it is an edit to
   `recordErrorEntry`.
+
+---
+
+## Workspaces & access
+
+### The owner is a column, not a role
+
+`Workspace.ownerId` makes "exactly one owner" a schema fact; "exactly one member holding the Owner
+role" cannot be a constraint. The owner's powers are not editable, so a role holding them would need
+a special case in every role handler. The owner is **also a member** under an ordinary role, which
+they keep after a transfer — so listing members is one query and the membership check is one path.
+A new workspace's only role is that one, Admin with every permission (`OWNER_STARTING_ROLE`): any
+other role is the owner's to make, since preset ones fit no team and were left unused or deleted.
+That invariant is held by the services (create, transfer, never remove or let the owner leave) and an
+integration test. Rejected: an `Owner` role flagged `locked`; `roleId = null` meaning owner; a
+composite foreign key from owner to membership, which forms a cascade cycle with `WorkspaceMember`.
+
+### A role is referenced with its workspace, and the reference is `NO ACTION`
+
+A member's and an invitation's role key is `(workspaceId, roleId)`, so another workspace's role
+cannot be assigned even if a service check were missed (`P2003`). It is `NoAction`, not `Restrict`:
+PostgreSQL checks `RESTRICT` at once and `NO ACTION` at the end of the statement, and deleting a
+workspace cascades to roles and members in one statement — `RESTRICT` fails whenever a role goes
+before the member holding it. A direct delete of a held role is still refused, and that refusal is
+the in-use check (409) — no count is read first.
+
+### Permissions are a PostgreSQL enum array
+
+`WorkspaceRole.permissions` is `WorkspacePermission[]`. Rejected: a `RolePermission` join table
+(rows for a short closed list, and a join on every permission read); JSON (the database stops
+checking the values). The list order in `WORKSPACE_PERMISSIONS` is the editor's, and it mirrors the
+Prisma enum; a new value takes two migrations, since PostgreSQL refuses a value's use in the
+transaction that adds it. Record actions are not in it: each takes a scope (`NONE`/`OWN`/`ALL`), which a flag in
+an array cannot say, so they are the role's own columns (`readScope`, `canCreate`, `updateScope`,
+`deleteScope`), compared in that order by the anti-escalation rules.
+
+### Seeing roles is a permission that managing implies
+
+Without `ROLES_VIEW` roles do not exist for a member: the role list is a 403 and the role pages a
+404 (`useRequireRolesView`); every member's role, their own included, comes back `null` and no one
+owns the workspace (`MemberService.listMembers`); their own membership is sent without its role
+(`IWorkspaceMembershipView`, `toMembershipView` — the server's `IWorkspaceMembership` keeps it, since
+access is decided by it); and an incoming invitation names its role only if that role sees roles.
+The roles' names and table counts would otherwise tell what roles there are and how many tables. Inviting, managing members and managing roles all pick from the role list, so each brings
+`ROLES_VIEW` with it: `IMPLIED_PERMISSIONS` is the one place that says so, and `hasPermission` and
+`isPermissionSubset` read it, so a check never lists the implying permissions itself. Rejected:
+tying sight of the roles to the management permissions alone — then it could not be granted to a
+role that manages nothing.
+
+### A role reaches a table only through its row there
+
+`RoleTableAccess` holds all four columns; without a row the role may do nothing with the table
+(`resolveTableAccess`, and `buildReadableTablesWhere` deciding the same in SQL for the list), so a
+new table stays closed until a role editor opens it. A row always reads — `readScope <> 'NONE'` is a
+check constraint, the role schema refuses such a row, and closing a table deletes it — so "closed"
+has one form and no reader filters for it. The one exception is the creator's role,
+given everything in the table it made (`TableService.createTable`), the owner's included —
+otherwise a non-owner who manages tables could not fill their own, and the owner's tables would be
+closed to the members sharing their role and to the owner themself after a transfer, with only the
+owner able to open them. Rejected: role-wide defaults every table without a row
+follows — a second place to look for what a role may do, and a new table silently open to every
+role. `TABLES_MANAGE` sees every table, since a table one may change but not open would be changed
+blind; their record actions still come from the role. Seeing means every record and every field too,
+whatever the role's rows say, so the permission's description says so where it is granted.
+Rejected for now: splitting schema visibility from record reads — worth it only once a role must
+change fields without reading the records. A hidden table is a 404, as one outside the
+workspace.
+
+### A role is edited and saved whole, on one page
+
+Its name, permissions and every table and field row are one form and one write
+(`roleInputSchema`, `RoleService.updateRole`), so what a role grants is decided in one place and
+checked against the actor once. Rejected: a dialog for the role and a page for its access — two
+places to look, and two writes that could land half.
+
+### Managers with equal roles are equal
+
+"Within" is "no wider", not "narrower", so two managers holding different roles of equal reach can
+each narrow the other's role, and with `MEMBERS_MANAGE` remove each other; only the role one holds
+is locked to them. Rejected: requiring strictly narrower — nobody but the owner could then hand out
+their own role, which every invitation from a manager relies on. Trust between peers is the owner's
+to arrange.
+
+### Only the owner changes the role they hold
+
+A member who manages roles can neither edit nor delete their own (`isHeldRoleLocked`, 403), from
+the role's page or a table's: narrowing it could take away what they need to undo the change —
+role management, or a table. The owner's role binds them only after a transfer, so they may; the
+transfer asks which role they keep. Rejected: refusing only the removal of `ROLES_MANAGE` — closing
+one's own tables locks one out as surely.
+
+### A table's access is set from either side, on the same rows
+
+A table's settings list every role with its row there; saving checks each role as its own page
+would (`isAccessWithin` before and after, required fields fillable) and writes them in one
+transaction. Several roles cannot share one `If-Match`, so each role's version travels in the body
+and one `updateMany` guards them all — fewer rows than asked is a 409. Rejected: per-field access
+there too — a role's fields stay on its page, where the table they belong to is already open.
+
+### A link is seen through the caller's access to its target
+
+A RELATION whose target table the role may not read is hidden like any hidden field; one whose
+target's label field is hidden, or whose target the role reads only in part, loses
+`labelFieldKey` in the field the caller is handed (`toFieldView`), so every label reader falls back
+to numbers without a branch of its own. Rejected: showing such a link as bare record numbers — the
+column would announce a table the role cannot open, and its filter would probe it.
+
+### A role is compared on its effective access, table by table and field by field
+
+`isAccessWithin` resolves both roles on every table and field of the workspace, as a member holding
+each would meet them, besides comparing permissions. Comparing the rows themselves fails: what a
+row grants depends on who holds it (`TABLES_MANAGE` reads every table, a field follows its table's
+actions). The client cannot see other roles'
+rows, so it reads the answer, `IWorkspaceRole.isWithinCaller`, computed only for callers who can
+act on roles or their holders. A role editor is shown only the tables and fields its user sees
+(`toVisibleTables`), the comparison still running over all of them; the role's rows go out whole,
+being ids only, since a role within its editor may hold hidden a field hidden from the editor too,
+and a save must send that row back. Rejected: shipping every role's rows to the client — a matrix
+the member pages do not need, and a second place the rule would run.
+
+### A required field must be fillable by every role that adds records to its table
+
+Marking a field required is a 409 while a role that creates records there (by its row for the
+table) holds the field hidden or read-only: every record that role adds would be refused, or saved
+without the value. Saving a role checks the same from the other side. A new field has no role rows yet, so only an update is checked; a schema manager writes
+every field and never blocks it. Rejected: letting the create through with
+the field empty — `required` would stop meaning anything for that role.
+
+### A record update merges over the stored data
+
+`updateRecord` is one raw `UPDATE … SET data = data || patch`, the patch holding only the fields the
+caller may write, so a hidden or read-only value survives their save. It sets `"updatedAt"` itself
+— only the Prisma client fills `@updatedAt` — and returns the column's own value, rounded to
+milliseconds, which is the version the next `If-Match` must send. Rejected: replacing `data` whole,
+which would erase what the caller cannot see; and reading the row to merge in JavaScript, two
+statements a concurrent save could slip between.
+
+### A scoped write carries its scope in the `where`, and a miss is refused scope before version
+
+Under `OWN` the author joins the version in the write's `where` (`buildRecordScopeWhere`), and only
+a miss is explained, by reading the record within the caller's read scope: theirs to read but not
+to touch is a 403 whatever its version, theirs to touch is a 412, out of sight is the 404. A 412 to
+someone who may not write would invite a reload and a retry that can never land. Rejected: reading
+the author first and then writing — two statements where one suffices, and the read would answer
+for records the caller cannot see.
+
+### A workspace address is random, never a number or a slug
+
+`publicId` is ten random characters, so a URL neither counts workspaces nor leaks a name. Unlike a
+table, a workspace has no number-or-id pair: payloads reference it by id, and only paths address it
+— accepting the cuid in a path would add a second form for no reader. A colliding id aborts the
+whole transaction, so the retry reruns the transaction, never just the insert. Rejected: a global
+number (counts tenants); a slug (needs uniqueness and renaming, and `limitations.md` → _A table's
+URL carries no slug, only its number_ applies).
+
+### The last workspace is a column written on visit
+
+`User.lastWorkspaceId` survives a change of device, which a cookie would not. It is written by
+`PUT …/visit` from the workspace page after its membership check, fire-and-forget. Rejected: writing
+it in `GET /api/workspaces/:ws` — a side effect in a read, which a prefetch would trigger.
+
+### A relation stays inside its workspace because a table never moves
+
+`requireFieldTarget` looks the target up in the caller's workspace, and relation options and linked
+records are read by `targetTableId` alone. That is safe only because a table cannot change
+workspace. **Moving tables between workspaces breaks this first** — it needs a rule for every
+relation pointing in or out before it ships.
+
+### An invitation is matched by lowercased email, and never tells whether the address is registered
+
+The invitation stores the email lowercased and is matched by equality against the lowercased account
+email, which keeps its index usable. Creating one never reads `User` beyond the workspace's own
+members, so the form answers alike for a stranger and an account holder. Registration itself does
+not normalise (`limitations.md`).
+
+### An invitation is acted on only by someone who could have sent it
+
+Revoking one, or renewing it under another role, takes what sending does — its role within the
+caller — and the revoke repeats the role's version as a member's change does. Otherwise a member
+who may invite could undo, or downgrade, an invitation to a role beyond them. Listing them stays
+open to every inviter: it hands out nothing.
 
 ---
 
@@ -458,6 +645,12 @@ the extra row separates "exactly the cap" from "more". Past the cap `pageCount` 
 **Next follows whether the page came back full**, never `page >= pageCount`. `Table.recordCounter`
 is a high-water mark, not a count.
 
+The sidebar's per-table number is **`Table.recordCount`, kept by `createRecord` and `deleteRecord`
+in their transactions** — `_count.records` was a `COUNT(*)` per table on every workspace load and
+after every write. Rejected: the capped subquery, which would print `1000+` in a sidebar. **Any new
+path that inserts or deletes records must move it too** (the seeds do); a row that skips it leaves
+the number wrong for good.
+
 ### Type-only imports are invisible to HMR, and `compiler-sfc` caches resolved types
 
 `import type` is erased, so it is no edge in Vite's graph, and `@vue/compiler-sfc` caches resolved
@@ -524,13 +717,13 @@ It must render when data fetching is what failed. **"Go back" reads `history.sta
 goes Home. Three wordings — 404, other 4xx, 5xx — decided by `toPageError` and echoed by the page,
 so a 5xx never blames the user's link.
 
-### `stores/fields.ts` and `stores/relations.ts` carry no per-table guard
+### `stores/fields.ts` carries no per-table guard; `stores/relations.ts` is cleared by the records store
 
 **Fields:** clearing on a table switch would show "This table has no fields yet" for a round trip,
 since `pending` is false while the loader runs. The page body's state order — skeleton tested before
-the fieldless state — is what covers the gap. **Relations:** `linkedByField` is keyed by field id
-and the detail dialog caches fields of other tables, so there is no correct key to clear on;
-merge-only for one session is the design.
+the fieldless state — is what covers the gap. **Relations:** cleared whole when `fetchRecords` moves
+to another table — merge-only grew for the whole session. Nothing is lost that is still read: the
+new page's list and any detail dialog re-send the linked records they show.
 
 ### The records store is not a duplicated cache, and `useAsyncData` would not replace it
 
@@ -553,7 +746,8 @@ midnight.
 
 ### The active-table check compares `route.params.tableId`, not the path
 
-`/tables/:id` is a prefix of `/tables/:id/settings`; the param marks the table active on both.
+`/w/:ws/tables/:id` is a prefix of `/w/:ws/tables/:id/settings`; the param marks the table active
+on both.
 
 ### `BaseBreadcrumbs` is prop-driven
 
@@ -582,6 +776,12 @@ not reproduce it.
 
 ## Components
 
+### The look lives in `ui/` components, not in mixins
+
+A mixin carries no markup, ARIA or behaviour, so every consumer rebuilt them and the copies drifted —
+the page heads had already split on button placement, crumb hiding and margins. Rejected: a mixin
+per surface (`centred-*`, `segmented-*`, `page-title`), each of which had exactly that history.
+
 ### `BaseButton` renders the element its role implies
 
 One component, one stylesheet: `variant` is the appearance, `to` the element. Rejected: a
@@ -607,7 +807,8 @@ screen**, which separates an outside change from an echo.
 
 A native `<select>` cannot colour options, search, load asynchronously, or state
 loading/empty/failed. `searchable` picks the root only: `false` is a
-`<button aria-haspopup="listbox">` named _label + value_, `true` an `<input role="combobox">`.
+`<button aria-haspopup="listbox">` named _label + value_ (with no visible label, `ariaLabel` via a
+hidden span — a bare `aria-label` would drop the value), `true` an `<input role="combobox">`.
 Costs, all deliberate: the OS-native touch picker (`limitations.md`); arrow keys changing a closed
 value (they open instead, or a filter would fire a request per press). Hand-rolled type-ahead (500
 ms buffer) on the button branch **must stay**.
@@ -704,8 +905,8 @@ they depend on.
 ### `RelationFieldSelect` gets its `tableId` from the store, not from `IField`
 
 `IField` has no `tableId`, and adding one would force `buildRecordColumn()`'s synthetic fields to
-invent one. `loadOptions(tableId, fields)` records it per field. `searchOptions` never writes
-`optionsByField` (the seed others read) but does `cacheLabels`.
+invent one. The page `setOptionSource`s the table it shows. `searchOptions` never writes
+`optionsByField` (the seed others read) but does cache the linked records it finds.
 
 ### A coloured badge carries a dot, not a border
 
@@ -798,7 +999,7 @@ change the group's min-content. Rejected: `flex: 1` on the group (pushes the act
 edge). The primary button takes `flex: none` through a page-owned class, or it shrinks and wraps its
 label.
 
-### `text-link` is a class, not a mixin
+### `g-text-link` is a class, not a mixin
 
 No per-site variation, so a shared block. It is the one look for a link **inside a sentence**; a
 link standing alone in an action row is a `BaseButton` with `to` (header links at 21px failed SC

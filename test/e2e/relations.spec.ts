@@ -5,6 +5,7 @@ import {
   expect,
   prisma,
   test,
+  WORKSPACE_HOME,
 } from '~~/test/e2e/setup/fixtures'
 import type { ISeededTable } from '~~/test/e2e/setup/fixtures'
 
@@ -120,7 +121,7 @@ test('deleting a table nothing points at succeeds', async ({ page }) => {
   await page.getByRole('button', { name: 'Delete table' }).click()
   await confirmDeletion(page)
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL(WORKSPACE_HOME)
   await expect(page.getByRole('main').getByRole('link', { name: /Deals/ })).toHaveCount(0)
 })
 

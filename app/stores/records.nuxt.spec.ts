@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery } from 'h3'
 import { createPinia, setActivePinia } from 'pinia'
@@ -9,6 +9,8 @@ import { useRecordsStore } from '~/stores/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
 import { record } from '~~/test/fixtures'
+
+const WS = 'k3f9x2m8qa'
 
 const DEFAULT_QUERY: IRecordQueryState = {
   page: 1,
@@ -35,8 +37,25 @@ function buildTableRow(counts: { fields: number; records: number }) {
   }
 }
 
+/** The first page answers only when released, so a later request can overtake it. */
+let releaseFirstPage: (() => void) | undefined
+const FIRST_PAGE = page({ records: [ACME] })
+const SECOND_PAGE = page({ records: [GLOBEX], page: 2 })
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_race/records', {
+  method: 'GET',
+  handler: async (event) => {
+    if (getQuery(event).page === '2') return SECOND_PAGE
+
+    await new Promise<void>((resolve) => {
+      releaseFirstPage = resolve
+    })
+    return FIRST_PAGE
+  },
+})
+
 for (const tableId of ['tbl_1', 'tbl_2']) {
-  registerEndpoint(`/api/tables/${tableId}/records`, {
+  registerEndpoint(`/api/workspaces/k3f9x2m8qa/tables/${tableId}/records`, {
     method: 'GET',
     handler: (event) => {
       const { page } = getQuery(event)
@@ -47,7 +66,7 @@ for (const tableId of ['tbl_1', 'tbl_2']) {
     },
   })
 
-  registerEndpoint(`/api/tables/${tableId}/records`, {
+  registerEndpoint(`/api/workspaces/k3f9x2m8qa/tables/${tableId}/records`, {
     method: 'POST',
     handler: () => {
       writes.push(`POST ${tableId}`)
@@ -59,7 +78,27 @@ for (const tableId of ['tbl_1', 'tbl_2']) {
   })
 }
 
-registerEndpoint('/api/tables/tbl_1/records/rec_1', {
+let lastIfMatch: string | undefined
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/records/rec_stale', {
+  method: 'PATCH',
+  handler: () => {
+    throw createError({ statusCode: 412, statusMessage: 'Someone changed this record' })
+  },
+})
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/records/rec_1', {
+  method: 'PATCH',
+  handler: (event) => {
+    // Case-insensitively: this mock keeps the header's case where Node lower-cases it
+    lastIfMatch =
+      new Headers(event.node.req.headers as Record<string, string>).get('if-match') ?? undefined
+    writes.push('PATCH rec_1')
+    return { record: record({ id: 'rec_1', number: 1, data: { company: 'Renamed' } }) }
+  },
+})
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/records/1', {
   method: 'PATCH',
   handler: () => {
     writes.push('PATCH rec_1')
@@ -67,15 +106,7 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   },
 })
 
-registerEndpoint('/api/tables/tbl_1/records/1', {
-  method: 'PATCH',
-  handler: () => {
-    writes.push('PATCH rec_1')
-    return { record: record({ id: 'rec_1', number: 1, data: { company: 'Renamed' } }) }
-  },
-})
-
-registerEndpoint('/api/tables/tbl_1/records/rec_1', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1/records/rec_1', {
   method: 'DELETE',
   handler: () => {
     writes.push('DELETE rec_1')
@@ -83,14 +114,14 @@ registerEndpoint('/api/tables/tbl_1/records/rec_1', {
   },
 })
 
-registerEndpoint('/api/tables', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables', {
   method: 'GET',
   handler: () => ({ tables: [buildTableRow({ fields: 2, records: 7 })] }),
 })
 
 async function loadedTables() {
   const tables = useTablesStore()
-  await tables.fetchTables()
+  await tables.fetchTables(WS)
 
   return tables
 }
@@ -133,12 +164,26 @@ describe('useRecordsStore', () => {
       response = page({ records: [ACME], total: 51, page: 2, pageSize: 25 })
       const store = useRecordsStore()
 
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
       expect(store.records).toEqual([ACME])
       expect(store.total).toBe(51)
       expect(store.page).toBe(2)
       expect(store.pageSize).toBe(25)
+    })
+
+    it('keeps the newest request’s page when an older one answers after it', async () => {
+      const store = useRecordsStore()
+
+      const first = store.fetchRecords(WS, 'tbl_race', DEFAULT_QUERY)
+      await vi.waitFor(() => expect(releaseFirstPage).toBeDefined())
+      await store.fetchRecords(WS, 'tbl_race', { ...DEFAULT_QUERY, page: 2 })
+      releaseFirstPage?.()
+      await first
+
+      expect(store.records).toEqual([GLOBEX])
+      expect(store.page).toBe(2)
+      expect(store.status).toBe('ready')
     })
 
     it('caches the linked records the page came with', async () => {
@@ -147,7 +192,7 @@ describe('useRecordsStore', () => {
       })
       const store = useRecordsStore()
 
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
       expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toEqual({
         number: 1,
@@ -158,7 +203,7 @@ describe('useRecordsStore', () => {
     it('is loading only for the duration of the request', async () => {
       const store = useRecordsStore()
 
-      const settled = store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      const settled = store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       expect(store.status).toBe('loading')
 
       await settled
@@ -169,7 +214,7 @@ describe('useRecordsStore', () => {
       listShouldFail = true
       const store = useRecordsStore()
 
-      await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
+      await expect(store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)).rejects.toThrow()
 
       expect(store.status).toBe('failed')
     })
@@ -177,10 +222,10 @@ describe('useRecordsStore', () => {
     it('clears the failure on the next good fetch', async () => {
       listShouldFail = true
       const store = useRecordsStore()
-      await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
+      await expect(store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)).rejects.toThrow()
 
       listShouldFail = false
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
       expect(store.status).toBe('ready')
     })
@@ -194,13 +239,14 @@ describe('useRecordsStore', () => {
         page: 1,
         pageSize: RECORD_PAGE_SIZE,
         status: 'ready',
+        loadedWorkspaceAddress: WS,
         loadedTableAddress: 'tbl_1',
       }
       setActivePinia(pinia)
       listShouldFail = true
       const store = useRecordsStore()
 
-      await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
+      await expect(store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)).rejects.toThrow()
 
       expect(store.records).toEqual([ACME, GLOBEX])
       expect(store.total).toBe(2)
@@ -211,22 +257,34 @@ describe('useRecordsStore', () => {
     it('drops the previous table’s rows before loading another', async () => {
       const store = useRecordsStore()
       response = page({ records: [ACME, GLOBEX], total: 2, page: 3 })
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
       listShouldFail = true
-      await expect(store.fetchRecords('tbl_2', DEFAULT_QUERY)).rejects.toThrow()
+      await expect(store.fetchRecords(WS, 'tbl_2', DEFAULT_QUERY)).rejects.toThrow()
 
       expect(store.records).toEqual([])
       expect(store.total).toBe(0)
       expect(store.page).toBe(1)
     })
 
+    it('drops the previous table’s linked records too, so the cache does not grow per table', async () => {
+      const store = useRecordsStore()
+      response = page({ linkedRecords: { fld_owner: { rec_ada: { number: 1, label: 'Ada' } } } })
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
+      expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toBeDefined()
+
+      response = page()
+      await store.fetchRecords(WS, 'tbl_2', DEFAULT_QUERY)
+
+      expect(useRelationsStore().findLinkedRecord('fld_owner', 'rec_ada')).toBeUndefined()
+    })
+
     it('keeps what it has when the same table is refetched', async () => {
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
       listShouldFail = true
-      await expect(store.fetchRecords('tbl_1', DEFAULT_QUERY)).rejects.toThrow()
+      await expect(store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)).rejects.toThrow()
 
       expect(store.records).toEqual([ACME, GLOBEX])
     })
@@ -241,7 +299,7 @@ describe('useRecordsStore', () => {
       response = page({ total: 51, pageSize: 25 })
       const store = useRecordsStore()
 
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
       expect(store.pageCount).toBe(3)
     })
@@ -250,7 +308,7 @@ describe('useRecordsStore', () => {
       response = page({ total: 50, pageSize: 25 })
       const store = useRecordsStore()
 
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
       expect(store.pageCount).toBe(2)
     })
@@ -259,10 +317,10 @@ describe('useRecordsStore', () => {
   describe('createRecord', () => {
     it('puts a new record on page 1 of the default view', async () => {
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      const nextPage = await store.createRecord('tbl_1', { company: 'New' }, DEFAULT_QUERY)
+      const nextPage = await store.createRecord(WS, 'tbl_1', { company: 'New' }, DEFAULT_QUERY)
 
       expect(nextPage).toBe(1)
       expect(listCalls()).toBe(1)
@@ -271,10 +329,10 @@ describe('useRecordsStore', () => {
     it('sends the caller back to page 1 from deeper in the default view', async () => {
       const store = useRecordsStore()
       const onPage3 = { ...DEFAULT_QUERY, page: 3 }
-      await store.fetchRecords('tbl_1', onPage3)
+      await store.fetchRecords(WS, 'tbl_1', onPage3)
       requests.length = 0
 
-      const nextPage = await store.createRecord('tbl_1', { company: 'New' }, onPage3)
+      const nextPage = await store.createRecord(WS, 'tbl_1', { company: 'New' }, onPage3)
 
       expect(nextPage).toBe(1)
       expect(listCalls()).toBe(0)
@@ -288,10 +346,10 @@ describe('useRecordsStore', () => {
     ])('stays on the current page under %s', async (_name, narrowing) => {
       const store = useRecordsStore()
       const query = { ...DEFAULT_QUERY, page: 2, ...narrowing }
-      await store.fetchRecords('tbl_1', query)
+      await store.fetchRecords(WS, 'tbl_1', query)
       requests.length = 0
 
-      const nextPage = await store.createRecord('tbl_1', { company: 'New' }, query)
+      const nextPage = await store.createRecord(WS, 'tbl_1', { company: 'New' }, query)
 
       expect(nextPage).toBe(2)
       expect(listCalls()).toBe(1)
@@ -300,7 +358,7 @@ describe('useRecordsStore', () => {
     it('creates before it decides anything', async () => {
       const store = useRecordsStore()
 
-      await store.createRecord('tbl_1', { company: 'New' }, DEFAULT_QUERY)
+      await store.createRecord(WS, 'tbl_1', { company: 'New' }, DEFAULT_QUERY)
 
       expect(writes).toContain('POST tbl_1')
     })
@@ -309,7 +367,7 @@ describe('useRecordsStore', () => {
       const tables = await loadedTables()
       const store = useRecordsStore()
 
-      await store.createRecord('tbl_1', { company: 'New' }, DEFAULT_QUERY)
+      await store.createRecord(WS, 'tbl_1', { company: 'New' }, DEFAULT_QUERY)
 
       expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 8 })
     })
@@ -318,31 +376,64 @@ describe('useRecordsStore', () => {
   describe('updateRecord', () => {
     it('swaps the record in place in the default view', async () => {
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      await store.updateRecord('tbl_1', 'rec_1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
 
       expect(store.records[0]?.data.company).toBe('Renamed')
       expect(store.records[1]).toEqual(GLOBEX)
       expect(listCalls()).toBe(0)
     })
 
+    it('sends the version the form was opened on, so a newer one is refused', async () => {
+      const store = useRecordsStore()
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
+
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
+
+      expect(lastIfMatch).toBe(`"${ACME.updatedAt}"`)
+    })
+
+    it('rejects a lost race and refreshes the list, so reopening shows the winner', async () => {
+      const store = useRecordsStore()
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
+      requests.length = 0
+
+      await expect(
+        store.updateRecord(
+          WS,
+          'tbl_1',
+          { ...ACME, id: 'rec_stale' },
+          { company: 'Mine' },
+          DEFAULT_QUERY,
+        ),
+      ).rejects.toMatchObject({ statusCode: 412 })
+
+      await vi.waitFor(() => expect(listCalls()).toBe(1))
+    })
+
     it('swaps the row when the record was addressed by its number', async () => {
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
-      await store.updateRecord('tbl_1', '1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(
+        WS,
+        'tbl_1',
+        { ...ACME, id: '1' },
+        { company: 'Renamed' },
+        DEFAULT_QUERY,
+      )
 
       expect(store.records[0]?.data.company).toBe('Renamed')
     })
 
     it('replaces the array rather than mutating it', async () => {
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       const before = store.records
 
-      await store.updateRecord('tbl_1', 'rec_1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
 
       expect(store.records).not.toBe(before)
     })
@@ -350,10 +441,10 @@ describe('useRecordsStore', () => {
     it('refetches instead when the view is narrowed', async () => {
       const store = useRecordsStore()
       const query = { ...DEFAULT_QUERY, filters: { company: 'acme' } }
-      await store.fetchRecords('tbl_1', query)
+      await store.fetchRecords(WS, 'tbl_1', query)
       requests.length = 0
 
-      await store.updateRecord('tbl_1', 'rec_1', { company: 'Renamed' }, query)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, query)
 
       expect(listCalls()).toBe(1)
     })
@@ -361,9 +452,9 @@ describe('useRecordsStore', () => {
     it('moves no count — an edit changes a record, not how many there are', async () => {
       const tables = await loadedTables()
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
-      await store.updateRecord('tbl_1', 'rec_1', { company: 'Renamed' }, DEFAULT_QUERY)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, DEFAULT_QUERY)
 
       expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 7 })
     })
@@ -372,10 +463,10 @@ describe('useRecordsStore', () => {
       response = page({ page: 4 })
       const store = useRecordsStore()
       const query = { ...DEFAULT_QUERY, page: 1, search: 'acme' }
-      await store.fetchRecords('tbl_1', query)
+      await store.fetchRecords(WS, 'tbl_1', query)
       requests.length = 0
 
-      await store.updateRecord('tbl_1', 'rec_1', { company: 'Renamed' }, query)
+      await store.updateRecord(WS, 'tbl_1', ACME, { company: 'Renamed' }, query)
 
       expect(requests[0]?.page).toBe('4')
     })
@@ -384,10 +475,10 @@ describe('useRecordsStore', () => {
   describe('deleteRecord', () => {
     it('always refetches', async () => {
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
+      await store.deleteRecord(WS, 'tbl_1', 'rec_1', DEFAULT_QUERY)
 
       expect(writes).toContain('DELETE rec_1')
       expect(listCalls()).toBe(1)
@@ -396,10 +487,10 @@ describe('useRecordsStore', () => {
     it('stays put while the page still has records', async () => {
       response = page({ total: 100, pageSize: 25, page: 2 })
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
+      await store.deleteRecord(WS, 'tbl_1', 'rec_1', DEFAULT_QUERY)
 
       expect(requests[0]?.page).toBe('2')
     })
@@ -407,10 +498,10 @@ describe('useRecordsStore', () => {
     it('steps back a page when the last record on it goes', async () => {
       response = page({ total: 26, pageSize: 25, page: 2 })
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
+      await store.deleteRecord(WS, 'tbl_1', 'rec_1', DEFAULT_QUERY)
 
       expect(requests[0]?.page).toBeUndefined()
     })
@@ -418,10 +509,10 @@ describe('useRecordsStore', () => {
     it('never asks for a page below the first', async () => {
       response = page({ total: 1, pageSize: 25, page: 1 })
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
       requests.length = 0
 
-      await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
+      await store.deleteRecord(WS, 'tbl_1', 'rec_1', DEFAULT_QUERY)
 
       expect(requests[0]?.page).toBeUndefined()
       expect(requests).toHaveLength(1)
@@ -430,9 +521,9 @@ describe('useRecordsStore', () => {
     it('tells the tables store the record count went down', async () => {
       const tables = await loadedTables()
       const store = useRecordsStore()
-      await store.fetchRecords('tbl_1', DEFAULT_QUERY)
+      await store.fetchRecords(WS, 'tbl_1', DEFAULT_QUERY)
 
-      await store.deleteRecord('tbl_1', 'rec_1', DEFAULT_QUERY)
+      await store.deleteRecord(WS, 'tbl_1', 'rec_1', DEFAULT_QUERY)
 
       expect(tables.tables[0]?._count).toEqual({ fields: 2, records: 6 })
     })

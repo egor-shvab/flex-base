@@ -1,27 +1,40 @@
-import { ref } from 'vue'
+import { ref, shallowRef, triggerRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useRelationsApi } from '~/api/relations'
-import type { IField } from '#shared/types/field'
+import type { TLoadStatus } from '~/types/load-status'
 import type { ILinkedRecord, IRecordOption } from '#shared/types/record'
+
+interface IOptionSource {
+  workspaceAddress: string
+  tableAddress: string
+}
 
 export const useRelationsStore = defineStore('relations', () => {
   const api = useRelationsApi()
 
-  const optionsByField = ref<Record<string, IRecordOption[]>>({})
-  const linkedByField = ref<Record<string, Record<string, ILinkedRecord>>>({})
+  // Shallow and mutated in place, then triggered: a deep ref would proxy every cached record, and
+  // copying a field's whole map per merge costs as much as the map
+  const optionsByField = shallowRef<Record<string, IRecordOption[]>>({})
+  const optionStatusByField = shallowRef<Record<string, TLoadStatus>>({})
+  const linkedByField = shallowRef<Record<string, Record<string, ILinkedRecord>>>({})
+  const linkedByFieldNumber = shallowRef<Record<string, Record<number, ILinkedRecord>>>({})
 
-  const tableAddressByField = ref<Record<string, string>>({})
-
-  const linkedByFieldNumber = ref<Record<string, Record<number, ILinkedRecord>>>({})
+  /** The table whose page is open: its fields' options and searches are asked of it. */
+  const optionSource = ref<IOptionSource | null>(null)
 
   function cacheLinkedRecords(incoming: Record<string, Record<string, ILinkedRecord>>) {
     for (const [fieldId, byRecordId] of Object.entries(incoming)) {
-      linkedByField.value[fieldId] = { ...linkedByField.value[fieldId], ...byRecordId }
+      const byId = (linkedByField.value[fieldId] ??= {})
+      const byNumber = (linkedByFieldNumber.value[fieldId] ??= {})
 
-      const byNumber = { ...linkedByFieldNumber.value[fieldId] }
-      for (const linked of Object.values(byRecordId)) byNumber[linked.number] = linked
-      linkedByFieldNumber.value[fieldId] = byNumber
+      for (const [recordId, linked] of Object.entries(byRecordId)) {
+        byId[recordId] = linked
+        byNumber[linked.number] = linked
+      }
     }
+
+    triggerRef(linkedByField)
+    triggerRef(linkedByFieldNumber)
   }
 
   function toLinkedRecords(options: IRecordOption[]): Record<string, ILinkedRecord> {
@@ -30,22 +43,41 @@ export const useRelationsStore = defineStore('relations', () => {
     )
   }
 
-  async function loadOptions(tableAddress: string, fields: IField[]) {
-    const relationFields = fields.filter((field) => field.type === 'RELATION')
-    if (relationFields.length === 0) return
+  function setOptionSource(workspaceAddress: string, tableAddress: string) {
+    optionSource.value = { workspaceAddress, tableAddress }
+  }
 
-    await Promise.all(
-      relationFields.map(async (field) => {
-        const response = await api.options(tableAddress, field.id)
-        tableAddressByField.value[field.id] = tableAddress
-        optionsByField.value[field.id] = response.options
-        cacheLinkedRecords({ [field.id]: toLinkedRecords(response.options) })
-      }),
-    )
+  function setOptionStatus(fieldId: string, status: TLoadStatus) {
+    optionStatusByField.value = { ...optionStatusByField.value, [fieldId]: status }
+  }
+
+  /**
+   * Called by the picker when it mounts, so a table that is only browsed asks for no options. A
+   * failed load is tried again by the next picker; the picker can still search meanwhile.
+   */
+  async function ensureOptions(fieldId: string) {
+    const source = optionSource.value
+    const status = optionStatusByField.value[fieldId]
+    if (source === null || status === 'loading' || status === 'ready') return
+
+    setOptionStatus(fieldId, 'loading')
+
+    try {
+      const response = await api.options(source.workspaceAddress, source.tableAddress, fieldId)
+      optionsByField.value = { ...optionsByField.value, [fieldId]: response.options }
+      cacheLinkedRecords({ [fieldId]: toLinkedRecords(response.options) })
+      setOptionStatus(fieldId, 'ready')
+    } catch {
+      setOptionStatus(fieldId, 'failed')
+    }
   }
 
   function optionsFor(fieldId: string): IRecordOption[] {
     return optionsByField.value[fieldId] ?? []
+  }
+
+  function findOptionStatus(fieldId: string): TLoadStatus {
+    return optionStatusByField.value[fieldId] ?? 'idle'
   }
 
   function findLinkedRecord(fieldId: string, recordId: string): ILinkedRecord | undefined {
@@ -61,26 +93,44 @@ export const useRelationsStore = defineStore('relations', () => {
     term: string,
     signal: AbortSignal,
   ): Promise<IRecordOption[]> {
-    const tableAddress = tableAddressByField.value[fieldId]
-    if (tableAddress === undefined) return []
+    const source = optionSource.value
+    if (source === null) return []
 
-    const response = await api.search(tableAddress, fieldId, term, signal)
+    const response = await api.search(
+      source.workspaceAddress,
+      source.tableAddress,
+      fieldId,
+      term,
+      signal,
+    )
 
     cacheLinkedRecords({ [fieldId]: toLinkedRecords(response.options) })
 
     return response.options
   }
 
+  /** On a table switch: field ids are per table, so nothing cached for the last one is read again. */
+  function clearState() {
+    optionsByField.value = {}
+    optionStatusByField.value = {}
+    linkedByField.value = {}
+    linkedByFieldNumber.value = {}
+  }
+
   return {
     optionsByField,
+    optionStatusByField,
     linkedByField,
     linkedByFieldNumber,
-    tableAddressByField,
+    optionSource,
     cacheLinkedRecords,
-    loadOptions,
+    setOptionSource,
+    ensureOptions,
     searchOptions,
     optionsFor,
+    findOptionStatus,
     findLinkedRecord,
     findLinkedRecordByNumber,
+    clearState,
   }
 })

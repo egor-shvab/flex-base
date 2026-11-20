@@ -1,0 +1,272 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+import { prisma } from '#server/db/prisma'
+import { InvitationService } from '#server/services/invitations'
+import { RoleService } from '#server/services/roles'
+import { WorkspaceService } from '#server/services/workspaces'
+import { requireMembership } from '#server/utils/workspace-access'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
+import type { IWorkspaceMembership } from '#shared/types/workspace'
+import {
+  addMember,
+  createTable,
+  createUser,
+  setTableAccess,
+  type TSeededUser,
+} from '~~/test/integration/seed'
+
+let ada: TSeededUser
+let owner: IWorkspaceMembership
+let grace: TSeededUser
+let editorRoleId: string
+
+beforeEach(async () => {
+  ada = await createUser('ada@example.com')
+  owner = await requireMembership(ada.id, ada.workspace.publicId)
+  grace = await createUser('Grace@Example.com')
+  editorRoleId = (
+    await prisma.workspaceRole.findUniqueOrThrow({
+      where: { workspaceId_name: { workspaceId: ada.workspace.id, name: 'Editor' } },
+      select: { id: true },
+    })
+  ).id
+})
+
+const invite = (email = 'grace@example.com') =>
+  InvitationService.createInvitation(owner, ada.id, { email, roleId: editorRoleId })
+
+describe('an invitation outliving its sender’s authority', () => {
+  async function invitedByRecruiter() {
+    await prisma.workspaceRole.create({
+      data: {
+        workspaceId: ada.workspace.id,
+        name: 'Recruiter',
+        permissions: ['MEMBERS_INVITE'],
+      },
+    })
+    // A table the Editor reaches whole and the Viewer only reads, so the two roles differ
+    const deals = await createTable(ada.workspace.id, 'Deals')
+    await setTableAccess(ada.workspace.id, 'Recruiter', deals.id, FULL_TABLE_ACCESS)
+    const bob = await createUser('bob@example.com')
+    await addMember(ada.workspace.id, bob.id, 'Recruiter')
+    const recruiter = await requireMembership(bob.id, ada.workspace.publicId)
+    const invitation = await InvitationService.createInvitation(recruiter, bob.id, {
+      email: 'grace@example.com',
+      roleId: editorRoleId,
+    })
+    return { bob, invitation }
+  }
+
+  it('admits no one once the sender is narrowed below the role it grants', async () => {
+    const { bob, invitation } = await invitedByRecruiter()
+    const viewerRoleId = (
+      await prisma.workspaceRole.findUniqueOrThrow({
+        where: { workspaceId_name: { workspaceId: ada.workspace.id, name: 'Viewer' } },
+        select: { id: true },
+      })
+    ).id
+    await prisma.workspaceMember.updateMany({
+      where: { workspaceId: ada.workspace.id, userId: bob.id },
+      data: { roleId: viewerRoleId },
+    })
+
+    await expect(InvitationService.acceptInvitation(grace, invitation.id)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'This invitation is no longer valid',
+    })
+    await expect(requireMembership(grace.id, ada.workspace.publicId)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+    await expect(prisma.workspaceInvitation.count({ where: { id: invitation.id } })).resolves.toBe(
+      0,
+    )
+  })
+
+  it('admits no one once the sender may no longer invite, whatever they still reach', async () => {
+    const { invitation } = await invitedByRecruiter()
+    await prisma.workspaceRole.update({
+      where: { workspaceId_name: { workspaceId: ada.workspace.id, name: 'Recruiter' } },
+      data: { permissions: [] },
+    })
+
+    await expect(InvitationService.acceptInvitation(grace, invitation.id)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'This invitation is no longer valid',
+    })
+    await expect(prisma.workspaceInvitation.count({ where: { id: invitation.id } })).resolves.toBe(
+      0,
+    )
+  })
+
+  it('admits no one once the sender has left the workspace', async () => {
+    const { bob, invitation } = await invitedByRecruiter()
+    await prisma.workspaceMember.deleteMany({
+      where: { workspaceId: ada.workspace.id, userId: bob.id },
+    })
+
+    await expect(InvitationService.acceptInvitation(grace, invitation.id)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+  })
+
+  it('still admits while the sender keeps the authority', async () => {
+    const { invitation } = await invitedByRecruiter()
+
+    await expect(InvitationService.acceptInvitation(grace, invitation.id)).resolves.toMatchObject({
+      role: { name: 'Editor' },
+    })
+  })
+})
+
+describe('an invitation', () => {
+  it('reaches its address whatever the case it registered with, and joins them on accept', async () => {
+    const invitation = await invite()
+
+    const incoming = await InvitationService.listIncomingInvitations(grace)
+    expect(incoming).toEqual([
+      expect.objectContaining({
+        id: invitation.id,
+        workspace: { name: owner.workspace.name },
+        // The Editor may not see roles: its name would tell the invitee what roles there are
+        role: null,
+        invitedBy: { id: ada.id, name: ada.name },
+      }),
+    ])
+
+    const membership = await InvitationService.acceptInvitation(grace, invitation.id)
+
+    expect(membership).toMatchObject({ isOwner: false, role: { name: 'Editor' } })
+    await expect(requireMembership(grace.id, ada.workspace.publicId)).resolves.toMatchObject({
+      memberId: membership.memberId,
+    })
+    await expect(InvitationService.listInvitations(ada.workspace.id)).resolves.toEqual([])
+  })
+
+  it('is renewed, not duplicated, when sent again', async () => {
+    const first = await invite()
+    const again = await invite('GRACE@example.com')
+
+    expect(again.id).toBe(first.id)
+    await expect(prisma.workspaceInvitation.count()).resolves.toBe(1)
+  })
+
+  it('cannot be accepted by anyone else', async () => {
+    const mallory = await createUser('mallory@example.com')
+    const invitation = await invite()
+
+    await expect(InvitationService.acceptInvitation(mallory, invitation.id)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+    await expect(InvitationService.declineInvitation(mallory, invitation.id)).rejects.toMatchObject(
+      { statusCode: 404 },
+    )
+    await expect(prisma.workspaceInvitation.count()).resolves.toBe(1)
+  })
+
+  it('cannot be accepted once expired, and no longer shows as incoming', async () => {
+    const invitation = await invite()
+    await prisma.workspaceInvitation.update({
+      where: { id: invitation.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    })
+
+    await expect(InvitationService.listIncomingInvitations(grace)).resolves.toEqual([])
+    await expect(InvitationService.acceptInvitation(grace, invitation.id)).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'This invitation is no longer valid',
+    })
+    await expect(InvitationService.listInvitations(ada.workspace.id)).resolves.toEqual([
+      expect.objectContaining({ id: invitation.id, isExpired: true }),
+    ])
+  })
+
+  it('creates one membership when accepted twice at once', async () => {
+    const invitation = await invite()
+
+    const outcomes = await Promise.allSettled([
+      InvitationService.acceptInvitation(grace, invitation.id),
+      InvitationService.acceptInvitation(grace, invitation.id),
+    ])
+
+    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled').length).toBeGreaterThan(0)
+    for (const outcome of outcomes) {
+      if (outcome.status === 'rejected') expect(outcome.reason).toMatchObject({ statusCode: 404 })
+    }
+    await expect(
+      prisma.workspaceMember.count({ where: { workspaceId: ada.workspace.id, userId: grace.id } }),
+    ).resolves.toBe(1)
+    await expect(prisma.workspaceInvitation.count()).resolves.toBe(0)
+  })
+
+  it('is refused for someone already a member', async () => {
+    await InvitationService.acceptInvitation(grace, (await invite()).id)
+
+    await expect(invite()).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('keeps its role from being deleted until it is revoked', async () => {
+    const invitation = await invite()
+
+    await expect(RoleService.deleteRole(owner, editorRoleId)).rejects.toMatchObject({
+      statusCode: 409,
+    })
+
+    await InvitationService.revokeInvitation(owner, invitation.id)
+    await expect(RoleService.deleteRole(owner, editorRoleId)).resolves.toBeUndefined()
+  })
+
+  it('goes with its workspace', async () => {
+    await invite()
+
+    await WorkspaceService.deleteWorkspace(owner)
+
+    await expect(prisma.workspaceInvitation.count()).resolves.toBe(0)
+  })
+
+  it('is revoked or renewed under another role only by someone who could have sent it', async () => {
+    const roleIdOf = async (name: string) =>
+      (
+        await prisma.workspaceRole.findUniqueOrThrow({
+          where: { workspaceId_name: { workspaceId: ada.workspace.id, name } },
+          select: { id: true },
+        })
+      ).id
+    const invitation = await InvitationService.createInvitation(owner, ada.id, {
+      email: 'grace@example.com',
+      roleId: await roleIdOf('Admin'),
+    })
+    await prisma.workspaceRole.create({
+      data: { workspaceId: ada.workspace.id, name: 'Recruiter', permissions: ['MEMBERS_INVITE'] },
+    })
+    const bob = await createUser('bob@example.com')
+    await addMember(ada.workspace.id, bob.id, 'Recruiter')
+    const recruiter = await requireMembership(bob.id, ada.workspace.publicId)
+
+    await expect(
+      InvitationService.revokeInvitation(recruiter, invitation.id),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      InvitationService.createInvitation(recruiter, bob.id, {
+        email: 'grace@example.com',
+        roleId: await roleIdOf('Viewer'),
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      prisma.workspaceInvitation.findUniqueOrThrow({
+        where: { id: invitation.id },
+        select: { role: { select: { name: true } } },
+      }),
+    ).resolves.toEqual({ role: { name: 'Admin' } })
+  })
+
+  it('can only be revoked from its own workspace', async () => {
+    const invitation = await invite()
+
+    await expect(
+      InvitationService.revokeInvitation(
+        await requireMembership(grace.id, grace.workspace.publicId),
+        invitation.id,
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 })
+    await expect(prisma.workspaceInvitation.count()).resolves.toBe(1)
+  })
+})

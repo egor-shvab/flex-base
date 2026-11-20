@@ -31,15 +31,22 @@ Non-negotiable:
 
 - **Metadata-driven** — forms, tables and APIs come from configuration in the database, never from
   hardcoded entities. A new field type plugs into the registries without rewrites (§9).
-- **Server-enforced ownership** — every resource belongs to one user, checked on the server on every
-  request.
+- **Server-enforced access** — every resource belongs to one workspace; membership and the role's
+  permissions are checked on the server on every request.
 - **Full TypeScript coverage**, with zod schemas shared by client and server; **YAGNI** — build what
   the change needs, favouring clean architecture over short-term optimisation.
 
-**Out of scope unless explicitly asked:** teams, workspaces, permissions, dashboards, activity
-history, workflows, automations, file uploads, import/export, third-party integrations. The
-architecture may be shaped to accommodate them only where that also improves existing code. A design
-element whose feature is out of scope is not built.
+**In scope:** workspaces (create, rename, delete, switch, transfer ownership), members invited by
+email and accepted in the app, custom roles over a closed permission set with per-table and
+per-field record access, a user's display name, and record authorship
+(`createdBy`/`updatedBy`).
+
+**Out of scope unless explicitly asked:** invite links, sending email
+or verifying addresses, billing, real-time updates, workspace slug/logo/time zone, moving a table
+between workspaces, account deletion, dashboards, activity history, workflows, automations, file
+uploads, import/export, third-party integrations. The architecture may be shaped to accommodate them
+only where that also improves existing code. A design element whose feature is out of scope is not
+built.
 
 `docs/limitations.md` **Open** entries are in scope; **Accepted** ones are not unless a request says
 so — and an Open entry waits behind its stated trigger.
@@ -63,13 +70,22 @@ In order:
 3. `npm run build` passes;
 4. `npm run test` passes, with tests for the changed logic (§10);
 5. interactive or visual change: the keyboard path works and the focus ring is visible (a manual
-   walk; target size and axe are gated by `npm run test:e2e`);
+   walk; target size and axe are gated by `npm run test:e2e`, which is slow — run it only when the
+   user asks or the change is substantial: a new route or flow, auth/access, the shell layout);
 6. verified in the running app (`preview_start` with `dev`; `npm run db:seed` gives an account to
    sign in with — credentials in `README.md`);
 7. a knowingly left limitation is recorded in `docs/limitations.md`;
 8. docs updated **only where a rule, contract or limitation changed** (§12).
 
-A change to Markdown only needs steps 1 and 8.
+A change to Markdown only needs steps 1 and 8. `npm run verify` runs steps 1, 2 and 4 with
+typecheck, printing only what fails.
+
+**Two agents take part without being asked** (`.claude/agents/`):
+
+- once a code change is written, before it is called done, the **`reviewer`** checks it against
+  these rules — not for Markdown-only changes, one-line fixes or work in progress;
+- the **`verifier`** runs the slow suites (integration, e2e) in the background while other work goes
+  on; the fast steps stay a direct `npm run verify`.
 
 **Change nothing unless the user explicitly asks for that change.** A question, a "should we…?" or
 a request for options gets an answer and a proposal, never an edit.
@@ -83,8 +99,10 @@ Commit message.
 ## 3. Layering
 
 **`server/` is three layers pointing one way — `api` → `services` → `db` —** with `utils/`
-importable by all three and importing none. `db/` is the only place that touches the Prisma client,
-a `select` shape, a row mapper or `Prisma.Sql` (so the per-type SQL lives in `db/field-types/`).
+importable by all three; `utils/` may read `db/` (the access helpers query through it) but never
+`services/` or `api/`. `db/` is the only home of a `select` shape, a row mapper or `Prisma.Sql` (so
+the per-type SQL lives in `db/field-types/`); services and `utils/` call the Prisma client with
+them directly — Prisma is already the repository (`docs/decisions.md`).
 **`db/` may not import `h3`**: it classifies a fault, `utils/http-errors.ts` maps it. Enforced by
 `no-restricted-imports` — **an alias-prefixed restriction must be a `regex` pattern, never a
 `group`** (`docs/decisions.md`).
@@ -127,15 +145,27 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   `FieldService`, `RecordService`, `RelationService`), called as `FieldService.createField(…)`;
   method names are never shortened. `app/api/` modules are bound per resource inside a store, so
   their members stay bare (`api.list`, `api.remove`).
-- **A table-scoped route is declared with a factory from `server/utils/handler.ts`**, never a bare
-  `defineEventHandler` — the ownership check is what produces the context. A shape none covers
-  **adds a factory**.
-- **Ownership lives in the query:** scope every Prisma query inside its `where` (`{ id, userId }` or
-  a relation filter through `table`) via `server/utils/ownership.ts` — never fetch then check.
-- **Status codes:** another user's resource is **404, never 403**; 401 only from
-  `requireUser(event)`; 409 for uniqueness conflicts; every login failure is the same generic 401.
-- `User` rows are read with an explicit `select` (`id`, `email`); `passwordHash` never leaves. Never
-  return another user's data.
+- **A workspace- or table-scoped route is declared with a factory from `server/utils/handler.ts`**,
+  never a bare `defineEventHandler`, and names the permission it needs — or, for a record route,
+  the record action the table's access must allow — the membership check is what produces the
+  context. A shape none covers **adds a factory**.
+- **Access lives in the query:** membership is resolved from the caller's id and the workspace
+  address in one scoped query; every later `where` takes its `workspaceId` from that result (or a
+  `tableId` proved through it), never from a body or an address — never fetch then check.
+- **Role rules live in `shared/`**: a non-owner may only assign, edit or act on a role whose
+  access lies within their own — permissions, and every table and field
+  (`isAccessWithin`) — and never on the role they hold (`isHeldRoleLocked`). The server decides
+  it; the client reads its answer per role (`isWithinCaller`), never recomputes it, and asks
+  whether a role may be edited only through `canEditRole`. Roles — a member's own and the
+  owner's mark included — reach only `ROLES_VIEW` (`toMembershipView`, `MemberService.listMembers`),
+  which `hasPermission` grants through `IMPLIED_PERMISSIONS` too.
+- **Status codes:** a resource outside the caller's workspaces, or a table their role may not read,
+  is **404, never 403**; a member lacking the permission or record action, or acting on a record
+  they read but did not create under an `OWN` scope, is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use
+  conflicts and a guarded write whose checked row changed meanwhile; 412 for a write whose `If-Match` version is stale (records, fields, roles);
+  every login failure is the same generic 401.
+- `User` rows are read with an explicit `select`; `passwordHash` never leaves. A user's email
+  reaches only members of a workspace they share; authorship carries `id` and `name` only.
 - Errors are `createError({ statusCode, statusMessage })`. Secrets come from
   `useRuntimeConfig(event)`, never `process.env` (sole exception: `server/db/prisma.ts`).
 - Record lists are **always paginated server-side** (default 50, cap 100). **No queries in loops** —
@@ -177,7 +207,7 @@ instant on a small table locks a large one for minutes.
   - `on<Event>` a listener for a raw DOM event, named by element and event — `onListKeydown`; a
     handler for a user action is named for the action (`retryOptions`), never `handle*`
   - `*For(field)` sync registry lookup keyed by a field (§9) — `inputFor`
-  - `require*` · `assert*` throws unless a precondition holds — `requireOwnedTable`
+  - `require*` · `assert*` throws unless a precondition holds — `requireWorkspaceTable`
   - `list*` · `get*` · `count*` server read — a collection, exactly one row (throws if absent), or a
     number of matching rows — `listPageRows`
   - `resolve*` replaces references with what they point at, and may query — `resolveLinkedRecords`
@@ -222,7 +252,12 @@ instant on a small table locks a large one for minutes.
 ## 7. Frontend conventions
 
 - Pinia stores are **setup-style**; state is mutated only inside the store's actions.
-- `Base*` prefix for generic atoms in `app/components/common/`.
+- **`app/components/` splits by what a component may know:** `ui/` is the kit — `Base*` atoms and
+  generic dialogs, taking everything through props and slots, never a store, `app/api/` or another
+  component folder (lint-enforced); `app/` is the shell; `features/<domain>/` holds whatever knows
+  records, fields, tables or the workspace, its modals included. A modal goes by domain, not shape.
+  **The kit must be able to leave as a library:** a reusable look is a `ui/` component, never a
+  mixin or a block copied between pages.
 - **A composable belonging to one component lives in that component's folder** (`Foo/Foo.vue` +
   `Foo/useThing.ts` + its specs) — `BaseSelect/` today. **A page is the exception** (a sibling
   folder would become a route): its composable stays in `app/composables/`, scoped by TSDoc.
@@ -231,12 +266,13 @@ instant on a small table locks a large one for minutes.
   shared schemas, never a parallel interface.
 - Data fetching: page → `useAsyncData` / store action → **`app/api/`** → `useApi()`. **Never bare
   `$fetch`** (it drops cookies in SSR). Errors via `getApiErrorMessage`.
-- **A URL and a response type live only in `app/api/`** — paths from `apiPath`, responses declared
+- **A URL and a response type live only in `app/api/`** — paths from `apiPath` (every segment
+  encoded), responses declared
   in `shared/types/api.ts` and annotated on every handler. A store or component writing `/api/…` or
   an `api<{…}>` generic is reaching past that layer.
-- Forms use `useForm`, a field's label and message `BaseField`; list-page deletes use
-  `useDeleteConfirm`; a popover uses `usePopover` (+ `useAnchoredPosition` to escape a clipping
-  ancestor).
+- Forms use `useForm`, a field's label and message `BaseField`; a card is `BaseCard`, its rows
+  `BaseListRow` or `BaseDetailRow`; list-page deletes use `useDeleteConfirm`; a popover uses
+  `usePopover` (+ `useAnchoredPosition` to escape a clipping ancestor).
 - **A popover swallows Escape only while it has something open.** `BaseModal` and the shell's
   sidebar hold the only two `document` Escape listeners; a popover adds none — `@keydown.esc.stop`
   on its panel where focus is inside it, a JS check on `isOpen` where focus stays outside (a
@@ -299,7 +335,7 @@ replaces the keyboard walk.
   is the only tier below. Content-sized controls need **both** axes floored. 44×44 is AAA — never
   quote it as the AA bar.
 - The gate (`test/e2e/accessibility.spec.ts`, `test/e2e/setup/a11y.ts`) encodes three SC 2.5.8
-  exceptions — `.text-link` inline, an `<input>` whose wrapping `<label>` is the target, anything
+  exceptions — `.g-text-link` inline, an `<input>` whose wrapping `<label>` is the target, anything
   not rendered. **Do not add a fourth to make a failure go away.**
 - Text contrast ≥ 4.5:1; control outlines and other non-text UI ≥ 3:1 (hence
   `--color-border-control` apart from `--color-border-strong`).
@@ -313,17 +349,22 @@ replaces the keyboard walk.
 - `functions` and `mixins` reach every SFC and
   entry file automatically (Vite `additionalData`), but **not** a transitively
   `@use`d partial — such a partial `@use`s both itself, and `main.scss` must not re-`@use` either.
-- **Reuse before you paste:** check `_mixins.scss`; a block with no per-site variation is a class in
-  its own partial (`.auth-form`, `.text-link`, `.visually-hidden`). Use `.visually-hidden` to hide
-  text — `display: none` / `visibility: hidden` remove it from the accessibility tree.
+- **Reuse before you paste, in this order:** a `ui/` component for anything with markup; a global
+  class in `scss/classes/` for a look with no per-site variation, always named `g-*` (`.g-eyebrow`,
+  `.g-text-link`, `.g-visually-hidden`); a mixin only for a primitive (`stack`, `cluster`,
+  `truncate`, `focus-ring`, breakpoints) or a chassis used only inside `ui/`. Use
+  `.g-visually-hidden` to hide text — `display: none` / `visibility: hidden` remove it from the
+  accessibility tree.
 - **Components consume `var(--color-*)` and nothing else**; palette primitives must stay unreachable
   from an SFC.
 - **Tokens come in coherent semantic sets**, consumed by real UI in the same change — never a
   one-off, never an unread value. Every `rem()` inside `_variables.scss` is interpolated:
   `--radius-md: #{rem(8)}`.
 - **Breakpoints live in `_mixins.scss`, in `em`**: `$breakpoint-shell` (56.25em, the off-canvas
-  sidebar, `below-shell`) and `$breakpoint-compact` (40em, one-step breadcrumb and bottom sheets,
-  `below-compact`). Add one only for a real layout need, named for that layout.
+  sidebar, `below-shell`), `$breakpoint-compact` (40em, one-step breadcrumb and bottom sheets,
+  `below-compact`) and `$breakpoint-access-grid` (40em of its card, a container query: the role
+  editor's table grid, `below-access-grid`). Add one only for a real layout need, named for that
+  layout.
 - **Icons:** `@nuxt/icon` with Material Symbols outline-rounded names — **never text glyphs** (`×`,
   `+`, `✓`, `→`) as icons; icon buttons use `BaseButton`'s `icon` variant.
 
@@ -422,7 +463,8 @@ The rest — the e2e and integration rigs, coverage, the spec-only invariants �
 
 ## 11. Environment & tooling
 
-Setup and `.env` are in `README.md`; `JWT_SECRET` reaches the server as `runtimeConfig.jwtSecret`.
+Setup and `.env` are in `README.md`; `NUXT_JWT_SECRET` reaches the server as `runtimeConfig.jwtSecret`
+at start-up, never at build time.
 
 - **Prisma 7:** CLI config in `prisma.config.ts` (loads `.env` via `dotenv/config`); the client
   generates into `server/generated/prisma` (never edit) and needs `@prisma/adapter-pg`.

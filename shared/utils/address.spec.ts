@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { parseAddressNumber, parseTableAddress, toTableAddress } from '#shared/utils/address'
+import {
+  parseAddressNumber,
+  parseTableAddress,
+  parseWorkspaceAddress,
+  toTableAddress,
+  toWorkspaceAddress,
+} from '#shared/utils/address'
 
 describe('parseAddressNumber', () => {
   it('reads a plain number', () => {
@@ -57,5 +63,28 @@ describe('parseTableAddress', () => {
 describe('toTableAddress', () => {
   it('round-trips through the parser', () => {
     expect(parseTableAddress(toTableAddress({ number: 12 }))).toBe(12)
+  })
+})
+
+describe('parseWorkspaceAddress', () => {
+  it('passes a public id through unchanged', () => {
+    expect(parseWorkspaceAddress('k3f9x2m8qa')).toBe('k3f9x2m8qa')
+  })
+
+  it.each([
+    ['a cuid, since only the public id addresses a workspace', 'cmsesqhp60003bgtl7g0dn583'],
+    ['one character short', 'k3f9x2m8q'],
+    ['one character long', 'k3f9x2m8qab'],
+    ['an upper-case letter', 'K3f9x2m8qa'],
+    ['a separator', 'k3f9x-m8qa'],
+    ['nothing at all', ''],
+  ])('is empty for %s', (_case, raw) => {
+    expect(parseWorkspaceAddress(raw)).toBe('')
+  })
+})
+
+describe('toWorkspaceAddress', () => {
+  it('round-trips through the parser', () => {
+    expect(parseWorkspaceAddress(toWorkspaceAddress({ publicId: 'k3f9x2m8qa' }))).toBe('k3f9x2m8qa')
   })
 })

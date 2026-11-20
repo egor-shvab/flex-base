@@ -1,27 +1,57 @@
 import { createError } from 'h3'
 import { Prisma } from '#server/generated/prisma/client'
-import { dropFieldIndexes, syncFieldIndexes } from '#server/db/field-indexes'
+import {
+  dropFieldIndexes,
+  reconcileFieldIndexes,
+  syncFieldIndexes,
+  type IReconcileReport,
+} from '#server/db/field-indexes'
 import { fieldSelect, toFieldOptions, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
-import { buildErrorLogEntry } from '#server/utils/error-log'
-import { recordErrorEntry } from '#server/utils/error-log-file'
-import { toHttpError } from '#server/utils/http-errors'
+import { RelationService } from '#server/services/relations'
+import { recordBackgroundFailure } from '#server/utils/error-log-file'
+import { buildStaleWriteError, toHttpError } from '#server/utils/http-errors'
+import { isMissingRow, isUniqueViolationOn } from '#server/db/prisma-errors'
 import { buildFieldKey } from '#server/utils/field-key'
 import type { IField } from '#shared/types/field'
 import type { TFieldInput } from '#shared/validation/field'
+
+export const MAX_TABLE_FIELDS = 200
+
+const KEY_ATTEMPTS = 3
 
 const fieldErrors = {
   conflict: 'A field with this name already exists',
   notFound: 'Field not found',
 }
 
-function recordBackgroundFailure(error: unknown): void {
-  // Not rethrown: off the request path an uncaught throw would take the process down
-  recordErrorEntry(buildErrorLogEntry(error, null, new Date()))
+const indexWorkByField = new Map<string, Promise<void>>()
+
+/**
+ * One field's index DDL runs one job at a time, in the order the edits were saved: two overlapping
+ * syncs could drop an index the other is building and end on a state no edit asked for. Each job
+ * reads the field as it was saved, so the last one leaves the last wanted set.
+ */
+function queueIndexWork(fieldId: string, work: () => Promise<void>): void {
+  const previous = indexWorkByField.get(fieldId) ?? Promise.resolve()
+  const next = previous.then(work).catch(recordBackgroundFailure)
+  indexWorkByField.set(fieldId, next)
+
+  void next.then(() => {
+    if (indexWorkByField.get(fieldId) === next) indexWorkByField.delete(fieldId)
+  })
 }
 
-function syncIndexesInBackground(field: IField): void {
-  void syncFieldIndexes(field).catch(recordBackgroundFailure)
+function syncIndexesInBackground(tableId: string, field: IField): void {
+  queueIndexWork(field.id, () => syncFieldIndexes(tableId, field))
+}
+
+/**
+ * Run once at start-up: indexes built to an older shape, or left by a sync the process did not live
+ * to finish, are only ever repaired here.
+ */
+function reconcileIndexes(): Promise<IReconcileReport> {
+  return reconcileFieldIndexes()
 }
 
 function buildOptions(input: TFieldInput): Prisma.InputJsonValue | typeof Prisma.JsonNull {
@@ -50,47 +80,103 @@ function widenToList(tx: Prisma.TransactionClient, tableId: string, key: string)
   `
 }
 
-async function listFields(tableId: string): Promise<IField[]> {
-  const fields = await prisma.field.findMany({
-    where: { tableId },
-    orderBy: { order: 'asc' },
-    select: fieldSelect,
-  })
-  return fields.map(toSharedField)
+/**
+ * In the same transaction as the field's delete: once the key is free a new field may take it, and
+ * must not inherit — or fail to cast — what the old one stored.
+ */
+function clearFieldValues(tx: Prisma.TransactionClient, tableId: string, key: string) {
+  return tx.$executeRaw`
+    UPDATE "Record"
+    SET data = data - ${key}::text
+    WHERE "tableId" = ${tableId} AND data ? ${key}::text
+  `
 }
 
+/**
+ * The key is derived from the fields read just before, so a create racing another of a similar name
+ * can lose the unique key: it reads again and takes the next free one rather than answering a 409
+ * for a name that is not actually taken. Two racing creates may share an `order`; listing breaks
+ * that tie by creation.
+ */
 async function createField(tableId: string, input: TFieldInput): Promise<IField> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await insertField(tableId, input)
+    } catch (error) {
+      if (attempt < KEY_ATTEMPTS && isUniqueViolationOn(error, 'key')) continue
+      throw toHttpError(error, fieldErrors)
+    }
+  }
+}
+
+async function insertField(tableId: string, input: TFieldInput): Promise<IField> {
   const existing = await prisma.field.findMany({
     where: { tableId },
     select: { key: true, type: true, order: true },
   })
   const maxOrder = existing.reduce((max, field) => Math.max(max, field.order), -1)
 
-  try {
-    const field = await prisma.field.create({
-      data: {
-        tableId,
-        name: input.name,
-        key: buildFieldKey(input.name, input.type, existing),
-        type: input.type,
-        required: input.required,
-        options: buildOptions(input),
-        order: maxOrder + 1,
-        indexed: input.indexed,
-      },
-      select: fieldSelect,
+  // Counted from the read above, not locked: two creates racing past the cap by one is accepted,
+  // as for roles
+  if (existing.length >= MAX_TABLE_FIELDS) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `A table can have at most ${MAX_TABLE_FIELDS} fields`,
     })
+  }
 
-    const created = toSharedField(field)
-    syncIndexesInBackground(created)
+  const field = await prisma.field.create({
+    data: {
+      tableId,
+      name: input.name,
+      key: buildFieldKey(input.name, input.type, existing),
+      type: input.type,
+      required: input.required,
+      options: buildOptions(input),
+      order: maxOrder + 1,
+      indexed: input.indexed,
+    },
+    select: fieldSelect,
+  })
 
-    return created
-  } catch (error) {
-    throw toHttpError(error, fieldErrors)
+  const created = toSharedField(field)
+  syncIndexesInBackground(tableId, created)
+
+  return created
+}
+
+/** Given the version the caller read, the write lands only on that version (as `updateRecord`). */
+/**
+ * A required field a role adds records with but may not fill would refuse every record that role
+ * creates. A new field has no role rows yet, so only an update can meet one. A schema manager
+ * edits every field, so their role never blocks it.
+ */
+async function assertRequiredFillable(tableId: string, fieldId: string, fieldName: string) {
+  const blocked = await prisma.roleFieldAccess.findFirst({
+    where: {
+      fieldId,
+      role: {
+        NOT: { permissions: { has: 'TABLES_MANAGE' } },
+        tableAccess: { some: { tableId, canCreate: true } },
+      },
+    },
+    select: { role: { select: { name: true } } },
+  })
+
+  if (blocked) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `Role "${blocked.role.name}" can add records but cannot fill "${fieldName}"`,
+    })
   }
 }
 
-async function updateField(tableId: string, fieldId: string, input: TFieldInput): Promise<IField> {
+async function updateField(
+  tableId: string,
+  fieldId: string,
+  input: TFieldInput,
+  expectedUpdatedAt?: Date,
+): Promise<IField> {
   const field = await prisma.field.findFirst({
     where: { id: fieldId, tableId },
     select: { key: true, type: true, options: true },
@@ -102,7 +188,7 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     throw createError({ statusCode: 400, statusMessage: 'Field type cannot be changed' })
   }
 
-  const currentOptions = toFieldOptions(field.options)
+  const currentOptions = toFieldOptions(fieldId, field.options)
 
   const currentTarget = currentOptions?.targetTableId
   if (currentTarget !== undefined && currentTarget !== input.targetTableId) {
@@ -117,10 +203,14 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     })
   }
 
+  if (input.required) await assertRequiredFillable(tableId, fieldId, input.name)
+
   try {
     const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.field.update({
-        where: { id: fieldId, tableId },
+        where: expectedUpdatedAt
+          ? { id: fieldId, tableId, updatedAt: expectedUpdatedAt }
+          : { id: fieldId, tableId },
         data: {
           name: input.name,
           required: input.required,
@@ -140,27 +230,47 @@ async function updateField(tableId: string, fieldId: string, input: TFieldInput)
     const saved = toSharedField(updated)
     // Outside the transaction, which refuses `CONCURRENTLY`; on every update, since widening
     // changes which index a field wants
-    syncIndexesInBackground(saved)
+    syncIndexesInBackground(tableId, saved)
 
     return saved
   } catch (error) {
+    if (expectedUpdatedAt && isMissingRow(error)) {
+      const current = await prisma.field.findFirst({
+        where: { id: fieldId, tableId },
+        select: { id: true },
+      })
+      if (current) throw buildStaleWriteError('field')
+    }
     throw toHttpError(error, fieldErrors)
   }
 }
 
-async function deleteField(tableId: string, fieldId: string) {
+async function deleteField(workspaceId: string, tableId: string, fieldId: string) {
+  const field = await prisma.field.findFirst({
+    where: { id: fieldId, tableId },
+    select: { key: true },
+  })
+  if (!field) {
+    throw createError({ statusCode: 404, statusMessage: fieldErrors.notFound })
+  }
+
+  await RelationService.assertNotRelationTarget(workspaceId, tableId, field.key)
+
   try {
-    await prisma.field.delete({ where: { id: fieldId, tableId } })
+    await prisma.$transaction(async (tx) => {
+      await tx.field.delete({ where: { id: fieldId, tableId } })
+      await clearFieldValues(tx, tableId, field.key)
+    })
   } catch (error) {
     throw toHttpError(error, fieldErrors)
   }
 
-  void dropFieldIndexes(fieldId).catch(recordBackgroundFailure)
+  queueIndexWork(fieldId, () => dropFieldIndexes([fieldId]))
 }
 
 export const FieldService = {
   buildOptions,
-  listFields,
+  reconcileIndexes,
   createField,
   updateField,
   deleteField,

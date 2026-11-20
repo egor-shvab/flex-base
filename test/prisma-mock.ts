@@ -5,9 +5,15 @@ interface IModelMock {
   findUnique: Mock
   findUniqueOrThrow: Mock
   findFirst: Mock
+  findFirstOrThrow: Mock
+  count: Mock
   create: Mock
+  createMany: Mock
+  upsert: Mock
   update: Mock
+  updateMany: Mock
   delete: Mock
+  deleteMany: Mock
 }
 
 function modelMock(): IModelMock {
@@ -16,9 +22,15 @@ function modelMock(): IModelMock {
     findUnique: vi.fn(),
     findUniqueOrThrow: vi.fn(),
     findFirst: vi.fn(),
+    findFirstOrThrow: vi.fn(),
+    count: vi.fn(),
     create: vi.fn(),
+    createMany: vi.fn(),
+    upsert: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     delete: vi.fn(),
+    deleteMany: vi.fn(),
   }
 }
 
@@ -27,6 +39,12 @@ export const prismaMock = {
   field: modelMock(),
   record: modelMock(),
   user: modelMock(),
+  workspace: modelMock(),
+  workspaceMember: modelMock(),
+  workspaceRole: modelMock(),
+  workspaceInvitation: modelMock(),
+  roleTableAccess: modelMock(),
+  roleFieldAccess: modelMock(),
   $queryRaw: vi.fn(),
   $executeRaw: vi.fn(),
   $transaction: vi.fn(),
@@ -44,7 +62,20 @@ function installTransaction(): void {
 installTransaction()
 
 export function resetPrismaMock(): void {
-  for (const model of [prismaMock.table, prismaMock.field, prismaMock.record, prismaMock.user]) {
+  const models = [
+    prismaMock.table,
+    prismaMock.field,
+    prismaMock.record,
+    prismaMock.user,
+    prismaMock.workspace,
+    prismaMock.workspaceMember,
+    prismaMock.workspaceRole,
+    prismaMock.workspaceInvitation,
+    prismaMock.roleTableAccess,
+    prismaMock.roleFieldAccess,
+  ]
+
+  for (const model of models) {
     for (const method of Object.values(model)) method.mockReset()
   }
 

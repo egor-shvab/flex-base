@@ -1,4 +1,4 @@
-import { expect, test } from '~~/test/e2e/setup/fixtures'
+import { WORKSPACE_HOME, expect, signInNewUser, test } from '~~/test/e2e/setup/fixtures'
 import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 
 test.describe('signed out', () => {
@@ -7,7 +7,7 @@ test.describe('signed out', () => {
   test('a protected page sends you to sign in, remembering where you were going', async ({
     page,
   }) => {
-    await page.goto('/tables/whatever?stage=Won')
+    await page.goto('/w/whatever/tables/whatever?stage=Won')
 
     await expect(page).toHaveURL(/\/auth\/login\?redirect=/)
     await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible()
@@ -54,21 +54,25 @@ test.describe('signed out', () => {
     const email = `new-${Date.now()}@example.com`
 
     await page.goto('/auth/register')
+    await page.getByLabel('Name').fill('New Person')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery')
     await page.getByLabel('Confirm password').fill('correct-horse-battery')
     await page.getByRole('button', { name: 'Register' }).click()
 
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL(WORKSPACE_HOME)
     await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
+    await expect(
+      page.getByRole('navigation', { name: 'Your tables' }).getByText('New Person'),
+    ).toBeVisible()
   })
 })
 
 test.describe('signed in', () => {
-  test('lands on the dashboard', async ({ page, userId }) => {
-    expect(userId).toBeTruthy()
-
+  test('lands on the dashboard of their workspace', async ({ page, workspace }) => {
     await page.goto('/')
+
+    await expect(page).toHaveURL(`${workspace.url}`)
 
     await expect(page.getByRole('heading', { name: /your tables/i })).toBeVisible()
   })
@@ -76,16 +80,54 @@ test.describe('signed in', () => {
   test('is bounced off the sign-in page', async ({ page }) => {
     await page.goto('/auth/login')
 
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL(WORKSPACE_HOME)
   })
 
-  test('logging out ends the session and protects the pages again', async ({ page }) => {
+  test('the profile dialog renames you, and the sidebar follows', async ({ page }) => {
+    const sidebar = page.getByRole('navigation', { name: 'Your tables' })
+
+    await page.goto('/')
+    await expect(sidebar.getByText(E2E_USER.name)).toBeVisible()
+
+    await sidebar.getByRole('button', { name: 'Edit profile' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Edit profile' })
+    await dialog.getByLabel('Name').fill('Renamed Person')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    await expect(dialog).toBeHidden()
+    await expect(sidebar.getByText('Renamed Person')).toBeVisible()
+
+    await page.reload()
+    await expect(sidebar.getByText('Renamed Person')).toBeVisible()
+
+    // The account is shared by the whole run
+    await sidebar.getByRole('button', { name: 'Edit profile' }).click()
+    await dialog.getByLabel('Name').fill(E2E_USER.name)
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect(sidebar.getByText(E2E_USER.name)).toBeVisible()
+  })
+
+  // Its own user: logging out revokes every session, and the run's account is shared
+  test('logging out ends the session on every device and protects the pages again', async ({
+    browser,
+  }) => {
+    const { page } = await signInNewUser(browser)
+    const otherDevice = await browser.newContext({
+      storageState: await page.context().storageState(),
+    })
+    const otherPage = await otherDevice.newPage()
+    await otherPage.goto('/')
+    await expect(otherPage).toHaveURL(WORKSPACE_HOME)
+
     await page.goto('/')
     await page.getByRole('button', { name: /log out/i }).click()
 
     await expect(page).toHaveURL(/\/auth\/login/)
-
     await page.goto('/')
     await expect(page).toHaveURL(/\/auth\/login/)
+
+    await otherPage.goto('/')
+    await expect(otherPage).toHaveURL(/\/auth\/login/)
+    await otherDevice.close()
   })
 })

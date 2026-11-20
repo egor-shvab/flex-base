@@ -1,29 +1,128 @@
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
+import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithOwner } from '#server/db/workspaces'
+import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
+import type { ITableAccess } from '#shared/types/workspace'
+import { canReadRecords } from '#shared/utils/table-access'
+import { buildTableAccess } from '~~/test/membership'
+import { RIG_ROLES } from '~~/test/rig-roles'
 
 let sequence = 0
 
 const unique = (prefix: string) => `${prefix}_${(sequence += 1)}`
 
-export function createUser(email = `${unique('user')}@example.com`) {
-  return prisma.user.create({
-    data: { email, passwordHash: 'not-a-real-hash' },
-    select: { id: true, email: true },
+/** The rig's roles beside a new workspace's starting one, which it already holds. */
+export async function createRigRoles(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  startingRoleName: string,
+) {
+  await tx.workspaceRole.createMany({
+    data: RIG_ROLES.filter((role) => role.name !== startingRoleName).map((role) => ({
+      workspaceId,
+      name: role.name,
+      permissions: [...role.permissions],
+    })),
   })
 }
 
-export async function createTable(userId: string, name = unique('Table')) {
-  const { tableCounter } = await prisma.user.update({
-    where: { id: userId },
+/**
+ * A user as registration leaves them — owner of a personal workspace under its starting role — with
+ * the rig's other roles beside it.
+ */
+export function createUser(email = `${unique('user')}@example.com`) {
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { email, name: email.split('@')[0] ?? email, passwordHash: 'not-a-real-hash' },
+      select: { id: true, email: true, name: true },
+    })
+    const { workspace, role } = await createWorkspaceWithOwner(tx, {
+      ownerId: user.id,
+      name: PERSONAL_WORKSPACE_NAME,
+    })
+    await createRigRoles(tx, workspace.id, role.name)
+
+    return {
+      ...user,
+      workspace: { id: workspace.id, publicId: workspace.publicId, ownerRoleId: role.id },
+    }
+  })
+}
+
+export type TSeededUser = Awaited<ReturnType<typeof createUser>>
+
+/** Joins `userId` to the workspace under one of its roles, by name. */
+export function addMember(workspaceId: string, userId: string, roleName: string) {
+  return prisma.workspaceMember.create({
+    data: {
+      workspace: { connect: { id: workspaceId } },
+      user: { connect: { id: userId } },
+      role: { connect: { workspaceId_name: { workspaceId, name: roleName } } },
+    },
+    select: { id: true },
+  })
+}
+
+/**
+ * What the default roles reach in a table the rig creates, so a spec about something else need not
+ * open each table to them: a table without a row is closed to a role.
+ */
+const DEFAULT_ROLE_TABLE_ACCESS: Record<string, ITableAccess> = {
+  Admin: FULL_TABLE_ACCESS,
+  Editor: FULL_TABLE_ACCESS,
+  Viewer: buildTableAccess(),
+}
+
+export async function createTable(workspaceId: string, name = unique('Table')) {
+  const { tableCounter } = await prisma.workspace.update({
+    where: { id: workspaceId },
     data: { tableCounter: { increment: 1 } },
     select: { tableCounter: true },
   })
 
-  return prisma.table.create({
-    data: { userId, name, number: tableCounter },
+  const table = await prisma.table.create({
+    data: { workspaceId, name, number: tableCounter },
     select: { id: true, number: true, name: true, createdAt: true, updatedAt: true },
+  })
+  const roles = await prisma.workspaceRole.findMany({
+    where: { workspaceId, name: { in: Object.keys(DEFAULT_ROLE_TABLE_ACCESS) } },
+    select: { id: true, name: true },
+  })
+  await prisma.roleTableAccess.createMany({
+    data: roles.map((role) => ({
+      workspaceId,
+      roleId: role.id,
+      tableId: table.id,
+      ...DEFAULT_ROLE_TABLE_ACCESS[role.name]!,
+    })),
+  })
+  return table
+}
+
+/**
+ * Sets what a role, by name, may do with one table's records, replacing any row it had; access that
+ * reads nothing is no row, as the app writes it.
+ */
+export async function setTableAccess(
+  workspaceId: string,
+  roleName: string,
+  tableId: string,
+  access: ITableAccess,
+) {
+  const { id: roleId } = await prisma.workspaceRole.findUniqueOrThrow({
+    where: { workspaceId_name: { workspaceId, name: roleName } },
+    select: { id: true },
+  })
+  if (!canReadRecords(access)) {
+    await prisma.roleTableAccess.deleteMany({ where: { roleId, tableId } })
+    return
+  }
+  await prisma.roleTableAccess.upsert({
+    where: { roleId_tableId: { roleId, tableId } },
+    create: { workspaceId, roleId, tableId, ...access },
+    update: access,
   })
 }
 
@@ -87,7 +186,7 @@ export async function createRecord(
 ) {
   const { recordCounter } = await prisma.table.update({
     where: { id: tableId },
-    data: { recordCounter: { increment: 1 } },
+    data: { recordCounter: { increment: 1 }, recordCount: { increment: 1 } },
     select: { recordCounter: true },
   })
 

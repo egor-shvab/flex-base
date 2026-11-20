@@ -1,7 +1,6 @@
-export function toInitials(email: string): string {
-  const local = email.split('@')[0] ?? ''
-  const letters = local
-    .split(/[._-]+/)
+export function toInitials(name: string): string {
+  const letters = name
+    .split(/[\s._-]+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0])

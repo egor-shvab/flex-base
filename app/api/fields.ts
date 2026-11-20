@@ -1,4 +1,4 @@
-import { useApi } from '~/api/client'
+import { buildIfMatchHeaders, useApi } from '~/api/client'
 import { apiPath } from '~/api/paths'
 import type {
   IFieldCreatedResponse,
@@ -12,12 +12,28 @@ export function useFieldsApi() {
   const api = useApi()
 
   return {
-    list: (tableAddress: string) => api<IFieldsResponse>(apiPath.fields(tableAddress)),
-    create: (tableAddress: string, input: TFieldInput) =>
-      api<IFieldCreatedResponse>(apiPath.fields(tableAddress), { method: 'POST', body: input }),
-    update: (tableAddress: string, fieldId: string, input: TFieldInput) =>
-      api<IFieldResponse>(apiPath.field(tableAddress, fieldId), { method: 'PATCH', body: input }),
-    remove: (tableAddress: string, fieldId: string) =>
-      api<IFieldDeletedResponse>(apiPath.field(tableAddress, fieldId), { method: 'DELETE' }),
+    list: (workspaceAddress: string, tableAddress: string) =>
+      api<IFieldsResponse>(apiPath.fields(workspaceAddress, tableAddress)),
+    create: (workspaceAddress: string, tableAddress: string, input: TFieldInput) =>
+      api<IFieldCreatedResponse>(apiPath.fields(workspaceAddress, tableAddress), {
+        method: 'POST',
+        body: input,
+      }),
+    update: (
+      workspaceAddress: string,
+      tableAddress: string,
+      fieldId: string,
+      input: TFieldInput,
+      readUpdatedAt: string | undefined,
+    ) =>
+      api<IFieldResponse>(apiPath.field(workspaceAddress, tableAddress, fieldId), {
+        method: 'PATCH',
+        body: input,
+        headers: buildIfMatchHeaders(readUpdatedAt),
+      }),
+    remove: (workspaceAddress: string, tableAddress: string, fieldId: string) =>
+      api<IFieldDeletedResponse>(apiPath.field(workspaceAddress, tableAddress, fieldId), {
+        method: 'DELETE',
+      }),
   }
 }

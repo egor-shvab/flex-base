@@ -27,10 +27,25 @@ export default withNuxt(
       'no-restricted-imports': [
         'error',
         {
+          patterns: [NO_RELATIVE_IMPORTS],
+        },
+      ],
+    },
+  },
+
+  {
+    files: ['app/components/ui/**/*.{ts,vue}'],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
           patterns: [
+            NO_RELATIVE_IMPORTS,
             {
-              group: ['./*', './**', '../*', '../**'],
-              message: 'Use an alias (~/…, #shared/…, #server/…) instead of a relative import.',
+              regex: '^~/(stores|api)/|^~/components/(?!ui/)',
+              message:
+                'The UI kit knows no app data or feature: take it through props and slots, so the kit can leave the app intact.',
             },
           ],
         },
@@ -58,10 +73,10 @@ export default withNuxt(
     },
   },
 
-  // `tables/*/**`, not `tables/[tableAddress]/**`: minimatch reads the brackets as a character
-  // class. The patch and delete routes sit one level up, outside this glob by construction.
+  // `workspaces/*/**`, not `workspaces/[workspaceAddress]/**`: minimatch reads the brackets as a
+  // character class. Every route inside a workspace sits below it, so none can skip the factory.
   {
-    files: ['server/api/tables/*/**/*.ts'],
+    files: ['server/api/workspaces/*/**/*.ts'],
     ignores: ['**/*.spec.ts'],
     rules: {
       'no-restricted-imports': [
@@ -71,7 +86,7 @@ export default withNuxt(
             {
               regex: '^#server/utils/auth$',
               message:
-                'Table-scoped routes take their user from a handler factory (#server/utils/handler), which proves ownership first.',
+                'Workspace-scoped routes take their user from a handler factory (#server/utils/handler), which proves membership and permission first.',
             },
           ],
         },

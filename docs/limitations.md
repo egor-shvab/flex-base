@@ -14,6 +14,12 @@ Nothing is open.
 
 ## Accepted
 
+### Leaving the role page drops its unsaved changes without asking
+
+The editor says "Unsaved changes" and offers Discard, but a link or the browser's back button
+leaves at once. _Reopen if a role is edited in long sittings, or a lost edit is reported: guard
+the route while the form differs from what was saved._
+
 ### The record opens in a modal side sheet, where the reference draws a non-modal panel
 
 `BaseModal`'s `drawer`: scrim, `inert`, focus return, Escape owned by the dialog. Non-modal would
@@ -33,8 +39,53 @@ or any multi-database feature ships._
 
 ### A URL discloses roughly how much a user has
 
-`/tables/12` and `#4821` reveal counts the owner already sees; a shared screenshot now reveals them
-too. _Reopen if a table or record is ever shared._
+`/w/…/tables/12` and `#4821` reveal counts; a shared screenshot reveals them outside the workspace
+too. A member who reads only their own records is shown no table count, yet their records'
+numbers still bound how many others hold. _Reopen if a table or record is ever shared beyond its
+workspace, or if that bound must be hidden from a scoped member._
+
+### Marking a field required and narrowing a role's access can cross
+
+Each side checks the other (`FieldService.updateField`, `RoleService.updateRole`), but in
+separate transactions with nothing locked between them, so two admins doing both at once can land
+a required field a creating role cannot fill. _Reopen if role access is edited often enough for
+it to happen: lock the table's row in both writes._
+
+### A role write is weighed against the writer's role as read, not as written
+
+Every role, member, invitation and table-access write guards the version of the role it changes,
+never the writer's own: narrowed by the owner in the instant between check and write, a manager's
+save still lands within what they held a moment before. _Reopen if a role write ever outlives a
+request — a queue, a batch: repeat the writer's role version in the transaction too._
+
+### A role that manages tables keeps rows that take effect only once it stops
+
+While a role holds `TABLES_MANAGE` it reads every table and edits every field, so its table rows'
+read and its field rows change nothing; they are kept, and come back into force the moment the
+permission is removed — a hidden field hidden again, a table without a row closed. The role editor
+shows the new state as soon as the box is unticked, before saving (`decisions.md` → _A role reaches
+a table only through its row there_). _Reopen if schema visibility is ever split from record reads,
+which removes the case._
+
+### Every decision about a role reads the whole schema
+
+`loadAccessGround` reads every table with its fields for each role list a manager sees, each role
+change, assignment, invitation and accept; `listRoles` then compares every role over all of it.
+Instant at tens of tables, a large read and roles × fields comparisons at hundreds. _Reopen when a
+workspace passes ~100 tables: read only the tables the compared roles hold rows for._
+
+### A link to a table read only in part shows record numbers, not labels
+
+Where a role reads only its own records of a link's target, every link in the source table shows
+`#number`, the role's own records included: a label of another's record, or the order the label
+sort would put them in, would show what the role cannot read. _Reopen if own-record labels are
+wanted: the label lookup, the picker and the sort join would each take the caller's scope._
+
+### A record without an author belongs to no one
+
+`Record.createdById` is set null when its author's account goes, and an `OWN` scope then reaches
+the record for nobody; only a member reading all of the table sees it. _Reopen if accounts can be
+deleted in the app, or if records gain a transferable owner._
 
 ### Four lines of `architecture.md` §11 are approximated, not proven
 
@@ -116,9 +167,8 @@ deployment, not after the first complaint._
 
 ### An index that fails to build says so only in the error log
 
-The build is not awaited, so the toggle reports success and the index is simply absent.
-`reconcileFieldIndexes` repairs it, but nothing calls it on a schedule. _Revisit with the error-log
-sink._
+The build is not awaited, so the toggle reports success and the index is simply absent until the
+next start-up, whose reconcile rebuilds it. _Revisit with the error-log sink._
 
 ### A record count stops at 1000, and past it the UI says `1000+`
 
@@ -148,7 +198,67 @@ the state. _Raise it only on a real report._
 
 The dot (≥3.1:1) and the word survive; raising fills would break their 4.5:1 text pairings. _Revisit only if the badge palette is retuned._
 
-### The error log is a local file, and the rate limit in front of it is per process
+### The role, invitation and field caps are counted, not locked
 
-More than one instance needs a real sink, and the in-memory rate limit splits per instance. _Revisit
-before any real deployment._
+Two creates racing past the count can leave a workspace one over `MAX_WORKSPACE_ROLES` or
+`MAX_PENDING_INVITATIONS`, or a table one over `MAX_TABLE_FIELDS`. Each cap bounds a list a page renders, which one extra row does not
+break. _Reopen if a cap ever guards a cost rather than a list._
+
+### The error log is a local file, and the rate limits are per process
+
+More than one instance needs a real sink, and the in-memory rate limits (client errors,
+invitations, sign-in, registration) split per instance. They key on the socket address, so behind a
+reverse proxy every caller shares one allowance — 100 sign-ins and 30 registrations per window for
+the whole site. The per-email sign-in limit lets anyone hold an account's sign-in shut for 15
+minutes. _Revisit before any real deployment: a shared store, and a trusted-proxy setting._
+
+### An invitation goes to whoever registers its address first
+
+No address is verified, so anyone can register an invited email nobody has claimed yet and accept
+the invitation. _Reopen with the first real deployment: email verification closes it._
+
+### Deleting a workspace is one cascading statement
+
+Its tables, fields and records go in one `DELETE`, which holds its locks for as long as the cascade
+runs — instant now, minutes on a workspace of millions of records. _Reopen when a workspace passes a
+million records: delete in batches, or mark and reap._
+
+### Deleting a field rewrites its table's rows in the request
+
+The field's values are cleared in the delete's transaction, which holds row locks on every record
+that stored one — instant now, minutes on a table of millions. _Reopen with the workspace cascade
+above: clear in batches, keeping the key reserved until done._
+
+### Security headers stop short of a script policy and HSTS
+
+The CSP carries only `frame-ancestors`, `base-uri`, `object-src` and `form-action`: a `script-src`
+would need per-request nonces for Nuxt's inline payload. HSTS is left to whatever terminates TLS.
+_Reopen with the first real deployment._
+
+### Members and tables are listed whole
+
+`listMembers` and `listTables` return every row, unpaged and uncapped, where roles and pending
+invitations have caps. Both are bounded in practice by a team's size and a workspace's schema, and
+the sidebar and the members page render them all anyway. _Reopen when a workspace passes a few
+hundred members or tables: page the members list, cap tables as roles are capped._
+
+### `Table.updatedAt` and `Workspace.updatedAt` move with their counters
+
+Allocating a record or table number, and keeping `Table.recordCount`, are Prisma updates, so
+`@updatedAt` stamps the parent each time: the column reads as "last record or table created", not
+"last renamed". Neither is shown anywhere. _Reopen before either is displayed: move the counters
+to raw increments that leave `updatedAt` alone._
+
+### One SSR render re-reads the user and the membership per internal fetch
+
+Each `useRequestFetch` during SSR is a full request: the auth middleware reads the user again and
+every workspace route runs `requireMembership` again — a records page costs several identical
+lookups, each an indexed single-row read. _Reopen if those reads show up in a profile: memoise them
+on the originating request's `event.context`._
+
+### Registration keeps an email's case
+
+`User.email` is stored as typed, so `Ada@x.com` and `ada@x.com` are two accounts. Invitations are
+stored lowercased and matched against the lowercased account email, so either account receives an
+invitation sent to either spelling. Normalising sign-up would change who can sign in with what.
+_Reopen with email verification, or on the first duplicate-account report._

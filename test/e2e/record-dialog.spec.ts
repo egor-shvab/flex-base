@@ -129,7 +129,7 @@ test('a ?detail= URL loaded cold renders the dialog server-side', async ({ page,
 })
 
 test('a link written before the switch to numbers still resolves', async ({ page }) => {
-  await page.goto(`/tables/${deals.id}?detail=${people.id}.${adaId}`)
+  await page.goto(`/w/${deals.workspaceAddress}/tables/${deals.id}?detail=${people.id}.${adaId}`)
 
   await expect(dialog(page)).toBeVisible()
   await expect(dialog(page)).toContainText('Ada')

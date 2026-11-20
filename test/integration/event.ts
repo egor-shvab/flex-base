@@ -10,7 +10,7 @@ interface IEventInput {
   params?: Record<string, string>
   query?: TQueryInput
   body?: unknown
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   ip?: string
 }
 

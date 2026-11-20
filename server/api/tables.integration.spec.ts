@@ -1,19 +1,20 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import tablesGet from '#server/api/tables/index.get'
-import tablesPost from '#server/api/tables/index.post'
-import fieldsPost from '#server/api/tables/[tableAddress]/fields/index.post'
-import fieldDelete from '#server/api/tables/[tableAddress]/fields/[fieldId].delete'
-import recordsPost from '#server/api/tables/[tableAddress]/records/index.post'
-import recordDelete from '#server/api/tables/[tableAddress]/records/[recordAddress].delete'
-import type { IAuthUser } from '#shared/types/auth'
+import tablesGet from '#server/api/workspaces/[workspaceAddress]/tables/index.get'
+import tablesPost from '#server/api/workspaces/[workspaceAddress]/tables/index.post'
+import fieldsPost from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/index.post'
+import fieldDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/fields/[fieldId].delete'
+import recordsPost from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/index.post'
+import recordDelete from '#server/api/workspaces/[workspaceAddress]/tables/[tableAddress]/records/[recordAddress].delete'
 import { testEvent } from '~~/test/integration/event'
-import { createTable, createUser } from '~~/test/integration/seed'
+import { createTable, createUser, type TSeededUser } from '~~/test/integration/seed'
 
-let ada: IAuthUser
-let mallory: IAuthUser
+let ada: TSeededUser
+let mallory: TSeededUser
 
-const create = (user: IAuthUser | null, body: unknown) =>
-  tablesPost(testEvent({ user, method: 'POST', body }))
+const own = (user: TSeededUser) => ({ workspaceAddress: user.workspace.publicId })
+
+const create = (user: TSeededUser, body: unknown) =>
+  tablesPost(testEvent({ user, params: own(user), method: 'POST', body }))
 
 beforeEach(async () => {
   ada = await createUser()
@@ -28,29 +29,31 @@ describe('creating a table', () => {
     expect(table.id).toBeTruthy()
   })
 
-  it('files it under the caller, where only they can see it', async () => {
+  it('files it under the workspace, where only its members can see it', async () => {
     await create(ada, { name: 'Deals' })
 
-    await expect(tablesGet(testEvent({ user: ada }))).resolves.toMatchObject({
+    await expect(tablesGet(testEvent({ user: ada, params: own(ada) }))).resolves.toMatchObject({
       tables: [expect.objectContaining({ name: 'Deals' })],
     })
-    await expect(tablesGet(testEvent({ user: mallory }))).resolves.toEqual({ tables: [] })
+    await expect(tablesGet(testEvent({ user: mallory, params: own(mallory) }))).resolves.toEqual({
+      tables: [],
+    })
   })
 
   it('starts it with no records counted', async () => {
     await create(ada, { name: 'Deals' })
 
-    const { tables } = await tablesGet(testEvent({ user: ada }))
+    const { tables } = await tablesGet(testEvent({ user: ada, params: own(ada) }))
 
     expect(tables[0]?._count).toMatchObject({ fields: 0, records: 0 })
   })
 
-  it('numbers the caller’s tables from one, in the order they were made', async () => {
+  it('numbers the workspace’s tables from one, in the order they were made', async () => {
     for (const name of ['Deals', 'People', 'Companies']) await create(ada, { name })
     await create(mallory, { name: 'Theirs' })
 
-    const { tables } = await tablesGet(testEvent({ user: ada }))
-    const { tables: theirs } = await tablesGet(testEvent({ user: mallory }))
+    const { tables } = await tablesGet(testEvent({ user: ada, params: own(ada) }))
+    const { tables: theirs } = await tablesGet(testEvent({ user: mallory, params: own(mallory) }))
 
     expect(tables.map((table) => [table.name, table.number])).toEqual([
       ['Deals', 1],
@@ -75,17 +78,17 @@ describe('creating a table', () => {
       await expect(create(ada, {})).rejects.toMatchObject({ statusCode: 400 })
     })
 
-    it('409s on a name this user already has, creating nothing', async () => {
-      await createTable(ada.id, 'Deals')
+    it('409s on a name this workspace already has, creating nothing', async () => {
+      await createTable(ada.workspace.id, 'Deals')
 
       await expect(create(ada, { name: 'Deals' })).rejects.toMatchObject({ statusCode: 409 })
 
-      const { tables } = await tablesGet(testEvent({ user: ada }))
+      const { tables } = await tablesGet(testEvent({ user: ada, params: own(ada) }))
       expect(tables).toHaveLength(1)
     })
 
-    it('allows a name another user has taken', async () => {
-      await createTable(mallory.id, 'Deals')
+    it('allows a name another workspace has taken', async () => {
+      await createTable(mallory.workspace.id, 'Deals')
 
       await expect(create(ada, { name: 'Deals' })).resolves.toMatchObject({
         table: { name: 'Deals' },
@@ -97,10 +100,10 @@ describe('creating a table', () => {
 describe('a write answers with the counts it caused', () => {
   let tableId: string
 
-  const params = () => ({ tableAddress: tableId })
+  const params = () => ({ ...own(ada), tableAddress: tableId })
 
   beforeEach(async () => {
-    const table = await createTable(ada.id, 'Deals')
+    const table = await createTable(ada.workspace.id, 'Deals')
     tableId = table.id
   })
 
@@ -119,7 +122,7 @@ describe('a write answers with the counts it caused', () => {
     const removed = await fieldDelete(
       testEvent({
         user: ada,
-        params: { tableAddress: tableId, fieldId: created.field.id },
+        params: { ...own(ada), tableAddress: tableId, fieldId: created.field.id },
         method: 'DELETE',
       }),
     )
@@ -146,7 +149,7 @@ describe('a write answers with the counts it caused', () => {
     const removed = await recordDelete(
       testEvent({
         user: ada,
-        params: { tableAddress: tableId, recordAddress: created.record.id },
+        params: { ...own(ada), tableAddress: tableId, recordAddress: created.record.id },
         method: 'DELETE',
       }),
     )

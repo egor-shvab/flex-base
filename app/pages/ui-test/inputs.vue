@@ -214,6 +214,40 @@
         />
         <template #readout>{{ JSON.stringify(segments.none) }}</template>
       </UiTestSpecimen>
+      <UiTestSpecimen label="links · current page chosen">
+        <BaseSegmented
+          aria-label="Showcase pages"
+          :links="[
+            { label: 'Inputs', to: '/ui-test/inputs' },
+            { label: 'Select', to: '/ui-test/select' },
+          ]"
+        />
+      </UiTestSpecimen>
+    </UiTestSection>
+
+    <UiTestSection title="Field message" component="BaseFieldMessage">
+      <template #description>
+        The line under a field: the error replaces the hint on the same line. Without an
+        <code>id</code> it stands alone, as a failed load's alert with its retry.
+      </template>
+      <UiTestSpecimen label="hint">
+        <BaseFieldMessage id="message-hint" hint="At least 8 characters." />
+      </UiTestSpecimen>
+      <UiTestSpecimen label="error replaces the hint">
+        <BaseFieldMessage
+          id="message-error"
+          hint="At least 8 characters."
+          error="Password is too short."
+        />
+      </UiTestSpecimen>
+      <UiTestSpecimen label="standalone · retry action">
+        <BaseFieldMessage error="Couldn’t load your tables.">
+          <template #action>
+            <BaseButton variant="link" @click="retryCount += 1">Try again</BaseButton>
+          </template>
+        </BaseFieldMessage>
+        <template #readout>retried {{ retryCount }}×</template>
+      </UiTestSpecimen>
     </UiTestSection>
 
     <UiTestSection title="Colour picker" component="BaseColorPicker">
@@ -303,6 +337,8 @@ const FIVE_OPTIONS: ISelectOption[] = [
 ]
 
 const segments = reactive({ two: 'all', three: 'desc', five: '3', none: 'missing' })
+
+const retryCount = ref(0)
 
 const pickerColors = reactive(
   Object.fromEntries(BADGE_COLORS.map((color) => [color, color])) as Record<

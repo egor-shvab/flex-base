@@ -1,14 +1,12 @@
 <template>
-  <form class="auth-form" novalidate @submit.prevent="submit">
-    <div class="auth-form__heading">
-      <h1 class="auth-form__title">Log in to FlexBase</h1>
-      <p class="auth-form__subtitle">Use the email and password you registered with.</p>
-    </div>
-
-    <AuthModeSwitch />
-
-    <BaseErrorBanner :message="serverError" />
-
+  <AuthForm
+    title="Log in to FlexBase"
+    subtitle="Use the email and password you registered with."
+    submit-label="Log in"
+    :submitting="isSubmitting"
+    :error="serverError"
+    @submit="submit"
+  >
     <BaseInput
       id="email"
       v-model.trim="form.email"
@@ -30,20 +28,11 @@
       :error="errors.password"
     />
 
-    <BaseButton
-      type="submit"
-      class="auth-form__submit"
-      append-icon="material-symbols:arrow-forward-rounded"
-      :loading="isSubmitting"
-    >
-      Log in
-    </BaseButton>
-
-    <p class="auth-form__footer">
+    <template #footer>
       No account yet?
-      <NuxtLink class="text-link" to="/auth/register">Register</NuxtLink>
-    </p>
-  </form>
+      <NuxtLink class="g-text-link" to="/auth/register">Register</NuxtLink>
+    </template>
+  </AuthForm>
 </template>
 
 <script setup lang="ts">

@@ -1,3 +1,4 @@
+import type { Prisma } from '#server/generated/prisma/client'
 import { sqlFor } from '#server/db/field-types/registry'
 import { fieldSelect, toSharedField } from '#server/db/fields'
 import { prisma } from '#server/db/prisma'
@@ -18,6 +19,7 @@ const PURPOSE_SUFFIX: Record<TIndexPurpose, string> = {
 
 interface IFieldIndex {
   name: string
+  tableId: string
   kind: TFieldIndexKind
   expression: string
   isDescending: boolean
@@ -39,10 +41,10 @@ function toIndexName(fieldId: string, purpose: TIndexPurpose): string {
 
 const INDEX_PREFIX = 'rec_idx_'
 
-/** DDL takes no parameters, so this is the one place a key reaches SQL unbound. */
-function assertSafeKey(key: string): void {
-  if (!/^[a-z0-9_]+$/.test(key)) {
-    throw new Error(`Unsafe field key for DDL: ${JSON.stringify(key)}`)
+/** DDL takes no parameters, so this is the one place a key or a table id reaches SQL unbound. */
+function assertSafeLiteral(value: string, what: string): void {
+  if (!/^[a-z0-9_]+$/.test(value)) {
+    throw new Error(`Unsafe ${what} for DDL: ${JSON.stringify(value)}`)
   }
 }
 
@@ -52,7 +54,7 @@ function assertSafeKey(key: string): void {
  * the per-kind plan assertions catch that.
  */
 function toIndexExpression(field: IField, purpose: TIndexPurpose): string {
-  assertSafeKey(field.key)
+  assertSafeLiteral(field.key, 'field key')
 
   const rules = sqlFor(field)
   const literalKey = `'${field.key}'`
@@ -65,8 +67,9 @@ function toIndexExpression(field: IField, purpose: TIndexPurpose): string {
   return projected.replace(/\$\d+::text/g, `${literalKey}::text`)
 }
 
-export function buildFieldIndexes(field: IField): IFieldIndex[] {
+export function buildFieldIndexes(tableId: string, field: IField): IFieldIndex[] {
   if (!field.indexed) return []
+  assertSafeLiteral(tableId, 'table id')
 
   const rules = sqlFor(field)
   const wanted: IFieldIndex[] = []
@@ -74,6 +77,7 @@ export function buildFieldIndexes(field: IField): IFieldIndex[] {
   if (rules.filterIndex) {
     wanted.push({
       name: toIndexName(field.id, 'filter'),
+      tableId,
       kind: rules.filterIndex,
       expression: toIndexExpression(field, 'filter'),
       isDescending: false,
@@ -90,6 +94,7 @@ export function buildFieldIndexes(field: IField): IFieldIndex[] {
     if (!isSortCoveredByFilter) {
       wanted.push({
         name: toIndexName(field.id, 'sortAsc'),
+        tableId,
         kind: rules.sortIndex,
         expression,
         isDescending: false,
@@ -98,6 +103,7 @@ export function buildFieldIndexes(field: IField): IFieldIndex[] {
 
     wanted.push({
       name: toIndexName(field.id, 'sortDesc'),
+      tableId,
       kind: rules.sortIndex,
       expression,
       isDescending: true,
@@ -108,29 +114,51 @@ export function buildFieldIndexes(field: IField): IFieldIndex[] {
 }
 
 /**
- * `CONCURRENTLY`, so never inside a transaction. A B-tree trails with `"createdAt"`, the tie-break
- * every ordering carries; a GIN cannot compose, and is bitmap-ANDed with the `tableId` index.
+ * Partial on the field's table: PostgreSQL evaluates an index expression for every row the index
+ * covers, so one spanning `"Record"` would cast other tenants' values under the same key and fail
+ * their writes. `CONCURRENTLY`, so never inside a transaction. A B-tree trails with `"createdAt"`
+ * and `"number"`, the tie-break every ordering carries.
  */
 function buildCreateIndexStatement(index: IFieldIndex): string {
   const direction = index.isDescending ? ' DESC NULLS LAST' : ' ASC NULLS LAST'
 
   const target =
     index.kind === 'btree'
-      ? `("tableId", (${index.expression})${direction}, "createdAt" DESC)`
+      ? `((${index.expression})${direction}, "createdAt" DESC, "number" DESC)`
       : index.kind === 'trigram'
         ? `USING gin ((${index.expression}) gin_trgm_ops)`
         : `USING gin ((${index.expression}))`
 
-  return `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${index.name}" ON "Record" ${target}`
+  const predicate = `WHERE "tableId" = '${index.tableId}'`
+
+  return `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${index.name}" ON "Record" ${target} ${predicate}`
 }
 
 function buildDropIndexStatement(name: string): string {
   return `DROP INDEX CONCURRENTLY IF EXISTS "${name}"`
 }
 
+/**
+ * Stamped on an index once it is built. **Change it whenever `buildCreateIndexStatement` or an
+ * index expression changes:** names alone cannot tell an index built to an older shape, which
+ * would stay in place forever.
+ */
+const INDEX_SHAPE = 'flexbase field index v2'
+
+async function createFieldIndex(index: IFieldIndex): Promise<void> {
+  await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
+  await prisma.$executeRawUnsafe(`COMMENT ON INDEX "${index.name}" IS '${INDEX_SHAPE}'`)
+}
+
+/**
+ * An index without the current stamp — built to an older shape, or whose stamp never landed —
+ * counts as invalid: dropped and rebuilt like a failed build.
+ */
 async function listOwnedIndexes(): Promise<{ name: string; isValid: boolean }[]> {
   const rows = await prisma.$queryRaw<{ name: string; isValid: boolean }[]>`
-    SELECT c.relname AS name, i.indisvalid AS "isValid"
+    SELECT c.relname AS name,
+           i.indisvalid AND COALESCE(obj_description(c.oid, 'pg_class') = ${INDEX_SHAPE}, false)
+             AS "isValid"
     FROM pg_class c
     JOIN pg_index i ON i.indexrelid = c.oid
     WHERE c.relname LIKE ${`${INDEX_PREFIX}%`}
@@ -142,8 +170,8 @@ async function listOwnedIndexes(): Promise<{ name: string; isValid: boolean }[]>
  * Invalid indexes are dropped first: `IF NOT EXISTS` would otherwise see a failed build as present
  * and never rebuild it.
  */
-export async function syncFieldIndexes(field: IField): Promise<void> {
-  const wanted = buildFieldIndexes(field)
+export async function syncFieldIndexes(tableId: string, field: IField): Promise<void> {
+  const wanted = buildFieldIndexes(tableId, field)
   const wantedByName = new Map(wanted.map((index) => [index.name, index]))
   const owned = await listOwnedIndexes()
 
@@ -159,26 +187,44 @@ export async function syncFieldIndexes(field: IField): Promise<void> {
   const present = new Set(owned.filter((index) => index.isValid).map((index) => index.name))
 
   for (const index of wanted) {
-    if (!present.has(index.name)) await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
+    if (!present.has(index.name)) await createFieldIndex(index)
   }
 }
 
-export async function dropFieldIndexes(fieldId: string): Promise<void> {
+/** One catalogue read for any number of fields: a table or a workspace may hold many. */
+export async function dropFieldIndexes(fieldIds: readonly string[]): Promise<void> {
+  if (fieldIds.length === 0) return
+
+  const prefixes = fieldIds.map((fieldId) => `${INDEX_PREFIX}${fieldId}_`)
+
   for (const { name } of await listOwnedIndexes()) {
-    if (name.startsWith(`${INDEX_PREFIX}${fieldId}_`)) {
+    if (prefixes.some((prefix) => name.startsWith(prefix))) {
       await prisma.$executeRawUnsafe(buildDropIndexStatement(name))
     }
   }
 }
 
+/**
+ * Read before a cascade removes the fields: their indexes are DDL on `"Record"`, which no cascade
+ * reaches, so whoever deletes the rows must drop them.
+ */
+export async function listIndexedFieldIds(where: Prisma.FieldWhereInput): Promise<string[]> {
+  const fields = await prisma.field.findMany({
+    where: { ...where, indexed: true },
+    select: { id: true },
+  })
+  return fields.map((field) => field.id)
+}
+
 export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
-  const rows = await prisma.field.findMany({ select: fieldSelect })
+  const rows = await prisma.field.findMany({ select: { ...fieldSelect, tableId: true } })
   const wanted = new Map(
-    rows
-      .map(toSharedField)
-      .flatMap((field) =>
-        buildFieldIndexes(field).map((index): [string, IFieldIndex] => [index.name, index]),
-      ),
+    rows.flatMap(({ tableId, ...row }) =>
+      buildFieldIndexes(tableId, toSharedField(row)).map((index): [string, IFieldIndex] => [
+        index.name,
+        index,
+      ]),
+    ),
   )
 
   const dropped: string[] = []
@@ -197,7 +243,7 @@ export async function reconcileFieldIndexes(): Promise<IReconcileReport> {
   for (const index of wanted.values()) {
     if (present.has(index.name)) continue
 
-    await prisma.$executeRawUnsafe(buildCreateIndexStatement(index))
+    await createFieldIndex(index)
     created.push(index.name)
   }
 

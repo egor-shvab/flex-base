@@ -20,6 +20,43 @@
       </UiTestSpecimen>
     </UiTestSection>
 
+    <UiTestSection title="Confirm dialog" component="ConfirmModal">
+      <template #description>
+        A question before an action. One that cannot be undone asks for a phrase to be typed first.
+      </template>
+      <UiTestSpecimen label="plain · danger with a phrase">
+        <div class="demo-row">
+          <BaseButton variant="secondary" @click="openConfirm = 'plain'">Plain confirm</BaseButton>
+          <BaseButton variant="secondary" @click="openConfirm = 'danger'"
+            >Danger confirm</BaseButton
+          >
+        </div>
+        <template #readout>last result: {{ confirmResult }}</template>
+      </UiTestSpecimen>
+    </UiTestSection>
+
+    <LazyConfirmModal
+      v-if="openConfirm === 'plain'"
+      title="Leave workspace"
+      confirm-label="Leave workspace"
+      @confirm="closeConfirm('confirmed')"
+      @close="closeConfirm('cancelled')"
+    >
+      Leave “Demo workspace”? You lose access right away.
+    </LazyConfirmModal>
+
+    <LazyConfirmModal
+      v-if="openConfirm === 'danger'"
+      title="Delete workspace"
+      danger
+      confirm-label="Delete workspace"
+      confirm-phrase="Demo workspace"
+      @confirm="closeConfirm('confirmed')"
+      @close="closeConfirm('cancelled')"
+    >
+      “Demo workspace” and everything in it will be deleted for every member.
+    </LazyConfirmModal>
+
     <LazyBaseModal
       v-if="openDemo"
       :title="modal.title"
@@ -96,6 +133,14 @@ import type { ISelectOption } from '~/types/select'
 import type { TBadgeColor } from '#shared/types/color'
 
 useSeoMeta({ title: 'Overlays · Component showcase' })
+
+const openConfirm = ref<'plain' | 'danger' | null>(null)
+const confirmResult = ref('none')
+
+function closeConfirm(result: 'confirmed' | 'cancelled') {
+  confirmResult.value = result
+  openConfirm.value = null
+}
 
 type TDemo =
   | 'sm'

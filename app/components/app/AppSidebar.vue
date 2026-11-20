@@ -1,58 +1,90 @@
 <template>
   <nav class="app-sidebar" aria-label="Your tables">
-    <div class="app-sidebar__mark">
-      <AppMark />
-    </div>
+    <WorkspaceSwitcher class="app-sidebar__switcher" />
 
     <div class="app-sidebar__body">
-      <NuxtLink to="/" class="app-sidebar__item" :class="{ 'app-sidebar__item--active': isHome }">
-        <Icon
-          name="material-symbols:home-outline-rounded"
-          class="app-sidebar__icon"
-          aria-hidden="true"
-        />
-        <span class="app-sidebar__name">Home</span>
-      </NuxtLink>
+      <template v-if="workspaceAddress">
+        <BaseNavItem
+          :to="pagePath.workspace(workspaceAddress)"
+          icon="material-symbols:home-outline-rounded"
+          :active="isHome"
+        >
+          Home
+        </BaseNavItem>
 
-      <p class="app-sidebar__heading">Tables</p>
+        <p class="g-eyebrow app-sidebar__heading">Tables</p>
 
-      <p v-if="tablesStore.status === 'failed'" class="app-sidebar__error">
-        Couldn't load your tables.
-        <BaseButton variant="link" @click="tablesStore.ensureTables()">Try again</BaseButton>
-      </p>
+        <BaseFieldMessage
+          v-if="tablesStore.status === 'failed'"
+          class="app-sidebar__message"
+          error="Couldn't load your tables."
+          role="alert"
+        >
+          <template #action>
+            <BaseButton variant="link" @click="tablesStore.ensureTables(workspaceAddress)">
+              Try again
+            </BaseButton>
+          </template>
+        </BaseFieldMessage>
 
-      <p
-        v-else-if="tablesStore.status === 'ready' && tablesStore.tables.length === 0"
-        class="app-sidebar__empty"
+        <p
+          v-else-if="tablesStore.status === 'ready' && tablesStore.tables.length === 0"
+          class="g-note app-sidebar__message"
+        >
+          No tables yet.
+        </p>
+
+        <BaseNavItem
+          v-for="table in tablesStore.tables"
+          :key="table.id"
+          :to="pagePath.table(workspaceAddress, toTableAddress(table))"
+          icon="material-symbols:table-outline-rounded"
+          :active="table.number === activeTableNumber"
+        >
+          {{ table.name }}
+          <template v-if="table._count.records !== null" #trailing>
+            {{ table._count.records }}
+          </template>
+        </BaseNavItem>
+
+        <BaseNavItem
+          v-if="hasPermission('TABLES_MANAGE')"
+          class="app-sidebar__add"
+          icon="material-symbols:add-rounded"
+          tone="accent"
+          @click="isCreateOpen = true"
+        >
+          Add a table
+        </BaseNavItem>
+      </template>
+    </div>
+
+    <div v-if="workspaceAddress" class="app-sidebar__footer">
+      <BaseNavItem
+        :to="pagePath.workspaceSettings(workspaceAddress, 'members')"
+        icon="material-symbols:group-outline-rounded"
+        :active="isMembers"
       >
-        No tables yet.
-      </p>
-
-      <NuxtLink
-        v-for="table in tablesStore.tables"
-        :key="table.id"
-        :to="`/tables/${toTableAddress(table)}`"
-        class="app-sidebar__item"
-        :class="{ 'app-sidebar__item--active': table.number === activeTableNumber }"
+        Members
+      </BaseNavItem>
+      <BaseNavItem
+        :to="pagePath.workspaceSettings(workspaceAddress)"
+        icon="material-symbols:settings-outline-rounded"
+        :active="isSettings"
       >
-        <Icon
-          name="material-symbols:table-outline-rounded"
-          class="app-sidebar__icon"
-          aria-hidden="true"
-        />
-        <span class="app-sidebar__name">{{ table.name }}</span>
-        <span class="app-sidebar__count">{{ table._count.records }}</span>
-      </NuxtLink>
-
-      <button type="button" class="app-sidebar__add" @click="isCreateOpen = true">
-        <Icon name="material-symbols:add-rounded" class="app-sidebar__icon" aria-hidden="true" />
-        Add a table
-      </button>
+        Workspace settings
+      </BaseNavItem>
     </div>
 
     <div v-if="auth.user" class="app-sidebar__user">
-      <span class="app-sidebar__avatar" aria-hidden="true">{{ toInitials(auth.user.email) }}</span>
-      <span class="app-sidebar__email">{{ auth.user.email }}</span>
+      <BaseAvatar :initials="toInitials(auth.user.name)" shape="round" />
+      <BaseIdentity :name="auth.user.name" :caption="auth.user.email" />
+      <BaseButton
+        variant="icon"
+        prepend-icon="material-symbols:person-edit-outline-rounded"
+        label="Edit profile"
+        @click="isProfileOpen = true"
+      />
       <BaseButton
         variant="icon"
         prepend-icon="material-symbols:logout-rounded"
@@ -60,6 +92,12 @@
         @click="auth.logout()"
       />
     </div>
+
+    <LazyProfileFormModal
+      v-if="isProfileOpen"
+      @saved="isProfileOpen = false"
+      @close="isProfileOpen = false"
+    />
 
     <LazyTableFormModal
       v-if="isCreateOpen"
@@ -76,18 +114,22 @@ import { computed, ref } from 'vue'
 import { navigateTo, useRoute } from '#imports'
 import { parseTableAddress, toTableAddress } from '#shared/utils/address'
 import { useAuthStore } from '~/stores/auth'
+import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useTablesStore } from '~/stores/tables'
 import { toInitials } from '~/utils/initials'
+import { pagePath } from '~/utils/page-path'
 
 const route = useRoute()
 const tablesStore = useTablesStore()
 const auth = useAuthStore()
+const { workspaceAddress, hasPermission } = useActiveWorkspace()
 
 const isCreateOpen = ref(false)
+const isProfileOpen = ref(false)
 
 async function submitTable(name: string) {
-  const table = await tablesStore.createTable({ name })
-  await navigateTo(`/tables/${toTableAddress(table)}`)
+  const table = await tablesStore.createTable(workspaceAddress.value, { name })
+  await navigateTo(pagePath.table(workspaceAddress.value, toTableAddress(table)))
 }
 
 const activeTableNumber = computed(() => {
@@ -95,35 +137,37 @@ const activeTableNumber = computed(() => {
   return parseTableAddress(address) || tablesStore.findTable(address)?.number
 })
 
-const isHome = computed(() => route.path === '/')
+const isHome = computed(() => route.path === pagePath.workspace(workspaceAddress.value))
+
+const isMembers = computed(
+  () => route.path === pagePath.workspaceSettings(workspaceAddress.value, 'members'),
+)
+
+const isSettings = computed(
+  () =>
+    !isMembers.value &&
+    route.path.startsWith(`${pagePath.workspace(workspaceAddress.value)}/settings/`),
+)
 </script>
 
 <style lang="scss" scoped>
-@mixin sidebar-row {
-  display: flex;
-  align-items: center;
-  gap: rem(10);
-  min-height: var(--control-height);
-  padding: 0 rem(10);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
-
-  @include focus-ring;
-}
-
 .app-sidebar {
   display: flex;
   flex-direction: column;
   height: 100%;
   padding: rem(12);
 
-  &__mark {
+  &__switcher {
+    flex: none;
+    margin-bottom: rem(10);
+  }
+
+  &__footer {
     display: flex;
     flex: none;
-    align-items: center;
-    min-height: var(--control-height);
-    margin-bottom: rem(10);
-    padding: 0 rem(10);
+    flex-direction: column;
+    gap: rem(2);
+    margin-top: rem(8);
   }
 
   &__body {
@@ -138,80 +182,16 @@ const isHome = computed(() => route.path === '/')
   }
 
   &__heading {
-    @include eyebrow;
-
     margin: rem(16) 0 rem(4);
     padding: 0 rem(10);
   }
 
-  &__item {
-    @include sidebar-row;
-
-    color: var(--color-text);
-    text-decoration: none;
-
-    &:hover {
-      background: var(--color-surface-hover);
-    }
-
-    &--active {
-      background: var(--color-accent-tint);
-      color: var(--color-accent);
-      font-weight: 600;
-    }
-  }
-
-  &__icon {
-    flex: none;
-    font-size: rem(18);
-    color: var(--color-text-secondary);
-  }
-
-  &__item--active &__icon,
-  &__add &__icon {
-    color: inherit;
-  }
-
-  &__name {
-    flex: 1;
-    min-width: 0;
-
-    @include truncate;
-  }
-
-  &__count {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-  }
-
-  &__item--active &__count {
-    font-weight: 600;
-    color: var(--color-accent);
-  }
-
   &__add {
-    @include sidebar-row;
-
     margin-top: rem(4);
-    border: none;
-    background: none;
-    font-weight: 600;
-    color: var(--color-accent);
-    text-align: left;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--color-accent-tint);
-    }
   }
 
-  &__empty,
-  &__error {
-    margin: 0;
+  &__message {
     padding: rem(4) rem(10);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 
   &__user {
@@ -223,28 +203,6 @@ const isHome = computed(() => route.path === '/')
     margin-top: rem(8);
     padding: rem(4) 0 0 rem(10);
     border-top: 1px solid var(--color-border-subtle);
-  }
-
-  &__avatar {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: rem(26);
-    height: rem(26);
-    border-radius: 50%;
-    background: var(--color-surface-muted);
-    font-size: var(--font-size-2xs);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-  }
-
-  &__email {
-    flex: 1;
-    min-width: 0;
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-
-    @include truncate;
   }
 }
 </style>

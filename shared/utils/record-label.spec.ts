@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { buildRecordLabel, formatLinkedRecord } from '#shared/utils/record-label'
+import { buildRecordLabel, canLabelRecords, formatLinkedRecord } from '#shared/utils/record-label'
+import { asMultiple, relationField, selectField, textField } from '~~/test/fixtures'
 
 const record = (data: Record<string, unknown>, number = 42) =>
   ({ number, data }) as Parameters<typeof buildRecordLabel>[0]
+
+describe('canLabelRecords', () => {
+  it('lets a single-value field label a relation', () => {
+    expect(canLabelRecords(textField('full_name'))).toBe(true)
+    expect(canLabelRecords(selectField())).toBe(true)
+  })
+
+  it('refuses another relation, whose value is a cuid', () => {
+    expect(canLabelRecords(relationField())).toBe(false)
+  })
+
+  it('refuses a list', () => {
+    expect(canLabelRecords(asMultiple(selectField()))).toBe(false)
+  })
+})
 
 describe('buildRecordLabel', () => {
   it('reads the named label field', () => {

@@ -1,36 +1,34 @@
 <template>
-  <div class="error-page">
-    <div class="error-page__column">
-      <AppMark class="error-page__mark" />
+  <BaseCenteredPanel size="lg" tag="section">
+    <template #mark><AppMark /></template>
 
-      <section class="error-page__card">
-        <span class="error-page__tile" :class="`error-page__tile--${tone}`" aria-hidden="true">
-          <Icon :name="glyph" />
-        </span>
+    <div class="error-page">
+      <span class="error-page__tile" :class="`error-page__tile--${tone}`" aria-hidden="true">
+        <Icon :name="glyph" />
+      </span>
 
-        <div class="error-page__text">
-          <p class="error-page__eyebrow">
-            Error <span class="error-page__code">{{ error.statusCode }}</span>
-          </p>
-          <h1 class="error-page__title">{{ title }}</h1>
-          <p class="error-page__message">{{ message }}</p>
-        </div>
+      <div class="error-page__text">
+        <p class="g-eyebrow error-page__eyebrow">
+          Error <span class="error-page__code">{{ error.statusCode }}</span>
+        </p>
+        <h1 class="error-page__title">{{ title }}</h1>
+        <p class="error-page__message">{{ message }}</p>
+      </div>
 
-        <div class="error-page__actions">
-          <BaseButton
-            variant="secondary"
-            prepend-icon="material-symbols:arrow-back-rounded"
-            @click="goBack"
-          >
-            Go back
-          </BaseButton>
-          <BaseButton prepend-icon="material-symbols:home-outline-rounded" @click="goHome">
-            Back to home
-          </BaseButton>
-        </div>
-      </section>
+      <div class="error-page__actions">
+        <BaseButton
+          variant="secondary"
+          prepend-icon="material-symbols:arrow-back-rounded"
+          @click="goBack"
+        >
+          Go back
+        </BaseButton>
+        <BaseButton prepend-icon="material-symbols:home-outline-rounded" @click="goHome">
+          Back to home
+        </BaseButton>
+      </div>
     </div>
-  </div>
+  </BaseCenteredPanel>
 </template>
 
 <script setup lang="ts">
@@ -88,23 +86,10 @@ function goBack() {
 
 <style lang="scss" scoped>
 .error-page {
-  @include centred-viewport;
+  @include stack(20);
 
-  &__column {
-    @include centred-column(rem(512));
-  }
-
-  &__mark {
-    align-self: center;
-  }
-
-  &__card {
-    @include centred-card(32);
-    @include stack(20);
-
-    align-items: center;
-    text-align: center;
-  }
+  align-items: center;
+  text-align: center;
 
   &__tile {
     display: grid;
@@ -132,8 +117,6 @@ function goBack() {
   }
 
   &__eyebrow {
-    @include eyebrow;
-
     margin: 0;
   }
 

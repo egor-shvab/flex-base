@@ -2,9 +2,28 @@ import type { IAuthUser } from '#shared/types/auth'
 import type { IField } from '#shared/types/field'
 import type { IRecord, IRecordOption } from '#shared/types/record'
 import type { ITable, ITableListItem } from '#shared/types/table'
+import type {
+  IAccessTable,
+  IRoleRows,
+  ITableAccess,
+  IIncomingInvitation,
+  IWorkspace,
+  IWorkspaceInvitation,
+  IWorkspaceMember,
+  IWorkspaceMembershipView,
+  IWorkspaceRole,
+} from '#shared/types/workspace'
 
 export interface IOkResponse {
   ok: true
+}
+
+/**
+ * The `data` of a 404 that says what is missing, so a page can name it without reading the
+ * message. A 404 without it is the table's.
+ */
+export interface INotFoundData {
+  missing: 'workspace'
 }
 
 export interface IAuthUserResponse {
@@ -19,12 +38,16 @@ export interface ITableListItemResponse {
   table: ITableListItem
 }
 
+/** `access` is the caller's: what they may do with this table's records. */
 export interface ITableResponse {
   table: ITable
+  access: ITableAccess
 }
 
 export interface IFieldsResponse {
   fields: IField[]
+  /** The fields the caller sees but may not write; every other one they may. */
+  readOnlyFieldIds: string[]
 }
 
 export interface IFieldResponse {
@@ -53,4 +76,66 @@ export interface IRecordDeletedResponse extends ITableListItemResponse {
 
 export interface IRelationOptionsResponse {
   options: IRecordOption[]
+}
+
+export interface IWorkspacesResponse {
+  memberships: IWorkspaceMembershipView[]
+  /** Only ever a workspace in `memberships`: one the caller has left is not offered back. */
+  lastWorkspaceAddress: string | null
+}
+
+export interface IWorkspaceMembershipResponse {
+  membership: IWorkspaceMembershipView
+}
+
+export interface IWorkspaceResponse {
+  workspace: IWorkspace
+}
+
+export interface IRolesResponse {
+  roles: IWorkspaceRole[]
+}
+
+/** A whole role: its rows, with the workspace's tables and fields to set them on. */
+export interface IRoleDetailResponse {
+  role: IWorkspaceRole
+  /** The role's rows; the key is the wire's name for them, a closed vocabulary. */
+  overrides: IRoleRows
+  tables: IAccessTable[]
+}
+
+/** The tables and fields a new role's access is set on. */
+export interface IAccessTablesResponse {
+  tables: IAccessTable[]
+}
+
+/** A role as one table's access lists it: what it may do with that table's records. */
+export interface ITableRoleAccess {
+  role: IWorkspaceRole
+  access: ITableAccess
+}
+
+/** Every role of the workspace, with its access to one table. */
+export interface ITableAccessResponse {
+  roles: ITableRoleAccess[]
+}
+
+export interface IMembersResponse {
+  members: IWorkspaceMember[]
+}
+
+export interface IMemberResponse {
+  member: IWorkspaceMember
+}
+
+export interface IInvitationsResponse {
+  invitations: IWorkspaceInvitation[]
+}
+
+export interface IInvitationResponse {
+  invitation: IWorkspaceInvitation
+}
+
+export interface IIncomingInvitationsResponse {
+  invitations: IIncomingInvitation[]
 }

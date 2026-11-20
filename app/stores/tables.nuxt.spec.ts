@@ -5,6 +5,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { ITableListItem } from '#shared/types/table'
 import { useTablesStore } from '~/stores/tables'
 
+const WS = 'k3f9x2m8qa'
+
 function buildTable(
   id: string,
   name: string,
@@ -22,29 +24,42 @@ function buildTable(
 
 let listing: ITableListItem[] = []
 let listShouldFail = false
+// Held open to answer after a later request has already landed
+let listingGate: Promise<void> = Promise.resolve()
 const calls: string[] = []
 
-registerEndpoint('/api/tables', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables', {
   method: 'GET',
-  handler: () => {
+  handler: async () => {
     calls.push('GET /api/tables')
+    await listingGate
     // A 4xx: `ofetch` retries a GET once on 5xx, which would muddle the request count
     if (listShouldFail) throw createError({ statusCode: 404, statusMessage: 'No tables' })
     return { tables: listing }
   },
 })
 
-registerEndpoint('/api/tables', {
+const OTHER_WS = 'p7q2w9e4rt'
+
+registerEndpoint(`/api/workspaces/${OTHER_WS}/tables`, {
+  method: 'GET',
+  handler: () => {
+    calls.push(`GET ${OTHER_WS}`)
+    return { tables: [buildTable('tbl_9', 'Theirs')] }
+  },
+})
+
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables', {
   method: 'POST',
   handler: () => ({ table: buildTable('tbl_new', 'Invoices') }),
 })
 
-registerEndpoint('/api/tables/tbl_1', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1', {
   method: 'PATCH',
   handler: () => ({ table: buildTable('tbl_1', 'Renamed') }),
 })
 
-registerEndpoint('/api/tables/tbl_1', {
+registerEndpoint('/api/workspaces/k3f9x2m8qa/tables/tbl_1', {
   method: 'DELETE',
   handler: () => ({ ok: true }),
 })
@@ -54,6 +69,7 @@ describe('useTablesStore', () => {
     setActivePinia(createPinia())
     listing = [buildTable('tbl_1', 'Deals'), buildTable('tbl_2', 'People')]
     listShouldFail = false
+    listingGate = Promise.resolve()
     calls.length = 0
   })
 
@@ -67,7 +83,7 @@ describe('useTablesStore', () => {
   it('fetches the list and marks itself ready', async () => {
     const store = useTablesStore()
 
-    await store.fetchTables()
+    await store.fetchTables(WS)
 
     expect(store.tables).toEqual(listing)
     expect(store.status).toBe('ready')
@@ -76,9 +92,9 @@ describe('useTablesStore', () => {
   it('loads once per session and is a no-op afterwards', async () => {
     const store = useTablesStore()
 
-    await store.ensureTables()
-    await store.ensureTables()
-    await store.ensureTables()
+    await store.ensureTables(WS)
+    await store.ensureTables(WS)
+    await store.ensureTables(WS)
 
     expect(calls).toHaveLength(1)
   })
@@ -87,7 +103,7 @@ describe('useTablesStore', () => {
     listShouldFail = true
     const store = useTablesStore()
 
-    await expect(store.ensureTables()).resolves.toBeUndefined()
+    await expect(store.ensureTables(WS)).resolves.toBeUndefined()
 
     expect(store.status).toBe('failed')
     expect(store.tables).toEqual([])
@@ -96,10 +112,10 @@ describe('useTablesStore', () => {
   it('retries after a failure, since a failed attempt never reached ready', async () => {
     listShouldFail = true
     const store = useTablesStore()
-    await store.ensureTables()
+    await store.ensureTables(WS)
 
     listShouldFail = false
-    await store.ensureTables()
+    await store.ensureTables(WS)
 
     expect(calls).toHaveLength(2)
     expect(store.status).toBe('ready')
@@ -110,16 +126,16 @@ describe('useTablesStore', () => {
     listShouldFail = true
     const store = useTablesStore()
 
-    await expect(store.fetchTables()).rejects.toThrow()
+    await expect(store.fetchTables(WS)).rejects.toThrow()
     expect(store.status).toBe('failed')
   })
 
   it('appends a created table by replacing the array, not mutating it', async () => {
     const store = useTablesStore()
-    await store.fetchTables()
+    await store.fetchTables(WS)
     const before = store.tables
 
-    const created = await store.createTable({ name: 'Invoices' })
+    const created = await store.createTable(WS, { name: 'Invoices' })
 
     expect(created).toEqual(buildTable('tbl_new', 'Invoices'))
     expect(store.tables).toHaveLength(3)
@@ -129,18 +145,18 @@ describe('useTablesStore', () => {
 
   it('swaps the renamed table in place and leaves the rest alone', async () => {
     const store = useTablesStore()
-    await store.fetchTables()
+    await store.fetchTables(WS)
 
-    await store.renameTable('tbl_1', { name: 'Renamed' })
+    await store.renameTable(WS, 'tbl_1', { name: 'Renamed' })
 
     expect(store.tables).toEqual([buildTable('tbl_1', 'Renamed'), buildTable('tbl_2', 'People')])
   })
 
   it('drops the deleted table from the list', async () => {
     const store = useTablesStore()
-    await store.fetchTables()
+    await store.fetchTables(WS)
 
-    await store.deleteTable('tbl_1')
+    await store.deleteTable(WS, 'tbl_1')
 
     expect(store.tables).toEqual([buildTable('tbl_2', 'People')])
   })
@@ -155,7 +171,7 @@ describe('useTablesStore', () => {
 
     it('replaces one row and leaves every other one alone', async () => {
       const store = useTablesStore()
-      await store.fetchTables()
+      await store.fetchTables(WS)
 
       store.applyTableRow(buildTable('tbl_1', 'Deals', { fields: 3, records: 8 }))
 
@@ -167,7 +183,7 @@ describe('useTablesStore', () => {
 
     it('takes the row as given rather than deriving anything from what it held', async () => {
       const store = useTablesStore()
-      await store.fetchTables()
+      await store.fetchTables(WS)
 
       store.applyTableRow(buildTable('tbl_2', 'Renamed', { fields: 9, records: 0 }))
 
@@ -176,7 +192,7 @@ describe('useTablesStore', () => {
 
     it('replaces the array rather than mutating the cached item', async () => {
       const store = useTablesStore()
-      await store.fetchTables()
+      await store.fetchTables(WS)
       const before = store.tables
 
       store.applyTableRow(buildTable('tbl_1', 'Deals', { fields: 3, records: 8 }))
@@ -187,7 +203,7 @@ describe('useTablesStore', () => {
 
     it('is a no-op for a table the list does not hold, and never fetches', async () => {
       const store = useTablesStore()
-      await store.fetchTables()
+      await store.fetchTables(WS)
       calls.length = 0
 
       store.applyTableRow(buildTable('tbl_missing', 'Ghost', { fields: 1, records: 1 }))
@@ -205,11 +221,70 @@ describe('useTablesStore', () => {
     })
   })
 
+  describe('across workspaces', () => {
+    it('refetches for another workspace, even once ready', async () => {
+      const store = useTablesStore()
+      await store.ensureTables(WS)
+
+      await store.ensureTables(OTHER_WS)
+
+      expect(calls).toEqual(['GET /api/tables', `GET ${OTHER_WS}`])
+      expect(store.tables.map((table) => table.name)).toEqual(['Theirs'])
+      expect(store.loadedWorkspaceAddress).toBe(OTHER_WS)
+    })
+
+    it('drops the previous workspace’s tables before the next answer lands', async () => {
+      const store = useTablesStore()
+      await store.ensureTables(WS)
+
+      const switching = store.ensureTables(OTHER_WS)
+
+      expect(store.tables).toEqual([])
+      await switching
+    })
+
+    it('ignores a late answer for a workspace switched away from', async () => {
+      let release = () => {}
+      listingGate = new Promise((resolve) => (release = resolve))
+      const store = useTablesStore()
+
+      const stale = store.fetchTables(WS)
+      await store.fetchTables(OTHER_WS)
+      release()
+      await stale
+
+      expect(store.tables.map((table) => table.name)).toEqual(['Theirs'])
+      expect(store.status).toBe('ready')
+      expect(store.loadedWorkspaceAddress).toBe(OTHER_WS)
+    })
+
+    it('leaves a table created in a workspace switched away from out of the list', async () => {
+      const store = useTablesStore()
+      await store.fetchTables(OTHER_WS)
+
+      await expect(store.createTable(WS, { name: 'Invoices' })).resolves.toMatchObject({
+        name: 'Invoices',
+      })
+
+      expect(store.tables.map((table) => table.name)).toEqual(['Theirs'])
+    })
+
+    it('keeps the list while refetching the same workspace', async () => {
+      const store = useTablesStore()
+      await store.fetchTables(WS)
+
+      const refetching = store.fetchTables(WS)
+
+      expect(store.tables).toHaveLength(2)
+      await refetching
+    })
+  })
+
   describe('findTable', () => {
     it('answers with the cached row for a known id', async () => {
       listing = [buildTable('tbl_1', 'Deals', { fields: 3, records: 7 })]
       const store = useTablesStore()
-      await store.fetchTables()
+      await store.fetchTables(WS)
 
       expect(store.findTable('tbl_1')).toEqual(
         buildTable('tbl_1', 'Deals', { fields: 3, records: 7 }),
@@ -219,7 +294,7 @@ describe('useTablesStore', () => {
     it('answers undefined for an unknown id, and never fetches', async () => {
       listing = [buildTable('tbl_1', 'Deals')]
       const store = useTablesStore()
-      await store.fetchTables()
+      await store.fetchTables(WS)
       calls.length = 0
 
       expect(store.findTable('tbl_missing')).toBeUndefined()

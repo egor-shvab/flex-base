@@ -6,7 +6,11 @@ import { request, type FullConfig } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
 import { assertDisposableDatabase } from '~~/test/disposable-database'
 
-export const E2E_USER = { email: 'e2e@example.com', password: 'correct-horse-battery' }
+export const E2E_USER = {
+  name: 'E2E User',
+  email: 'e2e@example.com',
+  password: 'correct-horse-battery',
+}
 
 const STORAGE_STATE = fileURLToPath(new URL('../.auth/user.json', import.meta.url))
 
@@ -29,7 +33,9 @@ export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0]?.use.baseURL
   if (!baseURL) throw new Error('No baseURL is configured for the e2e project')
 
-  await prisma.$executeRawUnsafe('TRUNCATE "User", "Table", "Field", "Record" CASCADE')
+  await prisma.$executeRawUnsafe(
+    'TRUNCATE "User", "Workspace", "WorkspaceRole", "WorkspaceMember", "WorkspaceInvitation", "Table", "Field", "Record" CASCADE',
+  )
   await prisma.$disconnect()
 
   const context = await request.newContext({ baseURL })

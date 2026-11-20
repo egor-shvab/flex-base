@@ -4,8 +4,11 @@ import { useRecordsApi } from '~/api/records'
 import { useRelationsStore } from '~/stores/relations'
 import { useTablesStore } from '~/stores/tables'
 import type { TLoadStatus } from '~/types/load-status'
+import { isStaleWrite } from '~/utils/api-error'
+import { createLatestRequest } from '~/utils/latest-request'
 import { DEFAULT_SORT_DIRECTION, DEFAULT_SORT_KEY } from '#shared/constants/filter'
 import { RECORD_PAGE_SIZE } from '#shared/constants/record'
+import type { IRecordResponse } from '#shared/types/api'
 import type { IRecord, IRecordQueryState, TRecordData } from '#shared/types/record'
 
 function isDefaultView(query: IRecordQueryState): boolean {
@@ -28,29 +31,50 @@ export const useRecordsStore = defineStore('records', () => {
   const page = ref(1)
   const pageSize = ref(RECORD_PAGE_SIZE)
   const status = ref<TLoadStatus>('idle')
-  // Returned although nothing outside reads it: only returned state is hydrated, and a client copy
-  // left at '' makes the first refetch after SSR clear the rows
+  // Returned although nothing outside reads them: only returned state is hydrated, and a client
+  // copy left at '' makes the first refetch after SSR clear the rows
+  const loadedWorkspaceAddress = ref('')
   const loadedTableAddress = ref('')
 
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
   const hasNextPage = computed(() => records.value.length === pageSize.value)
 
-  async function fetchRecords(tableAddress: string, query: IRecordQueryState) {
-    if (tableAddress !== loadedTableAddress.value) clearState()
+  /** Filters, sort and paging can each start a fetch before the last one answered. */
+  const listRequest = createLatestRequest()
+
+  async function fetchRecords(
+    workspaceAddress: string,
+    tableAddress: string,
+    query: IRecordQueryState,
+  ) {
+    // Table 1 of one workspace is not table 1 of another, so both halves decide
+    if (
+      workspaceAddress !== loadedWorkspaceAddress.value ||
+      tableAddress !== loadedTableAddress.value
+    ) {
+      clearState()
+      relations.clearState()
+    }
+    const { signal, isCurrent } = listRequest.start()
     status.value = 'loading'
 
     try {
-      const response = await api.list(tableAddress, query)
+      const response = await api.list(workspaceAddress, tableAddress, query, signal)
+      if (!isCurrent()) return
+
       records.value = response.records
       total.value = response.total
       totalCapped.value = response.totalCapped
       page.value = response.page
       pageSize.value = response.pageSize
+      loadedWorkspaceAddress.value = workspaceAddress
       loadedTableAddress.value = tableAddress
       relations.cacheLinkedRecords(response.linkedRecords)
       status.value = 'ready'
     } catch (error) {
+      if (!isCurrent()) return
+
       // A refetch runs from a watcher, where a rejection would be unhandled; the initial load still
       // throws, so `useAsyncData` can produce the 404
       status.value = 'failed'
@@ -59,29 +83,42 @@ export const useRecordsStore = defineStore('records', () => {
   }
 
   async function createRecord(
+    workspaceAddress: string,
     tableAddress: string,
     data: TRecordData,
     query: IRecordQueryState,
   ): Promise<number> {
-    const created = await api.create(tableAddress, data)
+    const created = await api.create(workspaceAddress, tableAddress, data)
     tables.applyTableRow(created.table)
 
     const nextPage = isDefaultView(query) ? 1 : query.page
-    if (nextPage === query.page) await fetchRecords(tableAddress, query)
+    if (nextPage === query.page) await fetchRecords(workspaceAddress, tableAddress, query)
 
     return nextPage
   }
 
   async function updateRecord(
+    workspaceAddress: string,
     tableAddress: string,
-    recordAddress: string,
+    edited: Pick<IRecord, 'id' | 'updatedAt'>,
     data: TRecordData,
     query: IRecordQueryState,
   ) {
-    const response = await api.update(tableAddress, recordAddress, data)
+    let response: IRecordResponse
+    try {
+      response = await api.update(workspaceAddress, tableAddress, edited.id, data, edited.updatedAt)
+    } catch (error) {
+      // The list still holds the version that lost; refreshed, so reopening shows the one that won
+      if (isStaleWrite(error)) {
+        void fetchRecords(workspaceAddress, tableAddress, { ...query, page: page.value }).catch(
+          () => {},
+        )
+      }
+      throw error
+    }
 
     if (!isDefaultView(query)) {
-      await fetchRecords(tableAddress, { ...query, page: page.value })
+      await fetchRecords(workspaceAddress, tableAddress, { ...query, page: page.value })
       return
     }
 
@@ -92,15 +129,16 @@ export const useRecordsStore = defineStore('records', () => {
   }
 
   async function deleteRecord(
+    workspaceAddress: string,
     tableAddress: string,
     recordAddress: string,
     query: IRecordQueryState,
   ) {
-    const removed = await api.remove(tableAddress, recordAddress)
+    const removed = await api.remove(workspaceAddress, tableAddress, recordAddress)
     tables.applyTableRow(removed.table)
     const lastPage = Math.max(1, Math.ceil(Math.max(0, total.value - 1) / pageSize.value))
     const next = totalCapped.value ? page.value : Math.min(page.value, lastPage)
-    await fetchRecords(tableAddress, { ...query, page: next })
+    await fetchRecords(workspaceAddress, tableAddress, { ...query, page: next })
   }
 
   function clearState() {
@@ -120,6 +158,7 @@ export const useRecordsStore = defineStore('records', () => {
     pageCount,
     hasNextPage,
     status,
+    loadedWorkspaceAddress,
     loadedTableAddress,
     fetchRecords,
     createRecord,
