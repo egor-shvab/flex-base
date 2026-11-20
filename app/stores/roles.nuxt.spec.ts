@@ -191,7 +191,7 @@ describe('useRolesStore', () => {
 
     await store.updateRole(WS, buildRole('rol_mine', 'Mine'), buildRoleInput('Lead'))
     expect(membershipRequests).toBe(1)
-    expect(useWorkspacesStore().findMembership(WS)?.role.name).toBe('Lead')
+    expect(useWorkspacesStore().findMembership(WS)?.role?.name).toBe('Lead')
   })
 
   it('reads a role with its rows and the tables to set them on', async () => {

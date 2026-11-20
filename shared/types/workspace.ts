@@ -94,6 +94,14 @@ export interface IWorkspaceMembership extends IWorkspaceActor {
   role: IRoleRef
 }
 
+/**
+ * The caller's membership as the client is sent it: `role` is `null` unless they may see roles —
+ * their own included. The server keeps the role (`IWorkspaceMembership`); it decides access.
+ */
+export interface IWorkspaceMembershipView extends Omit<IWorkspaceMembership, 'role'> {
+  role: IRoleRef | null
+}
+
 export interface IWorkspaceRole extends IRoleRef, IPermissionSet {
   memberCount: number
   /**
@@ -117,11 +125,15 @@ export interface IManagedMember {
   isOwner: boolean
 }
 
-/** A workspace's member as its other members see them — the email included, for them alone. */
+/**
+ * A workspace's member as its other members see them — the email included, for them alone. `role`
+ * and `isOwner` reach only a caller who may see roles: to anyone else every role is `null` and no
+ * one owns the workspace, their own membership included.
+ */
 export interface IWorkspaceMember extends IManagedMember {
   user: IUserRef
   email: string
-  role: IRoleRef & IPermissionSet
+  role: (IRoleRef & IPermissionSet) | null
   joinedAt: string
 }
 
@@ -139,7 +151,8 @@ export interface IWorkspaceInvitation {
 export interface IIncomingInvitation {
   id: string
   workspace: { name: string }
-  role: { name: string }
+  /** `null` where the role would not let its member see roles: theirs would be unknown to them. */
+  role: { name: string } | null
   invitedBy: IUserRef | null
   expiresAt: string
 }

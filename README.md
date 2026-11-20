@@ -72,10 +72,15 @@ password is **`demo1234`**; sign in as different people to see what each role sh
 | `boris_2@demo.com`  | Boris Ivanov   | Admin                  | every permission, but cannot delete or hand over the workspace        |
 | `clara_3@demo.com`  | Clara Novak    | Project manager        | clients, projects and tasks; invites people                           |
 | `dmitry_4@demo.com` | Dmitry Sokolov | Project manager        | the same role as Clara; cannot delete the clients Clara added         |
-| `elena_5@demo.com`  | Elena Moroz    | Accountant             | invoices and equipment; Tasks and Ideas are hidden                    |
+| `elena_5@demo.com`  | Elena Moroz    | Accountant             | invoices and equipment; Tasks and Ideas are hidden; sees the roles    |
 | `felix_6@demo.com`  | Felix Weber    | Consultant             | edits and deletes only his own tasks; budgets and Invoices are hidden |
 | `grace_7@demo.com`  | Grace Lin      | Consultant             | the same role as Felix: sees his tasks but cannot change them         |
 | `hugo_8@demo.com`   | Hugo Martin    | Intern                 | read only; budgets and people's email and phone are hidden            |
+
+Consultants and the Intern may not see roles, so for them roles do not exist: no Roles tab (its
+address is a 404), no role beside anyone on the Members page — their own and the owner's mark
+included — and none under the workspace's name in the switcher. The Accountant is given «See roles»; the Project managers have it through
+inviting people.
 
 Each also owns a personal workspace, as registration leaves it. The workspace holds eight tables —
 clients, people, projects, tasks, invoices and three smaller ones — with around 445 records between

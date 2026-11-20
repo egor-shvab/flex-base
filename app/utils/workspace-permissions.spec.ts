@@ -3,6 +3,7 @@ import {
   applyReadScope,
   buildAssignableRoleOptions,
   buildScopeOptions,
+  formatMemberRole,
   summarisePermissions,
   toGrantCount,
 } from '~/utils/workspace-permissions'
@@ -36,7 +37,7 @@ describe('summarisePermissions', () => {
         }),
       ),
     ).toBe(
-      'Rename the workspace, Invite members, Manage members, Manage roles, Records in 3 tables',
+      'Rename the workspace, Invite members, Manage members, See roles, Manage roles, Records in 3 tables',
     )
     expect(
       summarisePermissions(
@@ -145,5 +146,16 @@ describe('buildAssignableRoleOptions', () => {
       { value: 'rol_editor', label: 'Editor' },
       { value: 'rol_viewer', label: 'Viewer' },
     ])
+  })
+})
+
+describe('formatMemberRole', () => {
+  const role = { id: 'rol_1', name: 'Clerk' }
+
+  it('names the owner as such, and anyone else by their role, or not at all when hidden', () => {
+    expect(formatMemberRole({ isOwner: true, role })).toBe('Owner')
+    expect(formatMemberRole({ isOwner: true, role: null })).toBe('Owner')
+    expect(formatMemberRole({ isOwner: false, role })).toBe('Clerk')
+    expect(formatMemberRole({ isOwner: false, role: null })).toBe('')
   })
 })

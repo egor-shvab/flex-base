@@ -1,6 +1,7 @@
 import type { Prisma } from '#server/generated/prisma/client'
 import { toUserRef, userRefSelect } from '#server/db/users'
 import type { IIncomingInvitation, IWorkspaceInvitation } from '#shared/types/workspace'
+import { hasPermission } from '#shared/utils/permissions'
 
 export const invitationSelect = {
   id: true,
@@ -14,7 +15,7 @@ export const incomingInvitationSelect = {
   id: true,
   expiresAt: true,
   workspace: { select: { name: true } },
-  role: { select: { name: true } },
+  role: { select: { name: true, permissions: true } },
   invitedBy: { select: userRefSelect },
 } satisfies Prisma.WorkspaceInvitationSelect
 
@@ -49,11 +50,17 @@ export function toSharedInvitation(row: TInvitationRow, now: Date): IWorkspaceIn
   }
 }
 
+/** The role's name only if the role, once held, lets its member see roles at all. */
 export function toIncomingInvitation(row: TIncomingInvitationRow): IIncomingInvitation {
+  const canSeeRoles = hasPermission(
+    { isOwner: false, permissions: row.role.permissions },
+    'ROLES_VIEW',
+  )
+
   return {
     id: row.id,
     workspace: row.workspace,
-    role: row.role,
+    role: canSeeRoles ? { name: row.role.name } : null,
     invitedBy: toUserRef(row.invitedBy),
     expiresAt: row.expiresAt.toISOString(),
   }

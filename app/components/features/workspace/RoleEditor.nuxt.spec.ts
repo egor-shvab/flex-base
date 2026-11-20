@@ -210,6 +210,32 @@ describe('RoleEditor', () => {
     )
   })
 
+  it('ticks and locks a permission another one brings, saving only what was ticked', async () => {
+    const { submitHandler } = await mountEditor()
+
+    expect(checkbox('See roles').checked).toBe(false)
+    checkbox('Invite members').click()
+    await nextTick()
+
+    expect(checkbox('See roles').checked).toBe(true)
+    expect(checkbox('See roles').disabled).toBe(true)
+    expect(document.body.textContent).toContain(
+      'Comes with Invite members, Manage members, or Manage roles',
+    )
+
+    await submit()
+    await vi.waitFor(() =>
+      expect(submitHandler).toHaveBeenCalledWith(
+        expect.objectContaining({ permissions: ['MEMBERS_INVITE'] }),
+      ),
+    )
+
+    checkbox('Invite members').click()
+    await nextTick()
+    expect(checkbox('See roles').checked).toBe(false)
+    expect(checkbox('See roles').disabled).toBe(false)
+  })
+
   it('refuses the owner’s reserved name before sending anything', async () => {
     const { submitHandler } = await mountEditor({ role: null })
     const name = document.querySelector<HTMLInputElement>('input[type="text"]')!

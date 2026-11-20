@@ -32,7 +32,7 @@ describe('useActiveWorkspace', () => {
     useWorkspacesStore().memberships = [buildMembership()]
     const { membership, isOwner, hasPermission } = useActiveWorkspace()
 
-    expect(membership.value?.role.name).toBe('Clerk')
+    expect(membership.value?.role?.name).toBe('Clerk')
     expect(isOwner.value).toBe(false)
     expect(hasPermission('MEMBERS_INVITE')).toBe(true)
     expect(hasPermission('TABLES_MANAGE')).toBe(false)

@@ -66,9 +66,7 @@ test('a Viewer reads everything and is offered no change at all', async ({
   }
 
   await page.goto(`${workspace.url}/settings/roles`)
-  await expect(page.getByRole('listitem').filter({ hasText: 'Editor' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'New role' })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: /^Editor/ })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'We couldn’t find that' })).toBeVisible()
 
   await page.context().close()
 })
@@ -261,6 +259,41 @@ test('a member who manages roles cannot open the one they hold, here or on a tab
   await page.goto(table.settingsUrl)
   await expect(page.getByRole('button', { name: /^Editor sees records in Deals/ })).toBeDisabled()
   await expect(page.getByRole('button', { name: /^Viewer sees records in Deals/ })).toBeEnabled()
+
+  await page.context().close()
+})
+
+test('a member who may not see roles meets no role anywhere, their own and the owner included', async ({
+  browser,
+  workspace,
+}) => {
+  const editorPage = await signInAsMember(browser, workspace.id, 'Editor')
+  await editorPage.context().close()
+  const page = await signInAsMember(browser, workspace.id, 'Viewer')
+  const settings = page.getByRole('navigation', { name: 'Settings sections' })
+
+  await page.goto(`${workspace.url}/settings/members`)
+  await expect(page.getByRole('heading', { name: 'Members' })).toBeVisible()
+  await expect(settings.getByRole('link', { name: 'Members' })).toBeVisible()
+  await expect(settings.getByRole('link', { name: 'Roles' })).toHaveCount(0)
+  const members = page.getByLabel('Members')
+  for (const name of ['Owner', 'Viewer', 'Editor']) {
+    await expect(members.getByText(name, { exact: true })).toHaveCount(0)
+  }
+  await expect(page.getByRole('button', { name: /Personal workspace Viewer/ })).toHaveCount(0)
+
+  await page.goto(`${workspace.url}/settings/roles`)
+  await expect(page.getByRole('heading', { name: 'We couldn’t find that' })).toBeVisible()
+  await page.goto(`${workspace.url}/settings/members`)
+
+  await prisma.workspaceRole.update({
+    where: { workspaceId_name: { workspaceId: workspace.id, name: 'Viewer' } },
+    data: { permissions: ['ROLES_VIEW'] },
+  })
+  await page.reload()
+  await expect(settings.getByRole('link', { name: 'Roles' })).toBeVisible()
+  await expect(members.getByText('Editor', { exact: true })).toBeVisible()
+  await expect(members.getByText('Owner', { exact: true })).toBeVisible()
 
   await page.context().close()
 })

@@ -5,6 +5,6 @@ import type { IMembersResponse } from '#shared/types/api'
 export default defineWorkspaceHandler(
   'READ',
   async ({ membership }): Promise<IMembersResponse> => ({
-    members: await MemberService.listMembers(membership.workspace.id),
+    members: await MemberService.listMembers(membership),
   }),
 )

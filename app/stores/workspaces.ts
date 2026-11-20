@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { useWorkspacesApi } from '~/api/workspaces'
 import { useAuthStore } from '~/stores/auth'
 import type { TLoadStatus } from '~/types/load-status'
-import type { IWorkspaceMembership } from '#shared/types/workspace'
+import type { IWorkspaceMembershipView } from '#shared/types/workspace'
 import type { TTransferOwnershipInput, TWorkspaceInput } from '#shared/validation/workspace'
 
 /** The signed-in user's memberships: what the switcher lists and `/` chooses from. */
@@ -11,7 +11,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   const api = useWorkspacesApi()
   const auth = useAuthStore()
 
-  const memberships = shallowRef<IWorkspaceMembership[]>([])
+  const memberships = shallowRef<IWorkspaceMembershipView[]>([])
   const lastWorkspaceAddress = ref<string | null>(null)
   const status = ref<TLoadStatus>('idle')
 
@@ -47,13 +47,13 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
     }
   }
 
-  function findMembership(workspaceAddress: string): IWorkspaceMembership | undefined {
+  function findMembership(workspaceAddress: string): IWorkspaceMembershipView | undefined {
     return memberships.value.find(
       (membership) => membership.workspace.publicId === workspaceAddress,
     )
   }
 
-  function applyMembership(next: IWorkspaceMembership) {
+  function applyMembership(next: IWorkspaceMembershipView) {
     memberships.value = findMembership(next.workspace.publicId)
       ? memberships.value.map((membership) =>
           membership.workspace.id === next.workspace.id ? next : membership,

@@ -4,7 +4,7 @@
 
     <BaseCard v-if="isOwner" tone="danger">
       <BaseActionRow title="Transfer ownership" tone="danger">
-        Hand the workspace to another member. You stay in it as {{ membership?.role.name }}, and
+        Hand the workspace to another member. You stay in it as {{ membership?.role?.name }}, and
         only they can delete it or hand it on.
         <template #action>
           <BaseButton variant="secondary" @click="isTransferOpen = true">
@@ -37,7 +37,7 @@
     <LazyTransferOwnershipModal
       v-if="isTransferOpen && membership"
       :workspace-address="workspaceAddress"
-      :own-role-id="membership.role.id"
+      :own-role-id="membership.role?.id ?? ''"
       :submit-handler="transferOwnership"
       @saved="isTransferOpen = false"
       @close="isTransferOpen = false"

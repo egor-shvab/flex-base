@@ -1,6 +1,7 @@
-import { RECORD_SCOPES } from '#shared/constants/workspace'
+import { IMPLIED_PERMISSIONS, RECORD_SCOPES } from '#shared/constants/workspace'
 import type {
   IManagedMember,
+  IRoleRef,
   ITableAccess,
   IWorkspaceActor,
   IWorkspaceMembership,
@@ -19,8 +20,20 @@ import type {
 /** Whoever's permissions are asked about: the owner holds every one, whatever their role says. */
 export type TPermissionHolder = Pick<IWorkspaceActor, 'isOwner' | 'permissions'>
 
+/** Whether `permissions` bring `permission` without holding it (`IMPLIED_PERMISSIONS`). */
+export function isPermissionImplied(
+  permissions: readonly TWorkspacePermission[],
+  permission: TWorkspacePermission,
+): boolean {
+  return (IMPLIED_PERMISSIONS[permission] ?? []).some((implying) => permissions.includes(implying))
+}
+
 export function hasPermission(actor: TPermissionHolder, permission: TWorkspacePermission): boolean {
-  return actor.isOwner || actor.permissions.includes(permission)
+  return (
+    actor.isOwner ||
+    actor.permissions.includes(permission) ||
+    isPermissionImplied(actor.permissions, permission)
+  )
 }
 
 /** Whether `access` allows the action on at least some records. */
@@ -30,11 +43,14 @@ export function hasRecordAction(access: ITableAccess, action: TRecordAction): bo
   return (action === 'update' ? access.updateScope : access.deleteScope) !== 'NONE'
 }
 
+/** Each of `subset` held by `of`, implied ones counting: what may be granted without escalating. */
 export function isPermissionSubset(
   subset: readonly TWorkspacePermission[],
   of: readonly TWorkspacePermission[],
 ): boolean {
-  return subset.every((permission) => of.includes(permission))
+  return subset.every((permission) =>
+    hasPermission({ isOwner: false, permissions: of }, permission),
+  )
 }
 
 export function isScopeWithin(scope: TRecordScope, of: TRecordScope): boolean {
@@ -79,10 +95,10 @@ export function canManageMember(
  * undo the change — their own role management, or a table they would no longer see.
  */
 export function isHeldRoleLocked(
-  actor: Pick<IWorkspaceMembership, 'isOwner' | 'role'>,
+  actor: Pick<IWorkspaceMembership, 'isOwner'> & { role: IRoleRef | null },
   roleId: string,
 ): boolean {
-  return !actor.isOwner && actor.role.id === roleId
+  return !actor.isOwner && actor.role?.id === roleId
 }
 
 /**
@@ -90,7 +106,7 @@ export function isHeldRoleLocked(
  * within them (the server's answer, `isWithinCaller`), and it is not the one they hold.
  */
 export function canEditRole(
-  actor: Pick<IWorkspaceMembership, 'isOwner' | 'permissions' | 'role'>,
+  actor: Pick<IWorkspaceMembership, 'isOwner' | 'permissions'> & { role: IRoleRef | null },
   role: Pick<IWorkspaceRole, 'id' | 'isWithinCaller'>,
 ): boolean {
   return (

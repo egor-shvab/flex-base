@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Prisma } from '#server/generated/prisma/client'
-import { retryOnPublicIdCollision } from '#server/db/workspaces'
+import { retryOnPublicIdCollision, toMembershipView } from '#server/db/workspaces'
+import { buildMembership } from '~~/test/membership'
 
 const collisionOn = (column: string) =>
   new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
@@ -36,5 +37,23 @@ describe('retryOnPublicIdCollision', () => {
 
     await expect(retryOnPublicIdCollision(run)).rejects.toMatchObject({ code: 'P2002' })
     expect(run).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('toMembershipView', () => {
+  it('sends the role only to whoever may see roles, the owner and an implied permission included', () => {
+    for (const membership of [
+      buildMembership([], { isOwner: true }),
+      buildMembership(['ROLES_VIEW']),
+      buildMembership(['MEMBERS_INVITE']),
+    ]) {
+      expect(toMembershipView(membership).role).toEqual(membership.role)
+    }
+  })
+
+  it('sends a member who may not see roles their membership without its role', () => {
+    const membership = buildMembership(['TABLES_MANAGE'])
+
+    expect(toMembershipView(membership)).toEqual({ ...membership, role: null })
   })
 })

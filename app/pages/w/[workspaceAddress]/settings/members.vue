@@ -39,12 +39,15 @@
                 :id="`${roleSelectIdPrefix}-${member.id}`"
                 class="settings-members__role"
                 :aria-label="`Role of ${member.user.name}`"
-                :model-value="member.role.id"
+                :model-value="member.role?.id ?? ''"
                 :options="roleOptions"
                 :disabled="changingMemberId === member.id"
                 @update:model-value="changeMemberRole(member, $event)"
               />
-              <span v-else class="settings-members__role settings-members__role--text">
+              <span
+                v-else-if="formatMemberRole(member)"
+                class="settings-members__role settings-members__role--text"
+              >
                 {{ formatMemberRole(member) }}
               </span>
 
@@ -170,13 +173,15 @@ const roleSelectIdPrefix = useId()
 
 const canInvite = computed(() => hasPermission('MEMBERS_INVITE'))
 
-// The roles feed both the role pickers and the invitation form
+/** The roles feed the role pickers and the invitation form; a member who may not see them has neither. */
+const canSeeRoles = computed(() => hasPermission('ROLES_VIEW'))
+
 const { status, refresh } = await useAsyncData(
   `workspace-members-${workspaceAddress.value}`,
   async () => {
     await Promise.all([
       membersStore.fetchMembers(workspaceAddress.value),
-      rolesStore.fetchRoles(workspaceAddress.value),
+      canSeeRoles.value ? rolesStore.fetchRoles(workspaceAddress.value) : undefined,
       canInvite.value ? invitationsStore.fetchInvitations(workspaceAddress.value) : undefined,
     ])
     return true
@@ -196,6 +201,7 @@ function canManage(member: IWorkspaceMember): boolean {
   return (
     hasPermission('MEMBERS_MANAGE') &&
     membership.value !== undefined &&
+    member.role !== null &&
     canManageMember(membership.value, member, isRoleWithinCaller(member.role.id))
   )
 }
@@ -211,7 +217,7 @@ const changingMemberId = ref<string | null>(null)
 const { error: roleChangeError, run: runRoleChange } = useServerAction()
 
 async function changeMemberRole(member: IWorkspaceMember, roleId: string) {
-  if (roleId === member.role.id) return
+  if (roleId === member.role?.id) return
 
   changingMemberId.value = member.id
   await runRoleChange(() =>

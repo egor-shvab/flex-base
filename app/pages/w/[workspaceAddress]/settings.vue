@@ -40,7 +40,7 @@ interface ISettingsSection {
 
 useSeoMeta({ title: 'Workspace settings' })
 
-const { workspaceAddress } = useActiveWorkspace()
+const { workspaceAddress, hasPermission } = useActiveWorkspace()
 const route = useRoute()
 
 /** A section's own pages count too: a role's page sits under Roles. */
@@ -48,12 +48,17 @@ function isSectionActive(section: TWorkspaceSettingsSection): boolean {
   return route.path.startsWith(`${pagePath.workspaceSettings(workspaceAddress.value, section)}/`)
 }
 
-const sections: ISettingsSection[] = [
+const ALL_SECTIONS: ISettingsSection[] = [
   { id: 'general', label: 'General', icon: 'material-symbols:tune-rounded' },
   { id: 'members', label: 'Members', icon: 'material-symbols:group-outline-rounded' },
   { id: 'roles', label: 'Roles', icon: 'material-symbols:shield-person-outline-rounded' },
   { id: 'danger', label: 'Danger zone', icon: 'material-symbols:warning-outline-rounded' },
 ]
+
+/** Roles only for who may see them: to anyone else the page would list their own role alone. */
+const sections = computed(() =>
+  ALL_SECTIONS.filter((section) => section.id !== 'roles' || hasPermission('ROLES_VIEW')),
+)
 
 const breadcrumbs = computed<IBreadcrumb[]>(() => [
   { label: 'Home', to: pagePath.workspace(workspaceAddress.value) },

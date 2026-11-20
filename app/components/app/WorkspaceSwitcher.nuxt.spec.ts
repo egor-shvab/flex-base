@@ -4,7 +4,7 @@ import { mockNuxtImport, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
 import { useNuxtApp } from '#imports'
-import type { IWorkspaceMembership } from '#shared/types/workspace'
+import type { IWorkspaceMembershipView } from '#shared/types/workspace'
 import WorkspaceSwitcher from '~/components/app/WorkspaceSwitcher.vue'
 import { useInvitationsStore } from '~/stores/invitations'
 import { useWorkspacesStore } from '~/stores/workspaces'
@@ -18,8 +18,8 @@ mockNuxtImport('useRoute', () => () => ({ params: { workspaceAddress: WS }, quer
 function buildMembership(
   publicId: string,
   name: string,
-  overrides: Partial<IWorkspaceMembership> = {},
-): IWorkspaceMembership {
+  overrides: Partial<IWorkspaceMembershipView> = {},
+): IWorkspaceMembershipView {
   return {
     memberId: `mem_${publicId}`,
     isOwner: false,
@@ -77,6 +77,15 @@ describe('WorkspaceSwitcher', () => {
     expect(trigger().textContent).toContain('Acme Sales')
     expect(trigger().textContent).toContain('Editor')
     expect(trigger().getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('names no role where the caller may not see roles', async () => {
+    await mountSwitcher()
+    useWorkspacesStore().memberships = [buildMembership(WS, 'Acme Sales', { role: null })]
+    await nextTick()
+
+    expect(trigger().textContent).toContain('Acme Sales')
+    expect(trigger().textContent).not.toContain('Editor')
   })
 
   it('opens from the keyboard onto the current workspace, marked as checked', async () => {

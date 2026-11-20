@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { prisma } from '#server/db/prisma'
 import { MAX_WORKSPACE_ROLES, RoleService } from '#server/services/roles'
-import { WorkspaceService } from '#server/services/workspaces'
+import { requireMembership } from '#server/utils/workspace-access'
 import { FULL_TABLE_ACCESS, NO_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IWorkspaceMembership } from '#shared/types/workspace'
 import { addMember, createUser, type TSeededUser } from '~~/test/integration/seed'
@@ -13,8 +13,7 @@ let owner: IWorkspaceMembership
 
 beforeEach(async () => {
   ada = await createUser('ada@example.com')
-  const { memberships } = await WorkspaceService.listMemberships(ada.id)
-  owner = memberships[0]!
+  owner = await requireMembership(ada.id, ada.workspace.publicId)
 })
 
 const findRoleId = async (workspaceId: string, name: string) =>
@@ -26,7 +25,7 @@ const findRoleId = async (workspaceId: string, name: string) =>
   ).id
 
 describe('the roles of a workspace', () => {
-  it('creates the defaults reaching no table, the workspace having none yet', async () => {
+  it('lists the roles reaching no table, the workspace having none yet', async () => {
     const roles = await RoleService.listRoles(owner)
 
     expect(roles.map((role) => [role.name, role.readableTableCount])).toEqual([
@@ -36,7 +35,7 @@ describe('the roles of a workspace', () => {
     ])
   })
 
-  it('lists the defaults in the order they were made, each with its member count', async () => {
+  it('lists the roles in the order they were made, each with its member count', async () => {
     const bob = await createUser('bob@example.com')
     await addMember(ada.workspace.id, bob.id, 'Editor')
 
@@ -279,8 +278,7 @@ describe('a role’s access to tables and fields', () => {
     })
     const bob = await createUser('bob@example.com')
     await addMember(ada.workspace.id, bob.id, 'Manager')
-    const { memberships } = await WorkspaceService.listMemberships(bob.id)
-    const manager = memberships.find((membership) => membership.workspace.id === ada.workspace.id)!
+    const manager = await requireMembership(bob.id, ada.workspace.publicId)
 
     const roles = await RoleService.listRoles(manager)
     expect(roles.find((role) => role.id === editorId)?.isWithinCaller).toBe(false)
@@ -305,8 +303,7 @@ describe('a role’s access to tables and fields', () => {
     })
     const bob = await createUser('bob@example.com')
     await addMember(ada.workspace.id, bob.id, 'Manager')
-    const { memberships } = await WorkspaceService.listMemberships(bob.id)
-    const manager = memberships.find((membership) => membership.workspace.id === ada.workspace.id)!
+    const manager = await requireMembership(bob.id, ada.workspace.publicId)
 
     const visible = [{ id: tableId, name: 'Deals', fields: [] }]
     await expect(RoleService.listAccessTables(manager)).resolves.toEqual(visible)

@@ -7,6 +7,8 @@ import {
   canManageMember,
   hasPermission,
   hasRecordAction,
+  isHeldRoleLocked,
+  isPermissionImplied,
   isPermissionSubset,
   isSameTableAccess,
   isScopeWithin,
@@ -46,6 +48,20 @@ describe('hasPermission', () => {
       expect(hasPermission(owner, permission)).toBe(true)
     }
   })
+
+  it('counts a permission another one brings, stored or not', () => {
+    const inviter = { isOwner: false, permissions: ['MEMBERS_INVITE'] as TWorkspacePermission[] }
+    expect(hasPermission(inviter, 'ROLES_VIEW')).toBe(true)
+    expect(hasPermission({ ...inviter, permissions: ['TABLES_MANAGE'] }, 'ROLES_VIEW')).toBe(false)
+  })
+})
+
+describe('isPermissionImplied', () => {
+  it('is true only where a held permission brings it', () => {
+    expect(isPermissionImplied(['ROLES_MANAGE'], 'ROLES_VIEW')).toBe(true)
+    expect(isPermissionImplied(['ROLES_VIEW'], 'ROLES_VIEW')).toBe(false)
+    expect(isPermissionImplied(['MEMBERS_INVITE'], 'MEMBERS_MANAGE')).toBe(false)
+  })
 })
 
 describe('isPermissionSubset', () => {
@@ -55,6 +71,11 @@ describe('isPermissionSubset', () => {
 
   it('holds for the empty set', () => {
     expect(isPermissionSubset([], [])).toBe(true)
+  })
+
+  it('lets a permission that came with another be granted on', () => {
+    expect(isPermissionSubset(['ROLES_VIEW'], ['MEMBERS_MANAGE'])).toBe(true)
+    expect(isPermissionSubset(['ROLES_VIEW'], ['WORKSPACE_UPDATE'])).toBe(false)
   })
 
   it('fails on a single permission the other lacks', () => {
@@ -161,5 +182,11 @@ describe('canEditRole', () => {
 
   it('lets the owner edit the role they hold', () => {
     expect(canEditRole(holding('rol_other', [], true), editable)).toBe(true)
+  })
+
+  it('takes a membership sent without its role as holding none', () => {
+    const unseen = { isOwner: false, permissions: [], role: null }
+    expect(isHeldRoleLocked(unseen, 'rol_other')).toBe(false)
+    expect(canEditRole(unseen, editable)).toBe(false)
   })
 })

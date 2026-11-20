@@ -1,28 +1,48 @@
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
-import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithDefaults } from '#server/db/workspaces'
+import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithOwner } from '#server/db/workspaces'
 import { FULL_TABLE_ACCESS } from '#shared/constants/workspace'
 import type { IField, IFieldOptions, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 import type { ITableAccess } from '#shared/types/workspace'
 import { canReadRecords } from '#shared/utils/table-access'
 import { buildTableAccess } from '~~/test/membership'
+import { RIG_ROLES } from '~~/test/rig-roles'
 
 let sequence = 0
 
 const unique = (prefix: string) => `${prefix}_${(sequence += 1)}`
 
-/** A user as registration leaves them: owner of a personal workspace with the default roles. */
+/** The rig's roles beside a new workspace's starting one, which it already holds. */
+export async function createRigRoles(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  startingRoleName: string,
+) {
+  await tx.workspaceRole.createMany({
+    data: RIG_ROLES.filter((role) => role.name !== startingRoleName).map((role) => ({
+      workspaceId,
+      name: role.name,
+      permissions: [...role.permissions],
+    })),
+  })
+}
+
+/**
+ * A user as registration leaves them — owner of a personal workspace under its starting role — with
+ * the rig's other roles beside it.
+ */
 export function createUser(email = `${unique('user')}@example.com`) {
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: { email, name: email.split('@')[0] ?? email, passwordHash: 'not-a-real-hash' },
       select: { id: true, email: true, name: true },
     })
-    const { workspace, role } = await createWorkspaceWithDefaults(tx, {
+    const { workspace, role } = await createWorkspaceWithOwner(tx, {
       ownerId: user.id,
       name: PERSONAL_WORKSPACE_NAME,
     })
+    await createRigRoles(tx, workspace.id, role.name)
 
     return {
       ...user,

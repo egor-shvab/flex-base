@@ -53,7 +53,7 @@ describe('useMembersStore', () => {
     await store.changeMemberRole(WS, 'mem_g', 'rol_viewer')
 
     expect(roleChange).toEqual({ roleId: 'rol_viewer' })
-    expect(store.members.map((member) => [member.user.name, member.role.name])).toEqual([
+    expect(store.members.map((member) => [member.user.name, member.role?.name])).toEqual([
       ['Ada', 'Editor'],
       ['Grace', 'Viewer'],
     ])

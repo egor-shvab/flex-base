@@ -23,7 +23,7 @@
           :title="invitation.workspace.name"
           icon="material-symbols:workspaces-outline"
           :meta="[
-            `${invitation.invitedBy?.name ?? 'Someone'} invited you as ${invitation.role.name}`,
+            `${invitation.invitedBy?.name ?? 'Someone'} invited you${invitation.role ? ` as ${invitation.role.name}` : ''}`,
             `Expires ${formatTimestampDay(invitation.expiresAt)}`,
           ]"
         >

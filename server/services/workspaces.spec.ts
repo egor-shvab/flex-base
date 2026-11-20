@@ -47,7 +47,7 @@ describe('WorkspaceService.createWorkspace', () => {
     })
   })
 
-  it('makes the caller its owner, under the default roles, in one transaction', async () => {
+  it('makes the caller its owner, under its one starting role, in one transaction', async () => {
     const membership = await WorkspaceService.createWorkspace(USER_ID, 'Acme')
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
@@ -56,7 +56,7 @@ describe('WorkspaceService.createWorkspace', () => {
         data: expect.objectContaining({
           name: 'Acme',
           ownerId: USER_ID,
-          roles: { create: expect.arrayContaining([expect.objectContaining({ name: 'Admin' })]) },
+          roles: { create: { name: 'Admin', permissions: [...WORKSPACE_PERMISSIONS] } },
         }),
       }),
     )

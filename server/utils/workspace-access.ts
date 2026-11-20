@@ -18,6 +18,7 @@ const DENIED_ACTIONS: Record<Exclude<TWorkspaceAccess, 'READ'>, string> = {
   WORKSPACE_UPDATE: 'change this workspace',
   MEMBERS_INVITE: 'invite people to this workspace',
   MEMBERS_MANAGE: 'manage the members of this workspace',
+  ROLES_VIEW: 'see the roles of this workspace',
   ROLES_MANAGE: 'manage the roles of this workspace',
   TABLES_MANAGE: 'change the tables of this workspace',
 }

@@ -31,11 +31,14 @@
 import { computed, useId } from 'vue'
 import { navigateTo, useAsyncData, useSeoMeta } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useRequireRolesView } from '~/composables/useRequireRolesView'
 import { useRoleGrantLimits } from '~/composables/useRoleGrantLimits'
 import { useRolesStore } from '~/stores/roles'
 import { getApiErrorMessage } from '~/utils/api-error'
 import { pagePath } from '~/utils/page-path'
 import type { TRoleInput } from '#shared/validation/workspace'
+
+useRequireRolesView()
 
 const rolesStore = useRolesStore()
 const { workspaceAddress, membership } = useActiveWorkspace()

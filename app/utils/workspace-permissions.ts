@@ -27,6 +27,10 @@ export const WORKSPACE_PERMISSION_TEXT: Record<TWorkspacePermission, IPermission
     label: 'Manage members',
     description: 'Change a member’s role or remove them',
   },
+  ROLES_VIEW: {
+    label: 'See roles',
+    description: 'See every role in the workspace and the role each member holds',
+  },
   ROLES_MANAGE: { label: 'Manage roles', description: 'Create, change and delete roles' },
   TABLES_MANAGE: {
     label: 'Manage tables',
@@ -85,9 +89,13 @@ export function applyReadScope(access: ITableAccess, readScope: TRecordScope): I
   }
 }
 
-/** A member's role as shown beside them: the owner is named as such, whatever role they hold. */
-export function formatMemberRole(member: { isOwner: boolean; role: IRoleRef }): string {
-  return member.isOwner ? RESERVED_ROLE_NAME : member.role.name
+/**
+ * A member's role as shown beside them: the owner is named as such, whatever role they hold; a role
+ * the caller may not see is nothing.
+ */
+export function formatMemberRole(member: { isOwner: boolean; role: IRoleRef | null }): string {
+  if (member.isOwner) return RESERVED_ROLE_NAME
+  return member.role?.name ?? ''
 }
 
 /**

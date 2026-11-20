@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
-import { createWorkspaceWithDefaults } from '#server/db/workspaces'
+import { createWorkspaceWithOwner } from '#server/db/workspaces'
+import { createRigRoles } from '~~/test/integration/seed'
 import { E2E_USER } from '~~/test/e2e/setup/global-setup'
 import { expect, signInNewUser, test, WORKSPACE_HOME } from '~~/test/e2e/setup/fixtures'
 
@@ -75,7 +76,8 @@ test('a revoked invitation can no longer be accepted', async ({ browser, page, w
 
   const other = invitee.page
   await other.goto('/invitations')
-  await expect(other.getByText(`${E2E_USER.name} invited you as Viewer`)).toBeVisible()
+  // The Viewer may not see roles, so the invitation does not name it
+  await expect(other.getByText(`${E2E_USER.name} invited you`, { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: `Revoke invitation for ${invitee.email}` }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Revoke invitation' }).click()
@@ -94,9 +96,11 @@ test('the owner hands a workspace over, then leaves it', async ({ browser, page 
     where: { email: E2E_USER.email },
     select: { id: true },
   })
-  const { workspace } = await prisma.$transaction((tx) =>
-    createWorkspaceWithDefaults(tx, { ownerId: owner.id, name: 'Handover' }),
-  )
+  const { workspace } = await prisma.$transaction(async (tx) => {
+    const created = await createWorkspaceWithOwner(tx, { ownerId: owner.id, name: 'Handover' })
+    await createRigRoles(tx, created.workspace.id, created.role.name)
+    return created
+  })
   await prisma.workspaceMember.create({
     data: {
       workspace: { connect: { id: workspace.id } },

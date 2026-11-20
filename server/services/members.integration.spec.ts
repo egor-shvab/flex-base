@@ -3,7 +3,9 @@ import { prisma } from '#server/db/prisma'
 import { MemberService } from '#server/services/members'
 import { WorkspaceService } from '#server/services/workspaces'
 import { requireMembership } from '#server/utils/workspace-access'
-import type { IWorkspaceMembership } from '#shared/types/workspace'
+import { toMembershipView } from '#server/db/workspaces'
+import { RoleService } from '#server/services/roles'
+import type { IWorkspaceMembership, TWorkspacePermission } from '#shared/types/workspace'
 import {
   addMember,
   createRecord,
@@ -32,9 +34,41 @@ const findRoleId = async (name: string) =>
     })
   ).id
 
+describe('who sees which roles', () => {
+  async function joinAs(email: string, permissions: TWorkspacePermission[]) {
+    await prisma.workspaceRole.create({
+      data: { workspaceId: ada.workspace.id, name: email, permissions },
+    })
+    const user = await createUser(email)
+    await addMember(ada.workspace.id, user.id, email)
+    return requireMembership(user.id, ada.workspace.publicId)
+  }
+
+  it('shows a member who may not see roles no role and no owner, their own included', async () => {
+    const reader = await joinAs('reader@example.com', [])
+
+    const members = await MemberService.listMembers(reader)
+    expect(members.map((member) => [member.email, member.isOwner, member.role])).toEqual([
+      ['ada@example.com', false, null],
+      ['grace@example.com', false, null],
+      ['reader@example.com', false, null],
+    ])
+    expect(toMembershipView(reader).role).toBeNull()
+  })
+
+  it('shows every role to whoever may invite, the permission coming with it', async () => {
+    const inviter = await joinAs('inviter@example.com', ['MEMBERS_INVITE'])
+
+    expect((await RoleService.listRoles(inviter)).length).toBeGreaterThan(1)
+    expect((await MemberService.listMembers(inviter)).every((member) => member.role !== null)).toBe(
+      true,
+    )
+  })
+})
+
 describe('the members of a workspace', () => {
   it('lists everyone with their role and email, the owner marked', async () => {
-    const members = await MemberService.listMembers(ada.workspace.id)
+    const members = await MemberService.listMembers(owner)
 
     expect(members).toEqual([
       expect.objectContaining({

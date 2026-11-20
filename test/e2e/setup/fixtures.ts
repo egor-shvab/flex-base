@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Browser, Page } from '@playwright/test'
 import { prisma } from '#server/db/prisma'
-import { DEFAULT_WORKSPACE_ROLES } from '#server/db/workspaces'
+import { RIG_ROLES } from '~~/test/rig-roles'
 import type { IField, TFieldType } from '#shared/types/field'
 import type { TRecordData } from '#shared/types/record'
 import { createField, createFields, createRecords, createTable } from '~~/test/integration/seed'
@@ -44,7 +44,7 @@ interface IFixtures {
 /**
  * By identity: the sign-up case registers a second user. The oldest is the personal one; any a
  * case created is removed, as is any member, invitation or role it added, and any workspace the
- * user joined or handed over; the default roles get their grants back, with no row for any table,
+ * user joined or handed over; the rig's roles (`RIG_ROLES`) are made or get their grants back, with no row for any table,
  * and `/` is pointed back at it.
  */
 async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
@@ -70,15 +70,16 @@ async function resetToPersonalWorkspace(): Promise<ISeededWorkspace> {
   await prisma.workspaceRole.deleteMany({
     where: {
       workspaceId: workspace.id,
-      name: { notIn: DEFAULT_WORKSPACE_ROLES.map((role) => role.name) },
+      name: { notIn: RIG_ROLES.map((role) => role.name) },
     },
   })
   await prisma.roleTableAccess.deleteMany({ where: { workspaceId: workspace.id } })
   await prisma.roleFieldAccess.deleteMany({ where: { workspaceId: workspace.id } })
-  for (const role of DEFAULT_WORKSPACE_ROLES) {
-    await prisma.workspaceRole.update({
+  for (const role of RIG_ROLES) {
+    await prisma.workspaceRole.upsert({
       where: { workspaceId_name: { workspaceId: workspace.id, name: role.name } },
-      data: { permissions: [...role.permissions] },
+      create: { workspaceId: workspace.id, name: role.name, permissions: [...role.permissions] },
+      update: { permissions: [...role.permissions] },
     })
   }
   await prisma.user.update({ where: owner, data: { lastWorkspaceId: workspace.id } })

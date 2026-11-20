@@ -57,7 +57,7 @@ const BUDGETS_HIDDEN = [
   { table: 'Projects', field: 'Budget', access: 'HIDDEN' },
 ] as const
 
-/** Admin is the workspace's default role, given its tables here like the rest. */
+/** Admin is the workspace's starting role, the owner's, given its tables here like the rest. */
 export const DEMO_ROLES: readonly IDemoRole[] = [
   {
     name: 'Admin',
@@ -91,7 +91,7 @@ export const DEMO_ROLES: readonly IDemoRole[] = [
   },
   {
     name: 'Accountant',
-    permissions: [],
+    permissions: ['ROLES_VIEW'],
     tables: {
       Clients: READ,
       People: READ,

@@ -271,6 +271,8 @@ and SSR, so a handler logging for itself would only duplicate it.
 role" cannot be a constraint. The owner's powers are not editable, so a role holding them would need
 a special case in every role handler. The owner is **also a member** under an ordinary role, which
 they keep after a transfer — so listing members is one query and the membership check is one path.
+A new workspace's only role is that one, Admin with every permission (`OWNER_STARTING_ROLE`): any
+other role is the owner's to make, since preset ones fit no team and were left unused or deleted.
 That invariant is held by the services (create, transfer, never remove or let the owner leave) and an
 integration test. Rejected: an `Owner` role flagged `locked`; `roleId = null` meaning owner; a
 composite foreign key from owner to membership, which forms a cascade cycle with `WorkspaceMember`.
@@ -289,9 +291,23 @@ the in-use check (409) — no count is read first.
 `WorkspaceRole.permissions` is `WorkspacePermission[]`. Rejected: a `RolePermission` join table
 (rows for a short closed list, and a join on every permission read); JSON (the database stops
 checking the values). The list order in `WORKSPACE_PERMISSIONS` is the editor's, and it mirrors the
-Prisma enum. Record actions are not in it: each takes a scope (`NONE`/`OWN`/`ALL`), which a flag in
+Prisma enum; a new value takes two migrations, since PostgreSQL refuses a value's use in the
+transaction that adds it. Record actions are not in it: each takes a scope (`NONE`/`OWN`/`ALL`), which a flag in
 an array cannot say, so they are the role's own columns (`readScope`, `canCreate`, `updateScope`,
 `deleteScope`), compared in that order by the anti-escalation rules.
+
+### Seeing roles is a permission that managing implies
+
+Without `ROLES_VIEW` roles do not exist for a member: the role list is a 403 and the role pages a
+404 (`useRequireRolesView`); every member's role, their own included, comes back `null` and no one
+owns the workspace (`MemberService.listMembers`); their own membership is sent without its role
+(`IWorkspaceMembershipView`, `toMembershipView` — the server's `IWorkspaceMembership` keeps it, since
+access is decided by it); and an incoming invitation names its role only if that role sees roles.
+The roles' names and table counts would otherwise tell what roles there are and how many tables. Inviting, managing members and managing roles all pick from the role list, so each brings
+`ROLES_VIEW` with it: `IMPLIED_PERMISSIONS` is the one place that says so, and `hasPermission` and
+`isPermissionSubset` read it, so a check never lists the implying permissions itself. Rejected:
+tying sight of the roles to the management permissions alone — then it could not be granted to a
+role that manages nothing.
 
 ### A role reaches a table only through its row there
 

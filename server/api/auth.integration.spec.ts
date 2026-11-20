@@ -64,7 +64,7 @@ describe('registering', () => {
     expect(stored.ownedWorkspaces).toHaveLength(1)
     const [workspace] = stored.ownedWorkspaces
     expect(workspace?.name).toBe('Personal workspace')
-    expect(workspace?.roles.map((role) => role.name).sort()).toEqual(['Admin', 'Editor', 'Viewer'])
+    expect(workspace?.roles.map((role) => role.name)).toEqual(['Admin'])
     expect(stored.memberships).toEqual([{ workspaceId: workspace?.id, role: { name: 'Admin' } }])
     expect(stored.lastWorkspaceId).toBe(workspace?.id)
   })

@@ -81,6 +81,13 @@ describe('IncomingInvitationList', () => {
     expect(button('Decline the invitation to Acme')).toBeDefined()
   })
 
+  it('names no role where the role would not let the caller see roles', async () => {
+    await mountList([{ ...buildIncoming('inv_hidden', 'Acme'), role: null }])
+
+    expect(document.body.textContent).toContain('Ada invited you')
+    expect(document.body.textContent).not.toContain('invited you as')
+  })
+
   it('opens the workspace once accepted', async () => {
     await mountList([buildIncoming('inv_acme', 'Acme')])
 

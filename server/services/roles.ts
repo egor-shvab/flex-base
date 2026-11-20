@@ -177,8 +177,9 @@ async function loadRolesWithGround(actor: IWorkspaceMembership) {
 }
 
 /**
- * Each role with whether it is within the caller. Only a caller who can act on roles or their
- * holders needs the comparison; for anyone else it is false, and nothing more is read.
+ * Each role with whether it is within the caller; the route admits only whoever may see roles. Only
+ * a caller who can act on roles or their holders needs the comparison; for anyone else it is false,
+ * and nothing more is read.
  */
 async function listRoles(actor: IWorkspaceMembership): Promise<IWorkspaceRole[]> {
   if (!ROLE_REACH_PERMISSIONS.some((permission) => hasPermission(actor, permission))) {

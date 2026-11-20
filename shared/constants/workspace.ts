@@ -1,13 +1,25 @@
-import type { ITableAccess, TFieldAccess } from '#shared/types/workspace'
+import type { ITableAccess, TFieldAccess, TWorkspacePermission } from '#shared/types/workspace'
 
 /** In the order a role editor lists them. Mirrors the Prisma `WorkspacePermission` enum. */
 export const WORKSPACE_PERMISSIONS = [
   'WORKSPACE_UPDATE',
   'MEMBERS_INVITE',
   'MEMBERS_MANAGE',
+  'ROLES_VIEW',
   'ROLES_MANAGE',
   'TABLES_MANAGE',
 ] as const
+
+/**
+ * A permission that comes with others: whoever holds one of these holds it too, stored or not. The
+ * one place that says so — `hasPermission` reads it, and with it every check and the editor.
+ */
+export const IMPLIED_PERMISSIONS: Partial<
+  Record<TWorkspacePermission, readonly TWorkspacePermission[]>
+> = {
+  // Inviting, assigning and editing roles all pick from the list of roles
+  ROLES_VIEW: ['MEMBERS_INVITE', 'MEMBERS_MANAGE', 'ROLES_MANAGE'],
+}
 
 /** Narrowest first: the order comparisons use. Mirrors the Prisma `RecordScope` enum. */
 export const RECORD_SCOPES = ['NONE', 'OWN', 'ALL'] as const

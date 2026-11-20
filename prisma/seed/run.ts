@@ -2,7 +2,7 @@ import process from 'node:process'
 import { Prisma } from '#server/generated/prisma/client'
 import { prisma } from '#server/db/prisma'
 import { reconcileFieldIndexes } from '#server/db/field-indexes'
-import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithDefaults } from '#server/db/workspaces'
+import { PERSONAL_WORKSPACE_NAME, createWorkspaceWithOwner } from '#server/db/workspaces'
 import { hashPassword } from '#server/utils/auth'
 import type { IField } from '#shared/types/field'
 import { compileDataset } from '~~/prisma/seed/compile'
@@ -163,7 +163,7 @@ async function seed(): Promise<void> {
       })),
     })
 
-    const created = await createWorkspaceWithDefaults(tx, {
+    const created = await createWorkspaceWithOwner(tx, {
       ownerId,
       name: DEMO_WORKSPACE_NAME,
     })
@@ -174,23 +174,13 @@ async function seed(): Promise<void> {
       select: { id: true },
     })
 
-    // The default roles but Admin give way to the demo's
-    const demoRoleNames = DEMO_ROLES.map((role) => role.name)
-    await tx.workspaceRole.deleteMany({
-      where: { workspaceId: workspace.id, name: { notIn: demoRoleNames } },
-    })
-    const existing = await tx.workspaceRole.findMany({
-      where: { workspaceId: workspace.id },
-      select: { name: true },
-    })
+    // The workspace starts with the owner's role alone; the demo's other roles join it
     await tx.workspaceRole.createMany({
-      data: DEMO_ROLES.filter((role) => !existing.some((row) => row.name === role.name)).map(
-        (role) => ({
-          workspaceId: workspace.id,
-          name: role.name,
-          permissions: [...role.permissions],
-        }),
-      ),
+      data: DEMO_ROLES.filter((role) => role.name !== created.role.name).map((role) => ({
+        workspaceId: workspace.id,
+        name: role.name,
+        permissions: [...role.permissions],
+      })),
     })
     const roles = await tx.workspaceRole.findMany({
       where: { workspaceId: workspace.id },
@@ -215,7 +205,7 @@ async function seed(): Promise<void> {
 
     // Every account owns a personal workspace, as registration leaves it
     for (const member of DEMO_MEMBERS.slice(1)) {
-      await createWorkspaceWithDefaults(tx, {
+      await createWorkspaceWithOwner(tx, {
         ownerId: idFor(`user:${member.email}`),
         name: PERSONAL_WORKSPACE_NAME,
       })

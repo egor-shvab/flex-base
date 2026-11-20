@@ -20,7 +20,7 @@ beforeEach(async () => {
 const ownerOf = (user: TSeededUser) => requireMembership(user.id, user.workspace.publicId)
 
 describe('creating a workspace', () => {
-  it('makes the caller its owner, under the default roles', async () => {
+  it('makes the caller its owner, under its one starting role', async () => {
     const membership = await WorkspaceService.createWorkspace(ada.id, 'Acme')
 
     expect(membership).toMatchObject({ isOwner: true, role: { name: 'Admin' } })
@@ -31,7 +31,7 @@ describe('creating a workspace', () => {
       select: { name: true },
       orderBy: { name: 'asc' },
     })
-    expect(roles.map((role) => role.name)).toEqual(['Admin', 'Editor', 'Viewer'])
+    expect(roles.map((role) => role.name)).toEqual(['Admin'])
 
     const { memberships } = await WorkspaceService.listMemberships(ada.id)
     expect(memberships.map((entry) => entry.workspace.name)).toEqual(['Personal workspace', 'Acme'])

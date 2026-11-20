@@ -27,7 +27,6 @@ const ACTOR_ROLE_ID = 'rol_actor'
 
 const managerDeals = { canCreate: true, updateScope: 'ALL' } as const
 const manager = buildMembership(['ROLES_MANAGE'])
-const reader = buildMembership([])
 const owner = buildMembership([], { isOwner: true })
 
 const READ_AT = new Date('2026-02-11T16:30:00.000Z')
@@ -116,10 +115,12 @@ beforeEach(() => {
 })
 
 describe('RoleService.listRoles', () => {
+  const viewer = buildMembership(['ROLES_VIEW'])
+
   it('reads this workspace’s roles in a stable order, with how many members hold each', async () => {
     prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow([], 3)])
 
-    await expect(RoleService.listRoles(reader)).resolves.toEqual([
+    await expect(RoleService.listRoles(viewer)).resolves.toEqual([
       expect.objectContaining({
         id: ROLE_ID,
         name: 'Clerk',
@@ -143,7 +144,7 @@ describe('RoleService.listRoles', () => {
   it('compares nothing for a caller who cannot act on roles, and calls none within them', async () => {
     prismaMock.workspaceRole.findMany.mockResolvedValue([roleRow([])])
 
-    const [role] = await RoleService.listRoles(reader)
+    const [role] = await RoleService.listRoles(viewer)
 
     expect(role?.isWithinCaller).toBe(false)
     expect(prismaMock.table.findMany).not.toHaveBeenCalled()

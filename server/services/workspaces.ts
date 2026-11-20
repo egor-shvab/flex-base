@@ -5,9 +5,10 @@ import { isMissingRow } from '#server/db/prisma-errors'
 import {
   buildOwnedWorkspaceWhere,
   buildRoleWhere,
-  createWorkspaceWithDefaults,
+  createWorkspaceWithOwner,
   membershipSelect,
   retryOnPublicIdCollision,
+  toMembershipView,
   toSharedMembership,
   toSharedWorkspace,
   workspaceSelect,
@@ -29,7 +30,9 @@ async function listMemberships(userId: string): Promise<IWorkspacesResponse> {
     },
   })
 
-  const memberships = user.memberships.map((row) => toSharedMembership(row, userId))
+  const memberships = user.memberships.map((row) =>
+    toMembershipView(toSharedMembership(row, userId)),
+  )
   const lastWorkspace = memberships.find(
     (membership) => membership.workspace.id === user.lastWorkspaceId,
   )
@@ -39,7 +42,7 @@ async function listMemberships(userId: string): Promise<IWorkspacesResponse> {
 
 async function createWorkspace(userId: string, name: string): Promise<IWorkspaceMembership> {
   const row = await retryOnPublicIdCollision(() =>
-    prisma.$transaction((tx) => createWorkspaceWithDefaults(tx, { ownerId: userId, name })),
+    prisma.$transaction((tx) => createWorkspaceWithOwner(tx, { ownerId: userId, name })),
   )
 
   return toSharedMembership(row, userId)

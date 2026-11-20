@@ -65,7 +65,7 @@ export const useRolesStore = defineStore('roles', () => {
 
   /** The caller's own role: what they may do, and its name in the switcher, changed with it. */
   async function refreshOwnRole(workspaceAddress: string, roleId: string) {
-    if (workspacesStore.findMembership(workspaceAddress)?.role.id === roleId) {
+    if (workspacesStore.findMembership(workspaceAddress)?.role?.id === roleId) {
       await workspacesStore.fetchMembership(workspaceAddress)
     }
   }

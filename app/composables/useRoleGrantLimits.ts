@@ -16,7 +16,7 @@ export function useRoleGrantLimits() {
 
   async function fetchOwnRows(): Promise<IRoleRows> {
     const actor = membership.value
-    if (!actor || actor.isOwner) return NO_ROWS
+    if (!actor?.role || actor.isOwner) return NO_ROWS
     return (await rolesStore.fetchRole(workspaceAddress.value, actor.role.id)).overrides
   }
 

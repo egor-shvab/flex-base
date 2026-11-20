@@ -10,7 +10,7 @@ test.beforeEach(async ({ page, workspace }) => {
   await expect(page.getByRole('heading', { name: 'Roles' })).toBeVisible()
 })
 
-test('lists the default roles with what each may do', async ({ page, seedTable }) => {
+test('lists the roles with what each may do', async ({ page, seedTable }) => {
   await seedTable('Deals', [{ key: 'company', type: 'TEXT', name: 'Company' }], [])
   await page.reload()
 

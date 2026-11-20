@@ -28,7 +28,7 @@
       </BaseErrorBanner>
 
       <template v-else>
-        <p v-if="membership.isOwner && membership.role.id === roleId" class="g-note">
+        <p v-if="membership.isOwner && membership.role?.id === roleId" class="g-note">
           This is your role. As the owner you may do everything regardless; it applies to you once
           you hand the workspace over.
         </p>
@@ -90,6 +90,7 @@
 import { computed, ref, useId } from 'vue'
 import { navigateTo, useAsyncData, useRoute, useSeoMeta } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useRequireRolesView } from '~/composables/useRequireRolesView'
 import { useDeleteConfirm } from '~/composables/useDeleteConfirm'
 import { useRoleGrantLimits } from '~/composables/useRoleGrantLimits'
 import { useRolesStore } from '~/stores/roles'
@@ -101,6 +102,8 @@ import { canEditRole, isHeldRoleLocked } from '#shared/utils/permissions'
 import type { TRoleInput } from '#shared/validation/workspace'
 
 const route = useRoute()
+useRequireRolesView()
+
 const rolesStore = useRolesStore()
 const { workspaceAddress, membership } = useActiveWorkspace()
 const { fetchOwnRows, buildLimits } = useRoleGrantLimits()

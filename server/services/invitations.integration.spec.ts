@@ -21,7 +21,7 @@ let editorRoleId: string
 
 beforeEach(async () => {
   ada = await createUser('ada@example.com')
-  owner = (await WorkspaceService.listMemberships(ada.id)).memberships[0]!
+  owner = await requireMembership(ada.id, ada.workspace.publicId)
   grace = await createUser('Grace@Example.com')
   editorRoleId = (
     await prisma.workspaceRole.findUniqueOrThrow({
@@ -126,7 +126,8 @@ describe('an invitation', () => {
       expect.objectContaining({
         id: invitation.id,
         workspace: { name: owner.workspace.name },
-        role: { name: 'Editor' },
+        // The Editor may not see roles: its name would tell the invitee what roles there are
+        role: null,
         invitedBy: { id: ada.id, name: ada.name },
       }),
     ])

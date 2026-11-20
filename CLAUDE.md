@@ -148,7 +148,9 @@ Rationale: `docs/decisions.md` → _Everything except components is imported exp
   access lies within their own — permissions, and every table and field
   (`isAccessWithin`) — and never on the role they hold (`isHeldRoleLocked`). The server decides
   it; the client reads its answer per role (`isWithinCaller`), never recomputes it, and asks
-  whether a role may be edited only through `canEditRole`.
+  whether a role may be edited only through `canEditRole`. Roles — a member's own and the
+  owner's mark included — reach only `ROLES_VIEW` (`toMembershipView`, `MemberService.listMembers`),
+  which `hasPermission` grants through `IMPLIED_PERMISSIONS` too.
 - **Status codes:** a resource outside the caller's workspaces, or a table their role may not read,
   is **404, never 403**; a member lacking the permission or record action, or acting on a record
   they read but did not create under an `OWN` scope, is **403**; 401 only from `requireUser(event)`; 409 for uniqueness, in-use

@@ -3,6 +3,7 @@ import { isUniqueViolationOn } from '#server/db/prisma-errors'
 import { userRefSelect } from '#server/db/users'
 import { buildPublicId } from '#server/utils/public-id'
 import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { hasPermission } from '#shared/utils/permissions'
 import type {
   IPermissionSet,
   IRoleGrants,
@@ -10,24 +11,20 @@ import type {
   IWorkspace,
   IWorkspaceMember,
   IWorkspaceMembership,
+  IWorkspaceMembershipView,
   IWorkspaceRole,
 } from '#shared/types/workspace'
 
 export const PERSONAL_WORKSPACE_NAME = 'Personal workspace'
 
-interface IDefaultRole extends IPermissionSet {
-  name: string
-}
-
 /**
- * The first is the owner's: they keep it after handing the workspace over. A new workspace has no
- * tables, so no role reaches any records yet.
+ * A new workspace's only role, the owner's: it binds them once they hand the workspace over. Any
+ * other role is the owner's to make. A new workspace has no tables, so it reaches no records yet.
  */
-export const DEFAULT_WORKSPACE_ROLES = [
-  { name: 'Admin', permissions: WORKSPACE_PERMISSIONS },
-  { name: 'Editor', permissions: [] },
-  { name: 'Viewer', permissions: [] },
-] as const satisfies readonly IDefaultRole[]
+export const OWNER_STARTING_ROLE = {
+  name: 'Admin',
+  permissions: WORKSPACE_PERMISSIONS,
+} as const satisfies IPermissionSet & { name: string }
 
 const PUBLIC_ID_ATTEMPTS = 3
 
@@ -155,6 +152,11 @@ export function toSharedMembership(row: TMembershipRow, userId: string): IWorksp
   }
 }
 
+/** The membership as the caller is sent it: their role only if they may see roles. */
+export function toMembershipView(membership: IWorkspaceMembership): IWorkspaceMembershipView {
+  return hasPermission(membership, 'ROLES_VIEW') ? membership : { ...membership, role: null }
+}
+
 export function toSharedRole(row: TRoleRow, isWithinCaller: boolean): IWorkspaceRole {
   return {
     id: row.id,
@@ -179,10 +181,10 @@ export function toSharedMember(row: TMemberRow): IWorkspaceMember {
 }
 
 /**
- * The workspace, its default roles and the owner's membership — every new workspace, personal or
- * not, starts here. Runs inside the caller's transaction; returns the owner's membership.
+ * The workspace, its starting role and the owner's membership under it — every new workspace,
+ * personal or not, starts here. Runs inside the caller's transaction; returns the owner's membership.
  */
-export async function createWorkspaceWithDefaults(
+export async function createWorkspaceWithOwner(
   tx: Prisma.TransactionClient,
   { ownerId, name }: { ownerId: string; name: string },
 ): Promise<TMembershipRow> {
@@ -192,10 +194,10 @@ export async function createWorkspaceWithDefaults(
       name,
       ownerId,
       roles: {
-        create: DEFAULT_WORKSPACE_ROLES.map((role) => ({
-          name: role.name,
-          permissions: [...role.permissions],
-        })),
+        create: {
+          name: OWNER_STARTING_ROLE.name,
+          permissions: [...OWNER_STARTING_ROLE.permissions],
+        },
       },
     },
     select: { id: true },
@@ -207,7 +209,7 @@ export async function createWorkspaceWithDefaults(
       user: { connect: { id: ownerId } },
       role: {
         connect: {
-          workspaceId_name: { workspaceId: workspace.id, name: DEFAULT_WORKSPACE_ROLES[0].name },
+          workspaceId_name: { workspaceId: workspace.id, name: OWNER_STARTING_ROLE.name },
         },
       },
     },

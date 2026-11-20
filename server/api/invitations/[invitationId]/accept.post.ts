@@ -1,6 +1,7 @@
 import { defineEventHandler } from 'h3'
 import { requireUser } from '#server/utils/auth'
 import { routeParam } from '#server/utils/route'
+import { toMembershipView } from '#server/db/workspaces'
 import { InvitationService } from '#server/services/invitations'
 import type { IWorkspaceMembershipResponse } from '#shared/types/api'
 
@@ -10,5 +11,5 @@ export default defineEventHandler(async (event): Promise<IWorkspaceMembershipRes
     user,
     routeParam(event, 'invitationId'),
   )
-  return { membership }
+  return { membership: toMembershipView(membership) }
 })

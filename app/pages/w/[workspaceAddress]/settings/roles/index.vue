@@ -19,7 +19,7 @@
       A role decides what its members may do in the workspace and in each table.
       <template v-if="membership?.isOwner">
         You own this workspace, so you may do everything whatever your role. Yours,
-        {{ membership.role.name }}, applies to you only if you hand the workspace over.
+        {{ membership.role?.name }}, applies to you only if you hand the workspace over.
       </template>
       <template v-else>
         The workspace owner may do everything, whatever their role. Only they can change the role
@@ -53,12 +53,15 @@
 import { computed, useId } from 'vue'
 import { useAsyncData } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useRequireRolesView } from '~/composables/useRequireRolesView'
 import { useRolesStore } from '~/stores/roles'
 import { formatCount } from '~/utils/format'
 import { pagePath } from '~/utils/page-path'
 import { summarisePermissions } from '~/utils/workspace-permissions'
 import type { IWorkspaceRole } from '#shared/types/workspace'
 import { canEditRole } from '#shared/utils/permissions'
+
+useRequireRolesView()
 
 const rolesStore = useRolesStore()
 const { workspaceAddress, membership, hasPermission } = useActiveWorkspace()
@@ -82,7 +85,7 @@ function canChangeRole(role: IWorkspaceRole): boolean {
 
 /** The owner's role binds them only once they hand the workspace over. */
 function badgeFor(role: IWorkspaceRole): string | undefined {
-  if (role.id !== membership.value?.role.id) return undefined
+  if (role.id !== membership.value?.role?.id) return undefined
   return membership.value.isOwner ? 'yours after a transfer' : 'your role'
 }
 </script>

@@ -214,7 +214,7 @@ function scopedEndpoints(workspaceAddress = adaWorkspace()): IEndpoint[] {
       params: invitationParams,
       method: 'DELETE',
     },
-    { name: 'GET /roles', handler: rolesGet, access: 'READ', params: workspaceParams },
+    { name: 'GET /roles', handler: rolesGet, access: 'ROLES_VIEW', params: workspaceParams },
     {
       name: 'POST /roles',
       handler: rolesPost,
@@ -1202,10 +1202,11 @@ describe('the workspaces a user sees', () => {
       isOwner: true,
       role: { name: 'Admin' },
     })
+    // The Editor may not see roles, so not even its own name comes back
     expect(memberships[1]).toMatchObject({
       workspace: { publicId: adaWorkspace() },
       isOwner: false,
-      role: { name: 'Editor' },
+      role: null,
       permissions: [],
     })
   })

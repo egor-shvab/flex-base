@@ -11,7 +11,7 @@ import {
 } from '#server/db/users'
 import {
   PERSONAL_WORKSPACE_NAME,
-  createWorkspaceWithDefaults,
+  createWorkspaceWithOwner,
   retryOnPublicIdCollision,
 } from '#server/db/workspaces'
 import {
@@ -42,7 +42,7 @@ async function registerUser({ email, password, name }: TRegistrationInput): Prom
             data: { email, name, passwordHash },
             select: { id: true },
           })
-          const membership = await createWorkspaceWithDefaults(tx, {
+          const membership = await createWorkspaceWithOwner(tx, {
             ownerId: user.id,
             name: PERSONAL_WORKSPACE_NAME,
           })

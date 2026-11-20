@@ -26,14 +26,10 @@
         <ul class="role-editor__permissions">
           <li v-for="permission in WORKSPACE_PERMISSIONS" :key="permission">
             <BaseCheckbox
-              :model-value="form.permissions.includes(permission)"
+              :model-value="form.permissions.includes(permission) || isImplied(permission)"
               :label="WORKSPACE_PERMISSION_TEXT[permission].label"
-              :hint="
-                canGrant(permission)
-                  ? WORKSPACE_PERMISSION_TEXT[permission].description
-                  : UNGRANTABLE_HINT
-              "
-              :disabled="!canGrant(permission)"
+              :hint="hintFor(permission)"
+              :disabled="!canGrant(permission) || isImplied(permission)"
               @update:model-value="setPermissionGranted(permission, $event)"
             />
           </li>
@@ -86,7 +82,7 @@ import { computed, useId } from 'vue'
 import { useSavedForm } from '~/composables/useSavedForm'
 import { isRoleVisibilityBypassed, toRolePayload, type IAccessLimits } from '~/utils/role-form'
 import { WORKSPACE_PERMISSION_TEXT } from '~/utils/workspace-permissions'
-import { WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
+import { IMPLIED_PERMISSIONS, WORKSPACE_PERMISSIONS } from '#shared/constants/workspace'
 import type {
   IAccessTable,
   IRoleRows,
@@ -94,7 +90,7 @@ import type {
   IWorkspaceRole,
   TWorkspacePermission,
 } from '#shared/types/workspace'
-import { hasPermission } from '#shared/utils/permissions'
+import { hasPermission, isPermissionImplied } from '#shared/utils/permissions'
 import { roleInputSchema, type TRoleInput } from '#shared/validation/workspace'
 
 /**
@@ -159,6 +155,21 @@ const { form, errors, serverError, isSubmitting, submit, isDirty, hasSaved, isSt
 const formError = computed(() => errors.permissions ?? errors.tables ?? errors.fields ?? '')
 
 const isBypassed = computed(() => isRoleVisibilityBypassed(form))
+
+/** Ticked and locked while another ticked permission brings it; saved only if ticked itself. */
+function isImplied(permission: TWorkspacePermission): boolean {
+  return isPermissionImplied(form.permissions, permission)
+}
+
+function hintFor(permission: TWorkspacePermission): string {
+  if (isImplied(permission)) {
+    const labels = (IMPLIED_PERMISSIONS[permission] ?? []).map(
+      (implying) => WORKSPACE_PERMISSION_TEXT[implying].label,
+    )
+    return `Comes with ${new Intl.ListFormat('en', { type: 'disjunction' }).format(labels)}`
+  }
+  return canGrant(permission) ? WORKSPACE_PERMISSION_TEXT[permission].description : UNGRANTABLE_HINT
+}
 
 /** Shown, not hidden, when out of reach: the role still reads whole. */
 function canGrant(permission: TWorkspacePermission): boolean {

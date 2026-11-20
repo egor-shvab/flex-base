@@ -68,7 +68,7 @@ describe('MemberService.listMembers', () => {
       memberRow(),
     ])
 
-    const members = await MemberService.listMembers(WORKSPACE_ID)
+    const members = await MemberService.listMembers(manager)
 
     expect(members.map((member) => member.isOwner)).toEqual([true, false])
     expect(members[1]).toEqual({
@@ -89,6 +89,25 @@ describe('MemberService.listMembers', () => {
         orderBy: { createdAt: 'asc' },
       }),
     )
+  })
+})
+
+describe('MemberService.listMembers, to a member who may not see roles', () => {
+  it('leaves out every role and who owns the workspace, their own membership included', async () => {
+    const reader = buildMembership([], { memberId: 'mem_reader' })
+    prismaMock.workspaceMember.findMany.mockResolvedValue([
+      memberRow({ id: 'mem_owner', userId: 'usr_owner' }),
+      memberRow({ id: 'mem_reader', userId: 'usr_reader' }),
+      memberRow(),
+    ])
+
+    const members = await MemberService.listMembers(reader)
+
+    expect(members.map(({ isOwner, role }) => ({ isOwner, role }))).toEqual([
+      { isOwner: false, role: null },
+      { isOwner: false, role: null },
+      { isOwner: false, role: null },
+    ])
   })
 })
 

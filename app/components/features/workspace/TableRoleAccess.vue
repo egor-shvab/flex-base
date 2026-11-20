@@ -56,7 +56,7 @@ import { pagePath } from '~/utils/page-path'
 import { isRoleVisibilityBypassed, type IAccessLimits } from '~/utils/role-form'
 import { RECORD_ACCESS_TEXT } from '~/utils/workspace-permissions'
 import type { ITableRoleAccess } from '#shared/types/api'
-import type { ITableAccess, IWorkspaceMembership } from '#shared/types/workspace'
+import type { ITableAccess, IWorkspaceMembershipView } from '#shared/types/workspace'
 import { canEditRole, isHeldRoleLocked, isSameTableAccess } from '#shared/utils/permissions'
 import { tableAccessInputSchema, type TTableAccessInput } from '#shared/validation/workspace'
 
@@ -69,7 +69,7 @@ const props = defineProps<{
   tableId: string
   tableName: string
   roles: ITableRoleAccess[]
-  actor: IWorkspaceMembership
+  actor: IWorkspaceMembershipView
   limits: IAccessLimits
   submitHandler: (input: TTableAccessInput) => Promise<ITableRoleAccess[]>
 }>()

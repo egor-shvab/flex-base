@@ -100,7 +100,10 @@ const candidateOptions = computed<ISelectOption[]>(() =>
   status.value === 'ready'
     ? membersStore.members
         .filter((member) => !member.isOwner)
-        .map((member) => ({ value: member.id, label: `${member.user.name} · ${member.role.name}` }))
+        .map((member) => ({
+          value: member.id,
+          label: member.role ? `${member.user.name} · ${member.role.name}` : member.user.name,
+        }))
     : [],
 )
 

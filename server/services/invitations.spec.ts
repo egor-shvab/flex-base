@@ -233,7 +233,7 @@ describe('InvitationService.listIncomingInvitations', () => {
         id: INVITATION_ID,
         expiresAt: IN_A_WEEK,
         workspace: { name: 'Acme' },
-        role: { name: 'Clerk' },
+        role: { name: 'Clerk', permissions: ['ROLES_VIEW'] },
         invitedBy: null,
       },
     ])
@@ -252,6 +252,29 @@ describe('InvitationService.listIncomingInvitations', () => {
         where: { email: 'grace@example.com', expiresAt: { gt: NOW } },
       }),
     )
+  })
+
+  it('leaves out the role’s name where the role would not let its member see roles', async () => {
+    prismaMock.workspaceInvitation.findMany.mockResolvedValue([
+      {
+        id: INVITATION_ID,
+        expiresAt: IN_A_WEEK,
+        workspace: { name: 'Acme' },
+        role: { name: 'Clerk', permissions: [] },
+        invitedBy: null,
+      },
+      {
+        id: 'inv_2',
+        expiresAt: IN_A_WEEK,
+        workspace: { name: 'Beta' },
+        role: { name: 'Recruiter', permissions: ['MEMBERS_INVITE'] },
+        invitedBy: null,
+      },
+    ])
+
+    const invitations = await InvitationService.listIncomingInvitations(invitee)
+
+    expect(invitations.map((invitation) => invitation.role)).toEqual([null, { name: 'Recruiter' }])
   })
 })
 

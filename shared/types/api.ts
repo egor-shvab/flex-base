@@ -10,7 +10,7 @@ import type {
   IWorkspace,
   IWorkspaceInvitation,
   IWorkspaceMember,
-  IWorkspaceMembership,
+  IWorkspaceMembershipView,
   IWorkspaceRole,
 } from '#shared/types/workspace'
 
@@ -79,13 +79,13 @@ export interface IRelationOptionsResponse {
 }
 
 export interface IWorkspacesResponse {
-  memberships: IWorkspaceMembership[]
+  memberships: IWorkspaceMembershipView[]
   /** Only ever a workspace in `memberships`: one the caller has left is not offered back. */
   lastWorkspaceAddress: string | null
 }
 
 export interface IWorkspaceMembershipResponse {
-  membership: IWorkspaceMembership
+  membership: IWorkspaceMembershipView
 }
 
 export interface IWorkspaceResponse {

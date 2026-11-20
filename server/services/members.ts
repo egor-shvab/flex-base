@@ -5,18 +5,27 @@ import { RoleService } from '#server/services/roles'
 import { isMissingRow } from '#server/db/prisma-errors'
 import { buildChangedMeanwhileError, toHttpError } from '#server/utils/http-errors'
 import type { IWorkspaceMember, IWorkspaceMembership } from '#shared/types/workspace'
-import { canManageMember } from '#shared/utils/permissions'
+import { canManageMember, hasPermission } from '#shared/utils/permissions'
 
 const memberErrors = { notFound: 'Member not found' }
 
-async function listMembers(workspaceId: string): Promise<IWorkspaceMember[]> {
+/** A member as the caller may see them: roles and ownership reach only whoever may see roles. */
+function toMemberForViewer(
+  member: IWorkspaceMember,
+  actor: IWorkspaceMembership,
+): IWorkspaceMember {
+  if (hasPermission(actor, 'ROLES_VIEW')) return member
+  return { ...member, isOwner: false, role: null }
+}
+
+async function listMembers(actor: IWorkspaceMembership): Promise<IWorkspaceMember[]> {
   const rows = await prisma.workspaceMember.findMany({
-    where: { workspaceId },
+    where: { workspaceId: actor.workspace.id },
     orderBy: { createdAt: 'asc' },
     select: memberSelect,
   })
 
-  return rows.map(toSharedMember)
+  return rows.map((row) => toMemberForViewer(toSharedMember(row), actor))
 }
 
 /** Within the workspace, so a member id from another one is a 404 like any missing member. */
