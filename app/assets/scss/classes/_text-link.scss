@@ -1,10 +1,15 @@
+@use '../mixins' as *;
+
 .g-text-link {
   font-size: var(--font-size-sm);
   color: var(--color-accent);
   text-decoration: none;
 
-  &:hover,
   &:focus-visible {
+    text-decoration: underline;
+  }
+
+  @include hover {
     text-decoration: underline;
   }
 }

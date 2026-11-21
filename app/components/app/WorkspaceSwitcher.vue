@@ -133,7 +133,7 @@ const activeIndex = computed(() =>
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       border-color: var(--color-border-strong);
     }
   }

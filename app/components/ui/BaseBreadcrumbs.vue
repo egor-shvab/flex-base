@@ -66,7 +66,7 @@ defineProps<{ items: IBreadcrumb[] }>()
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       color: var(--color-text);
     }
   }

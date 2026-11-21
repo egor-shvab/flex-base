@@ -49,7 +49,7 @@ withDefaults(
 
   @include focus-ring;
 
-  &:hover {
+  @include hover {
     background: var(--color-surface-hover);
   }
 
@@ -57,7 +57,7 @@ withDefaults(
     font-weight: 600;
     color: var(--color-accent);
 
-    &:hover {
+    @include hover {
       background: var(--color-accent-tint);
     }
   }

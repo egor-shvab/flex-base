@@ -75,7 +75,7 @@ definePageMeta({ layout: false })
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       background: var(--color-surface-hover);
     }
 
@@ -84,7 +84,7 @@ definePageMeta({ layout: false })
       background: var(--color-accent-tint);
       color: var(--color-accent);
 
-      &:hover {
+      @include hover {
         background: var(--color-accent-tint-strong);
       }
     }

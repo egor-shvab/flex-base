@@ -77,7 +77,7 @@ const detailTo = computed(() => {
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       border-color: var(--color-border-strong);
       background: var(--color-surface-hover);
     }

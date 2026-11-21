@@ -129,7 +129,7 @@ function onKeydown(event: KeyboardEvent) {
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       color: var(--color-text);
     }
 

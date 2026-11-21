@@ -1,4 +1,4 @@
-import { ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useWorkspacesApi } from '~/api/workspaces'
 import { useAuthStore } from '~/stores/auth'
@@ -14,6 +14,11 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   const memberships = shallowRef<IWorkspaceMembershipView[]>([])
   const lastWorkspaceAddress = ref<string | null>(null)
   const status = ref<TLoadStatus>('idle')
+
+  /** The workspace `/` opens and "Home" outside one leads to: the last visited, else the first. */
+  const entryWorkspaceAddress = computed(
+    () => lastWorkspaceAddress.value ?? memberships.value[0]?.workspace.publicId ?? null,
+  )
 
   // Logging out leaves the app without a reload, so the list must say whose it is
   const loadedUserId = ref<string | null>(null)
@@ -113,6 +118,7 @@ export const useWorkspacesStore = defineStore('workspaces', () => {
   return {
     memberships,
     lastWorkspaceAddress,
+    entryWorkspaceAddress,
     status,
     loadedUserId,
     fetchWorkspaces,

@@ -22,6 +22,8 @@ dot falls to ~2.87:1, **so nothing drawing one may sit on that wash.**
 Check `_mixins.scss` before writing a declaration block. What its names do not say:
 
 - **`visually-hidden`** is `.g-visually-hidden` for text hidden at one breakpoint only.
+- **`hover`** is the only way to write a `:hover` style: it applies under `(hover: hover)`, since a
+  touch browser leaves `:hover` stuck on whatever was last tapped.
 - **`truncate`** works only on a **bounded** box — a `max-width`, or `min-width: 0` on a flex item.
   Without the bound it is silently inert.
 - **`stack` / `cluster`** declare no `flex-wrap`. A heading group inside a `cluster` needs its own
@@ -55,7 +57,7 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
 - **A link that fills a card:** the **card** wears the ring via `:has(:focus-visible)`, and the link
   suppresses both halves of its own.
 - **`BaseCenteredPanel`** is the surface outside the shell (the auth layout, `error.vue`); below
-  `$breakpoint-compact` its card dissolves into the page.
+  `$breakpoint-compact` its card dissolves into the page and sits at the top.
 
 ## `BaseButton` variants
 

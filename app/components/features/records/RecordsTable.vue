@@ -266,14 +266,20 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
       justify-content: flex-end;
     }
 
-    &:hover,
-    &:focus-visible {
+    @include hover {
       color: var(--color-accent);
+
+      .records-table__sort-icon {
+        opacity: 1;
+      }
     }
 
-    &:hover .records-table__sort-icon,
-    &:focus-visible .records-table__sort-icon {
-      opacity: 1;
+    &:focus-visible {
+      color: var(--color-accent);
+
+      .records-table__sort-icon {
+        opacity: 1;
+      }
     }
   }
 
@@ -315,11 +321,14 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     border-bottom: none;
   }
 
-  tbody tr:hover {
-    background: var(--color-surface-row-hover);
-
-    .records-table__actions {
+  // Both together: the pinned actions cell paints its own background over the row's
+  tbody tr {
+    @include hover {
       background: var(--color-surface-row-hover);
+
+      .records-table__actions {
+        background: var(--color-surface-row-hover);
+      }
     }
   }
 
@@ -337,7 +346,7 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       text-decoration-color: currentcolor;
     }
   }

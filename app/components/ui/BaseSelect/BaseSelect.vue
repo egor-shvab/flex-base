@@ -775,14 +775,14 @@ $clearable-gutter: rem(64);
     font-size: var(--font-size-md);
     cursor: pointer;
 
-    &:hover {
+    @include hover {
       background: var(--color-surface-hover);
     }
 
     &--selected {
       background: var(--color-accent-tint);
 
-      &:hover {
+      @include hover {
         background: var(--color-accent-tint-strong);
       }
     }

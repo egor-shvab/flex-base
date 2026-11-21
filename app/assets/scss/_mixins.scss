@@ -16,6 +16,16 @@ $breakpoint-compact: 40em;
   }
 }
 
+// Only for a pointer that hovers: a touch browser keeps `:hover` on whatever was last tapped. The
+// qualifier continues the selector after `:hover`.
+@mixin hover($qualifier: '') {
+  @media (hover: hover) {
+    &:hover#{$qualifier} {
+      @content;
+    }
+  }
+}
+
 // A container's width, not the window's: the role editor's table grid narrows with the settings
 // navigation beside it, so a window wide enough for the grid can still leave it too little room.
 $breakpoint-access-grid: 40em;
@@ -91,7 +101,7 @@ $breakpoint-access-grid: 40em;
 
   @include control-focus;
 
-  &:hover:where(:not(:disabled, :focus)) {
+  @include hover(':where(:not(:disabled, :focus))') {
     border-color: var(--color-border-control-hover);
     background: var(--color-surface-raised);
   }
@@ -103,9 +113,12 @@ $breakpoint-access-grid: 40em;
     cursor: not-allowed;
   }
 
-  &--invalid,
-  &--invalid:hover {
+  &--invalid {
     border-color: var(--color-danger);
+
+    @include hover {
+      border-color: var(--color-danger);
+    }
   }
 }
 

@@ -115,7 +115,7 @@ const cells = computed(() => buildPageWindow(props.page, props.pageCount, props.
 
     @include focus-ring;
 
-    &:hover:not(:disabled, [aria-current='page']) {
+    @include hover(":not(:disabled, [aria-current='page'])") {
       border-color: var(--color-border-control-hover);
       background: var(--color-surface-raised);
     }

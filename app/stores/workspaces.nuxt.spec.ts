@@ -98,6 +98,17 @@ describe('useWorkspacesStore', () => {
     expect(store.status).toBe('ready')
   })
 
+  it('enters the remembered workspace, else the first, else none', async () => {
+    const store = useWorkspacesStore()
+    expect(store.entryWorkspaceAddress).toBeNull()
+
+    await store.fetchWorkspaces()
+    expect(store.entryWorkspaceAddress).toBe(OTHER_WS)
+
+    store.lastWorkspaceAddress = null
+    expect(store.entryWorkspaceAddress).toBe(WS)
+  })
+
   it('loads once for the same user', async () => {
     const store = useWorkspacesStore()
 

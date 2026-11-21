@@ -90,7 +90,7 @@ withDefaults(
     border-bottom: none;
   }
 
-  &:hover {
+  @include hover {
     background: var(--color-surface-row-hover);
   }
 

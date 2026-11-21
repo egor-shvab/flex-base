@@ -210,7 +210,8 @@
     <UiTestSection title="Centered panel" component="BaseCenteredPanel">
       <template #description>
         The surface outside the shell — sign-in and the error page. It fills the viewport, so these
-        previews are drawn at half size; below 640px its card dissolves into the page.
+        previews are drawn at half size; below 640px its card dissolves into the page and sits at
+        the top rather than the middle.
       </template>
       <UiTestSpecimen label="md · with a mark">
         <div class="panel-preview" inert>

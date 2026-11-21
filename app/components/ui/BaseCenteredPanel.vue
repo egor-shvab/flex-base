@@ -60,7 +60,11 @@ withDefaults(
     padding: rem(32);
   }
 
+  // Top-aligned on a phone: centred, the form leaves half a screen empty above it and jumps when
+  // the soft keyboard opens
   @include below-compact {
+    align-items: flex-start;
+    padding-top: calc(#{rem(48)} + env(safe-area-inset-top));
     background: var(--color-surface);
 
     &__card,

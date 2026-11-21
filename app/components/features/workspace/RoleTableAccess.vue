@@ -173,7 +173,7 @@ function buildFieldOptions(field: IAccessField): ISelectOption<TFieldAccess>[] {
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       background: var(--color-surface-hover);
     }
 
@@ -181,7 +181,7 @@ function buildFieldOptions(field: IAccessField): ISelectOption<TFieldAccess>[] {
       color: var(--color-text-secondary);
       cursor: default;
 
-      &:hover {
+      @include hover {
         background: none;
       }
     }

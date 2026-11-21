@@ -65,7 +65,7 @@ function choose() {
 
   @include focus-ring;
 
-  &:hover {
+  @include hover {
     background: var(--color-surface-hover);
   }
 
@@ -77,7 +77,7 @@ function choose() {
     font-weight: 600;
     color: var(--color-accent);
 
-    &:hover {
+    @include hover {
       background: var(--color-accent-tint);
     }
   }
@@ -85,7 +85,7 @@ function choose() {
   &--danger {
     color: var(--color-danger);
 
-    &:hover {
+    @include hover {
       background: var(--color-danger-tint);
     }
   }

@@ -108,6 +108,28 @@ test('Escape dismisses it when nothing covers it', async ({ page }) => {
   await expect(page).toHaveURL(WORKSPACE_HOME)
 })
 
+test('its own close button dismisses it and hands focus back to the toggle', async ({ page }) => {
+  await page.goto('/')
+  await toggle(page).click()
+  await expect(sidebar(page)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Hide tables' }).click()
+
+  await expect(sidebar(page)).toBeHidden()
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false')
+  await expect(toggle(page)).toBeFocused()
+})
+
+test('Escape from inside it hands focus back to the toggle', async ({ page }) => {
+  await page.goto('/')
+  await toggle(page).click()
+  await sidebar(page).getByRole('link', { name: /Deals/ }).focus()
+
+  await page.keyboard.press('Escape')
+
+  await expect(toggle(page)).toBeFocused()
+})
+
 test('Escape closes a dialog over it without also closing it', async ({ page }) => {
   await page.goto('/')
   await toggle(page).click()
@@ -333,6 +355,7 @@ test.describe('above the breakpoint', () => {
 
     await expect(sidebar(page)).toBeVisible()
     await expect(toggle(page)).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Hide tables' })).toBeHidden()
   })
 
   test('a record row shows its actions as buttons, and the drawer leaves sorting to the header', async ({

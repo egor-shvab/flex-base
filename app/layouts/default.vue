@@ -15,7 +15,7 @@
 
     <div class="app-layout__scrim" role="presentation" @click="isNavOpen = false"></div>
 
-    <AppSidebar id="app-sidebar" class="app-layout__sidebar" />
+    <AppSidebar id="app-sidebar" class="app-layout__sidebar" @close="isNavOpen = false" />
 
     <main class="app-layout__main">
       <slot />
@@ -66,6 +66,13 @@ watch(
 )
 
 const shell = useTemplateRef<HTMLElement>('shell')
+
+/** Closing over the focus would drop it on `body`: it goes back to the toggle that opened the panel. */
+watch(isNavOpen, (isOpen) => {
+  if (isOpen || !shell.value?.querySelector('#app-sidebar')?.contains(document.activeElement))
+    return
+  shell.value.querySelector<HTMLElement>('[aria-controls="app-sidebar"]')?.focus()
+})
 
 /**
  * The second `document`-level Escape listener, after `BaseModal`'s. Skipped while a dialog has
