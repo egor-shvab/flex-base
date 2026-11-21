@@ -38,7 +38,14 @@
               />
             </button>
           </th>
-          <th scope="col" class="records-table__actions-head">Actions</th>
+          <th scope="col" class="records-table__actions-head">
+            <Icon
+              name="material-symbols:more-horiz-rounded"
+              class="records-table__actions-icon"
+              aria-hidden="true"
+            />
+            <span class="records-table__actions-label">Actions</span>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -49,7 +56,14 @@
             :class="{ 'records-table__cell-end': alignFor(column) === 'end' }"
           >
             <div class="records-table__cell">
-              <RecordFieldValue :record="record" :column="column" />
+              <NuxtLink
+                v-if="column.key === RECORD_NUMBER_KEY"
+                class="records-table__number-link"
+                :to="recordDetailTo(record)"
+              >
+                <RecordFieldValue :record="record" :column="column" />
+              </NuxtLink>
+              <RecordFieldValue v-else :record="record" :column="column" />
             </div>
           </td>
           <!--
@@ -58,24 +72,27 @@
           <td class="records-table__actions">
             <div class="records-table__actions-group">
               <BaseButton
+                class="records-table__inline-action"
                 variant="icon"
                 prepend-icon="material-symbols:open-in-full-rounded"
                 label="View record"
-                :to="
-                  detailLinkTo({
-                    tableAddress: String(tableNumber),
-                    recordAddress: String(record.number),
-                  })
-                "
+                :to="recordDetailTo(record)"
               />
               <BaseButton
                 v-if="canEdit(record)"
+                class="records-table__inline-action"
                 variant="icon"
                 prepend-icon="material-symbols:edit-outline-rounded"
                 label="Edit record"
                 @click="emit('edit', record)"
               />
-              <RecordRowMenu v-if="canDelete(record)" @delete="emit('delete', record)" />
+              <RecordRowMenu
+                :view-to="recordDetailTo(record)"
+                :can-edit="canEdit(record)"
+                :can-delete="canDelete(record)"
+                @edit="emit('edit', record)"
+                @delete="emit('delete', record)"
+              />
             </div>
           </td>
         </tr>
@@ -109,6 +126,13 @@ const props = withDefaults(
 
 const detailLinkTo = useDetailLink()
 
+function recordDetailTo(record: IRecord) {
+  return detailLinkTo({
+    tableAddress: String(props.tableNumber),
+    recordAddress: String(record.number),
+  })
+}
+
 const columns = computed(() => buildQueryColumns(props.fields))
 
 const emit = defineEmits<{
@@ -135,6 +159,7 @@ $column-max-width: rem(320);
 
 $cell-padding-y: rem(4);
 $cell-padding-x: rem(16);
+$actions-padding-x-compact: rem(6);
 
 $content-max-width: $column-max-width - $cell-padding-x * 2;
 
@@ -169,6 +194,13 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     height: calc(var(--control-height) + #{$cell-padding-y * 2});
     padding: $cell-padding-y $cell-padding-x;
     vertical-align: middle;
+
+    // One button below compact, which needs no more room than its own plate
+    &.records-table__actions {
+      @include below-compact {
+        padding-inline: $actions-padding-x-compact;
+      }
+    }
   }
 
   // The cap cannot go on the `td`: `max-width` on a table cell is undefined in CSS 2.2 §17.5.2 and
@@ -208,6 +240,11 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
         inset 0 -1px 0 var(--color-border),
         inset 1px 0 0 var(--color-border-subtle),
         var(--shadow-pinned-edge);
+
+      @include below-compact {
+        padding-inline: $actions-padding-x-compact;
+        text-align: center;
+      }
     }
   }
 
@@ -286,6 +323,25 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     }
   }
 
+  // The tap target for a row: the whole row cannot be a link, its cells hold links of their own
+  &__number-link {
+    display: inline-flex;
+    align-items: center;
+    min-width: rem(24);
+    min-height: rem(24);
+    border-radius: var(--radius-xs);
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--color-border-strong);
+    text-underline-offset: rem(3);
+
+    @include focus-ring;
+
+    &:hover {
+      text-decoration-color: currentcolor;
+    }
+  }
+
   &__number-head,
   &__actions-head {
     width: rem(1);
@@ -305,6 +361,32 @@ $content-max-width: $column-max-width - $cell-padding-x * 2;
     display: flex;
     align-items: center;
     gap: rem(4);
+  }
+
+  // Below compact the column is one button wide, which the word would widen: the header keeps it
+  // as its name and shows the glyph of what sits beneath
+  &__actions-icon {
+    display: none;
+    font-size: rem(18);
+    color: var(--color-text-subtle);
+    vertical-align: middle;
+
+    @include below-compact {
+      display: inline-block;
+    }
+  }
+
+  &__actions-label {
+    @include below-compact {
+      @include visually-hidden;
+    }
+  }
+
+  // The row's `⋯` menu takes these over, so the pinned column is one button wide
+  &__inline-action {
+    @include below-compact {
+      display: none;
+    }
   }
 }
 </style>

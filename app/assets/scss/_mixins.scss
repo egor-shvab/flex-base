@@ -54,6 +54,21 @@ $breakpoint-access-grid: 40em;
   gap: rem($gap);
 }
 
+// Not `display: none` or `visibility: hidden`, which drop it from the accessibility tree. Clipped
+// rather than off-screen, which would scroll the page sideways when it takes focus. A mixin for text
+// hidden at one breakpoint only; everywhere else it is `.g-visually-hidden`.
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 @mixin truncate {
   overflow: hidden;
   text-overflow: ellipsis;

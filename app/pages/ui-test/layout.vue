@@ -5,13 +5,28 @@
       title="Layout"
       :crumbs="[{ label: 'Showcase', to: '/ui-test' }, { label: 'Layout' }]"
     >
+      <template #crumbs-actions>
+        <BaseButton
+          variant="ghost"
+          prepend-icon="material-symbols:settings-outline-rounded"
+          to="/ui-test"
+          icon-only-below-compact
+        >
+          Crumb action
+        </BaseButton>
+      </template>
       <template #actions>
-        <BaseButton prepend-icon="material-symbols:add-rounded" @click="headActionCount += 1">
+        <BaseButton
+          prepend-icon="material-symbols:add-rounded"
+          icon-only-below-compact
+          @click="headActionCount += 1"
+        >
           Page action
         </BaseButton>
       </template>
-      The blocks a page is built from. This head is itself <code>BasePageHead</code> — crumbs, the
-      action at the right edge and this line; the action has been pressed {{ headActionCount }}
+      The blocks a page is built from. This head is itself <code>BasePageHead</code> — crumbs with
+      their action, the page action at the right edge and this line; below 640px the step back,
+      title and both actions share one row. The page action has been pressed {{ headActionCount }}
       {{ headActionCount === 1 ? 'time' : 'times' }}.
     </BasePageHead>
 

@@ -18,11 +18,12 @@
 <script setup lang="ts">
 import { inject } from 'vue'
 import { NuxtLink } from '#components'
+import type { TUrlQuery } from '#shared/types/query'
 import { MENU_CLOSE_KEY } from '~/components/ui/BaseMenu/menu-close-key'
 
 const props = withDefaults(
   defineProps<{
-    to?: string
+    to?: string | { query: TUrlQuery }
     icon?: string
     tone?: 'default' | 'accent' | 'danger'
     /** Set, even to `false`, the item is one radio of a group: `menuitemradio`. */

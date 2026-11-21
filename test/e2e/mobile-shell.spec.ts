@@ -141,6 +141,64 @@ test('the records table scrolls inside itself, not the page', async ({ page }) =
   expect(pageOverflows).toBe(false)
 })
 
+test('a record row keeps one action, and its menu holds the rest', async ({ page }) => {
+  await page.goto(recordsUrl)
+  const row = page.getByRole('row').filter({ hasText: 'Acme' })
+
+  await expect(row.getByRole('link', { name: 'View record' })).toBeHidden()
+  await expect(row.getByRole('button', { name: 'Edit record' })).toBeHidden()
+
+  await row.getByRole('button', { name: 'More actions' }).click()
+  const menu = page.getByRole('menu', { name: 'Record actions' })
+  await expect(menu.getByRole('menuitem')).toHaveText([
+    'View record',
+    'Edit record',
+    'Delete record',
+  ])
+  await expect(menu.getByRole('menuitem', { name: 'View record' })).toBeFocused()
+
+  await menu.getByRole('menuitem', { name: 'View record' }).click()
+
+  await expect(page.getByRole('dialog', { name: 'Record details' })).toContainText('Acme')
+})
+
+test('the page head is one row: the step back, the title and its actions', async ({ page }) => {
+  await page.goto(recordsUrl)
+
+  const title = page.getByRole('heading', { level: 1, name: 'Deals' })
+  const [titleBox, backBox, settingsBox, addBox] = await Promise.all([
+    title.boundingBox(),
+    page
+      .getByRole('navigation', { name: 'Breadcrumb' })
+      .getByRole('link', { name: 'Home' })
+      .boundingBox(),
+    page.getByRole('link', { name: 'Settings' }).boundingBox(),
+    page.getByRole('button', { name: 'Add record' }).boundingBox(),
+  ])
+  const middle = titleBox!.y + titleBox!.height / 2
+
+  for (const box of [backBox, settingsBox, addBox]) {
+    expect(box!.y).toBeLessThan(middle)
+    expect(box!.y + box!.height).toBeGreaterThan(middle)
+  }
+  expect(await mainPaneOverflow(page)).toBe(0)
+})
+
+test('the filters drawer sorts by any column, through the same URL', async ({ page }) => {
+  await page.goto(recordsUrl)
+  await page.getByRole('button', { name: 'Filters' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Filters' })
+
+  await drawer.getByRole('button', { name: /^Sort by/ }).click()
+  await page.getByRole('option', { name: 'Company' }).click()
+  await drawer.getByRole('radio', { name: 'Ascending' }).click()
+
+  await expect(page).toHaveURL(/sort=company/)
+  await expect(page).toHaveURL(/dir=asc/)
+  await drawer.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByRole('row').nth(1)).toContainText('Acme')
+})
+
 test('a dialog fits the viewport and keeps its actions reachable', async ({ page }) => {
   await page.goto(recordsUrl)
   await page.getByRole('button', { name: 'Add record' }).first().click()
@@ -253,5 +311,21 @@ test.describe('above the breakpoint', () => {
 
     await expect(sidebar(page)).toBeVisible()
     await expect(toggle(page)).toBeHidden()
+  })
+
+  test('a record row shows its actions as buttons, and the drawer leaves sorting to the header', async ({
+    page,
+  }) => {
+    await page.goto(recordsUrl)
+    const row = page.getByRole('row').filter({ hasText: 'Acme' })
+
+    await expect(row.getByRole('link', { name: 'View record' })).toBeVisible()
+    await row.getByRole('button', { name: 'More actions' }).click()
+    await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText(['Delete record'])
+    await page.keyboard.press('Escape')
+
+    await page.getByRole('button', { name: 'Filters' }).click()
+    await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Sort by/ })).toBeHidden()
   })
 })

@@ -25,8 +25,18 @@
       <RecordDetail v-else-if="detail" :fields="detail.fields" :record="detail.record" />
     </div>
 
-    <template v-if="detail && isOtherTable && !isWaiting && !errorMessage" #footer>
-      <BaseButton variant="link" :to="openInTableTo">Open in {{ detail.table.name }}</BaseButton>
+    <template v-if="detail && !isWaiting && !errorMessage && (isOtherTable || canEdit)" #footer>
+      <BaseButton v-if="isOtherTable" variant="link" :to="openInTableTo"
+        >Open in {{ detail.table.name }}</BaseButton
+      >
+      <BaseButton
+        v-else
+        variant="secondary"
+        prepend-icon="material-symbols:edit-outline-rounded"
+        @click="emit('edit', detail.record)"
+      >
+        Edit record
+      </BaseButton>
     </template>
   </BaseModal>
 </template>
@@ -34,7 +44,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TUrlQuery } from '#shared/types/query'
-import type { IRecordDetail } from '#shared/types/record'
+import type { IRecordDetail, IRecordWithAuthors } from '#shared/types/record'
 import { toTableAddress } from '#shared/utils/address'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
 import { useDelayedFlag } from '~/composables/useDelayedFlag'
@@ -50,11 +60,13 @@ const props = withDefaults(
     canRetry: boolean
     currentTableNumber?: number
     backTo?: { query: TUrlQuery }
+    /** Read for the table behind the dialog only: a record from another one offers Open in … */
+    canEdit?: boolean
   }>(),
-  { currentTableNumber: undefined, backTo: undefined },
+  { currentTableNumber: undefined, backTo: undefined, canEdit: false },
 )
 
-const emit = defineEmits<{ retry: []; close: [] }>()
+const emit = defineEmits<{ retry: []; close: []; edit: [record: IRecordWithAuthors] }>()
 
 const { workspaceAddress } = useActiveWorkspace()
 

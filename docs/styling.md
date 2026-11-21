@@ -21,6 +21,7 @@ dot falls to ~2.87:1, **so nothing drawing one may sit on that wash.**
 
 Check `_mixins.scss` before writing a declaration block. What its names do not say:
 
+- **`visually-hidden`** is `.g-visually-hidden` for text hidden at one breakpoint only.
 - **`truncate`** works only on a **bounded** box — a `max-width`, or `min-width: 0` on a flex item.
   Without the bound it is silently inert.
 - **`stack` / `cluster`** declare no `flex-wrap`. A heading group inside a `cluster` needs its own
@@ -33,7 +34,8 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip;
   `variant="wrap"` wraps a value that must stay whole (a record's field), and a `flush` list drops
   the side padding outside a card. A page opens with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
-  its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with
+  its own margin below it — below compact the step back, title and actions share one row, so a head
+  button with an icon takes `iconOnlyBelowCompact`; the heading above a card is **`BaseSectionHead`**; a titled action with
   a description (Danger zone) is **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard`
   turns the edges red.
 - **`popover-panel`** is the one floating surface (select list, colour grid, `BaseMenu`). A
@@ -61,7 +63,8 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
 - `danger` — destructive filled action, only inside a confirmation
 - `ghost` — toolbars and page headers; ink text, grey plate on hover; `selected` makes it an
   accent-tinted plate
-- `icon` — icon-only, named by `label`
+- `icon` — icon-only, named by `label`; any variant with a leading icon can turn icon-only below
+  compact (`iconOnlyBelowCompact`), its hidden label still naming it
 - `link` — accent text over `--color-accent-underline`, for a sentence, a banner or a row of one-off
   actions
 

@@ -12,6 +12,7 @@
         'base-button--spinning': isSpinnerShown,
         'base-button--veiled': isSpinnerShown && !prependIcon,
         'base-button--icon-only': isIconOnly,
+        'base-button--compact-icon': iconOnlyBelowCompact,
       },
     ]"
     v-bind="rootProps"
@@ -33,7 +34,8 @@
       class="base-button__icon"
       aria-hidden="true"
     />
-    <slot />
+    <span v-if="iconOnlyBelowCompact" class="base-button__label"><slot /></span>
+    <slot v-else />
     <Icon v-if="appendIcon" :name="appendIcon" class="base-button__icon" aria-hidden="true" />
   </component>
 </template>
@@ -59,6 +61,8 @@ const props = withDefaults(
     selected?: boolean
     loading?: boolean
     busy?: boolean
+    /** Below compact only the leading icon shows, squared; the hidden label still names it. */
+    iconOnlyBelowCompact?: boolean
   }>(),
   {
     type: 'button',
@@ -73,6 +77,7 @@ const props = withDefaults(
     selected: false,
     loading: false,
     busy: false,
+    iconOnlyBelowCompact: false,
   },
 )
 
@@ -328,6 +333,19 @@ const rootProps = computed(() =>
   &--icon-only {
     width: var(--control-height);
     padding: 0;
+  }
+
+  &--compact-icon {
+    @include below-compact {
+      width: var(--control-height);
+      padding: 0;
+    }
+  }
+
+  &__label {
+    @include below-compact {
+      @include visually-hidden;
+    }
   }
 
   &__icon {

@@ -109,8 +109,22 @@ defineProps<{ items: IBreadcrumb[] }>()
       display: none;
     }
 
+    // The step back is an icon button, named by its hidden label, beside the page's title
+    &__link {
+      justify-content: center;
+      min-width: var(--control-height);
+      min-height: var(--control-height);
+      padding: 0;
+      border-radius: var(--radius-md);
+    }
+
+    &__link &__label {
+      @include visually-hidden;
+    }
+
     &__back {
       display: block;
+      font-size: rem(24);
     }
   }
 }

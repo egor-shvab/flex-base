@@ -113,6 +113,23 @@
           />
         </div>
       </UiTestSpecimen>
+      <UiTestSpecimen label="iconOnlyBelowCompact · labelled, square below 640px">
+        <div class="button-row">
+          <BaseButton prepend-icon="material-symbols:add-rounded" icon-only-below-compact>
+            Add record
+          </BaseButton>
+          <BaseButton
+            variant="ghost"
+            prepend-icon="material-symbols:settings-outline-rounded"
+            icon-only-below-compact
+          >
+            Settings
+          </BaseButton>
+        </div>
+        <template #readout>
+          resize below 640px: the label is hidden but still names the button
+        </template>
+      </UiTestSpecimen>
     </UiTestSection>
 
     <UiTestSection title="Link-styled" component="BaseButton">

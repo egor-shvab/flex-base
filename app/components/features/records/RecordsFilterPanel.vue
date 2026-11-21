@@ -1,6 +1,23 @@
 <template>
   <BaseModal title="Filters" variant="drawer" @close="emit('close')">
     <div class="filter-panel">
+      <!-- Below compact the table shows one column's header, so its sort moves here -->
+      <div class="filter-panel__sort">
+        <BaseSelect
+          :id="`${panelId}-sort-key`"
+          label="Sort by"
+          :options="sortOptions"
+          :model-value="sort.key"
+          @update:model-value="emit('update:sort', { ...sort, key: $event })"
+        />
+        <BaseSegmented
+          :id="`${panelId}-sort-direction`"
+          label="Order"
+          :options="SORT_DIRECTION_OPTIONS"
+          :model-value="sort.direction"
+          @update:model-value="applySortDirection"
+        />
+      </div>
       <p class="g-note filter-panel__intro">
         Each field filters on its own. A record has to match every filter to show.
       </p>
@@ -36,12 +53,19 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
 import {
+  buildQueryColumns,
   emptyFilterValueFor,
   toFilterableColumns,
   buildFiltersWithValue,
 } from '#shared/utils/filter'
 import type { IField } from '#shared/types/field'
-import type { TFilterValue, TRecordFilterValues } from '#shared/types/filter'
+import type {
+  IRecordSort,
+  TFilterValue,
+  TRecordFilterValues,
+  TSortDirection,
+} from '#shared/types/filter'
+import type { ISelectOption } from '~/types/select'
 import { useDelayedFlag } from '~/composables/useDelayedFlag'
 import { useFieldControls } from '~/composables/useFieldControls'
 import { filterFor } from '~/field-types/registry'
@@ -50,6 +74,7 @@ import { formatMatchingRecords } from '~/utils/format'
 const props = defineProps<{
   fields: IField[]
   filters: TRecordFilterValues
+  sort: IRecordSort
   total: number
   totalCapped: boolean
   pending?: boolean
@@ -57,6 +82,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:filters': [filters: TRecordFilterValues]
+  'update:sort': [sort: IRecordSort]
   close: []
 }>()
 
@@ -64,6 +90,20 @@ const emit = defineEmits<{
 const isFilteringShown = useDelayedFlag(() => props.pending)
 
 const panelId = useId()
+
+const SORT_DIRECTION_OPTIONS: ISelectOption<TSortDirection>[] = [
+  { value: 'asc', label: 'Ascending' },
+  { value: 'desc', label: 'Descending' },
+]
+
+const sortOptions = computed<ISelectOption[]>(() =>
+  buildQueryColumns(props.fields).map((column) => ({ value: column.key, label: column.name })),
+)
+
+function applySortDirection(direction: string | undefined) {
+  const match = SORT_DIRECTION_OPTIONS.find((option) => option.value === direction)
+  if (match) emit('update:sort', { ...props.sort, direction: match.value })
+}
 
 const activeFilterCount = computed(() => Object.keys(props.filters).length)
 
@@ -95,6 +135,17 @@ function applyFieldValue(changed: IField, value: TFilterValue) {
 <style lang="scss" scoped>
 .filter-panel {
   @include stack;
+
+  &__sort {
+    display: none;
+
+    @include below-compact {
+      @include stack;
+
+      padding-bottom: rem(16);
+      border-bottom: 1px solid var(--color-border);
+    }
+  }
 
   &__footer {
     display: flex;

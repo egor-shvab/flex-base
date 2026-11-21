@@ -46,6 +46,18 @@ describe('useMenuNavigation', () => {
     expect(focused()).toBe('First')
   })
 
+  it('skips an item a breakpoint hides', () => {
+    const panel = buildMenu()
+    panel.querySelector<HTMLElement>('a')!.style.display = 'none'
+    const { focusMenuItem, stepMenuFocus } = useMenuNavigation(ref(panel))
+
+    focusMenuItem(0)
+    expect(focused()).toBe('Second')
+
+    stepMenuFocus(-1)
+    expect(focused()).toBe('Third')
+  })
+
   it('does nothing while the panel is not rendered', () => {
     const { focusMenuItem, stepMenuFocus } = useMenuNavigation(ref<HTMLElement>())
 

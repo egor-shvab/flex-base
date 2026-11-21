@@ -258,6 +258,9 @@ instant on a small table locks a large one for minutes.
   records, fields, tables or the workspace, its modals included. A modal goes by domain, not shape.
   **The kit must be able to leave as a library:** a reusable look is a `ui/` component, never a
   mixin or a block copied between pages.
+- **`/ui-test` is the kit's live catalogue** (`app/pages/ui-test/`, its pages listed in
+  `ui-test-sections.ts`): a new `ui/` component, variant, prop-driven state or breakpoint behaviour
+  gets a specimen there in the same change, and one that changes or goes is updated or removed.
 - **A composable belonging to one component lives in that component's folder** (`Foo/Foo.vue` +
   `Foo/useThing.ts` + its specs) — `BaseSelect/` today. **A page is the exception** (a sibling
   folder would become a route): its composable stays in `app/composables/`, scoped by TSDoc.
@@ -354,8 +357,8 @@ replaces the keyboard walk.
   class in `scss/classes/` for a look with no per-site variation, always named `g-*` (`.g-eyebrow`,
   `.g-text-link`, `.g-visually-hidden`); a mixin only for a primitive (`stack`, `cluster`,
   `truncate`, `focus-ring`, breakpoints) or a chassis used only inside `ui/`. Use
-  `.g-visually-hidden` to hide text — `display: none` / `visibility: hidden` remove it from the
-  accessibility tree.
+  `.g-visually-hidden` (the `visually-hidden` mixin at one breakpoint) to hide text —
+  `display: none` / `visibility: hidden` remove it from the accessibility tree.
 - **Components consume `var(--color-*)` and nothing else**; palette primitives must stay unreachable
   from an SFC.
 - **Tokens come in coherent semantic sets**, consumed by real UI in the same change — never a

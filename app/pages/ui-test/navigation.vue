@@ -2,7 +2,7 @@
   <UiTestPage title="Navigation">
     <template #lede>
       Wayfinding and paging. Below 640px the breadcrumb trail collapses to one step back to the
-      parent — resize the window to check it.
+      parent, an icon button named by its hidden label — resize the window to check it.
     </template>
 
     <UiTestSection title="Breadcrumbs" component="BaseBreadcrumbs">

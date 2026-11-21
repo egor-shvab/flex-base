@@ -1043,6 +1043,12 @@ margin), not `justify-content` on the parent.
   `--shadow-pinned-edge`. Rejected: a tinted fill (swallows row hover or reads as "selected"). The
   pinned cells are opaque, so `tbody tr:hover` repaints the actions cell. The corner header's
   padding rule is nested inside `thead th` for specificity — moved out, it silently stops applying.
+- **Below compact the pinned column is the `⋯` menu alone.** View and Edit are `display: none`
+  there and return as the menu's items, which are `display: none` above it: one copy in the
+  accessibility tree at any width, and `useMenuNavigation` skips the undisplayed one. Both rules
+  override a child's root `display`, which the parent's scoped style wins only by loading after it.
+  The row's tap target is the `#N` link; rejected: a clickable row, since cells hold links of their
+  own and a nested interactive breaks the keyboard path.
 - **Rows have an explicit height**, `calc(var(--control-height) + #{$cell-padding-y * 2})` on
   `tbody td`, and it is one decision with `$cell-padding-y`: a cell treats `height` as a minimum, so
   raising the padding alone grows every row. Written against the variable so it cannot drift.
