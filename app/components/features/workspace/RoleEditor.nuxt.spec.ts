@@ -363,6 +363,26 @@ describe('RoleEditor', () => {
     expect(submitHandler).toHaveBeenCalledTimes(1)
   })
 
+  it('marks the bar quiet only while a saved role has nothing new to say', async () => {
+    const quiet = () => document.querySelector('.role-editor__actions--quiet') !== null
+    await mountEditor()
+    expect(quiet()).toBe(true)
+
+    checkbox('Invite members').click()
+    await nextTick()
+    expect(quiet()).toBe(false)
+
+    await submit()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Role saved.'))
+    expect(quiet()).toBe(false)
+  })
+
+  it('never marks the create bar quiet', async () => {
+    await mountEditor({ role: null, rows: NO_ROWS })
+
+    expect(document.querySelector('.role-editor__actions--quiet')).toBeNull()
+  })
+
   it('offers to load the latest after a save refused for an older version', async () => {
     const stale = Object.assign(new Error('stale'), {
       statusCode: 412,
