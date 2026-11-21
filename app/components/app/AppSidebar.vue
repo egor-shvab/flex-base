@@ -1,6 +1,15 @@
 <template>
   <nav class="app-sidebar" aria-label="Your tables">
-    <WorkspaceSwitcher class="app-sidebar__switcher" />
+    <div class="app-sidebar__top">
+      <WorkspaceSwitcher class="app-sidebar__switcher" />
+      <BaseButton
+        class="app-sidebar__close"
+        variant="icon"
+        prepend-icon="material-symbols:close-rounded"
+        label="Hide tables"
+        @click="emit('close')"
+      />
+    </div>
 
     <div class="app-sidebar__body">
       <template v-if="workspaceAddress">
@@ -119,6 +128,9 @@ import { useTablesStore } from '~/stores/tables'
 import { toInitials } from '~/utils/initials'
 import { pagePath } from '~/utils/page-path'
 
+/** `close` asks the shell to fold the panel away; the button is only there below the shell. */
+const emit = defineEmits<{ close: [] }>()
+
 const route = useRoute()
 const tablesStore = useTablesStore()
 const auth = useAuthStore()
@@ -155,11 +167,28 @@ const isSettings = computed(
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: rem(12);
+  padding: calc(#{rem(12)} + env(safe-area-inset-top)) rem(12)
+    calc(#{rem(12)} + env(safe-area-inset-bottom)) calc(#{rem(12)} + env(safe-area-inset-left));
+
+  &__top {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: rem(8);
+    margin-bottom: rem(10);
+  }
 
   &__switcher {
-    flex: none;
-    margin-bottom: rem(10);
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__close {
+    display: none;
+
+    @include below-shell {
+      display: inline-flex;
+    }
   }
 
   &__footer {

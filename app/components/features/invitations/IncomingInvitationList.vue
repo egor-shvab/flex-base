@@ -11,9 +11,11 @@
       Loading invitations…
     </p>
 
-    <p v-else-if="invitationsStore.incoming.length === 0" class="g-note">
-      No invitations are waiting for you.
-    </p>
+    <BaseCard v-else-if="invitationsStore.incoming.length === 0">
+      <BaseEmptyState title="No invitations" icon="material-symbols:mail-outline-rounded">
+        No invitations are waiting for you.
+      </BaseEmptyState>
+    </BaseCard>
 
     <BaseCard v-else>
       <BaseList>

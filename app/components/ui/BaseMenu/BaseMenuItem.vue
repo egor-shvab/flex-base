@@ -18,11 +18,12 @@
 <script setup lang="ts">
 import { inject } from 'vue'
 import { NuxtLink } from '#components'
+import type { TUrlQuery } from '#shared/types/query'
 import { MENU_CLOSE_KEY } from '~/components/ui/BaseMenu/menu-close-key'
 
 const props = withDefaults(
   defineProps<{
-    to?: string
+    to?: string | { query: TUrlQuery }
     icon?: string
     tone?: 'default' | 'accent' | 'danger'
     /** Set, even to `false`, the item is one radio of a group: `menuitemradio`. */
@@ -64,7 +65,7 @@ function choose() {
 
   @include focus-ring;
 
-  &:hover {
+  @include hover {
     background: var(--color-surface-hover);
   }
 
@@ -76,7 +77,7 @@ function choose() {
     font-weight: 600;
     color: var(--color-accent);
 
-    &:hover {
+    @include hover {
       background: var(--color-accent-tint);
     }
   }
@@ -84,7 +85,7 @@ function choose() {
   &--danger {
     color: var(--color-danger);
 
-    &:hover {
+    @include hover {
       background: var(--color-danger-tint);
     }
   }

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 import TableFieldList from '~/components/features/fields/TableFieldList.vue'
 import { textField } from '~~/test/fixtures'
 import { mountTracked, unmountAll } from '~~/test/mount'
@@ -7,6 +8,7 @@ const summaryContext = { tableName: () => undefined }
 
 function list(props: { editable?: boolean; empty?: boolean } = {}) {
   return mountTracked(TableFieldList, {
+    attachTo: document.body,
     props: {
       fields: props.empty ? [] : [textField('company', { name: 'Company' })],
       summaryContext,
@@ -23,6 +25,37 @@ describe('TableFieldList', () => {
 
     expect(wrapper.find('[aria-label="Edit field Company"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Delete field Company"]').exists()).toBe(true)
+  })
+
+  it('marks the row buttons as the wide copies of a compact menu', async () => {
+    const wrapper = await list({ editable: true })
+
+    expect(wrapper.get('[aria-label="Edit field Company"]').classes()).toContain(
+      'table-field-list__inline-action',
+    )
+    expect(wrapper.find('.table-field-list__menu').exists()).toBe(true)
+  })
+
+  it('edits and deletes from the compact menu', async () => {
+    const wrapper = await list({ editable: true })
+    const menuItem = (name: string) =>
+      [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+        (element) => element.textContent?.trim() === name,
+      )
+
+    await wrapper.get('[aria-label="Actions for field Company"]').trigger('click')
+    await nextTick()
+    expect(document.querySelector('[role="menu"]')?.getAttribute('aria-label')).toBe(
+      'Field Company',
+    )
+    menuItem('Edit field')!.click()
+
+    await wrapper.get('[aria-label="Actions for field Company"]').trigger('click')
+    await nextTick()
+    menuItem('Delete field')!.click()
+
+    expect(wrapper.emitted('edit')?.[0]?.[0]).toMatchObject({ name: 'Company' })
+    expect(wrapper.emitted('delete')?.[0]?.[0]).toMatchObject({ name: 'Company' })
   })
 
   it('lists the fields read only otherwise', async () => {

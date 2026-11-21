@@ -15,7 +15,7 @@
 
     <div class="app-layout__scrim" role="presentation" @click="isNavOpen = false"></div>
 
-    <AppSidebar id="app-sidebar" class="app-layout__sidebar" />
+    <AppSidebar id="app-sidebar" class="app-layout__sidebar" @close="isNavOpen = false" />
 
     <main class="app-layout__main">
       <slot />
@@ -66,6 +66,13 @@ watch(
 )
 
 const shell = useTemplateRef<HTMLElement>('shell')
+
+/** Closing over the focus would drop it on `body`: it goes back to the toggle that opened the panel. */
+watch(isNavOpen, (isOpen) => {
+  if (isOpen || !shell.value?.querySelector('#app-sidebar')?.contains(document.activeElement))
+    return
+  shell.value.querySelector<HTMLElement>('[aria-controls="app-sidebar"]')?.focus()
+})
 
 /**
  * The second `document`-level Escape listener, after `BaseModal`'s. Skipped while a dialog has
@@ -129,13 +136,16 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
       align-items: center;
       gap: rem(8);
       min-height: var(--header-height);
-      padding: rem(8) rem(12);
+      padding: calc(#{rem(8)} + env(safe-area-inset-top))
+        calc(#{rem(12)} + env(safe-area-inset-right)) rem(8)
+        calc(#{rem(12)} + env(safe-area-inset-left));
     }
 
     &__main {
-      --main-padding-bottom: #{rem(24)};
+      --main-padding-bottom: calc(#{rem(24)} + env(safe-area-inset-bottom));
 
-      padding: 0 rem(12) var(--main-padding-bottom);
+      padding: 0 calc(#{rem(12)} + env(safe-area-inset-right)) var(--main-padding-bottom)
+        calc(#{rem(12)} + env(safe-area-inset-left));
     }
 
     // `visibility: hidden` too: translated alone, the panel stays focusable off-screen

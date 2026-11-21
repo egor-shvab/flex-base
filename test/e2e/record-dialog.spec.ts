@@ -48,6 +48,14 @@ test.describe('opening it', () => {
     await expect(page).toHaveURL(/detail=/)
   })
 
+  test('the record number opens the same record, as the row’s tap target', async ({ page }) => {
+    await page.goto(deals.url)
+    await page.getByRole('cell', { name: '#1', exact: true }).getByRole('link').click()
+
+    await expect(dialog(page)).toContainText('Acme')
+    await expect(page).toHaveURL(/detail=/)
+  })
+
   /** Moving between two table pages first is the point, so do not simplify this into one `goto`. */
   test('still opens after moving between two tables, which once broke it', async ({ page }) => {
     await page.goto(deals.url)
@@ -302,4 +310,30 @@ test('the focus ring on a relation link is not clipped by its cell', async ({ pa
   expect(cell).not.toBeNull()
   expect(box!.y).toBeGreaterThanOrEqual(cell!.y - 1)
   expect(box!.y + box!.height).toBeLessThanOrEqual(cell!.y + cell!.height + 1)
+})
+
+test('Edit record in the dialog hands the record to its form', async ({ page }) => {
+  await page.goto(deals.url)
+  const opener = page.getByRole('link', { name: 'View record' })
+  await opener.click()
+  await expect(dialog(page)).toContainText('Acme')
+
+  await dialog(page).getByRole('button', { name: 'Edit record' }).click()
+
+  const form = page.getByRole('dialog', { name: 'Edit record' })
+  await expect(form).toBeVisible()
+  await expect(form.getByLabel('Company')).toHaveValue('Acme')
+  await expect(page).not.toHaveURL(/detail=/)
+
+  await page.keyboard.press('Escape')
+  await expect(form).toBeHidden()
+  await expect(opener).toBeFocused()
+})
+
+test('a record from another table offers Open in …, not Edit', async ({ page }) => {
+  await page.goto(deals.url)
+  await page.getByRole('link', { name: 'Ada' }).click()
+
+  await expect(dialog(page).getByRole('link', { name: /Open in People/ })).toBeVisible()
+  await expect(dialog(page).getByRole('button', { name: 'Edit record' })).toHaveCount(0)
 })

@@ -12,6 +12,7 @@
         'base-button--spinning': isSpinnerShown,
         'base-button--veiled': isSpinnerShown && !prependIcon,
         'base-button--icon-only': isIconOnly,
+        'base-button--compact-icon': iconOnlyBelowCompact,
       },
     ]"
     v-bind="rootProps"
@@ -33,7 +34,8 @@
       class="base-button__icon"
       aria-hidden="true"
     />
-    <slot />
+    <span v-if="iconOnlyBelowCompact" class="base-button__label"><slot /></span>
+    <slot v-else />
     <Icon v-if="appendIcon" :name="appendIcon" class="base-button__icon" aria-hidden="true" />
   </component>
 </template>
@@ -59,6 +61,8 @@ const props = withDefaults(
     selected?: boolean
     loading?: boolean
     busy?: boolean
+    /** Below compact only the leading icon shows, squared; the hidden label still names it. */
+    iconOnlyBelowCompact?: boolean
   }>(),
   {
     type: 'button',
@@ -73,6 +77,7 @@ const props = withDefaults(
     selected: false,
     loading: false,
     busy: false,
+    iconOnlyBelowCompact: false,
   },
 )
 
@@ -147,7 +152,7 @@ const rootProps = computed(() =>
     background: var(--color-accent);
     color: var(--color-text-on-accent);
 
-    &:hover {
+    @include hover {
       border-color: var(--color-accent-hover);
       background: var(--color-accent-hover);
     }
@@ -158,7 +163,7 @@ const rootProps = computed(() =>
     background: var(--color-danger);
     color: var(--color-text-on-accent);
 
-    &:hover {
+    @include hover {
       border-color: var(--color-danger-hover);
       background: var(--color-danger-hover);
     }
@@ -169,7 +174,7 @@ const rootProps = computed(() =>
     background: var(--color-surface);
     color: var(--color-text);
 
-    &:hover {
+    @include hover {
       border-color: var(--color-border-control-hover);
       background: var(--color-surface-raised);
     }
@@ -184,7 +189,7 @@ const rootProps = computed(() =>
       color: var(--color-text-secondary);
     }
 
-    &:hover {
+    @include hover {
       background: var(--color-surface-hover);
     }
   }
@@ -198,7 +203,7 @@ const rootProps = computed(() =>
       color: inherit;
     }
 
-    &:hover {
+    @include hover {
       background: var(--color-accent-tint-strong);
       color: var(--color-accent-hover);
     }
@@ -217,7 +222,7 @@ const rootProps = computed(() =>
     line-height: 1;
     color: var(--color-text-secondary);
 
-    &:hover {
+    @include hover {
       background: var(--hover-plate);
       color: var(--hover-color);
     }
@@ -236,7 +241,7 @@ const rootProps = computed(() =>
     text-decoration-color: var(--link-rule);
     text-underline-offset: rem(3);
 
-    &:hover {
+    @include hover {
       color: var(--link-hover);
       text-decoration-color: currentcolor;
     }
@@ -328,6 +333,19 @@ const rootProps = computed(() =>
   &--icon-only {
     width: var(--control-height);
     padding: 0;
+  }
+
+  &--compact-icon {
+    @include below-compact {
+      width: var(--control-height);
+      padding: 0;
+    }
+  }
+
+  &__label {
+    @include below-compact {
+      @include visually-hidden;
+    }
   }
 
   &__icon {

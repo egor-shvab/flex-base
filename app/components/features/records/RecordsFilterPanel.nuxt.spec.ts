@@ -6,7 +6,7 @@ import { setActivePinia } from 'pinia'
 import type { Pinia } from 'pinia'
 import { CREATED_AT_KEY, RECORD_NUMBER_KEY } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
-import type { TRecordFilterValues } from '#shared/types/filter'
+import type { IRecordSort, TRecordFilterValues } from '#shared/types/filter'
 import RecordsFilterPanel from '~/components/features/records/RecordsFilterPanel.vue'
 import { INDICATOR_DELAY_MS } from '~/composables/useDelayedFlag'
 import { asMultiple, booleanField, numberField, selectField, textField } from '~~/test/fixtures'
@@ -22,6 +22,7 @@ function panel(
   props: {
     fields?: IField[]
     filters?: TRecordFilterValues
+    sort?: IRecordSort
     total?: number
     totalCapped?: boolean
     pending?: boolean
@@ -31,6 +32,7 @@ function panel(
     props: {
       fields: props.fields ?? FIELDS,
       filters: props.filters ?? {},
+      sort: props.sort ?? { key: RECORD_NUMBER_KEY, direction: 'desc' },
       total: props.total ?? 12,
       totalCapped: props.totalCapped ?? false,
       pending: props.pending ?? false,
@@ -41,13 +43,12 @@ function panel(
 type TPanel = Awaited<ReturnType<typeof panel>>
 
 const drawer = () => document.querySelector<HTMLElement>('.base-modal--drawer')
-const controls = () => [
-  ...document.querySelectorAll<HTMLElement>('.filter-panel > :not(.filter-panel__intro)'),
-]
+const FILTER_CONTROLS = '.filter-panel > :not(.filter-panel__intro, .filter-panel__sort)'
+const controls = () => [...document.querySelectorAll<HTMLElement>(FILTER_CONTROLS)]
 const labels = () =>
-  [...document.querySelectorAll('.filter-panel label, .filter-panel .base-field__label')].map(
-    (label) => label.textContent?.trim(),
-  )
+  [
+    ...document.querySelectorAll(`${FILTER_CONTROLS} label, ${FILTER_CONTROLS} .base-field__label`),
+  ].map((label) => label.textContent?.trim())
 const count = () => document.querySelector('.filter-panel__count')?.textContent?.trim()
 const clearAll = () =>
   [...document.querySelectorAll<HTMLElement>('.filter-panel__footer .base-button')].find((button) =>
@@ -255,7 +256,9 @@ describe('RecordsFilterPanel', () => {
 
   describe('the BOOLEAN adapters', () => {
     const checked = () =>
-      document.querySelector('[role="radiogroup"] [aria-checked="true"]')?.textContent?.trim()
+      document
+        .querySelector(`${FILTER_CONTROLS} [role="radiogroup"] [aria-checked="true"]`)
+        ?.textContent?.trim()
 
     it('shows an unfiltered boolean as All', async () => {
       await panel({ fields: [booleanField('active', { name: 'Active' })] })
@@ -381,5 +384,40 @@ describe('RecordsFilterPanel', () => {
     document.querySelector<HTMLElement>('[aria-label="Close"]')?.click()
 
     expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  describe('sort', () => {
+    const sortKey = () => document.querySelector<HTMLElement>('[id$="-sort-key"]')
+    const directions = () => [
+      ...document.querySelectorAll<HTMLElement>('[id$="-sort-direction"] [role="radio"]'),
+    ]
+
+    it('offers every column the table header sorts by', async () => {
+      await panel()
+
+      expect(sortKey()).not.toBeNull()
+      expect(directions().map((radio) => radio.textContent?.trim())).toEqual([
+        'Ascending',
+        'Descending',
+      ])
+    })
+
+    it('marks the direction the list is sorted in', async () => {
+      await panel({ sort: { key: 'company', direction: 'asc' } })
+
+      expect(directions().map((radio) => radio.getAttribute('aria-checked'))).toEqual([
+        'true',
+        'false',
+      ])
+    })
+
+    it('emits the whole sort with the direction changed, keeping the column', async () => {
+      const wrapper = await panel({ sort: { key: 'company', direction: 'asc' } })
+
+      directions()[1]!.click()
+      await nextTick()
+
+      expect(wrapper.emitted('update:sort')).toEqual([[{ key: 'company', direction: 'desc' }]])
+    })
   })
 })

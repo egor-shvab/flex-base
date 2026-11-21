@@ -106,7 +106,16 @@
   --font-size-lg: #{rem(18)};
   --font-size-xl: #{rem(24)};
   --font-size-2xl: #{rem(32)};
+  --font-size-control: var(--font-size-md);
   --letter-spacing-display: -0.025em;
   --line-height-tight: 1.25;
   --line-height-base: 1.5;
+}
+
+// iOS Safari zooms the page into any focused field set below 16px. By pointer, not width: a phone
+// held sideways is wider than every breakpoint.
+@media (pointer: coarse) {
+  :root {
+    --font-size-control: #{rem(16)};
+  }
 }

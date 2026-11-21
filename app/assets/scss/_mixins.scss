@@ -16,6 +16,16 @@ $breakpoint-compact: 40em;
   }
 }
 
+// Only for a pointer that hovers: a touch browser keeps `:hover` on whatever was last tapped. The
+// qualifier continues the selector after `:hover`.
+@mixin hover($qualifier: '') {
+  @media (hover: hover) {
+    &:hover#{$qualifier} {
+      @content;
+    }
+  }
+}
+
 // A container's width, not the window's: the role editor's table grid narrows with the settings
 // navigation beside it, so a window wide enough for the grid can still leave it too little room.
 $breakpoint-access-grid: 40em;
@@ -54,6 +64,21 @@ $breakpoint-access-grid: 40em;
   gap: rem($gap);
 }
 
+// Not `display: none` or `visibility: hidden`, which drop it from the accessibility tree. Clipped
+// rather than off-screen, which would scroll the page sideways when it takes focus. A mixin for text
+// hidden at one breakpoint only; everywhere else it is `.g-visually-hidden`.
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 @mixin truncate {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -66,7 +91,7 @@ $breakpoint-access-grid: 40em;
   border: 1px solid var(--color-border-control);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-control);
   line-height: var(--line-height-tight);
   color: var(--color-text);
 
@@ -76,7 +101,7 @@ $breakpoint-access-grid: 40em;
 
   @include control-focus;
 
-  &:hover:where(:not(:disabled, :focus)) {
+  @include hover(':where(:not(:disabled, :focus))') {
     border-color: var(--color-border-control-hover);
     background: var(--color-surface-raised);
   }
@@ -88,9 +113,12 @@ $breakpoint-access-grid: 40em;
     cursor: not-allowed;
   }
 
-  &--invalid,
-  &--invalid:hover {
+  &--invalid {
     border-color: var(--color-danger);
+
+    @include hover {
+      border-color: var(--color-danger);
+    }
   }
 }
 

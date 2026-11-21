@@ -57,11 +57,7 @@ await useAsyncData('workspace-entry', async () => {
 })
 
 async function openEntryWorkspace() {
-  const target =
-    workspacesStore.lastWorkspaceAddress ??
-    workspacesStore.memberships[0]?.workspace.publicId ??
-    null
-
+  const target = workspacesStore.entryWorkspaceAddress
   if (target !== null) await navigateTo(pagePath.workspace(target), { replace: true })
 }
 

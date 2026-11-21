@@ -22,21 +22,48 @@
         :icon="FIELD_TYPE_ICONS[field.type]"
         :badge="field.required ? 'required' : undefined"
         :meta="metaByFieldId.get(field.id)"
+        inline-trailing
       >
         <template v-if="editable" #trailing>
           <BaseButton
+            class="table-field-list__inline-action"
             variant="icon"
             prepend-icon="material-symbols:edit-outline-rounded"
             :label="`Edit field ${field.name}`"
             @click="emit('edit', field)"
           />
           <BaseButton
+            class="table-field-list__inline-action"
             variant="icon"
             prepend-icon="material-symbols:delete-outline-rounded"
             tone="danger"
             :label="`Delete field ${field.name}`"
             @click="emit('delete', field)"
           />
+
+          <BaseMenu class="table-field-list__menu" :label="`Field ${field.name}`" :max-height="96">
+            <template #trigger="{ triggerAttrs, setTriggerRef, toggle }">
+              <BaseButton
+                :ref="setTriggerRef"
+                v-bind="triggerAttrs"
+                variant="icon"
+                prepend-icon="material-symbols:more-horiz-rounded"
+                :label="`Actions for field ${field.name}`"
+                @click="toggle"
+              />
+            </template>
+
+            <BaseMenuItem icon="material-symbols:edit-outline-rounded" @click="emit('edit', field)">
+              Edit field
+            </BaseMenuItem>
+            <BaseMenuItem
+              tone="danger"
+              icon="material-symbols:delete-outline-rounded"
+              @click="emit('delete', field)"
+            >
+              Delete field
+            </BaseMenuItem>
+          </BaseMenu>
         </template>
       </BaseListRow>
     </BaseList>
@@ -84,3 +111,22 @@ const metaByFieldId = computed(
     ),
 )
 </script>
+
+<style lang="scss" scoped>
+// `display: none` keeps one copy of each action in the accessibility tree at any width
+.table-field-list {
+  &__inline-action {
+    @include below-compact {
+      display: none;
+    }
+  }
+
+  &__menu {
+    display: none;
+
+    @include below-compact {
+      display: inline-flex;
+    }
+  }
+}
+</style>

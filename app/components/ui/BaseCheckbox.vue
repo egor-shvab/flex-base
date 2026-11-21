@@ -88,7 +88,7 @@ const describedBy = computed(() => toMessageId(inputId.value, props))
     appearance: none;
     cursor: pointer;
 
-    &:hover:where(:not(:disabled)) {
+    @include hover(':where(:not(:disabled))') {
       border-color: var(--color-border-control-hover);
       background: var(--color-surface-raised);
     }
@@ -97,7 +97,7 @@ const describedBy = computed(() => toMessageId(inputId.value, props))
       border-color: var(--color-accent);
       background: var(--color-accent);
 
-      &:hover:where(:not(:disabled)) {
+      @include hover(':where(:not(:disabled))') {
         border-color: var(--color-accent-hover);
         background: var(--color-accent-hover);
       }
@@ -114,14 +114,20 @@ const describedBy = computed(() => toMessageId(inputId.value, props))
       background: var(--color-glyph-faint);
     }
 
-    &--invalid,
-    &--invalid:hover {
+    &--invalid {
       border-color: var(--color-danger);
+
+      @include hover {
+        border-color: var(--color-danger);
+      }
     }
 
-    &--invalid:checked,
-    &--invalid:checked:hover {
+    &--invalid:checked {
       background: var(--color-danger);
+
+      @include hover {
+        background: var(--color-danger);
+      }
     }
 
     @include control-focus;

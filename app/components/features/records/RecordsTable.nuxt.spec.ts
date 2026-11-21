@@ -234,6 +234,15 @@ describe('RecordsTable', () => {
       expect(view.attributes('href')).toContain(`detail=${TABLE_NUMBER}.1`)
     })
 
+    it('makes the record number a link to the same detail, the row’s tap target', async () => {
+      const wrapper = await table()
+
+      const number = rows(wrapper)[1]!.get('.records-table__number-link')
+      expect(number.element.tagName).toBe('A')
+      expect(number.text()).toBe('#2')
+      expect(number.attributes('href')).toContain(`detail=${TABLE_NUMBER}.2`)
+    })
+
     it('addresses each row’s own record', async () => {
       const wrapper = await table()
 
@@ -258,7 +267,9 @@ describe('RecordsTable', () => {
 
       await rows(wrapper)[0]!.get('[aria-label="More actions"]').trigger('click')
       await nextTick()
-      document.querySelector<HTMLElement>('[role="menuitem"]')!.click()
+      ;[...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+        .find((item) => item.textContent?.trim() === 'Delete record')!
+        .click()
 
       expect(wrapper.emitted('delete')).toEqual([[RECORDS[0]]])
     })
@@ -277,7 +288,7 @@ describe('RecordsTable', () => {
       for (const row of rows(wrapper)) {
         expect(row.find('[aria-label="View record"]').exists()).toBe(true)
         expect(row.find('[aria-label="Edit record"]').exists()).toBe(false)
-        expect(row.find('[aria-label="More actions"]').exists()).toBe(false)
+        expect(row.find('.record-row-menu--compact-only').exists()).toBe(true)
       }
     })
 
@@ -294,9 +305,9 @@ describe('RecordsTable', () => {
       const [first, second] = rows(wrapper)
 
       expect(first!.find('[aria-label="Edit record"]').exists()).toBe(true)
-      expect(first!.find('[aria-label="More actions"]').exists()).toBe(true)
+      expect(first!.find('.record-row-menu--compact-only').exists()).toBe(false)
       expect(second!.find('[aria-label="Edit record"]').exists()).toBe(false)
-      expect(second!.find('[aria-label="More actions"]').exists()).toBe(false)
+      expect(second!.find('.record-row-menu--compact-only').exists()).toBe(true)
     })
   })
 })

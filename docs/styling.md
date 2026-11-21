@@ -6,8 +6,9 @@ How the SCSS layer fits together beyond what the partials say themselves. The ru
 ## Tokens
 
 `_variables.scss` is the list; what it does not say: radii go by job — `xs` marker, `sm` badge or
-option, `md` control, `lg` panel, `xl` page-sized card; in the type scale `md` is control and cell
-text and `body` is running text. There is no pressed (`-active`) step. `--color-glyph-faint` is the
+option, `md` control, `lg` panel, `xl` page-sized card; in the type scale `md` is cell text and
+`body` is running text. **Text a person types into is `--font-size-control`**, never `md` — it
+becomes 16px under `pointer: coarse`, below which iOS zooms the page on focus. There is no pressed (`-active`) step. `--color-glyph-faint` is the
 one colour exempt from the 3:1 non-text floor, because it is never the sole cue. `_mixins.scss`
 `@use`s `functions` itself and does not re-export it.
 
@@ -20,6 +21,9 @@ dot falls to ~2.87:1, **so nothing drawing one may sit on that wash.**
 
 Check `_mixins.scss` before writing a declaration block. What its names do not say:
 
+- **`visually-hidden`** is `.g-visually-hidden` for text hidden at one breakpoint only.
+- **`hover`** is the only way to write a `:hover` style: it applies under `(hover: hover)`, since a
+  touch browser leaves `:hover` stuck on whatever was last tapped.
 - **`truncate`** works only on a **bounded** box — a `max-width`, or `min-width: 0` on a flex item.
   Without the bound it is silently inert.
 - **`stack` / `cluster`** declare no `flex-wrap`. A heading group inside a `cluster` needs its own
@@ -29,10 +33,12 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
   that itself. A list goes inside it, never as its `tag` — a header in a `<ul>` is invalid.
 - **`BaseListRow`** (in `BaseList`) is an entity row — fields, members, roles, a dashboard table —
   and **`BaseDetailRow`** (in `BaseDetailList`) a term/value row; a block styles only what it puts
-  in their slots. A `BaseDetailRow` with `labelFor` holds a control and does not clip;
+  in their slots. Below the shell a list row's `#trailing` wraps under the name unless it is
+  `inlineTrailing` — a trailing that collapses to one `⋯` below compact (fields) stays. A `BaseDetailRow` with `labelFor` holds a control and does not clip;
   `variant="wrap"` wraps a value that must stay whole (a record's field), and a `flush` list drops
   the side padding outside a card. A page opens with **`BasePageHead`** (crumbs, `h1`, its action at the right edge, a description line) and sets
-  its own margin below it; the heading above a card is **`BaseSectionHead`**; a titled action with
+  its own margin below it — below compact the step back, title and actions share one row, so a head
+  button with an icon takes `iconOnlyBelowCompact`; the heading above a card is **`BaseSectionHead`**; a titled action with
   a description (Danger zone) is **`BaseActionRow`**, and `tone="danger"` on it and its `BaseCard`
   turns the edges red.
 - **`popover-panel`** is the one floating surface (select list, colour grid, `BaseMenu`). A
@@ -51,7 +57,7 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
 - **A link that fills a card:** the **card** wears the ring via `:has(:focus-visible)`, and the link
   suppresses both halves of its own.
 - **`BaseCenteredPanel`** is the surface outside the shell (the auth layout, `error.vue`); below
-  `$breakpoint-compact` its card dissolves into the page.
+  `$breakpoint-compact` its card dissolves into the page and sits at the top.
 
 ## `BaseButton` variants
 
@@ -60,7 +66,8 @@ Check `_mixins.scss` before writing a declaration block. What its names do not s
 - `danger` — destructive filled action, only inside a confirmation
 - `ghost` — toolbars and page headers; ink text, grey plate on hover; `selected` makes it an
   accent-tinted plate
-- `icon` — icon-only, named by `label`
+- `icon` — icon-only, named by `label`; any variant with a leading icon can turn icon-only below
+  compact (`iconOnlyBelowCompact`), its hidden label still naming it
 - `link` — accent text over `--color-accent-underline`, for a sentence, a banner or a row of one-off
   actions
 
@@ -122,7 +129,9 @@ user + Log out at the bottom, and only its middle scrolls; the `<header>` is the
 bar. The shell owns the viewport — `100dvh`, `overflow: hidden`, the main region the scroll pane —
 and the `minmax(0, …)` + `min-width: 0` + `min-height: 0` trio is load-bearing (`decisions.md` →
 _The viewport lock lives in the shell, not in the records page_). Dialogs teleport, so the shell's
-`overflow` cannot clip them.
+`overflow` cannot clip them. The page is `viewport-fit=cover`, so **a surface touching a screen edge
+pads by `env(safe-area-inset-*)` on that edge** — the header, main pane, sidebar, centred panel and
+bottom sheet do.
 
 `RecordsTable`: a blank is an `aria-hidden` dash plus a visually hidden "Not set" inside a
 `position: relative` box (or the hidden text escapes the scroll container). The `⋯` menu panel is

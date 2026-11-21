@@ -27,7 +27,8 @@ withDefaults(
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
-  padding: rem(32) rem(16);
+  padding: calc(#{rem(32)} + env(safe-area-inset-top)) calc(#{rem(16)} + env(safe-area-inset-right))
+    calc(#{rem(32)} + env(safe-area-inset-bottom)) calc(#{rem(16)} + env(safe-area-inset-left));
   background: var(--color-canvas);
 
   &__column {
@@ -59,7 +60,11 @@ withDefaults(
     padding: rem(32);
   }
 
+  // Top-aligned on a phone: centred, the form leaves half a screen empty above it and jumps when
+  // the soft keyboard opens
   @include below-compact {
+    align-items: flex-start;
+    padding-top: calc(#{rem(48)} + env(safe-area-inset-top));
     background: var(--color-surface);
 
     &__card,

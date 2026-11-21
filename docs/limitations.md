@@ -107,8 +107,9 @@ untouched. _Revisit if non-ASCII names become the common case._
 
 ### 36px targets are below the Apple HIG / Material touch figure on touch devices
 
-Clears SC 2.5.8 (AA); SC 2.5.5 (AAA) is given up rather than maintain a second geometry under
-`pointer: coarse`. _Revisit if touch becomes primary._
+Clears SC 2.5.8 (AA); SC 2.5.5 (AAA) is given up rather than maintain a second target geometry
+under `pointer: coarse` — that query changes only typed text (`--font-size-control`, against iOS
+focus zoom). _Revisit if touch becomes primary._
 
 ### A date field uses the browser's own picker
 

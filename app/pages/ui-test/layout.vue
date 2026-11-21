@@ -5,13 +5,28 @@
       title="Layout"
       :crumbs="[{ label: 'Showcase', to: '/ui-test' }, { label: 'Layout' }]"
     >
+      <template #crumbs-actions>
+        <BaseButton
+          variant="ghost"
+          prepend-icon="material-symbols:settings-outline-rounded"
+          to="/ui-test"
+          icon-only-below-compact
+        >
+          Crumb action
+        </BaseButton>
+      </template>
       <template #actions>
-        <BaseButton prepend-icon="material-symbols:add-rounded" @click="headActionCount += 1">
+        <BaseButton
+          prepend-icon="material-symbols:add-rounded"
+          icon-only-below-compact
+          @click="headActionCount += 1"
+        >
           Page action
         </BaseButton>
       </template>
-      The blocks a page is built from. This head is itself <code>BasePageHead</code> — crumbs, the
-      action at the right edge and this line; the action has been pressed {{ headActionCount }}
+      The blocks a page is built from. This head is itself <code>BasePageHead</code> — crumbs with
+      their action, the page action at the right edge and this line; below 640px the step back,
+      title and both actions share one row. The page action has been pressed {{ headActionCount }}
       {{ headActionCount === 1 ? 'time' : 'times' }}.
     </BasePageHead>
 
@@ -61,7 +76,8 @@
     <UiTestSection title="List row" component="BaseListRow">
       <template #description>
         An entity row inside <code>BaseList</code>. Below the shell breakpoint its trailing actions
-        wrap under the name, except on a link row.
+        wrap under the name, except on a link row or with <code>inlineTrailing</code>. A badge too
+        long for the row wraps under the title rather than squeezing it.
       </template>
       <UiTestSpecimen label="icon · badge · meta · actions" wide>
         <BaseCard>
@@ -77,6 +93,21 @@
                   variant="icon"
                   prepend-icon="material-symbols:edit-outline-rounded"
                   label="Edit Company name"
+                />
+              </template>
+            </BaseListRow>
+            <BaseListRow
+              title="Admin"
+              icon="material-symbols:shield-person-outline-rounded"
+              badge="Yours after a transfer"
+              :meta="['2 members', 'Every permission']"
+              inline-trailing
+            >
+              <template #trailing>
+                <BaseButton
+                  variant="icon"
+                  prepend-icon="material-symbols:more-horiz-rounded"
+                  label="Actions for Admin"
                 />
               </template>
             </BaseListRow>
@@ -179,7 +210,8 @@
     <UiTestSection title="Centered panel" component="BaseCenteredPanel">
       <template #description>
         The surface outside the shell — sign-in and the error page. It fills the viewport, so these
-        previews are drawn at half size; below 640px its card dissolves into the page.
+        previews are drawn at half size; below 640px its card dissolves into the page and sits at
+        the top rather than the middle.
       </template>
       <UiTestSpecimen label="md · with a mark">
         <div class="panel-preview" inert>

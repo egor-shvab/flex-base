@@ -62,6 +62,7 @@
 
     <BaseSaveBar
       class="role-editor__actions"
+      :class="{ 'role-editor__actions--quiet': role && !isDirty && !hasSaved }"
       :dirty="isDirty"
       :saved="hasSaved"
       :busy="isSubmitting"
@@ -235,6 +236,13 @@ function setPermissionGranted(permission: TWorkspacePermission, isGranted: boole
     padding: rem(12) 0 calc(#{rem(12)} + var(--main-padding-bottom, 0px));
     border-top: 1px solid var(--color-border);
     background: var(--color-canvas);
+
+    // Only visually: a screen reader still finds the status saying nothing is unsaved
+    &--quiet {
+      @include below-compact {
+        @include visually-hidden;
+      }
+    }
   }
 }
 </style>

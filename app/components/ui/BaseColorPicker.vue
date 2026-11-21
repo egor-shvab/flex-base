@@ -128,7 +128,7 @@ function step(delta: number) {
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       background: var(--color-surface-raised);
     }
 
@@ -178,7 +178,7 @@ function step(delta: number) {
 
     @include focus-ring;
 
-    &:hover {
+    @include hover {
       background: var(--color-surface-raised);
     }
 

@@ -200,6 +200,14 @@ describe('sorting', () => {
 
     expect(navigation().query.page).toBeUndefined()
   })
+
+  it('sets a sort as given, from the first page, as a new history entry', () => {
+    setup({ sort: 'company', dir: 'asc', page: '3' }).setSort({ key: 'company', direction: 'asc' })
+
+    expect(emittedSort()).toEqual({ key: 'company', direction: 'asc' })
+    expect(navigation().query.page).toBeUndefined()
+    expect(navigation().replace).toBe(false)
+  })
 })
 
 describe('searching', () => {

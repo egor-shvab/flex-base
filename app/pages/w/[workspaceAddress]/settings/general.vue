@@ -29,20 +29,22 @@
       </BaseCard>
 
       <div v-if="canRename" class="settings-general__actions">
-        <BaseButton type="submit" :loading="isSubmitting">Save changes</BaseButton>
-        <BaseButton variant="secondary" :busy="isSubmitting" @click="discardChanges">
+        <BaseButton type="submit" :disabled="!isDirty" :loading="isSubmitting">
+          Save changes
+        </BaseButton>
+        <BaseButton variant="secondary" :disabled="!isDirty" :busy="isSubmitting" @click="discard">
           Discard
         </BaseButton>
-        <p class="g-note" role="status">{{ savedMessage }}</p>
+        <p class="g-note" role="status">{{ hasSaved && !isDirty ? 'Changes saved.' : '' }}</p>
       </div>
     </form>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue'
+import { computed, useId } from 'vue'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
-import { useForm } from '~/composables/useForm'
+import { useSavedForm } from '~/composables/useSavedForm'
 import { useWorkspacesStore } from '~/stores/workspaces'
 import { formatTimestamp } from '~/utils/format'
 import { workspaceInputSchema } from '#shared/validation/workspace'
@@ -55,25 +57,16 @@ const nameInputId = useId()
 
 const canRename = computed(() => hasPermission('WORKSPACE_UPDATE'))
 
-const savedMessage = ref('')
-
-const { form, errors, serverError, isSubmitting, submit } = useForm({
-  schema: workspaceInputSchema,
-  initial: { name: membership.value?.workspace.name ?? '' },
-  onSubmit: async (values) => {
-    await workspacesStore.renameWorkspace(workspaceAddress.value, values)
-    savedMessage.value = 'Changes saved.'
-  },
-})
-
-watch(
-  () => form.name,
-  () => (savedMessage.value = ''),
-)
-
-function discardChanges() {
-  form.name = membership.value?.workspace.name ?? ''
-}
+const { form, errors, serverError, isSubmitting, submit, isDirty, hasSaved, discard } =
+  useSavedForm({
+    schema: workspaceInputSchema,
+    initial: { name: membership.value?.workspace.name ?? '' },
+    save: async (values) => {
+      await workspacesStore.renameWorkspace(workspaceAddress.value, values)
+      return { name: values.name }
+    },
+    isSame: (a, b) => a.name === b.name,
+  })
 </script>
 
 <style lang="scss" scoped>

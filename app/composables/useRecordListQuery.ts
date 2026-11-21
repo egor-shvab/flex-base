@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import { navigateTo, useRoute } from '#imports'
 import { SEARCH_MIN_LENGTH } from '#shared/constants/filter'
 import type { IField } from '#shared/types/field'
-import type { TRecordFilterValues } from '#shared/types/filter'
+import type { IRecordSort, TRecordFilterValues } from '#shared/types/filter'
 import type { IRecordQueryState } from '#shared/types/record'
 import {
   parseRecordQueryState,
@@ -64,10 +64,17 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
     return applyQuery({ ...queryState.value, page: nextPage }, shouldReplace)
   }
 
+  function setSort(sort: IRecordSort) {
+    return applyQuery({ ...queryState.value, page: 1, sort })
+  }
+
+  /** A header's click: the same column flips its direction, another starts ascending. */
   function applySort(key: string) {
     const { sort } = queryState.value
-    const direction = sort.key === key && sort.direction === 'asc' ? 'desc' : 'asc'
-    return applyQuery({ ...queryState.value, page: 1, sort: { key, direction } })
+    return setSort({
+      key,
+      direction: sort.key === key && sort.direction === 'asc' ? 'desc' : 'asc',
+    })
   }
 
   function applyFilters(next: TRecordFilterValues) {
@@ -96,6 +103,7 @@ export function useRecordListQuery({ fields }: IRecordListQueryInput) {
     queryKey: computed(() => toRecordQueryKey(queryState.value)),
     goToPage,
     applySort,
+    setSort,
     applyFilters,
     applySearch,
     clearNarrowing,

@@ -10,6 +10,10 @@ const toggle = (page: import('@playwright/test').Page) =>
 const sidebar = (page: import('@playwright/test').Page) =>
   page.getByRole('navigation', { name: 'Your tables' })
 
+/** The shell locks the document, so a row too wide scrolls `main` sideways, never the page. */
+const mainPaneOverflow = (page: import('@playwright/test').Page) =>
+  page.getByRole('main').evaluate((pane) => Math.max(0, pane.scrollWidth - pane.clientWidth))
+
 let recordsUrl = ''
 let settingsUrl = ''
 
@@ -104,6 +108,28 @@ test('Escape dismisses it when nothing covers it', async ({ page }) => {
   await expect(page).toHaveURL(WORKSPACE_HOME)
 })
 
+test('its own close button dismisses it and hands focus back to the toggle', async ({ page }) => {
+  await page.goto('/')
+  await toggle(page).click()
+  await expect(sidebar(page)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Hide tables' }).click()
+
+  await expect(sidebar(page)).toBeHidden()
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false')
+  await expect(toggle(page)).toBeFocused()
+})
+
+test('Escape from inside it hands focus back to the toggle', async ({ page }) => {
+  await page.goto('/')
+  await toggle(page).click()
+  await sidebar(page).getByRole('link', { name: /Deals/ }).focus()
+
+  await page.keyboard.press('Escape')
+
+  await expect(toggle(page)).toBeFocused()
+})
+
 test('Escape closes a dialog over it without also closing it', async ({ page }) => {
   await page.goto('/')
   await toggle(page).click()
@@ -135,6 +161,64 @@ test('the records table scrolls inside itself, not the page', async ({ page }) =
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   )
   expect(pageOverflows).toBe(false)
+})
+
+test('a record row keeps one action, and its menu holds the rest', async ({ page }) => {
+  await page.goto(recordsUrl)
+  const row = page.getByRole('row').filter({ hasText: 'Acme' })
+
+  await expect(row.getByRole('link', { name: 'View record' })).toBeHidden()
+  await expect(row.getByRole('button', { name: 'Edit record' })).toBeHidden()
+
+  await row.getByRole('button', { name: 'More actions' }).click()
+  const menu = page.getByRole('menu', { name: 'Record actions' })
+  await expect(menu.getByRole('menuitem')).toHaveText([
+    'View record',
+    'Edit record',
+    'Delete record',
+  ])
+  await expect(menu.getByRole('menuitem', { name: 'View record' })).toBeFocused()
+
+  await menu.getByRole('menuitem', { name: 'View record' }).click()
+
+  await expect(page.getByRole('dialog', { name: 'Record details' })).toContainText('Acme')
+})
+
+test('the page head is one row: the step back, the title and its actions', async ({ page }) => {
+  await page.goto(recordsUrl)
+
+  const title = page.getByRole('heading', { level: 1, name: 'Deals' })
+  const [titleBox, backBox, settingsBox, addBox] = await Promise.all([
+    title.boundingBox(),
+    page
+      .getByRole('navigation', { name: 'Breadcrumb' })
+      .getByRole('link', { name: 'Home' })
+      .boundingBox(),
+    page.getByRole('link', { name: 'Settings' }).boundingBox(),
+    page.getByRole('button', { name: 'Add record' }).boundingBox(),
+  ])
+  const middle = titleBox!.y + titleBox!.height / 2
+
+  for (const box of [backBox, settingsBox, addBox]) {
+    expect(box!.y).toBeLessThan(middle)
+    expect(box!.y + box!.height).toBeGreaterThan(middle)
+  }
+  expect(await mainPaneOverflow(page)).toBe(0)
+})
+
+test('the filters drawer sorts by any column, through the same URL', async ({ page }) => {
+  await page.goto(recordsUrl)
+  await page.getByRole('button', { name: 'Filters' }).click()
+  const drawer = page.getByRole('dialog', { name: 'Filters' })
+
+  await drawer.getByRole('button', { name: /^Sort by/ }).click()
+  await page.getByRole('option', { name: 'Company' }).click()
+  await drawer.getByRole('radio', { name: 'Ascending' }).click()
+
+  await expect(page).toHaveURL(/sort=company/)
+  await expect(page).toHaveURL(/dir=asc/)
+  await drawer.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByRole('row').nth(1)).toContainText('Acme')
 })
 
 test('a dialog fits the viewport and keeps its actions reachable', async ({ page }) => {
@@ -218,24 +302,49 @@ test.describe('the gates at this width', () => {
   }
 })
 
-test('a field row stacks its actions rather than squeezing the name', async ({ page }) => {
+test('a field row keeps one action beside the name, and its menu holds the rest', async ({
+  page,
+}) => {
   await page.goto(settingsUrl)
 
   const row = page
     .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name: /^Edit field/ }) })
-    .first()
+    .filter({ has: page.getByRole('button', { name: 'Actions for field Company' }) })
   const name = row.getByText('Company', { exact: true })
-  const edit = row.getByRole('button', { name: /^Edit field/ })
+  const actions = row.getByRole('button', { name: 'Actions for field Company' })
 
-  const [nameBox, editBox] = await Promise.all([name.boundingBox(), edit.boundingBox()])
+  await expect(row.getByRole('button', { name: /^Edit field/ })).toBeHidden()
+  const [nameBox, actionsBox] = await Promise.all([name.boundingBox(), actions.boundingBox()])
+  const middle = nameBox!.y + nameBox!.height / 2
+  expect(nameBox!.width).toBeGreaterThan(0)
+  expect(actionsBox!.y).toBeLessThan(middle)
+  expect(actionsBox!.y + actionsBox!.height).toBeGreaterThan(middle)
+  expect(await mainPaneOverflow(page)).toBe(0)
 
-  expect(editBox!.y).toBeGreaterThan(nameBox!.y + nameBox!.height)
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-    ),
-  ).toBe(true)
+  await actions.click()
+  const menu = page.getByRole('menu', { name: 'Field Company' })
+  await expect(menu.getByRole('menuitem')).toHaveText(['Edit field', 'Delete field'])
+
+  await menu.getByRole('menuitem', { name: 'Edit field' }).click()
+  await expect(page.getByRole('dialog', { name: 'Edit field' })).toBeVisible()
+})
+
+test('the settings sections scroll as one row, the current one in view', async ({
+  page,
+  workspace,
+}) => {
+  await page.goto(`${workspace.url}/settings/danger`)
+  const sections = page.getByRole('navigation', { name: 'Settings sections' })
+
+  await expect(sections.getByRole('link', { name: 'Danger zone' })).toBeInViewport({ ratio: 1 })
+  expect(await mainPaneOverflow(page)).toBe(0)
+})
+
+test('a member row fits the pane', async ({ page, workspace }) => {
+  await page.goto(`${workspace.url}/settings/members`)
+  await expect(page.getByRole('listitem').first()).toBeVisible()
+
+  expect(await mainPaneOverflow(page)).toBe(0)
 })
 
 test.describe('above the breakpoint', () => {
@@ -246,5 +355,29 @@ test.describe('above the breakpoint', () => {
 
     await expect(sidebar(page)).toBeVisible()
     await expect(toggle(page)).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Hide tables' })).toBeHidden()
+  })
+
+  test('a record row shows its actions as buttons, and the drawer leaves sorting to the header', async ({
+    page,
+  }) => {
+    await page.goto(recordsUrl)
+    const row = page.getByRole('row').filter({ hasText: 'Acme' })
+
+    await expect(row.getByRole('link', { name: 'View record' })).toBeVisible()
+    await row.getByRole('button', { name: 'More actions' }).click()
+    await expect(page.getByRole('menu').getByRole('menuitem')).toHaveText(['Delete record'])
+    await page.keyboard.press('Escape')
+
+    await page.getByRole('button', { name: 'Filters' }).click()
+    await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Sort by/ })).toBeHidden()
+  })
+
+  test('a field row shows its actions as buttons', async ({ page }) => {
+    await page.goto(settingsUrl)
+
+    await expect(page.getByRole('button', { name: 'Edit field Company' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Actions for field Company' })).toBeHidden()
   })
 })
