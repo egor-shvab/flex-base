@@ -168,13 +168,14 @@ withDefaults(
     align-items: center;
     gap: rem(8);
 
+    // Padding, not margin: under `border-box` a full-basis margin overflows the row by itself.
     @include below-shell {
       flex-basis: 100%;
-      margin-left: rem(48);
+      padding-left: rem(48);
 
       .base-list-row__main--link & {
         flex-basis: auto;
-        margin-left: 0;
+        padding-left: 0;
       }
     }
   }

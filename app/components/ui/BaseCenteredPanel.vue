@@ -27,7 +27,8 @@ withDefaults(
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
-  padding: rem(32) rem(16);
+  padding: calc(#{rem(32)} + env(safe-area-inset-top)) calc(#{rem(16)} + env(safe-area-inset-right))
+    calc(#{rem(32)} + env(safe-area-inset-bottom)) calc(#{rem(16)} + env(safe-area-inset-left));
   background: var(--color-canvas);
 
   &__column {

@@ -271,6 +271,10 @@ const {
       padding: 0 rem(10);
       font-size: var(--font-size-md);
       color: var(--color-text-secondary);
+
+      @include below-shell {
+        padding-inline: 0;
+      }
     }
   }
 }

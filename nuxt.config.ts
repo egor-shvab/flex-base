@@ -5,6 +5,10 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
+      // `viewport-fit=cover` is what makes `env(safe-area-inset-*)` non-zero
+      meta: [
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+      ],
     },
   },
 

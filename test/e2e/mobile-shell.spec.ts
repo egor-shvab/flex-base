@@ -10,6 +10,10 @@ const toggle = (page: import('@playwright/test').Page) =>
 const sidebar = (page: import('@playwright/test').Page) =>
   page.getByRole('navigation', { name: 'Your tables' })
 
+/** The shell locks the document, so a row too wide scrolls `main` sideways, never the page. */
+const mainPaneOverflow = (page: import('@playwright/test').Page) =>
+  page.getByRole('main').evaluate((pane) => Math.max(0, pane.scrollWidth - pane.clientWidth))
+
 let recordsUrl = ''
 let settingsUrl = ''
 
@@ -231,11 +235,14 @@ test('a field row stacks its actions rather than squeezing the name', async ({ p
   const [nameBox, editBox] = await Promise.all([name.boundingBox(), edit.boundingBox()])
 
   expect(editBox!.y).toBeGreaterThan(nameBox!.y + nameBox!.height)
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-    ),
-  ).toBe(true)
+  expect(await mainPaneOverflow(page)).toBe(0)
+})
+
+test('a member row fits the pane', async ({ page, workspace }) => {
+  await page.goto(`${workspace.url}/settings/members`)
+  await expect(page.getByRole('listitem').first()).toBeVisible()
+
+  expect(await mainPaneOverflow(page)).toBe(0)
 })
 
 test.describe('above the breakpoint', () => {

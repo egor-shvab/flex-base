@@ -6,8 +6,9 @@ How the SCSS layer fits together beyond what the partials say themselves. The ru
 ## Tokens
 
 `_variables.scss` is the list; what it does not say: radii go by job — `xs` marker, `sm` badge or
-option, `md` control, `lg` panel, `xl` page-sized card; in the type scale `md` is control and cell
-text and `body` is running text. There is no pressed (`-active`) step. `--color-glyph-faint` is the
+option, `md` control, `lg` panel, `xl` page-sized card; in the type scale `md` is cell text and
+`body` is running text. **Text a person types into is `--font-size-control`**, never `md` — it
+becomes 16px under `pointer: coarse`, below which iOS zooms the page on focus. There is no pressed (`-active`) step. `--color-glyph-faint` is the
 one colour exempt from the 3:1 non-text floor, because it is never the sole cue. `_mixins.scss`
 `@use`s `functions` itself and does not re-export it.
 
@@ -122,7 +123,9 @@ user + Log out at the bottom, and only its middle scrolls; the `<header>` is the
 bar. The shell owns the viewport — `100dvh`, `overflow: hidden`, the main region the scroll pane —
 and the `minmax(0, …)` + `min-width: 0` + `min-height: 0` trio is load-bearing (`decisions.md` →
 _The viewport lock lives in the shell, not in the records page_). Dialogs teleport, so the shell's
-`overflow` cannot clip them.
+`overflow` cannot clip them. The page is `viewport-fit=cover`, so **a surface touching a screen edge
+pads by `env(safe-area-inset-*)` on that edge** — the header, main pane, sidebar, centred panel and
+bottom sheet do.
 
 `RecordsTable`: a blank is an `aria-hidden` dash plus a visually hidden "Not set" inside a
 `position: relative` box (or the hidden text escapes the scroll container). The `⋯` menu panel is

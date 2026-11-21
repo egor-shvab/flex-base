@@ -155,7 +155,8 @@ const isSettings = computed(
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: rem(12);
+  padding: calc(#{rem(12)} + env(safe-area-inset-top)) rem(12)
+    calc(#{rem(12)} + env(safe-area-inset-bottom)) calc(#{rem(12)} + env(safe-area-inset-left));
 
   &__switcher {
     flex: none;

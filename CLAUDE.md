@@ -309,7 +309,8 @@ Neutral chrome, coloured data. **Light grey surfaces carry the interface; one de
 (`#1C6B4A`) marks primary actions, focus and selection and never fills a large area; the closed
 ten-hue badge palette is the user's — the two never mix.** **Archivo** for anything a person reads,
 **IBM Plex Mono** for anything a machine produced (record numbers, keys, addresses, timestamps).
-**36px control height, 8px radius, 14px control and cell text**; borders do the structural work, and
+**36px control height, 8px radius, 14px control and cell text** (16px typed text on touch);
+borders do the structural work, and
 a shadow only means a surface floats — always with a real border.
 
 **`docs/design/` is the visual reference** — `FlexBase Design System.dc.html` for foundations, the

@@ -641,7 +641,7 @@ $clearable-gutter: rem(64);
     left: rem(12);
     right: $caret-gutter;
     transform: translateY(-50%);
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-control);
     line-height: var(--line-height-tight);
     pointer-events: none;
 
