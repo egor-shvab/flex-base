@@ -3,7 +3,12 @@
     <BasePageHead title="Workspace settings" :crumbs="breadcrumbs" />
 
     <div class="workspace-settings__body">
-      <nav class="workspace-settings__nav" aria-label="Settings sections">
+      <nav
+        ref="navRef"
+        class="workspace-settings__nav"
+        :class="navFade && `workspace-settings__nav--fade-${navFade}`"
+        aria-label="Settings sections"
+      >
         <BaseNavItem
           v-for="section in sections"
           :key="section.id"
@@ -26,9 +31,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useSeoMeta } from '#imports'
 import { useActiveWorkspace } from '~/composables/useActiveWorkspace'
+import { useScrollEdges } from '~/composables/useScrollEdges'
 import type { IBreadcrumb } from '~/types/breadcrumb'
 import { pagePath, type TWorkspaceSettingsSection } from '~/utils/page-path'
 
@@ -45,7 +51,8 @@ const route = useRoute()
 
 /** A section's own pages count too: a role's page sits under Roles. */
 function isSectionActive(section: TWorkspaceSettingsSection): boolean {
-  return route.path.startsWith(`${pagePath.workspaceSettings(workspaceAddress.value, section)}/`)
+  const sectionPath = pagePath.workspaceSettings(workspaceAddress.value, section)
+  return route.path === sectionPath || route.path.startsWith(`${sectionPath}/`)
 }
 
 const ALL_SECTIONS: ISettingsSection[] = [
@@ -60,6 +67,23 @@ const sections = computed(() =>
   ALL_SECTIONS.filter((section) => section.id !== 'roles' || hasPermission('ROLES_VIEW')),
 )
 
+const navRef = ref<HTMLElement>()
+const { canScrollStart, canScrollEnd } = useScrollEdges(navRef)
+
+/** Below compact the sections are one scrolling row, faded at each edge with more beyond it. */
+const navFade = computed(() => {
+  if (canScrollStart.value && canScrollEnd.value) return 'both'
+  if (canScrollStart.value) return 'start'
+  if (canScrollEnd.value) return 'end'
+  return null
+})
+
+/** `nearest` on both axes: above compact, or when already in view, nothing moves. */
+onMounted(() => {
+  const activeIndex = sections.value.findIndex((section) => isSectionActive(section.id))
+  navRef.value?.children[activeIndex]?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+})
+
 const breadcrumbs = computed<IBreadcrumb[]>(() => [
   { label: 'Home', to: pagePath.workspace(workspaceAddress.value) },
   { label: 'Workspace settings' },
@@ -67,6 +91,8 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
 </script>
 
 <style lang="scss" scoped>
+$nav-fade-width: rem(32);
+
 .workspace-settings {
   @include stack(24);
 
@@ -95,6 +121,31 @@ const breadcrumbs = computed<IBreadcrumb[]>(() => [
       overflow-x: auto;
       padding: rem(4);
       margin: rem(-4);
+      scroll-padding-inline: $nav-fade-width;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    // A mask reads only alpha, so the colour is no token
+    &--fade-start {
+      mask-image: linear-gradient(to right, transparent, #000 $nav-fade-width);
+    }
+
+    &--fade-end {
+      mask-image: linear-gradient(to left, transparent, #000 $nav-fade-width);
+    }
+
+    &--fade-both {
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 $nav-fade-width,
+        #000 calc(100% - #{$nav-fade-width}),
+        transparent
+      );
     }
   }
 

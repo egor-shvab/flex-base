@@ -280,19 +280,41 @@ test.describe('the gates at this width', () => {
   }
 })
 
-test('a field row stacks its actions rather than squeezing the name', async ({ page }) => {
+test('a field row keeps one action beside the name, and its menu holds the rest', async ({
+  page,
+}) => {
   await page.goto(settingsUrl)
 
   const row = page
     .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name: /^Edit field/ }) })
-    .first()
+    .filter({ has: page.getByRole('button', { name: 'Actions for field Company' }) })
   const name = row.getByText('Company', { exact: true })
-  const edit = row.getByRole('button', { name: /^Edit field/ })
+  const actions = row.getByRole('button', { name: 'Actions for field Company' })
 
-  const [nameBox, editBox] = await Promise.all([name.boundingBox(), edit.boundingBox()])
+  await expect(row.getByRole('button', { name: /^Edit field/ })).toBeHidden()
+  const [nameBox, actionsBox] = await Promise.all([name.boundingBox(), actions.boundingBox()])
+  const middle = nameBox!.y + nameBox!.height / 2
+  expect(nameBox!.width).toBeGreaterThan(0)
+  expect(actionsBox!.y).toBeLessThan(middle)
+  expect(actionsBox!.y + actionsBox!.height).toBeGreaterThan(middle)
+  expect(await mainPaneOverflow(page)).toBe(0)
 
-  expect(editBox!.y).toBeGreaterThan(nameBox!.y + nameBox!.height)
+  await actions.click()
+  const menu = page.getByRole('menu', { name: 'Field Company' })
+  await expect(menu.getByRole('menuitem')).toHaveText(['Edit field', 'Delete field'])
+
+  await menu.getByRole('menuitem', { name: 'Edit field' }).click()
+  await expect(page.getByRole('dialog', { name: 'Edit field' })).toBeVisible()
+})
+
+test('the settings sections scroll as one row, the current one in view', async ({
+  page,
+  workspace,
+}) => {
+  await page.goto(`${workspace.url}/settings/danger`)
+  const sections = page.getByRole('navigation', { name: 'Settings sections' })
+
+  await expect(sections.getByRole('link', { name: 'Danger zone' })).toBeInViewport({ ratio: 1 })
   expect(await mainPaneOverflow(page)).toBe(0)
 })
 
@@ -327,5 +349,12 @@ test.describe('above the breakpoint', () => {
     await page.getByRole('button', { name: 'Filters' }).click()
     await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible()
     await expect(page.getByRole('button', { name: /^Sort by/ })).toBeHidden()
+  })
+
+  test('a field row shows its actions as buttons', async ({ page }) => {
+    await page.goto(settingsUrl)
+
+    await expect(page.getByRole('button', { name: 'Edit field Company' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Actions for field Company' })).toBeHidden()
   })
 })

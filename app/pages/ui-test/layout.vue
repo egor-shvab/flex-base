@@ -76,7 +76,8 @@
     <UiTestSection title="List row" component="BaseListRow">
       <template #description>
         An entity row inside <code>BaseList</code>. Below the shell breakpoint its trailing actions
-        wrap under the name, except on a link row.
+        wrap under the name, except on a link row or with <code>inlineTrailing</code>. A badge too
+        long for the row wraps under the title rather than squeezing it.
       </template>
       <UiTestSpecimen label="icon · badge · meta · actions" wide>
         <BaseCard>
@@ -92,6 +93,21 @@
                   variant="icon"
                   prepend-icon="material-symbols:edit-outline-rounded"
                   label="Edit Company name"
+                />
+              </template>
+            </BaseListRow>
+            <BaseListRow
+              title="Admin"
+              icon="material-symbols:shield-person-outline-rounded"
+              badge="Yours after a transfer"
+              :meta="['2 members', 'Every permission']"
+              inline-trailing
+            >
+              <template #trailing>
+                <BaseButton
+                  variant="icon"
+                  prepend-icon="material-symbols:more-horiz-rounded"
+                  label="Actions for Admin"
                 />
               </template>
             </BaseListRow>

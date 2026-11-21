@@ -6,12 +6,17 @@
           variant="ghost"
           prepend-icon="material-symbols:table-outline-rounded"
           :to="pagePath.table(workspaceAddress, tableAddress)"
+          icon-only-below-compact
         >
           Records
         </BaseButton>
       </template>
       <template v-if="canManageTables" #actions>
-        <BaseButton prepend-icon="material-symbols:add-rounded" @click="openCreateField">
+        <BaseButton
+          prepend-icon="material-symbols:add-rounded"
+          icon-only-below-compact
+          @click="openCreateField"
+        >
           Add field
         </BaseButton>
       </template>
@@ -43,6 +48,19 @@
       </BaseCard>
     </section>
 
+    <section class="table-page__section">
+      <BaseSectionHead title="Fields" :count="fieldCount > 0 ? fieldCount : undefined" />
+
+      <TableFieldList
+        :fields="fieldsStore.fields"
+        :summary-context="summaryContext"
+        :editable="canManageTables"
+        @create="openCreateField"
+        @edit="openEditField"
+        @delete="fieldDeleteTarget = $event"
+      />
+    </section>
+
     <section v-if="canManageRoles" class="table-page__section">
       <BaseSectionHead title="Access" />
       <p class="g-note">
@@ -72,19 +90,6 @@
         :limits="accessLimits"
         :submit-handler="saveAccess"
         @reload="reloadAccess"
-      />
-    </section>
-
-    <section class="table-page__section">
-      <BaseSectionHead title="Fields" :count="fieldCount > 0 ? fieldCount : undefined" />
-
-      <TableFieldList
-        :fields="fieldsStore.fields"
-        :summary-context="summaryContext"
-        :editable="canManageTables"
-        @create="openCreateField"
-        @edit="openEditField"
-        @delete="fieldDeleteTarget = $event"
       />
     </section>
 

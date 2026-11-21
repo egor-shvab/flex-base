@@ -4,7 +4,10 @@
       :is="to ? NuxtLink : 'div'"
       :to="to"
       class="base-list-row__main"
-      :class="{ 'base-list-row__main--link': to }"
+      :class="{
+        'base-list-row__main--link': to,
+        'base-list-row__main--inline-trailing': inlineTrailing,
+      }"
     >
       <BaseAvatar
         v-if="initials || icon"
@@ -63,6 +66,8 @@ withDefaults(
     badge?: string
     meta?: TListRowMetaItem[]
     wrapMeta?: boolean
+    /** Keeps `#trailing` beside the name below the shell breakpoint, where it is short enough. */
+    inlineTrailing?: boolean
     to?: string
   }>(),
   {
@@ -71,6 +76,7 @@ withDefaults(
     badge: undefined,
     meta: undefined,
     wrapMeta: false,
+    inlineTrailing: false,
     to: undefined,
   },
 )
@@ -105,7 +111,8 @@ withDefaults(
       flex-wrap: wrap;
       padding-block: rem(12);
 
-      &--link {
+      &--link,
+      &--inline-trailing {
         flex-wrap: nowrap;
       }
     }
@@ -116,9 +123,12 @@ withDefaults(
     min-width: 0;
   }
 
+  // Wraps, or a long badge squeezes the title to nothing on a narrow row
   &__name {
     @include cluster(8);
 
+    flex-wrap: wrap;
+    row-gap: rem(2);
     margin: 0;
   }
 
@@ -173,7 +183,8 @@ withDefaults(
       flex-basis: 100%;
       padding-left: rem(48);
 
-      .base-list-row__main--link & {
+      .base-list-row__main--link &,
+      .base-list-row__main--inline-trailing & {
         flex-basis: auto;
         padding-left: 0;
       }

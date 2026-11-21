@@ -15,6 +15,10 @@ import { mountTracked, unmountAll } from '~~/test/mount'
 mockNuxtImport('useRoute', () => () => ({ params: { workspaceAddress: 'k3f9x2m8qa' }, query: {} }))
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
+const editButton = () =>
+  [...(dialog()?.querySelectorAll('button') ?? [])].find(
+    (button) => button.textContent?.trim() === 'Edit record',
+  )
 const link = (name: string | RegExp) =>
   [...(dialog()?.querySelectorAll('a') ?? [])].find((anchor) =>
     typeof name === 'string'
@@ -199,6 +203,40 @@ describe('RecordDetailModal', () => {
 
       await mountModal({ errorMessage: 'Gone', currentTableNumber: 9 })
       expect(link(/Open in/)).toBeUndefined()
+    })
+  })
+
+  describe('Edit record', () => {
+    it('is offered for a record of the table behind the dialog the caller may edit', async () => {
+      const wrapper = await mountModal({ currentTableNumber: 1, canEdit: true })
+
+      editButton()!.click()
+      await nextTick()
+
+      expect(wrapper.emitted('edit')).toEqual([[detailOf().record]])
+    })
+
+    it('is absent where the caller may not edit', async () => {
+      await mountModal({ currentTableNumber: 1, canEdit: false })
+
+      expect(editButton()).toBeUndefined()
+    })
+
+    it('gives way to Open in … for a record of another table', async () => {
+      await mountModal({
+        detail: detailOf('tbl_people', 'People', 2),
+        currentTableNumber: 1,
+        canEdit: true,
+      })
+
+      expect(editButton()).toBeUndefined()
+      expect(link(/Open in/)).toBeDefined()
+    })
+
+    it('is withheld while loading', async () => {
+      await mountModal({ pending: true, currentTableNumber: 1, canEdit: true })
+
+      expect(editButton()).toBeUndefined()
     })
   })
 })

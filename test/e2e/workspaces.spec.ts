@@ -64,11 +64,15 @@ test('the switcher is keyboard-operable, and Escape closes only it', async ({
 test('a workspace is renamed in its settings', async ({ page, workspace }) => {
   await page.goto(`${workspace.url}/settings`)
   await expect(page).toHaveURL(`${workspace.url}/settings/general`)
+  const save = page.getByRole('button', { name: 'Save changes' })
+  await expect(save).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Discard' })).toBeDisabled()
 
   await page.getByLabel('Workspace name').fill('Acme Sales')
-  await page.getByRole('button', { name: 'Save changes' }).click()
+  await save.click()
 
   await expect(page.getByRole('main').getByRole('status')).toHaveText('Changes saved.')
+  await expect(save).toBeDisabled()
   await expect(switcher(page)).toContainText('Acme Sales')
 
   await page.reload()

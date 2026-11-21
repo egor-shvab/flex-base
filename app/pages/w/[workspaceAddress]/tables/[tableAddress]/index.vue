@@ -7,6 +7,7 @@
             variant="ghost"
             prepend-icon="material-symbols:settings-outline-rounded"
             :to="pagePath.tableSettings(workspaceAddress, tableAddress)"
+            icon-only-below-compact
           >
             Settings
           </BaseButton>
@@ -15,6 +16,7 @@
           <BaseButton
             prepend-icon="material-symbols:add-rounded"
             :disabled="!hasFields"
+            icon-only-below-compact
             @click="openCreateRecord"
           >
             Add record
@@ -139,10 +141,12 @@
       v-if="isFilterPanelOpen"
       :fields="fieldsStore.fields"
       :filters="filters"
+      :sort="queryState.sort"
       :total="recordsStore.total"
       :total-capped="recordsStore.totalCapped"
       :pending="recordsStore.status === 'loading'"
       @update:filters="applyFilters"
+      @update:sort="setSort"
       @close="isFilterPanelOpen = false"
     />
 
@@ -165,8 +169,10 @@
       :can-retry="detailCanRetry"
       :current-table-number="tableNumber"
       :back-to="detailBackTo"
+      :can-edit="detail !== null && canEditRow(detail.record)"
       @retry="refreshDetail"
       @close="closeDetail"
+      @edit="editFromDetail"
     />
 
     <LazyConfirmModal
@@ -228,6 +234,7 @@ const {
   queryKey,
   goToPage,
   applySort,
+  setSort,
   applyFilters,
   applySearch,
   clearNarrowing,
@@ -343,6 +350,12 @@ function closeDetail() {
   return navigateTo(detailCloseTo.value)
 }
 
+/** Closed first, so the form returns focus to the row's opener rather than a vanished button. */
+async function editFromDetail(record: IRecord) {
+  await closeDetail()
+  openEditRecord(record)
+}
+
 const {
   target: deleteTarget,
   dialogProps: deleteDialog,
@@ -364,6 +377,12 @@ const {
 
     flex: none;
     margin-bottom: rem(20);
+
+    // Every pixel here is taken from the rows, which are what the page is for
+    @include below-compact {
+      gap: rem(10);
+      margin-bottom: rem(12);
+    }
   }
 
   &__toolbar {

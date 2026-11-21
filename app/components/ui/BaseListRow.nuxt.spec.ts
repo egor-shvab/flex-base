@@ -50,6 +50,18 @@ describe('BaseListRow', () => {
     expect(wrapper.find('.base-list-row__meta').exists()).toBe(false)
   })
 
+  it('keeps the trailing slot on the row only when asked', async () => {
+    const slots = { trailing: () => h('button', 'Edit') }
+    const wrapping = await mountTracked(BaseListRow, { props: { title: 'Admin' }, slots })
+    const inline = await mountTracked(BaseListRow, {
+      props: { title: 'Admin', inlineTrailing: true },
+      slots,
+    })
+
+    expect(wrapping.find('.base-list-row__main--inline-trailing').exists()).toBe(false)
+    expect(inline.find('.base-list-row__main--inline-trailing').exists()).toBe(true)
+  })
+
   it('renders the trailing slot beside the body', async () => {
     const wrapper = await mountTracked(BaseListRow, {
       props: { title: 'Admin' },
